@@ -12,6 +12,9 @@ of updates which boosts pageviews and makes the platform addictive.  The reason
 for all this lies in vc funding and corporate structure of the platforms which
 requires every growing profits.
 
+The platforms also have no incentive to keep the content forever or surface it
+at all.
+
 In the very beginning all social networks started as a way to get updates from
 your friends and relatives and to discover people which you like to read and
 possible want to get connected offline.
@@ -20,7 +23,7 @@ Why don't we return to this idea taking into account some lessons learnt?
 
 ## Idea
 
-We can make a stripped down version of livejournal (no communities, no custom
+We can make a stripped down version of blog platform (no communities, no custom
 styles) with a focus on privacy of interaction and human touch.
 
 What we want to attempt to get back is every day journals and personal notes.
@@ -75,7 +78,7 @@ Here is an outline:
 
 * Users in control of their feed
 
-  There is no reason for a user to ready all the posts from their connections.
+  There is no reason for a user to read all the posts from their connections.
   It's possible that you want to keep the connection, but the posts are never
   interesting or you only like a certain types of updates from a user. A user
   should be able to filter out the posts they do not want
@@ -122,9 +125,54 @@ have millions of followers and consequently require a lot of resources from
 platform. Popular users also skew the platform towards self promotion.
 
 If there is no focus on pageviews, we can also design a platform to be a bad
-platform to become an influencer.
+platform to become an influencer. For example the lack of any sort of analytics
+could be a feature.
 
-In case the plarform has no outliers in terms of connections it should be relatively
-cheap to run it even on a very low budget - small user payments and donations.
+In case the plarform has no outliers in terms of connections it should be
+relatively cheap to run it even on a very low budget - small user payments and
+donations.
+
+## Alternatives
+
+There are several alternatives for long form posts that we can consider:
+
+### Standalone blogs
+
+Standalone blog with rss and comments works for some people, since it provides
+total control over the presentation and the content, no big corporation has any
+even remote rights on the content. The drawback is the lack of social graph and
+discovery. It works for many people in terms of building the brand and the
+audience, it's a more challenging task to make it work with a group of friends.
+
+The private communities approach is centralised, however non-vc and open
+approach should make it less of an issue.
+
+### Fediverse
+
+Fediverse has primary focus on the federation and that's a noble goal to have.
+I allows to build separate communitities with different types of rules and
+allowed behaviors while providing a way to interact with users from different
+instances.
+
+The challenging part of this approach is privacy since it's really hard to
+manage content visibility across different instances, the nomadic identity
+is even more challenging.
+
+Current manifest proposes to design a solution that does not try to solve
+the problem in a perfect way. Different instances can be done, it's possible
+to migrate between them with import/export and no comments between instance.
+It may be not for everyone and that's fine.
+
+### Substack
+
+Substack is the most recent platform for long form content and arguable a
+very successfull one. It's possible to limit the audience and monetise it
+in different ways.
+
+It's more bent towards professional journalism which again generates a
+certain kind if user dynamics. The idea behind this manifesto works against
+any kind of monetisation explisitly since it's purpose is to have private
+notes. Some users may want to get paid for their content and there are different
+platforms for that already.
 
 ## That's it!
