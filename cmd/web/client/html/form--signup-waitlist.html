@@ -1,0 +1,34 @@
+<form
+  method="POST"
+  action="{{ link "form_signup_waiting_list" }}"
+  hx-post="{{ link "form_signup_waiting_list" }}"
+  hx-swap="outerHTML"
+  >
+
+  <input type="hidden" name="attribution" value="{{ if .Attribution }}{{ .Attribution }}{{ else if .Input }}{{ if .Input.Attribution }}{{ .Input.Attribution }}{{ end }}{{ end }}" />
+
+  <div class="mb-3">
+    <label for="waitingListEmail" class="form-label">Email address</label>
+    <input name="email" type="email"
+                        value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
+                        class="form-control {{ if (.Errors.HasError "email") }}is-invalid{{ end }}"
+                        id="waitingListEmail" aria-describedby="emailHelp"
+                        required>
+    {{ if (.Errors.HasError "email") }}
+    <div class="invalid-feedback">{{ .Errors.email }}</div>
+    {{ end }}
+  </div>
+  <div class="mb-3">
+    <label for="waitingListReason" class="form-label">Any message to the service authors!</label>
+    <textarea class="form-control" name="reason" placeholder="">{{ if .Input }}{{ .Input.Reason }}{{ end }}</textarea>
+  </div>
+  <button type="submit" class="btn btn-primary w-100">Join</button>
+
+  <div class="col-12 mt-3 form-text">
+    <p class="mb-0">By signing up, you agree to our <a href="{{ link "terms_of_service" }}">terms of service</a> and <a href="{{ link "privacy_policy" }}">privacy policy.</a></p>
+  </div>
+
+  <div class="col-12 mt-3 form-text">
+    <p class="mb-0">Have account? <a href="{{ link "login" }}">Log in!</a></p>
+  </div>
+</form>

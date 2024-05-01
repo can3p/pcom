@@ -1,0 +1,12 @@
+pkgname   = "core"
+output   = "pkg/model/core"
+wipe     = true
+
+[psql]
+dbname = "${POSTGRES_DB}"
+host   = "${POSTGRES_HOST}"
+port   = "${POSTGRES_PORT}"
+user   = "${POSTGRES_USER}"
+pass   = "${POSTGRES_PASSWORD}"
+sslmode = "disable"
+blacklist = ["migrations", "http_sessions"]

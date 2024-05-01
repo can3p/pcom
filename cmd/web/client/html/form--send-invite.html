@@ -1,0 +1,23 @@
+<form method="POST"
+      action="{{ link "form_send_invite" }}"
+      hx-post="{{ link "form_send_invite" }}"
+      hx-swap="outerHTML"
+      >
+      {{ if and .Errors (ne .Errors.general "") }}
+      <div class="alert alert-danger mt-3 mb-3" role="alert">{{ .Errors.general }}</div>
+      {{ end }}
+
+      <div class="mb-3">
+        <label for="sendInviteEmail" class="form-label">Email address</label>
+        <input name="email" type="email"
+                            value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
+                            class="form-control {{ if and .Errors (ne .Errors.email "") }}is-invalid{{ end }}"
+                            id="sendInviteEmail" aria-describedby="emailHelp"
+                                                  required>
+        {{ if and .Errors (ne .Errors.email "") }}
+        <div class="invalid-feedback">{{ .Errors.email }}</div>
+        {{ end }}
+      </div>
+
+      <button type="submit" class="btn btn-primary">Send an invite</button>
+</form>

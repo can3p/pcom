@@ -1,0 +1,6 @@
+$font-size-base: 1.2rem;
+@import "~bootstrap/scss/bootstrap";
+
+// get bootstrap icons
+$bootstrap-icons-font-dir: "~bootstrap-icons/font/fonts";
+@import "~bootstrap-icons/font/bootstrap-icons.scss";

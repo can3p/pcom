@@ -1,0 +1,17 @@
+<div class="card mt-2">
+  <h5 class="card-header">Invites</h5>
+  <div class="card-body">
+    {{ if or (gt .AvailableInvites 0) }}
+      {{ template "form--send-invite.html" }}
+    {{ end }}
+
+    {{ if gt (len .UsedInvites) 0 }}
+    <p>Used Invites</p>
+    <ul>
+      {{ range .UsedInvites }}
+      <li>{{ .InvitationEmail.String }}</li>
+      {{ end }}
+    </ul>
+    {{ end }}
+  </div>
+</div>

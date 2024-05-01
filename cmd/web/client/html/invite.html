@@ -1,0 +1,21 @@
+{{ template "header.html" . }}
+
+<div class="container">
+  <h1>Welcome to testproj!</h1>
+
+  <div class="row justify-content-md-center mt-4">
+    <div class="col-lg-6">
+      <div class="card">
+        <h5 class="card-header">Accept invite from {{ .Inviter.Email }}</a></h5>
+        <div class="card-body">
+          <p>Please fill in your details to complete the setup</p>
+
+          {{ template "form--accept-invite.html" toMap "Invite" .Invite }}
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ template "footer.html" . }}

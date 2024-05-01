@@ -1,0 +1,29 @@
+{{ template "header.html" . }}
+<section class="section register min-vh-100 d-flex flex-column align-items-center justify-content-center py-4">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-4 col-md-6 d-flex flex-column align-items-center justify-content-center">
+        <div class="card mb-3">
+          <h5 class="card-header">
+            {{ if .RegistrationOpen }}
+            New Account
+            {{ else }}
+            Join the waiting list
+            {{ end }}
+          </h5>
+          <div class="card-body mt-3">
+            {{ if .RegistrationOpen }}
+              {{ template "form--signup.html" toMap "Attribution" .Attribution }}
+            {{ else }}
+              <div class="alert alert-info" role="alert">
+                The registration is not pulic yet, feel free to drop us a message and we will create an account for you.
+              </div>
+              {{ template "form--signup-waitlist.html" toMap "Attribution" .Attribution }}
+            {{ end }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{{ template "footer.html" . }}

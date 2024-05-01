@@ -1,0 +1,40 @@
+{{ if .FormSaved }}
+  {{ template "partial--success-message.html" toMap "Message" "Settings have been saved" }}
+{{ end }}
+
+<form method="POST"
+  action="{{ link "form_save_settings" }}"
+  hx-post="{{ link "form_save_settings" }}"
+  hx-swap="outerHTML"
+  >
+
+  <div class="mb-3">
+    <label for="settingsEmail" class="form-label">Email address</label>
+    <input name="email" type="email"
+                        value="{{ .User.Email }}"
+                        class="form-control"
+                        id="settingsEmail" aria-describedby="emailHelp"
+                                           disabled>
+  </div>
+
+  <div class="mb-3">
+    <label for="settingsTimeZone" class="form-label">Time Zone</label>
+    <select name="timezone"
+            class="form-control {{ if (.Errors.HasError "timezone") }}is-invalid{{ end }}"
+            >
+        {{ $selected_tz := .User.Timezone }}
+        {{ if (and .Input .Input.Timezone) }}
+          {{ $selected_tz = .Input.Timezone }}
+        {{ end }}
+
+        {{ range tzlist }}
+          <option value="{{ . }}" {{ if eq . $selected_tz }}selected{{ end }}>{{ . }}</option>
+        {{ end }}
+    </select>
+    {{ if (.Errors.HasError "timezone") }}
+    <div class="invalid-feedback">{{ .Errors.timezone }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Settings</button>
+</form>

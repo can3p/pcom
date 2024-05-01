@@ -1,0 +1,38 @@
+<form method="POST"
+      action="{{ link "form_login" }}"
+      hx-post="{{ link "form_login" }}"
+      hx-swap="outerHTML"
+  >
+
+  <div class="mb-3">
+    <label for="loginEmail" class="form-label">Email address</label>
+    <input name="email" type="email"
+                        value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
+                        class="form-control {{ if (.Errors.HasError "email") }}is-invalid{{ end }}"
+                        id="loginEmail" aria-describedby="emailHelp"
+                        required>
+    {{ if (.Errors.HasError "email") }}
+    <div class="invalid-feedback">{{ .Errors.email }}</div>
+    {{ end }}
+  </div>
+
+  <div class="mb-3">
+    <label for="loginPassword" class="form-label">Password</label>
+    <input name="password" type="password"
+                        value="{{ if .Input }}{{ .Input.Password }}{{ end }}"
+                        class="form-control {{ if (.Errors.HasError "password") }}is-invalid{{ end }}"
+                        id="loginPassword" aria-describedby="passwordHelp"
+                        required>
+    {{ if (.Errors.HasError "password") }}
+    <div class="invalid-feedback">{{ .Errors.password }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100">Log in</button>
+
+  {{ if not .HideSignupLink }}
+  <div class="col-12 mt-3 form-text">
+    <p class="mb-0">Don't have account? <a href="{{ link "signup" }}">Signup!</a></p>
+  </div>
+  {{ end }}
+</form>

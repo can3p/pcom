@@ -1,0 +1,32 @@
+{{ template "header.html" . }}
+
+{{ $user := .User.DBUser }}
+<div class="container">
+  <h1>Settings</h1>
+
+  <div class="row mt-4">
+    <div class="col-lg-6">
+      <div class="card">
+        <h5 class="card-header">General</h5>
+        <div class="card-body">
+          {{ template "form--settings-general.html" toMap "User" $user }}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <h5 class="card-header">Change Password</h5>
+        <div class="card-body">
+          {{ template "form--settings-change-password.html" }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
+    {{ template "partial--settings_invites.html" . }}
+  {{ end }}
+</div>
+
+{{ template "footer.html" . }}

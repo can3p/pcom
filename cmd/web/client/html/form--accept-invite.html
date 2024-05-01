@@ -1,0 +1,30 @@
+<form
+  method="POST"
+  action="{{ link "form_accept_invite" .Invite.ID }}"
+  hx-post="{{ link "form_accept_invite" .Invite.ID }}"
+  hx-swap="outerHTML"
+  >
+
+  <div class="mb-3">
+    <label for="createAccountEmail" class="form-label">Email address</label>
+    <input name="email" type="email"
+                        value="{{ .Invite.InvitationEmail.String }}"
+                        class="form-control"
+                        disabled>
+  </div>
+
+  <div class="mb-3">
+    <label for="createAccountPassword" class="form-label">Password</label>
+    <input name="password" type="password"
+                           value="{{ if .Input }}{{ .Input.Password }}{{ end }}"
+                           class="form-control {{ if (.Errors.HasError "password") }}is-invalid{{ end }}"
+                           id="createAccountPassword" aria-describedby="passwordHelp"
+                                                      required>
+    <div id="passwordHelp" class="form-text">Eight or more characters please</div>
+    {{ if (.Errors.HasError "password") }}
+    <div class="invalid-feedback">{{ .Errors.password }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary">Create an account</button>
+</form>

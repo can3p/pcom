@@ -1,0 +1,19 @@
+{{ if .User.IsLoggedIn }}
+<span class="navbar-text p-2">Hi {{ .User.DBUser.Email }}!</span>
+<ul class="navbar-nav gap-3">
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "controls" }}">Home</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "settings" }}">Settings</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "article" "why" }}">Why {{ .ProjectName }}?</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="https://dabdab.org/">Dev Blog</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="https://dabdab.org/">Product Blog</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "logout" }}">Log out</a></li>
+</ul>
+{{ else }}
+<ul class="navbar-nav gap-3">
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="/">Home</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "article" "why" }}">Why {{ .ProjectName }}?</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="https://dabdab.org/shared/">Dev Blog</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="https://dabdab.org/shared/">Product Blog</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "login" }}">Login</a></li>
+</ul>
+{{ end }}
