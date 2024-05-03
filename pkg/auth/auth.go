@@ -139,8 +139,8 @@ func GetFlashes(c *gin.Context, vars ...string) []interface{} {
 	return flashes
 }
 
-func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender, invite *core.UserInvitation, password string) error {
-	if password == "" {
+func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender, invite *core.UserInvitation, username string, password string) error {
+	if password == "" || username == "" {
 		return errors.Errorf("Not enough data")
 	}
 
@@ -149,6 +149,7 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 	u := &core.User{
 		ID:                uuid.NewString(),
 		Email:             email,
+		Username:          username,
 		Pwdhash:           null.StringFrom(pgsession.HashUserPwd(email, password)),
 		EmailConfirmedAt:  null.TimeFrom(time.Now()),
 		SignupAttribution: null.StringFrom("accepted_invite"),
@@ -176,14 +177,15 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 }
 
 // Signup assumes the transaction is already began
-func Signup(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, email string, password string, attribution string) (*core.User, error) {
-	if password == "" || email == "" {
+func Signup(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, email string, username, password string, attribution string) (*core.User, error) {
+	if password == "" || email == "" || username == "" {
 		return nil, errors.Errorf("Not enough data")
 	}
 
 	u := &core.User{
 		ID:                uuid.NewString(),
 		Email:             email,
+		Username:          username,
 		Pwdhash:           null.StringFrom(pgsession.HashUserPwd(email, password)),
 		EmailConfirmSeed:  null.StringFrom(uuid.NewString()),
 		SignupAttribution: null.NewString(attribution, attribution != ""),

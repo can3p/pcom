@@ -20,6 +20,19 @@
   </div>
 
   <div class="mb-3">
+    <label for="createAccountUsername" class="form-label">Username</label>
+    <input name="username" type="username"
+                        value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
+                        class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
+                        id="createAccountUsername" aria-describedby="usernameHelp"
+                        required>
+    <div id="usernameHelp" class="form-text">3-20 chars, first chat is a letter, digits and underscores are allowed, multiple underscores in a row are not allowed</div>
+    {{ if (.Errors.HasError "username") }}
+    <div class="invalid-feedback">{{ .Errors.username }}</div>
+    {{ end }}
+  </div>
+
+  <div class="mb-3">
     <label for="createAccountPassword" class="form-label">Password</label>
     <input name="password" type="password"
                         value="{{ if .Input }}{{ .Input.Password }}{{ end }}"

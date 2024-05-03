@@ -2,6 +2,8 @@ package forms
 
 import (
 	"context"
+	"log"
+	"strings"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/gogo/sender"
@@ -13,6 +15,7 @@ import (
 )
 
 type AcceptInviteFormInput struct {
+	Username string `form:"username"`
 	Password string `form:"password"`
 }
 
@@ -40,17 +43,36 @@ func AcceptInviteFormNew(sender sender.Sender, invite *core.UserInvitation) form
 }
 
 func (f *AcceptInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
+
 	if f.Input.Password == "" {
 		f.AddError("password", "password is required")
 	} else if err := validation.ValidatePassword(f.Input.Password); err != nil {
 		f.AddError("password", err.Error())
 	}
 
+	if username == "" {
+		f.AddError("username", "username is required")
+	} else if err := validation.ValidateUsername(username); err != nil {
+		f.AddError("username", err.Error())
+	} else {
+		exists, err := core.Users(core.UserWhere.Username.EQ(username)).Exists(c, db)
+
+		if err != nil {
+			log.Printf("Failed to check username [%s] for duplication: %s", username, err.Error())
+			f.AddError("username", "internal error")
+		} else if exists {
+			f.AddError("username", "this username is not available")
+		}
+	}
+
 	return f.Errors.PassedValidation()
 }
 
 func (f *AcceptInviteForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	if err := auth.AcceptInvite(c, exec, f.Sender, f.Invite, f.Input.Password); err != nil {
+	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
+
+	if err := auth.AcceptInvite(c, exec, f.Sender, f.Invite, username, f.Input.Password); err != nil {
 		return nil, err
 	}
 

@@ -33,6 +33,7 @@ type User struct {
 	EmailConfirmSeed  null.String `boil:"email_confirm_seed" json:"email_confirm_seed,omitempty" toml:"email_confirm_seed" yaml:"email_confirm_seed,omitempty"`
 	SignupAttribution null.String `boil:"signup_attribution" json:"signup_attribution,omitempty" toml:"signup_attribution" yaml:"signup_attribution,omitempty"`
 	Pwdhash           null.String `boil:"pwdhash" json:"pwdhash,omitempty" toml:"pwdhash" yaml:"pwdhash,omitempty"`
+	Username          string      `boil:"username" json:"username" toml:"username" yaml:"username"`
 
 	R *userR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -48,6 +49,7 @@ var UserColumns = struct {
 	EmailConfirmSeed  string
 	SignupAttribution string
 	Pwdhash           string
+	Username          string
 }{
 	ID:                "id",
 	Email:             "email",
@@ -58,6 +60,7 @@ var UserColumns = struct {
 	EmailConfirmSeed:  "email_confirm_seed",
 	SignupAttribution: "signup_attribution",
 	Pwdhash:           "pwdhash",
+	Username:          "username",
 }
 
 var UserTableColumns = struct {
@@ -70,6 +73,7 @@ var UserTableColumns = struct {
 	EmailConfirmSeed  string
 	SignupAttribution string
 	Pwdhash           string
+	Username          string
 }{
 	ID:                "users.id",
 	Email:             "users.email",
@@ -80,6 +84,7 @@ var UserTableColumns = struct {
 	EmailConfirmSeed:  "users.email_confirm_seed",
 	SignupAttribution: "users.signup_attribution",
 	Pwdhash:           "users.pwdhash",
+	Username:          "users.username",
 }
 
 // Generated where
@@ -94,6 +99,7 @@ var UserWhere = struct {
 	EmailConfirmSeed  whereHelpernull_String
 	SignupAttribution whereHelpernull_String
 	Pwdhash           whereHelpernull_String
+	Username          whereHelperstring
 }{
 	ID:                whereHelperstring{field: "\"users\".\"id\""},
 	Email:             whereHelperstring{field: "\"users\".\"email\""},
@@ -104,6 +110,7 @@ var UserWhere = struct {
 	EmailConfirmSeed:  whereHelpernull_String{field: "\"users\".\"email_confirm_seed\""},
 	SignupAttribution: whereHelpernull_String{field: "\"users\".\"signup_attribution\""},
 	Pwdhash:           whereHelpernull_String{field: "\"users\".\"pwdhash\""},
+	Username:          whereHelperstring{field: "\"users\".\"username\""},
 }
 
 // UserRels is where relationship names are stored.
@@ -154,8 +161,8 @@ func (r *userR) GetCreatedUserUserSignupRequests() UserSignupRequestSlice {
 type userL struct{}
 
 var (
-	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash"}
-	userColumnsWithoutDefault = []string{"id", "email", "timezone"}
+	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "username"}
+	userColumnsWithoutDefault = []string{"id", "email", "timezone", "username"}
 	userColumnsWithDefault    = []string{"created_at", "updated_at", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash"}
 	userPrimaryKeyColumns     = []string{"id"}
 	userGeneratedColumns      = []string{}

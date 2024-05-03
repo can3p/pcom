@@ -2,6 +2,7 @@ package forms
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -17,6 +19,7 @@ import (
 
 type SignupFormInput struct {
 	Email       string `form:"email"`
+	Username    string `form:"username"`
 	Password    string `form:"password"`
 	Attribution string `form:"attribution"`
 }
@@ -41,11 +44,27 @@ func SignupFormNew(sender sender.Sender) forms.Form {
 
 func (f *SignupForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	email := strings.TrimSpace(strings.ToLower(f.Input.Email))
+	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
 	if f.Input.Email == "" {
 		f.AddError("email", "email is required")
 	} else if reason, isOK := web.EmailOKToSignup(c, db, f.Sender, email); !isOK {
 		f.AddError("email", reason)
+	}
+
+	if username == "" {
+		f.AddError("username", "username is required")
+	} else if err := validation.ValidateUsername(username); err != nil {
+		f.AddError("username", err.Error())
+	} else {
+		exists, err := core.Users(core.UserWhere.Username.EQ(username)).Exists(c, db)
+
+		if err != nil {
+			log.Printf("Failed to check username [%s] for duplication: %s", username, err.Error())
+			f.AddError("username", "internal error")
+		} else if exists {
+			f.AddError("username", "this username is not available")
+		}
 	}
 
 	if f.Input.Password == "" {
@@ -59,6 +78,7 @@ func (f *SignupForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 
 func (f *SignupForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
 	email := strings.TrimSpace(strings.ToLower(f.Input.Email))
+	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 	attribution := strings.TrimSpace(f.Input.Attribution)
 
 	// we're not enforcing a specific enum of attributions
@@ -76,7 +96,7 @@ func (f *SignupForm) Save(c context.Context, exec boil.ContextExecutor) (forms.F
 		attribution = attribution[0:100]
 	}
 
-	user, err := auth.Signup(c, exec, f.Sender, email, f.Input.Password, attribution)
+	user, err := auth.Signup(c, exec, f.Sender, email, username, f.Input.Password, attribution)
 
 	if err != nil {
 		return nil, err
