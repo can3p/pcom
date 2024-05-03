@@ -1,4 +1,7 @@
-# Operational Notes for pcom
+# Pcom - private social network
+
+Private as in the content is not public by default and discovery requires a human touch. Please refer to [manifesto](Manifesto.md)
+for more details.
 
 ## Initial Setup
 
