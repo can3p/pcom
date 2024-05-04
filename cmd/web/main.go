@@ -300,6 +300,12 @@ func main() {
 		c.HTML(http.StatusOK, "write.html", web.Write(c, db, &userData))
 	})
 
+	controls.GET("/feed/direct", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		c.HTML(http.StatusOK, "feed.html", web.DirectFeed(c, db, &userData))
+	})
+
 	controls.GET("/settings", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 

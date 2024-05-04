@@ -117,3 +117,35 @@ func UserHome(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 
 	return userHomePage
 }
+
+type FeedPage struct {
+	*BasePage
+	Posts core.PostSlice
+}
+
+// TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
+func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *UserHomePage {
+	user := userData.DBUser
+	title := fmt.Sprintf("%s - Direct Feed", user.Username)
+
+	connections := core.UserConnections(
+		core.UserConnectionWhere.User1ID.EQ(user.ID),
+	).AllP(ctx, db)
+
+	userIDs := []string{}
+
+	for _, conn := range connections {
+		userIDs = append(userIDs, conn.User2ID)
+	}
+
+	userHomePage := &UserHomePage{
+		BasePage: getBasePage(title, userData),
+		Posts: core.Posts(
+			core.PostWhere.UserID.IN(userIDs),
+			qm.Load(core.PostRels.User),
+			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
+		).AllP(ctx, db),
+	}
+
+	return userHomePage
+}

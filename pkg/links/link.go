@@ -17,6 +17,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/settings"
 	case "write":
 		out = "/controls/write"
+	case "direct_feed":
+		out = "/controls/feed/direct"
 	case "privacy_policy":
 		out = "/articles/privacy_policy"
 	case "terms_of_service":
