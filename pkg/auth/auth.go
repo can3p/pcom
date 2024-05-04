@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -169,6 +170,10 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 	newInvite := &core.UserInvitation{
 		ID:     uuid.NewString(),
 		UserID: u.ID,
+	}
+
+	if err := userops.CreateConnection(ctx, db, invite.UserID, u.ID); err != nil {
+		return err
 	}
 
 	go admin.NotifyNewUser(ctx, s, u)
