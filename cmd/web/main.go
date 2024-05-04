@@ -249,6 +249,20 @@ func main() {
 		})
 	})
 
+	r.GET("/users/:username", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		username := c.Param("username")
+
+		if username != userData.DBUser.Username {
+			c.String(http.StatusNotImplemented, "TODO: looking at other users journals is not yet implemented")
+			return
+		}
+
+		author := userData.DBUser
+
+		c.HTML(http.StatusOK, "user_home.html", web.UserHome(c, db, &userData, author))
+	})
+
 	r.GET("/posts/:id", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")

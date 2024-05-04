@@ -7,6 +7,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 type BasePage struct {
@@ -78,7 +79,8 @@ func Invite(c context.Context, db boil.ContextExecutor, invite *core.UserInvitat
 
 type SinglePostPage struct {
 	*BasePage
-	Post *core.Post
+	Author *core.User
+	Post   *core.Post
 }
 
 func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, post *core.Post) *SinglePostPage {
@@ -87,8 +89,31 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 
 	singlePostPage := &SinglePostPage{
 		BasePage: getBasePage(title, userData),
+		Author:   author,
 		Post:     post,
 	}
 
 	return singlePostPage
+}
+
+type UserHomePage struct {
+	*BasePage
+	Author *core.User
+	Posts  core.PostSlice
+}
+
+// TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
+func UserHome(c context.Context, db boil.ContextExecutor, userData *auth.UserData, author *core.User) *UserHomePage {
+	title := fmt.Sprintf("%s - Journal", author.Username)
+
+	userHomePage := &UserHomePage{
+		BasePage: getBasePage(title, userData),
+		Author:   author,
+		Posts: core.Posts(
+			core.PostWhere.UserID.EQ(author.ID),
+			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.CreatedAt)),
+		).AllP(c, db),
+	}
+
+	return userHomePage
 }
