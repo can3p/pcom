@@ -4,3 +4,10 @@ $font-size-base: 1.2rem;
 // get bootstrap icons
 $bootstrap-icons-font-dir: "~bootstrap-icons/font/fonts";
 @import "~bootstrap-icons/font/bootstrap-icons.scss";
+
+// @TODO: we should use class there
+blockquote {
+  border-left: 4px solid #dedede;
+  padding-left: 1em;
+  font-style: italic;
+}
