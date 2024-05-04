@@ -3,6 +3,7 @@ module github.com/can3p/pcom
 go 1.22
 
 require (
+	github.com/alecthomas/assert/v2 v2.9.0
 	github.com/antonlindstrom/pgstore v0.0.0-20220421113606-e3a6e3fed12a
 	github.com/badoux/checkmail v1.2.1
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
@@ -10,7 +11,7 @@ require (
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.7
@@ -22,7 +23,6 @@ require (
 )
 
 require (
-	github.com/alecthomas/assert/v2 v2.9.0 // indirect
 	github.com/alecthomas/repr v0.4.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect

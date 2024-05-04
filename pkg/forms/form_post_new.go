@@ -56,8 +56,15 @@ func (f *NewPostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.
 	subject := strings.TrimSpace(f.Input.Subject)
 	body := strings.TrimSpace(f.Input.Body)
 
+	postID, err := uuid.NewV7()
+
+	if err != nil {
+		return nil, err
+	}
+
 	post := &core.Post{
-		ID:              uuid.NewString(),
+		// we really want time ordered uuids for data locality, pagination etc
+		ID:              postID.String(),
 		Subject:         subject,
 		Body:            body,
 		UserID:          f.User.ID,
