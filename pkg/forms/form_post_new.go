@@ -57,10 +57,11 @@ func (f *NewPostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.
 	body := strings.TrimSpace(f.Input.Body)
 
 	post := &core.Post{
-		ID:      uuid.NewString(),
-		Subject: subject,
-		Body:    body,
-		UserID:  f.User.ID,
+		ID:              uuid.NewString(),
+		Subject:         subject,
+		Body:            body,
+		UserID:          f.User.ID,
+		VisbilityRadius: core.PostVisibilityDirectOnly,
 	}
 
 	if err := post.Insert(c, exec, boil.Infer()); err != nil {

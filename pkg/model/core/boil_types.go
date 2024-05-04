@@ -50,3 +50,43 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	strmangle.PutBuffer(buf)
 	return str
 }
+
+type PostVisibility string
+
+// Enum values for PostVisibility
+const (
+	PostVisibilityDirectOnly   PostVisibility = "direct_only"
+	PostVisibilitySecondDegree PostVisibility = "second_degree"
+)
+
+func AllPostVisibility() []PostVisibility {
+	return []PostVisibility{
+		PostVisibilityDirectOnly,
+		PostVisibilitySecondDegree,
+	}
+}
+
+func (e PostVisibility) IsValid() error {
+	switch e {
+	case PostVisibilityDirectOnly, PostVisibilitySecondDegree:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e PostVisibility) String() string {
+	return string(e)
+}
+
+func (e PostVisibility) Ordinal() int {
+	switch e {
+	case PostVisibilityDirectOnly:
+		return 0
+	case PostVisibilitySecondDegree:
+		return 1
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
+}
