@@ -249,6 +249,26 @@ func main() {
 		})
 	})
 
+	r.GET("/posts/:id", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		postID := c.Param("id")
+
+		post, err := core.Posts(
+			core.PostWhere.ID.EQ(postID),
+			// proper access control should go there in order to read friends posts
+			core.PostWhere.UserID.EQ(userData.DBUser.ID),
+		).One(c, db)
+
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		} else if err != nil {
+			panic(err)
+		}
+
+		c.HTML(http.StatusOK, "single_post.html", web.SinglePost(c, db, &userData, post))
+	})
+
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action")
 
@@ -258,6 +278,12 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		c.HTML(http.StatusOK, "controls.html", web.Controls(c, db, &userData))
+	})
+
+	controls.GET("/write", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		c.HTML(http.StatusOK, "write.html", web.Write(c, db, &userData))
 	})
 
 	controls.GET("/settings", func(c *gin.Context) {
@@ -376,6 +402,15 @@ func main() {
 		dbUser := userData.DBUser
 
 		form := forms.SendInviteFormNew(sender, dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
+	controls.POST("/form/new_post", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		form := forms.NewPostFormNew(dbUser)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})

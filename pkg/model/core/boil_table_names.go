@@ -4,11 +4,13 @@
 package core
 
 var TableNames = struct {
+	Posts              string
 	SystemSettings     string
 	UserInvitations    string
 	UserSignupRequests string
 	Users              string
 }{
+	Posts:              "posts",
 	SystemSettings:     "system_settings",
 	UserInvitations:    "user_invitations",
 	UserSignupRequests: "user_signup_requests",

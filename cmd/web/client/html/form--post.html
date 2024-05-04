@@ -1,0 +1,29 @@
+<form
+      method="POST"
+      action="{{ link "form_new_post" }}"
+      hx-post="{{ link "form_new_post" }}"
+      hx-swap="outerHTML"
+      >
+
+  <div class="mb-3">
+    <label for="newPostSubject" class="form-label">Subject</label>
+    <input name="subject" type="subject"
+                        value="{{ if .Input }}{{ .Input.Subject }}{{ end }}"
+                        class="form-control {{ if (.Errors.HasError "subject") }}is-invalid{{ end }}"
+                        id="newPostSubject" aria-describedby="subjectHelp"
+                        required>
+    {{ if (.Errors.HasError "subject") }}
+    <div class="invalid-feedback">{{ .Errors.subject }}</div>
+    {{ end }}
+  </div>
+
+  <div class="mb-3">
+    <label for="newPostBody" class="form-label">Body</label>
+    <textarea class="form-control" name="body" placeholder="" id="newPostBody" rows="10" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+    {{ if (.Errors.HasError "body") }}
+    <div class="invalid-feedback">{{ .Errors.body }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100">Create Post</button>
+</form>

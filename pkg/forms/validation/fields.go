@@ -30,3 +30,13 @@ func ValidateUsername(p string) error {
 
 	return nil
 }
+
+func ValidateMinMax(label string, p string, minL int, maxL int) error {
+	trimmed := strings.TrimSpace(p)
+
+	if len(trimmed) < minL || len(trimmed) > minL {
+		return errors.Errorf("%s should be between %d and %d chars", label, minL, maxL)
+	}
+
+	return nil
+}

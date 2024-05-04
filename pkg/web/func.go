@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -28,6 +29,10 @@ func Index(c context.Context, db boil.ContextExecutor, userData *auth.UserData) 
 
 func Controls(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
 	return getBasePage("Controls", userData)
+}
+
+func Write(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
+	return getBasePage("New Post", userData)
 }
 
 type SettingsPage struct {
@@ -69,4 +74,21 @@ func Invite(c context.Context, db boil.ContextExecutor, invite *core.UserInvitat
 	}
 
 	return invitePage
+}
+
+type SinglePostPage struct {
+	*BasePage
+	Post *core.Post
+}
+
+func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, post *core.Post) *SinglePostPage {
+	author := post.User().OneP(c, db)
+	title := fmt.Sprintf("%s - %s", author.Username, post.Subject)
+
+	singlePostPage := &SinglePostPage{
+		BasePage: getBasePage(title, userData),
+		Post:     post,
+	}
+
+	return singlePostPage
 }
