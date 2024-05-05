@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ .ProjectName }} - {{ .Name }}</title>
+    <title>{{ .ProjectName }} - {{ if .User }}{{ if .User.IsLoggedIn }}{{ .User.DBUser.Username }} - {{ end }}{{ end }}{{ .Name }}</title>
     <meta property="og:title" content="{{ .ProjectName }} - {{ .Name }}">
     <meta name="keywords" content="{{ .ProjectName }}">
     <meta name="description" content="TODO - fill in description">
