@@ -253,12 +253,16 @@ func main() {
 		userData := auth.GetUserData(c)
 		username := c.Param("username")
 
-		if username != userData.DBUser.Username {
-			c.String(http.StatusNotImplemented, "TODO: looking at other users journals is not yet implemented")
-			return
-		}
+		author, err := core.Users(
+			core.UserWhere.Username.EQ(username),
+		).One(c, db)
 
-		author := userData.DBUser
+		if err == sql.ErrNoRows {
+			c.Status(http.StatusNotFound)
+			return
+		} else if err != nil {
+			panic(err)
+		}
 
 		c.HTML(http.StatusOK, "user_home.html", web.UserHome(c, db, &userData, author))
 	})

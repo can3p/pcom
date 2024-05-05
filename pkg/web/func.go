@@ -31,12 +31,12 @@ func Index(c context.Context, db boil.ContextExecutor, userData *auth.UserData) 
 
 type ControlsPage struct {
 	*BasePage
-	DirectConnections   core.UserSlice
-	IndirectConnections core.UserSlice
+	DirectConnections       core.UserSlice
+	SecondDegreeConnections core.UserSlice
 }
 
 func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *ControlsPage {
-	directUserIDs, indirectUserIDs, err := userops.GetDirectAndIndirectUserIDs(ctx, db, userData.DBUser.ID)
+	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userData.DBUser.ID)
 
 	// @TODO: all panics should be eliminated later
 	if err != nil {
@@ -44,12 +44,12 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	}
 
 	directUsers := core.Users(core.UserWhere.ID.IN(directUserIDs)).AllP(ctx, db)
-	indirectUsers := core.Users(core.UserWhere.ID.IN(indirectUserIDs)).AllP(ctx, db)
+	secondDegreeUsers := core.Users(core.UserWhere.ID.IN(secondDegreeUserIDs)).AllP(ctx, db)
 
 	controlsPage := &ControlsPage{
-		BasePage:            getBasePage("Controls", userData),
-		DirectConnections:   directUsers,
-		IndirectConnections: indirectUsers,
+		BasePage:                getBasePage("Controls", userData),
+		DirectConnections:       directUsers,
+		SecondDegreeConnections: secondDegreeUsers,
 	}
 
 	return controlsPage
@@ -121,21 +121,45 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 
 type UserHomePage struct {
 	*BasePage
-	Author *core.User
-	Posts  core.PostSlice
+	Author           *core.User
+	ConnectionRadius userops.ConnectionRadius
+	Posts            core.PostSlice
 }
 
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func UserHome(c context.Context, db boil.ContextExecutor, userData *auth.UserData, author *core.User) *UserHomePage {
+func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData, author *core.User) *UserHomePage {
 	title := fmt.Sprintf("%s - Journal", author.Username)
 
-	userHomePage := &UserHomePage{
-		BasePage: getBasePage(title, userData),
-		Author:   author,
-		Posts: core.Posts(
+	connRadius, err := userops.GetConnectionRadius(ctx, db, userData.DBUser.ID, author.ID)
+
+	if err != nil {
+		panic(err)
+	}
+
+	var posts core.PostSlice
+
+	if connRadius != userops.ConnectionRadiusUnknown {
+		m := []qm.QueryMod{
 			core.PostWhere.UserID.EQ(author.ID),
 			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.CreatedAt)),
-		).AllP(c, db),
+		}
+
+		if connRadius == userops.ConnectionRadiusSecondDegree {
+			m = append(m, core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree))
+		}
+
+		posts, err = core.Posts(m...).All(ctx, db)
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	userHomePage := &UserHomePage{
+		BasePage:         getBasePage(title, userData),
+		Author:           author,
+		ConnectionRadius: connRadius,
+		Posts:            posts,
 	}
 
 	return userHomePage
@@ -187,7 +211,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 	user := userData.DBUser
 	title := fmt.Sprintf("%s - Explore Feed", user.Username)
 
-	_, indirectUserIDs, err := userops.GetDirectAndIndirectUserIDs(ctx, db, user.ID)
+	_, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
 
 	if err != nil {
 		panic(err)
@@ -196,7 +220,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 	exploreFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
 		Posts: core.Posts(
-			core.PostWhere.UserID.IN(indirectUserIDs),
+			core.PostWhere.UserID.IN(secondDegreeUserIDs),
 			core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree),
 			qm.Load(core.PostRels.User),
 			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),

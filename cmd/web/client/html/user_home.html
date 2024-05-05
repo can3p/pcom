@@ -4,18 +4,30 @@
   <div class="row justify-content-md-center mt-4">
     <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; Latest Posts</h1>
 
-    {{ if eq (len .Posts) 0 }}
-    <p>No posts yet</p>
+    <div class="alert alert-info mt-2" role="alert">
+      {{ if .ConnectionRadius.IsSameUser }}You're reading your own journal
+      {{- else if .ConnectionRadius.IsDirect }}You're connected with {{ .Author.Username }}
+      {{- else if .ConnectionRadius.IsSecondDegree }}One of your direct connections has a connection with {{ .Author.Username }}
+      {{- else if .ConnectionRadius.IsUnrelated }}You have no relation to {{ .Author.Username }}{{ end }}
+    </div>
+
+    {{ if .ConnectionRadius.IsUnrelated }}
+    <p>You are not allowed to see posts in this journal</p>
     {{ else }}
-      {{ range .Posts }}
-      <div class="mt-3">
-        <div class="card">
-          <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .CreatedAt.Time $.User.DBUser }}</h5>
-          <div class="card-body">
-            <div class="mt-3">{{ markdown .Body }}</div>
+      {{ if eq (len .Posts) 0 }}
+        {{ if .ConnectionRadius.IsSecondDegree }}<p>Author has no posts shared outside of direct connetions</p>
+        {{- else }}<p>No posts yet</p>{{ end }}
+      {{ else }}
+        {{ range .Posts }}
+        <div class="mt-3">
+          <div class="card">
+            <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .CreatedAt.Time $.User.DBUser }}</h5>
+            <div class="card-body">
+              <div class="mt-3">{{ markdown .Body }}</div>
+            </div>
           </div>
         </div>
-      </div>
+        {{ end }}
       {{ end }}
     {{ end }}
   </div>
