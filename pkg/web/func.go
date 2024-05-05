@@ -205,6 +205,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 			qm.Load(core.PostRels.User),
 			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
 		).AllP(ctx, db),
+		FeedType: FeedTypeExplore,
 	}
 
 	return exploreFeedPage
