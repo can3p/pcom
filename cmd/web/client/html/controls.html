@@ -1,8 +1,38 @@
 {{ template "header.html" . }}
 
+{{ define "controls_connections" }}
+{{ end }}
+
 <div class="container">
   <div class="row justify-content-md-center mt-4">
-    <h1>{{ .ProjectName }} logged in area!</h1>
+    <h1>Have a great day!</h1>
+
+    <div class="row mt-4">
+      <div class="col-lg-6">
+        <div class="card">
+          <h5 class="card-header">Direct connections</h5>
+          <div class="card-body">
+            {{ range .DirectConnections }}
+            <a href="{{ link "user" .Username }}">{{ .Username }}</a>
+            {{ else }}
+            Nothing there
+            {{ end }}
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card">
+          <h5 class="card-header">Connections of direct connections</h5>
+          <div class="card-body">
+            {{ range .IndirectConnections }}
+            <a href="{{ link "user" .Username }}">{{ .Username }}</a>
+            {{ else }}
+            Nothing there
+            {{ end }}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
