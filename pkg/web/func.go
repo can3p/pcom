@@ -6,6 +6,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/samber/lo"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -118,13 +119,25 @@ func UserHome(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 	return userHomePage
 }
 
+type FeedType int
+
+const (
+	FeedTypeDirect FeedType = iota
+	FeedTypeExplore
+)
+
 type FeedPage struct {
 	*BasePage
-	Posts core.PostSlice
+	Posts    core.PostSlice
+	FeedType FeedType
+}
+
+func (fp *FeedPage) IsExplore() bool {
+	return fp.FeedType == FeedTypeExplore
 }
 
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *UserHomePage {
+func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *FeedPage {
 	user := userData.DBUser
 	title := fmt.Sprintf("%s - Direct Feed", user.Username)
 
@@ -138,14 +151,61 @@ func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Use
 		userIDs = append(userIDs, conn.User2ID)
 	}
 
-	userHomePage := &UserHomePage{
+	directFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
 		Posts: core.Posts(
 			core.PostWhere.UserID.IN(userIDs),
 			qm.Load(core.PostRels.User),
 			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
 		).AllP(ctx, db),
+		FeedType: FeedTypeDirect,
 	}
 
-	return userHomePage
+	return directFeedPage
+}
+
+// TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
+func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *FeedPage {
+	user := userData.DBUser
+	title := fmt.Sprintf("%s - Explore Feed", user.Username)
+
+	connections := core.UserConnections(
+		core.UserConnectionWhere.User1ID.EQ(user.ID),
+	).AllP(ctx, db)
+
+	// we want to explude direct connection as well as the user themselves from indirect connections results
+	// this has to be done, since the connection graph is undirected
+	directUserIDs := lo.Map(connections, func(conn *core.UserConnection, index int) string { return conn.User2ID })
+	directUserIDs = append(directUserIDs, user.ID)
+
+	type userID struct {
+		UserID string `boil:"user_id"`
+	}
+
+	var indirectUserIDStruct []*userID
+
+	// https://www.linkedin.com/pulse/you-dont-need-graph-database-modeling-graphs-trees-viktor-qvarfordt-efzof/
+	core.NewQuery(
+		qm.Select("conn2.user2_id as user_id"),
+		qm.From("user_connections as conn1"),
+		qm.LeftOuterJoin("user_connections as conn2 on conn1.user2_id = conn2.user1_id"),
+		qm.Where("conn1.user1_id = ?", user.ID),
+	).BindP(ctx, db, &indirectUserIDStruct)
+
+	indirectUserIDs := lo.Without(
+		lo.Map(indirectUserIDStruct, func(conn *userID, index int) string { return conn.UserID }),
+		directUserIDs...,
+	)
+
+	exploreFeedPage := &FeedPage{
+		BasePage: getBasePage(title, userData),
+		Posts: core.Posts(
+			core.PostWhere.UserID.IN(indirectUserIDs),
+			core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree),
+			qm.Load(core.PostRels.User),
+			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
+		).AllP(ctx, db),
+	}
+
+	return exploreFeedPage
 }
