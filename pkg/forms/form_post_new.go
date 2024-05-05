@@ -2,6 +2,7 @@ package forms
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/can3p/gogo/forms"
@@ -14,8 +15,9 @@ import (
 )
 
 type NewPostFormInput struct {
-	Subject string `form:"subject"`
-	Body    string `form:"body"`
+	Subject    string `form:"subject"`
+	Body       string `form:"body"`
+	Visibility string `form:"visibility"`
 }
 
 type NewPostForm struct {
@@ -41,15 +43,23 @@ func NewPostFormNew(u *core.User) forms.Form {
 }
 
 func (f *NewPostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	if err := validation.ValidateMinMax("subject", f.Input.Subject, 3, 40); err != nil {
+	if err := validation.ValidateMinMax("subject", f.Input.Subject, 3, 100); err != nil {
 		f.AddError("subject", err.Error())
 	}
 
-	if err := validation.ValidateMinMax("body", f.Input.Body, 3, 40); err != nil {
+	if err := validation.ValidateMinMax("body", f.Input.Body, 3, 20_000); err != nil {
 		f.AddError("body", err.Error())
 	}
 
-	return nil
+	if err := validation.ValidateEnum(f.Input.Visibility,
+		[]string{core.PostVisibilityDirectOnly.String(), core.PostVisibilitySecondDegree.String()},
+		[]string{"direct only", "their connections as well"}); err != nil {
+		f.AddError("visibility", err.Error())
+	}
+
+	fmt.Println(f.Errors)
+
+	return f.Errors.PassedValidation()
 }
 
 func (f *NewPostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
@@ -68,7 +78,7 @@ func (f *NewPostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.
 		Subject:         subject,
 		Body:            body,
 		UserID:          f.User.ID,
-		VisbilityRadius: core.PostVisibilityDirectOnly,
+		VisbilityRadius: core.PostVisibility(f.Input.Visibility),
 	}
 
 	if err := post.Insert(c, exec, boil.Infer()); err != nil {

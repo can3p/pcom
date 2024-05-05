@@ -34,9 +34,19 @@ func ValidateUsername(p string) error {
 func ValidateMinMax(label string, p string, minL int, maxL int) error {
 	trimmed := strings.TrimSpace(p)
 
-	if len(trimmed) < minL || len(trimmed) > minL {
+	if len(trimmed) < minL || len(trimmed) > maxL {
 		return errors.Errorf("%s should be between %d and %d chars", label, minL, maxL)
 	}
 
 	return nil
+}
+
+func ValidateEnum(value string, vals []string, labels []string) error {
+	for _, v := range vals {
+		if v == value {
+			return nil
+		}
+	}
+
+	return errors.Errorf("The only allowed options are: %s", strings.Join(labels, ", "))
 }

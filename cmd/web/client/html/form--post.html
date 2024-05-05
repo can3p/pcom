@@ -25,5 +25,29 @@
     {{ end }}
   </div>
 
+
+  <div class="mb-3">
+    <legend class=" {{ if (.Errors.HasError "visibility") }}is-invalid{{ end }}">Visibility</legend>
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
+                                                                     value="direct_only"
+      {{ if not .Input }}checked{{ end }}
+      {{ if .Input }}{{ if eq .Input.Visibility "direct_only" }}checked{{ end }}{{ end }}
+      >
+      <label class="form-check-label" for="visibilityDirect">
+        Direct connections only
+      </label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree" {{ if .Input }}{{ if eq .Input.Visibility "second_degree" }}checked{{ end }}{{ end }}>
+      <label class="form-check-label" for="visibilitySecondDegree">
+        Show to their connections as well
+      </label>
+    </div>
+    {{ if (.Errors.HasError "visibility") }}
+    <div class="invalid-feedback">{{ .Errors.visibility }}</div>
+    {{ end }}
+  </div>
+
   <button type="submit" class="btn btn-primary w-100">Create Post</button>
 </form>
