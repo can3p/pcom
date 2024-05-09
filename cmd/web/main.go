@@ -427,6 +427,15 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
+	controls.POST("/form/whitelist_connection", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		form := forms.WhitelistConnectionNew(dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
 	controls.POST("/form/send_invite", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser

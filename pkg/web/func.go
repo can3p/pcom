@@ -7,6 +7,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/samber/lo"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -33,10 +34,12 @@ type ControlsPage struct {
 	*BasePage
 	DirectConnections       core.UserSlice
 	SecondDegreeConnections core.UserSlice
+	WhitelistedConnections  core.UserSlice
 }
 
 func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *ControlsPage {
-	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userData.DBUser.ID)
+	userID := userData.DBUser.ID
+	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userID)
 
 	// @TODO: all panics should be eliminated later
 	if err != nil {
@@ -46,10 +49,21 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	directUsers := core.Users(core.UserWhere.ID.IN(directUserIDs)).AllP(ctx, db)
 	secondDegreeUsers := core.Users(core.UserWhere.ID.IN(secondDegreeUserIDs)).AllP(ctx, db)
 
+	whitelistedConnections := lo.Map(
+		core.WhitelistedConnections(
+			core.WhitelistedConnectionWhere.WhoID.EQ(userID),
+			core.WhitelistedConnectionWhere.ConnectionID.IsNull(),
+			qm.Load(core.WhitelistedConnectionRels.AllowsWho),
+		).AllP(ctx, db),
+		func(conn *core.WhitelistedConnection, idx int) *core.User {
+			return conn.R.AllowsWho
+		})
+
 	controlsPage := &ControlsPage{
 		BasePage:                getBasePage("Controls", userData),
 		DirectConnections:       directUsers,
 		SecondDegreeConnections: secondDegreeUsers,
+		WhitelistedConnections:  whitelistedConnections,
 	}
 
 	return controlsPage

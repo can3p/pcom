@@ -172,7 +172,7 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 		UserID: u.ID,
 	}
 
-	if err := userops.CreateConnection(ctx, db, invite.UserID, u.ID); err != nil {
+	if _, _, err := userops.CreateConnection(ctx, db, invite.UserID, u.ID); err != nil {
 		return err
 	}
 

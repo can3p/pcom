@@ -115,29 +115,35 @@ var UserWhere = struct {
 
 // UserRels is where relationship names are stored.
 var UserRels = struct {
-	Posts                         string
-	User1UserConnections          string
-	User2UserConnections          string
-	CreatedUserUserInvitations    string
-	UserInvitations               string
-	CreatedUserUserSignupRequests string
+	Posts                           string
+	User1UserConnections            string
+	User2UserConnections            string
+	CreatedUserUserInvitations      string
+	UserInvitations                 string
+	CreatedUserUserSignupRequests   string
+	AllowsWhoWhitelistedConnections string
+	WhoWhitelistedConnections       string
 }{
-	Posts:                         "Posts",
-	User1UserConnections:          "User1UserConnections",
-	User2UserConnections:          "User2UserConnections",
-	CreatedUserUserInvitations:    "CreatedUserUserInvitations",
-	UserInvitations:               "UserInvitations",
-	CreatedUserUserSignupRequests: "CreatedUserUserSignupRequests",
+	Posts:                           "Posts",
+	User1UserConnections:            "User1UserConnections",
+	User2UserConnections:            "User2UserConnections",
+	CreatedUserUserInvitations:      "CreatedUserUserInvitations",
+	UserInvitations:                 "UserInvitations",
+	CreatedUserUserSignupRequests:   "CreatedUserUserSignupRequests",
+	AllowsWhoWhitelistedConnections: "AllowsWhoWhitelistedConnections",
+	WhoWhitelistedConnections:       "WhoWhitelistedConnections",
 }
 
 // userR is where relationships are stored.
 type userR struct {
-	Posts                         PostSlice              `boil:"Posts" json:"Posts" toml:"Posts" yaml:"Posts"`
-	User1UserConnections          UserConnectionSlice    `boil:"User1UserConnections" json:"User1UserConnections" toml:"User1UserConnections" yaml:"User1UserConnections"`
-	User2UserConnections          UserConnectionSlice    `boil:"User2UserConnections" json:"User2UserConnections" toml:"User2UserConnections" yaml:"User2UserConnections"`
-	CreatedUserUserInvitations    UserInvitationSlice    `boil:"CreatedUserUserInvitations" json:"CreatedUserUserInvitations" toml:"CreatedUserUserInvitations" yaml:"CreatedUserUserInvitations"`
-	UserInvitations               UserInvitationSlice    `boil:"UserInvitations" json:"UserInvitations" toml:"UserInvitations" yaml:"UserInvitations"`
-	CreatedUserUserSignupRequests UserSignupRequestSlice `boil:"CreatedUserUserSignupRequests" json:"CreatedUserUserSignupRequests" toml:"CreatedUserUserSignupRequests" yaml:"CreatedUserUserSignupRequests"`
+	Posts                           PostSlice                  `boil:"Posts" json:"Posts" toml:"Posts" yaml:"Posts"`
+	User1UserConnections            UserConnectionSlice        `boil:"User1UserConnections" json:"User1UserConnections" toml:"User1UserConnections" yaml:"User1UserConnections"`
+	User2UserConnections            UserConnectionSlice        `boil:"User2UserConnections" json:"User2UserConnections" toml:"User2UserConnections" yaml:"User2UserConnections"`
+	CreatedUserUserInvitations      UserInvitationSlice        `boil:"CreatedUserUserInvitations" json:"CreatedUserUserInvitations" toml:"CreatedUserUserInvitations" yaml:"CreatedUserUserInvitations"`
+	UserInvitations                 UserInvitationSlice        `boil:"UserInvitations" json:"UserInvitations" toml:"UserInvitations" yaml:"UserInvitations"`
+	CreatedUserUserSignupRequests   UserSignupRequestSlice     `boil:"CreatedUserUserSignupRequests" json:"CreatedUserUserSignupRequests" toml:"CreatedUserUserSignupRequests" yaml:"CreatedUserUserSignupRequests"`
+	AllowsWhoWhitelistedConnections WhitelistedConnectionSlice `boil:"AllowsWhoWhitelistedConnections" json:"AllowsWhoWhitelistedConnections" toml:"AllowsWhoWhitelistedConnections" yaml:"AllowsWhoWhitelistedConnections"`
+	WhoWhitelistedConnections       WhitelistedConnectionSlice `boil:"WhoWhitelistedConnections" json:"WhoWhitelistedConnections" toml:"WhoWhitelistedConnections" yaml:"WhoWhitelistedConnections"`
 }
 
 // NewStruct creates a new relationship struct
@@ -185,6 +191,20 @@ func (r *userR) GetCreatedUserUserSignupRequests() UserSignupRequestSlice {
 		return nil
 	}
 	return r.CreatedUserUserSignupRequests
+}
+
+func (r *userR) GetAllowsWhoWhitelistedConnections() WhitelistedConnectionSlice {
+	if r == nil {
+		return nil
+	}
+	return r.AllowsWhoWhitelistedConnections
+}
+
+func (r *userR) GetWhoWhitelistedConnections() WhitelistedConnectionSlice {
+	if r == nil {
+		return nil
+	}
+	return r.WhoWhitelistedConnections
 }
 
 // userL is where Load methods for each relationship are stored.
@@ -411,6 +431,34 @@ func (o *User) CreatedUserUserSignupRequests(mods ...qm.QueryMod) userSignupRequ
 	)
 
 	return UserSignupRequests(queryMods...)
+}
+
+// AllowsWhoWhitelistedConnections retrieves all the whitelisted_connection's WhitelistedConnections with an executor via allows_who_id column.
+func (o *User) AllowsWhoWhitelistedConnections(mods ...qm.QueryMod) whitelistedConnectionQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"whitelisted_connections\".\"allows_who_id\"=?", o.ID),
+	)
+
+	return WhitelistedConnections(queryMods...)
+}
+
+// WhoWhitelistedConnections retrieves all the whitelisted_connection's WhitelistedConnections with an executor via who_id column.
+func (o *User) WhoWhitelistedConnections(mods ...qm.QueryMod) whitelistedConnectionQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"whitelisted_connections\".\"who_id\"=?", o.ID),
+	)
+
+	return WhitelistedConnections(queryMods...)
 }
 
 // LoadPosts allows an eager lookup of values, cached into the
@@ -1049,6 +1097,218 @@ func (userL) LoadCreatedUserUserSignupRequests(ctx context.Context, e boil.Conte
 	return nil
 }
 
+// LoadAllowsWhoWhitelistedConnections allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadAllowsWhoWhitelistedConnections(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`whitelisted_connections`),
+		qm.WhereIn(`whitelisted_connections.allows_who_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load whitelisted_connections")
+	}
+
+	var resultSlice []*WhitelistedConnection
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice whitelisted_connections")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on whitelisted_connections")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for whitelisted_connections")
+	}
+
+	if singular {
+		object.R.AllowsWhoWhitelistedConnections = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &whitelistedConnectionR{}
+			}
+			foreign.R.AllowsWho = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.AllowsWhoID {
+				local.R.AllowsWhoWhitelistedConnections = append(local.R.AllowsWhoWhitelistedConnections, foreign)
+				if foreign.R == nil {
+					foreign.R = &whitelistedConnectionR{}
+				}
+				foreign.R.AllowsWho = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadWhoWhitelistedConnections allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadWhoWhitelistedConnections(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`whitelisted_connections`),
+		qm.WhereIn(`whitelisted_connections.who_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load whitelisted_connections")
+	}
+
+	var resultSlice []*WhitelistedConnection
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice whitelisted_connections")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on whitelisted_connections")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for whitelisted_connections")
+	}
+
+	if singular {
+		object.R.WhoWhitelistedConnections = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &whitelistedConnectionR{}
+			}
+			foreign.R.Who = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.WhoID {
+				local.R.WhoWhitelistedConnections = append(local.R.WhoWhitelistedConnections, foreign)
+				if foreign.R == nil {
+					foreign.R = &whitelistedConnectionR{}
+				}
+				foreign.R.Who = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // AddPostsP adds the given related objects to the existing relationships
 // of the user, optionally inserting them as new records.
 // Appends related to o.R.Posts.
@@ -1624,6 +1884,134 @@ func (o *User) RemoveCreatedUserUserSignupRequests(ctx context.Context, exec boi
 		}
 	}
 
+	return nil
+}
+
+// AddAllowsWhoWhitelistedConnectionsP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.AllowsWhoWhitelistedConnections.
+// Sets related.R.AllowsWho appropriately.
+// Panics on error.
+func (o *User) AddAllowsWhoWhitelistedConnectionsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) {
+	if err := o.AddAllowsWhoWhitelistedConnections(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddAllowsWhoWhitelistedConnections adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.AllowsWhoWhitelistedConnections.
+// Sets related.R.AllowsWho appropriately.
+func (o *User) AddAllowsWhoWhitelistedConnections(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.AllowsWhoID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"whitelisted_connections\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"allows_who_id"}),
+				strmangle.WhereClause("\"", "\"", 2, whitelistedConnectionPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.AllowsWhoID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			AllowsWhoWhitelistedConnections: related,
+		}
+	} else {
+		o.R.AllowsWhoWhitelistedConnections = append(o.R.AllowsWhoWhitelistedConnections, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &whitelistedConnectionR{
+				AllowsWho: o,
+			}
+		} else {
+			rel.R.AllowsWho = o
+		}
+	}
+	return nil
+}
+
+// AddWhoWhitelistedConnectionsP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.WhoWhitelistedConnections.
+// Sets related.R.Who appropriately.
+// Panics on error.
+func (o *User) AddWhoWhitelistedConnectionsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) {
+	if err := o.AddWhoWhitelistedConnections(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddWhoWhitelistedConnections adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.WhoWhitelistedConnections.
+// Sets related.R.Who appropriately.
+func (o *User) AddWhoWhitelistedConnections(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.WhoID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"whitelisted_connections\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"who_id"}),
+				strmangle.WhereClause("\"", "\"", 2, whitelistedConnectionPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.WhoID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			WhoWhitelistedConnections: related,
+		}
+	} else {
+		o.R.WhoWhitelistedConnections = append(o.R.WhoWhitelistedConnections, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &whitelistedConnectionR{
+				Who: o,
+			}
+		} else {
+			rel.R.Who = o
+		}
+	}
 	return nil
 }
 

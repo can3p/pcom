@@ -15,28 +15,40 @@ import (
 // user ids in both combinations to simplify queries
 // with a tradeoff that we need to monitor data for consistency and
 // use twice the size needed
-func CreateConnection(ctx context.Context, db boil.ContextExecutor, user1ID string, user2ID string) error {
+func CreateConnection(ctx context.Context, db boil.ContextExecutor, user1ID string, user2ID string) (*core.UserConnection, *core.UserConnection, error) {
+	userConnectionID1, err := uuid.NewV7()
+
+	if err != nil {
+		return nil, nil, err
+	}
+
 	conn1 := &core.UserConnection{
-		ID:      uuid.NewString(),
+		ID:      userConnectionID1.String(),
 		User1ID: user1ID,
 		User2ID: user2ID,
 	}
 
 	if err := conn1.Insert(ctx, db, boil.Infer()); err != nil {
-		return err
+		return nil, nil, err
+	}
+
+	userConnectionID2, err := uuid.NewV7()
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	conn2 := &core.UserConnection{
-		ID:      uuid.NewString(),
+		ID:      userConnectionID2.String(),
 		User1ID: user2ID,
 		User2ID: user1ID,
 	}
 
 	if err := conn2.Insert(ctx, db, boil.Infer()); err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	return nil
+	return conn1, conn2, nil
 }
 
 func GetDirectUserIDs(ctx context.Context, db boil.ContextExecutor, userID string) ([]string, error) {

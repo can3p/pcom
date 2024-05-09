@@ -1,0 +1,26 @@
+<form
+      method="POST"
+      action="{{ link "form_whitelist_connection" }}"
+      hx-post="{{ link "form_whitelist_connection" }}"
+      hx-swap="outerHTML"
+      >
+
+  <div class="mb-3">
+    <div class="row">
+      <div class="col">
+        <input name="username" type="username"
+                              value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
+                              class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
+                              placeholder="username"
+                              id="newPostUsername" aria-describedby="usernameHelp"
+                                                  required>
+        {{ if (.Errors.HasError "username") }}
+        <div class="invalid-feedback">{{ .Errors.username }}</div>
+        {{ end }}
+      </div>
+      <div class="col">
+        <button type="submit" class="btn btn-primary w-100">Add</button>
+      </div>
+    </div>
+  </div>
+</form>

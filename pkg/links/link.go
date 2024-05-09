@@ -55,6 +55,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/form/send_invite"
 	case "form_change_password":
 		out = "/controls/form/change_password"
+	case "form_whitelist_connection":
+		out = "/controls/form/whitelist_connection"
 	case "logout":
 		out = "/logout"
 	case "login":
