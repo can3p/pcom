@@ -135,9 +135,10 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 
 type UserHomePage struct {
 	*BasePage
-	Author           *core.User
-	ConnectionRadius userops.ConnectionRadius
-	Posts            core.PostSlice
+	Author            *core.User
+	ConnectionRadius  userops.ConnectionRadius
+	ConnectionAllowed bool
+	Posts             core.PostSlice
 }
 
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
@@ -169,11 +170,18 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		}
 	}
 
+	isConnectionAllowed, err := userops.IsConnectionAllowed(ctx, db, userData.DBUser.ID, author.ID)
+
+	if err != nil {
+		panic(err)
+	}
+
 	userHomePage := &UserHomePage{
-		BasePage:         getBasePage(title, userData),
-		Author:           author,
-		ConnectionRadius: connRadius,
-		Posts:            posts,
+		BasePage:          getBasePage(title, userData),
+		Author:            author,
+		ConnectionRadius:  connRadius,
+		Posts:             posts,
+		ConnectionAllowed: isConnectionAllowed,
 	}
 
 	return userHomePage

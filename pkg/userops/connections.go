@@ -2,10 +2,15 @@ package userops
 
 import (
 	"context"
+	"database/sql"
 
+	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -163,4 +168,98 @@ func GetConnectionRadius(ctx context.Context, db boil.ContextExecutor, fromUserI
 	}
 
 	return ConnectionRadiusUnrelated, nil
+}
+
+func DropConnectionGrant(ctx context.Context, exec boil.ContextExecutor, whoUserID string, allowsWhoUserID string) error {
+	_, err := core.WhitelistedConnections(
+		core.WhitelistedConnectionWhere.WhoID.EQ(whoUserID),
+		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(allowsWhoUserID),
+		core.WhitelistedConnectionWhere.ConnectionID.IsNull(),
+	).DeleteAll(ctx, exec)
+
+	return err
+}
+
+// IsConnectionAllowed is used to determine whether sourceUserID is allowed to connect with targetUserID
+func IsConnectionAllowed(ctx context.Context, exec boil.ContextExecutor, sourceUserID string, targetUserID string) (bool, error) {
+	whitelistExists, err := core.WhitelistedConnections(
+		core.WhitelistedConnectionWhere.WhoID.EQ(targetUserID),
+		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(sourceUserID),
+		core.WhitelistedConnectionWhere.ConnectionID.IsNull(),
+	).Exists(ctx, exec)
+
+	if err != nil {
+		return false, err
+	}
+
+	return whitelistExists, nil
+}
+
+func EstablishConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, targetUserID string) error {
+	return transact.Transact(exec, func(tx *sql.Tx) error {
+		whitelisted, err := core.WhitelistedConnections(
+			core.WhitelistedConnectionWhere.WhoID.EQ(targetUserID),
+			core.WhitelistedConnectionWhere.AllowsWhoID.EQ(sourceUserID),
+			core.WhitelistedConnectionWhere.ConnectionID.IsNull(),
+			qm.For("UPDATE"),
+		).One(ctx, tx)
+
+		if err == sql.ErrNoRows {
+			return errors.Errorf("No connection allowed")
+		} else if err != nil {
+			return err
+		}
+
+		conn1, _, err := CreateConnection(ctx, tx, sourceUserID, targetUserID)
+
+		if err != nil {
+			return err
+		}
+
+		whitelisted.ConnectionID = null.StringFrom(conn1.ID)
+
+		_, err = whitelisted.Update(ctx, tx, boil.Infer())
+
+		return err
+	})
+}
+
+func DropConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, targetUserID string) error {
+	return transact.Transact(exec, func(tx *sql.Tx) error {
+		conns, err := core.UserConnections(
+			qm.Expr(
+				core.UserConnectionWhere.User1ID.EQ(sourceUserID),
+				core.UserConnectionWhere.User2ID.EQ(targetUserID),
+			),
+			qm.Or2(qm.Expr(
+				core.UserConnectionWhere.User1ID.EQ(targetUserID),
+				core.UserConnectionWhere.User2ID.EQ(sourceUserID),
+			)),
+			qm.Load(core.UserConnectionRels.ConnectionWhitelistedConnections),
+		).All(ctx, tx)
+
+		if err != nil {
+			return err
+		}
+
+		// no connection = nothing to do
+		if len(conns) == 0 {
+			return nil
+		}
+
+		for _, conn := range conns {
+			for _, wl := range conn.R.ConnectionWhitelistedConnections {
+				if _, err := wl.Delete(ctx, tx); err != nil {
+					return err
+				}
+			}
+
+			if _, err := conn.Delete(ctx, tx); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
 }

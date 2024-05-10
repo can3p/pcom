@@ -6,9 +6,31 @@
 
     <div class="alert alert-info mt-2" role="alert">
       {{ if .ConnectionRadius.IsSameUser }}You're reading your own journal
-      {{- else if .ConnectionRadius.IsDirect }}You're connected with {{ .Author.Username }}
+      {{- else if .ConnectionRadius.IsDirect }}
+        You're connected with {{ .Author.Username }}
+        <button type="button"
+                class="btn btn-sm btn-danger"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="drop_connection"
+                data-user-id="{{ .Author.ID }}"
+                data-action-prompt-value="Do you want to drop the connection with {{ .Author.Username }}?"
+                >Disconect</button>
       {{- else if .ConnectionRadius.IsSecondDegree }}One of your direct connections has a connection with {{ .Author.Username }}
       {{- else if .ConnectionRadius.IsUnrelated }}You have no relation to {{ .Author.Username }}{{ end }}
+
+      {{ if .ConnectionAllowed }}
+      <p>{{ .Author.Username }} has allowed you to connect to him
+        <button type="button"
+                class="btn btn-sm btn-success"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="create_connection"
+                data-user-id="{{ .Author.ID }}"
+                data-action-prompt-value="Do you want to connect to {{ .Author.Username }}?"
+                >Connect</button>
+      </p>
+      {{ end }}
     </div>
 
     {{ if .ConnectionRadius.IsUnrelated }}

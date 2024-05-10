@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/jmoiron/sqlx"
 )
 
-func setupActions(r *gin.RouterGroup, db boil.ContextExecutor) {
+func setupActions(r *gin.RouterGroup, db *sqlx.DB) {
 	r.POST("/remove_from_whitelist", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
@@ -24,12 +24,49 @@ func setupActions(r *gin.RouterGroup, db boil.ContextExecutor) {
 			return
 		}
 
-		_, err := core.WhitelistedConnections(
-			core.WhitelistedConnectionWhere.WhoID.EQ(dbUser.ID),
-			core.WhitelistedConnectionWhere.AllowsWhoID.EQ(input.UserID),
-		).DeleteAll(c, db)
+		if err := userops.DropConnectionGrant(c, db, dbUser.ID, input.UserID); err != nil {
+			reportError(c, fmt.Sprintf("Failed operation: %s", err.Error()))
+			return
+		}
 
-		if err != nil {
+		reportSuccess(c)
+	})
+
+	r.POST("/create_connection", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		var input struct {
+			TargetUserID string `json:"userId"`
+		}
+
+		if err := c.BindJSON(&input); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		if err := userops.EstablishConnection(c, db, dbUser.ID, input.TargetUserID); err != nil {
+			reportError(c, fmt.Sprintf("Failed operation: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
+
+	r.POST("/drop_connection", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		var input struct {
+			TargetUserID string `json:"userId"`
+		}
+
+		if err := c.BindJSON(&input); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		if err := userops.DropConnection(c, db, dbUser.ID, input.TargetUserID); err != nil {
 			reportError(c, fmt.Sprintf("Failed operation: %s", err.Error()))
 			return
 		}
