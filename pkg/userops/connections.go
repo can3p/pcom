@@ -235,7 +235,7 @@ func DropConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, tar
 				core.UserConnectionWhere.User1ID.EQ(targetUserID),
 				core.UserConnectionWhere.User2ID.EQ(sourceUserID),
 			)),
-			qm.Load(core.UserConnectionRels.ConnectionWhitelistedConnections),
+			qm.Load(core.UserConnectionRels.ConnectionWhitelistedConnection),
 		).All(ctx, tx)
 
 		if err != nil {
@@ -248,7 +248,7 @@ func DropConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, tar
 		}
 
 		for _, conn := range conns {
-			for _, wl := range conn.R.ConnectionWhitelistedConnections {
+			if wl := conn.R.ConnectionWhitelistedConnection; wl != nil {
 				if _, err := wl.Delete(ctx, tx); err != nil {
 					return err
 				}

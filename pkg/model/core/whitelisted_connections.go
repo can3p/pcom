@@ -512,7 +512,7 @@ func (whitelistedConnectionL) LoadConnection(ctx context.Context, e boil.Context
 		if foreign.R == nil {
 			foreign.R = &userConnectionR{}
 		}
-		foreign.R.ConnectionWhitelistedConnections = append(foreign.R.ConnectionWhitelistedConnections, object)
+		foreign.R.ConnectionWhitelistedConnection = object
 		return nil
 	}
 
@@ -523,7 +523,7 @@ func (whitelistedConnectionL) LoadConnection(ctx context.Context, e boil.Context
 				if foreign.R == nil {
 					foreign.R = &userConnectionR{}
 				}
-				foreign.R.ConnectionWhitelistedConnections = append(foreign.R.ConnectionWhitelistedConnections, local)
+				foreign.R.ConnectionWhitelistedConnection = local
 				break
 			}
 		}
@@ -703,7 +703,7 @@ func (o *WhitelistedConnection) SetAllowsWho(ctx context.Context, exec boil.Cont
 
 // SetConnectionP of the whitelistedConnection to the related item.
 // Sets o.R.Connection to related.
-// Adds o to related.R.ConnectionWhitelistedConnections.
+// Adds o to related.R.ConnectionWhitelistedConnection.
 // Panics on error.
 func (o *WhitelistedConnection) SetConnectionP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *UserConnection) {
 	if err := o.SetConnection(ctx, exec, insert, related); err != nil {
@@ -713,7 +713,7 @@ func (o *WhitelistedConnection) SetConnectionP(ctx context.Context, exec boil.Co
 
 // SetConnection of the whitelistedConnection to the related item.
 // Sets o.R.Connection to related.
-// Adds o to related.R.ConnectionWhitelistedConnections.
+// Adds o to related.R.ConnectionWhitelistedConnection.
 func (o *WhitelistedConnection) SetConnection(ctx context.Context, exec boil.ContextExecutor, insert bool, related *UserConnection) error {
 	var err error
 	if insert {
@@ -749,10 +749,10 @@ func (o *WhitelistedConnection) SetConnection(ctx context.Context, exec boil.Con
 
 	if related.R == nil {
 		related.R = &userConnectionR{
-			ConnectionWhitelistedConnections: WhitelistedConnectionSlice{o},
+			ConnectionWhitelistedConnection: o,
 		}
 	} else {
-		related.R.ConnectionWhitelistedConnections = append(related.R.ConnectionWhitelistedConnections, o)
+		related.R.ConnectionWhitelistedConnection = o
 	}
 
 	return nil
@@ -786,18 +786,7 @@ func (o *WhitelistedConnection) RemoveConnection(ctx context.Context, exec boil.
 		return nil
 	}
 
-	for i, ri := range related.R.ConnectionWhitelistedConnections {
-		if queries.Equal(o.ConnectionID, ri.ConnectionID) {
-			continue
-		}
-
-		ln := len(related.R.ConnectionWhitelistedConnections)
-		if ln > 1 && i < ln-1 {
-			related.R.ConnectionWhitelistedConnections[i] = related.R.ConnectionWhitelistedConnections[ln-1]
-		}
-		related.R.ConnectionWhitelistedConnections = related.R.ConnectionWhitelistedConnections[:ln-1]
-		break
-	}
+	related.R.ConnectionWhitelistedConnection = nil
 	return nil
 }
 

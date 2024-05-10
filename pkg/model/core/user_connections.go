@@ -100,20 +100,20 @@ var UserConnectionWhere = struct {
 
 // UserConnectionRels is where relationship names are stored.
 var UserConnectionRels = struct {
-	User1                            string
-	User2                            string
-	ConnectionWhitelistedConnections string
+	User1                           string
+	User2                           string
+	ConnectionWhitelistedConnection string
 }{
-	User1:                            "User1",
-	User2:                            "User2",
-	ConnectionWhitelistedConnections: "ConnectionWhitelistedConnections",
+	User1:                           "User1",
+	User2:                           "User2",
+	ConnectionWhitelistedConnection: "ConnectionWhitelistedConnection",
 }
 
 // userConnectionR is where relationships are stored.
 type userConnectionR struct {
-	User1                            *User                      `boil:"User1" json:"User1" toml:"User1" yaml:"User1"`
-	User2                            *User                      `boil:"User2" json:"User2" toml:"User2" yaml:"User2"`
-	ConnectionWhitelistedConnections WhitelistedConnectionSlice `boil:"ConnectionWhitelistedConnections" json:"ConnectionWhitelistedConnections" toml:"ConnectionWhitelistedConnections" yaml:"ConnectionWhitelistedConnections"`
+	User1                           *User                  `boil:"User1" json:"User1" toml:"User1" yaml:"User1"`
+	User2                           *User                  `boil:"User2" json:"User2" toml:"User2" yaml:"User2"`
+	ConnectionWhitelistedConnection *WhitelistedConnection `boil:"ConnectionWhitelistedConnection" json:"ConnectionWhitelistedConnection" toml:"ConnectionWhitelistedConnection" yaml:"ConnectionWhitelistedConnection"`
 }
 
 // NewStruct creates a new relationship struct
@@ -135,11 +135,11 @@ func (r *userConnectionR) GetUser2() *User {
 	return r.User2
 }
 
-func (r *userConnectionR) GetConnectionWhitelistedConnections() WhitelistedConnectionSlice {
+func (r *userConnectionR) GetConnectionWhitelistedConnection() *WhitelistedConnection {
 	if r == nil {
 		return nil
 	}
-	return r.ConnectionWhitelistedConnections
+	return r.ConnectionWhitelistedConnection
 }
 
 // userConnectionL is where Load methods for each relationship are stored.
@@ -306,16 +306,13 @@ func (o *UserConnection) User2(mods ...qm.QueryMod) userQuery {
 	return Users(queryMods...)
 }
 
-// ConnectionWhitelistedConnections retrieves all the whitelisted_connection's WhitelistedConnections with an executor via connection_id column.
-func (o *UserConnection) ConnectionWhitelistedConnections(mods ...qm.QueryMod) whitelistedConnectionQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
+// ConnectionWhitelistedConnection pointed to by the foreign key.
+func (o *UserConnection) ConnectionWhitelistedConnection(mods ...qm.QueryMod) whitelistedConnectionQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"connection_id\" = ?", o.ID),
 	}
 
-	queryMods = append(queryMods,
-		qm.Where("\"whitelisted_connections\".\"connection_id\"=?", o.ID),
-	)
+	queryMods = append(queryMods, mods...)
 
 	return WhitelistedConnections(queryMods...)
 }
@@ -544,9 +541,9 @@ func (userConnectionL) LoadUser2(ctx context.Context, e boil.ContextExecutor, si
 	return nil
 }
 
-// LoadConnectionWhitelistedConnections allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (userConnectionL) LoadConnectionWhitelistedConnections(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUserConnection interface{}, mods queries.Applicator) error {
+// LoadConnectionWhitelistedConnection allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-1 relationship.
+func (userConnectionL) LoadConnectionWhitelistedConnection(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUserConnection interface{}, mods queries.Applicator) error {
 	var slice []*UserConnection
 	var object *UserConnection
 
@@ -583,6 +580,7 @@ func (userConnectionL) LoadConnectionWhitelistedConnections(ctx context.Context,
 			if obj.R == nil {
 				obj.R = &userConnectionR{}
 			}
+
 			args[obj.ID] = struct{}{}
 		}
 	}
@@ -608,36 +606,38 @@ func (userConnectionL) LoadConnectionWhitelistedConnections(ctx context.Context,
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load whitelisted_connections")
+		return errors.Wrap(err, "failed to eager load WhitelistedConnection")
 	}
 
 	var resultSlice []*WhitelistedConnection
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice whitelisted_connections")
+		return errors.Wrap(err, "failed to bind eager loaded slice WhitelistedConnection")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on whitelisted_connections")
+		return errors.Wrap(err, "failed to close results of eager load for whitelisted_connections")
 	}
 	if err = results.Err(); err != nil {
 		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for whitelisted_connections")
 	}
 
-	if singular {
-		object.R.ConnectionWhitelistedConnections = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &whitelistedConnectionR{}
-			}
-			foreign.R.Connection = object
-		}
+	if len(resultSlice) == 0 {
 		return nil
 	}
 
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
+	if singular {
+		foreign := resultSlice[0]
+		object.R.ConnectionWhitelistedConnection = foreign
+		if foreign.R == nil {
+			foreign.R = &whitelistedConnectionR{}
+		}
+		foreign.R.Connection = object
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
 			if queries.Equal(local.ID, foreign.ConnectionID) {
-				local.R.ConnectionWhitelistedConnections = append(local.R.ConnectionWhitelistedConnections, foreign)
+				local.R.ConnectionWhitelistedConnection = foreign
 				if foreign.R == nil {
 					foreign.R = &whitelistedConnectionR{}
 				}
@@ -764,163 +764,96 @@ func (o *UserConnection) SetUser2(ctx context.Context, exec boil.ContextExecutor
 	return nil
 }
 
-// AddConnectionWhitelistedConnectionsP adds the given related objects to the existing relationships
-// of the user_connection, optionally inserting them as new records.
-// Appends related to o.R.ConnectionWhitelistedConnections.
-// Sets related.R.Connection appropriately.
+// SetConnectionWhitelistedConnectionP of the userConnection to the related item.
+// Sets o.R.ConnectionWhitelistedConnection to related.
+// Adds o to related.R.Connection.
 // Panics on error.
-func (o *UserConnection) AddConnectionWhitelistedConnectionsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) {
-	if err := o.AddConnectionWhitelistedConnections(ctx, exec, insert, related...); err != nil {
+func (o *UserConnection) SetConnectionWhitelistedConnectionP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *WhitelistedConnection) {
+	if err := o.SetConnectionWhitelistedConnection(ctx, exec, insert, related); err != nil {
 		panic(boil.WrapErr(err))
 	}
 }
 
-// AddConnectionWhitelistedConnections adds the given related objects to the existing relationships
-// of the user_connection, optionally inserting them as new records.
-// Appends related to o.R.ConnectionWhitelistedConnections.
-// Sets related.R.Connection appropriately.
-func (o *UserConnection) AddConnectionWhitelistedConnections(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) error {
+// SetConnectionWhitelistedConnection of the userConnection to the related item.
+// Sets o.R.ConnectionWhitelistedConnection to related.
+// Adds o to related.R.Connection.
+func (o *UserConnection) SetConnectionWhitelistedConnection(ctx context.Context, exec boil.ContextExecutor, insert bool, related *WhitelistedConnection) error {
 	var err error
-	for _, rel := range related {
-		if insert {
-			queries.Assign(&rel.ConnectionID, o.ID)
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"whitelisted_connections\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"connection_id"}),
-				strmangle.WhereClause("\"", "\"", 2, whitelistedConnectionPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.ID}
 
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
+	if insert {
+		queries.Assign(&related.ConnectionID, o.ID)
 
-			queries.Assign(&rel.ConnectionID, o.ID)
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
 		}
+	} else {
+		updateQuery := fmt.Sprintf(
+			"UPDATE \"whitelisted_connections\" SET %s WHERE %s",
+			strmangle.SetParamNames("\"", "\"", 1, []string{"connection_id"}),
+			strmangle.WhereClause("\"", "\"", 2, whitelistedConnectionPrimaryKeyColumns),
+		)
+		values := []interface{}{o.ID, related.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, updateQuery)
+			fmt.Fprintln(writer, values)
+		}
+		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+			return errors.Wrap(err, "failed to update foreign table")
+		}
+
+		queries.Assign(&related.ConnectionID, o.ID)
 	}
 
 	if o.R == nil {
 		o.R = &userConnectionR{
-			ConnectionWhitelistedConnections: related,
+			ConnectionWhitelistedConnection: related,
 		}
 	} else {
-		o.R.ConnectionWhitelistedConnections = append(o.R.ConnectionWhitelistedConnections, related...)
+		o.R.ConnectionWhitelistedConnection = related
 	}
 
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &whitelistedConnectionR{
-				Connection: o,
-			}
-		} else {
-			rel.R.Connection = o
+	if related.R == nil {
+		related.R = &whitelistedConnectionR{
+			Connection: o,
 		}
+	} else {
+		related.R.Connection = o
 	}
 	return nil
 }
 
-// SetConnectionWhitelistedConnectionsP removes all previously related items of the
-// user_connection replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Connection's ConnectionWhitelistedConnections accordingly.
-// Replaces o.R.ConnectionWhitelistedConnections with related.
-// Sets related.R.Connection's ConnectionWhitelistedConnections accordingly.
+// RemoveConnectionWhitelistedConnectionP relationship.
+// Sets o.R.ConnectionWhitelistedConnection to nil.
+// Removes o from all passed in related items' relationships struct.
 // Panics on error.
-func (o *UserConnection) SetConnectionWhitelistedConnectionsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) {
-	if err := o.SetConnectionWhitelistedConnections(ctx, exec, insert, related...); err != nil {
+func (o *UserConnection) RemoveConnectionWhitelistedConnectionP(ctx context.Context, exec boil.ContextExecutor, related *WhitelistedConnection) {
+	if err := o.RemoveConnectionWhitelistedConnection(ctx, exec, related); err != nil {
 		panic(boil.WrapErr(err))
 	}
 }
 
-// SetConnectionWhitelistedConnections removes all previously related items of the
-// user_connection replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Connection's ConnectionWhitelistedConnections accordingly.
-// Replaces o.R.ConnectionWhitelistedConnections with related.
-// Sets related.R.Connection's ConnectionWhitelistedConnections accordingly.
-func (o *UserConnection) SetConnectionWhitelistedConnections(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*WhitelistedConnection) error {
-	query := "update \"whitelisted_connections\" set \"connection_id\" = null where \"connection_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
+// RemoveConnectionWhitelistedConnection relationship.
+// Sets o.R.ConnectionWhitelistedConnection to nil.
+// Removes o from all passed in related items' relationships struct.
+func (o *UserConnection) RemoveConnectionWhitelistedConnection(ctx context.Context, exec boil.ContextExecutor, related *WhitelistedConnection) error {
+	var err error
+
+	queries.SetScanner(&related.ConnectionID, nil)
+	if _, err = related.Update(ctx, exec, boil.Whitelist("connection_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
 	}
 
 	if o.R != nil {
-		for _, rel := range o.R.ConnectionWhitelistedConnections {
-			queries.SetScanner(&rel.ConnectionID, nil)
-			if rel.R == nil {
-				continue
-			}
-
-			rel.R.Connection = nil
-		}
-		o.R.ConnectionWhitelistedConnections = nil
+		o.R.ConnectionWhitelistedConnection = nil
 	}
 
-	return o.AddConnectionWhitelistedConnections(ctx, exec, insert, related...)
-}
-
-// RemoveConnectionWhitelistedConnectionsP relationships from objects passed in.
-// Removes related items from R.ConnectionWhitelistedConnections (uses pointer comparison, removal does not keep order)
-// Sets related.R.Connection.
-// Panics on error.
-func (o *UserConnection) RemoveConnectionWhitelistedConnectionsP(ctx context.Context, exec boil.ContextExecutor, related ...*WhitelistedConnection) {
-	if err := o.RemoveConnectionWhitelistedConnections(ctx, exec, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// RemoveConnectionWhitelistedConnections relationships from objects passed in.
-// Removes related items from R.ConnectionWhitelistedConnections (uses pointer comparison, removal does not keep order)
-// Sets related.R.Connection.
-func (o *UserConnection) RemoveConnectionWhitelistedConnections(ctx context.Context, exec boil.ContextExecutor, related ...*WhitelistedConnection) error {
-	if len(related) == 0 {
+	if related == nil || related.R == nil {
 		return nil
 	}
 
-	var err error
-	for _, rel := range related {
-		queries.SetScanner(&rel.ConnectionID, nil)
-		if rel.R != nil {
-			rel.R.Connection = nil
-		}
-		if _, err = rel.Update(ctx, exec, boil.Whitelist("connection_id")); err != nil {
-			return err
-		}
-	}
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.ConnectionWhitelistedConnections {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.ConnectionWhitelistedConnections)
-			if ln > 1 && i < ln-1 {
-				o.R.ConnectionWhitelistedConnections[i] = o.R.ConnectionWhitelistedConnections[ln-1]
-			}
-			o.R.ConnectionWhitelistedConnections = o.R.ConnectionWhitelistedConnections[:ln-1]
-			break
-		}
-	}
+	related.R.Connection = nil
 
 	return nil
 }
