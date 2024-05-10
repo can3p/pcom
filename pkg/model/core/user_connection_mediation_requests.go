@@ -33,6 +33,7 @@ type UserConnectionMediationRequest struct {
 	ConnectionID    null.String                   `boil:"connection_id" json:"connection_id,omitempty" toml:"connection_id" yaml:"connection_id,omitempty"`
 	CreatedAt       time.Time                     `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt       time.Time                     `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	SourceNote      null.String                   `boil:"source_note" json:"source_note,omitempty" toml:"source_note" yaml:"source_note,omitempty"`
 
 	R *userConnectionMediationRequestR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userConnectionMediationRequestL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -48,6 +49,7 @@ var UserConnectionMediationRequestColumns = struct {
 	ConnectionID    string
 	CreatedAt       string
 	UpdatedAt       string
+	SourceNote      string
 }{
 	ID:              "id",
 	WhoUserID:       "who_user_id",
@@ -58,6 +60,7 @@ var UserConnectionMediationRequestColumns = struct {
 	ConnectionID:    "connection_id",
 	CreatedAt:       "created_at",
 	UpdatedAt:       "updated_at",
+	SourceNote:      "source_note",
 }
 
 var UserConnectionMediationRequestTableColumns = struct {
@@ -70,6 +73,7 @@ var UserConnectionMediationRequestTableColumns = struct {
 	ConnectionID    string
 	CreatedAt       string
 	UpdatedAt       string
+	SourceNote      string
 }{
 	ID:              "user_connection_mediation_requests.id",
 	WhoUserID:       "user_connection_mediation_requests.who_user_id",
@@ -80,6 +84,7 @@ var UserConnectionMediationRequestTableColumns = struct {
 	ConnectionID:    "user_connection_mediation_requests.connection_id",
 	CreatedAt:       "user_connection_mediation_requests.created_at",
 	UpdatedAt:       "user_connection_mediation_requests.updated_at",
+	SourceNote:      "user_connection_mediation_requests.source_note",
 }
 
 // Generated where
@@ -207,6 +212,7 @@ var UserConnectionMediationRequestWhere = struct {
 	ConnectionID    whereHelpernull_String
 	CreatedAt       whereHelpertime_Time
 	UpdatedAt       whereHelpertime_Time
+	SourceNote      whereHelpernull_String
 }{
 	ID:              whereHelperstring{field: "\"user_connection_mediation_requests\".\"id\""},
 	WhoUserID:       whereHelperstring{field: "\"user_connection_mediation_requests\".\"who_user_id\""},
@@ -217,6 +223,7 @@ var UserConnectionMediationRequestWhere = struct {
 	ConnectionID:    whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"connection_id\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"user_connection_mediation_requests\".\"created_at\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"user_connection_mediation_requests\".\"updated_at\""},
+	SourceNote:      whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"source_note\""},
 }
 
 // UserConnectionMediationRequestRels is where relationship names are stored.
@@ -277,9 +284,9 @@ func (r *userConnectionMediationRequestR) GetMediationUserConnectionMediators() 
 type userConnectionMediationRequestL struct{}
 
 var (
-	userConnectionMediationRequestAllColumns            = []string{"id", "who_user_id", "target_user_id", "target_decision", "target_decided_at", "target_note", "connection_id", "created_at", "updated_at"}
+	userConnectionMediationRequestAllColumns            = []string{"id", "who_user_id", "target_user_id", "target_decision", "target_decided_at", "target_note", "connection_id", "created_at", "updated_at", "source_note"}
 	userConnectionMediationRequestColumnsWithoutDefault = []string{"id", "who_user_id", "target_user_id", "created_at", "updated_at"}
-	userConnectionMediationRequestColumnsWithDefault    = []string{"target_decision", "target_decided_at", "target_note", "connection_id"}
+	userConnectionMediationRequestColumnsWithDefault    = []string{"target_decision", "target_decided_at", "target_note", "connection_id", "source_note"}
 	userConnectionMediationRequestPrimaryKeyColumns     = []string{"id"}
 	userConnectionMediationRequestGeneratedColumns      = []string{}
 )

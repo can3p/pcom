@@ -16,7 +16,21 @@
                 data-user-id="{{ .Author.ID }}"
                 data-action-prompt-value="Do you want to drop the connection with {{ .Author.Username }}?"
                 >Disconect</button>
-      {{- else if .ConnectionRadius.IsSecondDegree }}One of your direct connections has a connection with {{ .Author.Username }}
+      {{- else if .ConnectionRadius.IsSecondDegree }}
+        One of your direct connections has a connection with {{ .Author.Username }}
+        {{ with .MediationRequest }}
+        <em>You've requested mediation request {{ with .SourceNote.Ptr }} with note <b>{{ . }}</b>{{ end }}</em>
+        {{ else }}
+        <button type="button"
+                class="btn btn-sm btn-success"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="request_mediation"
+                data-action-prompt-field-value="mediation_note"
+                data-action-prompt-value="Do you want to request your connections to introduce to {{ .Author.Username }}? Leave note to the to make the decision simpler"
+                data-user-id="{{ .Author.ID }}"
+                >Ask for introduction</button>
+        {{ end }}
       {{- else if .ConnectionRadius.IsUnrelated }}You have no relation to {{ .Author.Username }}{{ end }}
 
       {{ if .ConnectionAllowed }}

@@ -30,11 +30,30 @@ func Index(c context.Context, db boil.ContextExecutor, userData *auth.UserData) 
 	return getBasePage("Super cool pcom", userData)
 }
 
+type MediationRequest struct {
+	Requester *core.User
+	Target    *core.User
+	Request   *core.UserConnectionMediationRequest
+}
+
+type MediationResult struct {
+	Mediation *core.UserConnectionMediator
+	Mediator  *core.User
+}
+
+type ConnectionRequest struct {
+	Requester  *core.User
+	Request    *core.UserConnectionMediationRequest
+	Mediations []*MediationResult
+}
+
 type ControlsPage struct {
 	*BasePage
 	DirectConnections       core.UserSlice
 	SecondDegreeConnections core.UserSlice
 	WhitelistedConnections  core.UserSlice
+	MediationRequests       []*MediationRequest
+	ConnectionRequests      []*ConnectionRequest
 }
 
 func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *ControlsPage {
@@ -59,11 +78,77 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 			return conn.R.AllowsWho
 		})
 
+	connectionRequestsFromMediation, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(userID),
+		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
+		qm.Load(core.UserConnectionMediationRequestRels.WhoUser),
+		qm.Load(qm.Rels(
+			core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
+			core.UserConnectionMediatorRels.User,
+		)),
+		qm.Load(core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
+			core.UserConnectionMediatorWhere.Decision.EQ(core.ConnectionMediationDecisionSigned),
+		),
+	).All(ctx, db)
+
+	if err != nil {
+		panic(err)
+	}
+
+	connectionRequests := []*ConnectionRequest{}
+
+	for _, req := range connectionRequestsFromMediation {
+		connectionRequests = append(connectionRequests, &ConnectionRequest{
+			Requester: req.R.WhoUser,
+			Request:   req,
+			Mediations: lo.Map(req.R.MediationUserConnectionMediators, func(m *core.UserConnectionMediator, idx int) *MediationResult {
+				return &MediationResult{
+					Mediator:  m.R.User,
+					Mediation: m,
+				}
+			}),
+		})
+	}
+
+	mediationRequestsDB, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.WhoUserID.IN(directUserIDs),
+		core.UserConnectionMediationRequestWhere.TargetUserID.IN(directUserIDs),
+		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
+		qm.Load(
+			core.UserConnectionMediationRequestRels.WhoUser,
+		),
+		qm.Load(
+			core.UserConnectionMediationRequestRels.TargetUser,
+		),
+		qm.Load(
+			core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
+			core.UserConnectionMediatorWhere.UserID.EQ(userID),
+		),
+	).All(ctx, db)
+
+	if err != nil {
+		panic(err)
+	}
+
+	mediationRequestsDB = lo.Filter(mediationRequestsDB, func(req *core.UserConnectionMediationRequest, idx int) bool {
+		return len(req.R.MediationUserConnectionMediators) == 0
+	})
+
+	mediationRequests := lo.Map(mediationRequestsDB, func(req *core.UserConnectionMediationRequest, idx int) *MediationRequest {
+		return &MediationRequest{
+			Requester: req.R.WhoUser,
+			Target:    req.R.TargetUser,
+			Request:   req,
+		}
+	})
+
 	controlsPage := &ControlsPage{
 		BasePage:                getBasePage("Controls", userData),
 		DirectConnections:       directUsers,
 		SecondDegreeConnections: secondDegreeUsers,
 		WhitelistedConnections:  whitelistedConnections,
+		ConnectionRequests:      connectionRequests,
+		MediationRequests:       mediationRequests,
 	}
 
 	return controlsPage
@@ -138,6 +223,7 @@ type UserHomePage struct {
 	Author            *core.User
 	ConnectionRadius  userops.ConnectionRadius
 	ConnectionAllowed bool
+	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             core.PostSlice
 }
 
@@ -176,12 +262,23 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		panic(err)
 	}
 
+	var mediationRequest *core.UserConnectionMediationRequest
+
+	if connRadius == userops.ConnectionRadiusSecondDegree {
+		mediationRequest, err = userops.GetMediationRequest(ctx, db, userData.DBUser.ID, author.ID)
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	userHomePage := &UserHomePage{
 		BasePage:          getBasePage(title, userData),
 		Author:            author,
 		ConnectionRadius:  connRadius,
 		Posts:             posts,
 		ConnectionAllowed: isConnectionAllowed,
+		MediationRequest:  mediationRequest,
 	}
 
 	return userHomePage

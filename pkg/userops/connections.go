@@ -3,6 +3,7 @@ package userops
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -236,6 +237,10 @@ func DropConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, tar
 				core.UserConnectionWhere.User2ID.EQ(sourceUserID),
 			)),
 			qm.Load(core.UserConnectionRels.ConnectionWhitelistedConnection),
+			qm.Load(qm.Rels(
+				core.UserConnectionRels.ConnectionUserConnectionMediationRequest,
+				core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
+			)),
 		).All(ctx, tx)
 
 		if err != nil {
@@ -254,6 +259,18 @@ func DropConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, tar
 				}
 			}
 
+			if request := conn.R.ConnectionUserConnectionMediationRequest; request != nil {
+				for _, mediations := range request.R.MediationUserConnectionMediators {
+					if _, err := mediations.Delete(ctx, tx); err != nil {
+						return err
+					}
+				}
+
+				if _, err := request.Delete(ctx, tx); err != nil {
+					return err
+				}
+			}
+
 			if _, err := conn.Delete(ctx, tx); err != nil {
 				return err
 			}
@@ -262,4 +279,134 @@ func DropConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string, tar
 		return nil
 	})
 
+}
+
+func GetMediationRequest(ctx context.Context, exec boil.ContextExecutor, sourceUserID string, targetUserID string) (*core.UserConnectionMediationRequest, error) {
+	mediationRequest, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.WhoUserID.EQ(sourceUserID),
+		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+	).One(ctx, exec)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	return mediationRequest, nil
+}
+
+func RequestMediation(ctx context.Context, exec *sqlx.DB, sourceUserID string, targetUserID string, mediationNote string) error {
+	radius, err := GetConnectionRadius(ctx, exec, sourceUserID, targetUserID)
+
+	if err != nil {
+		return err
+	}
+
+	if radius != ConnectionRadiusSecondDegree {
+		return errors.Errorf("You cannot request mediation with the user without common connections")
+	}
+
+	mediationExists, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.WhoUserID.EQ(sourceUserID),
+		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+	).Exists(ctx, exec)
+
+	if err != nil {
+		return err
+	}
+
+	if mediationExists {
+		return errors.Errorf("Mediation has already been requested")
+	}
+
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		return err
+	}
+
+	mediationRequest := &core.UserConnectionMediationRequest{
+		ID:           id.String(),
+		WhoUserID:    sourceUserID,
+		TargetUserID: targetUserID,
+		SourceNote:   null.NewString(mediationNote, mediationNote != ""),
+	}
+
+	return mediationRequest.Insert(ctx, exec, boil.Infer())
+}
+
+func DecideForwardMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, requestID string, decision core.ConnectionMediationDecision, note string) error {
+	directUserIDs, err := GetDirectUserIDs(ctx, exec, whoUserID)
+
+	if err != nil {
+		return err
+	}
+
+	request, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
+		core.UserConnectionMediationRequestWhere.WhoUserID.IN(directUserIDs),
+		core.UserConnectionMediationRequestWhere.TargetUserID.IN(directUserIDs),
+	).One(ctx, exec)
+
+	if err == sql.ErrNoRows {
+		return errors.Errorf("No such request")
+	} else if err != nil {
+		return err
+	}
+
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		return err
+	}
+
+	mediationResult := &core.UserConnectionMediator{
+		ID:           id.String(),
+		MediationID:  request.ID,
+		UserID:       whoUserID,
+		Decision:     decision,
+		DecidedAt:    time.Now(),
+		MediatorNote: null.NewString(note, note != ""),
+	}
+
+	return mediationResult.Insert(ctx, exec, boil.Infer())
+}
+
+func DecideConnectionRequest(ctx context.Context, exec *sqlx.DB, targetUserID string, requestID string, decision core.ConnectionRequestDecision, note string) error {
+	request, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
+		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+		qm.For("UPDATE"),
+	).One(ctx, exec)
+
+	if err == sql.ErrNoRows {
+		return errors.Errorf("No such request")
+	} else if err != nil {
+		return err
+	}
+
+	fromUserID := request.WhoUserID
+
+	return transact.Transact(exec, func(tx *sql.Tx) error {
+		if decision == core.ConnectionRequestDecisionApproved {
+			conn1, _, err := CreateConnection(ctx, tx, fromUserID, targetUserID)
+
+			if err != nil {
+				return err
+			}
+
+			request.ConnectionID = null.StringFrom(conn1.ID)
+		}
+
+		request.TargetDecision = core.NullConnectionRequestDecisionFrom(decision)
+		request.TargetDecidedAt = null.TimeFrom(time.Now())
+		request.TargetNote = null.NewString(note, note != "")
+
+		if _, err := request.Update(ctx, tx, boil.Infer()); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

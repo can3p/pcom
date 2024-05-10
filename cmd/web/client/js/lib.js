@@ -1,9 +1,12 @@
 
 
-export async function runAction(name, dataset) {
+export async function runAction(name, dataset, extraFields) {
   const url = `/controls/action/${name}`
-  console.log("runAction", url)
-  const payload = toPayload(dataset)
+  let payload = toPayload(dataset)
+
+  if (!!extraFields) {
+    payload = { ...payload, ...extraFields }
+  }
 
   return fetch(url, {
     method: 'POST',
@@ -14,7 +17,6 @@ export async function runAction(name, dataset) {
   })
     .then((response) => response.json())
     .then((data) => {
-      console.log("data", data)
       if (data.explanation) {
         return Promise.reject(data.explanation)
       }
