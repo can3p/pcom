@@ -5,7 +5,6 @@ export default class extends Controller {
   static values = {
     action: String,
     prompt: String,
-    streamId: String,
   }
 
   run(event) {
