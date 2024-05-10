@@ -4,19 +4,21 @@
 package core
 
 var TableNames = struct {
-	Posts                  string
-	SystemSettings         string
-	UserConnections        string
-	UserInvitations        string
-	UserSignupRequests     string
-	Users                  string
-	WhitelistedConnections string
+	Posts                           string
+	SystemSettings                  string
+	UserConnectionMediationRequests string
+	UserConnections                 string
+	UserInvitations                 string
+	UserSignupRequests              string
+	Users                           string
+	WhitelistedConnections          string
 }{
-	Posts:                  "posts",
-	SystemSettings:         "system_settings",
-	UserConnections:        "user_connections",
-	UserInvitations:        "user_invitations",
-	UserSignupRequests:     "user_signup_requests",
-	Users:                  "users",
-	WhitelistedConnections: "whitelisted_connections",
+	Posts:                           "posts",
+	SystemSettings:                  "system_settings",
+	UserConnectionMediationRequests: "user_connection_mediation_requests",
+	UserConnections:                 "user_connections",
+	UserInvitations:                 "user_invitations",
+	UserSignupRequests:              "user_signup_requests",
+	Users:                           "users",
+	WhitelistedConnections:          "whitelisted_connections",
 }

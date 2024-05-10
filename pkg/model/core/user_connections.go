@@ -63,27 +63,6 @@ var UserConnectionTableColumns = struct {
 
 // Generated where
 
-type whereHelpertime_Time struct{ field string }
-
-func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.EQ, x)
-}
-func (w whereHelpertime_Time) NEQ(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.NEQ, x)
-}
-func (w whereHelpertime_Time) LT(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpertime_Time) LTE(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpertime_Time) GT(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 var UserConnectionWhere = struct {
 	ID        whereHelperstring
 	User1ID   whereHelperstring
@@ -100,20 +79,23 @@ var UserConnectionWhere = struct {
 
 // UserConnectionRels is where relationship names are stored.
 var UserConnectionRels = struct {
-	User1                           string
-	User2                           string
-	ConnectionWhitelistedConnection string
+	User1                                    string
+	User2                                    string
+	ConnectionUserConnectionMediationRequest string
+	ConnectionWhitelistedConnection          string
 }{
-	User1:                           "User1",
-	User2:                           "User2",
-	ConnectionWhitelistedConnection: "ConnectionWhitelistedConnection",
+	User1:                                    "User1",
+	User2:                                    "User2",
+	ConnectionUserConnectionMediationRequest: "ConnectionUserConnectionMediationRequest",
+	ConnectionWhitelistedConnection:          "ConnectionWhitelistedConnection",
 }
 
 // userConnectionR is where relationships are stored.
 type userConnectionR struct {
-	User1                           *User                  `boil:"User1" json:"User1" toml:"User1" yaml:"User1"`
-	User2                           *User                  `boil:"User2" json:"User2" toml:"User2" yaml:"User2"`
-	ConnectionWhitelistedConnection *WhitelistedConnection `boil:"ConnectionWhitelistedConnection" json:"ConnectionWhitelistedConnection" toml:"ConnectionWhitelistedConnection" yaml:"ConnectionWhitelistedConnection"`
+	User1                                    *User                           `boil:"User1" json:"User1" toml:"User1" yaml:"User1"`
+	User2                                    *User                           `boil:"User2" json:"User2" toml:"User2" yaml:"User2"`
+	ConnectionUserConnectionMediationRequest *UserConnectionMediationRequest `boil:"ConnectionUserConnectionMediationRequest" json:"ConnectionUserConnectionMediationRequest" toml:"ConnectionUserConnectionMediationRequest" yaml:"ConnectionUserConnectionMediationRequest"`
+	ConnectionWhitelistedConnection          *WhitelistedConnection          `boil:"ConnectionWhitelistedConnection" json:"ConnectionWhitelistedConnection" toml:"ConnectionWhitelistedConnection" yaml:"ConnectionWhitelistedConnection"`
 }
 
 // NewStruct creates a new relationship struct
@@ -133,6 +115,13 @@ func (r *userConnectionR) GetUser2() *User {
 		return nil
 	}
 	return r.User2
+}
+
+func (r *userConnectionR) GetConnectionUserConnectionMediationRequest() *UserConnectionMediationRequest {
+	if r == nil {
+		return nil
+	}
+	return r.ConnectionUserConnectionMediationRequest
 }
 
 func (r *userConnectionR) GetConnectionWhitelistedConnection() *WhitelistedConnection {
@@ -304,6 +293,17 @@ func (o *UserConnection) User2(mods ...qm.QueryMod) userQuery {
 	queryMods = append(queryMods, mods...)
 
 	return Users(queryMods...)
+}
+
+// ConnectionUserConnectionMediationRequest pointed to by the foreign key.
+func (o *UserConnection) ConnectionUserConnectionMediationRequest(mods ...qm.QueryMod) userConnectionMediationRequestQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"connection_id\" = ?", o.ID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return UserConnectionMediationRequests(queryMods...)
 }
 
 // ConnectionWhitelistedConnection pointed to by the foreign key.
@@ -541,6 +541,115 @@ func (userConnectionL) LoadUser2(ctx context.Context, e boil.ContextExecutor, si
 	return nil
 }
 
+// LoadConnectionUserConnectionMediationRequest allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-1 relationship.
+func (userConnectionL) LoadConnectionUserConnectionMediationRequest(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUserConnection interface{}, mods queries.Applicator) error {
+	var slice []*UserConnection
+	var object *UserConnection
+
+	if singular {
+		var ok bool
+		object, ok = maybeUserConnection.(*UserConnection)
+		if !ok {
+			object = new(UserConnection)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUserConnection)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUserConnection))
+			}
+		}
+	} else {
+		s, ok := maybeUserConnection.(*[]*UserConnection)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUserConnection)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUserConnection))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userConnectionR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userConnectionR{}
+			}
+
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`user_connection_mediation_requests`),
+		qm.WhereIn(`user_connection_mediation_requests.connection_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load UserConnectionMediationRequest")
+	}
+
+	var resultSlice []*UserConnectionMediationRequest
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice UserConnectionMediationRequest")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for user_connection_mediation_requests")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for user_connection_mediation_requests")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.ConnectionUserConnectionMediationRequest = foreign
+		if foreign.R == nil {
+			foreign.R = &userConnectionMediationRequestR{}
+		}
+		foreign.R.Connection = object
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if queries.Equal(local.ID, foreign.ConnectionID) {
+				local.R.ConnectionUserConnectionMediationRequest = foreign
+				if foreign.R == nil {
+					foreign.R = &userConnectionMediationRequestR{}
+				}
+				foreign.R.Connection = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadConnectionWhitelistedConnection allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-1 relationship.
 func (userConnectionL) LoadConnectionWhitelistedConnection(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUserConnection interface{}, mods queries.Applicator) error {
@@ -760,6 +869,100 @@ func (o *UserConnection) SetUser2(ctx context.Context, exec boil.ContextExecutor
 	} else {
 		related.R.User2UserConnections = append(related.R.User2UserConnections, o)
 	}
+
+	return nil
+}
+
+// SetConnectionUserConnectionMediationRequestP of the userConnection to the related item.
+// Sets o.R.ConnectionUserConnectionMediationRequest to related.
+// Adds o to related.R.Connection.
+// Panics on error.
+func (o *UserConnection) SetConnectionUserConnectionMediationRequestP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *UserConnectionMediationRequest) {
+	if err := o.SetConnectionUserConnectionMediationRequest(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetConnectionUserConnectionMediationRequest of the userConnection to the related item.
+// Sets o.R.ConnectionUserConnectionMediationRequest to related.
+// Adds o to related.R.Connection.
+func (o *UserConnection) SetConnectionUserConnectionMediationRequest(ctx context.Context, exec boil.ContextExecutor, insert bool, related *UserConnectionMediationRequest) error {
+	var err error
+
+	if insert {
+		queries.Assign(&related.ConnectionID, o.ID)
+
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	} else {
+		updateQuery := fmt.Sprintf(
+			"UPDATE \"user_connection_mediation_requests\" SET %s WHERE %s",
+			strmangle.SetParamNames("\"", "\"", 1, []string{"connection_id"}),
+			strmangle.WhereClause("\"", "\"", 2, userConnectionMediationRequestPrimaryKeyColumns),
+		)
+		values := []interface{}{o.ID, related.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, updateQuery)
+			fmt.Fprintln(writer, values)
+		}
+		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+			return errors.Wrap(err, "failed to update foreign table")
+		}
+
+		queries.Assign(&related.ConnectionID, o.ID)
+	}
+
+	if o.R == nil {
+		o.R = &userConnectionR{
+			ConnectionUserConnectionMediationRequest: related,
+		}
+	} else {
+		o.R.ConnectionUserConnectionMediationRequest = related
+	}
+
+	if related.R == nil {
+		related.R = &userConnectionMediationRequestR{
+			Connection: o,
+		}
+	} else {
+		related.R.Connection = o
+	}
+	return nil
+}
+
+// RemoveConnectionUserConnectionMediationRequestP relationship.
+// Sets o.R.ConnectionUserConnectionMediationRequest to nil.
+// Removes o from all passed in related items' relationships struct.
+// Panics on error.
+func (o *UserConnection) RemoveConnectionUserConnectionMediationRequestP(ctx context.Context, exec boil.ContextExecutor, related *UserConnectionMediationRequest) {
+	if err := o.RemoveConnectionUserConnectionMediationRequest(ctx, exec, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveConnectionUserConnectionMediationRequest relationship.
+// Sets o.R.ConnectionUserConnectionMediationRequest to nil.
+// Removes o from all passed in related items' relationships struct.
+func (o *UserConnection) RemoveConnectionUserConnectionMediationRequest(ctx context.Context, exec boil.ContextExecutor, related *UserConnectionMediationRequest) error {
+	var err error
+
+	queries.SetScanner(&related.ConnectionID, nil)
+	if _, err = related.Update(ctx, exec, boil.Whitelist("connection_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.ConnectionUserConnectionMediationRequest = nil
+	}
+
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	related.R.Connection = nil
 
 	return nil
 }
