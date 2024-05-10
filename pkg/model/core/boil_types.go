@@ -96,154 +96,6 @@ func (e PostVisibility) Ordinal() int {
 	}
 }
 
-type ConnectionMediationDecision string
-
-// Enum values for ConnectionMediationDecision
-const (
-	ConnectionMediationDecisionSigned    ConnectionMediationDecision = "signed"
-	ConnectionMediationDecisionDismissed ConnectionMediationDecision = "dismissed"
-)
-
-func AllConnectionMediationDecision() []ConnectionMediationDecision {
-	return []ConnectionMediationDecision{
-		ConnectionMediationDecisionSigned,
-		ConnectionMediationDecisionDismissed,
-	}
-}
-
-func (e ConnectionMediationDecision) IsValid() error {
-	switch e {
-	case ConnectionMediationDecisionSigned, ConnectionMediationDecisionDismissed:
-		return nil
-	default:
-		return errors.New("enum is not valid")
-	}
-}
-
-func (e ConnectionMediationDecision) String() string {
-	return string(e)
-}
-
-func (e ConnectionMediationDecision) Ordinal() int {
-	switch e {
-	case ConnectionMediationDecisionSigned:
-		return 0
-	case ConnectionMediationDecisionDismissed:
-		return 1
-
-	default:
-		panic(errors.New("enum is not valid"))
-	}
-}
-
-// NullConnectionMediationDecision is a nullable ConnectionMediationDecision enum type. It supports SQL and JSON serialization.
-type NullConnectionMediationDecision struct {
-	Val   ConnectionMediationDecision
-	Valid bool
-}
-
-// NullConnectionMediationDecisionFrom creates a new ConnectionMediationDecision that will never be blank.
-func NullConnectionMediationDecisionFrom(v ConnectionMediationDecision) NullConnectionMediationDecision {
-	return NewNullConnectionMediationDecision(v, true)
-}
-
-// NullConnectionMediationDecisionFromPtr creates a new NullConnectionMediationDecision that be null if s is nil.
-func NullConnectionMediationDecisionFromPtr(v *ConnectionMediationDecision) NullConnectionMediationDecision {
-	if v == nil {
-		return NewNullConnectionMediationDecision("", false)
-	}
-	return NewNullConnectionMediationDecision(*v, true)
-}
-
-// NewNullConnectionMediationDecision creates a new NullConnectionMediationDecision
-func NewNullConnectionMediationDecision(v ConnectionMediationDecision, valid bool) NullConnectionMediationDecision {
-	return NullConnectionMediationDecision{
-		Val:   v,
-		Valid: valid,
-	}
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (e *NullConnectionMediationDecision) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(data, null.NullBytes) {
-		e.Val = ""
-		e.Valid = false
-		return nil
-	}
-
-	if err := json.Unmarshal(data, &e.Val); err != nil {
-		return err
-	}
-
-	e.Valid = true
-	return nil
-}
-
-// MarshalJSON implements json.Marshaler.
-func (e NullConnectionMediationDecision) MarshalJSON() ([]byte, error) {
-	if !e.Valid {
-		return null.NullBytes, nil
-	}
-	return json.Marshal(e.Val)
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (e NullConnectionMediationDecision) MarshalText() ([]byte, error) {
-	if !e.Valid {
-		return []byte{}, nil
-	}
-	return []byte(e.Val), nil
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (e *NullConnectionMediationDecision) UnmarshalText(text []byte) error {
-	if text == nil || len(text) == 0 {
-		e.Valid = false
-		return nil
-	}
-
-	e.Val = ConnectionMediationDecision(text)
-	e.Valid = true
-	return nil
-}
-
-// SetValid changes this NullConnectionMediationDecision value and also sets it to be non-null.
-func (e *NullConnectionMediationDecision) SetValid(v ConnectionMediationDecision) {
-	e.Val = v
-	e.Valid = true
-}
-
-// Ptr returns a pointer to this NullConnectionMediationDecision value, or a nil pointer if this NullConnectionMediationDecision is null.
-func (e NullConnectionMediationDecision) Ptr() *ConnectionMediationDecision {
-	if !e.Valid {
-		return nil
-	}
-	return &e.Val
-}
-
-// IsZero returns true for null types.
-func (e NullConnectionMediationDecision) IsZero() bool {
-	return !e.Valid
-}
-
-// Scan implements the Scanner interface.
-func (e *NullConnectionMediationDecision) Scan(value interface{}) error {
-	if value == nil {
-		e.Val, e.Valid = "", false
-		return nil
-	}
-	e.Valid = true
-	return convert.ConvertAssign((*string)(&e.Val), value)
-}
-
-// Value implements the driver Valuer interface.
-func (e NullConnectionMediationDecision) Value() (driver.Value, error) {
-	if !e.Valid {
-		return nil, nil
-	}
-	return string(e.Val), nil
-}
-
 type ConnectionRequestDecision string
 
 // Enum values for ConnectionRequestDecision
@@ -390,4 +242,44 @@ func (e NullConnectionRequestDecision) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(e.Val), nil
+}
+
+type ConnectionMediationDecision string
+
+// Enum values for ConnectionMediationDecision
+const (
+	ConnectionMediationDecisionSigned    ConnectionMediationDecision = "signed"
+	ConnectionMediationDecisionDismissed ConnectionMediationDecision = "dismissed"
+)
+
+func AllConnectionMediationDecision() []ConnectionMediationDecision {
+	return []ConnectionMediationDecision{
+		ConnectionMediationDecisionSigned,
+		ConnectionMediationDecisionDismissed,
+	}
+}
+
+func (e ConnectionMediationDecision) IsValid() error {
+	switch e {
+	case ConnectionMediationDecisionSigned, ConnectionMediationDecisionDismissed:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e ConnectionMediationDecision) String() string {
+	return string(e)
+}
+
+func (e ConnectionMediationDecision) Ordinal() int {
+	switch e {
+	case ConnectionMediationDecisionSigned:
+		return 0
+	case ConnectionMediationDecisionDismissed:
+		return 1
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
 }

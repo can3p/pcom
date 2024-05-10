@@ -24,114 +24,94 @@ import (
 
 // UserConnectionMediationRequest is an object representing the database table.
 type UserConnectionMediationRequest struct {
-	ID                string                          `boil:"id" json:"id" toml:"id" yaml:"id"`
-	WhoUserID         string                          `boil:"who_user_id" json:"who_user_id" toml:"who_user_id" yaml:"who_user_id"`
-	TargetUserID      string                          `boil:"target_user_id" json:"target_user_id" toml:"target_user_id" yaml:"target_user_id"`
-	MediatorUserID    string                          `boil:"mediator_user_id" json:"mediator_user_id" toml:"mediator_user_id" yaml:"mediator_user_id"`
-	MediatorDecision  NullConnectionMediationDecision `boil:"mediator_decision" json:"mediator_decision,omitempty" toml:"mediator_decision" yaml:"mediator_decision,omitempty"`
-	MediatorDecidedAt null.Time                       `boil:"mediator_decided_at" json:"mediator_decided_at,omitempty" toml:"mediator_decided_at" yaml:"mediator_decided_at,omitempty"`
-	MediatorNote      null.String                     `boil:"mediator_note" json:"mediator_note,omitempty" toml:"mediator_note" yaml:"mediator_note,omitempty"`
-	TargetDecision    NullConnectionRequestDecision   `boil:"target_decision" json:"target_decision,omitempty" toml:"target_decision" yaml:"target_decision,omitempty"`
-	TargetDecidedAt   null.Time                       `boil:"target_decided_at" json:"target_decided_at,omitempty" toml:"target_decided_at" yaml:"target_decided_at,omitempty"`
-	TargetNote        null.String                     `boil:"target_note" json:"target_note,omitempty" toml:"target_note" yaml:"target_note,omitempty"`
-	ConnectionID      null.String                     `boil:"connection_id" json:"connection_id,omitempty" toml:"connection_id" yaml:"connection_id,omitempty"`
-	CreatedAt         time.Time                       `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt         time.Time                       `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID              string                        `boil:"id" json:"id" toml:"id" yaml:"id"`
+	WhoUserID       string                        `boil:"who_user_id" json:"who_user_id" toml:"who_user_id" yaml:"who_user_id"`
+	TargetUserID    string                        `boil:"target_user_id" json:"target_user_id" toml:"target_user_id" yaml:"target_user_id"`
+	TargetDecision  NullConnectionRequestDecision `boil:"target_decision" json:"target_decision,omitempty" toml:"target_decision" yaml:"target_decision,omitempty"`
+	TargetDecidedAt null.Time                     `boil:"target_decided_at" json:"target_decided_at,omitempty" toml:"target_decided_at" yaml:"target_decided_at,omitempty"`
+	TargetNote      null.String                   `boil:"target_note" json:"target_note,omitempty" toml:"target_note" yaml:"target_note,omitempty"`
+	ConnectionID    null.String                   `boil:"connection_id" json:"connection_id,omitempty" toml:"connection_id" yaml:"connection_id,omitempty"`
+	CreatedAt       time.Time                     `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt       time.Time                     `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *userConnectionMediationRequestR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userConnectionMediationRequestL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var UserConnectionMediationRequestColumns = struct {
-	ID                string
-	WhoUserID         string
-	TargetUserID      string
-	MediatorUserID    string
-	MediatorDecision  string
-	MediatorDecidedAt string
-	MediatorNote      string
-	TargetDecision    string
-	TargetDecidedAt   string
-	TargetNote        string
-	ConnectionID      string
-	CreatedAt         string
-	UpdatedAt         string
+	ID              string
+	WhoUserID       string
+	TargetUserID    string
+	TargetDecision  string
+	TargetDecidedAt string
+	TargetNote      string
+	ConnectionID    string
+	CreatedAt       string
+	UpdatedAt       string
 }{
-	ID:                "id",
-	WhoUserID:         "who_user_id",
-	TargetUserID:      "target_user_id",
-	MediatorUserID:    "mediator_user_id",
-	MediatorDecision:  "mediator_decision",
-	MediatorDecidedAt: "mediator_decided_at",
-	MediatorNote:      "mediator_note",
-	TargetDecision:    "target_decision",
-	TargetDecidedAt:   "target_decided_at",
-	TargetNote:        "target_note",
-	ConnectionID:      "connection_id",
-	CreatedAt:         "created_at",
-	UpdatedAt:         "updated_at",
+	ID:              "id",
+	WhoUserID:       "who_user_id",
+	TargetUserID:    "target_user_id",
+	TargetDecision:  "target_decision",
+	TargetDecidedAt: "target_decided_at",
+	TargetNote:      "target_note",
+	ConnectionID:    "connection_id",
+	CreatedAt:       "created_at",
+	UpdatedAt:       "updated_at",
 }
 
 var UserConnectionMediationRequestTableColumns = struct {
-	ID                string
-	WhoUserID         string
-	TargetUserID      string
-	MediatorUserID    string
-	MediatorDecision  string
-	MediatorDecidedAt string
-	MediatorNote      string
-	TargetDecision    string
-	TargetDecidedAt   string
-	TargetNote        string
-	ConnectionID      string
-	CreatedAt         string
-	UpdatedAt         string
+	ID              string
+	WhoUserID       string
+	TargetUserID    string
+	TargetDecision  string
+	TargetDecidedAt string
+	TargetNote      string
+	ConnectionID    string
+	CreatedAt       string
+	UpdatedAt       string
 }{
-	ID:                "user_connection_mediation_requests.id",
-	WhoUserID:         "user_connection_mediation_requests.who_user_id",
-	TargetUserID:      "user_connection_mediation_requests.target_user_id",
-	MediatorUserID:    "user_connection_mediation_requests.mediator_user_id",
-	MediatorDecision:  "user_connection_mediation_requests.mediator_decision",
-	MediatorDecidedAt: "user_connection_mediation_requests.mediator_decided_at",
-	MediatorNote:      "user_connection_mediation_requests.mediator_note",
-	TargetDecision:    "user_connection_mediation_requests.target_decision",
-	TargetDecidedAt:   "user_connection_mediation_requests.target_decided_at",
-	TargetNote:        "user_connection_mediation_requests.target_note",
-	ConnectionID:      "user_connection_mediation_requests.connection_id",
-	CreatedAt:         "user_connection_mediation_requests.created_at",
-	UpdatedAt:         "user_connection_mediation_requests.updated_at",
+	ID:              "user_connection_mediation_requests.id",
+	WhoUserID:       "user_connection_mediation_requests.who_user_id",
+	TargetUserID:    "user_connection_mediation_requests.target_user_id",
+	TargetDecision:  "user_connection_mediation_requests.target_decision",
+	TargetDecidedAt: "user_connection_mediation_requests.target_decided_at",
+	TargetNote:      "user_connection_mediation_requests.target_note",
+	ConnectionID:    "user_connection_mediation_requests.connection_id",
+	CreatedAt:       "user_connection_mediation_requests.created_at",
+	UpdatedAt:       "user_connection_mediation_requests.updated_at",
 }
 
 // Generated where
 
-type whereHelperNullConnectionMediationDecision struct{ field string }
+type whereHelperNullConnectionRequestDecision struct{ field string }
 
-func (w whereHelperNullConnectionMediationDecision) EQ(x NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) EQ(x NullConnectionRequestDecision) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-func (w whereHelperNullConnectionMediationDecision) NEQ(x NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) NEQ(x NullConnectionRequestDecision) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-func (w whereHelperNullConnectionMediationDecision) LT(x NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) LT(x NullConnectionRequestDecision) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-func (w whereHelperNullConnectionMediationDecision) LTE(x NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) LTE(x NullConnectionRequestDecision) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-func (w whereHelperNullConnectionMediationDecision) GT(x NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) GT(x NullConnectionRequestDecision) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-func (w whereHelperNullConnectionMediationDecision) GTE(x NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) GTE(x NullConnectionRequestDecision) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
-func (w whereHelperNullConnectionMediationDecision) IN(slice []NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) IN(slice []NullConnectionRequestDecision) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
 		values = append(values, value)
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-func (w whereHelperNullConnectionMediationDecision) NIN(slice []NullConnectionMediationDecision) qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) NIN(slice []NullConnectionRequestDecision) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
 		values = append(values, value)
@@ -139,10 +119,10 @@ func (w whereHelperNullConnectionMediationDecision) NIN(slice []NullConnectionMe
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
-func (w whereHelperNullConnectionMediationDecision) IsNull() qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) IsNull() qm.QueryMod {
 	return qmhelper.WhereIsNull(w.field)
 }
-func (w whereHelperNullConnectionMediationDecision) IsNotNull() qm.QueryMod {
+func (w whereHelperNullConnectionRequestDecision) IsNotNull() qm.QueryMod {
 	return qmhelper.WhereIsNotNull(w.field)
 }
 
@@ -196,48 +176,6 @@ func (w whereHelpernull_String) NIN(slice []string) qm.QueryMod {
 func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
 func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
-type whereHelperNullConnectionRequestDecision struct{ field string }
-
-func (w whereHelperNullConnectionRequestDecision) EQ(x NullConnectionRequestDecision) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelperNullConnectionRequestDecision) NEQ(x NullConnectionRequestDecision) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelperNullConnectionRequestDecision) LT(x NullConnectionRequestDecision) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelperNullConnectionRequestDecision) LTE(x NullConnectionRequestDecision) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelperNullConnectionRequestDecision) GT(x NullConnectionRequestDecision) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelperNullConnectionRequestDecision) GTE(x NullConnectionRequestDecision) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-func (w whereHelperNullConnectionRequestDecision) IN(slice []NullConnectionRequestDecision) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperNullConnectionRequestDecision) NIN(slice []NullConnectionRequestDecision) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
-
-func (w whereHelperNullConnectionRequestDecision) IsNull() qm.QueryMod {
-	return qmhelper.WhereIsNull(w.field)
-}
-func (w whereHelperNullConnectionRequestDecision) IsNotNull() qm.QueryMod {
-	return qmhelper.WhereIsNotNull(w.field)
-}
-
 type whereHelpertime_Time struct{ field string }
 
 func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
@@ -260,54 +198,46 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 }
 
 var UserConnectionMediationRequestWhere = struct {
-	ID                whereHelperstring
-	WhoUserID         whereHelperstring
-	TargetUserID      whereHelperstring
-	MediatorUserID    whereHelperstring
-	MediatorDecision  whereHelperNullConnectionMediationDecision
-	MediatorDecidedAt whereHelpernull_Time
-	MediatorNote      whereHelpernull_String
-	TargetDecision    whereHelperNullConnectionRequestDecision
-	TargetDecidedAt   whereHelpernull_Time
-	TargetNote        whereHelpernull_String
-	ConnectionID      whereHelpernull_String
-	CreatedAt         whereHelpertime_Time
-	UpdatedAt         whereHelpertime_Time
+	ID              whereHelperstring
+	WhoUserID       whereHelperstring
+	TargetUserID    whereHelperstring
+	TargetDecision  whereHelperNullConnectionRequestDecision
+	TargetDecidedAt whereHelpernull_Time
+	TargetNote      whereHelpernull_String
+	ConnectionID    whereHelpernull_String
+	CreatedAt       whereHelpertime_Time
+	UpdatedAt       whereHelpertime_Time
 }{
-	ID:                whereHelperstring{field: "\"user_connection_mediation_requests\".\"id\""},
-	WhoUserID:         whereHelperstring{field: "\"user_connection_mediation_requests\".\"who_user_id\""},
-	TargetUserID:      whereHelperstring{field: "\"user_connection_mediation_requests\".\"target_user_id\""},
-	MediatorUserID:    whereHelperstring{field: "\"user_connection_mediation_requests\".\"mediator_user_id\""},
-	MediatorDecision:  whereHelperNullConnectionMediationDecision{field: "\"user_connection_mediation_requests\".\"mediator_decision\""},
-	MediatorDecidedAt: whereHelpernull_Time{field: "\"user_connection_mediation_requests\".\"mediator_decided_at\""},
-	MediatorNote:      whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"mediator_note\""},
-	TargetDecision:    whereHelperNullConnectionRequestDecision{field: "\"user_connection_mediation_requests\".\"target_decision\""},
-	TargetDecidedAt:   whereHelpernull_Time{field: "\"user_connection_mediation_requests\".\"target_decided_at\""},
-	TargetNote:        whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"target_note\""},
-	ConnectionID:      whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"connection_id\""},
-	CreatedAt:         whereHelpertime_Time{field: "\"user_connection_mediation_requests\".\"created_at\""},
-	UpdatedAt:         whereHelpertime_Time{field: "\"user_connection_mediation_requests\".\"updated_at\""},
+	ID:              whereHelperstring{field: "\"user_connection_mediation_requests\".\"id\""},
+	WhoUserID:       whereHelperstring{field: "\"user_connection_mediation_requests\".\"who_user_id\""},
+	TargetUserID:    whereHelperstring{field: "\"user_connection_mediation_requests\".\"target_user_id\""},
+	TargetDecision:  whereHelperNullConnectionRequestDecision{field: "\"user_connection_mediation_requests\".\"target_decision\""},
+	TargetDecidedAt: whereHelpernull_Time{field: "\"user_connection_mediation_requests\".\"target_decided_at\""},
+	TargetNote:      whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"target_note\""},
+	ConnectionID:    whereHelpernull_String{field: "\"user_connection_mediation_requests\".\"connection_id\""},
+	CreatedAt:       whereHelpertime_Time{field: "\"user_connection_mediation_requests\".\"created_at\""},
+	UpdatedAt:       whereHelpertime_Time{field: "\"user_connection_mediation_requests\".\"updated_at\""},
 }
 
 // UserConnectionMediationRequestRels is where relationship names are stored.
 var UserConnectionMediationRequestRels = struct {
-	Connection   string
-	MediatorUser string
-	TargetUser   string
-	WhoUser      string
+	Connection                       string
+	TargetUser                       string
+	WhoUser                          string
+	MediationUserConnectionMediators string
 }{
-	Connection:   "Connection",
-	MediatorUser: "MediatorUser",
-	TargetUser:   "TargetUser",
-	WhoUser:      "WhoUser",
+	Connection:                       "Connection",
+	TargetUser:                       "TargetUser",
+	WhoUser:                          "WhoUser",
+	MediationUserConnectionMediators: "MediationUserConnectionMediators",
 }
 
 // userConnectionMediationRequestR is where relationships are stored.
 type userConnectionMediationRequestR struct {
-	Connection   *UserConnection `boil:"Connection" json:"Connection" toml:"Connection" yaml:"Connection"`
-	MediatorUser *User           `boil:"MediatorUser" json:"MediatorUser" toml:"MediatorUser" yaml:"MediatorUser"`
-	TargetUser   *User           `boil:"TargetUser" json:"TargetUser" toml:"TargetUser" yaml:"TargetUser"`
-	WhoUser      *User           `boil:"WhoUser" json:"WhoUser" toml:"WhoUser" yaml:"WhoUser"`
+	Connection                       *UserConnection             `boil:"Connection" json:"Connection" toml:"Connection" yaml:"Connection"`
+	TargetUser                       *User                       `boil:"TargetUser" json:"TargetUser" toml:"TargetUser" yaml:"TargetUser"`
+	WhoUser                          *User                       `boil:"WhoUser" json:"WhoUser" toml:"WhoUser" yaml:"WhoUser"`
+	MediationUserConnectionMediators UserConnectionMediatorSlice `boil:"MediationUserConnectionMediators" json:"MediationUserConnectionMediators" toml:"MediationUserConnectionMediators" yaml:"MediationUserConnectionMediators"`
 }
 
 // NewStruct creates a new relationship struct
@@ -320,13 +250,6 @@ func (r *userConnectionMediationRequestR) GetConnection() *UserConnection {
 		return nil
 	}
 	return r.Connection
-}
-
-func (r *userConnectionMediationRequestR) GetMediatorUser() *User {
-	if r == nil {
-		return nil
-	}
-	return r.MediatorUser
 }
 
 func (r *userConnectionMediationRequestR) GetTargetUser() *User {
@@ -343,13 +266,20 @@ func (r *userConnectionMediationRequestR) GetWhoUser() *User {
 	return r.WhoUser
 }
 
+func (r *userConnectionMediationRequestR) GetMediationUserConnectionMediators() UserConnectionMediatorSlice {
+	if r == nil {
+		return nil
+	}
+	return r.MediationUserConnectionMediators
+}
+
 // userConnectionMediationRequestL is where Load methods for each relationship are stored.
 type userConnectionMediationRequestL struct{}
 
 var (
-	userConnectionMediationRequestAllColumns            = []string{"id", "who_user_id", "target_user_id", "mediator_user_id", "mediator_decision", "mediator_decided_at", "mediator_note", "target_decision", "target_decided_at", "target_note", "connection_id", "created_at", "updated_at"}
-	userConnectionMediationRequestColumnsWithoutDefault = []string{"id", "who_user_id", "target_user_id", "mediator_user_id", "created_at", "updated_at"}
-	userConnectionMediationRequestColumnsWithDefault    = []string{"mediator_decision", "mediator_decided_at", "mediator_note", "target_decision", "target_decided_at", "target_note", "connection_id"}
+	userConnectionMediationRequestAllColumns            = []string{"id", "who_user_id", "target_user_id", "target_decision", "target_decided_at", "target_note", "connection_id", "created_at", "updated_at"}
+	userConnectionMediationRequestColumnsWithoutDefault = []string{"id", "who_user_id", "target_user_id", "created_at", "updated_at"}
+	userConnectionMediationRequestColumnsWithDefault    = []string{"target_decision", "target_decided_at", "target_note", "connection_id"}
 	userConnectionMediationRequestPrimaryKeyColumns     = []string{"id"}
 	userConnectionMediationRequestGeneratedColumns      = []string{}
 )
@@ -496,17 +426,6 @@ func (o *UserConnectionMediationRequest) Connection(mods ...qm.QueryMod) userCon
 	return UserConnections(queryMods...)
 }
 
-// MediatorUser pointed to by the foreign key.
-func (o *UserConnectionMediationRequest) MediatorUser(mods ...qm.QueryMod) userQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.MediatorUserID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	return Users(queryMods...)
-}
-
 // TargetUser pointed to by the foreign key.
 func (o *UserConnectionMediationRequest) TargetUser(mods ...qm.QueryMod) userQuery {
 	queryMods := []qm.QueryMod{
@@ -527,6 +446,20 @@ func (o *UserConnectionMediationRequest) WhoUser(mods ...qm.QueryMod) userQuery 
 	queryMods = append(queryMods, mods...)
 
 	return Users(queryMods...)
+}
+
+// MediationUserConnectionMediators retrieves all the user_connection_mediator's UserConnectionMediators with an executor via mediation_id column.
+func (o *UserConnectionMediationRequest) MediationUserConnectionMediators(mods ...qm.QueryMod) userConnectionMediatorQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"user_connection_mediators\".\"mediation_id\"=?", o.ID),
+	)
+
+	return UserConnectionMediators(queryMods...)
 }
 
 // LoadConnection allows an eager lookup of values, cached into the
@@ -637,118 +570,6 @@ func (userConnectionMediationRequestL) LoadConnection(ctx context.Context, e boi
 					foreign.R = &userConnectionR{}
 				}
 				foreign.R.ConnectionUserConnectionMediationRequest = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// LoadMediatorUser allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (userConnectionMediationRequestL) LoadMediatorUser(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUserConnectionMediationRequest interface{}, mods queries.Applicator) error {
-	var slice []*UserConnectionMediationRequest
-	var object *UserConnectionMediationRequest
-
-	if singular {
-		var ok bool
-		object, ok = maybeUserConnectionMediationRequest.(*UserConnectionMediationRequest)
-		if !ok {
-			object = new(UserConnectionMediationRequest)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeUserConnectionMediationRequest)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUserConnectionMediationRequest))
-			}
-		}
-	} else {
-		s, ok := maybeUserConnectionMediationRequest.(*[]*UserConnectionMediationRequest)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeUserConnectionMediationRequest)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUserConnectionMediationRequest))
-			}
-		}
-	}
-
-	args := make(map[interface{}]struct{})
-	if singular {
-		if object.R == nil {
-			object.R = &userConnectionMediationRequestR{}
-		}
-		args[object.MediatorUserID] = struct{}{}
-
-	} else {
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &userConnectionMediationRequestR{}
-			}
-
-			args[obj.MediatorUserID] = struct{}{}
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	argsSlice := make([]interface{}, len(args))
-	i := 0
-	for arg := range args {
-		argsSlice[i] = arg
-		i++
-	}
-
-	query := NewQuery(
-		qm.From(`users`),
-		qm.WhereIn(`users.id in ?`, argsSlice...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load User")
-	}
-
-	var resultSlice []*User
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice User")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for users")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for users")
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.MediatorUser = foreign
-		if foreign.R == nil {
-			foreign.R = &userR{}
-		}
-		foreign.R.MediatorUserUserConnectionMediationRequests = append(foreign.R.MediatorUserUserConnectionMediationRequests, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.MediatorUserID == foreign.ID {
-				local.R.MediatorUser = foreign
-				if foreign.R == nil {
-					foreign.R = &userR{}
-				}
-				foreign.R.MediatorUserUserConnectionMediationRequests = append(foreign.R.MediatorUserUserConnectionMediationRequests, local)
 				break
 			}
 		}
@@ -981,6 +802,112 @@ func (userConnectionMediationRequestL) LoadWhoUser(ctx context.Context, e boil.C
 	return nil
 }
 
+// LoadMediationUserConnectionMediators allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userConnectionMediationRequestL) LoadMediationUserConnectionMediators(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUserConnectionMediationRequest interface{}, mods queries.Applicator) error {
+	var slice []*UserConnectionMediationRequest
+	var object *UserConnectionMediationRequest
+
+	if singular {
+		var ok bool
+		object, ok = maybeUserConnectionMediationRequest.(*UserConnectionMediationRequest)
+		if !ok {
+			object = new(UserConnectionMediationRequest)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUserConnectionMediationRequest)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUserConnectionMediationRequest))
+			}
+		}
+	} else {
+		s, ok := maybeUserConnectionMediationRequest.(*[]*UserConnectionMediationRequest)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUserConnectionMediationRequest)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUserConnectionMediationRequest))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userConnectionMediationRequestR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userConnectionMediationRequestR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`user_connection_mediators`),
+		qm.WhereIn(`user_connection_mediators.mediation_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load user_connection_mediators")
+	}
+
+	var resultSlice []*UserConnectionMediator
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice user_connection_mediators")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on user_connection_mediators")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for user_connection_mediators")
+	}
+
+	if singular {
+		object.R.MediationUserConnectionMediators = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &userConnectionMediatorR{}
+			}
+			foreign.R.Mediation = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.MediationID {
+				local.R.MediationUserConnectionMediators = append(local.R.MediationUserConnectionMediators, foreign)
+				if foreign.R == nil {
+					foreign.R = &userConnectionMediatorR{}
+				}
+				foreign.R.Mediation = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetConnectionP of the userConnectionMediationRequest to the related item.
 // Sets o.R.Connection to related.
 // Adds o to related.R.ConnectionUserConnectionMediationRequest.
@@ -1067,63 +994,6 @@ func (o *UserConnectionMediationRequest) RemoveConnection(ctx context.Context, e
 	}
 
 	related.R.ConnectionUserConnectionMediationRequest = nil
-	return nil
-}
-
-// SetMediatorUserP of the userConnectionMediationRequest to the related item.
-// Sets o.R.MediatorUser to related.
-// Adds o to related.R.MediatorUserUserConnectionMediationRequests.
-// Panics on error.
-func (o *UserConnectionMediationRequest) SetMediatorUserP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *User) {
-	if err := o.SetMediatorUser(ctx, exec, insert, related); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// SetMediatorUser of the userConnectionMediationRequest to the related item.
-// Sets o.R.MediatorUser to related.
-// Adds o to related.R.MediatorUserUserConnectionMediationRequests.
-func (o *UserConnectionMediationRequest) SetMediatorUser(ctx context.Context, exec boil.ContextExecutor, insert bool, related *User) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"user_connection_mediation_requests\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"mediator_user_id"}),
-		strmangle.WhereClause("\"", "\"", 2, userConnectionMediationRequestPrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, updateQuery)
-		fmt.Fprintln(writer, values)
-	}
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.MediatorUserID = related.ID
-	if o.R == nil {
-		o.R = &userConnectionMediationRequestR{
-			MediatorUser: related,
-		}
-	} else {
-		o.R.MediatorUser = related
-	}
-
-	if related.R == nil {
-		related.R = &userR{
-			MediatorUserUserConnectionMediationRequests: UserConnectionMediationRequestSlice{o},
-		}
-	} else {
-		related.R.MediatorUserUserConnectionMediationRequests = append(related.R.MediatorUserUserConnectionMediationRequests, o)
-	}
-
 	return nil
 }
 
@@ -1238,6 +1108,70 @@ func (o *UserConnectionMediationRequest) SetWhoUser(ctx context.Context, exec bo
 		related.R.WhoUserUserConnectionMediationRequests = append(related.R.WhoUserUserConnectionMediationRequests, o)
 	}
 
+	return nil
+}
+
+// AddMediationUserConnectionMediatorsP adds the given related objects to the existing relationships
+// of the user_connection_mediation_request, optionally inserting them as new records.
+// Appends related to o.R.MediationUserConnectionMediators.
+// Sets related.R.Mediation appropriately.
+// Panics on error.
+func (o *UserConnectionMediationRequest) AddMediationUserConnectionMediatorsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserConnectionMediator) {
+	if err := o.AddMediationUserConnectionMediators(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddMediationUserConnectionMediators adds the given related objects to the existing relationships
+// of the user_connection_mediation_request, optionally inserting them as new records.
+// Appends related to o.R.MediationUserConnectionMediators.
+// Sets related.R.Mediation appropriately.
+func (o *UserConnectionMediationRequest) AddMediationUserConnectionMediators(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserConnectionMediator) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.MediationID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"user_connection_mediators\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"mediation_id"}),
+				strmangle.WhereClause("\"", "\"", 2, userConnectionMediatorPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.MediationID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userConnectionMediationRequestR{
+			MediationUserConnectionMediators: related,
+		}
+	} else {
+		o.R.MediationUserConnectionMediators = append(o.R.MediationUserConnectionMediators, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &userConnectionMediatorR{
+				Mediation: o,
+			}
+		} else {
+			rel.R.Mediation = o
+		}
+	}
 	return nil
 }
 

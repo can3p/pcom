@@ -7,6 +7,7 @@ var TableNames = struct {
 	Posts                           string
 	SystemSettings                  string
 	UserConnectionMediationRequests string
+	UserConnectionMediators         string
 	UserConnections                 string
 	UserInvitations                 string
 	UserSignupRequests              string
@@ -16,6 +17,7 @@ var TableNames = struct {
 	Posts:                           "posts",
 	SystemSettings:                  "system_settings",
 	UserConnectionMediationRequests: "user_connection_mediation_requests",
+	UserConnectionMediators:         "user_connection_mediators",
 	UserConnections:                 "user_connections",
 	UserInvitations:                 "user_invitations",
 	UserSignupRequests:              "user_signup_requests",
