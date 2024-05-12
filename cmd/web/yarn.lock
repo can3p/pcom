@@ -1014,6 +1014,11 @@ last-call-webpack-plugin@^3.0.0:
     lodash "^4.17.5"
     webpack-sources "^1.1.0"
 
+lazysizes@^5.3.2:
+  version "5.3.2"
+  resolved "https://registry.yarnpkg.com/lazysizes/-/lazysizes-5.3.2.tgz#27f974c26f5fcc33e7db765c0f4930488c8a2984"
+  integrity sha512-22UzWP+Vedi/sMeOr8O7FWimRVtiNJV2HCa+V8+peZOw6QbswN9k58VUhd7i6iK5bw5QkYrF01LJbeJe0PV8jg==
+
 lilconfig@^2.0.3:
   version "2.0.6"
   resolved "https://registry.yarnpkg.com/lilconfig/-/lilconfig-2.0.6.tgz#32a384558bd58af3d4c6e077dd1ad1d397bc69d4"
@@ -1106,6 +1111,11 @@ minimatch@^3.1.1:
   integrity sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==
   dependencies:
     brace-expansion "^1.1.7"
+
+mousetrap@^1.6.5:
+  version "1.6.5"
+  resolved "https://registry.yarnpkg.com/mousetrap/-/mousetrap-1.6.5.tgz#8a766d8c272b08393d5f56074e0b5ec183485bf9"
+  integrity sha512-QNo4kEepaIBwiT8CDhP98umTetp+JNfQYBWvC1pc6/OAibuXtRcxZ58Qz8skvEHYvURne/7R8T5VoOI7rDsEUA==
 
 nanoid@^3.3.4:
   version "3.3.4"
@@ -1749,6 +1759,13 @@ terser@^5.14.1:
     acorn "^8.5.0"
     commander "^2.20.0"
     source-map-support "~0.5.20"
+
+textarea-markdown-editor@^1.0.4:
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/textarea-markdown-editor/-/textarea-markdown-editor-1.0.4.tgz#30e41f15ef3d7fe6be69fda19e7e1687d891e317"
+  integrity sha512-4uA8EZ0FkIL0dq89+xiA0BEo832/rKdtoi2T4Wab0wLZfHys82JE1i5YJf8BKAr/IQELF2NxQ5LITYkb8BGIFA==
+  dependencies:
+    mousetrap "^1.6.5"
 
 to-regex-range@^5.0.1:
   version "5.0.1"

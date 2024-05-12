@@ -11,3 +11,13 @@ blockquote {
   padding-left: 1em;
   font-style: italic;
 }
+
+.text-editor-toolbar {
+  gap: 5px;
+}
+
+.post-full img,
+.post-user-home img,
+.post-in-feed img {
+  width: 30%;
+}

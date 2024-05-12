@@ -5,13 +5,14 @@ import (
 	"net/http"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
 
-func setupActions(r *gin.RouterGroup, db *sqlx.DB) {
+func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer) {
 	r.POST("/remove_from_whitelist", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
@@ -183,6 +184,32 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB) {
 		}
 
 		reportSuccess(c)
+	})
+
+	r.POST("/upload_media", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		user := userData.User.DBUser
+		file, err := c.FormFile("file")
+
+		if err != nil {
+			panic(err)
+		}
+
+		f, err := file.Open()
+
+		if err != nil {
+			panic(err)
+		}
+
+		fname, err := media.HandleUpload(c, db, mediaServer, user.ID, f)
+
+		if err != nil {
+			panic(err)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"uploaded_url": fname,
+		})
 	})
 
 }

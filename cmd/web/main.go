@@ -22,12 +22,16 @@ import (
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
+	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/local"
+	"github.com/can3p/pcom/pkg/media/s3"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq" // postgres db driver
@@ -61,10 +65,15 @@ func main() {
 	flag.Parse()
 
 	shouldUseRealSender := util.InCluster() || forceRealSender
+	shouldUseS3 := util.InCluster()
 
 	enforceEnvVars(requiredVars)
 	if shouldUseRealSender {
 		enforceEnvVars(mailjet.RequiredEnv)
+	}
+
+	if shouldUseS3 {
+		enforceEnvVars(s3.RequiredEnv)
 	}
 
 	// fly.io does not have sslmode enabled
@@ -72,11 +81,28 @@ func main() {
 	defer db.Close()
 
 	var sender sender.Sender
+	var mediaServer media.MediaServer
 
 	if shouldUseRealSender {
 		sender = mailjet.NewSender()
 	} else {
 		sender = console.NewSender()
+	}
+
+	if shouldUseS3 {
+		var err error
+		mediaServer, err = s3.NewS3Server()
+
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		var err error
+		mediaServer, err = local.NewLocalServer("user_media")
+
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	sessionSalt := os.Getenv("SESSION_SALT")
@@ -88,6 +114,9 @@ func main() {
 
 	r := gin.Default()
 
+	staticAsset := loadStaticManifest()
+
+	r.MaxMultipartMemory = 8 << 20 // 8 MiB
 	r.Use(sessions.Sessions("sess", store))
 	r.Use(func(c *gin.Context) { auth.Auth(c, db) })
 
@@ -106,7 +135,7 @@ func main() {
 
 	flag.Parse()
 
-	r.SetFuncMap(funcmap())
+	r.SetFuncMap(funcmap(staticAsset))
 	r.LoadHTMLGlob(fmt.Sprintf("%s/*.html", *html))
 
 	r.GET("/", func(c *gin.Context) {
@@ -129,6 +158,34 @@ func main() {
 	} else {
 		r.Group("/static").Static("/", "dist")
 	}
+
+	r.GET("user-media/:fname", func(c *gin.Context) {
+		fname := c.Param("fname")
+
+		if fname == "" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		if fname == "robots.txt" {
+			c.String(http.StatusOK, "OK")
+			return
+		}
+
+		if fname == "favicon.ico" {
+			c.Redirect(http.StatusMovedPermanently, staticAsset("static/favicon.ico"))
+			return
+		}
+
+		content, contentLength, contentType, err := mediaServer.ServeFile(c, fname)
+
+		if err != nil {
+			panic(err)
+		}
+
+		c.Header("cache-control", "max-age=31536000, public")
+		c.DataFromReader(http.StatusOK, contentLength, contentType, content, nil)
+	})
 
 	r.GET("/invite/:id", func(c *gin.Context) {
 		invitationID := c.Param("id")
@@ -290,7 +347,7 @@ func main() {
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action")
 
-	setupActions(actions, db)
+	setupActions(actions, db, mediaServer)
 
 	controls.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -477,39 +534,27 @@ func main() {
 	}
 }
 
-func funcmap() template.FuncMap {
+func funcmap(staticAsset staticAssetFunc) template.FuncMap {
+	// the whole idea there is to keep only an identifier in the markdown
+	// source text and give us flexibility to serve the image from
+	// any source like cdn without touching saved text
+	mediaReplacer := func(inURL string) (bool, string) {
+		parts := strings.Split(inURL, ".")
+
+		if len(parts) != 2 {
+			return false, ""
+		}
+
+		if _, err := uuid.Parse(parts[0]); err != nil {
+			return false, ""
+		}
+
+		// all the checks are postponed till the actual call
+		return true, links.AbsLink("uploaded_media", inURL)
+	}
+
 	return template.FuncMap{
-		"static_asset": func() func(n string) string {
-			manifest, err := os.ReadFile("dist/manifest.json")
-
-			if err != nil {
-				panic(err)
-			}
-
-			files := map[string]string{}
-
-			err = json.Unmarshal(manifest, &files)
-
-			if err != nil {
-				panic(err)
-			}
-
-			return func(n string) string {
-				path, ok := files[n]
-
-				if !ok {
-					panic(fmt.Sprintf("asset [%s] is not defined", n))
-				}
-
-				prefix := staticRoute
-
-				//if util.InCluster() {
-				//prefix = staticRouteCluster
-				//}
-
-				return fmt.Sprintf("%s/%s", prefix, path)
-			}
-		}(),
+		"static_asset": staticAsset,
 
 		"link": links.Link,
 
@@ -543,7 +588,7 @@ func funcmap() template.FuncMap {
 		},
 
 		"markdown": func(s string) template.HTML {
-			return markdown.ToTemplate(s)
+			return markdown.ToEnrichedTemplate(s, mediaReplacer)
 		},
 
 		"tzlist": func() []string {
@@ -561,4 +606,38 @@ func localizeTime(user *core.User, t time.Time) time.Time {
 	}
 
 	return t.In(l)
+}
+
+type staticAssetFunc func(n string) string
+
+func loadStaticManifest() staticAssetFunc {
+	manifest, err := os.ReadFile("dist/manifest.json")
+
+	if err != nil {
+		panic(err)
+	}
+
+	files := map[string]string{}
+
+	err = json.Unmarshal(manifest, &files)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return func(n string) string {
+		path, ok := files[n]
+
+		if !ok {
+			panic(fmt.Sprintf("asset [%s] is not defined", n))
+		}
+
+		prefix := staticRoute
+
+		//if util.InCluster() {
+		//prefix = staticRouteCluster
+		//}
+
+		return fmt.Sprintf("%s/%s", prefix, path)
+	}
 }

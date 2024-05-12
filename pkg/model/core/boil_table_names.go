@@ -4,6 +4,7 @@
 package core
 
 var TableNames = struct {
+	MediaUploads                    string
 	Posts                           string
 	SystemSettings                  string
 	UserConnectionMediationRequests string
@@ -14,6 +15,7 @@ var TableNames = struct {
 	Users                           string
 	WhitelistedConnections          string
 }{
+	MediaUploads:                    "media_uploads",
 	Posts:                           "posts",
 	SystemSettings:                  "system_settings",
 	UserConnectionMediationRequests: "user_connection_mediation_requests",

@@ -12,7 +12,9 @@
     "bootstrap": "^5.3.2",
     "bootstrap-icons": "^1.11.3",
     "htmx.org": "^1.9.10",
-    "stimulus": "^3.2.0"
+    "lazysizes": "^5.3.2",
+    "stimulus": "^3.2.0",
+    "textarea-markdown-editor": "^1.0.4"
   },
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",

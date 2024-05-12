@@ -57,6 +57,10 @@ func Link(name string, args ...string) string {
 		out = "/controls/form/change_password"
 	case "form_whitelist_connection":
 		out = "/controls/form/whitelist_connection"
+	case "action":
+		out = "/controls/action/" + builder.Shift()
+	case "uploaded_media":
+		out = "/user-media/" + builder.Shift()
 	case "logout":
 		out = "/logout"
 	case "login":
