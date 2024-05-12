@@ -153,14 +153,20 @@ var PostWhere = struct {
 
 // PostRels is where relationship names are stored.
 var PostRels = struct {
-	User string
+	User         string
+	PostComments string
+	PostStats    string
 }{
-	User: "User",
+	User:         "User",
+	PostComments: "PostComments",
+	PostStats:    "PostStats",
 }
 
 // postR is where relationships are stored.
 type postR struct {
-	User *User `boil:"User" json:"User" toml:"User" yaml:"User"`
+	User         *User            `boil:"User" json:"User" toml:"User" yaml:"User"`
+	PostComments PostCommentSlice `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
+	PostStats    PostStatSlice    `boil:"PostStats" json:"PostStats" toml:"PostStats" yaml:"PostStats"`
 }
 
 // NewStruct creates a new relationship struct
@@ -173,6 +179,20 @@ func (r *postR) GetUser() *User {
 		return nil
 	}
 	return r.User
+}
+
+func (r *postR) GetPostComments() PostCommentSlice {
+	if r == nil {
+		return nil
+	}
+	return r.PostComments
+}
+
+func (r *postR) GetPostStats() PostStatSlice {
+	if r == nil {
+		return nil
+	}
+	return r.PostStats
 }
 
 // postL is where Load methods for each relationship are stored.
@@ -328,6 +348,34 @@ func (o *Post) User(mods ...qm.QueryMod) userQuery {
 	return Users(queryMods...)
 }
 
+// PostComments retrieves all the post_comment's PostComments with an executor.
+func (o *Post) PostComments(mods ...qm.QueryMod) postCommentQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"post_comments\".\"post_id\"=?", o.ID),
+	)
+
+	return PostComments(queryMods...)
+}
+
+// PostStats retrieves all the post_stat's PostStats with an executor.
+func (o *Post) PostStats(mods ...qm.QueryMod) postStatQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"post_stats\".\"post_id\"=?", o.ID),
+	)
+
+	return PostStats(queryMods...)
+}
+
 // LoadUser allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for an N-1 relationship.
 func (postL) LoadUser(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
@@ -440,6 +488,218 @@ func (postL) LoadUser(ctx context.Context, e boil.ContextExecutor, singular bool
 	return nil
 }
 
+// LoadPostComments allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (postL) LoadPostComments(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`post_comments`),
+		qm.WhereIn(`post_comments.post_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load post_comments")
+	}
+
+	var resultSlice []*PostComment
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice post_comments")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on post_comments")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_comments")
+	}
+
+	if singular {
+		object.R.PostComments = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &postCommentR{}
+			}
+			foreign.R.Post = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.PostID {
+				local.R.PostComments = append(local.R.PostComments, foreign)
+				if foreign.R == nil {
+					foreign.R = &postCommentR{}
+				}
+				foreign.R.Post = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadPostStats allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (postL) LoadPostStats(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`post_stats`),
+		qm.WhereIn(`post_stats.post_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load post_stats")
+	}
+
+	var resultSlice []*PostStat
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice post_stats")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on post_stats")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_stats")
+	}
+
+	if singular {
+		object.R.PostStats = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &postStatR{}
+			}
+			foreign.R.Post = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.PostID {
+				local.R.PostStats = append(local.R.PostStats, foreign)
+				if foreign.R == nil {
+					foreign.R = &postStatR{}
+				}
+				foreign.R.Post = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetUserP of the post to the related item.
 // Sets o.R.User to related.
 // Adds o to related.R.Posts.
@@ -494,6 +754,134 @@ func (o *Post) SetUser(ctx context.Context, exec boil.ContextExecutor, insert bo
 		related.R.Posts = append(related.R.Posts, o)
 	}
 
+	return nil
+}
+
+// AddPostCommentsP adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.PostComments.
+// Sets related.R.Post appropriately.
+// Panics on error.
+func (o *Post) AddPostCommentsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostComment) {
+	if err := o.AddPostComments(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddPostComments adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.PostComments.
+// Sets related.R.Post appropriately.
+func (o *Post) AddPostComments(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostComment) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PostID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"post_comments\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
+				strmangle.WhereClause("\"", "\"", 2, postCommentPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.PostID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &postR{
+			PostComments: related,
+		}
+	} else {
+		o.R.PostComments = append(o.R.PostComments, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &postCommentR{
+				Post: o,
+			}
+		} else {
+			rel.R.Post = o
+		}
+	}
+	return nil
+}
+
+// AddPostStatsP adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.PostStats.
+// Sets related.R.Post appropriately.
+// Panics on error.
+func (o *Post) AddPostStatsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostStat) {
+	if err := o.AddPostStats(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddPostStats adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.PostStats.
+// Sets related.R.Post appropriately.
+func (o *Post) AddPostStats(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostStat) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PostID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"post_stats\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
+				strmangle.WhereClause("\"", "\"", 2, postStatPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.PostID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &postR{
+			PostStats: related,
+		}
+	} else {
+		o.R.PostStats = append(o.R.PostStats, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &postStatR{
+				Post: o,
+			}
+		} else {
+			rel.R.Post = o
+		}
+	}
 	return nil
 }
 
