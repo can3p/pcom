@@ -1,3 +1,4 @@
 node_modules
 .env
 dist
+user_media
