@@ -11,6 +11,7 @@ export default class extends Controller {
   }
 
   connect() {
+    console.log("connect md editor")
     let textarea = this.element.querySelector("textarea")
     const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea, {
       options: {

@@ -49,6 +49,8 @@ func Link(name string, args ...string) string {
 		out = "/confirm_signup/" + builder.Shift()
 	case "form_new_post":
 		out = "/controls/form/new_post"
+	case "form_new_comment":
+		out = "/controls/form/new_comment"
 	case "form_save_settings":
 		out = "/controls/form/save_settings"
 	case "form_send_invite":

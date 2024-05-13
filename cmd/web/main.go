@@ -28,6 +28,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/util"
+	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -310,38 +311,14 @@ func main() {
 		userData := auth.GetUserData(c)
 		username := c.Param("username")
 
-		author, err := core.Users(
-			core.UserWhere.Username.EQ(username),
-		).One(c, db)
-
-		if err == sql.ErrNoRows {
-			c.Status(http.StatusNotFound)
-			return
-		} else if err != nil {
-			panic(err)
-		}
-
-		c.HTML(http.StatusOK, "user_home.html", web.UserHome(c, db, &userData, author))
+		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
 	})
 
 	r.GET("/posts/:id", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 
-		post, err := core.Posts(
-			core.PostWhere.ID.EQ(postID),
-			// proper access control should go there in order to read friends posts
-			core.PostWhere.UserID.EQ(userData.DBUser.ID),
-		).One(c, db)
-
-		if err == sql.ErrNoRows {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		} else if err != nil {
-			panic(err)
-		}
-
-		c.HTML(http.StatusOK, "single_post.html", web.SinglePost(c, db, &userData, post))
+		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID))
 	})
 
 	controls := r.Group("/controls", auth.EnforceAuth)
@@ -364,13 +341,13 @@ func main() {
 	controls.GET("/feed/direct", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		c.HTML(http.StatusOK, "feed.html", web.DirectFeed(c, db, &userData))
+		ginhelpers.HTML(c, "feed.html", web.DirectFeed(c, db, &userData))
 	})
 
 	controls.GET("/feed/explore", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		c.HTML(http.StatusOK, "feed.html", web.ExploreFeed(c, db, &userData))
+		ginhelpers.HTML(c, "feed.html", web.ExploreFeed(c, db, &userData))
 	})
 
 	controls.GET("/settings", func(c *gin.Context) {
@@ -507,6 +484,15 @@ func main() {
 		dbUser := userData.DBUser
 
 		form := forms.NewPostFormNew(dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
+	controls.POST("/form/new_comment", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		form := forms.NewCommentFormNew(dbUser)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})

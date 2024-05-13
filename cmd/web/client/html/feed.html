@@ -10,9 +10,24 @@
       {{ range .Posts }}
       <div class="mt-3">
         <div class="card">
-          <h5 class="card-header"><a href="{{ link "user" .R.User.Username }}">{{ .R.User.Username }}</a>  &#8594; <a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .CreatedAt.Time $.User.DBUser }}</h5>
+          <h5 class="card-header"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; <a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .CreatedAt.Time $.User.DBUser }}</h5>
           <div class="card-body">
             <div class="mt-3 post-in-feed">{{ markdown .Body }}</div>
+
+            {{ if .Capabilities.CanViewComments }}
+            <div class="text-center mt-2">
+              <a href="{{ link "post" .ID }}">
+              {{ if eq 0 .CommentsNumber }}
+                No Comments yet
+              {{ else if eq 1 .CommentsNumber }}
+                One comment
+              {{ else }}
+                {{ .CommentsNumber }} comments
+              {{ end }}
+              </a>
+            </div>
+            {{ end }}
+
           </div>
         </div>
       </div>

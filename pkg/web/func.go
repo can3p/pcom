@@ -2,12 +2,16 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -201,21 +205,56 @@ func Invite(c context.Context, db boil.ContextExecutor, invite *core.UserInvitat
 
 type SinglePostPage struct {
 	*BasePage
-	Author *core.User
-	Post   *core.Post
+	Post     *postops.Post
+	Comments []*postops.Comment
 }
 
-func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, post *core.Post) *SinglePostPage {
-	author := post.User().OneP(c, db)
+func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*SinglePostPage] {
+	post, err := core.Posts(
+		core.PostWhere.ID.EQ(postID),
+		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.PostStat),
+	).One(c, db)
+
+	if err == sql.ErrNoRows {
+		return mo.Err[*SinglePostPage](ginhelpers.ErrNotFound)
+	} else if err != nil {
+		return mo.Err[*SinglePostPage](err)
+	}
+
+	author := post.R.User
 	title := fmt.Sprintf("%s - %s", author.Username, post.Subject)
+
+	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
+
+	if err != nil {
+		return mo.Err[*SinglePostPage](err)
+	}
+
+	if connectionRadius.IsUnrelated() {
+		return mo.Err[*SinglePostPage](ginhelpers.ErrForbidden)
+	}
 
 	singlePostPage := &SinglePostPage{
 		BasePage: getBasePage(title, userData),
-		Author:   author,
-		Post:     post,
+		Post:     postops.ConstructPost(post, connectionRadius),
 	}
 
-	return singlePostPage
+	if singlePostPage.Post.Capabilities.CanViewComments {
+		rawComments, err := core.PostComments(
+			core.PostCommentWhere.PostID.EQ(post.ID),
+			qm.Load(core.PostCommentRels.User),
+			qm.OrderBy("? ASC", core.PostCommentColumns.CreatedAt)).All(c, db)
+
+		if err != nil {
+			return mo.Err[*SinglePostPage](err)
+		}
+
+		singlePostPage.Comments = postops.ConstructComments(rawComments, connectionRadius)
+
+	}
+
+	return mo.Ok(singlePostPage)
 }
 
 type UserHomePage struct {
@@ -224,36 +263,50 @@ type UserHomePage struct {
 	ConnectionRadius  userops.ConnectionRadius
 	ConnectionAllowed bool
 	MediationRequest  *core.UserConnectionMediationRequest
-	Posts             core.PostSlice
+	Posts             []*postops.Post
 }
 
-// TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData, author *core.User) *UserHomePage {
+func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData, authorUsername string) mo.Result[*UserHomePage] {
+	author, err := core.Users(
+		core.UserWhere.Username.EQ(authorUsername),
+	).One(ctx, db)
+
+	if err == sql.ErrNoRows {
+		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
+	} else if err != nil {
+		return mo.Err[*UserHomePage](err)
+	}
+
 	title := fmt.Sprintf("%s - Journal", author.Username)
 
 	connRadius, err := userops.GetConnectionRadius(ctx, db, userData.DBUser.ID, author.ID)
 
 	if err != nil {
-		panic(err)
+		return mo.Err[*UserHomePage](err)
 	}
 
-	var posts core.PostSlice
+	var posts []*postops.Post
 
 	if connRadius != userops.ConnectionRadiusUnknown {
 		m := []qm.QueryMod{
 			core.PostWhere.UserID.EQ(author.ID),
+			qm.Load(core.PostRels.User),
 			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.CreatedAt)),
 		}
 
 		if connRadius == userops.ConnectionRadiusSecondDegree {
 			m = append(m, core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree))
+		} else {
+			m = append(m, qm.Load(core.PostRels.PostStat))
 		}
 
-		posts, err = core.Posts(m...).All(ctx, db)
+		rawPosts, err := core.Posts(m...).All(ctx, db)
 
 		if err != nil {
-			panic(err)
+			return mo.Err[*UserHomePage](err)
 		}
+
+		posts = lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post { return postops.ConstructPost(p, connRadius) })
 	}
 
 	isConnectionAllowed, err := userops.IsConnectionAllowed(ctx, db, userData.DBUser.ID, author.ID)
@@ -276,12 +329,12 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		BasePage:          getBasePage(title, userData),
 		Author:            author,
 		ConnectionRadius:  connRadius,
-		Posts:             posts,
 		ConnectionAllowed: isConnectionAllowed,
 		MediationRequest:  mediationRequest,
+		Posts:             posts,
 	}
 
-	return userHomePage
+	return mo.Ok(userHomePage)
 }
 
 type FeedType int
@@ -293,7 +346,7 @@ const (
 
 type FeedPage struct {
 	*BasePage
-	Posts    core.PostSlice
+	Posts    []*postops.Post
 	FeedType FeedType
 }
 
@@ -302,50 +355,67 @@ func (fp *FeedPage) IsExplore() bool {
 }
 
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *FeedPage {
+func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
 	title := fmt.Sprintf("%s - Direct Feed", user.Username)
 
 	directUserIDs, err := userops.GetDirectUserIDs(ctx, db, user.ID)
 
 	if err != nil {
-		panic(err)
+		return mo.Err[*FeedPage](err)
+	}
+
+	posts, err := core.Posts(
+		core.PostWhere.UserID.IN(directUserIDs),
+		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.PostStat),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
+	).All(ctx, db)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
 	}
 
 	directFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
-		Posts: core.Posts(
-			core.PostWhere.UserID.IN(directUserIDs),
-			qm.Load(core.PostRels.User),
-			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
-		).AllP(ctx, db),
+		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
+			return postops.ConstructPost(p, userops.ConnectionRadiusDirect)
+		}),
 		FeedType: FeedTypeDirect,
 	}
 
-	return directFeedPage
+	return mo.Ok(directFeedPage)
 }
 
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *FeedPage {
+func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
 	title := fmt.Sprintf("%s - Explore Feed", user.Username)
 
 	_, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
 
 	if err != nil {
-		panic(err)
+		return mo.Err[*FeedPage](err)
+	}
+
+	posts, err := core.Posts(
+		core.PostWhere.UserID.IN(secondDegreeUserIDs),
+		core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree),
+		qm.Load(core.PostRels.User),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
+	).All(ctx, db)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
 	}
 
 	exploreFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
-		Posts: core.Posts(
-			core.PostWhere.UserID.IN(secondDegreeUserIDs),
-			core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree),
-			qm.Load(core.PostRels.User),
-			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
-		).AllP(ctx, db),
 		FeedType: FeedTypeExplore,
+		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
+			return postops.ConstructPost(p, userops.ConnectionRadiusSecondDegree)
+		}),
 	}
 
-	return exploreFeedPage
+	return mo.Ok(exploreFeedPage)
 }

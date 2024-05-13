@@ -1,11 +1,55 @@
 {{ template "header.html" . }}
 
+{{ with .Post }}
 <div class="container">
   <div class="row justify-content-md-center mt-4">
     <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; {{ .Post.Subject }}</h1>
 
-    <div class="mt-3 post-full">{{ markdown .Post.Body }}</div>
+    <div class="mt-3 post-full">{{ markdown .Body }}</div>
   </div>
+  {{ if .Capabilities.CanViewComments }}
+  <div class="text-center mt-2">
+    {{ if eq 0 .CommentsNumber }}
+      No Comments yet
+    {{ else if eq 1 .CommentsNumber }}
+      One comment
+    {{ else }}
+      {{ .CommentsNumber }} comments
+    {{ end }}
+
+
+    {{ if .Capabilities.CanLeaveComments }}
+      <a data-controller="toggle" href="#" data-toggle-target-value="#post{{ .ID }}"> Leave a comment</a>{{ end }}
+    {{ end }}
+  </div>
+
+  {{ if .Capabilities.CanLeaveComments }}
+    <div class="mt-2 collapse" id="post{{ .ID }}">
+      {{ template "form--comment.html" toMap "PostID" .ID }}
+    </div>
+  {{ end }}
+
+  {{ $canLeaveComments := .Capabilities.CanLeaveComments }}
+  {{ range $.Comments }}
+  <div class="mt-3 {{ if gt .Level 0 }}{{ if lt .Level 6 }}comment-{{ .Level }}{{ else }}comment-5{{ end }}{{ end }}">
+      <div class="card">
+        <h5 class="card-header">Level: {{ .Level }} <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> responded at {{ renderTimestamp .CreatedAt $.User.DBUser }}</h5>
+        <div class="card-body">
+          <div class="mt-3 post-user-home">{{ markdown .Body }}</div>
+
+          {{ if $canLeaveComments }}
+          <button class="btn btn-sm btn-primary" type="button" data-controller="toggle" data-toggle-hide-target-value="true" data-toggle-target-value="#comment-wrapper{{ .PostID }}{{ .ID }}">
+            Leave a comment
+          </button>
+          <div class="border p-3 collapse" id="comment-wrapper{{ .PostID }}{{ .ID }}">
+            {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID }}
+          </div>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+  {{ end }}
 </div>
+{{ end }}
 
 {{ template "footer.html" . }}

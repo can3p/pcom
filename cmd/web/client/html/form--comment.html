@@ -1,0 +1,40 @@
+<form
+      method="POST"
+      action="{{ link "form_new_comment" }}"
+      hx-post="{{ link "form_new_comment" }}"
+      hx-swap="outerHTML"
+      >
+
+  <input type="hidden" name="post_id" value="{{ .PostID }}" />
+  {{ if .ReplyTo }}
+  <input type="hidden" name="reply_to" value="{{ .ReplyTo }}" />
+  {{ end }}
+
+  <div class="mb-3"
+       data-controller="mdeditor"
+       data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
+    >
+    <label for="commentBody{{ .PostID }}{{ .ReplyTo }}" class="form-label">Your Comment</label>
+
+    <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
+      <i role="button" data-command="bold" class="bi bi-type-bold"></i>
+      <i role="button" data-command="italic" class="bi bi-type-italic"></i>
+      <i role="button" data-command="block-quotes" class="bi bi-quote"></i>
+      <i role="button" data-command="unordered-list" class="bi bi-list-ul"></i>
+      <i role="button" data-command="code-block" class="bi bi-code"></i>
+      <i role="button" data-command="link" class="bi bi-link-45deg"></i>
+      <div class="custom-file">
+        <label for="file_upload{{ .PostID }}{{ .ReplyTo }}"><i role="button" class="bi bi-camera"></i></label>
+        <input class="d-none" type="file" id="file_upload{{ .PostID }}{{ .ReplyTo }}" aria-label="Custom controls">
+      </div>
+    </div>
+
+    <textarea class="form-control" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+    {{ if (.Errors.HasError "body") }}
+    <div class="invalid-feedback">{{ .Errors.body }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary">Post a comment</button>
+  <button type="button" role="close" class="btn btn-secondary">Close</button>
+</form>
