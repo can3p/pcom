@@ -105,6 +105,10 @@ func ConstructComments(comments core.PostCommentSlice, radius userops.Connection
 	level := int64(0)
 
 	for {
+		if idx == len(activeSlice) && len(parkedSlices) == 0 {
+			break
+		}
+
 		comment := activeSlice[idx]
 		comment.Level = level
 		idx++
