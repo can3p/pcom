@@ -369,7 +369,7 @@ func (postStatL) LoadPost(ctx context.Context, e boil.ContextExecutor, singular 
 		if foreign.R == nil {
 			foreign.R = &postR{}
 		}
-		foreign.R.PostStats = append(foreign.R.PostStats, object)
+		foreign.R.PostStat = object
 		return nil
 	}
 
@@ -380,7 +380,7 @@ func (postStatL) LoadPost(ctx context.Context, e boil.ContextExecutor, singular 
 				if foreign.R == nil {
 					foreign.R = &postR{}
 				}
-				foreign.R.PostStats = append(foreign.R.PostStats, local)
+				foreign.R.PostStat = local
 				break
 			}
 		}
@@ -391,7 +391,7 @@ func (postStatL) LoadPost(ctx context.Context, e boil.ContextExecutor, singular 
 
 // SetPostP of the postStat to the related item.
 // Sets o.R.Post to related.
-// Adds o to related.R.PostStats.
+// Adds o to related.R.PostStat.
 // Panics on error.
 func (o *PostStat) SetPostP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Post) {
 	if err := o.SetPost(ctx, exec, insert, related); err != nil {
@@ -401,7 +401,7 @@ func (o *PostStat) SetPostP(ctx context.Context, exec boil.ContextExecutor, inse
 
 // SetPost of the postStat to the related item.
 // Sets o.R.Post to related.
-// Adds o to related.R.PostStats.
+// Adds o to related.R.PostStat.
 func (o *PostStat) SetPost(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Post) error {
 	var err error
 	if insert {
@@ -437,10 +437,10 @@ func (o *PostStat) SetPost(ctx context.Context, exec boil.ContextExecutor, inser
 
 	if related.R == nil {
 		related.R = &postR{
-			PostStats: PostStatSlice{o},
+			PostStat: o,
 		}
 	} else {
-		related.R.PostStats = append(related.R.PostStats, o)
+		related.R.PostStat = o
 	}
 
 	return nil
