@@ -25,6 +25,10 @@
                 {{ .CommentsNumber }} comments
               {{ end }}
               </a>
+
+              {{ if .Capabilities.CanEdit }}
+                <a href="{{ link "edit_post" .ID }}">Edit</a>
+              {{ end }}
             </div>
             {{ end }}
 

@@ -321,6 +321,13 @@ func main() {
 		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID))
 	})
 
+	r.GET("/posts/:id/edit", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		postID := c.Param("id")
+
+		ginhelpers.HTML(c, "edit_post.html", web.EditPost(c, db, &userData, postID))
+	})
+
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action")
 
@@ -484,6 +491,16 @@ func main() {
 		dbUser := userData.DBUser
 
 		form := forms.NewPostFormNew(dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
+	controls.POST("/form/edit_post/:id", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+		postID := c.Param("id")
+
+		form := forms.EditPostFormNew(dbUser, postID)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})

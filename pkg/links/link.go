@@ -27,6 +27,8 @@ func Link(name string, args ...string) string {
 		out = "/articles/terms_of_service"
 	case "post":
 		out = "/posts/" + builder.Shift()
+	case "edit_post":
+		out = "/posts/" + builder.Shift() + "/edit"
 	case "user":
 		out = "/users/" + builder.Shift()
 	case "article":
@@ -49,6 +51,8 @@ func Link(name string, args ...string) string {
 		out = "/confirm_signup/" + builder.Shift()
 	case "form_new_post":
 		out = "/controls/form/new_post"
+	case "form_edit_post":
+		out = "/controls/form/edit_post/" + builder.Shift()
 	case "form_new_comment":
 		out = "/controls/form/new_comment"
 	case "form_save_settings":

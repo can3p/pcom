@@ -17,6 +17,9 @@
       {{ .CommentsNumber }} comments
     {{ end }}
 
+    {{ if .Capabilities.CanEdit }}
+      <a href="{{ link "edit_post" .ID }}">Edit</a>
+    {{ end }}
 
     {{ if .Capabilities.CanLeaveComments }}
       <a data-controller="toggle" href="#" data-toggle-target-value="#post{{ .ID }}"> Leave a comment</a>{{ end }}

@@ -1,4 +1,4 @@
-package web
+package validation
 
 import (
 	"context"

@@ -1,7 +1,12 @@
 <form
       method="POST"
+      {{ if .PostID }}
+      action="{{ link "form_edit_post" .PostID }}"
+      hx-post="{{ link "form_edit_post" .PostID }}"
+      {{ else }}
       action="{{ link "form_new_post" }}"
       hx-post="{{ link "form_new_post" }}"
+      {{ end }}
       hx-swap="outerHTML"
       >
 
@@ -66,5 +71,5 @@
     {{ end }}
   </div>
 
-  <button type="submit" class="btn btn-primary w-100">Create Post</button>
+  <button type="submit" class="btn btn-primary w-100">{{ if .PostID }}Save Post{{ else }}Create Post{{ end }}</button>
 </form>

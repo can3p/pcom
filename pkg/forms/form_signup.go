@@ -12,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -48,7 +47,7 @@ func (f *SignupForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 
 	if f.Input.Email == "" {
 		f.AddError("email", "email is required")
-	} else if reason, isOK := web.EmailOKToSignup(c, db, f.Sender, email); !isOK {
+	} else if reason, isOK := validation.EmailOKToSignup(c, db, f.Sender, email); !isOK {
 		f.AddError("email", reason)
 	}
 
@@ -83,7 +82,7 @@ func (f *SignupForm) Save(c context.Context, exec boil.ContextExecutor) (forms.F
 
 	// we're not enforcing a specific enum of attributions
 	// since it's just additional work at the moment
-	if !web.AttributionRE.MatchString(attribution) {
+	if !validation.AttributionRE.MatchString(attribution) {
 		attribution = "unknown"
 	}
 

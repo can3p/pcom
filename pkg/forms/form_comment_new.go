@@ -64,7 +64,7 @@ func (f *NewCommentForm) Validate(c *gin.Context, db boil.ContextExecutor) error
 		return err
 	}
 
-	capabilities := postops.GetPostCapabilities(connRadius)
+	capabilities := postops.GetPostCapabilities(f.User.ID, post.UserID, connRadius)
 
 	if !capabilities.CanLeaveComments {
 		return ginhelpers.ErrForbidden

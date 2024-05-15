@@ -28,14 +28,16 @@ func (c *Comment) String() string {
 type PostCapabilities struct {
 	CanViewComments  bool
 	CanLeaveComments bool
+	CanEdit          bool
 }
 
-func GetPostCapabilities(radius userops.ConnectionRadius) *PostCapabilities {
+func GetPostCapabilities(userID string, authorID string, radius userops.ConnectionRadius) *PostCapabilities {
 	return &PostCapabilities{
 		// it can be different in the future, e.g. if the author disables
 		// new comments at some point
 		CanViewComments:  radius.IsDirect() || radius.IsSameUser(),
 		CanLeaveComments: radius.IsDirect() || radius.IsSameUser(),
+		CanEdit:          userID == authorID,
 	}
 }
 
@@ -47,7 +49,7 @@ type Post struct {
 	Comments       []*Comment
 }
 
-func ConstructPost(post *core.Post, radius userops.ConnectionRadius) *Post {
+func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius) *Post {
 	var commentsNum int64
 
 	if post.R.PostStat != nil {
@@ -58,7 +60,7 @@ func ConstructPost(post *core.Post, radius userops.ConnectionRadius) *Post {
 		Author:         post.R.User,
 		Post:           post,
 		CommentsNumber: commentsNum,
-		Capabilities:   GetPostCapabilities(radius),
+		Capabilities:   GetPostCapabilities(user.ID, post.R.User.ID, radius),
 	}
 }
 

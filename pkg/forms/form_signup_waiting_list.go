@@ -8,9 +8,9 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/admin"
+	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
@@ -46,7 +46,7 @@ func (f *SignupWaitingListForm) Validate(c *gin.Context, db boil.ContextExecutor
 
 	if f.Input.Email == "" {
 		f.AddError("email", "email is required")
-	} else if reason, isOK := web.EmailOKToAddToWaitingList(c, db, email); !isOK {
+	} else if reason, isOK := validation.EmailOKToAddToWaitingList(c, db, email); !isOK {
 		f.AddError("email", reason)
 	}
 

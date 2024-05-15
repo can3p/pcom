@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
@@ -237,7 +238,7 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 
 	singlePostPage := &SinglePostPage{
 		BasePage: getBasePage(title, userData),
-		Post:     postops.ConstructPost(post, connectionRadius),
+		Post:     postops.ConstructPost(userData.DBUser, post, connectionRadius),
 	}
 
 	if singlePostPage.Post.Capabilities.CanViewComments {
@@ -255,6 +256,53 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 	}
 
 	return mo.Ok(singlePostPage)
+}
+
+type EditPostPage struct {
+	*BasePage
+	PostID string
+	Input  forms.PostFormInput
+}
+
+func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
+	post, err := core.Posts(
+		core.PostWhere.ID.EQ(postID),
+		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.PostStat),
+	).One(c, db)
+
+	if err == sql.ErrNoRows {
+		return mo.Err[*EditPostPage](ginhelpers.ErrNotFound)
+	} else if err != nil {
+		return mo.Err[*EditPostPage](err)
+	}
+
+	author := post.R.User
+	title := fmt.Sprintf("%s - %s", author.Username, post.Subject)
+
+	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
+
+	if err != nil {
+		return mo.Err[*EditPostPage](err)
+	}
+
+	capabilities := postops.GetPostCapabilities(userData.DBUser.ID, post.UserID, connectionRadius)
+
+	if !capabilities.CanEdit {
+		return mo.Err[*EditPostPage](ginhelpers.ErrForbidden)
+	}
+
+	editPostPage := &EditPostPage{
+		BasePage: getBasePage(title, userData),
+		PostID:   post.ID,
+		Input: forms.PostFormInput{
+			Subject:    post.Subject,
+			Body:       post.Body,
+			Visibility: post.VisbilityRadius.String(),
+		},
+	}
+
+	return mo.Ok(editPostPage)
 }
 
 type UserHomePage struct {
@@ -306,7 +354,9 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 			return mo.Err[*UserHomePage](err)
 		}
 
-		posts = lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post { return postops.ConstructPost(p, connRadius) })
+		posts = lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post {
+			return postops.ConstructPost(userData.DBUser, p, connRadius)
+		})
 	}
 
 	isConnectionAllowed, err := userops.IsConnectionAllowed(ctx, db, userData.DBUser.ID, author.ID)
@@ -379,7 +429,7 @@ func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Use
 	directFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(p, userops.ConnectionRadiusDirect)
+			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusDirect)
 		}),
 		FeedType: FeedTypeDirect,
 	}
@@ -413,7 +463,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 		BasePage: getBasePage(title, userData),
 		FeedType: FeedTypeExplore,
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(p, userops.ConnectionRadiusSecondDegree)
+			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusSecondDegree)
 		}),
 	}
 

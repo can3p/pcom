@@ -64,14 +64,18 @@
               {{ if .Capabilities.CanViewComments }}
               <div class="text-center mt-2">
                 <a href="{{ link "post" .ID }}">
-                {{ if eq 0 .CommentsNumber }}
+                {{- if eq 0 .CommentsNumber -}}
                   No Comments yet
-                {{ else if eq 1 .CommentsNumber }}
+                {{- else if eq 1 .CommentsNumber -}}
                   One comment
-                {{ else }}
+                {{- else -}}
                   {{ .CommentsNumber }} comments
-                {{ end }}
+                {{- end -}}
                 </a>
+
+                {{ if .Capabilities.CanEdit }}
+                  <a href="{{ link "edit_post" .ID }}">Edit</a>
+                {{ end }}
               </div>
               {{ end }}
             </div>
