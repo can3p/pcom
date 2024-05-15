@@ -57,7 +57,7 @@
         {{ range .Posts }}
         <div class="mt-3">
           <div class="card">
-            <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .CreatedAt.Time $.User.DBUser }}</h5>
+            <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .PublishedAt $.User.DBUser }}</h5>
             <div class="card-body">
               <div class="mt-3 post-user-home">{{ markdown .Body }}</div>
 

@@ -3,6 +3,7 @@ package forms
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
@@ -126,6 +127,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		}
 
 		post.ID = postID.String()
+		post.PublishedAt = time.Now()
 
 		if err := post.Insert(c, exec, boil.Infer()); err != nil {
 			return nil, err

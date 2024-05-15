@@ -339,7 +339,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		m := []qm.QueryMod{
 			core.PostWhere.UserID.EQ(author.ID),
 			qm.Load(core.PostRels.User),
-			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.CreatedAt)),
+			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 		}
 
 		if connRadius == userops.ConnectionRadiusSecondDegree {
@@ -419,7 +419,7 @@ func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Use
 		core.PostWhere.UserID.IN(directUserIDs),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)
 
 	if err != nil {
@@ -452,7 +452,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 		core.PostWhere.UserID.IN(secondDegreeUserIDs),
 		core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree),
 		qm.Load(core.PostRels.User),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.ID)),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)
 
 	if err != nil {

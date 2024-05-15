@@ -31,6 +31,7 @@ type Post struct {
 	CreatedAt       null.Time      `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
 	UpdatedAt       null.Time      `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
 	VisbilityRadius PostVisibility `boil:"visbility_radius" json:"visbility_radius" toml:"visbility_radius" yaml:"visbility_radius"`
+	PublishedAt     time.Time      `boil:"published_at" json:"published_at" toml:"published_at" yaml:"published_at"`
 
 	R *postR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -44,6 +45,7 @@ var PostColumns = struct {
 	CreatedAt       string
 	UpdatedAt       string
 	VisbilityRadius string
+	PublishedAt     string
 }{
 	ID:              "id",
 	Subject:         "subject",
@@ -52,6 +54,7 @@ var PostColumns = struct {
 	CreatedAt:       "created_at",
 	UpdatedAt:       "updated_at",
 	VisbilityRadius: "visbility_radius",
+	PublishedAt:     "published_at",
 }
 
 var PostTableColumns = struct {
@@ -62,6 +65,7 @@ var PostTableColumns = struct {
 	CreatedAt       string
 	UpdatedAt       string
 	VisbilityRadius string
+	PublishedAt     string
 }{
 	ID:              "posts.id",
 	Subject:         "posts.subject",
@@ -70,6 +74,7 @@ var PostTableColumns = struct {
 	CreatedAt:       "posts.created_at",
 	UpdatedAt:       "posts.updated_at",
 	VisbilityRadius: "posts.visbility_radius",
+	PublishedAt:     "posts.published_at",
 }
 
 // Generated where
@@ -141,6 +146,7 @@ var PostWhere = struct {
 	CreatedAt       whereHelpernull_Time
 	UpdatedAt       whereHelpernull_Time
 	VisbilityRadius whereHelperPostVisibility
+	PublishedAt     whereHelpertime_Time
 }{
 	ID:              whereHelperstring{field: "\"posts\".\"id\""},
 	Subject:         whereHelperstring{field: "\"posts\".\"subject\""},
@@ -149,6 +155,7 @@ var PostWhere = struct {
 	CreatedAt:       whereHelpernull_Time{field: "\"posts\".\"created_at\""},
 	UpdatedAt:       whereHelpernull_Time{field: "\"posts\".\"updated_at\""},
 	VisbilityRadius: whereHelperPostVisibility{field: "\"posts\".\"visbility_radius\""},
+	PublishedAt:     whereHelpertime_Time{field: "\"posts\".\"published_at\""},
 }
 
 // PostRels is where relationship names are stored.
@@ -199,8 +206,8 @@ func (r *postR) GetPostComments() PostCommentSlice {
 type postL struct{}
 
 var (
-	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visbility_radius"}
-	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visbility_radius"}
+	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visbility_radius", "published_at"}
+	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visbility_radius", "published_at"}
 	postColumnsWithDefault    = []string{"created_at", "updated_at"}
 	postPrimaryKeyColumns     = []string{"id"}
 	postGeneratedColumns      = []string{}
