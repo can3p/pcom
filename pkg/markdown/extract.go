@@ -57,6 +57,20 @@ func (t *parsedText) ExtractLinks() []*EmbeddedLink {
 	return out
 }
 
+func (t *parsedText) ExtractImageUrls() []*EmbeddedLink {
+	out := []*EmbeddedLink{}
+
+	walkNode([]byte(t.s), t.node, 0, func(ch goldmarkAst.Node, onlySecondLevelChildElement bool) {
+		if l, ok := ch.(*goldmarkAst.Image); ok {
+			out = append(out, &EmbeddedLink{
+				URL: string(l.Destination),
+			})
+		}
+	})
+
+	return out
+}
+
 type visiter func(n goldmarkAst.Node, onlySecondLevelChildElement bool)
 
 func walkNode(source []byte, n goldmarkAst.Node, level int, visitNode visiter) {

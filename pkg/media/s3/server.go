@@ -7,9 +7,11 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/can3p/pcom/pkg/media"
 )
 
 type s3Server struct {
@@ -69,6 +71,12 @@ func (s3s *s3Server) ServeFile(ctx context.Context, fname string) (io.Reader, in
 	result, err := s3s.s3.GetObject(input)
 
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == s3.ErrCodeNoSuchKey {
+				return nil, 0, "", media.ErrNotFound
+			}
+		}
+
 		return nil, 0, "", err
 	}
 

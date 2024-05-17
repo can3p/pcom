@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
+
+	"github.com/can3p/pcom/pkg/media"
 )
 
 type localServer struct {
@@ -65,6 +68,10 @@ func (ls *localServer) ServeFile(ctx context.Context, fname string) (io.Reader, 
 	b, err := os.ReadFile(filePath)
 
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, 0, "", media.ErrNotFound
+		}
+
 		return nil, 0, "", err
 	}
 

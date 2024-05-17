@@ -2,24 +2,23 @@ package media
 
 import (
 	"context"
-	"database/sql"
 	"io"
 	"net/http"
 
-	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
+
+var ErrNotFound = errors.Errorf("Resource not found")
 
 type MediaServer interface {
 	UploadFile(ctx context.Context, fname string, b []byte, contentType string) error
 	ServeFile(ctx context.Context, fname string) (io.Reader, int64, string, error)
 }
 
-func HandleUpload(ctx context.Context, exec *sqlx.DB, media MediaServer, userID string, reader io.Reader) (string, error) {
+func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media MediaServer, userID string, reader io.Reader) (string, error) {
 	bytes, err := io.ReadAll(reader)
 
 	if err != nil {
@@ -46,21 +45,21 @@ func HandleUpload(ctx context.Context, exec *sqlx.DB, media MediaServer, userID 
 
 	fname := id.String() + ext
 
-	err = transact.Transact(exec, func(tx *sql.Tx) error {
-		// not used anywhere, just to track which users upload photos
-		mediaUpload := &core.MediaUpload{
-			ID:            id.String(),
-			UploadedFname: fname,
-			ContentType:   ftype,
-			UserID:        userID,
-		}
+	mediaUpload := &core.MediaUpload{
+		ID:            id.String(),
+		UploadedFname: fname,
+		ContentType:   ftype,
+		UserID:        userID,
+	}
 
-		mediaUpload.InsertP(ctx, tx, boil.Infer())
+	// we do actions inside and outside db in one go
+	// operation should be defened with transaction, but file storage
+	// part can still get corrupted
+	if err := mediaUpload.Insert(ctx, exec, boil.Infer()); err != nil {
+		return "", err
+	}
 
-		return media.UploadFile(ctx, fname, bytes, ftype)
-	})
-
-	if err != nil {
+	if err := media.UploadFile(ctx, fname, bytes, ftype); err != nil {
 		return "", err
 	}
 

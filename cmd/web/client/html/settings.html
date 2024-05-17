@@ -21,6 +21,30 @@
         </div>
       </div>
     </div>
+    <div class="col-lg-6">
+      <div class="card">
+        <h5 class="card-header">Import/Export</h5>
+        <div class="card-body">
+          <p class="card-text">You can always get your posts out of the system and bring them back to another account if you like. Please note that we're not doing deduplication</p>
+          <div id="import_export_results"></div>
+          <form class="d-inline" hx-boost="false" method="POST" action="{{ link "action" "settings/export" }}">
+            <button type="submit" class="btn btn-primary">Export posts</button>
+          </form>
+          <form class="d-inline"
+            method="POST"
+            hx-post="{{ link "action" "settings/import" }}"
+            hx-trigger="input from #import_file"
+            hx-encoding='multipart/form-data'
+            hx-swap="innerHTML"
+            hx-target="#import_export_results"
+            action="{{ link "action" "settings/import" }}"
+            >
+            <label for="import_file" class="btn btn-warning">Import posts</label>
+            <input type="file" name="file" id="import_file" class="d-none" />
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 
 
