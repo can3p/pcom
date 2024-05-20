@@ -113,10 +113,10 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	body := strings.TrimSpace(f.Input.Body)
 
 	post := &core.Post{
-		Subject:         subject,
-		Body:            body,
-		UserID:          f.User.ID,
-		VisbilityRadius: core.PostVisibility(f.Input.Visibility),
+		Subject:          subject,
+		Body:             body,
+		UserID:           f.User.ID,
+		VisibilityRadius: core.PostVisibility(f.Input.Visibility),
 	}
 
 	if f.PostID == "" {

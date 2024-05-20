@@ -84,7 +84,7 @@ func DeserializePost(b []byte) (*core.Post, error) {
 				return nil, errors.Errorf("Invalid visibility value, possible values are: %s", strings.Join(allVis, ", "))
 			}
 
-			post.VisbilityRadius = vis
+			post.VisibilityRadius = vis
 		case string(PublishDate):
 			d, err := time.Parse(time.RFC3339, value)
 

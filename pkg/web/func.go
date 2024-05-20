@@ -298,7 +298,7 @@ func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 		Input: forms.PostFormInput{
 			Subject:    post.Subject,
 			Body:       post.Body,
-			Visibility: post.VisbilityRadius.String(),
+			Visibility: post.VisibilityRadius.String(),
 		},
 	}
 
@@ -343,7 +343,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		}
 
 		if connRadius == userops.ConnectionRadiusSecondDegree {
-			m = append(m, core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree))
+			m = append(m, core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree))
 		} else {
 			m = append(m, qm.Load(core.PostRels.PostStat))
 		}
@@ -450,7 +450,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 
 	posts, err := core.Posts(
 		core.PostWhere.UserID.IN(secondDegreeUserIDs),
-		core.PostWhere.VisbilityRadius.EQ(core.PostVisibilitySecondDegree),
+		core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
 		qm.Load(core.PostRels.User),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)

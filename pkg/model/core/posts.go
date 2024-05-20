@@ -24,57 +24,57 @@ import (
 
 // Post is an object representing the database table.
 type Post struct {
-	ID              string         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Subject         string         `boil:"subject" json:"subject" toml:"subject" yaml:"subject"`
-	Body            string         `boil:"body" json:"body" toml:"body" yaml:"body"`
-	UserID          string         `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	CreatedAt       null.Time      `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
-	UpdatedAt       null.Time      `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
-	VisbilityRadius PostVisibility `boil:"visbility_radius" json:"visbility_radius" toml:"visbility_radius" yaml:"visbility_radius"`
-	PublishedAt     time.Time      `boil:"published_at" json:"published_at" toml:"published_at" yaml:"published_at"`
+	ID               string         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Subject          string         `boil:"subject" json:"subject" toml:"subject" yaml:"subject"`
+	Body             string         `boil:"body" json:"body" toml:"body" yaml:"body"`
+	UserID           string         `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	CreatedAt        null.Time      `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
+	UpdatedAt        null.Time      `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
+	VisibilityRadius PostVisibility `boil:"visibility_radius" json:"visibility_radius" toml:"visibility_radius" yaml:"visibility_radius"`
+	PublishedAt      time.Time      `boil:"published_at" json:"published_at" toml:"published_at" yaml:"published_at"`
 
 	R *postR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PostColumns = struct {
-	ID              string
-	Subject         string
-	Body            string
-	UserID          string
-	CreatedAt       string
-	UpdatedAt       string
-	VisbilityRadius string
-	PublishedAt     string
+	ID               string
+	Subject          string
+	Body             string
+	UserID           string
+	CreatedAt        string
+	UpdatedAt        string
+	VisibilityRadius string
+	PublishedAt      string
 }{
-	ID:              "id",
-	Subject:         "subject",
-	Body:            "body",
-	UserID:          "user_id",
-	CreatedAt:       "created_at",
-	UpdatedAt:       "updated_at",
-	VisbilityRadius: "visbility_radius",
-	PublishedAt:     "published_at",
+	ID:               "id",
+	Subject:          "subject",
+	Body:             "body",
+	UserID:           "user_id",
+	CreatedAt:        "created_at",
+	UpdatedAt:        "updated_at",
+	VisibilityRadius: "visibility_radius",
+	PublishedAt:      "published_at",
 }
 
 var PostTableColumns = struct {
-	ID              string
-	Subject         string
-	Body            string
-	UserID          string
-	CreatedAt       string
-	UpdatedAt       string
-	VisbilityRadius string
-	PublishedAt     string
+	ID               string
+	Subject          string
+	Body             string
+	UserID           string
+	CreatedAt        string
+	UpdatedAt        string
+	VisibilityRadius string
+	PublishedAt      string
 }{
-	ID:              "posts.id",
-	Subject:         "posts.subject",
-	Body:            "posts.body",
-	UserID:          "posts.user_id",
-	CreatedAt:       "posts.created_at",
-	UpdatedAt:       "posts.updated_at",
-	VisbilityRadius: "posts.visbility_radius",
-	PublishedAt:     "posts.published_at",
+	ID:               "posts.id",
+	Subject:          "posts.subject",
+	Body:             "posts.body",
+	UserID:           "posts.user_id",
+	CreatedAt:        "posts.created_at",
+	UpdatedAt:        "posts.updated_at",
+	VisibilityRadius: "posts.visibility_radius",
+	PublishedAt:      "posts.published_at",
 }
 
 // Generated where
@@ -139,23 +139,23 @@ func (w whereHelperPostVisibility) NIN(slice []PostVisibility) qm.QueryMod {
 }
 
 var PostWhere = struct {
-	ID              whereHelperstring
-	Subject         whereHelperstring
-	Body            whereHelperstring
-	UserID          whereHelperstring
-	CreatedAt       whereHelpernull_Time
-	UpdatedAt       whereHelpernull_Time
-	VisbilityRadius whereHelperPostVisibility
-	PublishedAt     whereHelpertime_Time
+	ID               whereHelperstring
+	Subject          whereHelperstring
+	Body             whereHelperstring
+	UserID           whereHelperstring
+	CreatedAt        whereHelpernull_Time
+	UpdatedAt        whereHelpernull_Time
+	VisibilityRadius whereHelperPostVisibility
+	PublishedAt      whereHelpertime_Time
 }{
-	ID:              whereHelperstring{field: "\"posts\".\"id\""},
-	Subject:         whereHelperstring{field: "\"posts\".\"subject\""},
-	Body:            whereHelperstring{field: "\"posts\".\"body\""},
-	UserID:          whereHelperstring{field: "\"posts\".\"user_id\""},
-	CreatedAt:       whereHelpernull_Time{field: "\"posts\".\"created_at\""},
-	UpdatedAt:       whereHelpernull_Time{field: "\"posts\".\"updated_at\""},
-	VisbilityRadius: whereHelperPostVisibility{field: "\"posts\".\"visbility_radius\""},
-	PublishedAt:     whereHelpertime_Time{field: "\"posts\".\"published_at\""},
+	ID:               whereHelperstring{field: "\"posts\".\"id\""},
+	Subject:          whereHelperstring{field: "\"posts\".\"subject\""},
+	Body:             whereHelperstring{field: "\"posts\".\"body\""},
+	UserID:           whereHelperstring{field: "\"posts\".\"user_id\""},
+	CreatedAt:        whereHelpernull_Time{field: "\"posts\".\"created_at\""},
+	UpdatedAt:        whereHelpernull_Time{field: "\"posts\".\"updated_at\""},
+	VisibilityRadius: whereHelperPostVisibility{field: "\"posts\".\"visibility_radius\""},
+	PublishedAt:      whereHelpertime_Time{field: "\"posts\".\"published_at\""},
 }
 
 // PostRels is where relationship names are stored.
@@ -206,8 +206,8 @@ func (r *postR) GetPostComments() PostCommentSlice {
 type postL struct{}
 
 var (
-	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visbility_radius", "published_at"}
-	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visbility_radius", "published_at"}
+	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at"}
+	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visibility_radius", "published_at"}
 	postColumnsWithDefault    = []string{"created_at", "updated_at"}
 	postPrimaryKeyColumns     = []string{"id"}
 	postGeneratedColumns      = []string{}

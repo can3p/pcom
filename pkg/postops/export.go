@@ -30,7 +30,7 @@ func SerializePost(post *core.Post) []byte {
 
 	buf.WriteString(fmt.Sprintf("%s: %s\n", OriginalID, post.ID))
 	buf.WriteString(fmt.Sprintf("%s: %s\n", Subject, post.Subject))
-	buf.WriteString(fmt.Sprintf("%s: %s\n", Visibility, post.VisbilityRadius.String()))
+	buf.WriteString(fmt.Sprintf("%s: %s\n", Visibility, post.VisibilityRadius.String()))
 	buf.WriteString(fmt.Sprintf("%s: %s\n", PublishDate, post.PublishedAt.Format(time.RFC3339)))
 
 	buf.WriteString(fmt.Sprintf("\n%s", post.Body))

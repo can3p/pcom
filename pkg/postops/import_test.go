@@ -18,11 +18,11 @@ that spans
 few lines`
 
 	initial := &core.Post{
-		ID:              uuid.NewString(),
-		Subject:         "test subject",
-		Body:            md,
-		PublishedAt:     time.Now().Round(time.Second),
-		VisbilityRadius: core.PostVisibilityDirectOnly,
+		ID:               uuid.NewString(),
+		Subject:          "test subject",
+		Body:             md,
+		PublishedAt:      time.Now().Round(time.Second),
+		VisibilityRadius: core.PostVisibilityDirectOnly,
 	}
 
 	b := SerializePost(initial)
