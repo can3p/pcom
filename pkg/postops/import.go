@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -92,7 +93,7 @@ func DeserializePost(b []byte) (*core.Post, error) {
 				return nil, errors.Wrapf(err, "invalid publish date")
 			}
 
-			post.PublishedAt = d
+			post.PublishedAt = null.TimeFrom(d)
 		default:
 			return nil, errors.Errorf("Unknown header: %s", name)
 		}
@@ -230,8 +231,8 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaServer
 			}
 
 			p.ID = id.String()
-			// change whenever drafts are introduced
-			p.PublishedAt = n
+			// null published at means a draft
+			p.PublishedAt = null.TimeFrom(n)
 		}
 
 		p.Body = markdown.ReplaceImageUrls(p.Body, renameMap, existingMap)

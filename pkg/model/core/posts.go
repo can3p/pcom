@@ -31,7 +31,7 @@ type Post struct {
 	CreatedAt        null.Time      `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
 	UpdatedAt        null.Time      `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
 	VisibilityRadius PostVisibility `boil:"visibility_radius" json:"visibility_radius" toml:"visibility_radius" yaml:"visibility_radius"`
-	PublishedAt      time.Time      `boil:"published_at" json:"published_at" toml:"published_at" yaml:"published_at"`
+	PublishedAt      null.Time      `boil:"published_at" json:"published_at,omitempty" toml:"published_at" yaml:"published_at,omitempty"`
 
 	R *postR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -146,7 +146,7 @@ var PostWhere = struct {
 	CreatedAt        whereHelpernull_Time
 	UpdatedAt        whereHelpernull_Time
 	VisibilityRadius whereHelperPostVisibility
-	PublishedAt      whereHelpertime_Time
+	PublishedAt      whereHelpernull_Time
 }{
 	ID:               whereHelperstring{field: "\"posts\".\"id\""},
 	Subject:          whereHelperstring{field: "\"posts\".\"subject\""},
@@ -155,7 +155,7 @@ var PostWhere = struct {
 	CreatedAt:        whereHelpernull_Time{field: "\"posts\".\"created_at\""},
 	UpdatedAt:        whereHelpernull_Time{field: "\"posts\".\"updated_at\""},
 	VisibilityRadius: whereHelperPostVisibility{field: "\"posts\".\"visibility_radius\""},
-	PublishedAt:      whereHelpertime_Time{field: "\"posts\".\"published_at\""},
+	PublishedAt:      whereHelpernull_Time{field: "\"posts\".\"published_at\""},
 }
 
 // PostRels is where relationship names are stored.
@@ -207,8 +207,8 @@ type postL struct{}
 
 var (
 	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at"}
-	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visibility_radius", "published_at"}
-	postColumnsWithDefault    = []string{"created_at", "updated_at"}
+	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visibility_radius"}
+	postColumnsWithDefault    = []string{"created_at", "updated_at", "published_at"}
 	postPrimaryKeyColumns     = []string{"id"}
 	postGeneratedColumns      = []string{}
 )

@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -127,7 +128,8 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		}
 
 		post.ID = postID.String()
-		post.PublishedAt = time.Now()
+		// not null value means a published post
+		post.PublishedAt = null.TimeFrom(time.Now())
 
 		if err := post.Insert(c, exec, boil.Infer()); err != nil {
 			return nil, err

@@ -8,6 +8,7 @@ import (
 	"github.com/alecthomas/assert/v2"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
+	"github.com/volatiletech/null/v8"
 )
 
 func TestExportImport(t *testing.T) {
@@ -21,7 +22,7 @@ few lines`
 		ID:               uuid.NewString(),
 		Subject:          "test subject",
 		Body:             md,
-		PublishedAt:      time.Now().Round(time.Second),
+		PublishedAt:      null.TimeFrom(time.Now().Round(time.Second)),
 		VisibilityRadius: core.PostVisibilityDirectOnly,
 	}
 
