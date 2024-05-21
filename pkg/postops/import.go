@@ -235,7 +235,7 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaServer
 			p.PublishedAt = null.TimeFrom(n)
 		}
 
-		p.Body = markdown.ReplaceImageUrls(p.Body, renameMap, existingMap)
+		p.Body = markdown.ReplaceImageUrls(p.Body, markdown.ImportReplacer(renameMap, existingMap))
 		p.UserID = userID
 
 		if insertPost {

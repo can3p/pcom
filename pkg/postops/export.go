@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 type ExportField string
@@ -48,10 +49,14 @@ func isURLMediaUpload(url string) bool {
 	return err == nil
 }
 
-func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaServer media.MediaServer, userID string) ([]byte, error) {
-	posts, err := core.Posts(
+func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaServer media.MediaServer, userID string, m ...qm.QueryMod) ([]byte, error) {
+	mod := []qm.QueryMod{
 		core.PostWhere.UserID.EQ(userID),
-	).All(ctx, exec)
+	}
+
+	mod = append(mod, m...)
+
+	posts, err := core.Posts(mod...).All(ctx, exec)
 
 	if err != nil {
 		return nil, err

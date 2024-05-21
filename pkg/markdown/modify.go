@@ -14,8 +14,7 @@ import (
 )
 
 type imgReplaceTransformer struct {
-	RenameMap   map[string]string
-	ExistingMap map[string]struct{}
+	Replacer replacer
 }
 
 func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
@@ -30,15 +29,10 @@ func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader
 		if node.Kind() == ast.KindImage {
 			imgNode := node.(*ast.Image)
 
-			destRaw := string(imgNode.Destination)
-			dest := strings.ToLower(destRaw)
+			shouldReplace, newValue := t.Replacer(string(imgNode.Destination))
 
-			// all this dance is only to make sure wrong case does not fool us
-			// to treat an existing image as a new one
-			if _, ok := t.ExistingMap[dest]; ok && dest != destRaw {
-				imgNode.Destination = []byte(dest)
-			} else if newName, ok := t.RenameMap[dest]; ok {
-				imgNode.Destination = []byte(newName)
+			if shouldReplace {
+				imgNode.Destination = []byte(newValue)
 			}
 		}
 
@@ -62,10 +56,9 @@ func NewModifier(t parser.ASTTransformer) goldmark.Markdown {
 	return gm
 }
 
-func ReplaceImageUrls(md string, renameMap map[string]string, existingMap map[string]struct{}) string {
+func ReplaceImageUrls(md string, replace replacer) string {
 	t := &imgReplaceTransformer{
-		RenameMap:   renameMap,
-		ExistingMap: existingMap,
+		Replacer: replace,
 	}
 
 	gm := NewModifier(t) // Output buffer
@@ -80,4 +73,21 @@ func ReplaceImageUrls(md string, renameMap map[string]string, existingMap map[st
 
 	return strings.TrimSpace(buf.String())
 
+}
+
+func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) replacer {
+	return func(in string) (bool, string) {
+		destRaw := in
+		dest := strings.ToLower(destRaw)
+
+		// all this dance is only to make sure wrong case does not fool us
+		// to treat an existing image as a new one
+		if _, ok := existingMap[dest]; ok && dest != destRaw {
+			return true, dest
+		} else if newName, ok := renameMap[dest]; ok {
+			return true, newName
+		}
+
+		return false, in
+	}
 }

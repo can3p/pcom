@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -27,6 +28,7 @@ import (
 	"github.com/can3p/pcom/pkg/media/s3"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
@@ -321,6 +323,56 @@ func main() {
 		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID))
 	})
 
+	r.GET("/posts/:id/md", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		postID := c.Param("id")
+
+		post := web.SinglePost(c, db, &userData, postID)
+
+		if post.IsError() {
+			ginhelpers.HTML(c, "single_post.html", post)
+		}
+
+		c.Header("Content-Type", "text/plain")
+
+		dbPost := post.MustGet().Post.Post
+
+		dbPost.Body = markdown.ReplaceImageUrls(dbPost.Body, mediaReplacer)
+
+		serialized := postops.SerializePost(dbPost)
+		c.String(http.StatusOK, string(serialized))
+	})
+
+	r.GET("/posts/:id/zip", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		user := userData.DBUser
+		postID := c.Param("id")
+
+		post := web.SinglePost(c, db, &userData, postID)
+
+		if post.IsError() {
+			ginhelpers.HTML(c, "single_post.html", post)
+		}
+
+		b, err := postops.SerializeBlog(c, db, mediaServer, user.ID, core.PostWhere.ID.EQ(postID))
+
+		if err != nil {
+			panic(err)
+		}
+
+		fname := fmt.Sprintf("export_%s_%s.zip", user.Username, time.Now().Format(time.RFC3339))
+		contentLength := int64(len(b))
+		contentType := "application/zip"
+
+		reader := bytes.NewReader(b)
+
+		extraHeaders := map[string]string{
+			"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fname),
+		}
+
+		c.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
+	})
+
 	r.GET("/posts/:id/edit", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
@@ -546,25 +598,25 @@ func main() {
 	}
 }
 
-func funcmap(staticAsset staticAssetFunc) template.FuncMap {
-	// the whole idea there is to keep only an identifier in the markdown
-	// source text and give us flexibility to serve the image from
-	// any source like cdn without touching saved text
-	mediaReplacer := func(inURL string) (bool, string) {
-		parts := strings.Split(inURL, ".")
+// the whole idea there is to keep only an identifier in the markdown
+// source text and give us flexibility to serve the image from
+// any source like cdn without touching saved text
+func mediaReplacer(inURL string) (bool, string) {
+	parts := strings.Split(inURL, ".")
 
-		if len(parts) != 2 {
-			return false, ""
-		}
-
-		if _, err := uuid.Parse(parts[0]); err != nil {
-			return false, ""
-		}
-
-		// all the checks are postponed till the actual call
-		return true, links.AbsLink("uploaded_media", inURL)
+	if len(parts) != 2 {
+		return false, ""
 	}
 
+	if _, err := uuid.Parse(parts[0]); err != nil {
+		return false, ""
+	}
+
+	// all the checks are postponed till the actual call
+	return true, links.AbsLink("uploaded_media", inURL)
+}
+
+func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 	return template.FuncMap{
 		"static_asset": staticAsset,
 
