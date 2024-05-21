@@ -2,6 +2,7 @@ package forms
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,16 +21,30 @@ import (
 )
 
 type PostFormInput struct {
-	Subject    string `form:"subject"`
-	Body       string `form:"body"`
-	Visibility string `form:"visibility"`
+	Subject    string              `form:"subject"`
+	Body       string              `form:"body"`
+	Visibility core.PostVisibility `form:"visibility"`
+	SaveAction PostFormAction      `form:"save_action"`
 }
 
 type PostForm struct {
 	*forms.FormBase[PostFormInput]
-	User   *core.User
-	PostID string
+	User *core.User
+	Post *core.Post
 }
+
+type PostFormAction string
+
+func (p PostFormAction) String() string {
+	return string(p)
+}
+
+const (
+	PostFormActionSavePost  PostFormAction = "save_post"
+	PostFormActionMakeDraft PostFormAction = "make_draft"
+	PostFormActionPublish   PostFormAction = "publish"
+	PostFormActionDelete    PostFormAction = "delete"
+)
 
 func NewPostFormNew(u *core.User) forms.Form {
 	var form forms.Form = &PostForm{
@@ -47,7 +63,20 @@ func NewPostFormNew(u *core.User) forms.Form {
 	return form
 }
 
-func EditPostFormNew(u *core.User, postID string) forms.Form {
+func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, u *core.User, postID string) (forms.Form, error) {
+	post, err := core.Posts(
+		core.PostWhere.ID.EQ(postID),
+		core.PostWhere.UserID.EQ(u.ID),
+	).One(ctx, db)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ginhelpers.ErrNotFound
+		}
+
+		return nil, err
+	}
+
 	var form forms.Form = &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
@@ -55,28 +84,42 @@ func EditPostFormNew(u *core.User, postID string) forms.Form {
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
 			ExtraTemplateData: map[string]interface{}{
-				"User":   u,
-				"PostID": postID,
+				"User":          u,
+				"PostID":        post.ID,
+				"IsPublished":   post.PublishedAt.Valid,
+				"LastUpdatedAt": post.UpdatedAt.Time,
 			},
 		},
-		User:   u,
-		PostID: postID,
+		User: u,
+		Post: post,
 	}
 
-	return form
+	return form, nil
 }
 
 func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	if err := validation.ValidateMinMax("subject", f.Input.Subject, 3, 100); err != nil {
+	if err := validation.ValidateMinMax("subject", f.Input.Subject, 0, 100); err != nil {
 		f.AddError("subject", err.Error())
 	}
 
-	if err := validation.ValidateMinMax("body", f.Input.Body, 3, 20_000); err != nil {
+	if err := validation.ValidateMinMax("body", f.Input.Body, 0, 20_000); err != nil {
 		f.AddError("body", err.Error())
 	}
 
+	saveAction := f.Input.SaveAction
+
+	if saveAction == "" {
+		saveAction = "save_post"
+	}
+
+	if err := validation.ValidateEnum(saveAction,
+		[]PostFormAction{PostFormActionSavePost, PostFormActionMakeDraft, PostFormActionPublish, PostFormActionDelete},
+		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
+		f.AddError("visibility", err.Error())
+	}
+
 	if err := validation.ValidateEnum(f.Input.Visibility,
-		[]string{core.PostVisibilityDirectOnly.String(), core.PostVisibilitySecondDegree.String()},
+		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree},
 		[]string{"direct only", "their connections as well"}); err != nil {
 		f.AddError("visibility", err.Error())
 	}
@@ -84,14 +127,8 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	// this sounds like too much, but this way
 	// we put the permission logic into a single place
 	// and do not rely on adhoc queries
-	if f.PostID != "" {
-		post, err := core.Posts(
-			core.PostWhere.ID.EQ(f.PostID),
-		).One(c, db)
-
-		if err != nil {
-			return err
-		}
+	if f.Post != nil {
+		post := f.Post
 
 		radius, err := userops.GetConnectionRadius(c, db, f.User.ID, post.UserID)
 
@@ -113,6 +150,16 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	subject := strings.TrimSpace(f.Input.Subject)
 	body := strings.TrimSpace(f.Input.Body)
 
+	if f.Post != nil && f.Input.SaveAction == PostFormActionDelete {
+		err := postops.DeletePost(c, exec, f.Post.ID)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return forms.FormSaveRedirect(links.Link("controls")), nil
+	}
+
 	post := &core.Post{
 		Subject:          subject,
 		Body:             body,
@@ -120,7 +167,9 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		VisibilityRadius: core.PostVisibility(f.Input.Visibility),
 	}
 
-	if f.PostID == "" {
+	var action = forms.FormSaveDefault(true)
+
+	if f.Post == nil {
 		postID, err := uuid.NewV7()
 
 		if err != nil {
@@ -128,19 +177,42 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		}
 
 		post.ID = postID.String()
-		// not null value means a published post
-		post.PublishedAt = null.TimeFrom(time.Now())
+
+		if f.Input.SaveAction == PostFormActionPublish {
+			// not null value means a published post
+			post.PublishedAt = null.TimeFrom(time.Now())
+
+			action = forms.FormSaveRedirect(links.Link("post", post.ID))
+		} else {
+			// XXX: we need to propagate post id to the template
+			action = formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID))
+		}
 
 		if err := post.Insert(c, exec, boil.Infer()); err != nil {
 			return nil, err
 		}
+
+		f.AddTemplateData("PostID", post.ID)
+		f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
+		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
 	} else {
-		post.ID = f.PostID
+		post.ID = f.Post.ID
+
+		if f.Input.SaveAction == PostFormActionMakeDraft {
+			// not null value means a published post
+			post.PublishedAt = null.Time{}
+		} else if f.Input.SaveAction == PostFormActionPublish {
+			post.PublishedAt = null.TimeFrom(time.Now())
+		}
 
 		if _, err := post.Update(c, exec, boil.Infer()); err != nil {
 			return nil, err
 		}
+
+		f.AddTemplateData("PostID", post.ID)
+		f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
+		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
 	}
 
-	return forms.FormSaveRedirect(links.Link("post", post.ID)), nil
+	return action, nil
 }

@@ -500,7 +500,16 @@ func main() {
 		dbUser := userData.DBUser
 		postID := c.Param("id")
 
-		form := forms.EditPostFormNew(dbUser, postID)
+		form, err := forms.EditPostFormNew(c, db, dbUser, postID)
+
+		if err != nil {
+			if err == ginhelpers.ErrNotFound {
+				c.Status(http.StatusNotFound)
+				return
+			}
+
+			panic(err)
+		}
 
 		gogoForms.DefaultHandler(c, db, form)
 	})

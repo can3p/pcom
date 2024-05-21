@@ -2,9 +2,7 @@
 
 <div class="container">
   <div class="row justify-content-md-center mt-4">
-    <h1>Edit Post</h1>
-
-    {{ template "form--post.html" toMap "PostID" .PostID "Input" .Input }}
+    {{ template "form--post.html" toMap "PostID" .PostID "Input" .Input "LastUpdatedAt" .LastUpdatedAt }}
   </div>
 </div>
 

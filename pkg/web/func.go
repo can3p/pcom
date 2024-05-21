@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
@@ -52,6 +53,12 @@ type ConnectionRequest struct {
 	Mediations []*MediationResult
 }
 
+type Draft struct {
+	PostID        string
+	Subject       string
+	LastUpdatedAt time.Time
+}
+
 type ControlsPage struct {
 	*BasePage
 	DirectConnections       core.UserSlice
@@ -59,6 +66,7 @@ type ControlsPage struct {
 	WhitelistedConnections  core.UserSlice
 	MediationRequests       []*MediationRequest
 	ConnectionRequests      []*ConnectionRequest
+	Drafts                  []*Draft
 }
 
 func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *ControlsPage {
@@ -147,6 +155,24 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		}
 	})
 
+	rawDrafts, err := core.Posts(
+		core.PostWhere.UserID.EQ(userID),
+		core.PostWhere.PublishedAt.IsNull(),
+		qm.OrderBy("? DESC", core.PostColumns.UpdatedAt),
+	).All(ctx, db)
+
+	if err != nil {
+		panic(err)
+	}
+
+	drafts := lo.Map(rawDrafts, func(d *core.Post, idx int) *Draft {
+		return &Draft{
+			PostID:        d.ID,
+			Subject:       d.Subject,
+			LastUpdatedAt: d.UpdatedAt.Time,
+		}
+	})
+
 	controlsPage := &ControlsPage{
 		BasePage:                getBasePage("Controls", userData),
 		DirectConnections:       directUsers,
@@ -154,6 +180,7 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		WhitelistedConnections:  whitelistedConnections,
 		ConnectionRequests:      connectionRequests,
 		MediationRequests:       mediationRequests,
+		Drafts:                  drafts,
 	}
 
 	return controlsPage
@@ -260,8 +287,9 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 
 type EditPostPage struct {
 	*BasePage
-	PostID string
-	Input  forms.PostFormInput
+	PostID        string
+	Input         forms.PostFormInput
+	LastUpdatedAt time.Time
 }
 
 func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
@@ -298,8 +326,9 @@ func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 		Input: forms.PostFormInput{
 			Subject:    post.Subject,
 			Body:       post.Body,
-			Visibility: post.VisibilityRadius.String(),
+			Visibility: post.VisibilityRadius,
 		},
+		LastUpdatedAt: post.UpdatedAt.Time,
 	}
 
 	return mo.Ok(editPostPage)
@@ -338,6 +367,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	if connRadius != userops.ConnectionRadiusUnknown {
 		m := []qm.QueryMod{
 			core.PostWhere.UserID.EQ(author.ID),
+			core.PostWhere.PublishedAt.IsNotNull(),
 			qm.Load(core.PostRels.User),
 			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 		}
@@ -417,6 +447,7 @@ func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Use
 
 	posts, err := core.Posts(
 		core.PostWhere.UserID.IN(directUserIDs),
+		core.PostWhere.PublishedAt.IsNotNull(),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
@@ -450,6 +481,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 
 	posts, err := core.Posts(
 		core.PostWhere.UserID.IN(secondDegreeUserIDs),
+		core.PostWhere.PublishedAt.IsNotNull(),
 		core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
 		qm.Load(core.PostRels.User),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),

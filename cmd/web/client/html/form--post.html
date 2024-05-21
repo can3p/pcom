@@ -1,75 +1,111 @@
-<form
-      method="POST"
-      {{ if .PostID }}
-      action="{{ link "form_edit_post" .PostID }}"
-      hx-post="{{ link "form_edit_post" .PostID }}"
-      {{ else }}
-      action="{{ link "form_new_post" }}"
-      hx-post="{{ link "form_new_post" }}"
+<div id="form-container">
+  <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ end }}{{ else }}New Post{{ end }}</h1>
+
+  <form
+        method="POST"
+        {{ if .PostID }}
+        action="{{ link "form_edit_post" .PostID }}"
+        hx-post="{{ link "form_edit_post" .PostID }}"
+        {{ else }}
+        action="{{ link "form_new_post" }}"
+        hx-post="{{ link "form_new_post" }}"
+        {{ end }}
+        hx-swap="outerHTML"
+        hx-target="#form-container"
+        hx-trigger="change delay:2s, keyup delay:2s, submit"
+        >
+
+    {{ if .PostID }}
+      <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
+    {{ end }}
+
+    <div class="mb-3">
+      <label for="newPostSubject" class="form-label">Subject</label>
+      <input name="subject" type="subject"
+                          value="{{ if .Input }}{{ .Input.Subject }}{{ end }}"
+                          class="form-control {{ if (.Errors.HasError "subject") }}is-invalid{{ end }}"
+                          id="newPostSubject" aria-describedby="subjectHelp">
+      {{ if (.Errors.HasError "subject") }}
+      <div class="invalid-feedback">{{ .Errors.subject }}</div>
       {{ end }}
-      hx-swap="outerHTML"
+    </div>
+
+    <div class="mb-3"
+        data-controller="mdeditor"
+        data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
+      <label for="newPostBody" class="form-label">Body</label>
 
-  <div class="mb-3">
-    <label for="newPostSubject" class="form-label">Subject</label>
-    <input name="subject" type="subject"
-                        value="{{ if .Input }}{{ .Input.Subject }}{{ end }}"
-                        class="form-control {{ if (.Errors.HasError "subject") }}is-invalid{{ end }}"
-                        id="newPostSubject" aria-describedby="subjectHelp"
-                        required>
-    {{ if (.Errors.HasError "subject") }}
-    <div class="invalid-feedback">{{ .Errors.subject }}</div>
-    {{ end }}
-  </div>
-
-  <div class="mb-3"
-       data-controller="mdeditor"
-       data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
-    >
-    <label for="newPostBody" class="form-label">Body</label>
-
-    <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
-      <i role="button" data-command="bold" class="bi bi-type-bold"></i>
-      <i role="button" data-command="italic" class="bi bi-type-italic"></i>
-      <i role="button" data-command="block-quotes" class="bi bi-quote"></i>
-      <i role="button" data-command="unordered-list" class="bi bi-list-ul"></i>
-      <i role="button" data-command="code-block" class="bi bi-code"></i>
-      <i role="button" data-command="link" class="bi bi-link-45deg"></i>
-      <div class="custom-file">
-        <label for="file_upload"><i role="button" class="bi bi-camera"></i></label>
-        <input class="d-none" type="file" id="file_upload" aria-label="Custom controls">
+      <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
+        <i role="button" data-command="bold" class="bi bi-type-bold"></i>
+        <i role="button" data-command="italic" class="bi bi-type-italic"></i>
+        <i role="button" data-command="block-quotes" class="bi bi-quote"></i>
+        <i role="button" data-command="unordered-list" class="bi bi-list-ul"></i>
+        <i role="button" data-command="code-block" class="bi bi-code"></i>
+        <i role="button" data-command="link" class="bi bi-link-45deg"></i>
+        <div class="custom-file">
+          <label for="file_upload"><i role="button" class="bi bi-camera"></i></label>
+          <input class="d-none" type="file" id="file_upload" aria-label="Custom controls">
+        </div>
       </div>
+
+      <textarea class="form-control" name="body" placeholder="" id="newPostBody" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+      {{ if (.Errors.HasError "body") }}
+      <div class="invalid-feedback">{{ .Errors.body }}</div>
+      {{ end }}
     </div>
 
-    <textarea class="form-control" name="body" placeholder="" id="newPostBody" rows="10" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
-    {{ if (.Errors.HasError "body") }}
-    <div class="invalid-feedback">{{ .Errors.body }}</div>
-    {{ end }}
-  </div>
 
-
-  <div class="mb-3">
-    <legend class=" {{ if (.Errors.HasError "visibility") }}is-invalid{{ end }}">Visibility</legend>
-    <div class="form-check">
-      <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
-                                                                     value="direct_only"
-      {{ if not .Input }}checked{{ end }}
-      {{ if .Input }}{{ if eq .Input.Visibility "direct_only" }}checked{{ end }}{{ end }}
-      >
-      <label class="form-check-label" for="visibilityDirect">
-        Direct connections only
-      </label>
+    <div class="mb-3">
+      <legend class=" {{ if (.Errors.HasError "visibility") }}is-invalid{{ end }}">Visibility</legend>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
+                                                                      value="direct_only"
+        {{ if not .Input }}checked{{ end }}
+        {{ if .Input }}{{ if eq .Input.Visibility "direct_only" }}checked{{ end }}{{ end }}
+        >
+        <label class="form-check-label" for="visibilityDirect">
+          Direct connections only
+        </label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree" {{ if .Input }}{{ if eq .Input.Visibility "second_degree" }}checked{{ end }}{{ end }}>
+        <label class="form-check-label" for="visibilitySecondDegree">
+          Show to their connections as well
+        </label>
+      </div>
+      {{ if (.Errors.HasError "visibility") }}
+      <div class="invalid-feedback">{{ .Errors.visibility }}</div>
+      {{ end }}
     </div>
-    <div class="form-check">
-      <input class="form-check-input" type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree" {{ if .Input }}{{ if eq .Input.Visibility "second_degree" }}checked{{ end }}{{ end }}>
-      <label class="form-check-label" for="visibilitySecondDegree">
-        Show to their connections as well
-      </label>
-    </div>
-    {{ if (.Errors.HasError "visibility") }}
-    <div class="invalid-feedback">{{ .Errors.visibility }}</div>
-    {{ end }}
-  </div>
 
-  <button type="submit" class="btn btn-primary w-100">{{ if .PostID }}Save Post{{ else }}Create Post{{ end }}</button>
-</form>
+    <div class="d-flex gap-2">
+      {{ if .IsPublished }}
+        <button type="submit" class="btn btn-primary" name="save_action"  value="save_post">Save Post</button>
+        <button type="submit"
+                class="btn btn-outline-primary"
+                name="save_action"
+                value="make_draft"
+                data-controller="confirm"
+                data-confirm-message-value="Do you really want to turn the post into draft? It will disappear from the feeds"
+                >Save and turn into draft</button>
+      {{ else }}
+        <button type="submit" class="btn btn-primary" name="save_action"  value="save_post">Save as Draft</button>
+        <button type="submit"
+                class="btn btn-outline-primary"
+                name="save_action"
+                value="publish"
+                data-controller="confirm"
+                data-confirm-message-value="Do you really want to publish this post?"
+                >Publish</button>
+      {{ end }}
+        <button type="submit"
+                class="btn btn-danger"
+                name="save_action"
+                value="delete"
+                data-controller="confirm"
+                data-confirm-message-value="Do you really want to delete this post? The action cannot be reversed"
+                >Delete</button>
+    </div>
+  </form>
+</div>

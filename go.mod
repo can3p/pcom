@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.53.0
 	github.com/badoux/checkmail v1.2.1
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
-	github.com/can3p/gogo v0.0.0-20240430174227-5bb00c264a05
+	github.com/can3p/gogo v0.0.0-20240521214931-f125a7d725e4
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1

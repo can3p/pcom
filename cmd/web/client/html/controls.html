@@ -20,33 +20,40 @@
           </div>
         </div>
 
-        <div class="card mt-4">
-          <h5 class="card-header">Whitelist connection requests</h5>
-          <div class="card-body">
-            <p class="text-muted fs-6">Whitelisted users will be able to create a connection with you</p>
-            {{ template "form--whitelist-connection.html" }}
-
-            {{ if gt (len .WhitelistedConnections) 0 }}
-            <div class="mt-3">
-              <ul>
-                {{ range .WhitelistedConnections }}
-                <li>
-                  <a href="{{ link "user" .Username }}">{{ .Username }}</a>
-                  <button type="button"
-                     class="btn btn-sm btn-danger"
-                     data-controller="action"
-                     data-action="action#run"
-                     data-action-action-value="remove_from_whitelist"
-                     data-action-prompt-value="Do you want to drop the user {{ .Username }} from the whitelist?"
-                     data-user-id="{{ .ID }}"
-                     ><i class="bi-trash"></i></button>
-                </li>
+        {{ with .Drafts }}
+          <div class="card mt-4">
+            <h5 class="card-header">Drafts</h5>
+            <div class="card-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Last Updated</th>
+                    <th scope="col"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                {{ range . }}
+                  <tr>
+                    <td><a href="{{ link "edit_post" .PostID }}">{{ with .Subject }}{{ . }}{{ else }}No subject{{ end }}</a></td>
+                    <td>{{ renderTimestamp .LastUpdatedAt $.User.DBUser }}</td>
+                    <td>
+                      <button type="button"
+                              class="btn btn-sm btn-danger"
+                              data-controller="action"
+                              data-action="action#run"
+                              data-action-action-value="delete_draft"
+                              data-post-id="{{ .PostID }}"
+                              data-action-prompt-value="Delete the draft?"
+                              ><span class="bi-trash"></span></button>
+                    </td>
+                  </tr>
                 {{ end }}
-              </ul>
+                </tbody>
+              </table>
             </div>
-            {{ end }}
           </div>
-        </div>
+        {{ end }}
       </div>
 
       <div class="col-lg-6">
@@ -137,6 +144,34 @@
           </div>
         </div>
         {{ end }}
+
+        <div class="card mt-4">
+          <h5 class="card-header">Whitelist connection requests</h5>
+          <div class="card-body">
+            <p class="text-muted fs-6">Whitelisted users will be able to create a connection with you</p>
+            {{ template "form--whitelist-connection.html" }}
+
+            {{ if gt (len .WhitelistedConnections) 0 }}
+            <div class="mt-3">
+              <ul>
+                {{ range .WhitelistedConnections }}
+                <li>
+                  <a href="{{ link "user" .Username }}">{{ .Username }}</a>
+                  <button type="button"
+                     class="btn btn-sm btn-danger"
+                     data-controller="action"
+                     data-action="action#run"
+                     data-action-action-value="remove_from_whitelist"
+                     data-action-prompt-value="Do you want to drop the user {{ .Username }} from the whitelist?"
+                     data-user-id="{{ .ID }}"
+                     ><i class="bi-trash"></i></button>
+                </li>
+                {{ end }}
+              </ul>
+            </div>
+            {{ end }}
+          </div>
+        </div>
 
 
       </div>

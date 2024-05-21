@@ -41,7 +41,7 @@ func ValidateMinMax(label string, p string, minL int, maxL int) error {
 	return nil
 }
 
-func ValidateEnum(value string, vals []string, labels []string) error {
+func ValidateEnum[A comparable](value A, vals []A, labels []string) error {
 	for _, v := range vals {
 		if v == value {
 			return nil

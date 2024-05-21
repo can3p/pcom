@@ -17,6 +17,7 @@ import (
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer) {
@@ -186,6 +187,42 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		}
 
 		if err := userops.DecideConnectionRequest(c, db, dbUser.ID, input.RequestID, core.ConnectionRequestDecisionApproved, input.Note); err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
+
+	r.POST("/delete_draft", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		var input struct {
+			PostID string `json:"postId"`
+		}
+
+		if err := c.BindJSON(&input); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		err := transact.Transact(db, func(tx *sql.Tx) error {
+			post, err := core.Posts(
+				core.PostWhere.ID.EQ(input.PostID),
+				core.PostWhere.UserID.EQ(dbUser.ID),
+				core.PostWhere.PublishedAt.IsNull(),
+				qm.For("Update"),
+			).One(c, db)
+
+			if err != nil {
+				return err
+			}
+
+			return postops.DeletePost(c, tx, post.ID)
+		})
+
+		if err != nil {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
 			return
 		}
