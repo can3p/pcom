@@ -1,5 +1,5 @@
 <div id="form-container">
-  <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ end }}{{ else }}New Post{{ end }}</h1>
+  <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
 
   <form
         method="POST"

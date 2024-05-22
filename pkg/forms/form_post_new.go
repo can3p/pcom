@@ -203,6 +203,8 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 			post.PublishedAt = null.Time{}
 		} else if f.Input.SaveAction == PostFormActionPublish {
 			post.PublishedAt = null.TimeFrom(time.Now())
+		} else {
+			post.PublishedAt = f.Post.PublishedAt
 		}
 
 		if _, err := post.Update(c, exec, boil.Infer()); err != nil {

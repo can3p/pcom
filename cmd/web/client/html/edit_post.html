@@ -2,7 +2,10 @@
 
 <div class="container">
   <div class="row justify-content-md-center mt-4">
-    {{ template "form--post.html" toMap "PostID" .PostID "Input" .Input "LastUpdatedAt" .LastUpdatedAt }}
+    {{ template "form--post.html" toMap "PostID" .PostID
+                                        "Input" .Input
+                                        "IsPublished" .IsPublished
+                                        "LastUpdatedAt" .LastUpdatedAt }}
   </div>
 </div>
 

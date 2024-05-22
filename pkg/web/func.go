@@ -290,6 +290,7 @@ type EditPostPage struct {
 	PostID        string
 	Input         forms.PostFormInput
 	LastUpdatedAt time.Time
+	IsPublished   bool
 }
 
 func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
@@ -329,6 +330,7 @@ func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 			Visibility: post.VisibilityRadius,
 		},
 		LastUpdatedAt: post.UpdatedAt.Time,
+		IsPublished:   post.PublishedAt.Valid,
 	}
 
 	return mo.Ok(editPostPage)
