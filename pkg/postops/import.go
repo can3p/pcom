@@ -217,8 +217,6 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaServer
 		keepIDs[p.ID] = struct{}{}
 	}
 
-	n := time.Now()
-
 	for _, p := range posts {
 		_, keepPostID := keepIDs[p.ID]
 		insertPost := p.ID == "" || !keepPostID
@@ -231,8 +229,6 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaServer
 			}
 
 			p.ID = id.String()
-			// null published at means a draft
-			p.PublishedAt = null.TimeFrom(n)
 		}
 
 		p.Body = markdown.ReplaceImageUrls(p.Body, markdown.ImportReplacer(renameMap, existingMap))
