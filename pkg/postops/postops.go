@@ -1,6 +1,7 @@
 package postops
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"time"
@@ -47,6 +48,14 @@ type Post struct {
 	Capabilities   *PostCapabilities
 	CommentsNumber int64
 	Comments       []*Comment
+}
+
+func (p *Post) IsPublished() bool {
+	return p.PublishedAt.Valid
+}
+
+func (p *Post) PostSubject() string {
+	return cmp.Or(p.Subject, "No Subject")
 }
 
 func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius) *Post {

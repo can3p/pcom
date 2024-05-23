@@ -251,7 +251,6 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 	}
 
 	author := post.R.User
-	title := fmt.Sprintf("%s - %s", author.Username, post.Subject)
 
 	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
 
@@ -263,9 +262,11 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 		return mo.Err[*SinglePostPage](ginhelpers.ErrForbidden)
 	}
 
+	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius)
+
 	singlePostPage := &SinglePostPage{
-		BasePage: getBasePage(title, userData),
-		Post:     postops.ConstructPost(userData.DBUser, post, connectionRadius),
+		BasePage: getBasePage(constructed.PostSubject(), userData),
+		Post:     constructed,
 	}
 
 	if singlePostPage.Post.Capabilities.CanViewComments {
@@ -307,7 +308,7 @@ func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 	}
 
 	author := post.R.User
-	title := fmt.Sprintf("%s - %s", author.Username, post.Subject)
+	title := "Edit Post"
 
 	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
 

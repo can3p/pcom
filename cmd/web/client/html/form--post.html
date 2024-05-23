@@ -47,6 +47,9 @@
           <label for="file_upload"><i role="button" class="bi bi-camera"></i></label>
           <input class="d-none" type="file" id="file_upload" aria-label="Custom controls">
         </div>
+        {{ if .PostID }}
+        <a target="_blank" href="{{ link "post" .PostID }}" class="text-reset"><i role="link" class="bi bi-card-text"></i></a>
+        {{ end }}
       </div>
 
       <textarea class="form-control" name="body" placeholder="" id="newPostBody" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
