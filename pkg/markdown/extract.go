@@ -3,6 +3,7 @@ package markdown
 import (
 	"io"
 
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
 	goldmarkAst "github.com/yuin/goldmark/ast"
 	goldmarkText "github.com/yuin/goldmark/text"
@@ -19,9 +20,9 @@ type parsedText struct {
 	parser goldmark.Markdown
 }
 
-func Parse(s string, mediaReplacer replacer) *parsedText {
+func Parse(s string, mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]) *parsedText {
 	r := goldmarkText.NewReader([]byte(s))
-	parser := NewParser(mediaReplacer)
+	parser := NewParser(mediaReplacer, userHandleReplacer)
 	ast := parser.Parser().Parse(r)
 
 	return &parsedText{
@@ -35,7 +36,7 @@ func (t *parsedText) Render(writer io.Writer) error {
 	return t.parser.Renderer().Render(writer, t.s, t.node)
 }
 
-type replacer func(inURL string) (bool, string)
+type Replacer func(inURL string) (bool, string)
 
 func (t *parsedText) ExtractLinks() []*EmbeddedLink {
 	out := []*EmbeddedLink{}

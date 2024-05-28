@@ -652,7 +652,9 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 		},
 
 		"markdown": func(s string) template.HTML {
-			return markdown.ToEnrichedTemplate(s, mediaReplacer)
+			return markdown.ToEnrichedTemplate(s, mediaReplacer, func(in []byte) (bool, []byte) {
+				return true, []byte(links.Link("user", string(in)))
+			})
 		},
 
 		"tzlist": func() []string {

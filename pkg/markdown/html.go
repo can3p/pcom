@@ -6,6 +6,8 @@ import (
 	"html/template"
 
 	"github.com/can3p/pcom/pkg/links/media"
+	"github.com/can3p/pcom/pkg/markdown/mdext"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -14,7 +16,7 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-func NewParser(mediaReplacer replacer) goldmark.Markdown {
+func NewParser(mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]) goldmark.Markdown {
 	return goldmark.New(
 		goldmark.WithExtensions(
 			extension.NewLinkify(
@@ -23,10 +25,12 @@ func NewParser(mediaReplacer replacer) goldmark.Markdown {
 					[]byte("https:"),
 				}),
 			),
+			mdext.NewHandle(),
 		),
 		goldmark.WithRendererOptions(
 			renderer.WithNodeRenderers(
 				util.Prioritized(NewImgLazyLoadRenderer(mediaReplacer), 500),
+				util.Prioritized(mdext.NewUserHandleRenderer(userHandleReplacer), 500),
 			),
 		),
 	)
@@ -41,8 +45,8 @@ func ToTemplate(s string) template.HTML {
 	return template.HTML(buf.String())
 }
 
-func ToEnrichedTemplate(s string, mediaReplacer replacer) template.HTML {
-	text := Parse(s, mediaReplacer)
+func ToEnrichedTemplate(s string, mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]) template.HTML {
+	text := Parse(s, mediaReplacer, userHandleReplacer)
 	links := text.ExtractLinks()
 
 	replaceBlock := len(links) == 1 && links[0].OnlyLinkInBlock
@@ -79,7 +83,7 @@ func ToEnrichedTemplate(s string, mediaReplacer replacer) template.HTML {
 	return template.HTML(out)
 }
 
-func NewImgLazyLoadRenderer(mediaReplacer replacer, opts ...html.Option) renderer.NodeRenderer {
+func NewImgLazyLoadRenderer(mediaReplacer Replacer, opts ...html.Option) renderer.NodeRenderer {
 	r := &LazyLoadRenderer{
 		Config:        html.NewConfig(),
 		mediaReplacer: mediaReplacer,
@@ -92,7 +96,7 @@ func NewImgLazyLoadRenderer(mediaReplacer replacer, opts ...html.Option) rendere
 
 type LazyLoadRenderer struct {
 	html.Config
-	mediaReplacer replacer
+	mediaReplacer Replacer
 }
 
 // RegisterFuncs implements renderer.NodeRenderer.RegisterFuncs.

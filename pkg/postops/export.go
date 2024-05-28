@@ -83,7 +83,7 @@ func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaServer m
 			return nil, err
 		}
 
-		parsed := markdown.Parse(p.Body, nil)
+		parsed := markdown.Parse(p.Body, nil, nil)
 
 		extracted := parsed.ExtractImageUrls()
 

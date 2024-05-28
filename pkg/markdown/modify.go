@@ -14,7 +14,7 @@ import (
 )
 
 type imgReplaceTransformer struct {
-	Replacer replacer
+	Replacer Replacer
 }
 
 func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
@@ -56,7 +56,7 @@ func NewModifier(t parser.ASTTransformer) goldmark.Markdown {
 	return gm
 }
 
-func ReplaceImageUrls(md string, replace replacer) string {
+func ReplaceImageUrls(md string, replace Replacer) string {
 	t := &imgReplaceTransformer{
 		Replacer: replace,
 	}
@@ -75,7 +75,7 @@ func ReplaceImageUrls(md string, replace replacer) string {
 
 }
 
-func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) replacer {
+func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) Replacer {
 	return func(in string) (bool, string) {
 		destRaw := in
 		dest := strings.ToLower(destRaw)
