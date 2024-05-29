@@ -9,7 +9,6 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
-	goldmarkText "github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
 
@@ -125,12 +124,9 @@ this is hidden
 		in := ex.in
 		out := ex.out
 
-		r := goldmarkText.NewReader(in)
-		ast := parser.Parser().Parse(r)
-
 		var writer bytes.Buffer
 
-		_ = parser.Renderer().Render(&writer, in, ast)
+		_ = parser.Convert(in, &writer)
 
 		assert.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
 	}
