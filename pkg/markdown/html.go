@@ -7,10 +7,12 @@ import (
 
 	"github.com/can3p/pcom/pkg/links/media"
 	"github.com/can3p/pcom/pkg/markdown/mdext"
+	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/util"
@@ -27,10 +29,15 @@ func NewParser(mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]
 			),
 			mdext.NewHandle(),
 		),
+		goldmark.WithParserOptions(
+			parser.WithBlockParsers(
+				util.Prioritized(blocktags.NewBlockTagParser(blocktags.DefaultTags), 999)),
+		),
 		goldmark.WithRendererOptions(
 			renderer.WithNodeRenderers(
 				util.Prioritized(NewImgLazyLoadRenderer(mediaReplacer), 500),
 				util.Prioritized(mdext.NewUserHandleRenderer(userHandleReplacer), 500),
+				util.Prioritized(blocktags.NewBlockTagRenderer(), 500),
 			),
 		),
 	)
