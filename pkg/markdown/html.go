@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"html/template"
 
-	"github.com/can3p/pcom/pkg/links/media"
 	"github.com/can3p/pcom/pkg/markdown/mdext"
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/markdown/mdext/lazyload"
@@ -27,6 +26,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 			}),
 		),
 		mdext.NewHandle(),
+		videoembed.NewVideoEmbedExtender(),
 	}
 
 	blockParsers := util.PrioritizedSlice{}
@@ -46,23 +46,16 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 			func(in []byte) (bool, []byte) {
 				return true, []byte(link("user", string(in)))
 			}), 500),
-		util.Prioritized(videoembed.NewVideoEmbedRenderer(), 500),
-	}
-
-	paragraphTransformers := util.PrioritizedSlice{
-		util.Prioritized(videoembed.NewVideoEmbedTransformer(media.DefaultParser()), 500),
 	}
 
 	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost {
-		blockParsers = append(blockParsers, util.Prioritized(blocktags.NewBlockTagParser(blocktags.DefaultTags), 999))
-		nodeRenderers = append(nodeRenderers, util.Prioritized(blocktags.NewBlockTagRenderer(view, link), 500))
+		extensions = append(extensions, blocktags.NewBlockTagExtender(view, link))
 	}
 
 	return goldmark.New(
 		goldmark.WithExtensions(extensions...),
 		goldmark.WithParserOptions(
 			parser.WithBlockParsers(blockParsers...),
-			parser.WithParagraphTransformers(paragraphTransformers...),
 		),
 		goldmark.WithRendererOptions(
 			renderer.WithNodeRenderers(nodeRenderers...),
