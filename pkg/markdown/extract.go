@@ -38,30 +38,10 @@ func (t *parsedText) Render(writer io.Writer) error {
 
 type Replacer func(inURL string) (bool, string)
 
-func (t *parsedText) ExtractLinks() []*EmbeddedLink {
-	out := []*EmbeddedLink{}
-
-	walkNode([]byte(t.s), t.node, 0, func(ch goldmarkAst.Node, onlySecondLevelChildElement bool) {
-		if l, ok := ch.(*goldmarkAst.AutoLink); ok {
-			out = append(out, &EmbeddedLink{
-				URL:             string(l.URL(t.s)),
-				OnlyLinkInBlock: onlySecondLevelChildElement,
-			})
-		} else if l, ok := ch.(*goldmarkAst.Link); ok {
-			out = append(out, &EmbeddedLink{
-				URL:             string(l.Destination),
-				OnlyLinkInBlock: onlySecondLevelChildElement,
-			})
-		}
-	})
-
-	return out
-}
-
 func (t *parsedText) ExtractImageUrls() []*EmbeddedLink {
 	out := []*EmbeddedLink{}
 
-	walkNode([]byte(t.s), t.node, 0, func(ch goldmarkAst.Node, onlySecondLevelChildElement bool) {
+	walkNode([]byte(t.s), t.node, 0, func(ch goldmarkAst.Node) {
 		if l, ok := ch.(*goldmarkAst.Image); ok {
 			out = append(out, &EmbeddedLink{
 				URL: string(l.Destination),
@@ -72,19 +52,14 @@ func (t *parsedText) ExtractImageUrls() []*EmbeddedLink {
 	return out
 }
 
-type visiter func(n goldmarkAst.Node, onlySecondLevelChildElement bool)
+type visiter func(n goldmarkAst.Node)
 
 func walkNode(source []byte, n goldmarkAst.Node, level int, visitNode visiter) {
-
-	// level 0 - root document
-	// level 1 - top level block element
-	onlySecondLevelChildElement := n.ChildCount() == 1 && level == 1
-
 	if n.ChildCount() > 0 {
 		ch := n.FirstChild()
 
 		for ch != nil {
-			visitNode(ch, onlySecondLevelChildElement)
+			visitNode(ch)
 
 			walkNode(source, ch, level+1, visitNode)
 

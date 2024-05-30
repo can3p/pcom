@@ -2,12 +2,12 @@ package markdown
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 
 	"github.com/can3p/pcom/pkg/links/media"
 	"github.com/can3p/pcom/pkg/markdown/mdext"
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
+	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -37,6 +37,11 @@ func NewParser(view types.HTMLView, mediaReplacer Replacer, link types.Link) gol
 			func(in []byte) (bool, []byte) {
 				return true, []byte(link("user", string(in)))
 			}), 500),
+		util.Prioritized(videoembed.NewVideoEmbedRenderer(), 500),
+	}
+
+	paragraphTransformers := util.PrioritizedSlice{
+		util.Prioritized(videoembed.NewVideoEmbedTransformer(media.DefaultParser()), 500),
 	}
 
 	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost {
@@ -48,6 +53,7 @@ func NewParser(view types.HTMLView, mediaReplacer Replacer, link types.Link) gol
 		goldmark.WithExtensions(extensions...),
 		goldmark.WithParserOptions(
 			parser.WithBlockParsers(blockParsers...),
+			parser.WithParagraphTransformers(paragraphTransformers...),
 		),
 		goldmark.WithRendererOptions(
 			renderer.WithNodeRenderers(nodeRenderers...),
@@ -57,40 +63,13 @@ func NewParser(view types.HTMLView, mediaReplacer Replacer, link types.Link) gol
 
 func ToEnrichedTemplate(s string, view types.HTMLView, mediaReplacer Replacer, link types.Link) template.HTML {
 	text := Parse(s, view, mediaReplacer, link)
-	links := text.ExtractLinks()
-
-	replaceBlock := len(links) == 1 && links[0].OnlyLinkInBlock
-
-	mediaParser := media.DefaultParser()
-
-	mediaLinks := media.MediaLinkSlice{}
-
-	for _, l := range links {
-		ml := mediaParser.Parse(l.URL)
-
-		if ml != nil {
-			mediaLinks = append(mediaLinks, ml)
-		}
-	}
-
-	mediaLinks = mediaLinks.Deduplicate()
-
-	if replaceBlock && len(mediaLinks) == 1 {
-		return mediaLinks[0].EmbedCode()
-	}
 
 	var buf bytes.Buffer
 	if err := text.Render(&buf); err != nil {
 		panic(err)
 	}
 
-	out := buf.String()
-
-	for _, l := range mediaLinks {
-		out = fmt.Sprintf("%s %s\n", out, l.EmbedCode())
-	}
-
-	return template.HTML(out)
+	return template.HTML(buf.String())
 }
 
 func NewImgLazyLoadRenderer(mediaReplacer Replacer, opts ...html.Option) renderer.NodeRenderer {

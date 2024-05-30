@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-var youtubeRE *regexp.Regexp = regexp.MustCompile(`(?:youtube(?:-nocookie)?\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})`)
+var youtubeRE *regexp.Regexp = regexp.MustCompile(`^https://(?:www.)?(?:youtube(?:-nocookie)?\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})$`)
 
 type YoutubeLink struct {
 	ID string

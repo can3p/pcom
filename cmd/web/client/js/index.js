@@ -2,6 +2,7 @@ import htmx from 'htmx.org/dist/htmx.js';
 import hyperscript from 'hyperscript.org';
 import { Application } from "@hotwired/stimulus"
 import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
+import 'lite-youtube-embed';
 import 'lazysizes';
 
 window.htmx = htmx
