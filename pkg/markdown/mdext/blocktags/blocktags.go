@@ -1,7 +1,6 @@
 package blocktags
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -84,14 +83,12 @@ func (p *blockTagParser) Trigger() []byte {
 func (p *blockTagParser) Open(parent ast.Node, reader text.Reader, pc parser.Context) (ast.Node, parser.State) {
 	line, _ := reader.PeekLine()
 	pos := pc.BlockOffset()
-	fmt.Println("1")
 
 	line = line[pos:]
 
 	groups := OpeningBlockTagRe.FindSubmatch(line)
 
 	if groups == nil {
-		fmt.Println("2")
 		return nil, parser.NoChildren
 	}
 
@@ -105,12 +102,10 @@ func (p *blockTagParser) Open(parent ast.Node, reader text.Reader, pc parser.Con
 	tagDef := p.AllowedTags.GetTag(name)
 
 	if tagDef == nil {
-		fmt.Println("3", name)
 		return nil, parser.NoChildren
 	}
 
 	if util.TrimRightSpaceLength(line) != 1 {
-		fmt.Printf("4 [%s] [%s], %d v %d\n", string(line), string(groups[0]), util.TrimRightSpaceLength(line), len(groups[0]))
 		return nil, parser.NoChildren
 	}
 
