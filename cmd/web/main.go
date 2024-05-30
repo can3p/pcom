@@ -29,6 +29,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
@@ -319,15 +320,16 @@ func main() {
 	r.GET("/posts/:id", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
+		editPreview := c.Query("edit_preview") == "true"
 
-		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID))
+		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID, editPreview))
 	})
 
 	r.GET("/posts/:id/md", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 
-		post := web.SinglePost(c, db, &userData, postID)
+		post := web.SinglePost(c, db, &userData, postID, false)
 
 		if post.IsError() {
 			ginhelpers.HTML(c, "single_post.html", post)
@@ -348,7 +350,7 @@ func main() {
 		user := userData.DBUser
 		postID := c.Param("id")
 
-		post := web.SinglePost(c, db, &userData, postID)
+		post := web.SinglePost(c, db, &userData, postID, false)
 
 		if post.IsError() {
 			ginhelpers.HTML(c, "single_post.html", post)
@@ -617,6 +619,23 @@ func mediaReplacer(inURL string) (bool, string) {
 }
 
 func funcmap(staticAsset staticAssetFunc) template.FuncMap {
+	markdown := func(view types.HTMLView) func(s string, add ...string) template.HTML {
+		return func(s string, add ...string) template.HTML {
+			return markdown.ToEnrichedTemplate(s, view, mediaReplacer, func(in string, add2 ...string) string {
+				// ugly hack to handle cut links
+				if in == "single_post_special" {
+					args := []string{}
+					args = append(args, add...)
+					args = append(args, add2...)
+
+					return links.Link("post", args...)
+				}
+
+				return links.Link(in, add2...)
+			})
+		}
+	}
+
 	return template.FuncMap{
 		"static_asset": staticAsset,
 
@@ -651,11 +670,12 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 			return out
 		},
 
-		"markdown": func(s string) template.HTML {
-			return markdown.ToEnrichedTemplate(s, mediaReplacer, func(in []byte) (bool, []byte) {
-				return true, []byte(links.Link("user", string(in)))
-			})
-		},
+		// we could do a parameter, but this way we get a free type check
+		"markdown_single_post":  markdown(types.ViewSinglePost),
+		"markdown_feed":         markdown(types.ViewFeed),
+		"markdown_edit_preview": markdown(types.ViewEditPreview),
+		"markdown_comment":      markdown(types.ViewComment),
+		"markdown_article":      markdown(types.ViewArticle),
 
 		"tzlist": func() []string {
 			return util.TimeZones

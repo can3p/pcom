@@ -20,9 +20,9 @@ type parsedText struct {
 	parser goldmark.Markdown
 }
 
-func Parse(s string, mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]) *parsedText {
+func Parse(s string, view types.HTMLView, mediaReplacer Replacer, link types.Link) *parsedText {
 	r := goldmarkText.NewReader([]byte(s))
-	parser := NewParser(mediaReplacer, userHandleReplacer)
+	parser := NewParser(view, mediaReplacer, link)
 	ast := parser.Parser().Parse(r)
 
 	return &parsedText{

@@ -144,7 +144,7 @@ func (p *blockTagParser) Continue(node ast.Node, reader text.Reader, pc parser.C
 
 	// simplification: do not deal with situations when there is any text after the block tag
 	// XXX: better to allow goldmark to create the next block element out of this
-	if util.TrimRightSpaceLength(line) != 1 {
+	if util.TrimRightSpaceLength(line) > 1 {
 		return parser.Continue | parser.HasChildren
 	}
 

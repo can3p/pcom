@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -83,7 +84,7 @@ func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaServer m
 			return nil, err
 		}
 
-		parsed := markdown.Parse(p.Body, nil, nil)
+		parsed := markdown.Parse(p.Body, types.ViewSinglePost, nil, nil)
 
 		extracted := parsed.ExtractImageUrls()
 

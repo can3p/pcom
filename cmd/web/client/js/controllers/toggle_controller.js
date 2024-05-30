@@ -41,8 +41,4 @@ export default class extends Controller {
 
     this.show()
   }
-
-  disconnect() {
-    this.bsCollapse.dispose()
-  }
 }

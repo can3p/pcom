@@ -18,42 +18,45 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-func NewParser(mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]) goldmark.Markdown {
-	return goldmark.New(
-		goldmark.WithExtensions(
-			extension.NewLinkify(
-				extension.WithLinkifyAllowedProtocols([][]byte{
-					[]byte("http:"),
-					[]byte("https:"),
-				}),
-			),
-			mdext.NewHandle(),
+func NewParser(view types.HTMLView, mediaReplacer Replacer, link types.Link) goldmark.Markdown {
+	extensions := []goldmark.Extender{
+		extension.NewLinkify(
+			extension.WithLinkifyAllowedProtocols([][]byte{
+				[]byte("http:"),
+				[]byte("https:"),
+			}),
 		),
+		mdext.NewHandle(),
+	}
+
+	blockParsers := util.PrioritizedSlice{}
+
+	nodeRenderers := util.PrioritizedSlice{
+		util.Prioritized(NewImgLazyLoadRenderer(mediaReplacer), 500),
+		util.Prioritized(mdext.NewUserHandleRenderer(
+			func(in []byte) (bool, []byte) {
+				return true, []byte(link("user", string(in)))
+			}), 500),
+	}
+
+	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost {
+		blockParsers = append(blockParsers, util.Prioritized(blocktags.NewBlockTagParser(blocktags.DefaultTags), 999))
+		nodeRenderers = append(nodeRenderers, util.Prioritized(blocktags.NewBlockTagRenderer(view, link), 500))
+	}
+
+	return goldmark.New(
+		goldmark.WithExtensions(extensions...),
 		goldmark.WithParserOptions(
-			parser.WithBlockParsers(
-				util.Prioritized(blocktags.NewBlockTagParser(blocktags.DefaultTags), 999)),
+			parser.WithBlockParsers(blockParsers...),
 		),
 		goldmark.WithRendererOptions(
-			renderer.WithNodeRenderers(
-				util.Prioritized(NewImgLazyLoadRenderer(mediaReplacer), 500),
-				util.Prioritized(mdext.NewUserHandleRenderer(userHandleReplacer), 500),
-				util.Prioritized(blocktags.NewBlockTagRenderer(), 500),
-			),
+			renderer.WithNodeRenderers(nodeRenderers...),
 		),
 	)
 }
 
-func ToTemplate(s string) template.HTML {
-	var buf bytes.Buffer
-	if err := goldmark.Convert([]byte(s), &buf); err != nil {
-		panic(err)
-	}
-
-	return template.HTML(buf.String())
-}
-
-func ToEnrichedTemplate(s string, mediaReplacer Replacer, userHandleReplacer types.Replacer[[]byte]) template.HTML {
-	text := Parse(s, mediaReplacer, userHandleReplacer)
+func ToEnrichedTemplate(s string, view types.HTMLView, mediaReplacer Replacer, link types.Link) template.HTML {
+	text := Parse(s, view, mediaReplacer, link)
 	links := text.ExtractLinks()
 
 	replaceBlock := len(links) == 1 && links[0].OnlyLinkInBlock

@@ -48,6 +48,7 @@ type Post struct {
 	Capabilities   *PostCapabilities
 	CommentsNumber int64
 	Comments       []*Comment
+	EditPreview    bool
 }
 
 func (p *Post) IsPublished() bool {
@@ -58,7 +59,7 @@ func (p *Post) PostSubject() string {
 	return cmp.Or(p.Subject, "No Subject")
 }
 
-func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius) *Post {
+func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, editPreview bool) *Post {
 	var commentsNum int64
 
 	if post.R.PostStat != nil {
@@ -70,6 +71,7 @@ func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRa
 		Post:           post,
 		CommentsNumber: commentsNum,
 		Capabilities:   GetPostCapabilities(user.ID, post.R.User.ID, radius),
+		EditPreview:    editPreview && radius.IsSameUser(), // only authors can preview their own posts
 	}
 }
 

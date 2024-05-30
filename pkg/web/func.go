@@ -237,7 +237,7 @@ type SinglePostPage struct {
 	Comments []*postops.Comment
 }
 
-func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*SinglePostPage] {
+func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string, editPreview bool) mo.Result[*SinglePostPage] {
 	post, err := core.Posts(
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
@@ -262,7 +262,7 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 		return mo.Err[*SinglePostPage](ginhelpers.ErrForbidden)
 	}
 
-	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius)
+	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius, editPreview)
 
 	singlePostPage := &SinglePostPage{
 		BasePage: getBasePage(constructed.PostSubject(), userData),
@@ -388,7 +388,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		}
 
 		posts = lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, connRadius)
+			return postops.ConstructPost(userData.DBUser, p, connRadius, false)
 		})
 	}
 
@@ -463,7 +463,7 @@ func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Use
 	directFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusDirect)
+			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusDirect, false)
 		}),
 		FeedType: FeedTypeDirect,
 	}
@@ -498,7 +498,7 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 		BasePage: getBasePage(title, userData),
 		FeedType: FeedTypeExplore,
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusSecondDegree)
+			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusSecondDegree, false)
 		}),
 	}
 

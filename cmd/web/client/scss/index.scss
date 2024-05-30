@@ -41,3 +41,52 @@ blockquote {
 .comment-5 {
   margin-left: ($spacer * .25 * 15) !important;
 }
+
+.block-container-edit-preview-cut,
+.block-container-edit-preview-spoiler {
+  border: 3px dashed $gray-500;
+  margin-top: $spacer;
+}
+
+.block-container-edit-preview-spoiler {
+  background-color: $gray-300;
+}
+
+.block-container-edit-preview-cut {
+  background-color: $gray-100;
+}
+
+.block-container-edit-preview-cut-summary,
+.block-container-edit-preview-spoiler-summary {
+  font-family: $font-family-monospace;
+  font-size: $font-size-base * 0.7;
+}
+
+.block-container-edit-preview-cut-summary::before,
+.block-container-edit-preview-spoiler-summary::before {
+  font-family: $font-family-monospace;
+  display: inline;
+}
+
+.block-container-edit-preview-cut-summary::before {
+  content: "[cut]";
+}
+
+.block-container-edit-preview-spoiler-summary::before {
+  content: "[spoiler]";
+}
+
+.block-container-edit-preview-cut-content,
+.block-container-edit-preview-spoiler-content {
+  padding: ($spacer);
+}
+
+.block-container-spoiler-summary {
+  text-decoration: underline;
+  cursor: pointer;
+  color: $primary;
+}
+
+.block-container-spoiler-content:not(.show) {
+  display: none;
+}
