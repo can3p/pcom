@@ -12,12 +12,13 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-var OpeningBlockTagRe = regexp.MustCompile(`^{([a-z]+)}`)
+var OpeningBlockTagRe = regexp.MustCompile(`^{([a-z]+)(\s+([^}]+))?}`)
 var ClosingBlockTagRe = regexp.MustCompile(`^{/([a-z]+)}`)
 
 type BlockTag struct {
 	ast.BaseBlock
 	BlockTagName string
+	BlockTitle   string
 }
 
 func (n *BlockTag) Dump(source []byte, level int) {
@@ -30,10 +31,11 @@ func (n *BlockTag) Kind() ast.NodeKind {
 	return KindBlockTag
 }
 
-func NewBlockTag(name string) *BlockTag {
+func NewBlockTag(name string, title string) *BlockTag {
 	return &BlockTag{
 		BaseBlock:    ast.BaseBlock{},
 		BlockTagName: name,
+		BlockTitle:   title,
 	}
 }
 
@@ -94,11 +96,16 @@ func (p *blockTagParser) Open(parent ast.Node, reader text.Reader, pc parser.Con
 	}
 
 	name := strings.ToLower(string(groups[1]))
+	var title string
+
+	if len(groups) > 2 && name != "gallery" {
+		title = strings.TrimSpace(string(groups[2]))
+	}
 
 	tagDef := p.AllowedTags.GetTag(name)
 
 	if tagDef == nil {
-		fmt.Println("3")
+		fmt.Println("3", name)
 		return nil, parser.NoChildren
 	}
 
@@ -122,7 +129,7 @@ func (p *blockTagParser) Open(parent ast.Node, reader text.Reader, pc parser.Con
 		}
 	}
 
-	node := NewBlockTag(name)
+	node := NewBlockTag(name, title)
 	reader.Advance(len(line))
 
 	return node, parser.HasChildren

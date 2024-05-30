@@ -33,12 +33,12 @@ func TestBlockTags(t *testing.T) {
 			in: []byte(`
 this is test
 
-{cut}
+{cut What we've been talking about}
 
 this is hidden
 `),
 			out: `<p>this is test</p>
-<div data-container-type="cut">
+<div data-container-type="cut" title="What we've been talking about">
 <p>this is hidden</p>
 </div>`,
 		},
@@ -55,7 +55,7 @@ this is hidden
 this is not
 `),
 			out: `<p>this is test</p>
-<div data-container-type="cut">
+<div data-container-type="cut" title="See more">
 <p>this is hidden</p>
 </div>
 <p>this is not</p>`,
@@ -75,8 +75,8 @@ this is hidden
 this is not
 `),
 			out: `<p>this is test</p>
-<div data-container-type="cut">
-<div data-container-type="spoiler">
+<div data-container-type="cut" title="See more">
+<div data-container-type="spoiler" title="Open Spoiler">
 <p>this is hidden</p>
 </div>
 </div>
@@ -94,7 +94,7 @@ ttt
 this is hidden
 `),
 			out: `<p>this is test</p>
-<div data-container-type="cut">
+<div data-container-type="cut" title="See more">
 <p>ttt</p>
 <p>this is hidden</p>
 </div>`,
@@ -110,12 +110,19 @@ this is test
 this is hidden
 `),
 			out: `<p>this is test</p>
-<div data-container-type="cut">
-<div data-container-type="spoiler">
+<div data-container-type="cut" title="See more">
+<div data-container-type="spoiler" title="Open Spoiler">
 <div data-container-type="gallery">
 <p>this is hidden</p>
 </div>
 </div>
+</div>`,
+		},
+		{
+			in: []byte(`
+{gallery there is no title for gallery}
+`),
+			out: `<div data-container-type="gallery">
 </div>`,
 		},
 	}
