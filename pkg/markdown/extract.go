@@ -20,7 +20,7 @@ type parsedText struct {
 	parser goldmark.Markdown
 }
 
-func Parse(s string, view types.HTMLView, mediaReplacer Replacer, link types.Link) *parsedText {
+func Parse(s string, view types.HTMLView, mediaReplacer types.Replacer[string], link types.Link) *parsedText {
 	r := goldmarkText.NewReader([]byte(s))
 	parser := NewParser(view, mediaReplacer, link)
 	ast := parser.Parser().Parse(r)
@@ -35,8 +35,6 @@ func Parse(s string, view types.HTMLView, mediaReplacer Replacer, link types.Lin
 func (t *parsedText) Render(writer io.Writer) error {
 	return t.parser.Renderer().Render(writer, t.s, t.node)
 }
-
-type Replacer func(inURL string) (bool, string)
 
 func (t *parsedText) ExtractImageUrls() []*EmbeddedLink {
 	out := []*EmbeddedLink{}

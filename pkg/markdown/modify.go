@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/can3p/pcom/pkg/types"
 	markdown "github.com/teekennedy/goldmark-markdown"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -14,7 +15,7 @@ import (
 )
 
 type imgReplaceTransformer struct {
-	Replacer Replacer
+	Replacer types.Replacer[string]
 }
 
 func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
@@ -56,7 +57,7 @@ func NewModifier(t parser.ASTTransformer) goldmark.Markdown {
 	return gm
 }
 
-func ReplaceImageUrls(md string, replace Replacer) string {
+func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
 	t := &imgReplaceTransformer{
 		Replacer: replace,
 	}
@@ -75,7 +76,7 @@ func ReplaceImageUrls(md string, replace Replacer) string {
 
 }
 
-func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) Replacer {
+func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) types.Replacer[string] {
 	return func(in string) (bool, string) {
 		destRaw := in
 		dest := strings.ToLower(destRaw)
