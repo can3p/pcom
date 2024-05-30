@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
@@ -31,7 +32,16 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 	blockParsers := util.PrioritizedSlice{}
 
 	nodeRenderers := util.PrioritizedSlice{
-		util.Prioritized(lazyload.NewImgLazyLoadRenderer(mediaReplacer), 500),
+		// we let gallery block do it's own business
+		util.Prioritized(lazyload.NewImgLazyLoadRenderer(mediaReplacer, func(n ast.Node) bool {
+			t, ok := n.(*blocktags.BlockTag)
+
+			if !ok {
+				return false
+			}
+
+			return t.BlockTagName == "gallery"
+		}), 500),
 		util.Prioritized(mdext.NewUserHandleRenderer(
 			func(in []byte) (bool, []byte) {
 				return true, []byte(link("user", string(in)))

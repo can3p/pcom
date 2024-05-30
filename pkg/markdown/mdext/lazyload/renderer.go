@@ -10,10 +10,13 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
-func NewImgLazyLoadRenderer(mediaReplacer types.Replacer[string], opts ...html.Option) renderer.NodeRenderer {
+type ParentChecker func(n ast.Node) bool
+
+func NewImgLazyLoadRenderer(mediaReplacer types.Replacer[string], forbiddenParent ParentChecker, opts ...html.Option) renderer.NodeRenderer {
 	r := &LazyLoadRenderer{
-		Config:        html.NewConfig(),
-		mediaReplacer: mediaReplacer,
+		Config:          html.NewConfig(),
+		mediaReplacer:   mediaReplacer,
+		forbiddenParent: forbiddenParent,
 	}
 	for _, opt := range opts {
 		opt.SetHTMLOption(&r.Config)
@@ -23,7 +26,8 @@ func NewImgLazyLoadRenderer(mediaReplacer types.Replacer[string], opts ...html.O
 
 type LazyLoadRenderer struct {
 	html.Config
-	mediaReplacer types.Replacer[string]
+	mediaReplacer   types.Replacer[string]
+	forbiddenParent ParentChecker
 }
 
 // RegisterFuncs implements renderer.NodeRenderer.RegisterFuncs.
@@ -37,6 +41,20 @@ func (r *LazyLoadRenderer) renderImage(w util.BufWriter, source []byte, node ast
 	}
 
 	n := node.(*ast.Image)
+
+	p := node
+
+	for {
+		p = p.Parent()
+
+		if p == nil {
+			break
+		}
+
+		if r.forbiddenParent(p) {
+			return r.renderImageClassic(w, source, node, entering)
+		}
+	}
 
 	shouldReplace, updatedLink := r.mediaReplacer(string(n.Destination))
 
@@ -91,4 +109,41 @@ func nodeToHTMLText(n ast.Node, source []byte) []byte {
 		}
 	}
 	return buf.Bytes()
+}
+
+// copied from github.com/yuin/goldmark@v1.5.4/renderer/renderer.go
+// I wish there was a way to fallback to default renderer
+func (r *LazyLoadRenderer) renderImageClassic(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+	if !entering {
+		return ast.WalkContinue, nil
+	}
+	n := node.(*ast.Image)
+	shouldReplace, updatedLink := r.mediaReplacer(string(n.Destination))
+
+	// just in case media replacer forgets to return initial string
+	if !shouldReplace {
+		updatedLink = string(n.Destination)
+	}
+
+	_, _ = w.WriteString("<img src=\"")
+	if r.Unsafe || !html.IsDangerousURL([]byte(updatedLink)) {
+		_, _ = w.Write(util.EscapeHTML(util.URLEscape([]byte(updatedLink), true)))
+	}
+	_, _ = w.WriteString(`" alt="`)
+	_, _ = w.Write(nodeToHTMLText(n, source))
+	_ = w.WriteByte('"')
+	if n.Title != nil {
+		_, _ = w.WriteString(` title="`)
+		r.Writer.Write(w, n.Title)
+		_ = w.WriteByte('"')
+	}
+	if n.Attributes() != nil {
+		html.RenderAttributes(w, n, html.ImageAttributeFilter)
+	}
+	if r.XHTML {
+		_, _ = w.WriteString(" />")
+	} else {
+		_, _ = w.WriteString(">")
+	}
+	return ast.WalkSkipChildren, nil
 }
