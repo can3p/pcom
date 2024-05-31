@@ -6,6 +6,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/markdown/mdext"
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
+	"github.com/can3p/pcom/pkg/markdown/mdext/headershift"
 	"github.com/can3p/pcom/pkg/markdown/mdext/lazyload"
 	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
@@ -27,6 +28,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 		),
 		mdext.NewHandle(),
 		videoembed.NewVideoEmbedExtender(),
+		headershift.NewHeaderShiftExtender(1),
 	}
 
 	blockParsers := util.PrioritizedSlice{}
