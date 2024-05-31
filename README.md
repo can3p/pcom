@@ -3,6 +3,8 @@
 Private as in the content is not public by default and discovery requires a human touch. Please refer to [manifesto](Manifesto.md)
 for more details.
 
+If you want to follow the development, there is a [youtube playlist]([200~https://www.youtube.com/playlist?list=PLa5K-kCUS-FozB6Cw7rJLFJaxyZd-MPpi) with demos!
+
 ## Initial Setup
 
 1. change remote and push to the new repo
