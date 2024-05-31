@@ -22,7 +22,13 @@ blockquote {
 .post-full img,
 .post-user-home img,
 .post-in-feed img {
-  width: 30%;
+  max-width: 100%;
+}
+
+.carousel-caption,
+.carousel-control-prev,
+.carousel-control-next {
+  background-color: rgba(0,0,0,0.3);
 }
 
 .comment-1 {

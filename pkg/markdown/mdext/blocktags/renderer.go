@@ -77,6 +77,10 @@ func (r *BlockTagRenderer) renderBlockTag(w util.BufWriter, source []byte, node 
 			_, _ = w.WriteString(` data-controller="spoiler"`)
 		}
 
+		if n.BlockTagName == "gallery" {
+			_, _ = w.WriteString(` data-controller="gallery"`)
+		}
+
 		_, _ = w.WriteString(">\n")
 
 		if title != "" {
