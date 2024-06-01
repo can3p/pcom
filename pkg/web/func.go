@@ -504,3 +504,15 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 
 	return mo.Ok(exploreFeedPage)
 }
+
+type LoginPage struct {
+	*BasePage
+}
+
+func Login(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *LoginPage {
+	invitePage := &LoginPage{
+		BasePage: getBasePage("Login", userData),
+	}
+
+	return invitePage
+}

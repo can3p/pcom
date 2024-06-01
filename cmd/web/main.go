@@ -256,10 +256,7 @@ func main() {
 			return
 		}
 
-		c.HTML(http.StatusOK, "login.html", gin.H{
-			"Name": "Login to Webhks",
-			"User": userData,
-		})
+		c.HTML(http.StatusOK, "login.html", web.Login(c, db, &userData))
 	})
 
 	r.GET("/signup", func(c *gin.Context) {
