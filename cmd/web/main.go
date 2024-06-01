@@ -112,6 +112,12 @@ func main() {
 	sessionSalt := os.Getenv("SESSION_SALT")
 
 	store := pgsession.NewStore(db, []byte(sessionSalt))
+	store.Options(sessions.Options{
+		Path:     "/",
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	// developer timezone only messes things up
 	time.Local = time.UTC
