@@ -5,6 +5,10 @@ import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
 import 'lite-youtube-embed';
 import 'lazysizes';
 
+// need to do this to please content security policy
+// https://github.com/bigskysoftware/htmx/issues/862
+htmx.config.includeIndicatorStyles = false
+
 window.htmx = htmx
 window._hyperscript = hyperscript
 window._hyperscript.browserInit()

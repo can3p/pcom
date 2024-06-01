@@ -32,6 +32,7 @@ import (
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
+	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -140,6 +141,8 @@ func main() {
 	} else {
 		log.Println("Custom error reporter skipped")
 	}
+
+	r.Use(csp.Csp)
 
 	html := flag.String("html", "client/html", "path to html templates")
 
