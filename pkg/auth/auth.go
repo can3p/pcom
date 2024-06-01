@@ -54,6 +54,26 @@ func EnforceAuth(c *gin.Context) {
 	c.Next()
 }
 
+func CheckCredentials(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
+	h := pgsession.HashUserPwd(email, password)
+
+	_, err := core.Users(
+		core.UserWhere.Email.EQ(email),
+		core.UserWhere.Pwdhash.EQ(null.StringFrom(h)),
+		core.UserWhere.EmailConfirmedAt.IsNotNull(),
+	).One(context.TODO(), db)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.Errorf("Bad credentials")
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 func Login(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
 	session := sessions.Default(c)
 	h := pgsession.HashUserPwd(email, password)

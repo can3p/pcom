@@ -4,6 +4,10 @@
       hx-swap="outerHTML"
   >
 
+  {{ with .FormError }}
+  <div class="alert alert-danger">{{ . }}</div>
+  {{ end }}
+
   <div class="mb-3">
     <label for="loginEmail" class="form-label">Email address</label>
     <input name="email" type="email"

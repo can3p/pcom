@@ -41,7 +41,7 @@ func (f *LoginForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 		return forms.ErrValidationFailed
 	}
 
-	return nil
+	return auth.CheckCredentials(c, db, f.Input.Email, f.Input.Password)
 }
 
 func (f *LoginForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
