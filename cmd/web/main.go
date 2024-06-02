@@ -33,6 +33,7 @@ import (
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
+	"github.com/can3p/pcom/pkg/util/ginhelpers/csrf"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -389,7 +390,7 @@ func main() {
 	})
 
 	controls := r.Group("/controls", auth.EnforceAuth)
-	actions := controls.Group("/action")
+	actions := controls.Group("/action", csrf.CheckCSRF)
 
 	setupActions(actions, db, mediaServer)
 
@@ -456,7 +457,9 @@ func main() {
 		})
 	})
 
-	r.POST("/form/login", func(c *gin.Context) {
+	nonControlsForms := r.Group("/form", csrf.CheckCSRF)
+
+	nonControlsForms.POST("/login", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
@@ -468,7 +471,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	r.POST("/form/accept_invite/:id", func(c *gin.Context) {
+	nonControlsForms.POST("/accept_invite/:id", func(c *gin.Context) {
 		invitationID := c.Param("id")
 
 		invite, err := core.UserInvitations(
@@ -487,7 +490,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	r.POST("/form/signup", func(c *gin.Context) {
+	nonControlsForms.POST("/signup", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
@@ -507,7 +510,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	r.POST("/form/signup_waiting_list", func(c *gin.Context) {
+	nonControlsForms.POST("/signup_waiting_list", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
@@ -528,7 +531,9 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/whitelist_connection", func(c *gin.Context) {
+	controlsForms := controls.Group("/form", csrf.CheckCSRF)
+
+	controlsForms.POST("/whitelist_connection", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
@@ -537,7 +542,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/send_invite", func(c *gin.Context) {
+	controlsForms.POST("/send_invite", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
@@ -546,7 +551,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/new_post", func(c *gin.Context) {
+	controlsForms.POST("/new_post", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
@@ -555,7 +560,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/edit_post/:id", func(c *gin.Context) {
+	controlsForms.POST("/edit_post/:id", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 		postID := c.Param("id")
@@ -574,7 +579,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/new_comment", func(c *gin.Context) {
+	controlsForms.POST("/new_comment", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
@@ -583,7 +588,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/save_settings", func(c *gin.Context) {
+	controlsForms.POST("/save_settings", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
@@ -592,7 +597,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controls.POST("/form/change_password", func(c *gin.Context) {
+	controlsForms.POST("/change_password", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 

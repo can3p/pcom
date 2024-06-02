@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -121,6 +122,7 @@ type UserData struct {
 	User       *pgsession.User
 	DBUser     *core.User
 	IsLoggedIn bool
+	CSRFToken  string
 }
 
 func GetUserData(c *gin.Context) UserData {
@@ -128,6 +130,20 @@ func GetUserData(c *gin.Context) UserData {
 
 	u := pgsession.GetUser(c)
 
+	session := sessions.Default(c)
+
+	storedToken := session.Get("csrf_token")
+
+	if storedToken == nil {
+		storedToken = uuid.NewString()
+		session.Set("csrf_token", storedToken)
+
+		if err := session.Save(); err != nil {
+			slog.Warn(errors.Wrapf(err, "Failed to save session").Error())
+		}
+	}
+
+	out.CSRFToken = storedToken.(string)
 	out.IsLoggedIn = u != nil
 	out.User = u
 	if u != nil {

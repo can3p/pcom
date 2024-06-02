@@ -8,11 +8,26 @@ export async function runAction(name, dataset, extraFields) {
     payload = { ...payload, ...extraFields }
   }
 
+  let headers = {
+    'Content-Type': 'application/json',
+  }
+
+
+  let addHeadersStr = document.body.getAttribute("hx-headers")
+
+  if (addHeadersStr) {
+    try {
+      let parsed = JSON.parse(addHeadersStr)
+      headers = { ...headers, ...parsed}
+    } catch(e) {
+      console.warn("failed to parse additional headers", e)
+    }
+  }
+
+
   return fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: headers,
     body: JSON.stringify(payload),
   })
     .then((response) => response.json())
