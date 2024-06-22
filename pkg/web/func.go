@@ -194,25 +194,43 @@ type SettingsPage struct {
 	*BasePage
 	AvailableInvites int64
 	UsedInvites      core.UserInvitationSlice
+	ActiveAPIKey     *core.UserAPIKey
 }
 
-func Settings(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *SettingsPage {
-	totalInvites := core.UserInvitations(
+func Settings(c context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
+	totalInvites, err := core.UserInvitations(
 		core.UserInvitationWhere.UserID.EQ(userData.DBUser.ID),
-	).CountP(c, db)
+	).Count(c, db)
 
-	usedInvites := core.UserInvitations(
+	if err != nil {
+		return mo.Err[*SettingsPage](err)
+	}
+
+	usedInvites, err := core.UserInvitations(
 		core.UserInvitationWhere.UserID.EQ(userData.DBUser.ID),
 		core.UserInvitationWhere.InvitationEmail.IsNotNull(),
-	).AllP(c, db)
+	).All(c, db)
+
+	if err != nil {
+		return mo.Err[*SettingsPage](err)
+	}
+
+	apiKey, err := core.UserAPIKeys(
+		core.UserAPIKeyWhere.UserID.EQ(userData.DBUser.ID),
+	).One(c, db)
+
+	if err != nil && err != sql.ErrNoRows {
+		return mo.Err[*SettingsPage](err)
+	}
 
 	settingsPage := &SettingsPage{
 		BasePage:         getBasePage("Settings", userData),
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
+		ActiveAPIKey:     apiKey,
 	}
 
-	return settingsPage
+	return mo.Ok(settingsPage)
 }
 
 type InvitePage struct {

@@ -421,7 +421,7 @@ func main() {
 	controls.GET("/settings", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		c.HTML(http.StatusOK, "settings.html", web.Settings(c, db, &userData))
+		ginhelpers.HTML(c, "settings.html", web.Settings(c, db, &userData))
 	})
 
 	r.GET("/confirm_signup/:id", func(c *gin.Context) {

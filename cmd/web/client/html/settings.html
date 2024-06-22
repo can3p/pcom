@@ -45,6 +45,30 @@
         </div>
       </div>
     </div>
+
+    <div class="col-lg-6 mt-3">
+      <div class="card">
+        <h5 class="card-header">API Key</h5>
+        <div class="card-body">
+          {{ with .ActiveAPIKey }}
+            <p>Your API key, click to copy</p>
+            <code>****</code>
+            <i data-controller="clipboard"
+               data-clipboard-copy-value="{{ .APIKey }}"
+               class="bi bi-clipboard"
+               role="button"
+               ></i>
+          {{ else }}
+            <button type="button"
+                    class="btn btn-sm btn-primary"
+                    data-controller="action"
+                    data-action="action#run"
+                    data-action-action-value="generate_api_key"
+                    >Generate an API Key</button>
+          {{ end }}
+        </div>
+      </div>
+    </div>
   </div>
 
 

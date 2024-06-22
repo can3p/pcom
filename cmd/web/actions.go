@@ -16,7 +16,9 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
@@ -220,6 +222,42 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 			}
 
 			return postops.DeletePost(c, tx, post.ID)
+		})
+
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
+
+	r.POST("/generate_api_key", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		id, err := uuid.NewV7()
+
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+		}
+
+		newApiKey, err := uuid.NewV7()
+
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+		}
+
+		err = transact.Transact(db, func(tx *sql.Tx) error {
+			record := core.UserAPIKey{
+				ID:     id.String(),
+				APIKey: newApiKey.String(),
+				UserID: dbUser.ID,
+			}
+
+			// no key rotation for now
+			// feel free to implement/change
+			return record.Upsert(c, tx, false, []string{core.UserAPIKeyColumns.UserID}, boil.Infer(), boil.Infer())
 		})
 
 		if err != nil {
