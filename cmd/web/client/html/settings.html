@@ -33,7 +33,7 @@
           <form class="d-inline"
             method="POST"
             hx-post="{{ link "action" "settings/import" }}"
-            hx-trigger="input from #import_file"
+            hx-trigger="input from:#import_file"
             hx-encoding='multipart/form-data'
             hx-swap="innerHTML"
             hx-target="#import_export_results"
