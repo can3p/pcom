@@ -124,16 +124,14 @@ func main() {
 	// developer timezone only messes things up
 	time.Local = time.UTC
 
-	r := gin.Default()
+	router := gin.Default()
 
 	staticAsset := loadStaticManifest()
 
-	r.MaxMultipartMemory = 8 << 20 // 8 MiB
-	r.Use(sessions.Sessions("sess", store))
-	r.Use(func(c *gin.Context) { auth.Auth(c, db) })
+	router.MaxMultipartMemory = 8 << 20 // 8 MiB
 
 	if util.InCluster() {
-		r.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
+		router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
 			userData := auth.GetUserData(c)
 			user := userData.DBUser
 
@@ -143,14 +141,20 @@ func main() {
 		log.Println("Custom error reporter skipped")
 	}
 
-	r.Use(csp.Csp)
+	router.Use(csp.Csp)
 
 	html := flag.String("html", "client/html", "path to html templates")
 
 	flag.Parse()
 
-	r.SetFuncMap(funcmap(staticAsset))
-	r.LoadHTMLGlob(fmt.Sprintf("%s/*.html", *html))
+	router.SetFuncMap(funcmap(staticAsset))
+	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", *html))
+
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
+
+	setupApi(apiGroup, db, mediaServer)
+
+	r := router.Group("/", sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
 
 	r.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -606,7 +610,7 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	if err := r.Run(); err != nil {
+	if err := router.Run(); err != nil {
 		panic(err)
 	}
 }

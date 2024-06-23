@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/can3p/gogo/sender"
@@ -37,6 +38,38 @@ func Auth(c *gin.Context, db *sqlx.DB) {
 	}
 
 	if err := pgsession.SetUser(c, db, user.(string)); err != nil {
+		log.Printf("Failed to save user to pgsession, auth won't work as expected: %s", err)
+	}
+
+	c.Next()
+}
+
+func AuthAPI(c *gin.Context, db *sqlx.DB) {
+	apiToken := c.GetHeader("Authorization")
+
+	parts := strings.Split(apiToken, " ")
+
+	if apiToken == "" || parts[0] != "Bearer" || len(parts) != 2 {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	userToken, err := core.UserAPIKeys(
+		core.UserAPIKeyWhere.APIKey.EQ(parts[1]),
+	).One(c, db)
+
+	if err == sql.ErrNoRows {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		slog.Warn("Failed to fetch user token", "err", err)
+		return
+	}
+
+	if err := pgsession.SetUser(c, db, userToken.UserID); err != nil {
 		log.Printf("Failed to save user to pgsession, auth won't work as expected: %s", err)
 	}
 
@@ -144,6 +177,23 @@ func GetUserData(c *gin.Context) UserData {
 	}
 
 	out.CSRFToken = storedToken.(string)
+	out.IsLoggedIn = u != nil
+	out.User = u
+	if u != nil {
+		out.DBUser = u.DBUser
+	}
+
+	return out
+}
+
+// this is a lame way of doing the auth. Ideally
+// the controller code should simply read the user from the
+// context and that's it
+func GetAPIUserData(c *gin.Context) UserData {
+	var out UserData
+
+	u := pgsession.GetUser(c)
+
 	out.IsLoggedIn = u != nil
 	out.User = u
 	if u != nil {
