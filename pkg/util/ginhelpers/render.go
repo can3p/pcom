@@ -37,3 +37,32 @@ func HTML[T any](c *gin.Context, templateName string, result mo.Result[T]) {
 
 	c.String(httpCode, result.Error().Error())
 }
+
+func API[T any](c *gin.Context, result mo.Result[T]) {
+	if result.IsOk() {
+		c.JSON(http.StatusOK, gin.H{
+			"data": result.MustGet(),
+		})
+		return
+	}
+
+	var httpCode int = http.StatusInternalServerError
+
+	switch result.Error() {
+	case ErrNotFound:
+		httpCode = http.StatusNotFound
+	case ErrForbidden:
+		httpCode = http.StatusForbidden
+	case ErrBadRequest:
+		httpCode = http.StatusBadRequest
+	}
+
+	if util.InCluster() {
+		c.Status(httpCode)
+		return
+	}
+
+	c.JSON(httpCode, gin.H{
+		"errors": []string{result.Error().Error()},
+	})
+}

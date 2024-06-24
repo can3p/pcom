@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -270,32 +271,17 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 
 	r.POST("/upload_media", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		user := userData.User.DBUser
-		file, err := c.FormFile("file")
 
-		if err != nil {
-			panic(err)
+		res := web.ApiUploadImage(c, db, userData.DBUser, mediaServer)
+
+		if res.IsError() {
+			panic(res.Error())
 		}
 
-		f, err := file.Open()
-
-		if err != nil {
-			panic(err)
-		}
-
-		var fname string
-
-		err = transact.Transact(db, func(tx *sql.Tx) error {
-			fname, err = media.HandleUpload(c, db, mediaServer, user.ID, f)
-			return err
-		})
-
-		if err != nil {
-			panic(err)
-		}
+		resp := res.MustGet()
 
 		c.JSON(http.StatusOK, gin.H{
-			"uploaded_url": fname,
+			"uploaded_url": resp.ImageID,
 		})
 	})
 

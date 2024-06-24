@@ -46,8 +46,8 @@ const (
 	PostFormActionDelete    PostFormAction = "delete"
 )
 
-func NewPostFormNew(u *core.User) forms.Form {
-	var form forms.Form = &PostForm{
+func NewPostFormNew(u *core.User) *PostForm {
+	var form *PostForm = &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
 			FormTemplate:        "form--post.html",
@@ -63,7 +63,7 @@ func NewPostFormNew(u *core.User) forms.Form {
 	return form
 }
 
-func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, u *core.User, postID string) (forms.Form, error) {
+func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, u *core.User, postID string) (*PostForm, error) {
 	post, err := core.Posts(
 		core.PostWhere.ID.EQ(postID),
 		core.PostWhere.UserID.EQ(u.ID),
@@ -77,7 +77,7 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, u *core.User,
 		return nil, err
 	}
 
-	var form forms.Form = &PostForm{
+	var form *PostForm = &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
 			FormTemplate:        "form--post.html",
