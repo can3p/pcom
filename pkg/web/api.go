@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/forms"
@@ -87,8 +86,6 @@ func ApiNewPost(c *gin.Context, db *sqlx.DB, dbUser *core.User) mo.Result[*ApiNe
 	if err := c.BindJSON(&input); err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
 	}
-
-	fmt.Println(input)
 
 	// everything you see there is one big hack
 	// to avoid duplicating business logic
