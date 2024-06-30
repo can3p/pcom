@@ -134,7 +134,7 @@ func ApiEditPost(c *gin.Context, db *sqlx.DB, dbUser *core.User, postID string) 
 
 	// everything you see there is one big hack
 	// to avoid duplicating business logic
-	action := forms.PostFormActionSavePost
+	action := forms.PostFormActionMakeDraft
 
 	if input.IsPublished {
 		action = forms.PostFormActionPublish
