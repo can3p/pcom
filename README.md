@@ -5,6 +5,56 @@ for more details.
 
 If you want to follow the development, there is a [youtube playlist](https://www.youtube.com/playlist?list=PLa5K-kCUS-FozB6Cw7rJLFJaxyZd-MPpi) with demos!
 
+## Dev Setup
+
+* Install go, asdf, postgres, watchexec
+* `asdf install`
+* `npm install -g yarn`
+* `cd cmd/web; yarn install`
+* `go install github.com/rubenv/sql-migrate/...@latest`
+* `go install github.com/volatiletech/sqlboiler/v4@latest`
+* `go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest`
+* `createuser pcom -W` use `pcom` as a password there
+* `createdb --owner=pcom pcom_dev`
+* `echo 'SESSION_SALT=random' >> cmd/web/.env`
+* `echo 'SITE_ROOT=http://localhost:8000' >> cmd/web/.env`
+* `echo 'DATABASE_URL=postgres://pcom:pcom@localhost:5432/pcom_dev?sslmode=disable' >> cmd/web/.env`
+* `./sqlmigrate up`
+
+### Run the frontend
+
+```
+cd cmd/web; yarn watch
+```
+
+### Run the server
+
+```
+cd cmd/web; make watchexec
+```
+
+### psql access
+
+```
+psql -U pcom pcom_dev
+```
+
+### schema changes
+
+```
+./sql-migrate new migration_name
+```
+
+Edit the file given by sql-migrate
+
+```
+./sql-migrate up
+```
+
+```
+./generate.sh
+```
+
 ## Initial Setup
 
 1. change remote and push to the new repo
@@ -29,7 +79,7 @@ If you want to follow the development, there is a [youtube playlist](https://www
 13. Add sender email address there
 14. Add required txt record to validate domain
 15. Add required txt records to add DKIM and SPF settings
-16. Add postgres db env var to `cmd/web/.env` via `./env.pl > cmd/web/.env`, remove `sslMode=disable` and replace domain name with localhost
+16. Add postgres db env var to `cmd/web/.env` via `./env.pl > cmd/web/.env`, remove `sslmode=disable` and replace domain name with localhost
 18. Run the following from the project root to get the database schema in place and generate orm files
 
 ```
