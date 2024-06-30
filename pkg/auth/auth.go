@@ -50,7 +50,7 @@ func AuthAPI(c *gin.Context, db *sqlx.DB) {
 	parts := strings.Split(apiToken, " ")
 
 	if apiToken == "" || parts[0] != "Bearer" || len(parts) != 2 {
-		c.Status(http.StatusBadRequest)
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
@@ -59,12 +59,12 @@ func AuthAPI(c *gin.Context, db *sqlx.DB) {
 	).One(c, db)
 
 	if err == sql.ErrNoRows {
-		c.Status(http.StatusForbidden)
+		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
 
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
+		c.AbortWithStatus(http.StatusInternalServerError)
 		slog.Warn("Failed to fetch user token", "err", err)
 		return
 	}
