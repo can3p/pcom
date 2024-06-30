@@ -187,7 +187,7 @@ func ApiDeletePost(c *gin.Context, db *sqlx.DB, dbUser *core.User, postID string
 }
 
 type ApiUploadImageResponse struct {
-	ImageID string
+	ImageID string `json:"image_id"`
 }
 
 func ApiUploadImage(c *gin.Context, db *sqlx.DB, dbUser *core.User, mediaServer media.MediaServer) mo.Result[*ApiUploadImageResponse] {

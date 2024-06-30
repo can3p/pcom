@@ -28,7 +28,7 @@ If cursor is not empty, pass it as `cursor` query parameter with the next call t
 
 ```
 curl -v -H'Authorization: Bearer <api-key>' -XPUT -F 'file=@path/to/image.png' http://localhost:8080/api/v1/image
-{"data":{"ImageID":"0190478c-5592-74ab-9d1a-5cdab598f2dd.png"}}%
+{"data":{"image_id":"0190478c-5592-74ab-9d1a-5cdab598f2dd.png"}}%
 ```
 
 ## Create new Post
