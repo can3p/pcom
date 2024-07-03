@@ -24,6 +24,7 @@ type ApiPost struct {
 	MdBody      string              `json:"md_body"`
 	Visibility  core.PostVisibility `json:"visibility"`
 	IsPublished bool                `json:"is_published"`
+	PublishedAt int64               `json:"published_at,omitempty"`
 	PublicURL   string              `json:"public_url"`
 }
 
@@ -79,12 +80,19 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 
 	return mo.Ok(&ApiGetPostsResponse{
 		Posts: lo.Map(posts[0:input.Limit], func(p *core.Post, idx int) *ApiPost {
+			var publishedAt int64
+
+			if p.PublishedAt.Valid {
+				publishedAt = p.PublishedAt.Time.Unix()
+			}
+
 			return &ApiPost{
 				ID:          p.ID,
 				Subject:     p.Subject,
 				MdBody:      p.Body,
 				Visibility:  p.VisibilityRadius,
 				IsPublished: p.PublishedAt.Valid,
+				PublishedAt: publishedAt,
 				PublicURL:   links.AbsLink("post", p.ID),
 			}
 		}),
