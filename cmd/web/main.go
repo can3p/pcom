@@ -660,7 +660,7 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 
 		"renderTimestamp": func(t time.Time, user *core.User) string {
 			if user != nil {
-				t = localizeTime(user, t)
+				t = util.LocalizeTime(user, t)
 			}
 
 			return t.Format("Mon, 02 Jan 2006 15:04")
@@ -696,17 +696,6 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 			return util.TimeZones
 		},
 	}
-}
-
-func localizeTime(user *core.User, t time.Time) time.Time {
-	l, err := time.LoadLocation(user.Timezone)
-
-	if err != nil {
-		log.Printf("failed to parse timezone setting: [%s] - %v", user.Timezone, err)
-		return t
-	}
-
-	return t.In(l)
 }
 
 type staticAssetFunc func(n string) string
