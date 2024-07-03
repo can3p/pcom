@@ -31,10 +31,25 @@ export default class extends Controller {
       const uploadFile = async(file) => {
         const formData = new FormData();
 
+        let headers = { }
+
+
+        let addHeadersStr = document.body.getAttribute("hx-headers")
+
+        if (addHeadersStr) {
+          try {
+            let parsed = JSON.parse(addHeadersStr)
+            headers = { ...headers, ...parsed}
+          } catch(e) {
+            console.warn("failed to parse additional headers", e)
+          }
+        }
+
         formData.append('file', file);
 
         return fetch(this.uploadValue, {
             method: 'POST',
+            headers: headers,
             body: formData
           })
           .then((response) => response.json())
