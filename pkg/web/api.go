@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 
 	"github.com/can3p/gogo/util/transact"
@@ -17,7 +16,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
-const GetPostsLimit = 100
+const GetPostsLimitMax = 100
 
 type ApiPost struct {
 	ID          string              `json:"id"`
@@ -33,15 +32,33 @@ type ApiGetPostsResponse struct {
 	Cursor string     `json:"cursor"`
 }
 
-func ApiGetPosts(c context.Context, db *sqlx.DB, userID string, cursor string) mo.Result[*ApiGetPostsResponse] {
+func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPostsResponse] {
+	var input struct {
+		Cursor string `form:"cursor"`
+		Limit  int    `form:"limit"`
+	}
+
+	if err := c.ShouldBind(&input); err != nil {
+		return mo.Err[*ApiGetPostsResponse](err)
+	}
+
+	switch {
+	case input.Limit <= 0:
+		input.Limit = 1
+	case input.Limit > GetPostsLimitMax:
+		input.Limit = GetPostsLimitMax
+	}
+
 	q := []qm.QueryMod{
 		core.PostWhere.UserID.EQ(userID),
 		qm.OrderBy("id desc"),
-		qm.Limit(GetPostsLimit),
+		// +1 here is to understand whether it makes sense to fill cursor value,
+		// we're discarding the last record otherwise
+		qm.Limit(input.Limit + 1),
 	}
 
-	if cursor != "" {
-		q = append(q, core.PostWhere.ID.LT(cursor))
+	if input.Cursor != "" {
+		q = append(q, core.PostWhere.ID.LT(input.Cursor))
 	}
 
 	posts, err := core.Posts(q...).All(c, db)
@@ -56,12 +73,12 @@ func ApiGetPosts(c context.Context, db *sqlx.DB, userID string, cursor string) m
 
 	var newCursor string
 
-	if len(posts) == GetPostsLimit {
-		newCursor = posts[len(posts)-1].ID
+	if len(posts) > input.Limit {
+		newCursor = posts[input.Limit-1].ID
 	}
 
 	return mo.Ok(&ApiGetPostsResponse{
-		Posts: lo.Map(posts, func(p *core.Post, idx int) *ApiPost {
+		Posts: lo.Map(posts[0:input.Limit], func(p *core.Post, idx int) *ApiPost {
 			return &ApiPost{
 				ID:          p.ID,
 				Subject:     p.Subject,

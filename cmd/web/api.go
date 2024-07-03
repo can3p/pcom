@@ -13,7 +13,7 @@ func setupApi(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer) {
 	r.GET("/posts", func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
-		ginhelpers.API(c, web.ApiGetPosts(c, db, userData.DBUser.ID, c.Query("cursor")))
+		ginhelpers.API(c, web.ApiGetPosts(c, db, userData.DBUser.ID))
 	})
 
 	r.POST("/posts", func(c *gin.Context) {
