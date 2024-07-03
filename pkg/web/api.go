@@ -74,12 +74,15 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 
 	var newCursor string
 
+	postLen := len(posts)
+
 	if len(posts) > input.Limit {
+		postLen--
 		newCursor = posts[input.Limit-1].ID
 	}
 
 	return mo.Ok(&ApiGetPostsResponse{
-		Posts: lo.Map(posts[0:input.Limit], func(p *core.Post, idx int) *ApiPost {
+		Posts: lo.Map(posts[0:postLen], func(p *core.Post, idx int) *ApiPost {
 			var publishedAt int64
 
 			if p.PublishedAt.Valid {
