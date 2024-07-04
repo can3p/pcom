@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/forms"
@@ -13,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
@@ -25,6 +27,7 @@ type ApiPost struct {
 	Visibility  core.PostVisibility `json:"visibility"`
 	IsPublished bool                `json:"is_published"`
 	PublishedAt int64               `json:"published_at,omitempty"`
+	UpdatedAt   int64               `json:"updated_at,omitempty"`
 	PublicURL   string              `json:"public_url"`
 }
 
@@ -35,8 +38,9 @@ type ApiGetPostsResponse struct {
 
 func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPostsResponse] {
 	var input struct {
-		Cursor string `form:"cursor"`
-		Limit  int    `form:"limit"`
+		UpdatedSince int64  `form:"updated_since"`
+		Cursor       string `form:"cursor"`
+		Limit        int    `form:"limit"`
 	}
 
 	if err := c.ShouldBind(&input); err != nil {
@@ -56,6 +60,11 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 		// +1 here is to understand whether it makes sense to fill cursor value,
 		// we're discarding the last record otherwise
 		qm.Limit(input.Limit + 1),
+	}
+
+	if input.UpdatedSince > 0 {
+		t := time.Unix(input.UpdatedSince, 0)
+		q = append(q, core.PostWhere.UpdatedAt.GT(null.TimeFrom(t)))
 	}
 
 	if input.Cursor != "" {
@@ -96,6 +105,7 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 				Visibility:  p.VisibilityRadius,
 				IsPublished: p.PublishedAt.Valid,
 				PublishedAt: publishedAt,
+				UpdatedAt:   p.UpdatedAt.Time.Unix(),
 				PublicURL:   links.AbsLink("post", p.ID),
 			}
 		}),
