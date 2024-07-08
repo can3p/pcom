@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-# FIXME
-set -a; source cmd/web/.env; set +a
+# quick hack - if we run under run.sh, all vars are in the env already
+if [ -z "$DATABASE_URL" ]; then
+  set -a; source cmd/web/.env; set +a
+fi
 
 FIELDS=$(echo $DATABASE_URL | awk '{n = split($0, arr, /[\/@:?]*/); for (i = 1; i <= n; ++i) { print arr[i] }}')
 DATABASE_PROTO=$( echo $FIELDS | awk '{ print $1 }')
