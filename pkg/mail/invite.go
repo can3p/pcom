@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/mail"
+	"os"
 	"time"
 
 	"github.com/can3p/gogo/sender"
@@ -53,7 +54,7 @@ func sendActualInvitation(ctx context.Context, s sender.Sender, invite *core.Use
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

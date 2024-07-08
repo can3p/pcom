@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/mail"
+	"os"
 
 	"time"
 
@@ -29,7 +30,7 @@ func sendActualConfirmWaitingList(ctx context.Context, s sender.Sender, waitingL
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your testproj",
 		},
 		To: []mail.Address{

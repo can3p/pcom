@@ -36,7 +36,7 @@ func NotifyPageFailure(c *gin.Context, s sender.Sender, err any, user *core.User
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

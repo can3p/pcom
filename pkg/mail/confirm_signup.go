@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/mail"
+	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -22,7 +23,7 @@ func ConfirmSignup(ctx context.Context, s sender.Sender, user *core.User) error 
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

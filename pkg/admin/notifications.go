@@ -5,17 +5,18 @@ import (
 	"fmt"
 	"log"
 	"net/mail"
+	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/model/core"
 )
 
-var NotifyAddress string = "dpetroff@gmail.com"
+var NotifyAddress string = os.Getenv("SENDER_ADDRESS")
 
 func NotifyNewUser(ctx context.Context, s sender.Sender, user *core.User) {
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
@@ -58,7 +59,7 @@ func NotifyNewWaitingListMember(ctx context.Context, s sender.Sender, waitingLis
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
@@ -97,7 +98,7 @@ func NotifyNewWaitingListMember(ctx context.Context, s sender.Sender, waitingLis
 func NotifySignupConfirmed(ctx context.Context, s sender.Sender, user *core.User) {
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
@@ -134,7 +135,7 @@ func NotifySignupConfirmed(ctx context.Context, s sender.Sender, user *core.User
 func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, s sender.Sender, email string) {
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: "dpetroff@gmail.com",
+			Address: os.Getenv("SENDER_ADDRESS"),
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

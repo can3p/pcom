@@ -76,6 +76,7 @@ func main() {
 	enforceEnvVars(requiredVars)
 	if shouldUseRealSender {
 		enforceEnvVars(mailjet.RequiredEnv)
+		enforceEnvVars([]string{"SENDER_ADDRESS"})
 	}
 
 	if shouldUseS3 {
