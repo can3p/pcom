@@ -69,7 +69,15 @@ Edit the file given by sql-migrate
    flyctl secrets set SITE_ROOT=https://pcom.com
    flyctl secrets set MJ_APIKEY_PUBLIC=<public key from mailjet>
    flyctl secrets set MJ_APIKEY_PRIVATE=<private key from mailjet>
+   flyctl secrets set USER_MEDIA_ENDPOINT=<endpoint>
+   flyctl secrets set USER_MEDIA_BUCKET=<bucket>
+   flyctl secrets set USER_MEDIA_KEY=<key>
+   flyctl secrets set USER_MEDIA_REGION=<region>
+   flyctl secrets set USER_MEDIA_SECRET=<secret>
+   flyctl secrets set SENDER_ADDRESS=<secret>
+
    ```
+6. Before
 7. Do first deploy `fly deploy`, make sure you can reach the app via <appname>.fly.dev
 8. Create a cert for your custom domain `fly certs add pcom.com`
 9. After it screams at you, add required A and AAAA records
@@ -80,11 +88,19 @@ Edit the file given by sql-migrate
 14. Add required txt record to validate domain
 15. Add required txt records to add DKIM and SPF settings
 16. Add postgres db env var to `cmd/web/.env` via `./env.pl > cmd/web/.env`, remove `sslmode=disable` and replace domain name with localhost
-18. Run the following from the project root to get the database schema in place and generate orm files
+18. Run the following from the project root to get the database schema in place
+
+Tab 1:
 
 ```
-./sqlmigrate.sh
-./generate.sh
+fly proxy 5433:5432 -a pcomdb
+```
+
+Tab 2
+
+```
+./run.sh
+./sqlmigrate.sh up
 ```
 
 ## Development
