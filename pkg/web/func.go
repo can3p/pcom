@@ -458,7 +458,7 @@ func (fp *FeedPage) IsExplore() bool {
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
 func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
-	title := fmt.Sprintf("%s - Direct Feed", user.Username)
+	title := "Direct Feed"
 
 	directUserIDs, err := userops.GetDirectUserIDs(ctx, db, user.ID)
 
@@ -492,7 +492,7 @@ func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Use
 // TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
 func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
-	title := fmt.Sprintf("%s - Explore Feed", user.Username)
+	title := "Explore Feed"
 
 	_, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
 
