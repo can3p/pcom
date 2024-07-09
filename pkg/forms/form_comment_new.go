@@ -111,7 +111,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 			return nil, err
 		}
 
-		topCommentID = comment.TopCommentID.String
+		topCommentID = comment.TopCommentID
 	}
 
 	comment := &core.PostComment{
@@ -120,7 +120,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 		Body:            body,
 		PostID:          f.Input.PostID,
 		ParentCommentID: null.NewString(f.Input.ReplyTo, f.Input.ReplyTo != ""),
-		TopCommentID:    null.StringFrom(topCommentID),
+		TopCommentID:    topCommentID,
 	}
 
 	if err := comment.Insert(c, exec, boil.Infer()); err != nil {
