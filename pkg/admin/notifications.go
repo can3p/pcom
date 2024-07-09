@@ -11,7 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 )
 
-var NotifyAddress string = os.Getenv("SENDER_ADDRESS")
+var NotifyAddress string = os.Getenv("ADMIN_ADDRESS")
 
 func NotifyNewUser(ctx context.Context, s sender.Sender, user *core.User) {
 	mail := &sender.Mail{

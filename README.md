@@ -74,7 +74,8 @@ Edit the file given by sql-migrate
    flyctl secrets set USER_MEDIA_KEY=<key>
    flyctl secrets set USER_MEDIA_REGION=<region>
    flyctl secrets set USER_MEDIA_SECRET=<secret>
-   flyctl secrets set SENDER_ADDRESS=<secret>
+   flyctl secrets set SENDER_ADDRESS=<address>
+   flyctl secrets set ADMIN_ADDRESS=<address>
 
    ```
 6. Before
