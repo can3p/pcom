@@ -31,6 +31,7 @@ type PostComment struct {
 	Body            string      `boil:"body" json:"body" toml:"body" yaml:"body"`
 	CreatedAt       time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt       time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	TopCommentID    null.String `boil:"top_comment_id" json:"top_comment_id,omitempty" toml:"top_comment_id" yaml:"top_comment_id,omitempty"`
 
 	R *postCommentR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postCommentL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -44,6 +45,7 @@ var PostCommentColumns = struct {
 	Body            string
 	CreatedAt       string
 	UpdatedAt       string
+	TopCommentID    string
 }{
 	ID:              "id",
 	UserID:          "user_id",
@@ -52,6 +54,7 @@ var PostCommentColumns = struct {
 	Body:            "body",
 	CreatedAt:       "created_at",
 	UpdatedAt:       "updated_at",
+	TopCommentID:    "top_comment_id",
 }
 
 var PostCommentTableColumns = struct {
@@ -62,6 +65,7 @@ var PostCommentTableColumns = struct {
 	Body            string
 	CreatedAt       string
 	UpdatedAt       string
+	TopCommentID    string
 }{
 	ID:              "post_comments.id",
 	UserID:          "post_comments.user_id",
@@ -70,6 +74,7 @@ var PostCommentTableColumns = struct {
 	Body:            "post_comments.body",
 	CreatedAt:       "post_comments.created_at",
 	UpdatedAt:       "post_comments.updated_at",
+	TopCommentID:    "post_comments.top_comment_id",
 }
 
 // Generated where
@@ -132,6 +137,7 @@ var PostCommentWhere = struct {
 	Body            whereHelperstring
 	CreatedAt       whereHelpertime_Time
 	UpdatedAt       whereHelpertime_Time
+	TopCommentID    whereHelpernull_String
 }{
 	ID:              whereHelperstring{field: "\"post_comments\".\"id\""},
 	UserID:          whereHelperstring{field: "\"post_comments\".\"user_id\""},
@@ -140,27 +146,34 @@ var PostCommentWhere = struct {
 	Body:            whereHelperstring{field: "\"post_comments\".\"body\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"post_comments\".\"created_at\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"post_comments\".\"updated_at\""},
+	TopCommentID:    whereHelpernull_String{field: "\"post_comments\".\"top_comment_id\""},
 }
 
 // PostCommentRels is where relationship names are stored.
 var PostCommentRels = struct {
 	ParentComment             string
 	Post                      string
+	TopComment                string
 	User                      string
 	ParentCommentPostComments string
+	TopCommentPostComments    string
 }{
 	ParentComment:             "ParentComment",
 	Post:                      "Post",
+	TopComment:                "TopComment",
 	User:                      "User",
 	ParentCommentPostComments: "ParentCommentPostComments",
+	TopCommentPostComments:    "TopCommentPostComments",
 }
 
 // postCommentR is where relationships are stored.
 type postCommentR struct {
 	ParentComment             *PostComment     `boil:"ParentComment" json:"ParentComment" toml:"ParentComment" yaml:"ParentComment"`
 	Post                      *Post            `boil:"Post" json:"Post" toml:"Post" yaml:"Post"`
+	TopComment                *PostComment     `boil:"TopComment" json:"TopComment" toml:"TopComment" yaml:"TopComment"`
 	User                      *User            `boil:"User" json:"User" toml:"User" yaml:"User"`
 	ParentCommentPostComments PostCommentSlice `boil:"ParentCommentPostComments" json:"ParentCommentPostComments" toml:"ParentCommentPostComments" yaml:"ParentCommentPostComments"`
+	TopCommentPostComments    PostCommentSlice `boil:"TopCommentPostComments" json:"TopCommentPostComments" toml:"TopCommentPostComments" yaml:"TopCommentPostComments"`
 }
 
 // NewStruct creates a new relationship struct
@@ -182,6 +195,13 @@ func (r *postCommentR) GetPost() *Post {
 	return r.Post
 }
 
+func (r *postCommentR) GetTopComment() *PostComment {
+	if r == nil {
+		return nil
+	}
+	return r.TopComment
+}
+
 func (r *postCommentR) GetUser() *User {
 	if r == nil {
 		return nil
@@ -196,13 +216,20 @@ func (r *postCommentR) GetParentCommentPostComments() PostCommentSlice {
 	return r.ParentCommentPostComments
 }
 
+func (r *postCommentR) GetTopCommentPostComments() PostCommentSlice {
+	if r == nil {
+		return nil
+	}
+	return r.TopCommentPostComments
+}
+
 // postCommentL is where Load methods for each relationship are stored.
 type postCommentL struct{}
 
 var (
-	postCommentAllColumns            = []string{"id", "user_id", "post_id", "parent_comment_id", "body", "created_at", "updated_at"}
+	postCommentAllColumns            = []string{"id", "user_id", "post_id", "parent_comment_id", "body", "created_at", "updated_at", "top_comment_id"}
 	postCommentColumnsWithoutDefault = []string{"id", "user_id", "post_id", "body", "created_at", "updated_at"}
-	postCommentColumnsWithDefault    = []string{"parent_comment_id"}
+	postCommentColumnsWithDefault    = []string{"parent_comment_id", "top_comment_id"}
 	postCommentPrimaryKeyColumns     = []string{"id"}
 	postCommentGeneratedColumns      = []string{}
 )
@@ -360,6 +387,17 @@ func (o *PostComment) Post(mods ...qm.QueryMod) postQuery {
 	return Posts(queryMods...)
 }
 
+// TopComment pointed to by the foreign key.
+func (o *PostComment) TopComment(mods ...qm.QueryMod) postCommentQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.TopCommentID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return PostComments(queryMods...)
+}
+
 // User pointed to by the foreign key.
 func (o *PostComment) User(mods ...qm.QueryMod) userQuery {
 	queryMods := []qm.QueryMod{
@@ -380,6 +418,20 @@ func (o *PostComment) ParentCommentPostComments(mods ...qm.QueryMod) postComment
 
 	queryMods = append(queryMods,
 		qm.Where("\"post_comments\".\"parent_comment_id\"=?", o.ID),
+	)
+
+	return PostComments(queryMods...)
+}
+
+// TopCommentPostComments retrieves all the post_comment's PostComments with an executor via top_comment_id column.
+func (o *PostComment) TopCommentPostComments(mods ...qm.QueryMod) postCommentQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"post_comments\".\"top_comment_id\"=?", o.ID),
 	)
 
 	return PostComments(queryMods...)
@@ -613,6 +665,122 @@ func (postCommentL) LoadPost(ctx context.Context, e boil.ContextExecutor, singul
 	return nil
 }
 
+// LoadTopComment allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (postCommentL) LoadTopComment(ctx context.Context, e boil.ContextExecutor, singular bool, maybePostComment interface{}, mods queries.Applicator) error {
+	var slice []*PostComment
+	var object *PostComment
+
+	if singular {
+		var ok bool
+		object, ok = maybePostComment.(*PostComment)
+		if !ok {
+			object = new(PostComment)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePostComment)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePostComment))
+			}
+		}
+	} else {
+		s, ok := maybePostComment.(*[]*PostComment)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePostComment)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePostComment))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postCommentR{}
+		}
+		if !queries.IsNil(object.TopCommentID) {
+			args[object.TopCommentID] = struct{}{}
+		}
+
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postCommentR{}
+			}
+
+			if !queries.IsNil(obj.TopCommentID) {
+				args[obj.TopCommentID] = struct{}{}
+			}
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`post_comments`),
+		qm.WhereIn(`post_comments.id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load PostComment")
+	}
+
+	var resultSlice []*PostComment
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice PostComment")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for post_comments")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_comments")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.TopComment = foreign
+		if foreign.R == nil {
+			foreign.R = &postCommentR{}
+		}
+		foreign.R.TopCommentPostComments = append(foreign.R.TopCommentPostComments, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if queries.Equal(local.TopCommentID, foreign.ID) {
+				local.R.TopComment = foreign
+				if foreign.R == nil {
+					foreign.R = &postCommentR{}
+				}
+				foreign.R.TopCommentPostComments = append(foreign.R.TopCommentPostComments, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadUser allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for an N-1 relationship.
 func (postCommentL) LoadUser(ctx context.Context, e boil.ContextExecutor, singular bool, maybePostComment interface{}, mods queries.Applicator) error {
@@ -831,6 +999,112 @@ func (postCommentL) LoadParentCommentPostComments(ctx context.Context, e boil.Co
 	return nil
 }
 
+// LoadTopCommentPostComments allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (postCommentL) LoadTopCommentPostComments(ctx context.Context, e boil.ContextExecutor, singular bool, maybePostComment interface{}, mods queries.Applicator) error {
+	var slice []*PostComment
+	var object *PostComment
+
+	if singular {
+		var ok bool
+		object, ok = maybePostComment.(*PostComment)
+		if !ok {
+			object = new(PostComment)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePostComment)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePostComment))
+			}
+		}
+	} else {
+		s, ok := maybePostComment.(*[]*PostComment)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePostComment)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePostComment))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postCommentR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postCommentR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`post_comments`),
+		qm.WhereIn(`post_comments.top_comment_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load post_comments")
+	}
+
+	var resultSlice []*PostComment
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice post_comments")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on post_comments")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_comments")
+	}
+
+	if singular {
+		object.R.TopCommentPostComments = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &postCommentR{}
+			}
+			foreign.R.TopComment = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if queries.Equal(local.ID, foreign.TopCommentID) {
+				local.R.TopCommentPostComments = append(local.R.TopCommentPostComments, foreign)
+				if foreign.R == nil {
+					foreign.R = &postCommentR{}
+				}
+				foreign.R.TopComment = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetParentCommentP of the postComment to the related item.
 // Sets o.R.ParentComment to related.
 // Adds o to related.R.ParentCommentPostComments.
@@ -985,6 +1259,106 @@ func (o *PostComment) SetPost(ctx context.Context, exec boil.ContextExecutor, in
 		related.R.PostComments = append(related.R.PostComments, o)
 	}
 
+	return nil
+}
+
+// SetTopCommentP of the postComment to the related item.
+// Sets o.R.TopComment to related.
+// Adds o to related.R.TopCommentPostComments.
+// Panics on error.
+func (o *PostComment) SetTopCommentP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *PostComment) {
+	if err := o.SetTopComment(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetTopComment of the postComment to the related item.
+// Sets o.R.TopComment to related.
+// Adds o to related.R.TopCommentPostComments.
+func (o *PostComment) SetTopComment(ctx context.Context, exec boil.ContextExecutor, insert bool, related *PostComment) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"post_comments\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"top_comment_id"}),
+		strmangle.WhereClause("\"", "\"", 2, postCommentPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	queries.Assign(&o.TopCommentID, related.ID)
+	if o.R == nil {
+		o.R = &postCommentR{
+			TopComment: related,
+		}
+	} else {
+		o.R.TopComment = related
+	}
+
+	if related.R == nil {
+		related.R = &postCommentR{
+			TopCommentPostComments: PostCommentSlice{o},
+		}
+	} else {
+		related.R.TopCommentPostComments = append(related.R.TopCommentPostComments, o)
+	}
+
+	return nil
+}
+
+// RemoveTopCommentP relationship.
+// Sets o.R.TopComment to nil.
+// Removes o from all passed in related items' relationships struct.
+// Panics on error.
+func (o *PostComment) RemoveTopCommentP(ctx context.Context, exec boil.ContextExecutor, related *PostComment) {
+	if err := o.RemoveTopComment(ctx, exec, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveTopComment relationship.
+// Sets o.R.TopComment to nil.
+// Removes o from all passed in related items' relationships struct.
+func (o *PostComment) RemoveTopComment(ctx context.Context, exec boil.ContextExecutor, related *PostComment) error {
+	var err error
+
+	queries.SetScanner(&o.TopCommentID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("top_comment_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.TopComment = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.TopCommentPostComments {
+		if queries.Equal(o.TopCommentID, ri.TopCommentID) {
+			continue
+		}
+
+		ln := len(related.R.TopCommentPostComments)
+		if ln > 1 && i < ln-1 {
+			related.R.TopCommentPostComments[i] = related.R.TopCommentPostComments[ln-1]
+		}
+		related.R.TopCommentPostComments = related.R.TopCommentPostComments[:ln-1]
+		break
+	}
 	return nil
 }
 
@@ -1199,6 +1573,167 @@ func (o *PostComment) RemoveParentCommentPostComments(ctx context.Context, exec 
 				o.R.ParentCommentPostComments[i] = o.R.ParentCommentPostComments[ln-1]
 			}
 			o.R.ParentCommentPostComments = o.R.ParentCommentPostComments[:ln-1]
+			break
+		}
+	}
+
+	return nil
+}
+
+// AddTopCommentPostCommentsP adds the given related objects to the existing relationships
+// of the post_comment, optionally inserting them as new records.
+// Appends related to o.R.TopCommentPostComments.
+// Sets related.R.TopComment appropriately.
+// Panics on error.
+func (o *PostComment) AddTopCommentPostCommentsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostComment) {
+	if err := o.AddTopCommentPostComments(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddTopCommentPostComments adds the given related objects to the existing relationships
+// of the post_comment, optionally inserting them as new records.
+// Appends related to o.R.TopCommentPostComments.
+// Sets related.R.TopComment appropriately.
+func (o *PostComment) AddTopCommentPostComments(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostComment) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			queries.Assign(&rel.TopCommentID, o.ID)
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"post_comments\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"top_comment_id"}),
+				strmangle.WhereClause("\"", "\"", 2, postCommentPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.TopCommentID, o.ID)
+		}
+	}
+
+	if o.R == nil {
+		o.R = &postCommentR{
+			TopCommentPostComments: related,
+		}
+	} else {
+		o.R.TopCommentPostComments = append(o.R.TopCommentPostComments, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &postCommentR{
+				TopComment: o,
+			}
+		} else {
+			rel.R.TopComment = o
+		}
+	}
+	return nil
+}
+
+// SetTopCommentPostCommentsP removes all previously related items of the
+// post_comment replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.TopComment's TopCommentPostComments accordingly.
+// Replaces o.R.TopCommentPostComments with related.
+// Sets related.R.TopComment's TopCommentPostComments accordingly.
+// Panics on error.
+func (o *PostComment) SetTopCommentPostCommentsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostComment) {
+	if err := o.SetTopCommentPostComments(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetTopCommentPostComments removes all previously related items of the
+// post_comment replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.TopComment's TopCommentPostComments accordingly.
+// Replaces o.R.TopCommentPostComments with related.
+// Sets related.R.TopComment's TopCommentPostComments accordingly.
+func (o *PostComment) SetTopCommentPostComments(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostComment) error {
+	query := "update \"post_comments\" set \"top_comment_id\" = null where \"top_comment_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.TopCommentPostComments {
+			queries.SetScanner(&rel.TopCommentID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.TopComment = nil
+		}
+		o.R.TopCommentPostComments = nil
+	}
+
+	return o.AddTopCommentPostComments(ctx, exec, insert, related...)
+}
+
+// RemoveTopCommentPostCommentsP relationships from objects passed in.
+// Removes related items from R.TopCommentPostComments (uses pointer comparison, removal does not keep order)
+// Sets related.R.TopComment.
+// Panics on error.
+func (o *PostComment) RemoveTopCommentPostCommentsP(ctx context.Context, exec boil.ContextExecutor, related ...*PostComment) {
+	if err := o.RemoveTopCommentPostComments(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveTopCommentPostComments relationships from objects passed in.
+// Removes related items from R.TopCommentPostComments (uses pointer comparison, removal does not keep order)
+// Sets related.R.TopComment.
+func (o *PostComment) RemoveTopCommentPostComments(ctx context.Context, exec boil.ContextExecutor, related ...*PostComment) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.TopCommentID, nil)
+		if rel.R != nil {
+			rel.R.TopComment = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("top_comment_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.TopCommentPostComments {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.TopCommentPostComments)
+			if ln > 1 && i < ln-1 {
+				o.R.TopCommentPostComments[i] = o.R.TopCommentPostComments[ln-1]
+			}
+			o.R.TopCommentPostComments = o.R.TopCommentPostComments[:ln-1]
 			break
 		}
 	}

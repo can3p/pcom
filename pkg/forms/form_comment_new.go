@@ -97,13 +97,30 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 		return nil, err
 	}
 
+	// we really want time ordered uuids for data locality, pagination etc
+	commentID := id.String()
+	// always keep the id of the top comment in the thread for simpler queries
+	topCommentID := commentID
+
+	if f.Input.ReplyTo != "" {
+		comment, err := core.PostComments(
+			core.PostCommentWhere.ID.EQ(f.Input.ReplyTo),
+		).One(c, exec)
+
+		if err != nil {
+			return nil, err
+		}
+
+		topCommentID = comment.TopCommentID.String
+	}
+
 	comment := &core.PostComment{
-		// we really want time ordered uuids for data locality, pagination etc
-		ID:              id.String(),
+		ID:              commentID,
 		UserID:          f.User.ID,
 		Body:            body,
 		PostID:          f.Input.PostID,
 		ParentCommentID: null.NewString(f.Input.ReplyTo, f.Input.ReplyTo != ""),
+		TopCommentID:    null.StringFrom(topCommentID),
 	}
 
 	if err := comment.Insert(c, exec, boil.Infer()); err != nil {
