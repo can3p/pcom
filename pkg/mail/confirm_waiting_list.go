@@ -31,24 +31,24 @@ func sendActualConfirmWaitingList(ctx context.Context, s sender.Sender, waitingL
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
-			Name:    "Your testproj",
+			Name:    "Your pcom",
 		},
 		To: []mail.Address{
 			{
 				Address: to,
 			},
 		},
-		Subject: "Waiting list on testproj",
+		Subject: "Waiting list on pcom",
 		Text: fmt.Sprintf(`
 	Hi!
 
-	Thank you for your interest testproj! Please follow the link to confirm your email address
+	Thank you for your interest pcom! Please follow the link to confirm your email address
 
 	%s`, link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
-	<p>Thank you for your interest testproj! Please follow the link to confirm your email address</p>
+	<p>Thank you for your interest pcom! Please follow the link to confirm your email address</p>
 
 	<a href="%s">%s</a>`, link, link),
 	}
