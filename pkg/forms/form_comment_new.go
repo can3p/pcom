@@ -143,8 +143,35 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 
 	author := post.R.User
 
+	// notify post author about discussion
 	if err := mail.PostCommentAuthor(c, f.Sender, f.User, author, post, comment); err != nil {
-		panic(err)
+		return nil, err
+	}
+
+	// notify anyone else who left a comment to the post about discussion
+	// @TODO: it's a lame implementation, we should schedule all emails and send them
+	// in a separate process
+	// also, we might want to notify users per thread, not in a blanket way
+	// and give them an ability to unsubscribe
+	{
+		comments, err := core.PostComments(
+			core.PostCommentWhere.PostID.EQ(post.ID),
+			qm.Distinct(core.PostCommentColumns.UserID),
+			qm.Load(core.PostCommentRels.User),
+		).All(c, exec)
+
+		if err != nil {
+			return nil, err
+		}
+
+		for _, cmt := range comments {
+			participant := cmt.R.User
+
+			if err := mail.PostCommentParticipants(c, f.Sender, f.User, participant, post, comment); err != nil {
+				return nil, err
+			}
+		}
+
 	}
 
 	statID, err := uuid.NewV7()
