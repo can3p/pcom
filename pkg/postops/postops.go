@@ -118,8 +118,19 @@ func ConstructComments(comments core.PostCommentSlice, radius userops.Connection
 	level := int64(0)
 
 	for {
-		if idx == len(activeSlice) && len(parkedSlices) == 0 {
-			break
+		if idx == len(activeSlice) {
+			if len(parkedSlices) == 0 {
+				break
+			}
+
+			lastIdx := len(parkedSlices) - 1
+
+			activeSlice = parkedSlices[lastIdx]
+			idx = parkedIdxes[lastIdx]
+			parkedSlices = parkedSlices[:lastIdx]
+			parkedIdxes = parkedIdxes[:lastIdx]
+			level--
+			continue
 		}
 
 		comment := activeSlice[idx]
@@ -134,16 +145,6 @@ func ConstructComments(comments core.PostCommentSlice, radius userops.Connection
 			activeSlice = childSlice
 			idx = 0
 			level++
-		} else if idx == len(activeSlice) {
-			if len(parkedSlices) == 0 {
-				break
-			}
-
-			activeSlice = parkedSlices[idx-1]
-			idx = parkedIdxes[idx-1]
-			parkedSlices = parkedSlices[:idx-1]
-			parkedIdxes = parkedIdxes[:idx-1]
-			level--
 		}
 	}
 
