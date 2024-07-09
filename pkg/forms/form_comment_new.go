@@ -5,8 +5,10 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/forms"
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
@@ -15,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 type NewCommentFormInput struct {
@@ -25,10 +28,11 @@ type NewCommentFormInput struct {
 
 type NewCommentForm struct {
 	*forms.FormBase[NewCommentFormInput]
-	User *core.User
+	User   *core.User
+	Sender sender.Sender
 }
 
-func NewCommentFormNew(u *core.User) forms.Form {
+func NewCommentFormNew(sender sender.Sender, u *core.User) forms.Form {
 	var form forms.Form = &NewCommentForm{
 		FormBase: &forms.FormBase[NewCommentFormInput]{
 			Name:                "new_comment",
@@ -39,7 +43,8 @@ func NewCommentFormNew(u *core.User) forms.Form {
 				"User": u,
 			},
 		},
-		User: u,
+		User:   u,
+		Sender: sender,
 	}
 
 	return form
@@ -125,6 +130,21 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 
 	if err := comment.Insert(c, exec, boil.Infer()); err != nil {
 		return nil, err
+	}
+
+	post, err := core.Posts(
+		core.PostWhere.ID.EQ(f.Input.PostID),
+		qm.Load(core.PostRels.User),
+	).One(c, exec)
+
+	if err != nil {
+		return nil, err
+	}
+
+	author := post.R.User
+
+	if err := mail.PostCommentAuthor(c, f.Sender, f.User, author, post, comment); err != nil {
+		panic(err)
 	}
 
 	statID, err := uuid.NewV7()
