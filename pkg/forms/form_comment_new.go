@@ -163,7 +163,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 		c, exec, true, []string{core.PostStatColumns.PostID},
 		boil.Whitelist(core.PostStatColumns.UpdatedAt, core.PostStatColumns.CommentsNumber),
 		boil.Infer(),
-		core.UpsertUpdateSet("comments_number = excluded.comments_number + 1"),
+		core.UpsertUpdateSet("comments_number = post_stats.comments_number + excluded.comments_number"),
 	); err != nil {
 		return nil, err
 	}
