@@ -15,7 +15,7 @@ var cspParts = strings.Join(
 		// forbid embedding the pages anywhere
 		"frame-ancestors 'none';",
 		// allow data: as a source for images
-		"img-src data: w3.org/svg/2000 'self'",
+		"img-src data: w3.org/svg/2000 'self' " + os.Getenv("STATIC_CDN"),
 	}, "; ")
 
 func Csp(c *gin.Context) {
