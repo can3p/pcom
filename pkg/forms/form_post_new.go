@@ -44,6 +44,7 @@ const (
 	PostFormActionMakeDraft PostFormAction = "make_draft"
 	PostFormActionPublish   PostFormAction = "publish"
 	PostFormActionDelete    PostFormAction = "delete"
+	PostFormActionAutosave  PostFormAction = "autosave"
 )
 
 func NewPostFormNew(u *core.User) *PostForm {
@@ -109,11 +110,11 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	saveAction := f.Input.SaveAction
 
 	if saveAction == "" {
-		saveAction = "save_post"
+		saveAction = PostFormActionAutosave
 	}
 
 	if err := validation.ValidateEnum(saveAction,
-		[]PostFormAction{PostFormActionSavePost, PostFormActionMakeDraft, PostFormActionPublish, PostFormActionDelete},
+		[]PostFormAction{PostFormActionSavePost, PostFormActionMakeDraft, PostFormActionPublish, PostFormActionDelete, PostFormActionAutosave},
 		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
 		f.AddError("visibility", err.Error())
 	}
@@ -150,6 +151,12 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	subject := strings.TrimSpace(f.Input.Subject)
 	body := strings.TrimSpace(f.Input.Body)
 
+	saveAction := f.Input.SaveAction
+
+	if saveAction == "" {
+		saveAction = PostFormActionAutosave
+	}
+
 	if f.Post != nil && f.Input.SaveAction == PostFormActionDelete {
 		err := postops.DeletePost(c, exec, f.Post.ID)
 
@@ -178,14 +185,17 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 
 		post.ID = postID.String()
 
-		if f.Input.SaveAction == PostFormActionPublish {
+		if saveAction == PostFormActionPublish {
 			// not null value means a published post
 			post.PublishedAt = null.TimeFrom(time.Now())
 
 			action = forms.FormSaveRedirect(links.Link("post", post.ID))
 		} else {
-			// XXX: we need to propagate post id to the template
-			action = formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID))
+			f.AddTemplateData("DraftSaved", true)
+			action = formhelpers.Retarget(
+				formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)),
+				"#last_draft_save",
+			)
 		}
 
 		if err := post.Insert(c, exec, boil.Infer()); err != nil {
@@ -198,10 +208,10 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	} else {
 		post.ID = f.Post.ID
 
-		if f.Input.SaveAction == PostFormActionMakeDraft {
+		if saveAction == PostFormActionMakeDraft {
 			// not null value means a published post
 			post.PublishedAt = null.Time{}
-		} else if f.Input.SaveAction == PostFormActionPublish {
+		} else if saveAction == PostFormActionPublish {
 			post.PublishedAt = null.TimeFrom(time.Now())
 
 			// let's redirect to the post whenever we publish a post
@@ -209,8 +219,15 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		} else {
 			post.PublishedAt = f.Post.PublishedAt
 
-			// if we save a published post, let's do the same
-			action = forms.FormSaveRedirect(links.Link("post", post.ID))
+			if saveAction != PostFormActionAutosave && post.PublishedAt.Valid {
+				action = forms.FormSaveRedirect(links.Link("post", post.ID))
+			} else {
+				f.AddTemplateData("DraftSaved", true)
+				action = formhelpers.Retarget(
+					action,
+					"#last_draft_save",
+				)
+			}
 		}
 
 		if _, err := post.Update(c, exec, boil.Infer()); err != nil {

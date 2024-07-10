@@ -11,3 +11,10 @@ func ReplaceHistory(action forms.FormSaveAction, url string) forms.FormSaveActio
 		action(c, f)
 	}
 }
+
+func Retarget(action forms.FormSaveAction, value string) forms.FormSaveAction {
+	return func(c *gin.Context, f forms.Form) {
+		c.Header("HX-Retarget", value)
+		action(c, f)
+	}
+}

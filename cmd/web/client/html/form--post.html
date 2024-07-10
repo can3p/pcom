@@ -1,3 +1,8 @@
+{{ if .DraftSaved }}
+<div id="last_draft_save">
+  <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
+</div>
+{{ else }}
 <div id="form-container">
   <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
 
@@ -15,9 +20,11 @@
         hx-trigger="change delay:2s, keyup delay:2s, submit"
         >
 
+    <div id="last_draft_save">
     {{ if .PostID }}
       <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
     {{ end }}
+    </div>
 
     <div class="mb-3">
       <label for="newPostSubject" class="form-label">Subject</label>
@@ -112,3 +119,4 @@
     </div>
   </form>
 </div>
+{{ end }}
