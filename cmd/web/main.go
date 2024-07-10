@@ -725,9 +725,9 @@ func loadStaticManifest() staticAssetFunc {
 
 		prefix := staticRoute
 
-		//if util.InCluster() {
-		//prefix = staticRouteCluster
-		//}
+		if pr, ok := os.LookupEnv("STATIC_CDN"); ok && util.InCluster() {
+			prefix = pr
+		}
 
 		return fmt.Sprintf("%s/%s", prefix, path)
 	}
