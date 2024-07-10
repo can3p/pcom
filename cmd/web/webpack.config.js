@@ -36,7 +36,7 @@ module.exports = (env, argv) => {
       // base build directory
       path: path.resolve(__dirname, "dist"),
       // path to build relative asset links
-      publicPath: isProduction ? "" : "/static/"
+      publicPath: isProduction ? "/" : "/static/"
     },
 
     // plugins configurations
