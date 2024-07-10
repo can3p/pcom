@@ -1,6 +1,7 @@
 package csp
 
 import (
+	"os"
 	"strings"
 
 	"github.com/can3p/pcom/pkg/util"
@@ -10,7 +11,7 @@ import (
 var cspParts = strings.Join(
 	[]string{
 		// all resources from https only, no inline eval
-		"default-src 'self'",
+		"default-src 'self' " + os.Getenv("STATIC_CDN"),
 		// forbid embedding the pages anywhere
 		"frame-ancestors 'none';",
 		// allow data: as a source for images
