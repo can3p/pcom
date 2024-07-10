@@ -203,8 +203,14 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 			post.PublishedAt = null.Time{}
 		} else if f.Input.SaveAction == PostFormActionPublish {
 			post.PublishedAt = null.TimeFrom(time.Now())
+
+			// let's redirect to the post whenever we publish a post
+			action = forms.FormSaveRedirect(links.Link("post", post.ID))
 		} else {
 			post.PublishedAt = f.Post.PublishedAt
+
+			// if we save a published post, let's do the same
+			action = forms.FormSaveRedirect(links.Link("post", post.ID))
 		}
 
 		if _, err := post.Update(c, exec, boil.Infer()); err != nil {
