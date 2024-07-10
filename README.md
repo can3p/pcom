@@ -77,6 +77,7 @@ Edit the file given by sql-migrate
    flyctl secrets set SENDER_ADDRESS=<address>
    flyctl secrets set ADMIN_ADDRESS=<address>
    flyctl secrets set STATIC_CDN=<address> # in case you want to put static resources behind the cdn
+   flyctl secrets set USER_MEDIA_CDN=<address> # in case you want to put user images behind the cdn
 
    ```
 6. Before

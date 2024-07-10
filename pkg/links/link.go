@@ -1,6 +1,8 @@
 package links
 
 import (
+	"os"
+
 	"github.com/can3p/gogo/links"
 	"github.com/can3p/pcom/pkg/util"
 )
@@ -79,5 +81,9 @@ func Link(name string, args ...string) string {
 }
 
 func AbsLink(name string, args ...string) string {
+	if pr, ok := os.LookupEnv("USER_MEDIA_CDN"); ok && util.InCluster() {
+		return pr + "/" + args[0]
+	}
+
 	return util.SiteRoot() + Link(name, args...)
 }
