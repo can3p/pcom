@@ -1,5 +1,6 @@
 {{ if .DraftSaved }}
 <div id="last_draft_save">
+  <input type="hidden" name="post_id" value="{{ .PostID }}" />
   <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
 </div>
 {{ else }}
@@ -8,13 +9,8 @@
 
   <form
         method="POST"
-        {{ if .PostID }}
-        action="{{ link "form_edit_post" .PostID }}"
-        hx-post="{{ link "form_edit_post" .PostID }}"
-        {{ else }}
-        action="{{ link "form_new_post" }}"
-        hx-post="{{ link "form_new_post" }}"
-        {{ end }}
+        action="{{ link "form_edit_post" }}"
+        hx-post="{{ link "form_edit_post" }}"
         hx-swap="outerHTML"
         hx-target="#form-container"
         hx-trigger="change delay:2s, keyup delay:2s, submit"
@@ -22,6 +18,7 @@
 
     <div id="last_draft_save">
     {{ if .PostID }}
+      <input type="hidden" name="post_id" value="{{ .PostID }}" />
       <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
     {{ end }}
     </div>

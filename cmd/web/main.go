@@ -557,29 +557,28 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	controlsForms.POST("/new_post", func(c *gin.Context) {
+	controlsForms.POST("/edit_post", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
-		form := forms.NewPostFormNew(dbUser)
+		postID := c.PostForm("post_id")
 
-		gogoForms.DefaultHandler(c, db, form)
-	})
+		var form *forms.PostForm
+		var err error
 
-	controlsForms.POST("/edit_post/:id", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-		dbUser := userData.DBUser
-		postID := c.Param("id")
+		if postID == "" {
+			form = forms.NewPostFormNew(dbUser)
+		} else {
+			form, err = forms.EditPostFormNew(c, db, dbUser, postID)
 
-		form, err := forms.EditPostFormNew(c, db, dbUser, postID)
+			if err != nil {
+				if err == ginhelpers.ErrNotFound {
+					c.Status(http.StatusNotFound)
+					return
+				}
 
-		if err != nil {
-			if err == ginhelpers.ErrNotFound {
-				c.Status(http.StatusNotFound)
-				return
+				panic(err)
 			}
-
-			panic(err)
 		}
 
 		gogoForms.DefaultHandler(c, db, form)
