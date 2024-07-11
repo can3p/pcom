@@ -22,9 +22,12 @@
         <a class="navbar-brand" href="#">
           <img src="{{ static_asset "static/android-chrome-512x512.png" }}" alt="" width="50" height="50">
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
+        <div class="d-lg-none">
+          <a class="fs-1 align-bottom" href="{{ link "write" }}"><i class="bi bi-pencil-square"></i></a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+        </div>
         <div data-controller="collapse" class="collapse navbar-collapse" id="navbarNavDropdown">
           {{ template "header--links.html" toMap "User" .User "LinkClass" "nav-link" }}
         </div>
