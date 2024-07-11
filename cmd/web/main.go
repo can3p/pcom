@@ -119,6 +119,7 @@ func main() {
 		Path:     "/",
 		Secure:   true,
 		HttpOnly: true,
+		MaxAge:   24 * 3600 * 30, // make every session one month long
 		SameSite: http.SameSiteLaxMode,
 	})
 
