@@ -138,16 +138,16 @@ func Login(c *gin.Context, db boil.ContextExecutor, email string, password strin
 func Logout(c *gin.Context) {
 	session := sessions.Default(c)
 	user := session.Get(userkey)
+	c.Header("HX-Redirect", "/")
+	c.Status(http.StatusOK)
+
 	if user == nil {
-		c.Redirect(http.StatusFound, "/")
 		return
 	}
 	session.Delete(userkey)
 	if err := session.Save(); err != nil {
-		c.Redirect(http.StatusFound, "/")
 		return
 	}
-	c.Redirect(http.StatusFound, "/")
 	c.Abort()
 }
 

@@ -67,8 +67,6 @@ func Link(name string, args ...string) string {
 		out = "/controls/action/" + builder.Shift()
 	case "uploaded_media":
 		out = "/user-media/" + builder.Shift()
-	case "logout":
-		out = "/logout"
 	case "login":
 		out = "/login"
 	case "signup":

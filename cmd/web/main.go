@@ -290,8 +290,6 @@ func main() {
 		})
 	})
 
-	r.GET("/logout", auth.Logout)
-
 	r.GET("/confirm_waiting_list/:id", func(c *gin.Context) {
 		id := c.Param("id")
 		userData := auth.GetUserData(c)
@@ -397,6 +395,8 @@ func main() {
 
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrf.CheckCSRF)
+
+	actions.POST("/logout", auth.Logout)
 
 	setupActions(actions, db, mediaServer)
 
