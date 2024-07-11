@@ -2,6 +2,7 @@
       action="{{ link "form_login" }}"
       hx-post="{{ link "form_login" }}"
       hx-swap="outerHTML"
+      hx-disabled-elt="this"
   >
 
   {{ with .FormError }}

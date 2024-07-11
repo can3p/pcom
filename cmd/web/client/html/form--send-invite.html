@@ -2,6 +2,7 @@
       action="{{ link "form_send_invite" }}"
       hx-post="{{ link "form_send_invite" }}"
       hx-swap="outerHTML"
+      hx-disabled-elt="this"
       >
       {{ if and .Errors (ne .Errors.general "") }}
       <div class="alert alert-danger mt-3 mb-3" role="alert">{{ .Errors.general }}</div>

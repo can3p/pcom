@@ -3,6 +3,7 @@
   action="{{ link "form_accept_invite" .Invite.ID }}"
   hx-post="{{ link "form_accept_invite" .Invite.ID }}"
   hx-swap="outerHTML"
+  hx-disabled-elt="this"
   >
 
   <div class="mb-3">

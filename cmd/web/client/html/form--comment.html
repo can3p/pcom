@@ -3,6 +3,7 @@
       action="{{ link "form_new_comment" }}"
       hx-post="{{ link "form_new_comment" }}"
       hx-swap="outerHTML"
+      hx-disabled-elt="this"
       >
 
   <input type="hidden" name="post_id" value="{{ .PostID }}" />

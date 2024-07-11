@@ -3,6 +3,7 @@
       action="{{ link "form_signup" }}"
       hx-post="{{ link "form_signup" }}"
       hx-swap="outerHTML"
+      hx-disabled-elt="this"
       >
 
   <input type="hidden" name="attribution" value="{{ if .Attribution }}{{ .Attribution }}{{ else if .Input }}{{ if .Input.Attribution }}{{ .Input.Attribution }}{{ end }}{{ end }}" />
