@@ -46,7 +46,7 @@ Checkout the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.S
 
 	<blockquote>%s</blockquote>
 
-	<p>Checkout the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, comment.Body, link, link),
+	<p>Check out the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, comment.Body, link, link),
 	}
 
 	err := s.Send(ctx, mail)
