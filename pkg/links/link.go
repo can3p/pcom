@@ -81,8 +81,10 @@ func Link(name string, args ...string) string {
 }
 
 func AbsLink(name string, args ...string) string {
-	if pr, ok := os.LookupEnv("USER_MEDIA_CDN"); ok && util.InCluster() {
-		return pr + "/" + args[0]
+	if name == "uploaded_media" {
+		if pr, ok := os.LookupEnv("USER_MEDIA_CDN"); ok && util.InCluster() {
+			return pr + "/" + args[0]
+		}
 	}
 
 	return util.SiteRoot() + Link(name, args...)
