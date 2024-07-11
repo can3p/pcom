@@ -71,7 +71,6 @@
       <div class="form-check">
         <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
                                                                       value="direct_only"
-        {{ if not .Input }}checked{{ end }}
         {{ if .Input }}{{ if eq .Input.Visibility "direct_only" }}checked{{ end }}{{ end }}
         >
         <label class="form-check-label" for="visibilityDirect">
@@ -79,7 +78,10 @@
         </label>
       </div>
       <div class="form-check">
-        <input class="form-check-input" type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree" {{ if .Input }}{{ if eq .Input.Visibility "second_degree" }}checked{{ end }}{{ end }}>
+        <input class="form-check-input" type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree"
+        {{ if not .Input }}checked{{ end }}
+        {{ if .Input }}{{ if eq .Input.Visibility "second_degree" }}checked{{ end }}{{ end }}
+        >
         <label class="form-check-label" for="visibilitySecondDegree">
           Show to their connections as well
         </label>
