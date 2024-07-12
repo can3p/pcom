@@ -23,7 +23,9 @@
           <img src="{{ static_asset "static/android-chrome-512x512.png" }}" alt="" width="50" height="50">
         </a>
         <div class="d-lg-none">
+          {{ if .User.IsLoggedIn }}
           <a class="fs-1 align-bottom" href="{{ link "write" }}"><i class="bi bi-pencil-square"></i></a>
+          {{ end }}
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
           </button>
