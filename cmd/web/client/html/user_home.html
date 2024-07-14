@@ -20,6 +20,13 @@
         One of your direct connections has a connection with {{ .Author.Username }}
         {{ with .MediationRequest }}
         <em>You've requested mediation request {{ with .SourceNote.Ptr }} with note <b>{{ . }}</b>{{ end }}</em>
+        <button type="button"
+                class="btn btn-sm btn-danger"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="revoke_mediation_request"
+                data-user-id="{{ .TargetUserID }}"
+                >Revoke request</button>
         {{ else }}
         <button type="button"
                 class="btn btn-sm btn-success"

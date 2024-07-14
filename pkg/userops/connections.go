@@ -336,6 +336,23 @@ func RequestMediation(ctx context.Context, exec *sqlx.DB, sourceUserID string, t
 	return mediationRequest.Insert(ctx, exec, boil.Infer())
 }
 
+func RevokeMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, targetUserID string) error {
+	request, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.WhoUserID.EQ(whoUserID),
+		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+	).One(ctx, exec)
+
+	if err == sql.ErrNoRows {
+		return errors.Errorf("No such request")
+	} else if err != nil {
+		return err
+	}
+
+	_, err = request.Delete(ctx, exec)
+
+	return err
+}
+
 func DecideForwardMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, requestID string, decision core.ConnectionMediationDecision, note string) error {
 	directUserIDs, err := GetDirectUserIDs(ctx, exec, whoUserID)
 

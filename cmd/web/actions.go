@@ -109,6 +109,27 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		reportSuccess(c)
 	})
 
+	r.POST("/revoke_mediation_request", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		var input struct {
+			TargetUserID string `json:"userId"`
+		}
+
+		if err := c.BindJSON(&input); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		if err := userops.RevokeMediationRequest(c, db, dbUser.ID, input.TargetUserID); err != nil {
+			reportError(c, fmt.Sprintf("Failed operation: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
+
 	r.POST("/dismiss_mediation", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
