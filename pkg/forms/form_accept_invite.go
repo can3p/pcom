@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms/validation"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -80,5 +81,5 @@ func (f *AcceptInviteForm) Save(c context.Context, exec boil.ContextExecutor) (f
 		return nil, err
 	}
 
-	return forms.FormSaveRedirect("/controls/"), nil
+	return forms.FormSaveRedirect(links.Link("controls")), nil
 }

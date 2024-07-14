@@ -7,6 +7,10 @@ import (
 	"github.com/can3p/pcom/pkg/util"
 )
 
+func DefaultAuthorizedHome() string {
+	return Link("controls")
+}
+
 func Link(name string, args ...string) string {
 	builder := links.NewArgBuilder(args...)
 

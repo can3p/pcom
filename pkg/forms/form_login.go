@@ -5,6 +5,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -49,5 +50,5 @@ func (f *LoginForm) Save(c context.Context, exec boil.ContextExecutor) (forms.Fo
 		return nil, err
 	}
 
-	return forms.FormSaveRedirect("/controls/"), nil
+	return forms.FormSaveRedirect(links.DefaultAuthorizedHome()), nil
 }

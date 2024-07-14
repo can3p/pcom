@@ -162,7 +162,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 			return
 		}
 
@@ -213,7 +213,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 			return
 		}
 
@@ -262,7 +262,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 			return
 		}
 
@@ -274,7 +274,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 			return
 		}
 
@@ -295,7 +295,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 		}
 
 		waitingList, err := core.UserSignupRequests(
@@ -435,7 +435,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 		}
 
 		user, err := core.Users(
@@ -469,7 +469,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 		}
 
 		form := forms.LoginFormNew()
@@ -500,7 +500,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 		}
 
 		systemSettings := core.SystemSettings().OneP(c, db)
@@ -520,7 +520,7 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, "/controls")
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 		}
 
 		systemSettings := core.SystemSettings().OneP(c, db)
