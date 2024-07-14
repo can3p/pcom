@@ -100,3 +100,22 @@ blockquote {
 .block-container-spoiler-content:not(.show) {
   display: none;
 }
+
+.mdeditor {
+  position: relative;
+}
+
+.mdeditor__loading {
+  display: none;
+  position: absolute;
+  background: rgba(200,200,200,0.3);
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.mdeditor--loading .mdeditor__loading {
+  display: flex;
+}

@@ -19,6 +19,22 @@ export default class extends Controller {
     });
 
     this.dispose = dispose
+    this.element.classList.add("mdeditor")
+
+    {
+      const div = document.createElement("div")
+      div.innerHTML = `<div class="mdeditor__loading">Media is being uploaded</div>`
+
+      const loader = div.firstChild
+      this.element.prepend(loader);
+    }
+
+    // emulate disabled state during image upload
+    textarea.addEventListener("keydown", (e) => {
+      if (this.element.classList.contains("mdeditor--loading")) {
+        e.preventDefault()
+      }
+    }, false)
 
     let runCmd = function(cmd, e) {
       e.preventDefault()
@@ -69,16 +85,22 @@ export default class extends Controller {
           const loadingPlaceholder = `[uploading (${file.name})...${+new Date()}]`;
           cursor.insert('\n' + loadingPlaceholder + '\n');
 
-          let resultUrl = await uploadFile(file)
+          this.element.classList.add("mdeditor--loading")
 
-          upload.value = null
+          try {
+            let resultUrl = await uploadFile(file)
 
-          cursor.setValue(
-            cursor.value.replace(
-              loadingPlaceholder,
-              `![${cursor.MARKER}${file.name}${cursor.MARKER}](${resultUrl})`,
-            ),
-          );
+            upload.value = null
+
+            cursor.setValue(
+              cursor.value.replace(
+                loadingPlaceholder,
+                `![${cursor.MARKER}${file.name}${cursor.MARKER}](${resultUrl})`,
+              ),
+            );
+          } finally {
+            this.element.classList.remove("mdeditor--loading")
+          }
         }
       }
 
