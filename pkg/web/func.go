@@ -481,6 +481,7 @@ func MegaFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 				core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
 			))),
 		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.PostStat),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)
 
