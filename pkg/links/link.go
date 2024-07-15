@@ -8,7 +8,7 @@ import (
 )
 
 func DefaultAuthorizedHome() string {
-	return Link("mega_feed")
+	return Link("feed")
 }
 
 func Link(name string, args ...string) string {
@@ -25,8 +25,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/settings"
 	case "write":
 		out = "/controls/write"
-	case "mega_feed":
-		out = "/controls/feed/mega"
+	case "feed":
+		out = "/controls/feed"
 	case "privacy_policy":
 		out = "/articles/privacy_policy"
 	case "terms_of_service":

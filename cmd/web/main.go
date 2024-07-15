@@ -412,10 +412,10 @@ func main() {
 		c.HTML(http.StatusOK, "write.html", web.Write(c, db, &userData))
 	})
 
-	controls.GET("/feed/mega", func(c *gin.Context) {
+	controls.GET("/feed", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "feed.html", web.MegaFeed(c, db, &userData))
+		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData))
 	})
 
 	controls.GET("/settings", func(c *gin.Context) {

@@ -438,31 +438,14 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	return mo.Ok(userHomePage)
 }
 
-type FeedType int
-
-const (
-	FeedTypeDirect FeedType = iota
-	FeedTypeExplore
-	FeedTypeMega
-)
-
 type FeedPage struct {
 	*BasePage
-	Posts    []*postops.Post
-	FeedType FeedType
+	Posts []*postops.Post
 }
 
-func (fp *FeedPage) IsExplore() bool {
-	return fp.FeedType == FeedTypeExplore
-}
-
-func (fp *FeedPage) IsMega() bool {
-	return fp.FeedType == FeedTypeMega
-}
-
-func MegaFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
-	title := "Mega Feed"
+	title := "Your Feed"
 
 	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
 
@@ -491,7 +474,6 @@ func MegaFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 
 	megaFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
-		FeedType: FeedTypeMega,
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
 			radius := userops.ConnectionRadiusSecondDegree
 
