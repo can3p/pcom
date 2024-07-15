@@ -337,20 +337,30 @@ func RequestMediation(ctx context.Context, exec *sqlx.DB, sourceUserID string, t
 }
 
 func RevokeMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, targetUserID string) error {
-	request, err := core.UserConnectionMediationRequests(
-		core.UserConnectionMediationRequestWhere.WhoUserID.EQ(whoUserID),
-		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
-	).One(ctx, exec)
+	return transact.Transact(exec, func(tx *sql.Tx) error {
+		request, err := core.UserConnectionMediationRequests(
+			core.UserConnectionMediationRequestWhere.WhoUserID.EQ(whoUserID),
+			core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+			qm.Load(core.UserConnectionMediationRequestRels.MediationUserConnectionMediators, qm.For("UPDATE")),
+			qm.For("UPDATE"),
+		).One(ctx, tx)
 
-	if err == sql.ErrNoRows {
-		return errors.Errorf("No such request")
-	} else if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.Errorf("No such request")
+		} else if err != nil {
+			return err
+		}
+
+		for _, m := range request.R.MediationUserConnectionMediators {
+			if _, err := m.Delete(ctx, tx); err != nil {
+				return err
+			}
+		}
+
+		_, err = request.Delete(ctx, tx)
+
 		return err
-	}
-
-	_, err = request.Delete(ctx, exec)
-
-	return err
+	})
 }
 
 func DecideForwardMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, requestID string, decision core.ConnectionMediationDecision, note string) error {
