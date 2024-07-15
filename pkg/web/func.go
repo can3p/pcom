@@ -443,6 +443,7 @@ type FeedType int
 const (
 	FeedTypeDirect FeedType = iota
 	FeedTypeExplore
+	FeedTypeMega
 )
 
 type FeedPage struct {
@@ -455,53 +456,28 @@ func (fp *FeedPage) IsExplore() bool {
 	return fp.FeedType == FeedTypeExplore
 }
 
-// TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func DirectFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
-	user := userData.DBUser
-	title := "Direct Feed"
-
-	directUserIDs, err := userops.GetDirectUserIDs(ctx, db, user.ID)
-
-	if err != nil {
-		return mo.Err[*FeedPage](err)
-	}
-
-	posts, err := core.Posts(
-		core.PostWhere.UserID.IN(directUserIDs),
-		core.PostWhere.PublishedAt.IsNotNull(),
-		qm.Load(core.PostRels.User),
-		qm.Load(core.PostRels.PostStat),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
-	).All(ctx, db)
-
-	if err != nil {
-		return mo.Err[*FeedPage](err)
-	}
-
-	directFeedPage := &FeedPage{
-		BasePage: getBasePage(title, userData),
-		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusDirect, false)
-		}),
-		FeedType: FeedTypeDirect,
-	}
-
-	return mo.Ok(directFeedPage)
+func (fp *FeedPage) IsMega() bool {
+	return fp.FeedType == FeedTypeMega
 }
 
-// TODO: allow the functions to return errors, since it will allow to use panic free methods and do better error handling
-func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+func MegaFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
-	title := "Explore Feed"
+	title := "Mega Feed"
 
-	_, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
+	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
 
 	if err != nil {
 		return mo.Err[*FeedPage](err)
 	}
 
+	userIDs := []string{}
+	userIDs = append(userIDs, directUserIDs...)
+	userIDs = append(userIDs, secondDegreeUserIDs...)
+
+	directMap := lo.KeyBy(directUserIDs, func(u string) string { return u })
+
 	posts, err := core.Posts(
-		core.PostWhere.UserID.IN(secondDegreeUserIDs),
+		core.PostWhere.UserID.IN(userIDs),
 		core.PostWhere.PublishedAt.IsNotNull(),
 		core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
 		qm.Load(core.PostRels.User),
@@ -512,15 +488,22 @@ func ExploreFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.Us
 		return mo.Err[*FeedPage](err)
 	}
 
-	exploreFeedPage := &FeedPage{
+	megaFeedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
-		FeedType: FeedTypeExplore,
+		FeedType: FeedTypeMega,
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusSecondDegree, false)
+			radius := userops.ConnectionRadiusSecondDegree
+
+			if _, ok := directMap[p.UserID]; ok {
+				fmt.Println("direct conn", p.ID, p.UserID)
+				radius = userops.ConnectionRadiusDirect
+			}
+
+			return postops.ConstructPost(userData.DBUser, p, radius, false)
 		}),
 	}
 
-	return mo.Ok(exploreFeedPage)
+	return mo.Ok(megaFeedPage)
 }
 
 type LoginPage struct {

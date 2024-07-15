@@ -1,10 +1,9 @@
 {{ if .User.IsLoggedIn }}
 <span class="navbar-text p-2">Hi <a href="{{ link "user" .User.DBUser.Username }}">{{ .User.DBUser.Username }}</a>!</span>
 <ul class="navbar-nav gap-3">
-  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "controls" }}">Home</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "default_authorized_home" }}">Home</a></li>
+  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "controls" }}">Controls</a></li>
   <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "write" }}">New Post</a></li>
-  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "direct_feed" }}">Direct Feed</a></li>
-  <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "explore_feed" }}">Explore Feed</a></li>
   <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "settings" }}">Settings</a></li>
   <li class="nav-item p-2">
     <form

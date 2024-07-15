@@ -48,6 +48,7 @@ type Post struct {
 	Capabilities   *PostCapabilities
 	CommentsNumber int64
 	Comments       []*Comment
+	Radius         userops.ConnectionRadius
 	EditPreview    bool
 }
 
@@ -72,6 +73,7 @@ func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRa
 		CommentsNumber: commentsNum,
 		Capabilities:   GetPostCapabilities(user.ID, post.R.User.ID, radius),
 		EditPreview:    editPreview && radius.IsSameUser(), // only authors can preview their own posts
+		Radius:         radius,
 	}
 }
 
