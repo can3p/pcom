@@ -69,13 +69,12 @@ type ControlsPage struct {
 	Drafts                  []*Draft
 }
 
-func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) *ControlsPage {
+func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*ControlsPage] {
 	userID := userData.DBUser.ID
 	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userID)
 
-	// @TODO: all panics should be eliminated later
 	if err != nil {
-		panic(err)
+		return mo.Err[*ControlsPage](err)
 	}
 
 	directUsers := core.Users(core.UserWhere.ID.IN(directUserIDs)).AllP(ctx, db)
@@ -105,7 +104,7 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	).All(ctx, db)
 
 	if err != nil {
-		panic(err)
+		return mo.Err[*ControlsPage](err)
 	}
 
 	connectionRequests := []*ConnectionRequest{}
@@ -144,7 +143,7 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	).All(ctx, db)
 
 	if err != nil {
-		panic(err)
+		return mo.Err[*ControlsPage](err)
 	}
 
 	mediationRequestsDB = lo.Filter(mediationRequestsDB, func(req *core.UserConnectionMediationRequest, idx int) bool {
@@ -166,7 +165,7 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	).All(ctx, db)
 
 	if err != nil {
-		panic(err)
+		return mo.Err[*ControlsPage](err)
 	}
 
 	drafts := lo.Map(rawDrafts, func(d *core.Post, idx int) *Draft {
@@ -187,7 +186,7 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		Drafts:                  drafts,
 	}
 
-	return controlsPage
+	return mo.Ok(controlsPage)
 }
 
 func Write(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {

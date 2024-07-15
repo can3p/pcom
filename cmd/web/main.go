@@ -403,7 +403,7 @@ func main() {
 	controls.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		c.HTML(http.StatusOK, "controls.html", web.Controls(c, db, &userData))
+		ginhelpers.HTML(c, "controls.html", web.Controls(c, db, &userData))
 	})
 
 	controls.GET("/write", func(c *gin.Context) {
