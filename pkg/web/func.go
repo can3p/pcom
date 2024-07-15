@@ -111,6 +111,10 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	connectionRequests := []*ConnectionRequest{}
 
 	for _, req := range connectionRequestsFromMediation {
+		if len(req.R.MediationUserConnectionMediators) == 0 {
+			continue
+		}
+
 		connectionRequests = append(connectionRequests, &ConnectionRequest{
 			Requester: req.R.WhoUser,
 			Request:   req,
