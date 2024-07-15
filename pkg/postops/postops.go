@@ -63,7 +63,7 @@ func (p *Post) PostSubject() string {
 func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, editPreview bool) *Post {
 	var commentsNum int64
 
-	if post.R.PostStat != nil {
+	if radius.IsDirect() && post.R.PostStat != nil {
 		commentsNum = post.R.PostStat.CommentsNumber
 	}
 
