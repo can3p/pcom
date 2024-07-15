@@ -470,16 +470,16 @@ func MegaFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		return mo.Err[*FeedPage](err)
 	}
 
-	userIDs := []string{}
-	userIDs = append(userIDs, directUserIDs...)
-	userIDs = append(userIDs, secondDegreeUserIDs...)
-
 	directMap := lo.KeyBy(directUserIDs, func(u string) string { return u })
 
 	posts, err := core.Posts(
-		core.PostWhere.UserID.IN(userIDs),
 		core.PostWhere.PublishedAt.IsNotNull(),
-		core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
+		qm.Expr(
+			core.PostWhere.UserID.IN(directUserIDs),
+			qm.Or2(qm.Expr(
+				core.PostWhere.UserID.IN(secondDegreeUserIDs),
+				core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
+			))),
 		qm.Load(core.PostRels.User),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)
@@ -495,7 +495,6 @@ func MegaFeed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 			radius := userops.ConnectionRadiusSecondDegree
 
 			if _, ok := directMap[p.UserID]; ok {
-				fmt.Println("direct conn", p.ID, p.UserID)
 				radius = userops.ConnectionRadiusDirect
 			}
 
