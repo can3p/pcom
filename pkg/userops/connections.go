@@ -71,45 +71,60 @@ func GetDirectUserIDs(ctx context.Context, db boil.ContextExecutor, userID strin
 	return lo.Map(connections, func(conn *core.UserConnection, index int) string { return conn.User2ID }), nil
 }
 
-func GetDirectAndSecondDegreeUserIDs(ctx context.Context, db boil.ContextExecutor, userID string) (directUserIDs []string, secondDegreeUserIDs []string, err error) {
+func GetDirectAndSecondDegreeUserIDs(ctx context.Context, db boil.ContextExecutor, userID string) (directUserIDs []string, secondDegreeUserIDs []string, via map[string][]string, err error) {
 	connections, err := core.UserConnections(
 		core.UserConnectionWhere.User1ID.EQ(userID),
 	).All(ctx, db)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// we want to explude direct connection as well as the user themselves from secondDegree connections results
 	// this has to be done, since the connection graph is undirected
 	directUserIDs = lo.Map(connections, func(conn *core.UserConnection, index int) string { return conn.User2ID })
-	toExclude := []string{userID}
-	toExclude = append(toExclude, directUserIDs...)
+	toExclude := map[string]struct{}{
+		userID: {},
+	}
+
+	for _, id := range directUserIDs {
+		toExclude[id] = struct{}{}
+	}
 
 	type connResult struct {
-		UserID string `boil:"user_id"`
+		UserID    string `boil:"user_id"`
+		ViaUserID string `boil:"via_user_id"`
 	}
 
 	var secondDegreeUserIDStruct []*connResult
 
 	// https://www.linkedin.com/pulse/you-dont-need-graph-database-modeling-graphs-trees-viktor-qvarfordt-efzof/
 	err = core.NewQuery(
-		qm.Select("conn2.user2_id as user_id"),
+		qm.Select("conn2.user2_id as user_id, conn1.user2_id as via_user_id"),
 		qm.From("user_connections as conn1"),
 		qm.LeftOuterJoin("user_connections as conn2 on conn1.user2_id = conn2.user1_id"),
 		qm.Where("conn1.user1_id = ?", userID),
 	).Bind(ctx, db, &secondDegreeUserIDStruct)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	secondDegreeUserIDs = lo.Without(
-		lo.Map(secondDegreeUserIDStruct, func(conn *connResult, index int) string { return conn.UserID }),
-		toExclude...,
-	)
+	secondDegreeUserIDs = []string{}
+	via = map[string][]string{}
 
-	return directUserIDs, secondDegreeUserIDs, nil
+	for _, conn := range secondDegreeUserIDStruct {
+		secondDegreeUserID := conn.UserID
+
+		if _, ok := toExclude[secondDegreeUserID]; ok {
+			continue
+		}
+
+		secondDegreeUserIDs = append(secondDegreeUserIDs, secondDegreeUserID)
+		via[secondDegreeUserID] = append(via[secondDegreeUserID], conn.ViaUserID)
+	}
+
+	return directUserIDs, secondDegreeUserIDs, via, nil
 }
 
 type ConnectionRadius int

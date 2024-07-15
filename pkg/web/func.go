@@ -71,7 +71,7 @@ type ControlsPage struct {
 
 func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*ControlsPage] {
 	userID := userData.DBUser.ID
-	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userID)
+	directUserIDs, secondDegreeUserIDs, _, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userID)
 
 	if err != nil {
 		return mo.Err[*ControlsPage](err)
@@ -283,7 +283,7 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 		return mo.Err[*SinglePostPage](ginhelpers.ErrForbidden)
 	}
 
-	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius, editPreview)
+	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius, nil, editPreview)
 
 	singlePostPage := &SinglePostPage{
 		BasePage: getBasePage(constructed.PostSubject(), userData),
@@ -409,7 +409,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		}
 
 		posts = lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, connRadius, false)
+			return postops.ConstructPost(userData.DBUser, p, connRadius, nil, false)
 		})
 	}
 
@@ -450,13 +450,14 @@ func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData)
 	user := userData.DBUser
 	title := "Your Feed"
 
-	directUserIDs, secondDegreeUserIDs, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
+	directUserIDs, secondDegreeUserIDs, via, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, user.ID)
 
 	if err != nil {
 		return mo.Err[*FeedPage](err)
 	}
 
 	directMap := lo.KeyBy(directUserIDs, func(u string) string { return u })
+	secondDegreeMap := lo.KeyBy(secondDegreeUserIDs, func(u string) string { return u })
 
 	posts, err := core.Posts(
 		core.PostWhere.PublishedAt.IsNotNull(),
@@ -475,20 +476,45 @@ func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData)
 		return mo.Err[*FeedPage](err)
 	}
 
-	megaFeedPage := &FeedPage{
+	seenUserIDs := lo.Filter(lo.Uniq(
+		lo.Map(posts, func(p *core.Post, idx int) string { return p.UserID }),
+	), func(id string, idx int) bool {
+		if _, ok := secondDegreeMap[id]; ok {
+			return true
+		}
+
+		return false
+	})
+
+	viaUserIDs := lo.Uniq(lo.FlatMap(seenUserIDs, func(id string, idx int) []string { return via[id] }))
+	viaUsers, err := core.Users(
+		core.UserWhere.ID.IN(viaUserIDs),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.UserColumns.CreatedAt)),
+	).All(ctx, db)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	viaUserMap := lo.KeyBy(viaUsers, func(u *core.User) string { return u.ID })
+
+	feedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
 		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
 			radius := userops.ConnectionRadiusSecondDegree
+			var viaUsers []*core.User
 
 			if _, ok := directMap[p.UserID]; ok {
 				radius = userops.ConnectionRadiusDirect
+			} else {
+				viaUsers = lo.Map(via[p.UserID], func(id string, idx int) *core.User { return viaUserMap[id] })
 			}
 
-			return postops.ConstructPost(userData.DBUser, p, radius, false)
+			return postops.ConstructPost(userData.DBUser, p, radius, viaUsers, false)
 		}),
 	}
 
-	return mo.Ok(megaFeedPage)
+	return mo.Ok(feedPage)
 }
 
 type LoginPage struct {

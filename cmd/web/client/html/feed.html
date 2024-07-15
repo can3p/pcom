@@ -10,7 +10,7 @@
       {{ range .Posts }}
       <div class="mt-3">
         <div class="card">
-          <h5 class="card-header"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> ({{ if .Radius.IsDirect }}d{{ else }}2d{{ end }}) &#8594; <a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</h5>
+          <h5 class="card-header"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> &#8594; {{ if gt (len .Via) 0 }} {{ range $index, $element := .Via }}{{ if $index }}, {{ end }}<a href="{{ link "user" $element.Username }}">{{ .Username }}</a>{{ end }} &#8594;{{ end }}<a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</h5>
           <div class="card-body">
             <div class="mt-3 post-in-feed">{{ markdown_feed .Body }}</div>
 

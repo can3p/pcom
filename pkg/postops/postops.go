@@ -45,6 +45,7 @@ func GetPostCapabilities(userID string, authorID string, radius userops.Connecti
 type Post struct {
 	*core.Post
 	Author         *core.User
+	Via            []*core.User
 	Capabilities   *PostCapabilities
 	CommentsNumber int64
 	Comments       []*Comment
@@ -60,7 +61,7 @@ func (p *Post) PostSubject() string {
 	return cmp.Or(p.Subject, "No Subject")
 }
 
-func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, editPreview bool) *Post {
+func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, via []*core.User, editPreview bool) *Post {
 	var commentsNum int64
 
 	if radius.IsDirect() && post.R.PostStat != nil {
@@ -74,6 +75,7 @@ func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRa
 		Capabilities:   GetPostCapabilities(user.ID, post.R.User.ID, radius),
 		EditPreview:    editPreview && radius.IsSameUser(), // only authors can preview their own posts
 		Radius:         radius,
+		Via:            via,
 	}
 }
 
