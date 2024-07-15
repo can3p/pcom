@@ -391,21 +391,21 @@ func DecideForwardMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID
 }
 
 func DecideConnectionRequest(ctx context.Context, exec *sqlx.DB, targetUserID string, requestID string, decision core.ConnectionRequestDecision, note string) error {
-	request, err := core.UserConnectionMediationRequests(
-		core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
-		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
-		qm.For("UPDATE"),
-	).One(ctx, exec)
-
-	if err == sql.ErrNoRows {
-		return errors.Errorf("No such request")
-	} else if err != nil {
-		return err
-	}
-
-	fromUserID := request.WhoUserID
-
 	return transact.Transact(exec, func(tx *sql.Tx) error {
+		request, err := core.UserConnectionMediationRequests(
+			core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
+			core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+			qm.For("UPDATE"),
+		).One(ctx, exec)
+
+		if err == sql.ErrNoRows {
+			return errors.Errorf("No such request")
+		} else if err != nil {
+			return err
+		}
+
+		fromUserID := request.WhoUserID
+
 		if decision == core.ConnectionRequestDecisionApproved {
 			conn1, _, err := CreateConnection(ctx, tx, fromUserID, targetUserID)
 
