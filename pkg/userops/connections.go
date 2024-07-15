@@ -16,6 +16,8 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
+var ErrNoConnectionRequest = errors.Errorf("No such connection request")
+
 // CreateConnection assumes it's run in transaction
 // Since connections form an undirected graph, we insert
 // user ids in both combinations to simplify queries
@@ -211,6 +213,10 @@ func EstablishConnection(ctx context.Context, exec *sqlx.DB, sourceUserID string
 			return err
 		}
 
+		if err := revokeMediationRequestInTx(ctx, tx, sourceUserID, targetUserID); err != nil && err != ErrNoConnectionRequest {
+			return err
+		}
+
 		conn1, _, err := CreateConnection(ctx, tx, sourceUserID, targetUserID)
 
 		if err != nil {
@@ -320,6 +326,15 @@ func RequestMediation(ctx context.Context, exec *sqlx.DB, sourceUserID string, t
 		return errors.Errorf("Mediation has already been requested")
 	}
 
+	if exists, err := core.WhitelistedConnections(
+		core.WhitelistedConnectionWhere.WhoID.EQ(targetUserID),
+		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(sourceUserID),
+	).Exists(ctx, exec); err != nil {
+		return err
+	} else if exists {
+		return errors.Errorf("Cannot create a connection request for a whitelisted connection")
+	}
+
 	id, err := uuid.NewV7()
 
 	if err != nil {
@@ -338,29 +353,33 @@ func RequestMediation(ctx context.Context, exec *sqlx.DB, sourceUserID string, t
 
 func RevokeMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, targetUserID string) error {
 	return transact.Transact(exec, func(tx *sql.Tx) error {
-		request, err := core.UserConnectionMediationRequests(
-			core.UserConnectionMediationRequestWhere.WhoUserID.EQ(whoUserID),
-			core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
-			qm.Load(core.UserConnectionMediationRequestRels.MediationUserConnectionMediators, qm.For("UPDATE")),
-			qm.For("UPDATE"),
-		).One(ctx, tx)
+		return revokeMediationRequestInTx(ctx, tx, whoUserID, targetUserID)
+	})
+}
 
-		if err == sql.ErrNoRows {
-			return errors.Errorf("No such request")
-		} else if err != nil {
+func revokeMediationRequestInTx(ctx context.Context, tx *sql.Tx, whoUserID string, targetUserID string) error {
+	request, err := core.UserConnectionMediationRequests(
+		core.UserConnectionMediationRequestWhere.WhoUserID.EQ(whoUserID),
+		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+		qm.Load(core.UserConnectionMediationRequestRels.MediationUserConnectionMediators, qm.For("UPDATE")),
+		qm.For("UPDATE"),
+	).One(ctx, tx)
+
+	if err == sql.ErrNoRows {
+		return ErrNoConnectionRequest
+	} else if err != nil {
+		return err
+	}
+
+	for _, m := range request.R.MediationUserConnectionMediators {
+		if _, err := m.Delete(ctx, tx); err != nil {
 			return err
 		}
+	}
 
-		for _, m := range request.R.MediationUserConnectionMediators {
-			if _, err := m.Delete(ctx, tx); err != nil {
-				return err
-			}
-		}
+	_, err = request.Delete(ctx, tx)
 
-		_, err = request.Delete(ctx, tx)
-
-		return err
-	})
+	return err
 }
 
 func DecideForwardMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID string, requestID string, decision core.ConnectionMediationDecision, note string) error {

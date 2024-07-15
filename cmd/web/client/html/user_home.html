@@ -16,6 +16,20 @@
                 data-user-id="{{ .Author.ID }}"
                 data-action-prompt-value="Do you want to drop the connection with {{ .Author.Username }}?"
                 >Disconect</button>
+      {{- else if .ConnectionAllowed }}
+        {{- if .ConnectionRadius.IsSecondDegree }}
+          One of your direct connections has a connection with {{ .Author.Username }}
+        {{ end }}
+        <p>{{ .Author.Username }} has allowed you to connect
+          <button type="button"
+                  class="btn btn-sm btn-success"
+                  data-controller="action"
+                  data-action="action#run"
+                  data-action-action-value="create_connection"
+                  data-user-id="{{ .Author.ID }}"
+                  data-action-prompt-value="Do you want to connect to {{ .Author.Username }}?"
+                  >Connect</button>
+        </p>
       {{- else if .ConnectionRadius.IsSecondDegree }}
         One of your direct connections has a connection with {{ .Author.Username }}
         {{ with .MediationRequest }}
@@ -39,19 +53,6 @@
                 >Ask for introduction</button>
         {{ end }}
       {{- else if .ConnectionRadius.IsUnrelated }}You have no relation to {{ .Author.Username }}{{ end }}
-
-      {{ if .ConnectionAllowed }}
-      <p>{{ .Author.Username }} has allowed you to connect
-        <button type="button"
-                class="btn btn-sm btn-success"
-                data-controller="action"
-                data-action="action#run"
-                data-action-action-value="create_connection"
-                data-user-id="{{ .Author.ID }}"
-                data-action-prompt-value="Do you want to connect to {{ .Author.Username }}?"
-                >Connect</button>
-      </p>
-      {{ end }}
     </div>
 
     {{ if .ConnectionRadius.IsUnrelated }}
