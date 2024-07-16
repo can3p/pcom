@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
@@ -441,9 +442,23 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	return mo.Ok(userHomePage)
 }
 
+type FeedItem struct {
+	Post    *postops.Post
+	Comment *postops.Comment
+}
+
+func (fi *FeedItem) PublishedAt() time.Time {
+	if fi.Post != nil {
+		return fi.Post.PublishedAt.Time
+
+	}
+
+	return fi.Comment.CreatedAt
+}
+
 type FeedPage struct {
 	*BasePage
-	Posts []*postops.Post
+	Items []*FeedItem
 }
 
 func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
@@ -498,23 +513,78 @@ func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData)
 
 	viaUserMap := lo.KeyBy(viaUsers, func(u *core.User) string { return u.ID })
 
+	items := lo.Map(posts, func(p *core.Post, idx int) *FeedItem {
+		radius := userops.ConnectionRadiusSecondDegree
+		var viaUsers []*core.User
+
+		if _, ok := directMap[p.UserID]; ok {
+			radius = userops.ConnectionRadiusDirect
+		} else {
+			viaUsers = lo.Map(via[p.UserID], func(id string, idx int) *core.User { return viaUserMap[id] })
+		}
+
+		return &FeedItem{
+			Post: postops.ConstructPost(userData.DBUser, p, radius, viaUsers, false),
+		}
+	})
+
+	comments, err := getComments(ctx, db, user.ID)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	items = append(items, comments...)
+
+	slices.SortFunc(items, func(a, b *FeedItem) int {
+		return a.PublishedAt().Compare(b.PublishedAt())
+	})
+
 	feedPage := &FeedPage{
 		BasePage: getBasePage(title, userData),
-		Posts: lo.Map(posts, func(p *core.Post, idx int) *postops.Post {
-			radius := userops.ConnectionRadiusSecondDegree
-			var viaUsers []*core.User
-
-			if _, ok := directMap[p.UserID]; ok {
-				radius = userops.ConnectionRadiusDirect
-			} else {
-				viaUsers = lo.Map(via[p.UserID], func(id string, idx int) *core.User { return viaUserMap[id] })
-			}
-
-			return postops.ConstructPost(userData.DBUser, p, radius, viaUsers, false)
-		}),
+		Items:    items,
 	}
 
 	return mo.Ok(feedPage)
+}
+
+func getComments(ctx context.Context, db boil.ContextExecutor, userID string) ([]*FeedItem, error) {
+	posts, err := core.Posts(
+		core.PostWhere.UserID.EQ(userID),
+		qm.Load(core.PostRels.User),
+	).All(ctx, db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	postMap := lo.KeyBy(posts, func(p *core.Post) string { return p.ID })
+
+	comments, err := core.PostComments(
+		core.PostCommentWhere.UserID.NEQ(userID),
+		core.PostCommentWhere.PostID.IN(lo.Map(posts, func(p *core.Post, idx int) string { return p.ID })),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostCommentColumns.CreatedAt)),
+		qm.Load(core.PostCommentRels.User),
+	).All(ctx, db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return lo.Map(comments, func(c *core.PostComment, idx int) *FeedItem {
+		post := postMap[c.PostID]
+
+		return &FeedItem{
+			Comment: &postops.Comment{
+				PostComment: c,
+				Author:      c.R.User,
+				Post: &postops.Post{
+					Author: post.R.User,
+					Post:   post,
+				},
+			},
+		}
+	}), nil
 }
 
 type LoginPage struct {

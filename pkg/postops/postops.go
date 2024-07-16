@@ -17,6 +17,7 @@ type CommentCapabilities struct {
 type Comment struct {
 	*core.PostComment
 	Author       *core.User
+	Post         *Post
 	Capabilities *CommentCapabilities
 	Level        int64
 }
