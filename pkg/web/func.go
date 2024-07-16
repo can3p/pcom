@@ -536,8 +536,9 @@ func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData)
 
 	items = append(items, comments...)
 
+	// newest items first
 	slices.SortFunc(items, func(a, b *FeedItem) int {
-		return a.PublishedAt().Compare(b.PublishedAt())
+		return b.PublishedAt().Compare(a.PublishedAt())
 	})
 
 	feedPage := &FeedPage{
