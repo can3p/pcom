@@ -79,6 +79,17 @@
   {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
     {{ template "partial--settings_invites.html" . }}
   {{ end }}
+
+  <div class="text-center">
+    <form
+      method="POST"
+      action="{{ link "action" "logout" }}"
+      hx-post="{{ link "action" "logout" }}"
+      hx-swap="none"
+      >
+      <button type="submit" class="btn btn-link">Log out</a>
+    </form>
+  </div>
 </div>
 
 {{ template "footer.html" . }}

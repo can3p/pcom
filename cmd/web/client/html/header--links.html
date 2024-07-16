@@ -5,16 +5,6 @@
   <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "controls" }}">Controls</a></li>
   <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "write" }}">New Post</a></li>
   <li class="nav-item p-2"><a class="{{ .LinkClass }}" href="{{ link "settings" }}">Settings</a></li>
-  <li class="nav-item p-2">
-    <form
-      method="POST"
-      action="{{ link "action" "logout" }}"
-      hx-post="{{ link "action" "logout" }}"
-      hx-swap="none"
-      >
-      <button type="submit" class="{{ .LinkClass }}">Log out</a>
-    </form>
-  </li>
 </ul>
 {{ else }}
 <ul class="navbar-nav gap-3">
