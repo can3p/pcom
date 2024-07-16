@@ -20,6 +20,7 @@
           <p class="card-text">You can always get your posts out of the system and bring them back to another account if you like. Please note that we're not doing deduplication</p>
           <div id="import_export_results"></div>
           <form class="d-inline" hx-boost="false" method="POST" action="{{ link "action" "settings/export" }}">
+            <input type="hidden" name="header_csrf" value="{{ .User.CSRFToken }}" />
             <button type="submit" class="btn btn-primary">Export posts</button>
           </form>
           <form class="d-inline"

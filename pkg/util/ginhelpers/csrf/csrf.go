@@ -12,6 +12,12 @@ func CheckCSRF(c *gin.Context) {
 	csrfToken := c.GetHeader("X-CSRFToken")
 
 	if csrfToken == "" {
+		if val, ok := c.GetPostForm("header_csrf"); ok {
+			csrfToken = val
+		}
+	}
+
+	if csrfToken == "" {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
