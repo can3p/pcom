@@ -393,6 +393,18 @@ func main() {
 		ginhelpers.HTML(c, "edit_post.html", web.EditPost(c, db, &userData, postID))
 	})
 
+	r.GET("/write", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		c.HTML(http.StatusOK, "write.html", web.Write(c, db, &userData))
+	})
+
+	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData))
+	})
+
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrf.CheckCSRF)
 
@@ -404,18 +416,6 @@ func main() {
 		userData := auth.GetUserData(c)
 
 		ginhelpers.HTML(c, "controls.html", web.Controls(c, db, &userData))
-	})
-
-	controls.GET("/write", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		c.HTML(http.StatusOK, "write.html", web.Write(c, db, &userData))
-	})
-
-	controls.GET("/feed", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData))
 	})
 
 	controls.GET("/settings", func(c *gin.Context) {
