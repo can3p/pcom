@@ -1,7 +1,6 @@
 package postops
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -27,8 +26,6 @@ few lines`
 	}
 
 	b := SerializePost(initial)
-
-	fmt.Println(string(b))
 
 	imported, err := DeserializePost(b)
 

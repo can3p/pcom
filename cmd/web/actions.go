@@ -338,13 +338,15 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		fh, err := c.FormFile("file")
 
 		if err != nil {
-			panic(err)
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		f, err := fh.Open()
 
 		if err != nil {
-			panic(err)
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		defer f.Close()
@@ -352,13 +354,15 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		b, err := io.ReadAll(f)
 
 		if err != nil {
-			panic(err)
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		posts, images, err := postops.DeserializeArchive(b)
 
 		if err != nil {
-			panic(err)
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		var stats *postops.InjectStats
@@ -370,7 +374,8 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		})
 
 		if err != nil {
-			panic(err)
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		b, err = json.Marshal(stats)
@@ -380,7 +385,6 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		}
 
 		c.String(http.StatusOK, string(b))
-
 	})
 
 }

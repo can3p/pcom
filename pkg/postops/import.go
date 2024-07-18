@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -24,15 +23,26 @@ import (
 var headerRe = regexp.MustCompile(`^(\w+)\s*:\s*(.+)$`)
 
 func parseExportedPost(b []byte) (map[string]string, string, error) {
-	lines := strings.Split(string(b), "\n")
+	lines := strings.Split(string(bytes.TrimSpace(b)), "\n")
 
 	headers := map[string]string{}
 	body := []string{}
 
 	collectBody := false
+	hasSeenDashes := false
 
-	for _, line := range lines {
+	for idx, line := range lines {
 		line = strings.TrimSpace(line)
+
+		if idx == 0 && line == "---" {
+			hasSeenDashes = true
+			continue
+		}
+
+		if hasSeenDashes && line == "---" {
+			collectBody = true
+			continue
+		}
 
 		if collectBody {
 			body = append(body, line)
@@ -51,7 +61,7 @@ func parseExportedPost(b []byte) (map[string]string, string, error) {
 		}
 	}
 
-	return headers, strings.Join(body, "\n"), nil
+	return headers, strings.Trim(strings.Join(body, "\n"), "\n"), nil
 }
 
 func DeserializePost(b []byte) (*core.Post, error) {
@@ -114,6 +124,13 @@ func DeserializeArchive(b []byte) ([]*core.Post, map[string][]byte, error) {
 	images := map[string][]byte{}
 
 	for _, f := range r.File {
+		fname := strings.ToLower(f.Name)
+
+		// some mac os shit
+		if strings.HasPrefix(fname, "__macosx") {
+			continue
+		}
+
 		// the assumption is that we control the size of uploads in the general gin config
 		// hence it's relatively safe to read all the contents
 		// this code can still blow up, since big images can push the archive far above the limit
@@ -129,8 +146,6 @@ func DeserializeArchive(b []byte) ([]*core.Post, map[string][]byte, error) {
 			return nil, nil, err
 		}
 
-		fname := strings.ToLower(f.Name)
-
 		if strings.HasSuffix(fname, ".md") {
 			p, err := DeserializePost(b)
 
@@ -142,8 +157,6 @@ func DeserializeArchive(b []byte) ([]*core.Post, map[string][]byte, error) {
 		}
 
 		ftype := http.DetectContentType(b)
-
-		fmt.Println(fname, ftype)
 
 		if ftype == "image/png" || ftype == "image/jpeg" {
 			images[fname] = b
