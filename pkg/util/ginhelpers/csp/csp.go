@@ -14,8 +14,9 @@ var cspParts = strings.Join(
 		"default-src 'self' " + os.Getenv("STATIC_CDN"),
 		// forbid embedding the pages anywhere
 		"frame-ancestors 'none';",
+		"frame-src  www.youtube-nocookie.com",
 		// allow data: as a source for images
-		"img-src data: w3.org/svg/2000 'self' " + os.Getenv("STATIC_CDN") + " " + os.Getenv("USER_MEDIA_CDN"),
+		"img-src data: w3.org/svg/2000 'self' " + os.Getenv("STATIC_CDN") + " " + os.Getenv("USER_MEDIA_CDN") + " i.ytimg.com",
 	}, "; ")
 
 func Csp(c *gin.Context) {

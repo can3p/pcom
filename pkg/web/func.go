@@ -34,7 +34,7 @@ func getBasePage(name string, userData *auth.UserData) *BasePage {
 }
 
 func Index(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
-	return getBasePage("Super cool pcom", userData)
+	return getBasePage("Social network for private groups", userData)
 }
 
 type MediationRequest struct {
