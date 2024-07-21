@@ -33,6 +33,8 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media MediaSer
 		ext = ".png"
 	case "image/jpeg":
 		ext = ".jpg"
+	case "image/webp":
+		ext = ".webp"
 	default:
 		return "", errors.Errorf("unsupported mime type: %s", ftype)
 	}
