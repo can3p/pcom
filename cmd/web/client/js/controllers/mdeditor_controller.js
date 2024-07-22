@@ -71,13 +71,14 @@ export default class extends Controller {
           })
 
           if (!response.ok) {
-            throw new Error(`Response status: ${response.status}`);
+            let respBody = await response.json();
+            throw respBody;
           }
 
           let j = await response.json()
           return j.uploaded_url;
         } catch (e) {
-            console.error('Error:', e);
+          htmx.trigger('body', "operation:error", e)
         }
       }
 
@@ -97,10 +98,14 @@ export default class extends Controller {
 
           let prom =  uploadFile(file).then((resultUrl) => {
             textarea.value = cursor.value.replace(loadingPlaceholder, `![${file.name}](${resultUrl})`)
+          }).catch((e) => {
+            console.log("image upload failure:" , e)
           });
 
           promises.push(prom)
         }
+
+        htmx.trigger(textarea, "change")
 
         await Promise.all(promises)
         upload.value = null;
