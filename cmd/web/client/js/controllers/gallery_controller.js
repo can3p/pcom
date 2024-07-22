@@ -28,7 +28,7 @@ function addNewItem(inner, fragmentItemsContainer, currentImg, currentCaption, s
     itemContainer.classList.add("active")
   }
 
-  currentImg.className = "d-block w-100 mh-auto"
+  currentImg.className = "d-block w-auto m-auto img-gallery"
   itemContainer.appendChild(currentImg)
 
   if (currentCaption.length > 0) {

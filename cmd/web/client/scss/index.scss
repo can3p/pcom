@@ -19,11 +19,13 @@ blockquote {
   gap: 5px;
 }
 
-.post-full img,
-.post-user-home img,
-.post-in-feed img {
+.img-standalone {
   width: 100%;
   max-width: 500px;
+}
+
+.img-gallery {
+  max-height: 400px;
 }
 
 .carousel-caption,
