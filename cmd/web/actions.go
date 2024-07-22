@@ -296,7 +296,8 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		res := web.ApiUploadImage(c, db, userData.DBUser, mediaServer)
 
 		if res.IsError() {
-			panic(res.Error())
+			reportError(c, fmt.Sprintf("Operation Failed: %s", res.Error()))
+			return
 		}
 
 		resp := res.MustGet()
