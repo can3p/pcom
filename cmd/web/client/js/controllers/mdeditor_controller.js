@@ -63,45 +63,48 @@ export default class extends Controller {
 
         formData.append('file', file);
 
-        return fetch(this.uploadValue, {
+        try {
+        let response = await fetch(this.uploadValue, {
             method: 'POST',
             headers: headers,
             body: formData
           })
-          .then((response) => response.json())
-          .then((response) => response.uploaded_url)
-          .catch((error) => {
-            console.error('Error:', error);
-          });
+
+          if (!response.ok) {
+            throw new Error(`Response status: ${response.status}`);
+          }
+
+          let j = await response.json()
+          return j.uploaded_url;
+        } catch (e) {
+            console.error('Error:', e);
+        }
       }
 
       const uploadFiles = async(files) => {
+        this.element.classList.add("mdeditor--loading")
+
+        let promises = [];
+
         for (let file of files) {
           if (!file.type.startsWith('image/')){ continue }
 
           if (cursor.position.line.text) {
             cursor.insert('\n'); // wrap to next line if some line is not empty
           }
-          const loadingPlaceholder = `[uploading (${file.name})...${+new Date()}]`;
+          const loadingPlaceholder = `[uploading (${file.name})...${Math.random()}]`;
           cursor.insert('\n' + loadingPlaceholder + '\n');
 
-          this.element.classList.add("mdeditor--loading")
+          let prom =  uploadFile(file).then((resultUrl) => {
+            textarea.value = cursor.value.replace(loadingPlaceholder, `![${file.name}](${resultUrl})`)
+          });
 
-          try {
-            let resultUrl = await uploadFile(file)
-
-            upload.value = null
-
-            cursor.setValue(
-              cursor.value.replace(
-                loadingPlaceholder,
-                `![${cursor.MARKER}${file.name}${cursor.MARKER}](${resultUrl})`,
-              ),
-            );
-          } finally {
-            this.element.classList.remove("mdeditor--loading")
-          }
+          promises.push(prom)
         }
+
+        await Promise.all(promises)
+        upload.value = null;
+        this.element.classList.remove("mdeditor--loading")
       }
 
       const handler = async () => {
