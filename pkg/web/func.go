@@ -565,12 +565,23 @@ func getComments(ctx context.Context, db boil.ContextExecutor, userID string) ([
 		return c.PostID
 	})
 
+	// we need to have this check there, since it could happen
+	// that user has lost the connection to another user and
+	// he has left a comment in one of their posts
+	directUserIDs, err := userops.GetDirectUserIDs(ctx, db, userID)
+
+	if err != nil {
+		return nil, err
+	}
+
 	posts, err := core.Posts(
 		qm.Expr(
 			core.PostWhere.UserID.EQ(userID),
 			qm.Or2(
-				core.PostWhere.ID.IN(participatedPostIDs),
-			)),
+				qm.Expr(
+					core.PostWhere.UserID.IN(directUserIDs),
+					core.PostWhere.ID.IN(participatedPostIDs),
+				))),
 		qm.Load(core.PostRels.User),
 	).All(ctx, db)
 
