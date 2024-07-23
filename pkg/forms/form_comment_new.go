@@ -10,6 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
@@ -27,11 +28,12 @@ type NewCommentFormInput struct {
 
 type NewCommentForm struct {
 	*forms.FormBase[NewCommentFormInput]
-	User   *core.User
-	Sender sender.Sender
+	User          *core.User
+	Sender        sender.Sender
+	MediaReplacer types.Replacer[string]
 }
 
-func NewCommentFormNew(sender sender.Sender, u *core.User) forms.Form {
+func NewCommentFormNew(sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string]) forms.Form {
 	var form forms.Form = &NewCommentForm{
 		FormBase: &forms.FormBase[NewCommentFormInput]{
 			Name:                "new_comment",
@@ -42,8 +44,9 @@ func NewCommentFormNew(sender sender.Sender, u *core.User) forms.Form {
 				"User": u,
 			},
 		},
-		User:   u,
-		Sender: sender,
+		User:          u,
+		Sender:        sender,
+		MediaReplacer: mediaReplacer,
 	}
 
 	return form
@@ -143,7 +146,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 	author := post.R.User
 
 	// notify post author about discussion
-	if err := mail.PostCommentAuthor(c, f.Sender, f.User, author, post, comment); err != nil {
+	if err := mail.PostCommentAuthor(c, f.Sender, f.MediaReplacer, f.User, author, post, comment); err != nil {
 		return nil, err
 	}
 
@@ -166,7 +169,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 		for _, cmt := range comments {
 			participant := cmt.R.User
 
-			if err := mail.PostCommentParticipants(c, f.Sender, f.User, participant, post, comment); err != nil {
+			if err := mail.PostCommentParticipants(c, f.Sender, f.MediaReplacer, f.User, participant, post, comment); err != nil {
 				return nil, err
 			}
 		}

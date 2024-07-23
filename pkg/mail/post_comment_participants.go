@@ -10,10 +10,12 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/types"
 )
 
-func PostCommentParticipants(ctx context.Context, s sender.Sender, user *core.User, participant *core.User, post *core.Post, comment *core.PostComment) error {
+func PostCommentParticipants(ctx context.Context, s sender.Sender, mediaReplacer types.Replacer[string], user *core.User, participant *core.User, post *core.Post, comment *core.PostComment) error {
 	// we're not sending email notifications to ourselves
 	if user.ID == participant.ID {
 		return nil
@@ -24,6 +26,7 @@ func PostCommentParticipants(ctx context.Context, s sender.Sender, user *core.Us
 	}
 
 	link := links.AbsLink("comment", post.ID, comment.ID)
+	body := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
 
 	mail := &sender.Mail{
 		From: mail.Address{
@@ -42,7 +45,7 @@ func PostCommentParticipants(ctx context.Context, s sender.Sender, user *core.Us
 
 %s
 
-Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.Split(comment.Body, "\n"), "\n> "), link),
+Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.Split(body, "\n"), "\n> "), link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
@@ -50,7 +53,7 @@ Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings
 
 	<blockquote>%s</blockquote>
 
-	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, comment.Body, link, link),
+	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, body, link, link),
 	}
 
 	err := s.Send(ctx, mail)
