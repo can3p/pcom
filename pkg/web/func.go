@@ -550,8 +550,27 @@ func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData)
 }
 
 func getComments(ctx context.Context, db boil.ContextExecutor, userID string) ([]*FeedItem, error) {
+	// we want to add the comments from the posts
+	// where the user has participated
+	ownComments, err := core.PostComments(
+		core.PostCommentWhere.UserID.EQ(userID),
+		qm.Distinct(core.PostCommentColumns.PostID),
+	).All(ctx, db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	participatedPostIDs := lo.Map(ownComments, func(c *core.PostComment, idx int) string {
+		return c.PostID
+	})
+
 	posts, err := core.Posts(
-		core.PostWhere.UserID.EQ(userID),
+		qm.Expr(
+			core.PostWhere.UserID.EQ(userID),
+			qm.Or2(
+				core.PostWhere.ID.IN(participatedPostIDs),
+			)),
 		qm.Load(core.PostRels.User),
 	).All(ctx, db)
 
