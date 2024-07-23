@@ -3,6 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static values = {
     target: String,
+    focus: String,
     hideTarget: Boolean
   }
 
@@ -19,6 +20,10 @@ export default class extends Controller {
 
   show() {
     this.target.classList.add("show")
+
+    if (this.focusValue) {
+      document.querySelector(this.focusValue).focus()
+    }
 
     if (this.hideTargetValue) {
       this.element.classList.add("d-none")
