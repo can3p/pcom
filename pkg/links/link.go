@@ -15,6 +15,7 @@ func Link(name string, args ...string) string {
 	builder := links.NewArgBuilder(args...)
 
 	var out string
+	var fragment string
 
 	switch name {
 	case "default_authorized_home":
@@ -33,6 +34,12 @@ func Link(name string, args ...string) string {
 		out = "/articles/terms_of_service"
 	case "post":
 		out = "/posts/" + builder.Shift()
+	case "comment":
+		postID := builder.Shift()
+		commentID := builder.Shift()
+		fragment = "comment" + postID + commentID
+
+		out = "/posts/" + postID
 	case "edit_post":
 		out = "/posts/" + builder.Shift() + "/edit"
 	case "user":
@@ -77,7 +84,13 @@ func Link(name string, args ...string) string {
 		out = "/signup"
 	}
 
-	return out + builder.BuildQueryString()
+	l := out + builder.BuildQueryString()
+
+	if fragment != "" {
+		l = l + "#" + fragment
+	}
+
+	return l
 }
 
 func AbsLink(name string, args ...string) string {
