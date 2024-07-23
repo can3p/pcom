@@ -19,7 +19,7 @@ func PostCommentAuthor(ctx context.Context, s sender.Sender, user *core.User, au
 		return nil
 	}
 
-	link := links.AbsLink("post", post.ID)
+	link := links.AbsLink("comment", post.ID, comment.ID)
 
 	mail := &sender.Mail{
 		From: mail.Address{
@@ -38,7 +38,7 @@ func PostCommentAuthor(ctx context.Context, s sender.Sender, user *core.User, au
 
 %s
 
-Checkout the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.Split(comment.Body, "\n"), "\n> "), link),
+Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.Split(comment.Body, "\n"), "\n> "), link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
@@ -46,7 +46,7 @@ Checkout the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.S
 
 	<blockquote>%s</blockquote>
 
-	<p>Check out the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, comment.Body, link, link),
+	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, comment.Body, link, link),
 	}
 
 	err := s.Send(ctx, mail)
