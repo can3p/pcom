@@ -7,7 +7,6 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -36,7 +35,7 @@ func NewCommentFormNew(sender sender.Sender, u *core.User) forms.Form {
 	var form forms.Form = &NewCommentForm{
 		FormBase: &forms.FormBase[NewCommentFormInput]{
 			Name:                "new_comment",
-			FormTemplate:        "form--post.html",
+			FormTemplate:        "form--comment.html",
 			KeepValuesAfterSave: true,
 			Input:               &NewCommentFormInput{},
 			ExtraTemplateData: map[string]interface{}{
@@ -196,5 +195,5 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 	}
 
 	// XXX: we should focus on the comment
-	return forms.FormSaveRedirect(links.Link("post", f.Input.PostID)), nil
+	return forms.FormSaveFullReload, nil
 }

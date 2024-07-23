@@ -1,8 +1,9 @@
 <form
+    data-controller="commentform"
       method="POST"
       action="{{ link "form_new_comment" }}"
       hx-post="{{ link "form_new_comment" }}"
-      hx-swap="outerHTML"
+      hx-swap="outerHTML scroll:no-scroll"
       hx-disabled-elt="this"
       >
 
@@ -30,7 +31,7 @@
       </div>
     </div>
 
-    <textarea class="form-control" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+    <textarea class="form-control {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
     {{ if (.Errors.HasError "body") }}
     <div class="invalid-feedback">{{ .Errors.body }}</div>
     {{ end }}
@@ -38,4 +39,5 @@
 
   <button type="submit" class="btn btn-primary">Post a comment</button>
   <button type="button" role="close" class="btn btn-secondary">Close</button>
+  <small class="form-text">Ctrl/Cmd-Enter to submit</small>
 </form>
