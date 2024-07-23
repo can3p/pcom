@@ -56,6 +56,50 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	return str
 }
 
+type OutgoingEmailStatus string
+
+// Enum values for OutgoingEmailStatus
+const (
+	OutgoingEmailStatusNew    OutgoingEmailStatus = "new"
+	OutgoingEmailStatusSent   OutgoingEmailStatus = "sent"
+	OutgoingEmailStatusFailed OutgoingEmailStatus = "failed"
+)
+
+func AllOutgoingEmailStatus() []OutgoingEmailStatus {
+	return []OutgoingEmailStatus{
+		OutgoingEmailStatusNew,
+		OutgoingEmailStatusSent,
+		OutgoingEmailStatusFailed,
+	}
+}
+
+func (e OutgoingEmailStatus) IsValid() error {
+	switch e {
+	case OutgoingEmailStatusNew, OutgoingEmailStatusSent, OutgoingEmailStatusFailed:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e OutgoingEmailStatus) String() string {
+	return string(e)
+}
+
+func (e OutgoingEmailStatus) Ordinal() int {
+	switch e {
+	case OutgoingEmailStatusNew:
+		return 0
+	case OutgoingEmailStatusSent:
+		return 1
+	case OutgoingEmailStatusFailed:
+		return 2
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
+}
+
 type PostVisibility string
 
 // Enum values for PostVisibility

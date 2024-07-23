@@ -5,6 +5,7 @@ package core
 
 var TableNames = struct {
 	MediaUploads                    string
+	OutgoingEmails                  string
 	PostComments                    string
 	PostStats                       string
 	Posts                           string
@@ -19,6 +20,7 @@ var TableNames = struct {
 	WhitelistedConnections          string
 }{
 	MediaUploads:                    "media_uploads",
+	OutgoingEmails:                  "outgoing_emails",
 	PostComments:                    "post_comments",
 	PostStats:                       "post_stats",
 	Posts:                           "posts",
