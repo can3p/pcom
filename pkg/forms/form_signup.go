@@ -101,7 +101,7 @@ func (f *SignupForm) Save(c context.Context, exec boil.ContextExecutor) (forms.F
 		return nil, err
 	}
 
-	if err := mail.ConfirmSignup(c, f.Sender, user); err != nil {
+	if err := mail.ConfirmSignup(c, exec, f.Sender, user); err != nil {
 		panic(err)
 	}
 

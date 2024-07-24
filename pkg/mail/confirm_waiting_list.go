@@ -21,10 +21,10 @@ func ConfirmWaitingList(ctx context.Context, db boil.ContextExecutor, s sender.S
 
 	waitingList.UpdateP(ctx, db, boil.Infer())
 
-	return sendActualConfirmWaitingList(ctx, s, waitingList)
+	return sendActualConfirmWaitingList(ctx, db, s, waitingList)
 }
 
-func sendActualConfirmWaitingList(ctx context.Context, s sender.Sender, waitingList *core.UserSignupRequest) error {
+func sendActualConfirmWaitingList(ctx context.Context, db boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) error {
 	link := links.AbsLink("confirm_waiting_list", waitingList.ID)
 	to := waitingList.Email
 
@@ -53,7 +53,7 @@ func sendActualConfirmWaitingList(ctx context.Context, s sender.Sender, waitingL
 	<a href="%s">%s</a>`, link, link),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, db, waitingList.ID, "waiting_list_confirm", mail)
 
 	if err != nil {
 		log.Fatal(err)

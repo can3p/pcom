@@ -146,7 +146,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 	author := post.R.User
 
 	// notify post author about discussion
-	if err := mail.PostCommentAuthor(c, f.Sender, f.MediaReplacer, f.User, author, post, comment); err != nil {
+	if err := mail.PostCommentAuthor(c, exec, f.Sender, f.MediaReplacer, f.User, author, post, comment); err != nil {
 		return nil, err
 	}
 
@@ -169,7 +169,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 		for _, cmt := range comments {
 			participant := cmt.R.User
 
-			if err := mail.PostCommentParticipants(c, f.Sender, f.MediaReplacer, f.User, participant, post, comment); err != nil {
+			if err := mail.PostCommentParticipants(c, exec, f.Sender, f.MediaReplacer, f.User, participant, post, comment); err != nil {
 				return nil, err
 			}
 		}

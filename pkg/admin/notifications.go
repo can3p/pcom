@@ -9,11 +9,13 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/google/uuid"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 var NotifyAddress string = os.Getenv("ADMIN_ADDRESS")
 
-func NotifyNewUser(ctx context.Context, s sender.Sender, user *core.User) {
+func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -43,14 +45,14 @@ func NotifyNewUser(ctx context.Context, s sender.Sender, user *core.User) {
 	</ul>`, user.ID, user.Email),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, user.ID, "admin_new_user", mail)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func NotifyNewWaitingListMember(ctx context.Context, s sender.Sender, waitingList *core.UserSignupRequest) {
+func NotifyNewWaitingListMember(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) {
 	r := waitingList.Reason.String
 
 	if r == "" {
@@ -88,14 +90,14 @@ func NotifyNewWaitingListMember(ctx context.Context, s sender.Sender, waitingLis
 			waitingList.Email, r),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, waitingList.ID, "new_waiting_list_member", mail)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func NotifySignupConfirmed(ctx context.Context, s sender.Sender, user *core.User) {
+func NotifySignupConfirmed(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -125,14 +127,14 @@ func NotifySignupConfirmed(ctx context.Context, s sender.Sender, user *core.User
 	</ul>`, user.ID, user.Email),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, user.ID, "signup_confirmed", mail)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, s sender.Sender, email string) {
+func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, email string) {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -155,7 +157,7 @@ func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, s sender.Sender, ema
 	`, email),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, uuid.NewString(), "throw_away_email_signup", mail)
 
 	if err != nil {
 		log.Fatal(err)

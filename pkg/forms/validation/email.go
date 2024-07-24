@@ -53,7 +53,7 @@ func EmailOKToSignup(ctx context.Context, db boil.ContextExecutor, sender sender
 	parsedEmail, _ := disposable.ParseEmail(address)
 
 	if parsedEmail.Disposable {
-		go admin.NotifyThrowAwayEmailSignupAttempt(ctx, sender, address)
+		go admin.NotifyThrowAwayEmailSignupAttempt(ctx, db, sender, address)
 
 		return "Email domain is not allowed, please reach out to us via the support form", false
 	}

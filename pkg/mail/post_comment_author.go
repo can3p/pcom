@@ -13,9 +13,10 @@ import (
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/types"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func PostCommentAuthor(ctx context.Context, s sender.Sender, mediaReplacer types.Replacer[string], user *core.User, author *core.User, post *core.Post, comment *core.PostComment) error {
+func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, mediaReplacer types.Replacer[string], user *core.User, author *core.User, post *core.Post, comment *core.PostComment) error {
 	// we're not sending email notifications to ourselves
 	if user.ID == author.ID {
 		return nil
@@ -52,7 +53,7 @@ Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings
 	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, body, link, link),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, comment.ID, "comment_notification", mail)
 
 	if err != nil {
 		log.Fatal(err)

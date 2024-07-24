@@ -16,6 +16,8 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 var (
@@ -25,7 +27,7 @@ var (
 	slash     = []byte("/")
 )
 
-func NotifyPageFailure(c *gin.Context, s sender.Sender, err any, user *core.User) {
+func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sender, err any, user *core.User) {
 	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
 
 	var userInfo string = "Anonymous"
@@ -66,7 +68,7 @@ func NotifyPageFailure(c *gin.Context, s sender.Sender, err any, user *core.User
 			</ul>`, userInfo, strings.Join(decodedStack, "\r\n")),
 	}
 
-	err = s.Send(c, mail)
+	err = s.Send(c, exec, uuid.NewString(), "panic_notification", mail)
 
 	if err != nil {
 		log.Fatal(err)

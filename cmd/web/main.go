@@ -137,7 +137,7 @@ func main() {
 			userData := auth.GetUserData(c)
 			user := userData.DBUser
 
-			admin.NotifyPageFailure(c, sender, err, user)
+			admin.NotifyPageFailure(c, db, sender, err, user)
 		}))
 	} else {
 		log.Println("Custom error reporter skipped")
@@ -449,7 +449,7 @@ func main() {
 			user.EmailConfirmedAt = null.TimeFrom(time.Now())
 			user.UpdateP(c, db, boil.Infer())
 
-			go admin.NotifySignupConfirmed(c, sender, user)
+			go admin.NotifySignupConfirmed(c, db, sender, user)
 		}
 
 		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]interface{}{

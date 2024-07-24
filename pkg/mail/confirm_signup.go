@@ -11,9 +11,10 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/pkg/errors"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func ConfirmSignup(ctx context.Context, s sender.Sender, user *core.User) error {
+func ConfirmSignup(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) error {
 	if user.EmailConfirmSeed.String == "" {
 		return errors.Errorf("cannot send confirm email for user with empty confirmation seed, user id = %s", user.ID)
 	}
@@ -46,7 +47,7 @@ func ConfirmSignup(ctx context.Context, s sender.Sender, user *core.User) error 
 	<a href="%s">%s</a>`, link, link),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, user.ID, "confirm_signup", mail)
 
 	if err != nil {
 		log.Fatal(err)

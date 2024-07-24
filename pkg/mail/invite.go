@@ -46,10 +46,10 @@ func SendInvite(ctx context.Context, db boil.ContextExecutor, sender sender.Send
 
 	invite.UpdateP(ctx, db, boil.Infer())
 
-	return sendActualInvitation(ctx, sender, invite, senderUser, to)
+	return sendActualInvitation(ctx, db, sender, invite, senderUser, to)
 }
 
-func sendActualInvitation(ctx context.Context, s sender.Sender, invite *core.UserInvitation, user *core.User, to string) error {
+func sendActualInvitation(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, invite *core.UserInvitation, user *core.User, to string) error {
 	link := links.AbsLink("invite", invite.ID)
 
 	mail := &sender.Mail{
@@ -77,7 +77,7 @@ func sendActualInvitation(ctx context.Context, s sender.Sender, invite *core.Use
 	<a href="%s">%s</a>`, link, link),
 	}
 
-	err := s.Send(ctx, mail)
+	err := s.Send(ctx, exec, user.ID, "user_invitation", mail)
 
 	if err != nil {
 		log.Fatal(err)
