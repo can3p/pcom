@@ -34,6 +34,7 @@ type OutgoingEmail struct {
 	SentAt         null.Time           `boil:"sent_at" json:"sent_at,omitempty" toml:"sent_at" yaml:"sent_at,omitempty"`
 	CreatedAt      time.Time           `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt      time.Time           `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	EmailType      string              `boil:"email_type" json:"email_type" toml:"email_type" yaml:"email_type"`
 
 	R *outgoingEmailR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L outgoingEmailL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -49,6 +50,7 @@ var OutgoingEmailColumns = struct {
 	SentAt         string
 	CreatedAt      string
 	UpdatedAt      string
+	EmailType      string
 }{
 	ID:             "id",
 	UniqueID:       "unique_id",
@@ -59,6 +61,7 @@ var OutgoingEmailColumns = struct {
 	SentAt:         "sent_at",
 	CreatedAt:      "created_at",
 	UpdatedAt:      "updated_at",
+	EmailType:      "email_type",
 }
 
 var OutgoingEmailTableColumns = struct {
@@ -71,6 +74,7 @@ var OutgoingEmailTableColumns = struct {
 	SentAt         string
 	CreatedAt      string
 	UpdatedAt      string
+	EmailType      string
 }{
 	ID:             "outgoing_emails.id",
 	UniqueID:       "outgoing_emails.unique_id",
@@ -81,6 +85,7 @@ var OutgoingEmailTableColumns = struct {
 	SentAt:         "outgoing_emails.sent_at",
 	CreatedAt:      "outgoing_emails.created_at",
 	UpdatedAt:      "outgoing_emails.updated_at",
+	EmailType:      "outgoing_emails.email_type",
 }
 
 // Generated where
@@ -198,6 +203,7 @@ var OutgoingEmailWhere = struct {
 	SentAt         whereHelpernull_Time
 	CreatedAt      whereHelpertime_Time
 	UpdatedAt      whereHelpertime_Time
+	EmailType      whereHelperstring
 }{
 	ID:             whereHelperstring{field: "\"outgoing_emails\".\"id\""},
 	UniqueID:       whereHelperstring{field: "\"outgoing_emails\".\"unique_id\""},
@@ -208,6 +214,7 @@ var OutgoingEmailWhere = struct {
 	SentAt:         whereHelpernull_Time{field: "\"outgoing_emails\".\"sent_at\""},
 	CreatedAt:      whereHelpertime_Time{field: "\"outgoing_emails\".\"created_at\""},
 	UpdatedAt:      whereHelpertime_Time{field: "\"outgoing_emails\".\"updated_at\""},
+	EmailType:      whereHelperstring{field: "\"outgoing_emails\".\"email_type\""},
 }
 
 // OutgoingEmailRels is where relationship names are stored.
@@ -227,8 +234,8 @@ func (*outgoingEmailR) NewStruct() *outgoingEmailR {
 type outgoingEmailL struct{}
 
 var (
-	outgoingEmailAllColumns            = []string{"id", "unique_id", "payload", "status", "attempts_number", "try_at", "sent_at", "created_at", "updated_at"}
-	outgoingEmailColumnsWithoutDefault = []string{"id", "unique_id", "payload", "status", "attempts_number", "try_at", "created_at", "updated_at"}
+	outgoingEmailAllColumns            = []string{"id", "unique_id", "payload", "status", "attempts_number", "try_at", "sent_at", "created_at", "updated_at", "email_type"}
+	outgoingEmailColumnsWithoutDefault = []string{"id", "unique_id", "payload", "status", "attempts_number", "try_at", "created_at", "updated_at", "email_type"}
 	outgoingEmailColumnsWithDefault    = []string{"sent_at"}
 	outgoingEmailPrimaryKeyColumns     = []string{"id"}
 	outgoingEmailGeneratedColumns      = []string{}
