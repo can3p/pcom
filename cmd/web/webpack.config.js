@@ -48,7 +48,7 @@ module.exports = (env, argv) => {
 
       // copy static assets directory
       new CopyPlugin({
-        patterns: [{from: 'client/static', to: 'static'}]
+        patterns: [{from: 'client/static', to: 'static/[name].[contenthash][ext]'}]
       }),
       new WebpackManifestPlugin({ publicPath: "" }),
     ],
