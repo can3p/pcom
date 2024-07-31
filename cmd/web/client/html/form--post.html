@@ -42,20 +42,23 @@
       <label for="newPostBody" class="form-label">Body</label>
 
       <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
-        <i role="button" data-command="bold" class="bi bi-type-bold"></i>
-        <i role="button" data-command="italic" class="bi bi-type-italic"></i>
-        <i role="button" data-command="block-quotes" class="bi bi-quote"></i>
-        <i role="button" data-command="unordered-list" class="bi bi-list-ul"></i>
-        <i role="button" data-command="code-block" class="bi bi-code"></i>
-        <i role="button" data-command="link" class="bi bi-link-45deg"></i>
+        <i role="button" data-command="bold" class="bi bi-type-bold" title="Bold text"></i>
+        <i role="button" data-command="italic" class="bi bi-type-italic" title="Italic text"></i>
+        <i role="button" data-command="block-quotes" class="bi bi-quote" title="Insert a quote"></i>
+        <i role="button" data-command="unordered-list" class="bi bi-list-ul" title="Insert a list"></i>
+        <i role="button" data-command="code-block" class="bi bi-code" title="Insert a code block"></i>
+        <i role="button" data-command="link" class="bi bi-link-45deg" title="Insert a link"></i>
+        <i role="button" data-command="cut" class="bi bi-hr" title="Hide part of the post from the feed"></i>
+        <i role="button" data-command="spoiler" class="bi bi-arrows-collapse" title="Hide the text behind spoiler block"></i>
+        <i role="button" data-command="gallery" class="bi bi-back" title="Group images into a gallery"></i>
         <div class="custom-file">
-          <label for="file_upload"><i role="button" class="bi bi-camera"></i></label>
+          <label for="file_upload"><i role="button" class="bi bi-camera" title="Upload images"></i></label>
           <input class="d-none" type="file" id="file_upload" aria-label="Custom controls" multiple>
         </div>
         {{ if .PostID }}
-        <a target="_blank" href="{{ link "post" .PostID "edit_preview" "true" }}" class="text-reset"><i role="link" class="bi bi-card-text"></i></a>
+        <a target="_blank" href="{{ link "post" .PostID "edit_preview" "true" }}" class="text-reset"><i role="link" class="bi bi-card-text" title="Open post preview"></i></a>
         {{ else }}
-        <a target="_blank" id="show_preview" href="" class="text-reset d-none"><i role="link" class="bi bi-card-text"></i></a>
+        <a target="_blank" id="show_preview" href="" class="text-reset d-none"><i role="link" class="bi bi-card-text" title="Open post preview"></i></a>
         {{ end }}
       </div>
 

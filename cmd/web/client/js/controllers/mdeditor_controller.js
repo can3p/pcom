@@ -36,9 +36,40 @@ export default class extends Controller {
       }
     }, false)
 
+    let insertTag = (tag) => {
+      let placeholder
+
+      switch (tag) {
+        case "gallery":
+          placeholder = "Add a list of images there"
+          break;
+        case "spoiler":
+          placeholder = "This text will be collapsed by default"
+          break;
+        case "cut":
+          placeholder = "This text won't be visible in the feed but will be shown on the full past page"
+          break;
+        default:
+          trigger(cmd)
+      }
+
+      cursor.wrap([`\n{${tag}}\n`, `\n{/${tag}}\n\n`], { placeholder });
+    }
+
     let runCmd = function(cmd, e) {
       e.preventDefault()
-      trigger(cmd)
+
+      switch (cmd) {
+        case "gallery":
+        case "spoiler":
+        case "cut":
+          insertTag(cmd)
+          break;
+        default:
+          trigger(cmd)
+      }
+
+      htmx.trigger(textarea, "change")
     }
 
     if (this.uploadValue) {
