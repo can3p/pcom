@@ -17,6 +17,7 @@ var cspParts = strings.Join(
 		"frame-src  www.youtube-nocookie.com",
 		// allow data: as a source for images
 		"img-src data: w3.org/svg/2000 'self' " + os.Getenv("STATIC_CDN") + " " + os.Getenv("USER_MEDIA_CDN") + " i.ytimg.com",
+		"style-src-attr 'unsafe-inline'",
 	}, "; ")
 
 func Csp(c *gin.Context) {

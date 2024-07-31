@@ -6,6 +6,7 @@
     <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; {{ .PostSubject }}{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ end }}</h1>
 
     <div class="mt-3 post-full">
+      {{ template "partial--user_avatar.html" toMap "User" .Author }}
       {{ if .EditPreview }}
       {{ markdown_edit_preview .Body }}
       {{ else }}
@@ -53,6 +54,7 @@
             <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> responded at {{ renderTimestamp .CreatedAt $.User.DBUser }}
           </h5>
           <div class="card-body">
+            {{ template "partial--user_avatar.html" toMap "User" .Author }}
             <div class="mt-3 post-user-home">{{ markdown_comment .Body }}</div>
 
             {{ if $canLeaveComments }}

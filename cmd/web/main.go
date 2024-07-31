@@ -31,6 +31,7 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/util"
+	"github.com/can3p/pcom/pkg/util/colors"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csrf"
@@ -689,6 +690,11 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 
 		"tzlist": func() []string {
 			return util.TimeZones
+		},
+
+		"hash_colors": func(val string) template.CSS {
+			bg, text := colors.Hash(val)
+			return template.CSS(fmt.Sprintf("background-color: %s; color: %s;", bg, text))
 		},
 	}
 }
