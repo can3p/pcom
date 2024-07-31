@@ -15,6 +15,8 @@ export default class extends Controller {
     const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea, {
       options: {
         enableLinkPasteExtension: false,
+        enablePrefixWrappingExtension: true,
+        customPrefixWrapping: ['*'],
       }
     });
 
