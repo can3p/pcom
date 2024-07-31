@@ -54,6 +54,8 @@
         </div>
         {{ if .PostID }}
         <a target="_blank" href="{{ link "post" .PostID "edit_preview" "true" }}" class="text-reset"><i role="link" class="bi bi-card-text"></i></a>
+        {{ else }}
+        <a target="_blank" id="show_preview" href="" class="text-reset d-none"><i role="link" class="bi bi-card-text"></i></a>
         {{ end }}
       </div>
 

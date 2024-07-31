@@ -193,7 +193,10 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		} else {
 			f.AddTemplateData("DraftSaved", true)
 			action = formhelpers.Retarget(
-				formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)),
+				formhelpers.Trigger(
+					formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)),
+					gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID)}},
+				),
 				"#last_draft_save",
 			)
 		}
@@ -224,7 +227,10 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 			} else {
 				f.AddTemplateData("DraftSaved", true)
 				action = formhelpers.Retarget(
-					action,
+					formhelpers.Trigger(
+						action,
+						gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID)}},
+					),
 					"#last_draft_save",
 				)
 			}

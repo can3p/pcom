@@ -149,6 +149,15 @@ export default class extends Controller {
 
       btn.addEventListener("click", runCmd.bind(null, cmd), false)
     }
+
+    let showPreview = this.element.querySelector("#show_preview");
+
+    if (showPreview) {
+      htmx.on("draft_saved", (ev) => {
+        showPreview.classList.remove("d-none");
+        showPreview.href = ev.detail.url
+      })
+    }
   }
 
   disconnect() {
