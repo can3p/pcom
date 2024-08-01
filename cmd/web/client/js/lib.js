@@ -24,18 +24,28 @@ export async function runAction(name, dataset, extraFields) {
     }
   }
 
-
-  return fetch(url, {
+  let response = await fetch(url, {
     method: 'POST',
     headers: headers,
     body: JSON.stringify(payload),
   })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.explanation) {
-        return Promise.reject(data.explanation)
-      }
-    })
+
+  if (!response.ok) {
+    let respBody = await response.text()
+
+    if (respBody != "") {
+      try {
+        respBody = JSON.parse(respBody)
+      } catch(e){}
+    } else {
+      respBody = `Unknown error: Failed with response code ${response.status}`
+    }
+
+    throw respBody;
+  }
+
+  let j = await response.json()
+  return j
 }
 
 export function reloadPage() {
@@ -43,7 +53,15 @@ export function reloadPage() {
 }
 
 export function reportError(err) {
-  alert(err)
+  let payload = err
+
+  if (!payload.explanation) {
+    payload = {
+      explanation: payload
+    }
+  }
+
+  htmx.trigger('body', "operation:error", payload)
 }
 
 function toPayload(dataset) {
