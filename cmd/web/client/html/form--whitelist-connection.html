@@ -9,14 +9,13 @@
   <div class="mb-3">
     <div class="row">
       <div class="col">
-        <input name="username" type="username"
-                              value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
-                              class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
-                              placeholder="username"
-                              id="newPostUsername" aria-describedby="usernameHelp"
-                                                  required>
-        {{ if (.Errors.HasError "username") }}
-        <div class="invalid-feedback">{{ .Errors.username }}</div>
+        <input name="uname" type="uname"
+                              value="{{ if .Input }}{{ .Input.uname }}{{ end }}"
+                              class="form-control {{ if (.Errors.HasError "uname") }}is-invalid{{ end }}"
+                              placeholder="{{ .User.Username }}"
+                              id="newPostUsername" required>
+        {{ if (.Errors.HasError "uname") }}
+        <div class="invalid-feedback">{{ .Errors.uname }}</div>
         {{ end }}
       </div>
       <div class="col">

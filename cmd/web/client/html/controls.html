@@ -149,7 +149,7 @@
           <h5 class="card-header">Whitelist connection requests</h5>
           <div class="card-body">
             <p class="text-muted fs-6">Whitelisted users will be able to create a connection with you</p>
-            {{ template "form--whitelist-connection.html" }}
+            {{ template "form--whitelist-connection.html" toMap "User" .User.DBUser }}
 
             {{ if gt (len .WhitelistedConnections) 0 }}
             <div class="mt-3">

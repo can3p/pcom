@@ -14,7 +14,7 @@ import (
 )
 
 type WhitelistConnectionInput struct {
-	Username string `form:"username"`
+	Username string `form:"uname"`
 }
 
 type WhitelistConnection struct {
