@@ -31,7 +31,7 @@
       </div>
     </div>
 
-    <textarea class="form-control {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+    <textarea class="form-control {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" autocomplete="off" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
     {{ if (.Errors.HasError "body") }}
     <div class="invalid-feedback">{{ .Errors.body }}</div>
     {{ end }}
