@@ -126,8 +126,10 @@ func main() {
 
 	store := pgsession.NewStore(db, []byte(sessionSalt))
 	store.Options(sessions.Options{
-		Path:     "/",
-		Secure:   true,
+		Path: "/",
+		// safari wouldn't allow to save secure cookie
+		// if server works on localhost
+		Secure:   util.InCluster(),
 		HttpOnly: true,
 		MaxAge:   24 * 3600 * 30, // make every session one month long
 		SameSite: http.SameSiteLaxMode,
