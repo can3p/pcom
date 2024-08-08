@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	cspStyleNonceKey = "csp_style_nonce"
+	cspStyleNonceKey  = "csp_style_nonce"
+	cspScriptNonceKey = "csp_script_nonce"
 )
 
 func GetStyleNonce(c *gin.Context) *string {
@@ -25,8 +26,20 @@ func GetStyleNonce(c *gin.Context) *string {
 	return &str
 }
 
-func setStyleNonce(c *gin.Context, val string) {
-	c.Set(cspStyleNonceKey, val)
+func GetScriptNonce(c *gin.Context) *string {
+	v, ok := c.Get(cspScriptNonceKey)
+
+	if !ok {
+		return nil
+	}
+
+	str := v.(string)
+
+	return &str
+}
+
+func setNonce(c *gin.Context, key, val string) {
+	c.Set(key, val)
 }
 
 var cspParts = strings.Join(
@@ -38,14 +51,18 @@ var cspParts = strings.Join(
 		"frame-src  www.youtube-nocookie.com",
 		// allow data: as a source for images
 		"img-src data: w3.org/svg/2000 'self' " + os.Getenv("STATIC_CDN") + " " + os.Getenv("USER_MEDIA_CDN") + " i.ytimg.com",
+		"script-src 'self' " + os.Getenv("STATIC_CDN") + " 'nonce-SCRIPT_NONCE'",
 		"style-src 'self' " + os.Getenv("STATIC_CDN") + " 'nonce-STYLE_NONCE'",
 	}, "; ")
 
 func Csp(c *gin.Context) {
 	styleNonce := uuid.NewString()
+	scriptNonce := uuid.NewString()
 
 	parts := strings.Replace(cspParts, "STYLE_NONCE", styleNonce, 1)
-	setStyleNonce(c, styleNonce)
+	parts = strings.Replace(parts, "SCRIPT_NONCE", scriptNonce, 1)
+	setNonce(c, cspStyleNonceKey, styleNonce)
+	setNonce(c, cspScriptNonceKey, scriptNonce)
 
 	c.Header("Content-Security-Policy", parts)
 	// do not allow to load resources with mismatching mime type

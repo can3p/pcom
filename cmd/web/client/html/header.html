@@ -16,7 +16,11 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ static_asset "static/favicon-16x16.png" }}">
     <link rel="manifest" href="/static/static/site.webmanifest">
   </head>
-  <body {{ with .StyleNonce }}data-style-nonce="{{ . }}"{{ end }} hx-boost="true"{{ if .User }} hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'{{ end }}>
+  <body hx-boost="true"{{ if .User }} hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'{{ end }}>
+    <script nonce="{{ .ScriptNonce }}">
+      // we really want to load inline styles for youtube embed
+      window.liteYouTubeNonce = "{{ .StyleNonce }}"
+    </script>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container">
         <a class="navbar-brand" href="/">

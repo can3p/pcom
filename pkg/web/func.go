@@ -26,6 +26,7 @@ type BasePage struct {
 	Name        string
 	User        *auth.UserData
 	StyleNonce  *string
+	ScriptNonce *string
 }
 
 func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage {
@@ -34,6 +35,7 @@ func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage
 		User:        userData,
 		ProjectName: "pcom",
 		StyleNonce:  csp.GetStyleNonce(c),
+		ScriptNonce: csp.GetScriptNonce(c),
 	}
 }
 
