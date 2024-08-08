@@ -56,15 +56,17 @@
             <div class="mt-3 post-user-home">{{ markdown_comment .Body }}</div>
 
             {{ if $canLeaveComments }}
-            <button class="btn btn-sm btn-primary"
-                    type="button"
-                    data-controller="toggle"
-                    data-toggle-hide-target-value="true"
-                    data-toggle-target-value="#comment-wrapper{{ .PostID }}{{ .ID }}"
-                    data-toggle-focus-value="#comment-wrapper{{ .PostID }}{{ .ID }} textarea"
-                    >
-              Leave a comment
-            </button>
+            <div class="text-center">
+              <button class="btn btn-sm btn-primary"
+                      type="button"
+                      data-controller="toggle"
+                      data-toggle-hide-target-value="true"
+                      data-toggle-target-value="#comment-wrapper{{ .PostID }}{{ .ID }}"
+                      data-toggle-focus-value="#comment-wrapper{{ .PostID }}{{ .ID }} textarea"
+                      >
+                Leave a comment
+              </button>
+            </div>
             <div class="border p-3 collapse" id="comment-wrapper{{ .PostID }}{{ .ID }}">
               {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID }}
             </div>
