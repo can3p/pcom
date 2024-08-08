@@ -379,8 +379,6 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 		return mo.Err[*UserHomePage](err)
 	}
 
-	title := fmt.Sprintf("%s - Journal", author.Username)
-
 	connRadius, err := userops.GetConnectionRadius(ctx, db, userData.DBUser.ID, author.ID)
 
 	if err != nil {
@@ -431,7 +429,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	}
 
 	userHomePage := &UserHomePage{
-		BasePage:          getBasePage(title, userData),
+		BasePage:          getBasePage("Journal", userData),
 		Author:            author,
 		ConnectionRadius:  connRadius,
 		ConnectionAllowed: isConnectionAllowed,
