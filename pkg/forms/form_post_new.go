@@ -207,7 +207,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 			action = formhelpers.Retarget(
 				formhelpers.Trigger(
 					formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)),
-					gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID)}},
+					gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID, "edit_preview", "true")}},
 				),
 				"#last_draft_save",
 			)
@@ -242,7 +242,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 				action = formhelpers.Retarget(
 					formhelpers.Trigger(
 						action,
-						gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID)}},
+						gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID, "edit_preview", "true")}},
 					),
 					"#last_draft_save",
 				)
