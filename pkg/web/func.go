@@ -13,6 +13,8 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
+	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
+	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -23,18 +25,20 @@ type BasePage struct {
 	ProjectName string
 	Name        string
 	User        *auth.UserData
+	StyleNonce  *string
 }
 
-func getBasePage(name string, userData *auth.UserData) *BasePage {
+func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage {
 	return &BasePage{
 		Name:        name,
 		User:        userData,
 		ProjectName: "pcom",
+		StyleNonce:  csp.GetStyleNonce(c),
 	}
 }
 
-func Index(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
-	return getBasePage("Social network for private groups", userData)
+func Index(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
+	return getBasePage(c, "Social network for private groups", userData)
 }
 
 type MediationRequest struct {
@@ -70,7 +74,7 @@ type ControlsPage struct {
 	Drafts                  []*Draft
 }
 
-func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*ControlsPage] {
+func Controls(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*ControlsPage] {
 	userID := userData.DBUser.ID
 	directUserIDs, secondDegreeUserIDs, _, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userID)
 
@@ -178,7 +182,7 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	})
 
 	controlsPage := &ControlsPage{
-		BasePage:                getBasePage("Controls", userData),
+		BasePage:                getBasePage(ctx, "Controls", userData),
 		DirectConnections:       directUsers,
 		SecondDegreeConnections: secondDegreeUsers,
 		WhitelistedConnections:  whitelistedConnections,
@@ -190,8 +194,8 @@ func Controls(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	return mo.Ok(controlsPage)
 }
 
-func Write(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
-	return getBasePage("New Post", userData)
+func Write(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
+	return getBasePage(c, "New Post", userData)
 }
 
 type SettingsPage struct {
@@ -201,7 +205,7 @@ type SettingsPage struct {
 	ActiveAPIKey     *core.UserAPIKey
 }
 
-func Settings(c context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
+func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
 	totalInvites, err := core.UserInvitations(
 		core.UserInvitationWhere.UserID.EQ(userData.DBUser.ID),
 	).Count(c, db)
@@ -228,7 +232,7 @@ func Settings(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 	}
 
 	settingsPage := &SettingsPage{
-		BasePage:         getBasePage("Settings", userData),
+		BasePage:         getBasePage(c, "Settings", userData),
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
 		ActiveAPIKey:     apiKey,
@@ -243,9 +247,9 @@ type InvitePage struct {
 	Inviter *core.User
 }
 
-func Invite(c context.Context, db boil.ContextExecutor, invite *core.UserInvitation, userData *auth.UserData) *InvitePage {
+func Invite(c *gin.Context, db boil.ContextExecutor, invite *core.UserInvitation, userData *auth.UserData) *InvitePage {
 	invitePage := &InvitePage{
-		BasePage: getBasePage("Accept Invitation", userData),
+		BasePage: getBasePage(c, "Accept Invitation", userData),
 		Invite:   invite,
 		Inviter:  invite.User().OneP(c, db),
 	}
@@ -259,7 +263,7 @@ type SinglePostPage struct {
 	Comments []*postops.Comment
 }
 
-func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string, editPreview bool) mo.Result[*SinglePostPage] {
+func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postID string, editPreview bool) mo.Result[*SinglePostPage] {
 	post, err := core.Posts(
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
@@ -287,7 +291,7 @@ func SinglePost(c context.Context, db boil.ContextExecutor, userData *auth.UserD
 	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius, nil, editPreview)
 
 	singlePostPage := &SinglePostPage{
-		BasePage: getBasePage(constructed.PostSubject(), userData),
+		BasePage: getBasePage(c, constructed.PostSubject(), userData),
 		Post:     constructed,
 	}
 
@@ -316,7 +320,7 @@ type EditPostPage struct {
 	IsPublished   bool
 }
 
-func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
+func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
 	post, err := core.Posts(
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
@@ -345,7 +349,7 @@ func EditPost(c context.Context, db boil.ContextExecutor, userData *auth.UserDat
 	}
 
 	editPostPage := &EditPostPage{
-		BasePage: getBasePage(title, userData),
+		BasePage: getBasePage(c, title, userData),
 		PostID:   post.ID,
 		Input: forms.PostFormInput{
 			Subject:    post.Subject,
@@ -368,7 +372,7 @@ type UserHomePage struct {
 	Posts             []*postops.Post
 }
 
-func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData, authorUsername string) mo.Result[*UserHomePage] {
+func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, authorUsername string) mo.Result[*UserHomePage] {
 	author, err := core.Users(
 		core.UserWhere.Username.EQ(authorUsername),
 	).One(ctx, db)
@@ -429,7 +433,7 @@ func UserHome(ctx context.Context, db boil.ContextExecutor, userData *auth.UserD
 	}
 
 	userHomePage := &UserHomePage{
-		BasePage:          getBasePage("Journal", userData),
+		BasePage:          getBasePage(ctx, "Journal", userData),
 		Author:            author,
 		ConnectionRadius:  connRadius,
 		ConnectionAllowed: isConnectionAllowed,
@@ -459,7 +463,7 @@ type FeedPage struct {
 	Items []*FeedItem
 }
 
-func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
 	user := userData.DBUser
 	title := "Your Feed"
 
@@ -540,7 +544,7 @@ func Feed(ctx context.Context, db boil.ContextExecutor, userData *auth.UserData)
 	})
 
 	feedPage := &FeedPage{
-		BasePage: getBasePage(title, userData),
+		BasePage: getBasePage(ctx, title, userData),
 		Items:    items,
 	}
 
@@ -620,9 +624,9 @@ type LoginPage struct {
 	*BasePage
 }
 
-func Login(c context.Context, db boil.ContextExecutor, userData *auth.UserData) *LoginPage {
+func Login(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) *LoginPage {
 	invitePage := &LoginPage{
-		BasePage: getBasePage("Login", userData),
+		BasePage: getBasePage(c, "Login", userData),
 	}
 
 	return invitePage

@@ -5,9 +5,6 @@ $font-size-base: 1.2rem;
 $bootstrap-icons-font-dir: "~bootstrap-icons/font/fonts";
 @import "~bootstrap-icons/font/bootstrap-icons.scss";
 
-// Import lite-youtube-embed.css
-@import 'lite-youtube-embed/src/lite-yt-embed.css';
-
 // @TODO: we should use class there
 blockquote {
   border-left: 4px solid #dedede;
@@ -124,4 +121,34 @@ lite-youtube {
 
 .mdeditor--loading .mdeditor__loading {
   display: flex;
+}
+
+.lite-youtube-fallback {
+  aspect-ratio: 16 / 9; /* matches YouTube player */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 1em;
+  padding: 1em;
+  background-color: #000;
+  color: #fff;
+  text-decoration: none;
+}
+
+/* right-facing triangle "Play" icon */
+.lite-youtube-fallback::before {
+  display: block;
+  content: '';
+  border: solid transparent;
+  border-width: 2em 0 2em 3em;
+  border-left-color: red;
+}
+
+.lite-youtube-fallback:hover::before {
+  border-left-color: #fff;
+}
+
+.lite-youtube-fallback:focus {
+  outline: 2px solid red;
 }

@@ -2,8 +2,14 @@ import htmx from 'htmx.org/dist/htmx.js';
 import hyperscript from 'hyperscript.org';
 import { Application } from "@hotwired/stimulus"
 import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
-import 'lite-youtube-embed';
 import 'lazysizes';
+
+// we really want to load inline styles for youtube embed
+window.liteYouTubeNonce = document.body.dataset.styleNonce
+
+// we load the lib asyncronously since there is no other quick way
+// to set the global variable above
+import('@justinribeiro/lite-youtube')
 
 // need to do this to please content security policy
 // https://github.com/bigskysoftware/htmx/issues/862
