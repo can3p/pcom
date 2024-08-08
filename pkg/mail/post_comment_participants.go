@@ -16,13 +16,9 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func PostCommentParticipants(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, mediaReplacer types.Replacer[string], user *core.User, participant *core.User, post *core.Post, comment *core.PostComment) error {
+func PostCommentParticipants(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, mediaReplacer types.Replacer[string], commentAuthor *core.User, participant *core.User, post *core.Post, comment *core.PostComment) error {
 	// we're not sending email notifications to ourselves
-	if user.ID == participant.ID {
-		return nil
-	}
-
-	if post.UserID == user.ID {
+	if commentAuthor.ID == participant.ID {
 		return nil
 	}
 
@@ -42,19 +38,19 @@ func PostCommentParticipants(ctx context.Context, exec boil.ContextExecutor, s s
 		Subject: fmt.Sprintf("New comment in the post \"%s\"", post.Subject),
 		Text: fmt.Sprintf(`Hi!
 
-@%s has left a comment in your post "%s" where you've also left a comment.
+@%s has left a comment in the post "%s" where you've also left a comment.
 
 %s
 
-Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.Split(body, "\n"), "\n> "), link),
+Checkout the comment in the post: %s`, commentAuthor.Username, post.Subject, "> "+strings.Join(strings.Split(body, "\n"), "\n> "), link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
-	<p>@%s has left a comment in your post "%s" where you've also left a comment.</p>
+	<p>@%s has left a comment in the post "%s" where you've also left a comment.</p>
 
 	<blockquote>%s</blockquote>
 
-	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, body, link, link),
+	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, commentAuthor.Username, post.Subject, body, link, link),
 	}
 
 	err := s.Send(ctx, exec, comment.ID+participant.ID, "comment_notification", mail)
