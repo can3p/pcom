@@ -38,7 +38,9 @@ func (r *VideoEmbedRenderer) renderVideoEmbed(w util.BufWriter, source []byte, n
 	if r.view == types.ViewEmail {
 		_, _ = w.WriteString(`<p><a href="` + n.media.URL() + `">` + n.media.URL() + "</a></p>\n")
 	} else {
+		_, _ = w.WriteString("<p>")
 		_, _ = w.WriteString(string(n.media.EmbedCode()))
+		_, _ = w.WriteString("</p>")
 		_ = w.WriteByte('\n')
 	}
 
