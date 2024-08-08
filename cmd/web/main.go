@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -120,6 +121,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	}
+
+	if !util.InCluster() {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
 
 	sessionSalt := os.Getenv("SESSION_SALT")
