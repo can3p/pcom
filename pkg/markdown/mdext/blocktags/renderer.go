@@ -55,6 +55,16 @@ func (r *BlockTagRenderer) renderBlockTag(w util.BufWriter, source []byte, node 
 			}
 		}
 
+		if n.BlockTagName == "spoiler" {
+			if entering {
+				_, _ = w.WriteString(`<p><a href="` + r.link("single_post_special") + `">Got to the post page to expand spoiler`)
+				return ast.WalkSkipChildren, nil
+			} else {
+				_, _ = w.WriteString("</a></p>\n")
+				return ast.WalkContinue, nil
+			}
+		}
+
 		if n.BlockTagName == "gallery" {
 			return ast.WalkContinue, nil
 		}
