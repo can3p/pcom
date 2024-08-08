@@ -50,7 +50,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 			}), 500),
 	}
 
-	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost {
+	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost || view == types.ViewEmail {
 		extensions = append(extensions, blocktags.NewBlockTagExtender(view, link))
 	}
 

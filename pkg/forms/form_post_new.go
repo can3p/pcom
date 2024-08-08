@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/forms"
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
@@ -29,8 +32,10 @@ type PostFormInput struct {
 
 type PostForm struct {
 	*forms.FormBase[PostFormInput]
-	User *core.User
-	Post *core.Post
+	User          *core.User
+	Sender        sender.Sender
+	MediaReplacer types.Replacer[string]
+	Post          *core.Post
 }
 
 type PostFormAction string
@@ -47,7 +52,7 @@ const (
 	PostFormActionAutosave  PostFormAction = "autosave"
 )
 
-func NewPostFormNew(u *core.User) *PostForm {
+func NewPostFormNew(sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string]) *PostForm {
 	var form *PostForm = &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
@@ -58,13 +63,15 @@ func NewPostFormNew(u *core.User) *PostForm {
 				"User": u,
 			},
 		},
-		User: u,
+		User:          u,
+		Sender:        sender,
+		MediaReplacer: mediaReplacer,
 	}
 
 	return form
 }
 
-func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, u *core.User, postID string) (*PostForm, error) {
+func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string], postID string) (*PostForm, error) {
 	post, err := core.Posts(
 		core.PostWhere.ID.EQ(postID),
 		core.PostWhere.UserID.EQ(u.ID),
@@ -91,8 +98,10 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, u *core.User,
 				"LastUpdatedAt": post.UpdatedAt.Time,
 			},
 		},
-		User: u,
-		Post: post,
+		User:          u,
+		Post:          post,
+		Sender:        sender,
+		MediaReplacer: mediaReplacer,
 	}
 
 	return form, nil
@@ -176,6 +185,8 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 
 	var action = forms.FormSaveDefault(true)
 
+	sendPublishNotification := false
+
 	if f.Post == nil {
 		postID, err := uuid.NewV7()
 
@@ -190,6 +201,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 			post.PublishedAt = null.TimeFrom(time.Now())
 
 			action = forms.FormSaveRedirect(links.Link("post", post.ID))
+			sendPublishNotification = true
 		} else {
 			f.AddTemplateData("DraftSaved", true)
 			action = formhelpers.Retarget(
@@ -219,6 +231,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 
 			// let's redirect to the post whenever we publish a post
 			action = forms.FormSaveRedirect(links.Link("post", post.ID))
+			sendPublishNotification = true
 		} else {
 			post.PublishedAt = f.Post.PublishedAt
 
@@ -243,6 +256,28 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		f.AddTemplateData("PostID", post.ID)
 		f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
 		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
+	}
+
+	if sendPublishNotification {
+		directConnectionsIDs, err := userops.GetDirectUserIDs(c, exec, post.UserID)
+
+		if err != nil {
+			return nil, err
+		}
+
+		connections, err := core.Users(
+			core.UserWhere.ID.IN(directConnectionsIDs),
+		).All(c, exec)
+
+		if err != nil {
+			return nil, err
+		}
+
+		for _, conn := range connections {
+			if err := mail.NewPost(c, exec, f.Sender, f.MediaReplacer, f.User, conn, post); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return action, nil

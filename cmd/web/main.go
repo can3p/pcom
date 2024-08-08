@@ -164,7 +164,7 @@ func main() {
 
 	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
 
-	setupApi(apiGroup, db, mediaServer)
+	setupApi(apiGroup, db, sender, mediaServer)
 
 	r := router.Group("/", sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
 
@@ -571,9 +571,9 @@ func main() {
 		var err error
 
 		if postID == "" {
-			form = forms.NewPostFormNew(dbUser)
+			form = forms.NewPostFormNew(sender, dbUser, mediaReplacer)
 		} else {
-			form, err = forms.EditPostFormNew(c, db, dbUser, postID)
+			form, err = forms.EditPostFormNew(c, db, sender, dbUser, mediaReplacer, postID)
 
 			if err != nil {
 				if err == ginhelpers.ErrNotFound {

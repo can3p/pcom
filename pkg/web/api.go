@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
@@ -118,7 +120,7 @@ type ApiNewPostResponse struct {
 	PublicURL string `json:"public_url"`
 }
 
-func ApiNewPost(c *gin.Context, db *sqlx.DB, dbUser *core.User) mo.Result[*ApiNewPostResponse] {
+func ApiNewPost(c *gin.Context, db *sqlx.DB, sender sender.Sender, dbUser *core.User, mediaReplacer types.Replacer[string]) mo.Result[*ApiNewPostResponse] {
 	var input ApiPost
 
 	if err := c.BindJSON(&input); err != nil {
@@ -133,7 +135,7 @@ func ApiNewPost(c *gin.Context, db *sqlx.DB, dbUser *core.User) mo.Result[*ApiNe
 		action = forms.PostFormActionPublish
 	}
 
-	form := forms.NewPostFormNew(dbUser)
+	form := forms.NewPostFormNew(sender, dbUser, mediaReplacer)
 	form.Input = &forms.PostFormInput{
 		Subject:    input.Subject,
 		Body:       input.MdBody,
@@ -163,7 +165,7 @@ func ApiNewPost(c *gin.Context, db *sqlx.DB, dbUser *core.User) mo.Result[*ApiNe
 	})
 }
 
-func ApiEditPost(c *gin.Context, db *sqlx.DB, dbUser *core.User, postID string) mo.Result[*ApiNewPostResponse] {
+func ApiEditPost(c *gin.Context, db *sqlx.DB, sender sender.Sender, dbUser *core.User, mediaReplacer types.Replacer[string], postID string) mo.Result[*ApiNewPostResponse] {
 	var input ApiPost
 
 	if err := c.BindJSON(&input); err != nil {
@@ -178,7 +180,7 @@ func ApiEditPost(c *gin.Context, db *sqlx.DB, dbUser *core.User, postID string) 
 		action = forms.PostFormActionPublish
 	}
 
-	form, err := forms.EditPostFormNew(c, db, dbUser, postID)
+	form, err := forms.EditPostFormNew(c, db, sender, dbUser, mediaReplacer, postID)
 
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)

@@ -44,6 +44,22 @@ func (r *BlockTagRenderer) renderBlockTag(w util.BufWriter, source []byte, node 
 		}
 	}
 
+	if r.view == types.ViewEmail {
+		if n.BlockTagName == "cut" {
+			if entering {
+				_, _ = w.WriteString(`<p><a href="` + r.link("single_post_special") + `">Check the rest of the post`)
+				return ast.WalkSkipChildren, nil
+			} else {
+				_, _ = w.WriteString("</a></p>\n")
+				return ast.WalkContinue, nil
+			}
+		}
+
+		if n.BlockTagName == "gallery" {
+			return ast.WalkContinue, nil
+		}
+	}
+
 	if n.BlockTagName == "cut" && r.view == types.ViewFeed {
 		if entering {
 			// single_post_special is just a dummy name that
