@@ -22,6 +22,10 @@ func (l *YoutubeLink) EmbedCode() template.HTML {
 	)
 }
 
+func (l *YoutubeLink) URL() string {
+	return fmt.Sprintf(`https://www.youtube.com/watch?v=%s`, l.ID)
+}
+
 type YoutubeParser struct {
 }
 

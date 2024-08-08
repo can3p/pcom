@@ -1,6 +1,7 @@
 package videoembed
 
 import (
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/renderer/html"
@@ -9,11 +10,13 @@ import (
 
 type VideoEmbedRenderer struct {
 	html.Config
+	view types.HTMLView
 }
 
-func NewVideoEmbedRenderer(opts ...html.Option) renderer.NodeRenderer {
+func NewVideoEmbedRenderer(view types.HTMLView, opts ...html.Option) renderer.NodeRenderer {
 	r := &VideoEmbedRenderer{
 		Config: html.NewConfig(),
+		view:   view,
 	}
 	for _, opt := range opts {
 		opt.SetHTMLOption(&r.Config)
@@ -32,8 +35,12 @@ func (r *VideoEmbedRenderer) renderVideoEmbed(w util.BufWriter, source []byte, n
 		return ast.WalkContinue, nil
 	}
 
-	_, _ = w.WriteString(string(n.media.EmbedCode()))
-	_ = w.WriteByte('\n')
+	if r.view == types.ViewEmail {
+		_, _ = w.WriteString(`<p><a href="` + n.media.URL() + `">` + n.media.URL() + "</a></p>\n")
+	} else {
+		_, _ = w.WriteString(string(n.media.EmbedCode()))
+		_ = w.WriteByte('\n')
+	}
 
 	return ast.WalkSkipChildren, nil
 }

@@ -25,7 +25,14 @@ func NewPost(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, me
 	// there reason to omit body in the text version is that we should redo the logic with cut, gallery etc
 	// and I have no desire to spend time on that
 	htmlbody := markdown.ToEnrichedTemplate(post.Body, types.ViewEmail, mediaReplacer, func(in string, add2 ...string) string {
-		return links.Link(in, add2...)
+		if in == "single_post_special" {
+			args := []string{post.ID}
+			args = append(args, add2...)
+
+			return links.AbsLink("post", args...)
+		}
+
+		return links.AbsLink(in, add2...)
 	})
 
 	mail := &sender.Mail{

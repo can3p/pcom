@@ -27,7 +27,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 			}),
 		),
 		mdext.NewHandle(),
-		videoembed.NewVideoEmbedExtender(),
+		videoembed.NewVideoEmbedExtender(view),
 		headershift.NewHeaderShiftExtender(1),
 	}
 

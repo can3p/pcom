@@ -5,6 +5,7 @@ import "html/template"
 type MediaLink interface {
 	EmbedCode() template.HTML
 	Key() string
+	URL() string
 }
 
 type MediaLinkSlice []MediaLink
