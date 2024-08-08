@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -22,6 +23,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/media/local"
@@ -87,6 +89,9 @@ func main() {
 	db := sqlx.MustConnect("postgres", os.Getenv("DATABASE_URL"))
 	defer db.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var sender sender.Sender
 	var mediaServer media.MediaServer
 
@@ -95,6 +100,11 @@ func main() {
 	} else {
 		sender = console.NewSender()
 	}
+
+	dbSender := dbsender.NewSender(db, sender)
+	sender = dbSender
+
+	go dbSender.RunPoller(ctx)
 
 	if shouldUseS3 {
 		var err error

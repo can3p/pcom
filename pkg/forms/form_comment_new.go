@@ -2,6 +2,7 @@ package forms
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/can3p/gogo/forms"
@@ -158,6 +159,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 	{
 		comments, err := core.PostComments(
 			core.PostCommentWhere.PostID.EQ(post.ID),
+			core.PostCommentWhere.UserID.NEQ(post.UserID),
 			qm.Distinct(core.PostCommentColumns.UserID),
 			qm.Load(core.PostCommentRels.User),
 		).All(c, exec)
@@ -165,6 +167,8 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 		if err != nil {
 			return nil, err
 		}
+
+		slog.Debug("comment in the post", "participants", len(comments))
 
 		for _, cmt := range comments {
 			participant := cmt.R.User

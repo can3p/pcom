@@ -53,7 +53,7 @@ Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings
 	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, body, link, link),
 	}
 
-	err := s.Send(ctx, exec, comment.ID, "comment_notification", mail)
+	err := s.Send(ctx, exec, comment.ID+user.ID, "comment_notification", mail)
 
 	if err != nil {
 		log.Fatal(err)
