@@ -54,7 +54,7 @@ func NewCommentFormNew(sender sender.Sender, u *core.User, mediaReplacer types.R
 }
 
 func (f *NewCommentForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	if err := validation.ValidateMinMax("body", f.Input.Body, 3, 2_000); err != nil {
+	if err := validation.ValidateMinMax("body", f.Input.Body, 3, 6_000); err != nil {
 		f.AddError("body", err.Error())
 	}
 
