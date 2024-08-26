@@ -7,6 +7,10 @@
       hx-disabled-elt="this"
       >
 
+  {{ with .FormError }}
+  <div class="alert alert-danger">{{ . }}</div>
+  {{ end }}
+
   <input type="hidden" name="post_id" value="{{ .PostID }}" />
   {{ if .ReplyTo }}
   <input type="hidden" name="reply_to" value="{{ .ReplyTo }}" />
