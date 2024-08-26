@@ -34,7 +34,7 @@ type NewCommentForm struct {
 	MediaReplacer types.Replacer[string]
 }
 
-func NewCommentFormNew(sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string]) forms.Form {
+func NewCommentFormNew(sender sender.Sender, u *core.User, postID string, mediaReplacer types.Replacer[string]) forms.Form {
 	var form forms.Form = &NewCommentForm{
 		FormBase: &forms.FormBase[NewCommentFormInput]{
 			Name:                "new_comment",
@@ -42,7 +42,8 @@ func NewCommentFormNew(sender sender.Sender, u *core.User, mediaReplacer types.R
 			KeepValuesAfterSave: true,
 			Input:               &NewCommentFormInput{},
 			ExtraTemplateData: map[string]interface{}{
-				"User": u,
+				"User":   u,
+				"PostID": postID,
 			},
 		},
 		User:          u,

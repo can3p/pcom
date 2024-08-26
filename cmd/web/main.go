@@ -599,7 +599,7 @@ func main() {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
-		form := forms.NewCommentFormNew(sender, dbUser, mediaReplacer)
+		form := forms.NewCommentFormNew(sender, dbUser, c.PostForm("post_id"), mediaReplacer)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})
