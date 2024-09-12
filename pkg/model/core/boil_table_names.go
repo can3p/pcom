@@ -7,6 +7,7 @@ var TableNames = struct {
 	MediaUploads                    string
 	OutgoingEmails                  string
 	PostComments                    string
+	PostPrompts                     string
 	PostStats                       string
 	Posts                           string
 	SystemSettings                  string
@@ -22,6 +23,7 @@ var TableNames = struct {
 	MediaUploads:                    "media_uploads",
 	OutgoingEmails:                  "outgoing_emails",
 	PostComments:                    "post_comments",
+	PostPrompts:                     "post_prompts",
 	PostStats:                       "post_stats",
 	Posts:                           "posts",
 	SystemSettings:                  "system_settings",
