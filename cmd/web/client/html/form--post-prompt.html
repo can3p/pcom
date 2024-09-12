@@ -1,0 +1,31 @@
+{{ if .FormSaved }}
+  {{ template "partial--success-message.html" toMap "Message" "Prompt has been sent, thanks!" }}
+{{ end }}
+
+<form method="POST"
+  class="mt-2 mb-1"
+  action="{{ link "form_prompt_post" }}"
+  hx-post="{{ link "form_prompt_post" }}"
+  hx-swap="outerHTML"
+  hx-disabled-elt="this"
+  >
+  {{ with .FormError }}
+  <div class="alert alert-danger py-1 px-2 fs-6">{{ . }}</div>
+  {{ end }}
+  <div class="row g-3">
+    <div class="col-sm-7">
+      <input type="text" class="form-control form-control-sm" placeholder="Ask for a post: What's up?" name="message" value="{{ if .Input }}{{ .Input.Message }}{{ end }}" required>
+    </div>
+    <div class="col-sm">
+      <input type="text" class="form-control form-control-sm" placeholder="%username%" list="connection_user_handles"  value="{{ if .Input }}{{ .Input.RecipientHandle }}{{ end }}" name="recipient_handle" autocomplete="on" required>
+      <datalist id="connection_user_handles">
+        {{ range .DirectConnections }}
+        <option value="{{ .Username }}">{{ .Username }}</option>
+        {{ end }}
+      </datalist>
+    </div>
+    <div class="col-sm">
+      <button class="btn btn-sm btn-primary">Prompt!</button>
+    </div>
+  </div>
+</form>

@@ -4,6 +4,8 @@
   <div class="row justify-content-md-center mt-4">
     <h1><a href="{{ link "user" .User.DBUser.Username }}">{{ .User.DBUser.Username }}</a>  &#8594; Your Feed</h1>
 
+    {{ template "form--post-prompt.html" toMap "DirectConnections" .DirectConnections }}
+
     {{ if eq (len .Items) 0 }}
     <p>No posts yet</p>
     {{ else }}

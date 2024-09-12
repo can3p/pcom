@@ -33,6 +33,7 @@ import (
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
+	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
@@ -618,6 +619,29 @@ func main() {
 		dbUser := userData.DBUser
 
 		form := forms.ChangePasswordFormNew(dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
+	controlsForms.POST("/prompt_post", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		userIDs, err := userops.GetDirectUserIDs(c, db, dbUser.ID)
+
+		if err != nil {
+			panic(err)
+		}
+
+		directConnections, err := core.Users(
+			core.UserWhere.ID.IN(userIDs),
+		).All(ctx, db)
+
+		if err != nil {
+			panic(err)
+		}
+
+		form := forms.PostPromptFormNew(sender, dbUser, directConnections)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})

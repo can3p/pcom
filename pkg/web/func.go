@@ -462,7 +462,8 @@ func (fi *FeedItem) PublishedAt() time.Time {
 
 type FeedPage struct {
 	*BasePage
-	Items []*FeedItem
+	DirectConnections []*core.User
+	Items             []*FeedItem
 }
 
 func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
@@ -545,9 +546,18 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		return b.PublishedAt().Compare(a.PublishedAt())
 	})
 
+	directConnections, err := core.Users(
+		core.UserWhere.ID.IN(directUserIDs),
+	).All(ctx, db)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
 	feedPage := &FeedPage{
-		BasePage: getBasePage(ctx, title, userData),
-		Items:    items,
+		BasePage:          getBasePage(ctx, title, userData),
+		DirectConnections: directConnections,
+		Items:             items,
 	}
 
 	return mo.Ok(feedPage)
