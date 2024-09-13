@@ -6,9 +6,10 @@ create table post_prompts (
   recipient_id uuid not null references users(id),
   message text not null,
   dismissed_at timestamp,
-  post_id uuid references users(id),
+  post_id uuid references posts(id),
   created_at timestamp not null,
   updated_at timestamp not null
 );
 
 -- +migrate Down
+drop table post_prompts;

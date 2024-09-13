@@ -119,7 +119,6 @@ var UserRels = struct {
 	MediaUploads                              string
 	PostComments                              string
 	AskerPostPrompts                          string
-	PostPostPrompts                           string
 	RecipientPostPrompts                      string
 	Posts                                     string
 	TargetUserUserConnectionMediationRequests string
@@ -137,7 +136,6 @@ var UserRels = struct {
 	MediaUploads:         "MediaUploads",
 	PostComments:         "PostComments",
 	AskerPostPrompts:     "AskerPostPrompts",
-	PostPostPrompts:      "PostPostPrompts",
 	RecipientPostPrompts: "RecipientPostPrompts",
 	Posts:                "Posts",
 	TargetUserUserConnectionMediationRequests: "TargetUserUserConnectionMediationRequests",
@@ -158,7 +156,6 @@ type userR struct {
 	MediaUploads                              MediaUploadSlice                    `boil:"MediaUploads" json:"MediaUploads" toml:"MediaUploads" yaml:"MediaUploads"`
 	PostComments                              PostCommentSlice                    `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
 	AskerPostPrompts                          PostPromptSlice                     `boil:"AskerPostPrompts" json:"AskerPostPrompts" toml:"AskerPostPrompts" yaml:"AskerPostPrompts"`
-	PostPostPrompts                           PostPromptSlice                     `boil:"PostPostPrompts" json:"PostPostPrompts" toml:"PostPostPrompts" yaml:"PostPostPrompts"`
 	RecipientPostPrompts                      PostPromptSlice                     `boil:"RecipientPostPrompts" json:"RecipientPostPrompts" toml:"RecipientPostPrompts" yaml:"RecipientPostPrompts"`
 	Posts                                     PostSlice                           `boil:"Posts" json:"Posts" toml:"Posts" yaml:"Posts"`
 	TargetUserUserConnectionMediationRequests UserConnectionMediationRequestSlice `boil:"TargetUserUserConnectionMediationRequests" json:"TargetUserUserConnectionMediationRequests" toml:"TargetUserUserConnectionMediationRequests" yaml:"TargetUserUserConnectionMediationRequests"`
@@ -204,13 +201,6 @@ func (r *userR) GetAskerPostPrompts() PostPromptSlice {
 		return nil
 	}
 	return r.AskerPostPrompts
-}
-
-func (r *userR) GetPostPostPrompts() PostPromptSlice {
-	if r == nil {
-		return nil
-	}
-	return r.PostPostPrompts
 }
 
 func (r *userR) GetRecipientPostPrompts() PostPromptSlice {
@@ -487,20 +477,6 @@ func (o *User) AskerPostPrompts(mods ...qm.QueryMod) postPromptQuery {
 
 	queryMods = append(queryMods,
 		qm.Where("\"post_prompts\".\"asker_id\"=?", o.ID),
-	)
-
-	return PostPrompts(queryMods...)
-}
-
-// PostPostPrompts retrieves all the post_prompt's PostPrompts with an executor via post_id column.
-func (o *User) PostPostPrompts(mods ...qm.QueryMod) postPromptQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"post_prompts\".\"post_id\"=?", o.ID),
 	)
 
 	return PostPrompts(queryMods...)
@@ -1093,112 +1069,6 @@ func (userL) LoadAskerPostPrompts(ctx context.Context, e boil.ContextExecutor, s
 					foreign.R = &postPromptR{}
 				}
 				foreign.R.Asker = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// LoadPostPostPrompts allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (userL) LoadPostPostPrompts(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
-	var slice []*User
-	var object *User
-
-	if singular {
-		var ok bool
-		object, ok = maybeUser.(*User)
-		if !ok {
-			object = new(User)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
-			}
-		}
-	} else {
-		s, ok := maybeUser.(*[]*User)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
-			}
-		}
-	}
-
-	args := make(map[interface{}]struct{})
-	if singular {
-		if object.R == nil {
-			object.R = &userR{}
-		}
-		args[object.ID] = struct{}{}
-	} else {
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &userR{}
-			}
-			args[obj.ID] = struct{}{}
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	argsSlice := make([]interface{}, len(args))
-	i := 0
-	for arg := range args {
-		argsSlice[i] = arg
-		i++
-	}
-
-	query := NewQuery(
-		qm.From(`post_prompts`),
-		qm.WhereIn(`post_prompts.post_id in ?`, argsSlice...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load post_prompts")
-	}
-
-	var resultSlice []*PostPrompt
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice post_prompts")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on post_prompts")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_prompts")
-	}
-
-	if singular {
-		object.R.PostPostPrompts = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &postPromptR{}
-			}
-			foreign.R.Post = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if queries.Equal(local.ID, foreign.PostID) {
-				local.R.PostPostPrompts = append(local.R.PostPostPrompts, foreign)
-				if foreign.R == nil {
-					foreign.R = &postPromptR{}
-				}
-				foreign.R.Post = local
 				break
 			}
 		}
@@ -2728,167 +2598,6 @@ func (o *User) AddAskerPostPrompts(ctx context.Context, exec boil.ContextExecuto
 			rel.R.Asker = o
 		}
 	}
-	return nil
-}
-
-// AddPostPostPromptsP adds the given related objects to the existing relationships
-// of the user, optionally inserting them as new records.
-// Appends related to o.R.PostPostPrompts.
-// Sets related.R.Post appropriately.
-// Panics on error.
-func (o *User) AddPostPostPromptsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) {
-	if err := o.AddPostPostPrompts(ctx, exec, insert, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// AddPostPostPrompts adds the given related objects to the existing relationships
-// of the user, optionally inserting them as new records.
-// Appends related to o.R.PostPostPrompts.
-// Sets related.R.Post appropriately.
-func (o *User) AddPostPostPrompts(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			queries.Assign(&rel.PostID, o.ID)
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"post_prompts\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
-				strmangle.WhereClause("\"", "\"", 2, postPromptPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.ID}
-
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			queries.Assign(&rel.PostID, o.ID)
-		}
-	}
-
-	if o.R == nil {
-		o.R = &userR{
-			PostPostPrompts: related,
-		}
-	} else {
-		o.R.PostPostPrompts = append(o.R.PostPostPrompts, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &postPromptR{
-				Post: o,
-			}
-		} else {
-			rel.R.Post = o
-		}
-	}
-	return nil
-}
-
-// SetPostPostPromptsP removes all previously related items of the
-// user replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Post's PostPostPrompts accordingly.
-// Replaces o.R.PostPostPrompts with related.
-// Sets related.R.Post's PostPostPrompts accordingly.
-// Panics on error.
-func (o *User) SetPostPostPromptsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) {
-	if err := o.SetPostPostPrompts(ctx, exec, insert, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// SetPostPostPrompts removes all previously related items of the
-// user replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Post's PostPostPrompts accordingly.
-// Replaces o.R.PostPostPrompts with related.
-// Sets related.R.Post's PostPostPrompts accordingly.
-func (o *User) SetPostPostPrompts(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) error {
-	query := "update \"post_prompts\" set \"post_id\" = null where \"post_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-
-	if o.R != nil {
-		for _, rel := range o.R.PostPostPrompts {
-			queries.SetScanner(&rel.PostID, nil)
-			if rel.R == nil {
-				continue
-			}
-
-			rel.R.Post = nil
-		}
-		o.R.PostPostPrompts = nil
-	}
-
-	return o.AddPostPostPrompts(ctx, exec, insert, related...)
-}
-
-// RemovePostPostPromptsP relationships from objects passed in.
-// Removes related items from R.PostPostPrompts (uses pointer comparison, removal does not keep order)
-// Sets related.R.Post.
-// Panics on error.
-func (o *User) RemovePostPostPromptsP(ctx context.Context, exec boil.ContextExecutor, related ...*PostPrompt) {
-	if err := o.RemovePostPostPrompts(ctx, exec, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// RemovePostPostPrompts relationships from objects passed in.
-// Removes related items from R.PostPostPrompts (uses pointer comparison, removal does not keep order)
-// Sets related.R.Post.
-func (o *User) RemovePostPostPrompts(ctx context.Context, exec boil.ContextExecutor, related ...*PostPrompt) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	for _, rel := range related {
-		queries.SetScanner(&rel.PostID, nil)
-		if rel.R != nil {
-			rel.R.Post = nil
-		}
-		if _, err = rel.Update(ctx, exec, boil.Whitelist("post_id")); err != nil {
-			return err
-		}
-	}
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.PostPostPrompts {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.PostPostPrompts)
-			if ln > 1 && i < ln-1 {
-				o.R.PostPostPrompts[i] = o.R.PostPostPrompts[ln-1]
-			}
-			o.R.PostPostPrompts = o.R.PostPostPrompts[:ln-1]
-			break
-		}
-	}
-
 	return nil
 }
 

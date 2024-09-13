@@ -113,7 +113,7 @@ var PostPromptRels = struct {
 // postPromptR is where relationships are stored.
 type postPromptR struct {
 	Asker     *User `boil:"Asker" json:"Asker" toml:"Asker" yaml:"Asker"`
-	Post      *User `boil:"Post" json:"Post" toml:"Post" yaml:"Post"`
+	Post      *Post `boil:"Post" json:"Post" toml:"Post" yaml:"Post"`
 	Recipient *User `boil:"Recipient" json:"Recipient" toml:"Recipient" yaml:"Recipient"`
 }
 
@@ -129,7 +129,7 @@ func (r *postPromptR) GetAsker() *User {
 	return r.Asker
 }
 
-func (r *postPromptR) GetPost() *User {
+func (r *postPromptR) GetPost() *Post {
 	if r == nil {
 		return nil
 	}
@@ -297,14 +297,14 @@ func (o *PostPrompt) Asker(mods ...qm.QueryMod) userQuery {
 }
 
 // Post pointed to by the foreign key.
-func (o *PostPrompt) Post(mods ...qm.QueryMod) userQuery {
+func (o *PostPrompt) Post(mods ...qm.QueryMod) postQuery {
 	queryMods := []qm.QueryMod{
 		qm.Where("\"id\" = ?", o.PostID),
 	}
 
 	queryMods = append(queryMods, mods...)
 
-	return Users(queryMods...)
+	return Posts(queryMods...)
 }
 
 // Recipient pointed to by the foreign key.
@@ -492,8 +492,8 @@ func (postPromptL) LoadPost(ctx context.Context, e boil.ContextExecutor, singula
 	}
 
 	query := NewQuery(
-		qm.From(`users`),
-		qm.WhereIn(`users.id in ?`, argsSlice...),
+		qm.From(`posts`),
+		qm.WhereIn(`posts.id in ?`, argsSlice...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -501,19 +501,19 @@ func (postPromptL) LoadPost(ctx context.Context, e boil.ContextExecutor, singula
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load User")
+		return errors.Wrap(err, "failed to eager load Post")
 	}
 
-	var resultSlice []*User
+	var resultSlice []*Post
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice User")
+		return errors.Wrap(err, "failed to bind eager loaded slice Post")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for users")
+		return errors.Wrap(err, "failed to close results of eager load for posts")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for users")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for posts")
 	}
 
 	if len(resultSlice) == 0 {
@@ -524,9 +524,9 @@ func (postPromptL) LoadPost(ctx context.Context, e boil.ContextExecutor, singula
 		foreign := resultSlice[0]
 		object.R.Post = foreign
 		if foreign.R == nil {
-			foreign.R = &userR{}
+			foreign.R = &postR{}
 		}
-		foreign.R.PostPostPrompts = append(foreign.R.PostPostPrompts, object)
+		foreign.R.PostPrompts = append(foreign.R.PostPrompts, object)
 		return nil
 	}
 
@@ -535,9 +535,9 @@ func (postPromptL) LoadPost(ctx context.Context, e boil.ContextExecutor, singula
 			if queries.Equal(local.PostID, foreign.ID) {
 				local.R.Post = foreign
 				if foreign.R == nil {
-					foreign.R = &userR{}
+					foreign.R = &postR{}
 				}
-				foreign.R.PostPostPrompts = append(foreign.R.PostPostPrompts, local)
+				foreign.R.PostPrompts = append(foreign.R.PostPrompts, local)
 				break
 			}
 		}
@@ -717,9 +717,9 @@ func (o *PostPrompt) SetAsker(ctx context.Context, exec boil.ContextExecutor, in
 
 // SetPostP of the postPrompt to the related item.
 // Sets o.R.Post to related.
-// Adds o to related.R.PostPostPrompts.
+// Adds o to related.R.PostPrompts.
 // Panics on error.
-func (o *PostPrompt) SetPostP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *User) {
+func (o *PostPrompt) SetPostP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Post) {
 	if err := o.SetPost(ctx, exec, insert, related); err != nil {
 		panic(boil.WrapErr(err))
 	}
@@ -727,8 +727,8 @@ func (o *PostPrompt) SetPostP(ctx context.Context, exec boil.ContextExecutor, in
 
 // SetPost of the postPrompt to the related item.
 // Sets o.R.Post to related.
-// Adds o to related.R.PostPostPrompts.
-func (o *PostPrompt) SetPost(ctx context.Context, exec boil.ContextExecutor, insert bool, related *User) error {
+// Adds o to related.R.PostPrompts.
+func (o *PostPrompt) SetPost(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Post) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -762,11 +762,11 @@ func (o *PostPrompt) SetPost(ctx context.Context, exec boil.ContextExecutor, ins
 	}
 
 	if related.R == nil {
-		related.R = &userR{
-			PostPostPrompts: PostPromptSlice{o},
+		related.R = &postR{
+			PostPrompts: PostPromptSlice{o},
 		}
 	} else {
-		related.R.PostPostPrompts = append(related.R.PostPostPrompts, o)
+		related.R.PostPrompts = append(related.R.PostPrompts, o)
 	}
 
 	return nil
@@ -776,7 +776,7 @@ func (o *PostPrompt) SetPost(ctx context.Context, exec boil.ContextExecutor, ins
 // Sets o.R.Post to nil.
 // Removes o from all passed in related items' relationships struct.
 // Panics on error.
-func (o *PostPrompt) RemovePostP(ctx context.Context, exec boil.ContextExecutor, related *User) {
+func (o *PostPrompt) RemovePostP(ctx context.Context, exec boil.ContextExecutor, related *Post) {
 	if err := o.RemovePost(ctx, exec, related); err != nil {
 		panic(boil.WrapErr(err))
 	}
@@ -785,7 +785,7 @@ func (o *PostPrompt) RemovePostP(ctx context.Context, exec boil.ContextExecutor,
 // RemovePost relationship.
 // Sets o.R.Post to nil.
 // Removes o from all passed in related items' relationships struct.
-func (o *PostPrompt) RemovePost(ctx context.Context, exec boil.ContextExecutor, related *User) error {
+func (o *PostPrompt) RemovePost(ctx context.Context, exec boil.ContextExecutor, related *Post) error {
 	var err error
 
 	queries.SetScanner(&o.PostID, nil)
@@ -800,16 +800,16 @@ func (o *PostPrompt) RemovePost(ctx context.Context, exec boil.ContextExecutor, 
 		return nil
 	}
 
-	for i, ri := range related.R.PostPostPrompts {
+	for i, ri := range related.R.PostPrompts {
 		if queries.Equal(o.PostID, ri.PostID) {
 			continue
 		}
 
-		ln := len(related.R.PostPostPrompts)
+		ln := len(related.R.PostPrompts)
 		if ln > 1 && i < ln-1 {
-			related.R.PostPostPrompts[i] = related.R.PostPostPrompts[ln-1]
+			related.R.PostPrompts[i] = related.R.PostPrompts[ln-1]
 		}
-		related.R.PostPostPrompts = related.R.PostPostPrompts[:ln-1]
+		related.R.PostPrompts = related.R.PostPrompts[:ln-1]
 		break
 	}
 	return nil

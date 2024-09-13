@@ -460,9 +460,16 @@ func (fi *FeedItem) PublishedAt() time.Time {
 	return fi.Comment.CreatedAt
 }
 
+type PostPrompt struct {
+	Prompt *core.PostPrompt
+	Author *core.User
+	Post   *core.Post
+}
+
 type FeedPage struct {
 	*BasePage
 	DirectConnections []*core.User
+	OpenPrompts       []*PostPrompt
 	Items             []*FeedItem
 }
 
@@ -554,9 +561,29 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		return mo.Err[*FeedPage](err)
 	}
 
+	dbPrompts, err := core.PostPrompts(
+		core.PostPromptWhere.RecipientID.EQ(user.ID),
+		core.PostPromptWhere.DismissedAt.IsNull(),
+		qm.Load(core.PostPromptRels.Asker),
+		qm.OrderBy("? DESC", core.PostPromptColumns.ID),
+	).All(ctx, db)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	prompts := lo.Map(dbPrompts, func(p *core.PostPrompt, idx int) *PostPrompt {
+		return &PostPrompt{
+			Prompt: p,
+			Author: p.R.Asker,
+			Post:   p.R.Post,
+		}
+	})
+
 	feedPage := &FeedPage{
 		BasePage:          getBasePage(ctx, title, userData),
 		DirectConnections: directConnections,
+		OpenPrompts:       prompts,
 		Items:             items,
 	}
 
