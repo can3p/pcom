@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -196,8 +197,33 @@ func Controls(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	return mo.Ok(controlsPage)
 }
 
-func Write(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
-	return getBasePage(c, "New Post", userData)
+type WritePage struct {
+	*BasePage
+	Prompt *postops.PostPrompt
+}
+
+func Write(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*WritePage] {
+	dbUser := userData.DBUser
+	var prompt *postops.PostPrompt
+	var err error
+
+	if promptID := c.Query("prompt"); promptID != "" {
+		prompt, err = postops.GetPostPrompt(c, db,
+			core.PostPromptWhere.RecipientID.EQ(dbUser.ID),
+			core.PostPromptWhere.ID.EQ(promptID),
+		)
+
+		if err != nil {
+			return mo.Err[*WritePage](err)
+		}
+	}
+
+	writePage := &WritePage{
+		BasePage: getBasePage(c, "New Post", userData),
+		Prompt:   prompt,
+	}
+
+	return mo.Ok(writePage)
 }
 
 type SettingsPage struct {
@@ -320,6 +346,7 @@ type EditPostPage struct {
 	Input         forms.PostFormInput
 	LastUpdatedAt time.Time
 	IsPublished   bool
+	Prompt        *postops.PostPrompt
 }
 
 func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
@@ -350,6 +377,12 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		return mo.Err[*EditPostPage](ginhelpers.ErrForbidden)
 	}
 
+	prompt, err := postops.GetPostPrompt(c, db, core.PostPromptWhere.PostID.EQ(null.StringFrom(post.ID)))
+
+	if err != nil {
+		return mo.Err[*EditPostPage](err)
+	}
+
 	editPostPage := &EditPostPage{
 		BasePage: getBasePage(c, title, userData),
 		PostID:   post.ID,
@@ -360,6 +393,7 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		},
 		LastUpdatedAt: post.UpdatedAt.Time,
 		IsPublished:   post.PublishedAt.Valid,
+		Prompt:        prompt,
 	}
 
 	return mo.Ok(editPostPage)
@@ -460,16 +494,10 @@ func (fi *FeedItem) PublishedAt() time.Time {
 	return fi.Comment.CreatedAt
 }
 
-type PostPrompt struct {
-	Prompt *core.PostPrompt
-	Author *core.User
-	Post   *core.Post
-}
-
 type FeedPage struct {
 	*BasePage
 	DirectConnections []*core.User
-	OpenPrompts       []*PostPrompt
+	OpenPrompts       []*postops.PostPrompt
 	Items             []*FeedItem
 }
 
@@ -565,6 +593,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		core.PostPromptWhere.RecipientID.EQ(user.ID),
 		core.PostPromptWhere.DismissedAt.IsNull(),
 		qm.Load(core.PostPromptRels.Asker),
+		qm.Load(core.PostPromptRels.Post),
 		qm.OrderBy("? DESC", core.PostPromptColumns.ID),
 	).All(ctx, db)
 
@@ -572,8 +601,8 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		return mo.Err[*FeedPage](err)
 	}
 
-	prompts := lo.Map(dbPrompts, func(p *core.PostPrompt, idx int) *PostPrompt {
-		return &PostPrompt{
+	prompts := lo.Map(dbPrompts, func(p *core.PostPrompt, idx int) *postops.PostPrompt {
+		return &postops.PostPrompt{
 			Prompt: p,
 			Author: p.R.Asker,
 			Post:   p.R.Post,

@@ -135,7 +135,11 @@ func ApiNewPost(c *gin.Context, db *sqlx.DB, sender sender.Sender, dbUser *core.
 		action = forms.PostFormActionPublish
 	}
 
-	form := forms.NewPostFormNew(sender, dbUser, mediaReplacer)
+	form, err := forms.NewPostFormNew(c, db, sender, dbUser, mediaReplacer, "")
+	if err != nil {
+		return mo.Err[*ApiNewPostResponse](err)
+	}
+
 	form.Input = &forms.PostFormInput{
 		Subject:    input.Subject,
 		Body:       input.MdBody,

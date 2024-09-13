@@ -3,6 +3,7 @@ package forms
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ type PostForm struct {
 	Sender        sender.Sender
 	MediaReplacer types.Replacer[string]
 	Post          *core.Post
+	Prompt        *postops.PostPrompt
 }
 
 type PostFormAction string
@@ -52,7 +54,21 @@ const (
 	PostFormActionAutosave  PostFormAction = "autosave"
 )
 
-func NewPostFormNew(sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string]) *PostForm {
+func NewPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string], promptID string) (*PostForm, error) {
+	var prompt *postops.PostPrompt
+	var err error
+
+	if promptID != "" {
+		prompt, err = postops.GetPostPrompt(ctx, db,
+			core.PostPromptWhere.RecipientID.EQ(u.ID),
+			core.PostPromptWhere.ID.EQ(promptID),
+		)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var form *PostForm = &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
@@ -60,15 +76,17 @@ func NewPostFormNew(sender sender.Sender, u *core.User, mediaReplacer types.Repl
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
 			ExtraTemplateData: map[string]interface{}{
-				"User": u,
+				"User":   u,
+				"Prompt": prompt,
 			},
 		},
 		User:          u,
 		Sender:        sender,
 		MediaReplacer: mediaReplacer,
+		Prompt:        prompt,
 	}
 
-	return form
+	return form, nil
 }
 
 func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string], postID string) (*PostForm, error) {
@@ -85,6 +103,12 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender
 		return nil, err
 	}
 
+	prompt, err := postops.GetPostPrompt(ctx, db, core.PostPromptWhere.PostID.EQ(null.StringFrom(post.ID)))
+
+	if err != nil {
+		return nil, err
+	}
+
 	var form *PostForm = &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
@@ -96,12 +120,14 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender
 				"PostID":        post.ID,
 				"IsPublished":   post.PublishedAt.Valid,
 				"LastUpdatedAt": post.UpdatedAt.Time,
+				"Prompt":        prompt,
 			},
 		},
 		User:          u,
 		Post:          post,
 		Sender:        sender,
 		MediaReplacer: mediaReplacer,
+		Prompt:        prompt,
 	}
 
 	return form, nil
@@ -217,6 +243,16 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 			return nil, err
 		}
 
+		if f.Prompt != nil {
+			dbPrompt := f.Prompt.Prompt
+
+			dbPrompt.PostID = null.StringFrom(post.ID)
+
+			if _, err := dbPrompt.Update(c, exec, boil.Infer()); err != nil {
+				return nil, err
+			}
+		}
+
 		f.AddTemplateData("PostID", post.ID)
 		f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
 		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
@@ -258,7 +294,25 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
 	}
 
+	fmt.Println("1")
 	if sendPublishNotification {
+		fmt.Println("2")
+		if f.Prompt != nil && f.Prompt.Prompt.DismissedAt.IsZero() {
+			fmt.Println("3")
+			dbPrompt := f.Prompt.Prompt
+
+			dbPrompt.PostID = null.StringFrom(post.ID)
+			dbPrompt.DismissedAt = null.TimeFrom(time.Now())
+
+			if _, err := dbPrompt.Update(c, exec, boil.Infer()); err != nil {
+				return nil, err
+			}
+
+			if err := mail.PostPromptAnswer(c, exec, f.Sender, f.Prompt.Author, f.User, post, dbPrompt); err != nil {
+				return nil, err
+			}
+		}
+
 		directConnectionsIDs, err := userops.GetDirectUserIDs(c, exec, post.UserID)
 
 		if err != nil {

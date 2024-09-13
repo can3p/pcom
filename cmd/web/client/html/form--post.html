@@ -7,6 +7,12 @@
 <div id="form-container">
   <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
 
+  {{ with .Prompt }}
+  <div class="alert alert-info" role="alert">
+    {{ .Author.Username }} has asked: {{ .Prompt.Message }}
+  </div>
+  {{ end }}
+
   <form
         method="POST"
         action="{{ link "form_edit_post" }}"
@@ -21,6 +27,10 @@
     {{ if .PostID }}
       <input type="hidden" name="post_id" value="{{ .PostID }}" />
       <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
+    {{ else }}
+      {{ with .Prompt }}
+        <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
+      {{ end }}
     {{ end }}
     </div>
 

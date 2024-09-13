@@ -31,3 +31,31 @@ func CanPromptNow(ctx context.Context, exec boil.ContextExecutor, askerID string
 
 	return fmt.Errorf("You cannot send prompts for another %s", util.FormatDuration(time.Until(lastPrompt.CreatedAt.Add(promptTimeout))))
 }
+
+type PostPrompt struct {
+	Prompt *core.PostPrompt
+	Author *core.User
+	Post   *core.Post
+}
+
+func GetPostPrompt(ctx context.Context, db boil.ContextExecutor, q ...qm.QueryMod) (*PostPrompt, error) {
+	qq := []qm.QueryMod{
+		qm.Load(core.PostPromptRels.Asker),
+	}
+
+	qq = append(qq, q...)
+	dbPrompt, err := core.PostPrompts(qq...).One(ctx, db)
+
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	if dbPrompt != nil {
+		return &PostPrompt{
+			Prompt: dbPrompt,
+			Author: dbPrompt.R.Asker,
+		}, nil
+	}
+
+	return nil, nil
+}

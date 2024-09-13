@@ -414,7 +414,7 @@ func main() {
 	r.GET("/write", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		c.HTML(http.StatusOK, "write.html", web.Write(c, db, &userData))
+		ginhelpers.HTML(c, "write.html", web.Write(c, db, &userData))
 	})
 
 	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
@@ -579,7 +579,11 @@ func main() {
 		var err error
 
 		if postID == "" {
-			form = forms.NewPostFormNew(sender, dbUser, mediaReplacer)
+			form, err = forms.NewPostFormNew(c, db, sender, dbUser, mediaReplacer, c.PostForm("prompt_id"))
+
+			if err != nil {
+				panic(err)
+			}
 		} else {
 			form, err = forms.EditPostFormNew(c, db, sender, dbUser, mediaReplacer, postID)
 
