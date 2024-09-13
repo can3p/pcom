@@ -137,22 +137,22 @@ var PostWhere = struct {
 // PostRels is where relationship names are stored.
 var PostRels = struct {
 	User         string
+	PostPrompt   string
 	PostStat     string
 	PostComments string
-	PostPrompts  string
 }{
 	User:         "User",
+	PostPrompt:   "PostPrompt",
 	PostStat:     "PostStat",
 	PostComments: "PostComments",
-	PostPrompts:  "PostPrompts",
 }
 
 // postR is where relationships are stored.
 type postR struct {
 	User         *User            `boil:"User" json:"User" toml:"User" yaml:"User"`
+	PostPrompt   *PostPrompt      `boil:"PostPrompt" json:"PostPrompt" toml:"PostPrompt" yaml:"PostPrompt"`
 	PostStat     *PostStat        `boil:"PostStat" json:"PostStat" toml:"PostStat" yaml:"PostStat"`
 	PostComments PostCommentSlice `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
-	PostPrompts  PostPromptSlice  `boil:"PostPrompts" json:"PostPrompts" toml:"PostPrompts" yaml:"PostPrompts"`
 }
 
 // NewStruct creates a new relationship struct
@@ -167,6 +167,13 @@ func (r *postR) GetUser() *User {
 	return r.User
 }
 
+func (r *postR) GetPostPrompt() *PostPrompt {
+	if r == nil {
+		return nil
+	}
+	return r.PostPrompt
+}
+
 func (r *postR) GetPostStat() *PostStat {
 	if r == nil {
 		return nil
@@ -179,13 +186,6 @@ func (r *postR) GetPostComments() PostCommentSlice {
 		return nil
 	}
 	return r.PostComments
-}
-
-func (r *postR) GetPostPrompts() PostPromptSlice {
-	if r == nil {
-		return nil
-	}
-	return r.PostPrompts
 }
 
 // postL is where Load methods for each relationship are stored.
@@ -341,6 +341,17 @@ func (o *Post) User(mods ...qm.QueryMod) userQuery {
 	return Users(queryMods...)
 }
 
+// PostPrompt pointed to by the foreign key.
+func (o *Post) PostPrompt(mods ...qm.QueryMod) postPromptQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"post_id\" = ?", o.ID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return PostPrompts(queryMods...)
+}
+
 // PostStat pointed to by the foreign key.
 func (o *Post) PostStat(mods ...qm.QueryMod) postStatQuery {
 	queryMods := []qm.QueryMod{
@@ -364,20 +375,6 @@ func (o *Post) PostComments(mods ...qm.QueryMod) postCommentQuery {
 	)
 
 	return PostComments(queryMods...)
-}
-
-// PostPrompts retrieves all the post_prompt's PostPrompts with an executor.
-func (o *Post) PostPrompts(mods ...qm.QueryMod) postPromptQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"post_prompts\".\"post_id\"=?", o.ID),
-	)
-
-	return PostPrompts(queryMods...)
 }
 
 // LoadUser allows an eager lookup of values, cached into the
@@ -484,6 +481,115 @@ func (postL) LoadUser(ctx context.Context, e boil.ContextExecutor, singular bool
 					foreign.R = &userR{}
 				}
 				foreign.R.Posts = append(foreign.R.Posts, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadPostPrompt allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-1 relationship.
+func (postL) LoadPostPrompt(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`post_prompts`),
+		qm.WhereIn(`post_prompts.post_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load PostPrompt")
+	}
+
+	var resultSlice []*PostPrompt
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice PostPrompt")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for post_prompts")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_prompts")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.PostPrompt = foreign
+		if foreign.R == nil {
+			foreign.R = &postPromptR{}
+		}
+		foreign.R.Post = object
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if queries.Equal(local.ID, foreign.PostID) {
+				local.R.PostPrompt = foreign
+				if foreign.R == nil {
+					foreign.R = &postPromptR{}
+				}
+				foreign.R.Post = local
 				break
 			}
 		}
@@ -707,112 +813,6 @@ func (postL) LoadPostComments(ctx context.Context, e boil.ContextExecutor, singu
 	return nil
 }
 
-// LoadPostPrompts allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (postL) LoadPostPrompts(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
-	var slice []*Post
-	var object *Post
-
-	if singular {
-		var ok bool
-		object, ok = maybePost.(*Post)
-		if !ok {
-			object = new(Post)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
-			}
-		}
-	} else {
-		s, ok := maybePost.(*[]*Post)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
-			}
-		}
-	}
-
-	args := make(map[interface{}]struct{})
-	if singular {
-		if object.R == nil {
-			object.R = &postR{}
-		}
-		args[object.ID] = struct{}{}
-	} else {
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &postR{}
-			}
-			args[obj.ID] = struct{}{}
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	argsSlice := make([]interface{}, len(args))
-	i := 0
-	for arg := range args {
-		argsSlice[i] = arg
-		i++
-	}
-
-	query := NewQuery(
-		qm.From(`post_prompts`),
-		qm.WhereIn(`post_prompts.post_id in ?`, argsSlice...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load post_prompts")
-	}
-
-	var resultSlice []*PostPrompt
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice post_prompts")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on post_prompts")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_prompts")
-	}
-
-	if singular {
-		object.R.PostPrompts = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &postPromptR{}
-			}
-			foreign.R.Post = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if queries.Equal(local.ID, foreign.PostID) {
-				local.R.PostPrompts = append(local.R.PostPrompts, foreign)
-				if foreign.R == nil {
-					foreign.R = &postPromptR{}
-				}
-				foreign.R.Post = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
 // SetUserP of the post to the related item.
 // Sets o.R.User to related.
 // Adds o to related.R.Posts.
@@ -866,6 +866,100 @@ func (o *Post) SetUser(ctx context.Context, exec boil.ContextExecutor, insert bo
 	} else {
 		related.R.Posts = append(related.R.Posts, o)
 	}
+
+	return nil
+}
+
+// SetPostPromptP of the post to the related item.
+// Sets o.R.PostPrompt to related.
+// Adds o to related.R.Post.
+// Panics on error.
+func (o *Post) SetPostPromptP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *PostPrompt) {
+	if err := o.SetPostPrompt(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetPostPrompt of the post to the related item.
+// Sets o.R.PostPrompt to related.
+// Adds o to related.R.Post.
+func (o *Post) SetPostPrompt(ctx context.Context, exec boil.ContextExecutor, insert bool, related *PostPrompt) error {
+	var err error
+
+	if insert {
+		queries.Assign(&related.PostID, o.ID)
+
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	} else {
+		updateQuery := fmt.Sprintf(
+			"UPDATE \"post_prompts\" SET %s WHERE %s",
+			strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
+			strmangle.WhereClause("\"", "\"", 2, postPromptPrimaryKeyColumns),
+		)
+		values := []interface{}{o.ID, related.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, updateQuery)
+			fmt.Fprintln(writer, values)
+		}
+		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+			return errors.Wrap(err, "failed to update foreign table")
+		}
+
+		queries.Assign(&related.PostID, o.ID)
+	}
+
+	if o.R == nil {
+		o.R = &postR{
+			PostPrompt: related,
+		}
+	} else {
+		o.R.PostPrompt = related
+	}
+
+	if related.R == nil {
+		related.R = &postPromptR{
+			Post: o,
+		}
+	} else {
+		related.R.Post = o
+	}
+	return nil
+}
+
+// RemovePostPromptP relationship.
+// Sets o.R.PostPrompt to nil.
+// Removes o from all passed in related items' relationships struct.
+// Panics on error.
+func (o *Post) RemovePostPromptP(ctx context.Context, exec boil.ContextExecutor, related *PostPrompt) {
+	if err := o.RemovePostPrompt(ctx, exec, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemovePostPrompt relationship.
+// Sets o.R.PostPrompt to nil.
+// Removes o from all passed in related items' relationships struct.
+func (o *Post) RemovePostPrompt(ctx context.Context, exec boil.ContextExecutor, related *PostPrompt) error {
+	var err error
+
+	queries.SetScanner(&related.PostID, nil)
+	if _, err = related.Update(ctx, exec, boil.Whitelist("post_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.PostPrompt = nil
+	}
+
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	related.R.Post = nil
 
 	return nil
 }
@@ -991,167 +1085,6 @@ func (o *Post) AddPostComments(ctx context.Context, exec boil.ContextExecutor, i
 			rel.R.Post = o
 		}
 	}
-	return nil
-}
-
-// AddPostPromptsP adds the given related objects to the existing relationships
-// of the post, optionally inserting them as new records.
-// Appends related to o.R.PostPrompts.
-// Sets related.R.Post appropriately.
-// Panics on error.
-func (o *Post) AddPostPromptsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) {
-	if err := o.AddPostPrompts(ctx, exec, insert, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// AddPostPrompts adds the given related objects to the existing relationships
-// of the post, optionally inserting them as new records.
-// Appends related to o.R.PostPrompts.
-// Sets related.R.Post appropriately.
-func (o *Post) AddPostPrompts(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			queries.Assign(&rel.PostID, o.ID)
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"post_prompts\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
-				strmangle.WhereClause("\"", "\"", 2, postPromptPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.ID}
-
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			queries.Assign(&rel.PostID, o.ID)
-		}
-	}
-
-	if o.R == nil {
-		o.R = &postR{
-			PostPrompts: related,
-		}
-	} else {
-		o.R.PostPrompts = append(o.R.PostPrompts, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &postPromptR{
-				Post: o,
-			}
-		} else {
-			rel.R.Post = o
-		}
-	}
-	return nil
-}
-
-// SetPostPromptsP removes all previously related items of the
-// post replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Post's PostPrompts accordingly.
-// Replaces o.R.PostPrompts with related.
-// Sets related.R.Post's PostPrompts accordingly.
-// Panics on error.
-func (o *Post) SetPostPromptsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) {
-	if err := o.SetPostPrompts(ctx, exec, insert, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// SetPostPrompts removes all previously related items of the
-// post replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Post's PostPrompts accordingly.
-// Replaces o.R.PostPrompts with related.
-// Sets related.R.Post's PostPrompts accordingly.
-func (o *Post) SetPostPrompts(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PostPrompt) error {
-	query := "update \"post_prompts\" set \"post_id\" = null where \"post_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-
-	if o.R != nil {
-		for _, rel := range o.R.PostPrompts {
-			queries.SetScanner(&rel.PostID, nil)
-			if rel.R == nil {
-				continue
-			}
-
-			rel.R.Post = nil
-		}
-		o.R.PostPrompts = nil
-	}
-
-	return o.AddPostPrompts(ctx, exec, insert, related...)
-}
-
-// RemovePostPromptsP relationships from objects passed in.
-// Removes related items from R.PostPrompts (uses pointer comparison, removal does not keep order)
-// Sets related.R.Post.
-// Panics on error.
-func (o *Post) RemovePostPromptsP(ctx context.Context, exec boil.ContextExecutor, related ...*PostPrompt) {
-	if err := o.RemovePostPrompts(ctx, exec, related...); err != nil {
-		panic(boil.WrapErr(err))
-	}
-}
-
-// RemovePostPrompts relationships from objects passed in.
-// Removes related items from R.PostPrompts (uses pointer comparison, removal does not keep order)
-// Sets related.R.Post.
-func (o *Post) RemovePostPrompts(ctx context.Context, exec boil.ContextExecutor, related ...*PostPrompt) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	for _, rel := range related {
-		queries.SetScanner(&rel.PostID, nil)
-		if rel.R != nil {
-			rel.R.Post = nil
-		}
-		if _, err = rel.Update(ctx, exec, boil.Whitelist("post_id")); err != nil {
-			return err
-		}
-	}
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.PostPrompts {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.PostPrompts)
-			if ln > 1 && i < ln-1 {
-				o.R.PostPrompts[i] = o.R.PostPrompts[ln-1]
-			}
-			o.R.PostPrompts = o.R.PostPrompts[:ln-1]
-			break
-		}
-	}
-
 	return nil
 }
 

@@ -11,7 +11,5 @@ create table post_prompts (
   updated_at timestamp not null
 );
 
-create unique index on post_prompts(post_id)
-
 -- +migrate Down
 drop table post_prompts;

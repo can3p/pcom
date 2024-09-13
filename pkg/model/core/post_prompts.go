@@ -526,7 +526,7 @@ func (postPromptL) LoadPost(ctx context.Context, e boil.ContextExecutor, singula
 		if foreign.R == nil {
 			foreign.R = &postR{}
 		}
-		foreign.R.PostPrompts = append(foreign.R.PostPrompts, object)
+		foreign.R.PostPrompt = object
 		return nil
 	}
 
@@ -537,7 +537,7 @@ func (postPromptL) LoadPost(ctx context.Context, e boil.ContextExecutor, singula
 				if foreign.R == nil {
 					foreign.R = &postR{}
 				}
-				foreign.R.PostPrompts = append(foreign.R.PostPrompts, local)
+				foreign.R.PostPrompt = local
 				break
 			}
 		}
@@ -717,7 +717,7 @@ func (o *PostPrompt) SetAsker(ctx context.Context, exec boil.ContextExecutor, in
 
 // SetPostP of the postPrompt to the related item.
 // Sets o.R.Post to related.
-// Adds o to related.R.PostPrompts.
+// Adds o to related.R.PostPrompt.
 // Panics on error.
 func (o *PostPrompt) SetPostP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Post) {
 	if err := o.SetPost(ctx, exec, insert, related); err != nil {
@@ -727,7 +727,7 @@ func (o *PostPrompt) SetPostP(ctx context.Context, exec boil.ContextExecutor, in
 
 // SetPost of the postPrompt to the related item.
 // Sets o.R.Post to related.
-// Adds o to related.R.PostPrompts.
+// Adds o to related.R.PostPrompt.
 func (o *PostPrompt) SetPost(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Post) error {
 	var err error
 	if insert {
@@ -763,10 +763,10 @@ func (o *PostPrompt) SetPost(ctx context.Context, exec boil.ContextExecutor, ins
 
 	if related.R == nil {
 		related.R = &postR{
-			PostPrompts: PostPromptSlice{o},
+			PostPrompt: o,
 		}
 	} else {
-		related.R.PostPrompts = append(related.R.PostPrompts, o)
+		related.R.PostPrompt = o
 	}
 
 	return nil
@@ -800,18 +800,7 @@ func (o *PostPrompt) RemovePost(ctx context.Context, exec boil.ContextExecutor, 
 		return nil
 	}
 
-	for i, ri := range related.R.PostPrompts {
-		if queries.Equal(o.PostID, ri.PostID) {
-			continue
-		}
-
-		ln := len(related.R.PostPrompts)
-		if ln > 1 && i < ln-1 {
-			related.R.PostPrompts[i] = related.R.PostPrompts[ln-1]
-		}
-		related.R.PostPrompts = related.R.PostPrompts[:ln-1]
-		break
-	}
+	related.R.PostPrompt = nil
 	return nil
 }
 
