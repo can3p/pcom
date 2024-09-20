@@ -262,7 +262,7 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 		return err
 	}
 
-	go admin.NotifyNewUser(ctx, db, s, u)
+	admin.NotifyNewUser(ctx, db, s, u)
 
 	return newInvite.Insert(ctx, db, boil.Infer())
 }
@@ -286,7 +286,7 @@ func Signup(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, 
 		return nil, err
 	}
 
-	go admin.NotifyNewUser(ctx, db, sender, u)
+	admin.NotifyNewUser(ctx, db, sender, u)
 
 	return u, nil
 }

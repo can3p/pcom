@@ -467,7 +467,7 @@ func main() {
 			user.EmailConfirmedAt = null.TimeFrom(time.Now())
 			user.UpdateP(c, db, boil.Infer())
 
-			go admin.NotifySignupConfirmed(c, db, sender, user)
+			admin.NotifySignupConfirmed(c, db, sender, user)
 		}
 
 		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]interface{}{
