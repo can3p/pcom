@@ -29,6 +29,10 @@ func CanPromptNow(ctx context.Context, exec boil.ContextExecutor, askerID string
 		return err
 	}
 
+	if time.Since(lastPrompt.CreatedAt) > promptTimeout {
+		return nil
+	}
+
 	return fmt.Errorf("You cannot send prompts for another %s", util.FormatDuration(time.Until(lastPrompt.CreatedAt.Add(promptTimeout))))
 }
 
