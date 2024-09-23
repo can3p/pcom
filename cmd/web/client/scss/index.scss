@@ -23,12 +23,13 @@ blockquote {
 
 .img-gallery {
   max-height: 400px;
+  max-width: 100%;
 }
 
 .carousel-caption,
 .carousel-control-prev,
 .carousel-control-next {
-  background-color: rgba(0,0,0,0.3);
+  background-color: rgba(0,0,0,0.1);
 }
 
 .comment-1 {
