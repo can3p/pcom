@@ -70,6 +70,8 @@
         {{ else }}
         <a target="_blank" id="show_preview" href="" class="text-reset d-none"><i role="link" class="bi bi-card-text" title="Open post preview"></i></a>
         {{ end }}
+
+        <i role="button" data-command="toggle-fullscreen" class="bi bi-arrows-fullscreen" title="Toggle fullscreen"></i>
       </div>
 
       <textarea class="form-control" name="body" placeholder="" id="newPostBody" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>

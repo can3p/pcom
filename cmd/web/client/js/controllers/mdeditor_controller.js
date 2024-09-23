@@ -58,6 +58,18 @@ export default class extends Controller {
       cursor.wrap([`\n{${tag}}\n`, `\n{/${tag}}\n\n`], { placeholder });
     }
 
+    let toggleFullScreen = async () => {
+      if (!document.fullscreenElement) {
+        try {
+          await this.element.requestFullscreen();
+        } catch (err) {
+          console.error(err.name, err.message);
+        }
+      } else {
+        document.exitFullscreen();
+      }
+    };
+
     let runCmd = function(cmd, e) {
       e.preventDefault()
 
@@ -66,6 +78,9 @@ export default class extends Controller {
         case "spoiler":
         case "cut":
           insertTag(cmd)
+          break;
+        case "toggle-fullscreen":
+          toggleFullScreen(cmd)
           break;
         default:
           trigger(cmd)
