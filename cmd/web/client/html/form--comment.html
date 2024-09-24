@@ -35,13 +35,13 @@
       </div>
     </div>
 
-    <textarea class="form-control {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" autocomplete="off" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+    <textarea class="form-control comment-textarea {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}" autocomplete="off" required>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
     {{ if (.Errors.HasError "body") }}
     <div class="invalid-feedback">{{ .Errors.body }}</div>
     {{ end }}
   </div>
 
-  <button type="submit" class="btn btn-primary">Post a comment</button>
-  <button type="button" role="close" class="btn btn-secondary">Close</button>
-  <small class="form-text">Ctrl/Cmd-Enter to submit</small>
+  <button type="submit" class="btn btn-primary btn-sm">Post a comment</button>
+  <button type="button" role="close" class="btn btn-secondary btn-sm">Close</button>
+  <small class="form-text d-block d-md-inline">Ctrl/Cmd-Enter to submit</small>
 </form>
