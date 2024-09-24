@@ -4,7 +4,7 @@
   <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
 </div>
 {{ else }}
-<div id="form-container">
+<div id="form-container" class="container mt-lg-4 mt-2 flex-grow-1 d-flex flex-column">
   <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
 
   {{ with .Prompt }}
@@ -21,12 +21,13 @@
         hx-target="#form-container"
         hx-trigger="change delay:2s, keyup delay:2s, submit"
         hx-disabled-elt="this"
+        class="flex-grow-1 d-flex flex-column gap-lg-3 gap-2"
         >
 
     <div id="last_draft_save">
     {{ if .PostID }}
       <input type="hidden" name="post_id" value="{{ .PostID }}" />
-      <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
+      <small class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</small>
     {{ else }}
       {{ with .Prompt }}
         <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
@@ -34,18 +35,18 @@
     {{ end }}
     </div>
 
-    <div class="mb-3">
-      <label for="newPostSubject" class="form-label">Subject</label>
+    <div>
       <input name="subject" type="subject"
                           value="{{ if .Input }}{{ .Input.Subject }}{{ end }}"
                           class="form-control {{ if (.Errors.HasError "subject") }}is-invalid{{ end }}"
-                          id="newPostSubject" aria-describedby="subjectHelp">
+                          placeholder="Subject"
+                          aria-describedby="subjectHelp">
       {{ if (.Errors.HasError "subject") }}
       <div class="invalid-feedback">{{ .Errors.subject }}</div>
       {{ end }}
     </div>
 
-    <div class="mb-3"
+    <div class="d-flex flex-column flex-grow-1"
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
@@ -70,14 +71,14 @@
         {{ end }}
       </div>
 
-      <textarea class="form-control" name="body" placeholder="" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+      <textarea class="form-control form-control-sm flex-grow-1 mh-auto" name="body" placeholder="Your post goes there" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
       {{ if (.Errors.HasError "body") }}
       <div class="invalid-feedback">{{ .Errors.body }}</div>
       {{ end }}
     </div>
 
 
-    <div class="mb-3">
+    <div>
       <div class="form-check">
         <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
                                                                       value="direct_only"
@@ -103,18 +104,18 @@
 
     <div class="d-flex gap-2">
       {{ if .IsPublished }}
-        <button type="submit" class="btn btn-primary" name="save_action"  value="save_post">Save Post</button>
+        <button type="submit" class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save Post</button>
         <button type="submit"
-                class="btn btn-outline-primary"
+                class="btn btn-outline-primary btn-sm"
                 name="save_action"
                 value="make_draft"
                 data-controller="confirm"
                 data-confirm-message-value="Do you really want to turn the post into draft? It will disappear from the feeds"
-                >Save and turn into draft</button>
+                >Back to draft</button>
       {{ else }}
-        <button type="submit" class="btn btn-primary" name="save_action"  value="save_post">Save as Draft</button>
+        <button type="submit" class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save as Draft</button>
         <button type="submit"
-                class="btn btn-outline-primary"
+                class="btn btn-outline-primary btn-sm"
                 name="save_action"
                 value="publish"
                 data-controller="confirm"
@@ -122,7 +123,7 @@
                 >Publish</button>
       {{ end }}
         <button type="submit"
-                class="btn btn-danger"
+                class="btn btn-danger btn-sm"
                 name="save_action"
                 value="delete"
                 data-controller="confirm"
