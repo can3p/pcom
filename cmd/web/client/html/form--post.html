@@ -49,8 +49,6 @@
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
-      <label for="newPostBody" class="form-label">Body</label>
-
       <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
         <i role="button" data-command="bold" class="bi bi-type-bold" title="Bold text"></i>
         <i role="button" data-command="italic" class="bi bi-type-italic" title="Italic text"></i>
@@ -72,7 +70,7 @@
         {{ end }}
       </div>
 
-      <textarea class="form-control" name="body" placeholder="" id="newPostBody" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+      <textarea class="form-control" name="body" placeholder="" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
       {{ if (.Errors.HasError "body") }}
       <div class="invalid-feedback">{{ .Errors.body }}</div>
       {{ end }}
@@ -80,14 +78,13 @@
 
 
     <div class="mb-3">
-      <legend class=" {{ if (.Errors.HasError "visibility") }}is-invalid{{ end }}">Visibility</legend>
       <div class="form-check">
         <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
                                                                       value="direct_only"
         {{ if .Input }}{{ if eq .Input.Visibility "direct_only" }}checked{{ end }}{{ end }}
         >
         <label class="form-check-label" for="visibilityDirect">
-          Direct connections only
+          Show to direct connections only
         </label>
       </div>
       <div class="form-check">
