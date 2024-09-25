@@ -21,7 +21,7 @@ func ValidateUsername(p string) error {
 	trimmed := strings.ToLower(strings.TrimSpace(p))
 
 	if len(trimmed) < 3 || len(trimmed) > 20 {
-		return errors.Errorf("Username should be between 3 and 20 chars")
+		return errors.Errorf("Username should be between 3 and 20 characters")
 	}
 
 	if !usernameRE.MatchString(trimmed) {
@@ -35,7 +35,7 @@ func ValidateMinMax(label string, p string, minL int, maxL int) error {
 	trimmed := strings.TrimSpace(p)
 
 	if len(trimmed) < minL || len(trimmed) > maxL {
-		return errors.Errorf("%s should be between %d and %d chars", label, minL, maxL)
+		return errors.Errorf("%s should be between %d and %d characters", label, minL, maxL)
 	}
 
 	return nil
