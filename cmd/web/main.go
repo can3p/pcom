@@ -346,6 +346,13 @@ func main() {
 		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
 	})
 
+	r.GET("/shared/:id", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		shareID := c.Param("id")
+
+		ginhelpers.HTML(c, "shared_post.html", web.SharedPost(c, db, &userData, shareID))
+	})
+
 	r.GET("/posts/:id", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")

@@ -1,0 +1,13 @@
+{{ template "header.html" . }}
+
+<div class="container col-md-8">
+  <div class="row justify-content-md-center mt-lg-4 mt-2">
+    <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; {{ .PostSubject }}</h1>
+
+    <div class="mt-3 post-full">
+      {{ markdown_single_post .Post.Body }}
+    </div>
+  </div>
+</div>
+
+{{ template "footer.html" . }}

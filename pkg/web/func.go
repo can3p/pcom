@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
@@ -285,10 +286,52 @@ func Invite(c *gin.Context, db boil.ContextExecutor, invite *core.UserInvitation
 	return invitePage
 }
 
+type SharedPostPage struct {
+	*BasePage
+	Author      *core.User
+	Post        *core.Post
+	PostSubject string
+}
+
+func SharedPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, shareID string) mo.Result[*SharedPostPage] {
+	share, err := core.PostShares(
+		core.PostShareWhere.ID.EQ(shareID),
+		qm.Load(qm.Rels(
+			core.PostShareRels.Post,
+			core.PostRels.User,
+		)),
+	).One(c, db)
+
+	if err == sql.ErrNoRows {
+		return mo.Err[*SharedPostPage](ginhelpers.ErrNotFound)
+	} else if err != nil {
+		return mo.Err[*SharedPostPage](err)
+	}
+
+	post := share.R.Post
+
+	// drafts are not visible
+	if post.PublishedAt.IsZero() {
+		return mo.Err[*SharedPostPage](ginhelpers.ErrNotFound)
+	}
+
+	author := post.R.User
+
+	sharedPost := &SharedPostPage{
+		BasePage:    getBasePage(c, cmp.Or(post.Subject, "No Subject"), userData),
+		Post:        post,
+		PostSubject: cmp.Or(post.Subject, "No Subject"),
+		Author:      author,
+	}
+
+	return mo.Ok(sharedPost)
+}
+
 type SinglePostPage struct {
 	*BasePage
-	Post     *postops.Post
-	Comments []*postops.Comment
+	Post      *postops.Post
+	PostShare *core.PostShare
+	Comments  []*postops.Comment
 }
 
 func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postID string, editPreview bool) mo.Result[*SinglePostPage] {
@@ -334,7 +377,18 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		}
 
 		singlePostPage.Comments = postops.ConstructComments(rawComments, connectionRadius)
+	}
 
+	if singlePostPage.Post.Capabilities.CanShare {
+		postShare, err := core.PostShares(
+			core.PostShareWhere.PostID.EQ(constructed.ID),
+		).One(c, db)
+
+		if err != nil && err != sql.ErrNoRows {
+			return mo.Err[*SinglePostPage](err)
+		}
+
+		singlePostPage.PostShare = postShare
 	}
 
 	return mo.Ok(singlePostPage)

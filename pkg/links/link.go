@@ -34,6 +34,8 @@ func Link(name string, args ...string) string {
 		out = "/articles/terms_of_service"
 	case "post":
 		out = "/posts/" + builder.Shift()
+	case "shared_post":
+		out = "/shared/" + builder.Shift()
 	case "comment":
 		postID := builder.Shift()
 		commentID := builder.Shift()

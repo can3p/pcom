@@ -138,11 +138,13 @@ var PostWhere = struct {
 var PostRels = struct {
 	User         string
 	PostPrompt   string
+	PostShare    string
 	PostStat     string
 	PostComments string
 }{
 	User:         "User",
 	PostPrompt:   "PostPrompt",
+	PostShare:    "PostShare",
 	PostStat:     "PostStat",
 	PostComments: "PostComments",
 }
@@ -151,6 +153,7 @@ var PostRels = struct {
 type postR struct {
 	User         *User            `boil:"User" json:"User" toml:"User" yaml:"User"`
 	PostPrompt   *PostPrompt      `boil:"PostPrompt" json:"PostPrompt" toml:"PostPrompt" yaml:"PostPrompt"`
+	PostShare    *PostShare       `boil:"PostShare" json:"PostShare" toml:"PostShare" yaml:"PostShare"`
 	PostStat     *PostStat        `boil:"PostStat" json:"PostStat" toml:"PostStat" yaml:"PostStat"`
 	PostComments PostCommentSlice `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
 }
@@ -172,6 +175,13 @@ func (r *postR) GetPostPrompt() *PostPrompt {
 		return nil
 	}
 	return r.PostPrompt
+}
+
+func (r *postR) GetPostShare() *PostShare {
+	if r == nil {
+		return nil
+	}
+	return r.PostShare
 }
 
 func (r *postR) GetPostStat() *PostStat {
@@ -350,6 +360,17 @@ func (o *Post) PostPrompt(mods ...qm.QueryMod) postPromptQuery {
 	queryMods = append(queryMods, mods...)
 
 	return PostPrompts(queryMods...)
+}
+
+// PostShare pointed to by the foreign key.
+func (o *Post) PostShare(mods ...qm.QueryMod) postShareQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"post_id\" = ?", o.ID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return PostShares(queryMods...)
 }
 
 // PostStat pointed to by the foreign key.
@@ -588,6 +609,115 @@ func (postL) LoadPostPrompt(ctx context.Context, e boil.ContextExecutor, singula
 				local.R.PostPrompt = foreign
 				if foreign.R == nil {
 					foreign.R = &postPromptR{}
+				}
+				foreign.R.Post = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadPostShare allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-1 relationship.
+func (postL) LoadPostShare(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`post_shares`),
+		qm.WhereIn(`post_shares.post_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load PostShare")
+	}
+
+	var resultSlice []*PostShare
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice PostShare")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for post_shares")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for post_shares")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.PostShare = foreign
+		if foreign.R == nil {
+			foreign.R = &postShareR{}
+		}
+		foreign.R.Post = object
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.ID == foreign.PostID {
+				local.R.PostShare = foreign
+				if foreign.R == nil {
+					foreign.R = &postShareR{}
 				}
 				foreign.R.Post = local
 				break
@@ -961,6 +1091,66 @@ func (o *Post) RemovePostPrompt(ctx context.Context, exec boil.ContextExecutor, 
 
 	related.R.Post = nil
 
+	return nil
+}
+
+// SetPostShareP of the post to the related item.
+// Sets o.R.PostShare to related.
+// Adds o to related.R.Post.
+// Panics on error.
+func (o *Post) SetPostShareP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *PostShare) {
+	if err := o.SetPostShare(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetPostShare of the post to the related item.
+// Sets o.R.PostShare to related.
+// Adds o to related.R.Post.
+func (o *Post) SetPostShare(ctx context.Context, exec boil.ContextExecutor, insert bool, related *PostShare) error {
+	var err error
+
+	if insert {
+		related.PostID = o.ID
+
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	} else {
+		updateQuery := fmt.Sprintf(
+			"UPDATE \"post_shares\" SET %s WHERE %s",
+			strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
+			strmangle.WhereClause("\"", "\"", 2, postSharePrimaryKeyColumns),
+		)
+		values := []interface{}{o.ID, related.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, updateQuery)
+			fmt.Fprintln(writer, values)
+		}
+		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+			return errors.Wrap(err, "failed to update foreign table")
+		}
+
+		related.PostID = o.ID
+	}
+
+	if o.R == nil {
+		o.R = &postR{
+			PostShare: related,
+		}
+	} else {
+		o.R.PostShare = related
+	}
+
+	if related.R == nil {
+		related.R = &postShareR{
+			Post: o,
+		}
+	} else {
+		related.R.Post = o
+	}
 	return nil
 }
 

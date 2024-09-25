@@ -31,6 +31,7 @@ type PostCapabilities struct {
 	CanViewComments  bool
 	CanLeaveComments bool
 	CanEdit          bool
+	CanShare         bool
 }
 
 func GetPostCapabilities(userID string, authorID string, radius userops.ConnectionRadius) *PostCapabilities {
@@ -40,6 +41,7 @@ func GetPostCapabilities(userID string, authorID string, radius userops.Connecti
 		CanViewComments:  radius.IsDirect() || radius.IsSameUser(),
 		CanLeaveComments: radius.IsDirect() || radius.IsSameUser(),
 		CanEdit:          userID == authorID,
+		CanShare:         userID == authorID,
 	}
 }
 
