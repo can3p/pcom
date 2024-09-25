@@ -3,7 +3,6 @@ package forms
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 	"time"
 
@@ -294,11 +293,8 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
 	}
 
-	fmt.Println("1")
 	if sendPublishNotification {
-		fmt.Println("2")
 		if f.Prompt != nil && f.Prompt.Prompt.DismissedAt.IsZero() {
-			fmt.Println("3")
 			dbPrompt := f.Prompt.Prompt
 
 			dbPrompt.PostID = null.StringFrom(post.ID)
