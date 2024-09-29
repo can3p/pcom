@@ -50,7 +50,7 @@ func PostPromptFormNew(sender sender.Sender, u *core.User, directConnections []*
 }
 
 func (f *PostPromptForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	if err := validation.ValidateMinMax("message", f.Input.Message, 3, 140); err != nil {
+	if err := validation.ValidateMinMax("message", f.Input.Message, 3, 1400); err != nil {
 		return err
 	}
 
