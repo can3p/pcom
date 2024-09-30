@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/can3p/gogo/sender"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -16,6 +17,8 @@ import (
 var NotifyAddress string = os.Getenv("ADMIN_ADDRESS")
 
 func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) {
+	blogURL := links.AbsLink("user", user.Username)
+
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -33,7 +36,8 @@ func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Send
 	New user alert:
 
 	* ID: %s
-	* Email: %s`, user.ID, user.Email),
+	* Blog: %s
+	* Email: %s`, user.ID, blogURL, user.Email),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
@@ -41,8 +45,9 @@ func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Send
 
 	<ul>
 		<li>ID: %s</li>
+		<li>Blog: <a href="%s">%s</a></li>
 		<li>Email: %s</li>
-	</ul>`, user.ID, user.Email),
+	</ul>`, user.ID, blogURL, blogURL, user.Email),
 	}
 
 	err := s.Send(ctx, exec, user.ID, "admin_new_user", mail)
