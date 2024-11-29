@@ -70,6 +70,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/form/new_comment"
 	case "form_save_settings":
 		out = "/controls/form/save_settings"
+	case "form_user_styles":
+		out = "/controls/form/save_user_styles"
 	case "form_send_invite":
 		out = "/controls/form/send_invite"
 	case "form_change_password":

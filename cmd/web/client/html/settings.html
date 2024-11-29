@@ -75,6 +75,7 @@
 
   </div>
 
+  {{ template "partial--settings_user_styles.html"  .UserStyles.TemplateData }}
 
   {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
     {{ template "partial--settings_invites.html" . }}

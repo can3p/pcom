@@ -625,6 +625,15 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
+	controlsForms.POST("/save_user_styles", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		form := forms.SettingsUserStylesNew(dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
 	controlsForms.POST("/change_password", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser

@@ -233,6 +233,7 @@ type SettingsPage struct {
 	UsedInvites      core.UserInvitationSlice
 	ActiveAPIKey     *core.UserAPIKey
 	GeneralSettings  *forms.SettingsGeneralForm
+	UserStyles       *forms.SettingsUserStyles
 }
 
 func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
@@ -261,12 +262,25 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		return mo.Err[*SettingsPage](err)
 	}
 
+	formUserStyles := forms.SettingsUserStylesNew(userData.DBUser)
+
+	userStyles, err := core.UserStyles(
+		core.UserStyleWhere.UserID.EQ(userData.DBUser.ID),
+	).One(c, db)
+
+	if err != nil && err != sql.ErrNoRows {
+		return mo.Err[*SettingsPage](err)
+	} else if userStyles != nil {
+		formUserStyles.Input.Styles = userStyles.Styles
+	}
+
 	settingsPage := &SettingsPage{
 		BasePage:         getBasePage(c, "Settings", userData),
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
 		ActiveAPIKey:     apiKey,
 		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
+		UserStyles:       formUserStyles,
 	}
 
 	return mo.Ok(settingsPage)
