@@ -1,7 +1,3 @@
-{{ if .FormSaved }}
-  {{ template "partial--success-message.html" toMap "Message" "Styles have been saved, thanks!" }}
-{{ end }}
-
 <form
       method="POST"
       action="{{ link "form_user_styles" }}"

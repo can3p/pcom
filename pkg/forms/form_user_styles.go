@@ -6,6 +6,7 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -64,5 +65,5 @@ func (f *SettingsUserStyles) Save(c context.Context, exec boil.ContextExecutor) 
 		return nil, err
 	}
 
-	return f.FormBase.Save(c, exec)
+	return formhelpers.SuccessBadge("Styles have been saved successfully!"), nil
 }
