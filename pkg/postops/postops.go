@@ -27,6 +27,21 @@ func (c *Comment) String() string {
 		c.ID, c.ParentCommentID.String, c.CreatedAt.Format(time.ANSIC), c.Author.Username)
 }
 
+func CanSeePost(p *core.Post, radius userops.ConnectionRadius) bool {
+	switch {
+	case radius.IsSameUser():
+		fallthrough
+	case radius.IsDirect():
+		fallthrough
+	case radius.IsSecondDegree() && p.VisibilityRadius == core.PostVisibilitySecondDegree:
+		fallthrough
+	case p.VisibilityRadius == core.PostVisibilityPublic:
+		return true
+	}
+
+	return false
+}
+
 type PostCapabilities struct {
 	CanViewComments  bool
 	CanLeaveComments bool

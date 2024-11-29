@@ -351,14 +351,21 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 
 	author := post.R.User
 
-	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
+	var visitorID string
 
-	if err != nil {
+	if userData.DBUser != nil {
+		visitorID = userData.DBUser.ID
+	}
+
+	connectionRadius, err := userops.GetConnectionRadius(c, db, visitorID, author.ID)
+
+	if err != nil && err != userops.ErrUserNotSignedIn {
 		return mo.Err[*SinglePostPage](err)
 	}
 
-	if connectionRadius.IsUnrelated() {
-		return mo.Err[*SinglePostPage](ginhelpers.ErrForbidden)
+	if !postops.CanSeePost(post, connectionRadius) {
+		// no need to expose the fact that the post exists, hence 404
+		return mo.Err[*SinglePostPage](ginhelpers.ErrNotFound)
 	}
 
 	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius, nil, editPreview)
