@@ -408,7 +408,7 @@ func main() {
 
 		dbPost := post.MustGet().Post.Post
 
-		dbPost.Body = markdown.ReplaceImageUrls(dbPost.Body, mediaReplacer)
+		dbPost.Body = markdown.ReplaceImageUrls(dbPost.Body, links.MediaReplacer)
 
 		serialized := postops.SerializePost(dbPost)
 		c.String(http.StatusOK, string(serialized))
@@ -619,13 +619,13 @@ func main() {
 		var err error
 
 		if postID == "" {
-			form, err = forms.NewPostFormNew(c, db, sender, dbUser, mediaReplacer, c.PostForm("prompt_id"))
+			form, err = forms.NewPostFormNew(c, db, sender, dbUser, links.MediaReplacer, c.PostForm("prompt_id"))
 
 			if err != nil {
 				panic(err)
 			}
 		} else {
-			form, err = forms.EditPostFormNew(c, db, sender, dbUser, mediaReplacer, postID)
+			form, err = forms.EditPostFormNew(c, db, sender, dbUser, links.MediaReplacer, postID)
 
 			if err != nil {
 				if err == ginhelpers.ErrNotFound {
@@ -644,7 +644,7 @@ func main() {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
-		form := forms.NewCommentFormNew(sender, dbUser, c.PostForm("post_id"), mediaReplacer)
+		form := forms.NewCommentFormNew(sender, dbUser, c.PostForm("post_id"), links.MediaReplacer)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})
