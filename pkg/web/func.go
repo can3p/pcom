@@ -10,6 +10,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
@@ -568,8 +569,14 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		}
 	}
 
+	basePage := getBasePage(ctx, "Journal", userData)
+
+	if author.ProfileVisibility == core.ProfileVisibilityPublic {
+		basePage.RSSFeed = links.Link("public_blog_feed", author.Username)
+	}
+
 	userHomePage := &UserHomePage{
-		BasePage:          getBasePage(ctx, "Journal", userData),
+		BasePage:          basePage,
 		Author:            author,
 		ConnectionRadius:  connRadius,
 		ConnectionAllowed: isConnectionAllowed,
@@ -709,8 +716,20 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		}
 	})
 
+	basePage := getBasePage(ctx, title, userData)
+
+	apiKey, err := user.UserAPIKey().One(ctx, db)
+
+	if err != nil && err != sql.ErrNoRows {
+		return mo.Err[*FeedPage](err)
+	}
+
+	if apiKey != nil {
+		basePage.RSSFeed = links.Link("private_user_feed", apiKey.APIKey)
+	}
+
 	feedPage := &FeedPage{
-		BasePage:          getBasePage(ctx, title, userData),
+		BasePage:          basePage,
 		DirectConnections: directConnections,
 		OpenPrompts:       prompts,
 		Items:             items,
