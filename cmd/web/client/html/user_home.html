@@ -1,10 +1,10 @@
 {{ template "header.html" . }}
 <link rel="stylesheet" href="{{ link "user_styles" .Author.Username }}" />
 
-<div class="user-styles-applied">
+<div class="user-styles-applied us-user-home">
 <div class="container col-md-8">
   <div class="row justify-content-md-center mt-lg-4 mt-2">
-    <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; Latest Posts</h1>
+    <h1 class="us-user-header"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; Latest Posts</h1>
 
     {{ if .User.IsLoggedIn }}
     <div class="alert alert-info mt-2" role="alert">
@@ -67,14 +67,14 @@
         {{- else }}<p>No posts yet</p>{{ end }}
       {{ else }}
         {{ range .Posts }}
-        <div class="mt-3">
+        <div class="mt-3 us-feed-post">
           <div class="card">
             <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .Subject }}</a> posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</h5>
             <div class="card-body">
               <div class="mt-3 post-user-home">{{ markdown_feed .Body .ID }}</div>
 
               {{ if .Capabilities.CanViewComments }}
-              <div class="text-center mt-2">
+              <div class="text-center mt-2 us-feed-post-stats">
                 <a href="{{ link "post" .ID }}">
                 {{- if eq 0 .CommentsNumber -}}
                   No Comments yet
