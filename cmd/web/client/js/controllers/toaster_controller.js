@@ -23,7 +23,6 @@ export default class extends Controller {
 
     let handler = (type) => {
       return (e) => {
-        console.log("handler", type, e.detail)
         this.element.appendChild(generateToast(type, e.detail.explanation))
       }
     }
