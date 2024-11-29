@@ -339,7 +339,7 @@ func main() {
 		})
 	})
 
-	r.GET("/users/:username", auth.EnforceAuth, func(c *gin.Context) {
+	r.GET("/users/:username", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		username := c.Param("username")
 

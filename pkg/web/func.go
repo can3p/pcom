@@ -475,10 +475,25 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		return mo.Err[*UserHomePage](err)
 	}
 
-	connRadius, err := userops.GetConnectionRadius(ctx, db, userData.DBUser.ID, author.ID)
+	if userops.CannotSeeProfileLite(author, userData.DBUser) {
+		// don't wnat to tell whether a blog exists in the first place
+		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
+	}
 
-	if err != nil {
+	var visitorID string
+	if userData.DBUser != nil {
+		visitorID = userData.DBUser.ID
+	}
+
+	connRadius, err := userops.GetConnectionRadius(ctx, db, visitorID, author.ID)
+
+	if err != nil && err != userops.ErrUserNotSignedIn {
 		return mo.Err[*UserHomePage](err)
+	}
+
+	if !userops.CanSeeProfile(author, userData.DBUser, connRadius) {
+		// don't wnat to tell whether a blog exists in the first place
+		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
 	}
 
 	var posts []*postops.Post
