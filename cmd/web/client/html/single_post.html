@@ -1,6 +1,7 @@
 {{ template "header.html" . }}
 
 {{ with .Post }}
+<div class="user-styles-applied">
 <div class="container col-md-8">
   <div class="row justify-content-md-center mt-lg-4 mt-2">
     <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; {{ .PostSubject }}{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ end }}</h1>
@@ -100,6 +101,7 @@
       </div>
     {{ end }}
   {{ end }}
+</div>
 </div>
 {{ end }}
 
