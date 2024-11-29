@@ -46,6 +46,8 @@ func Link(name string, args ...string) string {
 		out = "/posts/" + builder.Shift() + "/edit"
 	case "user":
 		out = "/users/" + builder.Shift()
+	case "user_styles":
+		out = "/users/" + builder.Shift() + "/user_styles"
 	case "article":
 		out = "/articles/" + builder.Shift()
 	case "invite":

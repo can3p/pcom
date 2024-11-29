@@ -45,8 +45,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq" // postgres db driver
+	"github.com/mileusna/useragent"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 var staticRoute = "/static"
@@ -344,6 +346,38 @@ func main() {
 		username := c.Param("username")
 
 		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
+	})
+
+	r.GET("/users/:username/user_styles", auth.EnforceReferer, func(c *gin.Context) {
+		username := c.Param("username")
+
+		user, err := core.Users(
+			core.UserWhere.Username.EQ(username),
+			qm.Load(core.UserRels.UserStyle),
+		).One(c, db)
+
+		if err != nil && err != sql.ErrNoRows {
+			panic(err)
+		}
+
+		if user == nil || user.R.UserStyle == nil || strings.TrimSpace(user.R.UserStyle.Styles) == "" {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
+
+		headerUA := c.Request.Header.Get("User-Agent")
+		ua := useragent.Parse(headerUA)
+		addScope := !ua.IsFirefox()
+
+		css := strings.TrimSpace(user.R.UserStyle.Styles)
+
+		// no scope sucks, we need to parse and and change all the selectors
+		// not doing that for now since we trust our users. We trust them, right?
+		if addScope {
+			css = fmt.Sprintf("@scope (.user-styles-applied) {\n\n%s\n\n}\n", css)
+		}
+
+		c.Header("Content-Type", "text/css; charset=utf-8")
+		c.String(http.StatusOK, css)
 	})
 
 	r.GET("/shared/:id", func(c *gin.Context) {

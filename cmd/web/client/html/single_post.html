@@ -1,6 +1,7 @@
 {{ template "header.html" . }}
 
 {{ with .Post }}
+<link rel="stylesheet" href="{{ link "user_styles" .Author.Username }}" />
 <div class="user-styles-applied">
 <div class="container col-md-8">
   <div class="row justify-content-md-center mt-lg-4 mt-2">
