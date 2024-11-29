@@ -24,11 +24,11 @@ import (
 
 // UserStyle is an object representing the database table.
 type UserStyle struct {
-	ID        string      `boil:"id" json:"id" toml:"id" yaml:"id"`
-	UserID    string      `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	Styles    null.String `boil:"styles" json:"styles,omitempty" toml:"styles" yaml:"styles,omitempty"`
-	CreatedAt null.Time   `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
-	UpdatedAt null.Time   `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
+	ID        string    `boil:"id" json:"id" toml:"id" yaml:"id"`
+	UserID    string    `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	Styles    string    `boil:"styles" json:"styles" toml:"styles" yaml:"styles"`
+	CreatedAt null.Time `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
+	UpdatedAt null.Time `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
 
 	R *userStyleR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userStyleL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -67,13 +67,13 @@ var UserStyleTableColumns = struct {
 var UserStyleWhere = struct {
 	ID        whereHelperstring
 	UserID    whereHelperstring
-	Styles    whereHelpernull_String
+	Styles    whereHelperstring
 	CreatedAt whereHelpernull_Time
 	UpdatedAt whereHelpernull_Time
 }{
 	ID:        whereHelperstring{field: "\"user_styles\".\"id\""},
 	UserID:    whereHelperstring{field: "\"user_styles\".\"user_id\""},
-	Styles:    whereHelpernull_String{field: "\"user_styles\".\"styles\""},
+	Styles:    whereHelperstring{field: "\"user_styles\".\"styles\""},
 	CreatedAt: whereHelpernull_Time{field: "\"user_styles\".\"created_at\""},
 	UpdatedAt: whereHelpernull_Time{field: "\"user_styles\".\"updated_at\""},
 }
@@ -107,8 +107,8 @@ type userStyleL struct{}
 
 var (
 	userStyleAllColumns            = []string{"id", "user_id", "styles", "created_at", "updated_at"}
-	userStyleColumnsWithoutDefault = []string{"id", "user_id"}
-	userStyleColumnsWithDefault    = []string{"styles", "created_at", "updated_at"}
+	userStyleColumnsWithoutDefault = []string{"id", "user_id", "styles"}
+	userStyleColumnsWithDefault    = []string{"created_at", "updated_at"}
 	userStylePrimaryKeyColumns     = []string{"id"}
 	userStyleGeneratedColumns      = []string{}
 )
