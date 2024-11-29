@@ -41,7 +41,6 @@ import (
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq" // postgres db driver
@@ -705,28 +704,10 @@ func main() {
 	}
 }
 
-// the whole idea there is to keep only an identifier in the markdown
-// source text and give us flexibility to serve the image from
-// any source like cdn without touching saved text
-func mediaReplacer(inURL string) (bool, string) {
-	parts := strings.Split(inURL, ".")
-
-	if len(parts) != 2 {
-		return false, ""
-	}
-
-	if _, err := uuid.Parse(parts[0]); err != nil {
-		return false, ""
-	}
-
-	// all the checks are postponed till the actual call
-	return true, links.AbsLink("uploaded_media", inURL)
-}
-
 func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 	markdown := func(view types.HTMLView) func(s string, add ...string) template.HTML {
 		return func(s string, add ...string) template.HTML {
-			return markdown.ToEnrichedTemplate(s, view, mediaReplacer, func(in string, add2 ...string) string {
+			return markdown.ToEnrichedTemplate(s, view, links.MediaReplacer, func(in string, add2 ...string) string {
 				// ugly hack to handle cut links
 				if in == "single_post_special" {
 					args := []string{}

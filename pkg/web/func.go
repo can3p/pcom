@@ -29,6 +29,7 @@ type BasePage struct {
 	User        *auth.UserData
 	StyleNonce  *string
 	ScriptNonce *string
+	RSSFeed     string
 }
 
 func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage {

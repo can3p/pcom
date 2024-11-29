@@ -44,7 +44,7 @@ func (r *BlockTagRenderer) renderBlockTag(w util.BufWriter, source []byte, node 
 		}
 	}
 
-	if r.view == types.ViewEmail {
+	if r.view == types.ViewEmail || r.view == types.ViewRSS {
 		if n.BlockTagName == "cut" {
 			if entering {
 				_, _ = w.WriteString(`<p><a href="` + r.link("single_post_special") + `">Check the rest of the post`)
