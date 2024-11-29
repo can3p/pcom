@@ -32,6 +32,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/postops/rss"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util"
@@ -41,11 +42,11 @@ import (
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq" // postgres db driver
 	"github.com/mileusna/useragent"
+	"github.com/samber/lo"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -348,6 +349,48 @@ func main() {
 		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
 	})
 
+	r.GET("/rss/public/:username", func(c *gin.Context) {
+		username := c.Param("username")
+
+		author, err := core.Users(
+			core.UserWhere.Username.EQ(username),
+		).One(ctx, db)
+
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		} else if err != nil {
+			_ = c.AbortWithError(http.StatusNotFound, err)
+			return
+		} else if author.ProfileVisibility != core.ProfileVisibilityPublic {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+
+		userHome := web.UserHome(c, db, &auth.UserData{}, username)
+
+		if userHome.IsError() {
+			_ = c.AbortWithError(http.StatusNotFound, userHome.Error())
+			return
+		}
+
+		feed := rss.ToFeed(
+			"New posts from @"+username,
+			links.AbsLink("user", username),
+			author,
+			userHome.MustGet().Posts,
+		)
+
+		c.Header("Content-Type", "text/xml")
+
+		rss, err := feed.ToRss()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.String(http.StatusOK, rss)
+	})
+
 	r.GET("/users/:username/user_styles", auth.EnforceReferer, func(c *gin.Context) {
 		username := c.Param("username")
 
@@ -409,7 +452,7 @@ func main() {
 
 		dbPost := post.MustGet().Post.Post
 
-		dbPost.Body = markdown.ReplaceImageUrls(dbPost.Body, mediaReplacer)
+		dbPost.Body = markdown.ReplaceImageUrls(dbPost.Body, links.MediaReplacer)
 
 		serialized := postops.SerializePost(dbPost)
 		c.String(http.StatusOK, string(serialized))
@@ -461,7 +504,53 @@ func main() {
 	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData))
+		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData, false))
+	})
+
+	r.GET("/rss/private/:key", func(c *gin.Context) {
+		api, err := core.UserAPIKeys(
+			core.UserAPIKeyWhere.APIKey.EQ(c.Param("key")),
+			qm.Load(core.UserAPIKeyRels.User),
+		).One(c, db)
+
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		user := api.R.User
+
+		userData := &auth.UserData{
+			DBUser: user,
+		}
+
+		// just a hack to avoid extracting the logic to get the posts
+		userFeed := web.Feed(c, db, userData, true)
+
+		if userFeed.IsError() {
+			_ = c.AbortWithError(http.StatusInternalServerError, userFeed.Error())
+			return
+		}
+
+		posts := lo.Map(userFeed.MustGet().Items, func(item *web.FeedItem, index int) *postops.Post {
+			return item.Post
+		})
+
+		feed := rss.ToFeed(
+			"User feed @"+user.Username,
+			links.AbsLink("feed", user.Username),
+			user,
+			posts,
+		)
+
+		c.Header("Content-Type", "text/xml")
+
+		rss, err := feed.ToRss()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.String(http.StatusOK, rss)
 	})
 
 	controls := r.Group("/controls", auth.EnforceAuth)
@@ -620,13 +709,13 @@ func main() {
 		var err error
 
 		if postID == "" {
-			form, err = forms.NewPostFormNew(c, db, sender, dbUser, mediaReplacer, c.PostForm("prompt_id"))
+			form, err = forms.NewPostFormNew(c, db, sender, dbUser, links.MediaReplacer, c.PostForm("prompt_id"))
 
 			if err != nil {
 				panic(err)
 			}
 		} else {
-			form, err = forms.EditPostFormNew(c, db, sender, dbUser, mediaReplacer, postID)
+			form, err = forms.EditPostFormNew(c, db, sender, dbUser, links.MediaReplacer, postID)
 
 			if err != nil {
 				if err == ginhelpers.ErrNotFound {
@@ -645,7 +734,7 @@ func main() {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
-		form := forms.NewCommentFormNew(sender, dbUser, c.PostForm("post_id"), mediaReplacer)
+		form := forms.NewCommentFormNew(sender, dbUser, c.PostForm("post_id"), links.MediaReplacer)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})
@@ -705,28 +794,10 @@ func main() {
 	}
 }
 
-// the whole idea there is to keep only an identifier in the markdown
-// source text and give us flexibility to serve the image from
-// any source like cdn without touching saved text
-func mediaReplacer(inURL string) (bool, string) {
-	parts := strings.Split(inURL, ".")
-
-	if len(parts) != 2 {
-		return false, ""
-	}
-
-	if _, err := uuid.Parse(parts[0]); err != nil {
-		return false, ""
-	}
-
-	// all the checks are postponed till the actual call
-	return true, links.AbsLink("uploaded_media", inURL)
-}
-
 func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 	markdown := func(view types.HTMLView) func(s string, add ...string) template.HTML {
 		return func(s string, add ...string) template.HTML {
-			return markdown.ToEnrichedTemplate(s, view, mediaReplacer, func(in string, add2 ...string) string {
+			return markdown.ToEnrichedTemplate(s, view, links.MediaReplacer, func(in string, add2 ...string) string {
 				// ugly hack to handle cut links
 				if in == "single_post_special" {
 					args := []string{}

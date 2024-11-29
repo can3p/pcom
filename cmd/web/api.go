@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
@@ -20,13 +21,13 @@ func setupApi(r *gin.RouterGroup, db *sqlx.DB, sender sender.Sender, mediaServer
 	r.POST("/posts", func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
-		ginhelpers.API(c, web.ApiNewPost(c, db, sender, userData.DBUser, mediaReplacer))
+		ginhelpers.API(c, web.ApiNewPost(c, db, sender, userData.DBUser, links.MediaReplacer))
 	})
 
 	r.POST("/posts/:id", func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
-		ginhelpers.API(c, web.ApiEditPost(c, db, sender, userData.DBUser, mediaReplacer, c.Param("id")))
+		ginhelpers.API(c, web.ApiEditPost(c, db, sender, userData.DBUser, links.MediaReplacer, c.Param("id")))
 	})
 
 	r.DELETE("/posts/:id", func(c *gin.Context) {

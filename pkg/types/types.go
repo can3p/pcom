@@ -13,4 +13,5 @@ const (
 	ViewComment     HTMLView = "comment"
 	ViewArticle     HTMLView = "article"
 	ViewEmail       HTMLView = "post_notification_email"
+	ViewRSS         HTMLView = "rss_feed"
 )

@@ -10,6 +10,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
@@ -29,6 +30,7 @@ type BasePage struct {
 	User        *auth.UserData
 	StyleNonce  *string
 	ScriptNonce *string
+	RSSFeed     string
 }
 
 func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage {
@@ -567,8 +569,14 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		}
 	}
 
+	basePage := getBasePage(ctx, "Journal", userData)
+
+	if author.ProfileVisibility == core.ProfileVisibilityPublic {
+		basePage.RSSFeed = links.Link("public_blog_feed", author.Username)
+	}
+
 	userHomePage := &UserHomePage{
-		BasePage:          getBasePage(ctx, "Journal", userData),
+		BasePage:          basePage,
 		Author:            author,
 		ConnectionRadius:  connRadius,
 		ConnectionAllowed: isConnectionAllowed,
@@ -600,7 +608,7 @@ type FeedPage struct {
 	Items             []*FeedItem
 }
 
-func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, onlyPosts bool) mo.Result[*FeedPage] {
 	user := userData.DBUser
 	title := "Your Feed"
 
@@ -619,7 +627,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 			core.PostWhere.UserID.IN(directUserIDs),
 			qm.Or2(qm.Expr(
 				core.PostWhere.UserID.IN(secondDegreeUserIDs),
-				core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
+				core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}),
 			))),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
@@ -667,6 +675,14 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		}
 	})
 
+	if onlyPosts {
+		feedPage := &FeedPage{
+			Items: items,
+		}
+
+		return mo.Ok(feedPage)
+	}
+
 	comments, err := getComments(ctx, db, user.ID)
 
 	if err != nil {
@@ -708,8 +724,20 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 		}
 	})
 
+	basePage := getBasePage(ctx, title, userData)
+
+	apiKey, err := user.UserAPIKey().One(ctx, db)
+
+	if err != nil && err != sql.ErrNoRows {
+		return mo.Err[*FeedPage](err)
+	}
+
+	if apiKey != nil {
+		basePage.RSSFeed = links.Link("private_user_feed", apiKey.APIKey)
+	}
+
 	feedPage := &FeedPage{
-		BasePage:          getBasePage(ctx, title, userData),
+		BasePage:          basePage,
 		DirectConnections: directConnections,
 		OpenPrompts:       prompts,
 		Items:             items,
