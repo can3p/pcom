@@ -32,6 +32,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/postops/rss"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util"
@@ -345,6 +346,48 @@ func main() {
 		username := c.Param("username")
 
 		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
+	})
+
+	r.GET("/rss/public/:username", func(c *gin.Context) {
+		username := c.Param("username")
+
+		author, err := core.Users(
+			core.UserWhere.Username.EQ(username),
+		).One(ctx, db)
+
+		if err == sql.ErrNoRows {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		} else if err != nil {
+			_ = c.AbortWithError(http.StatusNotFound, err)
+			return
+		} else if author.ProfileVisibility != core.ProfileVisibilityPublic {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+
+		userHome := web.UserHome(c, db, &auth.UserData{}, username)
+
+		if userHome.IsError() {
+			_ = c.AbortWithError(http.StatusNotFound, userHome.Error())
+			return
+		}
+
+		feed := rss.ToFeed(
+			"New posts from @"+username,
+			links.AbsLink("user", username),
+			author,
+			userHome.MustGet().Posts,
+		)
+
+		c.Header("Content-Type", "text/xml")
+
+		rss, err := feed.ToRss()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.String(http.StatusOK, rss)
 	})
 
 	r.GET("/users/:username/user_styles", auth.EnforceReferer, func(c *gin.Context) {

@@ -4,15 +4,15 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/gorilla/feeds"
 )
 
-func ToFeed(title string, link string, author *core.User, posts []*core.Post) *feeds.Feed {
+func ToFeed(title string, link string, author *core.User, posts []*postops.Post) *feeds.Feed {
 	feed := &feeds.Feed{
-		Title:  title,
-		Link:   &feeds.Link{Href: link},
-		Author: &feeds.Author{Name: author.Username, Email: "undisclosed"},
+		Title: title,
+		Link:  &feeds.Link{Href: link},
 	}
 
 	items := []*feeds.Item{}
@@ -28,8 +28,8 @@ func ToFeed(title string, link string, author *core.User, posts []*core.Post) *f
 				Name: func() string {
 					var by string
 
-					if post.R.User != nil {
-						by = "@" + post.R.User.Username
+					if post.Author != nil {
+						by = "@" + post.Author.Username
 					} else {
 						by = "Anonymous User"
 					}
