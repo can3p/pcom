@@ -17,6 +17,7 @@ import (
 )
 
 var ErrNoConnectionRequest = errors.Errorf("No such connection request")
+var ErrUserNotSignedIn = errors.Errorf("One of the users is not signed in")
 
 // CreateConnection assumes it's run in transaction
 // Since connections form an undirected graph, we insert
@@ -154,6 +155,10 @@ func (cr ConnectionRadius) IsUnrelated() bool {
 }
 
 func GetConnectionRadius(ctx context.Context, db boil.ContextExecutor, fromUserID string, toUserID string) (ConnectionRadius, error) {
+	if fromUserID == "" || toUserID == "" {
+		return ConnectionRadiusUnknown, ErrUserNotSignedIn
+	}
+
 	if fromUserID == toUserID {
 		return ConnectionRadiusSameUser, nil
 	}

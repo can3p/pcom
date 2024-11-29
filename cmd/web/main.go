@@ -339,7 +339,7 @@ func main() {
 		})
 	})
 
-	r.GET("/users/:username", auth.EnforceAuth, func(c *gin.Context) {
+	r.GET("/users/:username", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		username := c.Param("username")
 
@@ -353,7 +353,7 @@ func main() {
 		ginhelpers.HTML(c, "shared_post.html", web.SharedPost(c, db, &userData, shareID))
 	})
 
-	r.GET("/posts/:id", auth.EnforceAuth, func(c *gin.Context) {
+	r.GET("/posts/:id", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 		editPreview := c.Query("edit_preview") == "true"
@@ -361,7 +361,7 @@ func main() {
 		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID, editPreview))
 	})
 
-	r.GET("/posts/:id/md", auth.EnforceAuth, func(c *gin.Context) {
+	r.GET("/posts/:id/md", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 
@@ -381,7 +381,7 @@ func main() {
 		c.String(http.StatusOK, string(serialized))
 	})
 
-	r.GET("/posts/:id/zip", auth.EnforceAuth, func(c *gin.Context) {
+	r.GET("/posts/:id/zip", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		user := userData.DBUser
 		postID := c.Param("id")

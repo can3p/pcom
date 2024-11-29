@@ -366,7 +366,7 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 			return
 		}
 
-		capabilities := postops.GetPostCapabilities(userData.DBUser.ID, post.UserID, connectionRadius)
+		capabilities := postops.GetPostCapabilities(connectionRadius)
 
 		if !capabilities.CanShare {
 			reportError(c, "Operation not allowed")
@@ -431,7 +431,7 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 			return
 		}
 
-		capabilities := postops.GetPostCapabilities(userData.DBUser.ID, post.UserID, connectionRadius)
+		capabilities := postops.GetPostCapabilities(connectionRadius)
 
 		if !capabilities.CanShare {
 			reportError(c, "Operation not allowed")

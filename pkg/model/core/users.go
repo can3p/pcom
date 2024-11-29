@@ -24,16 +24,17 @@ import (
 
 // User is an object representing the database table.
 type User struct {
-	ID                string      `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Email             string      `boil:"email" json:"email" toml:"email" yaml:"email"`
-	CreatedAt         null.Time   `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
-	UpdatedAt         null.Time   `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
-	Timezone          string      `boil:"timezone" json:"timezone" toml:"timezone" yaml:"timezone"`
-	EmailConfirmedAt  null.Time   `boil:"email_confirmed_at" json:"email_confirmed_at,omitempty" toml:"email_confirmed_at" yaml:"email_confirmed_at,omitempty"`
-	EmailConfirmSeed  null.String `boil:"email_confirm_seed" json:"email_confirm_seed,omitempty" toml:"email_confirm_seed" yaml:"email_confirm_seed,omitempty"`
-	SignupAttribution null.String `boil:"signup_attribution" json:"signup_attribution,omitempty" toml:"signup_attribution" yaml:"signup_attribution,omitempty"`
-	Pwdhash           null.String `boil:"pwdhash" json:"pwdhash,omitempty" toml:"pwdhash" yaml:"pwdhash,omitempty"`
-	Username          string      `boil:"username" json:"username" toml:"username" yaml:"username"`
+	ID                string            `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Email             string            `boil:"email" json:"email" toml:"email" yaml:"email"`
+	CreatedAt         null.Time         `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
+	UpdatedAt         null.Time         `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
+	Timezone          string            `boil:"timezone" json:"timezone" toml:"timezone" yaml:"timezone"`
+	EmailConfirmedAt  null.Time         `boil:"email_confirmed_at" json:"email_confirmed_at,omitempty" toml:"email_confirmed_at" yaml:"email_confirmed_at,omitempty"`
+	EmailConfirmSeed  null.String       `boil:"email_confirm_seed" json:"email_confirm_seed,omitempty" toml:"email_confirm_seed" yaml:"email_confirm_seed,omitempty"`
+	SignupAttribution null.String       `boil:"signup_attribution" json:"signup_attribution,omitempty" toml:"signup_attribution" yaml:"signup_attribution,omitempty"`
+	Pwdhash           null.String       `boil:"pwdhash" json:"pwdhash,omitempty" toml:"pwdhash" yaml:"pwdhash,omitempty"`
+	Username          string            `boil:"username" json:"username" toml:"username" yaml:"username"`
+	ProfileVisibility ProfileVisibility `boil:"profile_visibility" json:"profile_visibility" toml:"profile_visibility" yaml:"profile_visibility"`
 
 	R *userR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -50,6 +51,7 @@ var UserColumns = struct {
 	SignupAttribution string
 	Pwdhash           string
 	Username          string
+	ProfileVisibility string
 }{
 	ID:                "id",
 	Email:             "email",
@@ -61,6 +63,7 @@ var UserColumns = struct {
 	SignupAttribution: "signup_attribution",
 	Pwdhash:           "pwdhash",
 	Username:          "username",
+	ProfileVisibility: "profile_visibility",
 }
 
 var UserTableColumns = struct {
@@ -74,6 +77,7 @@ var UserTableColumns = struct {
 	SignupAttribution string
 	Pwdhash           string
 	Username          string
+	ProfileVisibility string
 }{
 	ID:                "users.id",
 	Email:             "users.email",
@@ -85,9 +89,45 @@ var UserTableColumns = struct {
 	SignupAttribution: "users.signup_attribution",
 	Pwdhash:           "users.pwdhash",
 	Username:          "users.username",
+	ProfileVisibility: "users.profile_visibility",
 }
 
 // Generated where
+
+type whereHelperProfileVisibility struct{ field string }
+
+func (w whereHelperProfileVisibility) EQ(x ProfileVisibility) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.EQ, x)
+}
+func (w whereHelperProfileVisibility) NEQ(x ProfileVisibility) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.NEQ, x)
+}
+func (w whereHelperProfileVisibility) LT(x ProfileVisibility) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelperProfileVisibility) LTE(x ProfileVisibility) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelperProfileVisibility) GT(x ProfileVisibility) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelperProfileVisibility) GTE(x ProfileVisibility) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+func (w whereHelperProfileVisibility) IN(slice []ProfileVisibility) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperProfileVisibility) NIN(slice []ProfileVisibility) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
 
 var UserWhere = struct {
 	ID                whereHelperstring
@@ -100,6 +140,7 @@ var UserWhere = struct {
 	SignupAttribution whereHelpernull_String
 	Pwdhash           whereHelpernull_String
 	Username          whereHelperstring
+	ProfileVisibility whereHelperProfileVisibility
 }{
 	ID:                whereHelperstring{field: "\"users\".\"id\""},
 	Email:             whereHelperstring{field: "\"users\".\"email\""},
@@ -111,6 +152,7 @@ var UserWhere = struct {
 	SignupAttribution: whereHelpernull_String{field: "\"users\".\"signup_attribution\""},
 	Pwdhash:           whereHelpernull_String{field: "\"users\".\"pwdhash\""},
 	Username:          whereHelperstring{field: "\"users\".\"username\""},
+	ProfileVisibility: whereHelperProfileVisibility{field: "\"users\".\"profile_visibility\""},
 }
 
 // UserRels is where relationship names are stored.
@@ -291,9 +333,9 @@ func (r *userR) GetWhoWhitelistedConnections() WhitelistedConnectionSlice {
 type userL struct{}
 
 var (
-	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "username"}
+	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "username", "profile_visibility"}
 	userColumnsWithoutDefault = []string{"id", "email", "timezone", "username"}
-	userColumnsWithDefault    = []string{"created_at", "updated_at", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash"}
+	userColumnsWithDefault    = []string{"created_at", "updated_at", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "profile_visibility"}
 	userPrimaryKeyColumns     = []string{"id"}
 	userGeneratedColumns      = []string{}
 )

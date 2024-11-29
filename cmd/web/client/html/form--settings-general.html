@@ -37,5 +37,24 @@
     {{ end }}
   </div>
 
+  <div class="mb-3">
+    <label for="settingsTimeZone" class="form-label">Profile Visibility</label>
+    <select name="profile_visibility"
+            class="form-control {{ if (.Errors.HasError "profile_visibility") }}is-invalid{{ end }}"
+            >
+        {{ $selected := .User.ProfileVisibility }}
+        {{ if (and .Input .Input.ProfileVisibility) }}
+          {{ $selected_tz = .Input.ProfileVisibility }}
+        {{ end }}
+
+        {{ range .ProfileVisibility }}
+          <option value="{{ .Value }}" {{ if eq .Value $selected_tz }}selected{{ end }}>{{ .Label }}</option>
+        {{ end }}
+    </select>
+    {{ if (.Errors.HasError "profile_visibility") }}
+    <div class="invalid-feedback">{{ .Errors.profile_visibility }}</div>
+    {{ end }}
+  </div>
+
   <button type="submit" class="btn btn-primary">Save Settings</button>
 </form>

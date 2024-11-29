@@ -154,8 +154,8 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	}
 
 	if err := validation.ValidateEnum(f.Input.Visibility,
-		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree},
-		[]string{"direct only", "their connections as well"}); err != nil {
+		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic},
+		[]string{"direct only", "their connections as well", "public"}); err != nil {
 		f.AddError("visibility", err.Error())
 	}
 
@@ -171,7 +171,7 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 			return err
 		}
 
-		capabilities := postops.GetPostCapabilities(f.User.ID, post.UserID, radius)
+		capabilities := postops.GetPostCapabilities(radius)
 
 		if !capabilities.CanEdit {
 			return ginhelpers.ErrForbidden
@@ -205,7 +205,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		Subject:          subject,
 		Body:             body,
 		UserID:           f.User.ID,
-		VisibilityRadius: core.PostVisibility(f.Input.Visibility),
+		VisibilityRadius: f.Input.Visibility,
 	}
 
 	var action = forms.FormSaveDefault(true)

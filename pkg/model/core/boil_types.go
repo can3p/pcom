@@ -106,18 +106,20 @@ type PostVisibility string
 const (
 	PostVisibilityDirectOnly   PostVisibility = "direct_only"
 	PostVisibilitySecondDegree PostVisibility = "second_degree"
+	PostVisibilityPublic       PostVisibility = "public"
 )
 
 func AllPostVisibility() []PostVisibility {
 	return []PostVisibility{
 		PostVisibilityDirectOnly,
 		PostVisibilitySecondDegree,
+		PostVisibilityPublic,
 	}
 }
 
 func (e PostVisibility) IsValid() error {
 	switch e {
-	case PostVisibilityDirectOnly, PostVisibilitySecondDegree:
+	case PostVisibilityDirectOnly, PostVisibilitySecondDegree, PostVisibilityPublic:
 		return nil
 	default:
 		return errors.New("enum is not valid")
@@ -134,6 +136,8 @@ func (e PostVisibility) Ordinal() int {
 		return 0
 	case PostVisibilitySecondDegree:
 		return 1
+	case PostVisibilityPublic:
+		return 2
 
 	default:
 		panic(errors.New("enum is not valid"))
@@ -322,6 +326,50 @@ func (e ConnectionMediationDecision) Ordinal() int {
 		return 0
 	case ConnectionMediationDecisionDismissed:
 		return 1
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
+}
+
+type ProfileVisibility string
+
+// Enum values for ProfileVisibility
+const (
+	ProfileVisibilityConnections     ProfileVisibility = "connections"
+	ProfileVisibilityRegisteredUsers ProfileVisibility = "registered_users"
+	ProfileVisibilityPublic          ProfileVisibility = "public"
+)
+
+func AllProfileVisibility() []ProfileVisibility {
+	return []ProfileVisibility{
+		ProfileVisibilityConnections,
+		ProfileVisibilityRegisteredUsers,
+		ProfileVisibilityPublic,
+	}
+}
+
+func (e ProfileVisibility) IsValid() error {
+	switch e {
+	case ProfileVisibilityConnections, ProfileVisibilityRegisteredUsers, ProfileVisibilityPublic:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e ProfileVisibility) String() string {
+	return string(e)
+}
+
+func (e ProfileVisibility) Ordinal() int {
+	switch e {
+	case ProfileVisibilityConnections:
+		return 0
+	case ProfileVisibilityRegisteredUsers:
+		return 1
+	case ProfileVisibilityPublic:
+		return 2
 
 	default:
 		panic(errors.New("enum is not valid"))

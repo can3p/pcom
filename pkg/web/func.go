@@ -232,6 +232,7 @@ type SettingsPage struct {
 	AvailableInvites int64
 	UsedInvites      core.UserInvitationSlice
 	ActiveAPIKey     *core.UserAPIKey
+	GeneralSettings  *forms.SettingsGeneralForm
 }
 
 func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
@@ -265,6 +266,7 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
 		ActiveAPIKey:     apiKey,
+		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
 	}
 
 	return mo.Ok(settingsPage)
@@ -349,14 +351,21 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 
 	author := post.R.User
 
-	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
+	var visitorID string
 
-	if err != nil {
+	if userData.DBUser != nil {
+		visitorID = userData.DBUser.ID
+	}
+
+	connectionRadius, err := userops.GetConnectionRadius(c, db, visitorID, author.ID)
+
+	if err != nil && err != userops.ErrUserNotSignedIn {
 		return mo.Err[*SinglePostPage](err)
 	}
 
-	if connectionRadius.IsUnrelated() {
-		return mo.Err[*SinglePostPage](ginhelpers.ErrForbidden)
+	if !postops.CanSeePost(post, connectionRadius) {
+		// no need to expose the fact that the post exists, hence 404
+		return mo.Err[*SinglePostPage](ginhelpers.ErrNotFound)
 	}
 
 	constructed := postops.ConstructPost(userData.DBUser, post, connectionRadius, nil, editPreview)
@@ -425,7 +434,7 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		return mo.Err[*EditPostPage](err)
 	}
 
-	capabilities := postops.GetPostCapabilities(userData.DBUser.ID, post.UserID, connectionRadius)
+	capabilities := postops.GetPostCapabilities(connectionRadius)
 
 	if !capabilities.CanEdit {
 		return mo.Err[*EditPostPage](ginhelpers.ErrForbidden)
@@ -473,52 +482,74 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		return mo.Err[*UserHomePage](err)
 	}
 
-	connRadius, err := userops.GetConnectionRadius(ctx, db, userData.DBUser.ID, author.ID)
+	if userops.CannotSeeProfileLite(author, userData.DBUser) {
+		// don't wnat to tell whether a blog exists in the first place
+		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
+	}
+
+	var visitorID string
+	if userData.DBUser != nil {
+		visitorID = userData.DBUser.ID
+	}
+
+	connRadius, err := userops.GetConnectionRadius(ctx, db, visitorID, author.ID)
+
+	if err != nil && err != userops.ErrUserNotSignedIn {
+		return mo.Err[*UserHomePage](err)
+	}
+
+	if !userops.CanSeeProfile(author, userData.DBUser, connRadius) {
+		// don't wnat to tell whether a blog exists in the first place
+		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
+	}
+
+	m := []qm.QueryMod{
+		core.PostWhere.UserID.EQ(author.ID),
+		core.PostWhere.PublishedAt.IsNotNull(),
+		qm.Load(core.PostRels.User),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
+	}
+
+	switch connRadius {
+	case userops.ConnectionRadiusUnknown:
+		// anon users get public posts only
+		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilityPublic}))
+	case userops.ConnectionRadiusSecondDegree:
+		// second degree gets public and second degree posts
+		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}))
+	case userops.ConnectionRadiusDirect:
+		// direct users inlcuding the author have no restrictions
+		fallthrough
+	case userops.ConnectionRadiusSameUser:
+		m = append(m, qm.Load(core.PostRels.PostStat))
+	}
+
+	rawPosts, err := core.Posts(m...).All(ctx, db)
 
 	if err != nil {
 		return mo.Err[*UserHomePage](err)
 	}
 
-	var posts []*postops.Post
+	posts := lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post {
+		return postops.ConstructPost(userData.DBUser, p, connRadius, nil, false)
+	})
 
-	if connRadius != userops.ConnectionRadiusUnknown {
-		m := []qm.QueryMod{
-			core.PostWhere.UserID.EQ(author.ID),
-			core.PostWhere.PublishedAt.IsNotNull(),
-			qm.Load(core.PostRels.User),
-			qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
-		}
+	var isConnectionAllowed bool
+	var mediationRequest *core.UserConnectionMediationRequest
 
-		if connRadius == userops.ConnectionRadiusSecondDegree {
-			m = append(m, core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree))
-		} else {
-			m = append(m, qm.Load(core.PostRels.PostStat))
-		}
-
-		rawPosts, err := core.Posts(m...).All(ctx, db)
+	if userData.DBUser != nil {
+		isConnectionAllowed, err = userops.IsConnectionAllowed(ctx, db, userData.DBUser.ID, author.ID)
 
 		if err != nil {
 			return mo.Err[*UserHomePage](err)
 		}
 
-		posts = lo.Map(rawPosts, func(p *core.Post, idx int) *postops.Post {
-			return postops.ConstructPost(userData.DBUser, p, connRadius, nil, false)
-		})
-	}
+		if connRadius == userops.ConnectionRadiusSecondDegree {
+			mediationRequest, err = userops.GetMediationRequest(ctx, db, userData.DBUser.ID, author.ID)
 
-	isConnectionAllowed, err := userops.IsConnectionAllowed(ctx, db, userData.DBUser.ID, author.ID)
-
-	if err != nil {
-		panic(err)
-	}
-
-	var mediationRequest *core.UserConnectionMediationRequest
-
-	if connRadius == userops.ConnectionRadiusSecondDegree {
-		mediationRequest, err = userops.GetMediationRequest(ctx, db, userData.DBUser.ID, author.ID)
-
-		if err != nil {
-			panic(err)
+			if err != nil {
+				return mo.Err[*UserHomePage](err)
+			}
 		}
 	}
 
