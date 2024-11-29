@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -82,6 +83,16 @@ func EnforceAuth(c *gin.Context) {
 	if !userData.IsLoggedIn {
 		c.Redirect(http.StatusFound, "/")
 		c.Abort()
+		return
+	}
+
+	c.Next()
+}
+
+func EnforceReferer(c *gin.Context) {
+	referer := c.Request.Header.Get("referer")
+	if referer == "" || !strings.HasPrefix(referer, util.SiteRoot()) {
+		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 

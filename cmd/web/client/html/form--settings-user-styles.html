@@ -1,0 +1,21 @@
+<form
+      method="POST"
+      action="{{ link "form_user_styles" }}"
+      hx-post="{{ link "form_user_styles" }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="this"
+      >
+
+  <div class="mb-3">
+    <label for="settingsStyles" class="form-label">Add your css below</label>
+    <textarea name="styles"
+              class="form-control {{ if (.Errors.HasError "styles") }}is-invalid{{ end }}"
+              id="settingsStyles"
+              required>{{ if .Input }}{{ .Input.Styles }}{{ end }}</textarea>
+    {{ if (.Errors.HasError "styles") }}
+    <div class="invalid-feedback">{{ .Errors.styles }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save styles</button>
+</form>

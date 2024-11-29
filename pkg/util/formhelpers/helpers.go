@@ -2,6 +2,7 @@ package formhelpers
 
 import (
 	"encoding/json"
+	"net/http"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/gin-gonic/gin"
@@ -28,4 +29,16 @@ func Trigger(action forms.FormSaveAction, events gin.H) forms.FormSaveAction {
 		c.Header("HX-Trigger", string(b))
 		action(c, f)
 	}
+}
+
+func NoContent() forms.FormSaveAction {
+	return func(c *gin.Context, f forms.Form) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func SuccessBadge(msg string) forms.FormSaveAction {
+	return Trigger(
+		NoContent(),
+		gin.H{"operation:success": gin.H{"explanation": msg}})
 }
