@@ -18,6 +18,7 @@ var TableNames = struct {
 	UserConnections                 string
 	UserInvitations                 string
 	UserSignupRequests              string
+	UserStyles                      string
 	Users                           string
 	WhitelistedConnections          string
 }{
@@ -35,6 +36,7 @@ var TableNames = struct {
 	UserConnections:                 "user_connections",
 	UserInvitations:                 "user_invitations",
 	UserSignupRequests:              "user_signup_requests",
+	UserStyles:                      "user_styles",
 	Users:                           "users",
 	WhitelistedConnections:          "whitelisted_connections",
 }
