@@ -106,18 +106,20 @@ type PostVisibility string
 const (
 	PostVisibilityDirectOnly   PostVisibility = "direct_only"
 	PostVisibilitySecondDegree PostVisibility = "second_degree"
+	PostVisibilityPublic       PostVisibility = "public"
 )
 
 func AllPostVisibility() []PostVisibility {
 	return []PostVisibility{
 		PostVisibilityDirectOnly,
 		PostVisibilitySecondDegree,
+		PostVisibilityPublic,
 	}
 }
 
 func (e PostVisibility) IsValid() error {
 	switch e {
-	case PostVisibilityDirectOnly, PostVisibilitySecondDegree:
+	case PostVisibilityDirectOnly, PostVisibilitySecondDegree, PostVisibilityPublic:
 		return nil
 	default:
 		return errors.New("enum is not valid")
@@ -134,6 +136,8 @@ func (e PostVisibility) Ordinal() int {
 		return 0
 	case PostVisibilitySecondDegree:
 		return 1
+	case PostVisibilityPublic:
+		return 2
 
 	default:
 		panic(errors.New("enum is not valid"))
