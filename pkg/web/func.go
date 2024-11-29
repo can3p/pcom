@@ -232,6 +232,7 @@ type SettingsPage struct {
 	AvailableInvites int64
 	UsedInvites      core.UserInvitationSlice
 	ActiveAPIKey     *core.UserAPIKey
+	GeneralSettings  *forms.SettingsGeneralForm
 }
 
 func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
@@ -265,6 +266,7 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
 		ActiveAPIKey:     apiKey,
+		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
 	}
 
 	return mo.Ok(settingsPage)

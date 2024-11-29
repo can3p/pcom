@@ -1,16 +1,15 @@
 {{ template "header.html" . }}
 
-{{ $user := .User.DBUser }}
 <div class="container mt-lg-4 mt-2">
   <h1>Settings</h1>
 
-  <div class="row">
+  <div class="rmw">
     <div class="col-lg-6 mt-2">
 
       <div class="card">
         <h5 class="card-header">General</h5>
         <div class="card-body">
-          {{ template "form--settings-general.html" toMap "User" $user }}
+          {{ template "form--settings-general.html" .GeneralSettings.TemplateData }}
         </div>
       </div>
 
