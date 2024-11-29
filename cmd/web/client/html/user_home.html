@@ -4,6 +4,7 @@
   <div class="row justify-content-md-center mt-lg-4 mt-2">
     <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; Latest Posts</h1>
 
+    {{ if .User.IsLoggedIn }}
     <div class="alert alert-info mt-2" role="alert">
       {{ if .ConnectionRadius.IsSameUser }}You're reading your own journal
       {{- else if .ConnectionRadius.IsDirect }}
@@ -54,6 +55,7 @@
         {{ end }}
       {{- else if .ConnectionRadius.IsUnrelated }}You have no relation to {{ .Author.Username }}{{ end }}
     </div>
+    {{ end }}
 
     {{ if .ConnectionRadius.IsUnrelated }}
     <p>You are not allowed to see posts in this journal</p>
