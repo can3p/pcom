@@ -608,7 +608,7 @@ type FeedPage struct {
 	Items             []*FeedItem
 }
 
-func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, onlyPosts bool) mo.Result[*FeedPage] {
 	user := userData.DBUser
 	title := "Your Feed"
 
@@ -627,7 +627,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 			core.PostWhere.UserID.IN(directUserIDs),
 			qm.Or2(qm.Expr(
 				core.PostWhere.UserID.IN(secondDegreeUserIDs),
-				core.PostWhere.VisibilityRadius.EQ(core.PostVisibilitySecondDegree),
+				core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}),
 			))),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
@@ -674,6 +674,14 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo
 			Post: postops.ConstructPost(userData.DBUser, p, radius, viaUsers, false),
 		}
 	})
+
+	if onlyPosts {
+		feedPage := &FeedPage{
+			Items: items,
+		}
+
+		return mo.Ok(feedPage)
+	}
 
 	comments, err := getComments(ctx, db, user.ID)
 

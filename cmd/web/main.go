@@ -46,6 +46,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq" // postgres db driver
 	"github.com/mileusna/useragent"
+	"github.com/samber/lo"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -503,7 +504,53 @@ func main() {
 	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData))
+		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData, false))
+	})
+
+	r.GET("/rss/private/:key", func(c *gin.Context) {
+		api, err := core.UserAPIKeys(
+			core.UserAPIKeyWhere.APIKey.EQ(c.Param("key")),
+			qm.Load(core.UserAPIKeyRels.User),
+		).One(c, db)
+
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		user := api.R.User
+
+		userData := &auth.UserData{
+			DBUser: user,
+		}
+
+		// just a hack to avoid extracting the logic to get the posts
+		userFeed := web.Feed(c, db, userData, true)
+
+		if userFeed.IsError() {
+			_ = c.AbortWithError(http.StatusInternalServerError, userFeed.Error())
+			return
+		}
+
+		posts := lo.Map(userFeed.MustGet().Items, func(item *web.FeedItem, index int) *postops.Post {
+			return item.Post
+		})
+
+		feed := rss.ToFeed(
+			"User feed @"+user.Username,
+			links.AbsLink("feed", user.Username),
+			user,
+			posts,
+		)
+
+		c.Header("Content-Type", "text/xml")
+
+		rss, err := feed.ToRss()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.String(http.StatusOK, rss)
 	})
 
 	controls := r.Group("/controls", auth.EnforceAuth)

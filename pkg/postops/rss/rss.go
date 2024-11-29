@@ -18,9 +18,13 @@ func ToFeed(title string, link string, author *core.User, posts []*postops.Post)
 	items := []*feeds.Item{}
 
 	for _, post := range posts {
-		content := markdown.ToEnrichedTemplate(post.Body, types.ViewRSS, links.MediaReplacer, func(in string, add2 ...string) string {
-			return links.AbsLink(in, add2...)
-		})
+		content := "Post is not public, follow the link to read the text"
+
+		if post.VisibilityRadius == core.PostVisibilityPublic {
+			content = string(markdown.ToEnrichedTemplate(post.Body, types.ViewRSS, links.MediaReplacer, func(in string, add2 ...string) string {
+				return links.AbsLink(in, add2...)
+			}))
+		}
 
 		items = append(items, &feeds.Item{
 			Title: post.Subject,
@@ -38,7 +42,7 @@ func ToFeed(title string, link string, author *core.User, posts []*postops.Post)
 				}(),
 			},
 			Link:        &feeds.Link{Href: links.AbsLink("post", post.ID)},
-			Description: string(content),
+			Description: content,
 			Created:     post.CreatedAt.Time,
 		})
 	}
