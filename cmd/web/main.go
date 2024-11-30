@@ -405,6 +405,7 @@ func main() {
 
 		if user == nil || user.R.UserStyle == nil || strings.TrimSpace(user.R.UserStyle.Styles) == "" {
 			c.AbortWithStatus(http.StatusNotFound)
+			return
 		}
 
 		headerUA := c.Request.Header.Get("User-Agent")
