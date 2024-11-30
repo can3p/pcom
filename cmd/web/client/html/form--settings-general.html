@@ -44,11 +44,11 @@
             >
         {{ $selected := .User.ProfileVisibility }}
         {{ if (and .Input .Input.ProfileVisibility) }}
-          {{ $selected_tz = .Input.ProfileVisibility }}
+          {{ $selected = .Input.ProfileVisibility }}
         {{ end }}
 
         {{ range .ProfileVisibility }}
-          <option value="{{ .Value }}" {{ if eq .Value $selected_tz }}selected{{ end }}>{{ .Label }}</option>
+          <option value="{{ .Value }}" {{ if eq .Value $selected }}selected{{ end }}>{{ .Label }}</option>
         {{ end }}
     </select>
     {{ if (.Errors.HasError "profile_visibility") }}
