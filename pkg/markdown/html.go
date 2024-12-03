@@ -35,7 +35,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 
 	nodeRenderers := util.PrioritizedSlice{
 		// we let gallery block do it's own business
-		util.Prioritized(lazyload.NewImgLazyLoadRenderer(mediaReplacer, func(n ast.Node) bool {
+		util.Prioritized(lazyload.NewImgLazyLoadRenderer(view, mediaReplacer, func(n ast.Node) bool {
 			t, ok := n.(*blocktags.BlockTag)
 
 			if !ok {
