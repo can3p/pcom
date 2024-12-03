@@ -12,9 +12,10 @@ import (
 
 type ParentChecker func(n ast.Node) bool
 
-func NewImgLazyLoadRenderer(mediaReplacer types.Replacer[string], forbiddenParent ParentChecker, opts ...html.Option) renderer.NodeRenderer {
+func NewImgLazyLoadRenderer(view types.HTMLView, mediaReplacer types.Replacer[string], forbiddenParent ParentChecker, opts ...html.Option) renderer.NodeRenderer {
 	r := &LazyLoadRenderer{
 		Config:          html.NewConfig(),
+		view:            view,
 		mediaReplacer:   mediaReplacer,
 		forbiddenParent: forbiddenParent,
 	}
@@ -26,6 +27,7 @@ func NewImgLazyLoadRenderer(mediaReplacer types.Replacer[string], forbiddenParen
 
 type LazyLoadRenderer struct {
 	html.Config
+	view            types.HTMLView
 	mediaReplacer   types.Replacer[string]
 	forbiddenParent ParentChecker
 }
@@ -70,7 +72,11 @@ func (r *LazyLoadRenderer) renderImage(w util.BufWriter, source []byte, node ast
 		}
 		_, _ = w.WriteString("\">")
 	}
-	_, _ = w.WriteString("<img class=\"lazyload mx-auto d-block img standalone-img\" data-src=\"")
+	if r.view == types.ViewEmail || r.view == types.ViewRSS {
+		_, _ = w.WriteString("<img src=\"")
+	} else {
+		_, _ = w.WriteString("<img class=\"lazyload mx-auto d-block img standalone-img\" data-src=\"")
+	}
 	if r.Unsafe || !html.IsDangerousURL([]byte(imgUrl)) {
 		_, _ = w.Write(util.EscapeHTML(util.URLEscape([]byte(imgUrl), true)))
 	}
