@@ -6,7 +6,7 @@
         <div class="card mb-3">
           <h5 class="card-header">Welcome back!</h5>
           <div class="card-body mt-3">
-            {{ template "form--login.html" }}
+            {{ template "form--login.html" toMap "ReturnURL" .ReturnURL "Sign" .Sign }}
           </div>
         </div>
       </div>

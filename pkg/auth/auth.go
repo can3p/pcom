@@ -2,15 +2,19 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/admin"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/userops"
@@ -81,12 +85,26 @@ func EnforceAuth(c *gin.Context) {
 	userData := GetUserData(c)
 
 	if !userData.IsLoggedIn {
-		c.Redirect(http.StatusFound, "/")
+		RedirectToLogin(c)
 		c.Abort()
 		return
 	}
 
 	c.Next()
+}
+
+func HashValue(v string) string {
+	sessionSalt := os.Getenv("SESSION_SALT")
+	data := []byte(sessionSalt + ":" + v)
+	hash := sha256.Sum256(data)
+
+	return fmt.Sprintf("%x", hash)
+}
+
+func RedirectToLogin(c *gin.Context) {
+	path := c.Request.URL.Path
+	// we need to sign return url
+	c.Redirect(http.StatusFound, links.Link("login", "return_url", path, "sign", HashValue(path)))
 }
 
 func EnforceReferer(c *gin.Context) {

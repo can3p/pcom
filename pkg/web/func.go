@@ -381,6 +381,10 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 
 	if !postops.CanSeePost(post, connectionRadius) {
 		// no need to expose the fact that the post exists, hence 404
+		if !userData.IsLoggedIn {
+			return mo.Err[*SinglePostPage](ginhelpers.ErrNeedsLogin)
+		}
+
 		return mo.Err[*SinglePostPage](ginhelpers.ErrNotFound)
 	}
 
@@ -817,11 +821,15 @@ func getComments(ctx context.Context, db boil.ContextExecutor, userID string) ([
 
 type LoginPage struct {
 	*BasePage
+	ReturnURL string
+	Sign      string
 }
 
-func Login(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) *LoginPage {
+func Login(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, returnUrl string, sign string) *LoginPage {
 	invitePage := &LoginPage{
-		BasePage: getBasePage(c, "Login", userData),
+		BasePage:  getBasePage(c, "Login", userData),
+		ReturnURL: returnUrl,
+		Sign:      sign,
 	}
 
 	return invitePage

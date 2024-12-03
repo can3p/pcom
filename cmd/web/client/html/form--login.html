@@ -5,6 +5,9 @@
       hx-disabled-elt="this"
   >
 
+  <input type="hidden" name="return_url" value="{{ .ReturnURL }}" />
+  <input type="hidden" name="sign" value="{{ .Sign }}" />
+
   {{ with .FormError }}
   <div class="alert alert-danger">{{ . }}</div>
   {{ end }}

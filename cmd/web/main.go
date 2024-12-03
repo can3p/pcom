@@ -287,7 +287,15 @@ func main() {
 			return
 		}
 
-		c.HTML(http.StatusOK, "login.html", web.Login(c, db, &userData))
+		returnUrl := c.Query("return_url")
+		sign := c.Query("sign")
+
+		if auth.HashValue(returnUrl) != sign {
+			returnUrl = ""
+			sign = ""
+		}
+
+		c.HTML(http.StatusOK, "login.html", web.Login(c, db, &userData, returnUrl, sign))
 	})
 
 	r.GET("/signup", func(c *gin.Context) {

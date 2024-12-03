@@ -3,6 +3,7 @@ package ginhelpers
 import (
 	"net/http"
 
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/friendsofgo/errors"
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,7 @@ import (
 )
 
 var ErrNotFound = errors.Errorf("not found")
+var ErrNeedsLogin = errors.Errorf("needs login")
 var ErrForbidden = errors.Errorf("forbidden")
 var ErrBadRequest = errors.Errorf("invalid input")
 
@@ -28,6 +30,10 @@ func HTML[T any](c *gin.Context, templateName string, result mo.Result[T]) {
 		httpCode = http.StatusForbidden
 	case ErrBadRequest:
 		httpCode = http.StatusBadRequest
+	case ErrNeedsLogin:
+		auth.RedirectToLogin(c)
+		c.Abort()
+		return
 	}
 
 	if util.InCluster() {
