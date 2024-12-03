@@ -447,6 +447,7 @@ func main() {
 
 		if post.IsError() {
 			ginhelpers.HTML(c, "single_post.html", post)
+			return
 		}
 
 		c.Header("Content-Type", "text/plain")
@@ -468,6 +469,7 @@ func main() {
 
 		if post.IsError() {
 			ginhelpers.HTML(c, "single_post.html", post)
+			return
 		}
 
 		b, err := postops.SerializeBlog(c, db, mediaServer, user.ID, core.PostWhere.ID.EQ(postID))
