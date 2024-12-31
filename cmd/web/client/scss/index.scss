@@ -170,3 +170,93 @@ html, body {
 .comment-textarea {
   height: 13em;
 }
+
+:root {
+  --primary-color: #3498db;
+  --secondary-color: #2c3e50;
+  --background-color: #f4f6f7;
+  --text-color: #495057;
+  --muted-text: #6c757d;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+.user-home {
+  padding: 1.5rem;
+}
+
+
+.user-header a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.post-prompt {
+  background-color: white;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.post-prompt .form-control {
+  border-color: #ced4da;
+}
+
+.post-prompt .btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+
+.feed-comment .card-header,
+.feed-post .card-header {
+  background-color: #f8f9fa;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.feed-comment .card-header a,
+.feed-post .card-header a {
+  color: var(--secondary-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.feed-comment .card-body,
+.feed-post .card-body {
+  padding: 1.25rem;
+}
+
+.post-in-feed {
+  color: var(--text-color);
+}
+
+.feed-post-stats,
+.comment-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: var(--muted-text);
+  font-size: 0.875rem;
+}
+
+.feed-post-stats a,
+.comment-stats a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.post-date {
+  color: var(--muted-text);
+  font-weight: normal;
+}
