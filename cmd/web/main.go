@@ -412,7 +412,8 @@ func main() {
 		}
 
 		if user == nil || user.R.UserStyle == nil || strings.TrimSpace(user.R.UserStyle.Styles) == "" {
-			c.AbortWithStatus(http.StatusNotFound)
+			c.Header("Content-Type", "text/css; charset=utf-8")
+			c.String(http.StatusOK, "")
 			return
 		}
 
