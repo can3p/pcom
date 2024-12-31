@@ -2,15 +2,16 @@ ARG VERSION
 
 FROM golang:alpine AS builder
 WORKDIR /build
-RUN apk add --no-cache --update ca-certificates make git bash less vim yarn
+RUN apk add --no-cache --update ca-certificates make git bash less vim yarn libwebp-dev libwebp-tools
 RUN ls -la
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN GOOS=linux GOARCH=amd64 go build -buildvcs=false ./cmd/web
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildvcs=false ./cmd/web
 RUN cd cmd/web && yarn && yarn production
 
 FROM alpine
+RUN apk add --no-cache libwebp
 COPY --from=builder /build/web /
 COPY --from=builder /build/cmd/web/dist /dist
 COPY --from=builder /build/cmd/web/client /client
