@@ -11,7 +11,7 @@
     <textarea name="styles"
               class="form-control {{ if (.Errors.HasError "styles") }}is-invalid{{ end }}"
               id="settingsStyles"
-              required>{{ if .Input }}{{ .Input.Styles }}{{ end }}</textarea>
+              >{{ if .Input }}{{ .Input.Styles }}{{ end }}</textarea>
     {{ if (.Errors.HasError "styles") }}
     <div class="invalid-feedback">{{ .Errors.styles }}</div>
     {{ end }}

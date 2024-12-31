@@ -37,7 +37,7 @@ func SettingsUserStylesNew(u *core.User) *SettingsUserStyles {
 }
 
 func (f *SettingsUserStyles) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	if err := validation.ValidateMinMax("styles", f.Input.Styles, 3, 10_000); err != nil {
+	if err := validation.ValidateMinMax("styles", f.Input.Styles, 0, 10_000); err != nil {
 		f.AddError("styles", err.Error())
 	}
 
