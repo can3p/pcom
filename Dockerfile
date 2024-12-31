@@ -2,7 +2,7 @@ ARG VERSION
 
 FROM golang:alpine AS builder
 WORKDIR /build
-RUN apk add --no-cache --update ca-certificates make git bash less vim yarn libwebp-dev libwebp-tools
+RUN apk add --no-cache --update ca-certificates make git bash less vim yarn libwebp-dev libwebp-tools gcc musl-dev
 RUN ls -la
 COPY go.mod go.sum ./
 RUN go mod download
