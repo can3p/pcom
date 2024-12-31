@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
@@ -231,7 +232,7 @@ type ApiUploadImageResponse struct {
 	ImageID string `json:"image_id"`
 }
 
-func ApiUploadImage(c *gin.Context, db *sqlx.DB, dbUser *core.User, mediaServer media.MediaServer) mo.Result[*ApiUploadImageResponse] {
+func ApiUploadImage(c *gin.Context, db *sqlx.DB, dbUser *core.User, mediaStorage server.MediaStorage) mo.Result[*ApiUploadImageResponse] {
 	file, err := c.FormFile("file")
 
 	if err != nil {
@@ -247,7 +248,7 @@ func ApiUploadImage(c *gin.Context, db *sqlx.DB, dbUser *core.User, mediaServer 
 	var fname string
 
 	err = transact.Transact(db, func(tx *sql.Tx) error {
-		fname, err = media.HandleUpload(c, db, mediaServer, dbUser.ID, f)
+		fname, err = media.HandleUpload(c, db, mediaStorage, dbUser.ID, f)
 		return err
 	})
 

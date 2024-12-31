@@ -26,9 +26,9 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/media/local"
-	"github.com/can3p/pcom/pkg/media/s3"
+	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/media/server/storage/local"
+	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/postops"
@@ -98,7 +98,7 @@ func main() {
 	defer cancel()
 
 	var sender sender.Sender
-	var mediaServer media.MediaServer
+	var mediaStorage server.MediaStorage
 
 	if shouldUseRealSender {
 		sender = mailjet.NewSender()
@@ -113,19 +113,24 @@ func main() {
 
 	if shouldUseS3 {
 		var err error
-		mediaServer, err = s3.NewS3Server()
+		mediaStorage, err = s3.NewS3Server()
 
 		if err != nil {
 			panic(err)
 		}
 	} else {
 		var err error
-		mediaServer, err = local.NewLocalServer("user_media")
+		mediaStorage, err = local.NewLocalServer("user_media")
 
 		if err != nil {
 			panic(err)
 		}
 	}
+
+	mediaServer := server.New(mediaStorage,
+		server.WithClass("thumb", server.ClassParams{Width: 720}),
+		server.WithPermaCache(util.InCluster()),
+	)
 
 	if !util.InCluster() {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -175,7 +180,7 @@ func main() {
 
 	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
 
-	setupApi(apiGroup, db, sender, mediaServer)
+	setupApi(apiGroup, db, sender, mediaStorage)
 
 	r := router.Group("/", sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
 
@@ -218,14 +223,11 @@ func main() {
 			return
 		}
 
-		content, contentLength, contentType, err := mediaServer.ServeFile(c, fname)
+		err := mediaServer.ServeImage(c, c.Request, c.Writer, fname)
 
 		if err != nil {
 			panic(err)
 		}
-
-		c.Header("cache-control", "max-age=31536000, public")
-		c.DataFromReader(http.StatusOK, contentLength, contentType, content, nil)
 	})
 
 	r.GET("/invite/:id", func(c *gin.Context) {
@@ -481,7 +483,7 @@ func main() {
 			return
 		}
 
-		b, err := postops.SerializeBlog(c, db, mediaServer, user.ID, core.PostWhere.ID.EQ(postID))
+		b, err := postops.SerializeBlog(c, db, mediaStorage, user.ID, core.PostWhere.ID.EQ(postID))
 
 		if err != nil {
 			panic(err)
@@ -570,7 +572,7 @@ func main() {
 
 	actions.POST("/logout", auth.Logout)
 
-	setupActions(actions, db, mediaServer)
+	setupActions(actions, db, mediaStorage)
 
 	controls.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)

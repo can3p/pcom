@@ -11,7 +11,7 @@ import (
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
@@ -24,7 +24,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
-func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer) {
+func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaStorage server.MediaStorage) {
 	r.POST("/remove_from_whitelist", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
@@ -453,7 +453,7 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 	r.POST("/upload_media", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		res := web.ApiUploadImage(c, db, userData.DBUser, mediaServer)
+		res := web.ApiUploadImage(c, db, userData.DBUser, mediaStorage)
 
 		if res.IsError() {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", res.Error()))
@@ -472,7 +472,7 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		userData := auth.GetUserData(c)
 		user := userData.User.DBUser
 
-		b, err := postops.SerializeBlog(c, db, mediaServer, user.ID)
+		b, err := postops.SerializeBlog(c, db, mediaStorage, user.ID)
 
 		if err != nil {
 			panic(err)
@@ -529,7 +529,7 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaServer media.MediaServer
 		var stats *postops.InjectStats
 
 		err = transact.Transact(db, func(tx *sql.Tx) error {
-			stats, err = postops.InjectPostsInDB(c, tx, mediaServer, user.ID, posts, images)
+			stats, err = postops.InjectPostsInDB(c, tx, mediaStorage, user.ID, posts, images)
 
 			return err
 		})

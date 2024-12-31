@@ -11,6 +11,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/google/uuid"
@@ -52,7 +53,7 @@ func isURLMediaUpload(url string) bool {
 	return err == nil
 }
 
-func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaServer media.MediaServer, userID string, m ...qm.QueryMod) ([]byte, error) {
+func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaStorage server.MediaStorage, userID string, m ...qm.QueryMod) ([]byte, error) {
 	mod := []qm.QueryMod{
 		core.PostWhere.UserID.EQ(userID),
 	}
@@ -100,7 +101,7 @@ func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaServer m
 			continue
 		}
 
-		r, _, _, err := mediaServer.ServeFile(ctx, img.URL)
+		r, _, _, err := mediaStorage.DownloadFile(ctx, img.URL)
 
 		if err == media.ErrNotFound {
 			missingImages = append(missingImages, img.URL)

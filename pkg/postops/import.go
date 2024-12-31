@@ -12,6 +12,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -173,7 +174,7 @@ type InjectStats struct {
 	ImagesSkipped  int
 }
 
-func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaServer media.MediaServer, userID string, posts []*core.Post, images map[string][]byte) (*InjectStats, error) {
+func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorage server.MediaStorage, userID string, posts []*core.Post, images map[string][]byte) (*InjectStats, error) {
 	stats := &InjectStats{}
 
 	// current assumption: if you've guessed the name of the file in db, we assume
@@ -201,7 +202,7 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaServer
 	}
 
 	for name, b := range images {
-		fname, err := media.HandleUpload(ctx, exec, mediaServer, userID, bytes.NewReader(b))
+		fname, err := media.HandleUpload(ctx, exec, mediaStorage, userID, bytes.NewReader(b))
 
 		if err != nil {
 			return nil, err

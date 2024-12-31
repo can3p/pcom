@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -13,12 +14,7 @@ import (
 
 var ErrNotFound = errors.Errorf("Resource not found")
 
-type MediaServer interface {
-	UploadFile(ctx context.Context, fname string, b []byte, contentType string) error
-	ServeFile(ctx context.Context, fname string) (io.Reader, int64, string, error)
-}
-
-func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media MediaServer, userID string, reader io.Reader) (string, error) {
+func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID string, reader io.Reader) (string, error) {
 	bytes, err := io.ReadAll(reader)
 
 	if err != nil {

@@ -4,14 +4,14 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
 
-func setupApi(r *gin.RouterGroup, db *sqlx.DB, sender sender.Sender, mediaServer media.MediaServer) {
+func setupApi(r *gin.RouterGroup, db *sqlx.DB, sender sender.Sender, mediaStorage server.MediaStorage) {
 	r.GET("/posts", func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
@@ -39,6 +39,6 @@ func setupApi(r *gin.RouterGroup, db *sqlx.DB, sender sender.Sender, mediaServer
 	r.PUT("/image", func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
-		ginhelpers.API(c, web.ApiUploadImage(c, db, userData.DBUser, mediaServer))
+		ginhelpers.API(c, web.ApiUploadImage(c, db, userData.DBUser, mediaStorage))
 	})
 }

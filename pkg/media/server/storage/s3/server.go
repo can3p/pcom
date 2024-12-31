@@ -62,7 +62,7 @@ func (s3s *s3Server) UploadFile(ctx context.Context, fname string, b []byte, con
 	return err
 }
 
-func (s3s *s3Server) ServeFile(ctx context.Context, fname string) (io.Reader, int64, string, error) {
+func (s3s *s3Server) DownloadFile(ctx context.Context, fname string) (io.Reader, int64, string, error) {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(s3s.bucket),
 		Key:    aws.String(fname),
