@@ -62,7 +62,7 @@ func (ls *localServer) UploadFile(ctx context.Context, fname string, b []byte, c
 	return os.WriteFile(filePath, b, 0644)
 }
 
-func (ls *localServer) DownloadFile(ctx context.Context, fname string) (io.Reader, int64, string, error) {
+func (ls *localServer) DownloadFile(ctx context.Context, fname string) (io.ReadCloser, int64, string, error) {
 	filePath := path.Join(ls.path, fname)
 
 	b, err := os.ReadFile(filePath)
@@ -79,5 +79,5 @@ func (ls *localServer) DownloadFile(ctx context.Context, fname string) (io.Reade
 
 	reader := bytes.NewReader(b)
 
-	return reader, int64(len(b)), ftype, nil
+	return io.NopCloser(reader), int64(len(b)), ftype, nil
 }

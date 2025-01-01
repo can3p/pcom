@@ -8,7 +8,7 @@ import (
 
 type MediaStorage interface {
 	UploadFile(ctx context.Context, fname string, b []byte, contentType string) error
-	DownloadFile(ctx context.Context, fname string) (io.Reader, int64, string, error)
+	DownloadFile(ctx context.Context, fname string) (io.ReadCloser, int64, string, error)
 }
 
 type MediaServer interface {

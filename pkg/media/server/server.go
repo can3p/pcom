@@ -66,6 +66,8 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 		return nil, "", err
 	}
 
+	defer dl.Close()
+
 	img, err := s.encoder.Decode(dl)
 
 	if err != nil {
