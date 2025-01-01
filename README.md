@@ -5,6 +5,10 @@ for more details.
 
 If you want to follow the development, there is a [youtube playlist](https://www.youtube.com/playlist?list=PLa5K-kCUS-FozB6Cw7rJLFJaxyZd-MPpi) with demos!
 
+## Dependencies
+
+* [libwebp](https://developers.google.com/speed/webp/docs/api)
+
 ## Dev Setup
 
 * Install go, asdf, postgres, watchexec
