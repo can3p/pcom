@@ -21,11 +21,16 @@ jobs:
           go-version: '1.21'
           cache: true
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebp-dev
+
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
+          version: v1.54.2
           args: --timeout=5m
+          skip-pkg-cache: true
+          skip-build-cache: true
 
       - name: Build
         run: go build -v ./...
@@ -34,4 +39,4 @@ jobs:
         run: go test -v ./...
 
       - name: Run Linter
-        run: golangci-lint run ./... --timeout=5m
+        run: golangci-lint run ./... --timeout=5m --out-format=colored-line-number
