@@ -33,7 +33,7 @@ func CanPromptNow(ctx context.Context, exec boil.ContextExecutor, askerID string
 		return nil
 	}
 
-	return fmt.Errorf("You cannot send prompts for another %s", util.FormatDuration(time.Until(lastPrompt.CreatedAt.Add(promptTimeout))))
+	return fmt.Errorf("you cannot send prompts for another %s", util.FormatDuration(time.Until(lastPrompt.CreatedAt.Add(promptTimeout))))
 }
 
 type PostPrompt struct {
