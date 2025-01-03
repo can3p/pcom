@@ -7,9 +7,8 @@ linters:
     - ineffassign
     - unused
     - misspell
+  disable:
     - goimports
-    - revive
-    - errcheck
 
 run:
   timeout: 5m
@@ -21,15 +20,3 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/can3p/pcom
-  revive:
-    rules:
-      - name: exported
-        severity: warning
-        disabled: false
-      - name: package-comments
-        severity: warning
-        disabled: false
