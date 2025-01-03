@@ -33,7 +33,7 @@ func GetUser(c *gin.Context) *User {
 }
 
 func SetUser(c *gin.Context, db *sqlx.DB, userID string) error {
-	u, err := core.FindUser(context.TODO(), db, userID)
+	u, err := core.FindUser(c.Request.Context(), db, userID)
 
 	if err != nil {
 		return err

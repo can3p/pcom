@@ -124,7 +124,7 @@ func CheckCredentials(c *gin.Context, db boil.ContextExecutor, email string, pas
 		core.UserWhere.Email.EQ(email),
 		core.UserWhere.Pwdhash.EQ(null.StringFrom(h)),
 		core.UserWhere.EmailConfirmedAt.IsNotNull(),
-	).One(context.TODO(), db)
+	).One(c.Request.Context(), db)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -145,7 +145,7 @@ func Login(c *gin.Context, db boil.ContextExecutor, email string, password strin
 		core.UserWhere.Email.EQ(email),
 		core.UserWhere.Pwdhash.EQ(null.StringFrom(h)),
 		core.UserWhere.EmailConfirmedAt.IsNotNull(),
-	).One(context.TODO(), db)
+	).One(c.Request.Context(), db)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
