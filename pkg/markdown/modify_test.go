@@ -23,11 +23,14 @@ wwww
 
 ![IMG_2693.jpeg](keepme.jpg)`
 
-	res := ReplaceImageUrls(src, map[string]string{
-		"replaceme.jpg": "replaced11111111111111111111111111111.jpg",
-	}, map[string]struct{}{
-		"keepme.jpg": {},
-	})
+	res := ReplaceImageUrls(src, ImportReplacer(
+		map[string]string{
+			"replaceme.jpg": "replaced11111111111111111111111111111.jpg",
+		},
+		map[string]struct{}{
+			"keepme.jpg": {},
+		},
+	))
 
 	assert.Equal(t, expected, res)
 }

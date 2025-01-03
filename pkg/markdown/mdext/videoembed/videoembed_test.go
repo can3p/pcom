@@ -7,6 +7,7 @@ import (
 
 	"github.com/alecthomas/assert/v2"
 	"github.com/can3p/pcom/pkg/links/media"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
@@ -21,7 +22,7 @@ func TestVideoEmbed(t *testing.T) {
 		),
 		goldmark.WithRendererOptions(
 			renderer.WithNodeRenderers(
-				util.Prioritized(NewVideoEmbedRenderer(), 500),
+				util.Prioritized(NewVideoEmbedRenderer(types.ViewArticle), 500),
 			),
 		),
 	)
