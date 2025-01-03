@@ -121,7 +121,7 @@ this is hidden
 <div class="block-container-spoiler" data-controller="spoiler">
 <div class="block-container-spoiler-summary">Open Spoiler</div>
 <div class="block-container-spoiler-content">
-<div class="block-container-gallery">
+<div class="block-container-gallery" data-controller="gallery">
 <div class="block-container-gallery-content">
 <p>this is hidden</p>
 </div>
@@ -133,7 +133,7 @@ this is hidden
 			in: []byte(`
 {gallery there is no title for gallery}
 `),
-			out: `<div class="block-container-gallery">
+			out: `<div class="block-container-gallery" data-controller="gallery">
 <div class="block-container-gallery-content">
 </div>
 </div>`,
@@ -141,14 +141,16 @@ this is hidden
 	}
 
 	for idx, ex := range examples {
-		in := ex.in
-		out := ex.out
+		t.Run(string(ex.in), func(t *testing.T) {
+			in := ex.in
+			out := ex.out
 
-		var writer bytes.Buffer
+			var writer bytes.Buffer
 
-		_ = parser.Convert(in, &writer)
+			_ = parser.Convert(in, &writer)
 
-		assert.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
+			assert.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
+		})
 	}
 }
 
@@ -288,7 +290,7 @@ this is hidden
 <div class="block-container-edit-preview-spoiler">
 <div class="block-container-edit-preview-spoiler-summary">Open Spoiler</div>
 <div class="block-container-edit-preview-spoiler-content">
-<div class="block-container-edit-preview-gallery">
+<div class="block-container-edit-preview-gallery" data-controller="gallery">
 <div class="block-container-edit-preview-gallery-content">
 <p>this is hidden</p>
 </div>
@@ -302,7 +304,7 @@ this is hidden
 			in: []byte(`
 {gallery there is no title for gallery}
 `),
-			out: `<div class="block-container-edit-preview-gallery">
+			out: `<div class="block-container-edit-preview-gallery" data-controller="gallery">
 <div class="block-container-edit-preview-gallery-content">
 </div>
 </div>`,
@@ -310,14 +312,16 @@ this is hidden
 	}
 
 	for idx, ex := range examples {
-		in := ex.in
-		out := ex.out
+		t.Run(string(ex.in), func(t *testing.T) {
+			in := ex.in
+			out := ex.out
 
-		var writer bytes.Buffer
+			var writer bytes.Buffer
 
-		_ = parser.Convert(in, &writer)
+			_ = parser.Convert(in, &writer)
 
-		assert.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
+			assert.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
+		})
 	}
 }
 

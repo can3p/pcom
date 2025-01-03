@@ -40,7 +40,7 @@ https://www.youtube.com/watch?v=J2dQCd_kzkA
 this is hidden
 `),
 			out: `<p>this is test</p>
-<lite-youtube videoid="J2dQCd_kzkA" playlabel="Play Video"></lite-youtube>
+<p><lite-youtube videoid="J2dQCd_kzkA" playlabel="Play Video" nocookie></lite-youtube></p>
 <p>this is hidden</p>`,
 		},
 		{
