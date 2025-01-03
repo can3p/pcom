@@ -1,8 +1,6 @@
 package pgsession
 
 import (
-	"context"
-
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
