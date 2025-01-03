@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -510,7 +511,11 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaStorage server.MediaStor
 			return
 		}
 
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				log.Printf("Error closing file: %v", err)
+			}
+		}()
 
 		b, err := io.ReadAll(f)
 

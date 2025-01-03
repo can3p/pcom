@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -69,8 +70,11 @@ func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaStorage 
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 
-	// in case of early exit
-	defer w.Close()
+	defer func() {
+		if err := w.Close(); err != nil {
+			log.Printf("Error closing zip writer: %v", err)
+		}
+	}()
 
 	imagesToDL := []*markdown.EmbeddedLink{}
 

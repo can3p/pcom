@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/can3p/pcom/pkg/media/server/encoder"
@@ -66,7 +67,11 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 		return nil, "", err
 	}
 
-	defer dl.Close()
+	defer func() {
+		if err := dl.Close(); err != nil {
+			log.Printf("Error closing download: %v", err)
+		}
+	}()
 
 	img, err := s.encoder.Decode(dl)
 

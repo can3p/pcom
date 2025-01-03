@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"log"
 	"os"
 
 	"github.com/can3p/gogo/util/transact"
@@ -16,7 +17,11 @@ import (
 
 func main() {
 	db := sqlx.MustConnect("postgres", os.Getenv("DATABASE_URL")+"?sslmode=disable")
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database: %v", err)
+		}
+	}()
 
 	email := flag.String("email", "", "account email")
 	num := flag.Int("num", 0, "number of invites")

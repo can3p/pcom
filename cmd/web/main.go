@@ -92,7 +92,11 @@ func main() {
 
 	// fly.io does not have sslmode enabled
 	db := sqlx.MustConnect("postgres", os.Getenv("DATABASE_URL"))
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database: %v", err)
+		}
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
