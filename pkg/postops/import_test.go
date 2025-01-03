@@ -21,7 +21,7 @@ few lines`
 		ID:               uuid.NewString(),
 		Subject:          "test subject",
 		Body:             md,
-		PublishedAt:      null.TimeFrom(time.Now().Round(time.Second)),
+		PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
 		VisibilityRadius: core.PostVisibilityDirectOnly,
 	}
 
