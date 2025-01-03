@@ -56,7 +56,7 @@ func (f *WhitelistConnection) Validate(c *gin.Context, db boil.ContextExecutor) 
 		f.AddError("username", "No such user")
 		return f.Errors.PassedValidation()
 	} else if err != nil {
-		log.Printf("Failed to check username [%s] for existance on whitelist operation: %s", username, err.Error())
+		log.Printf("Failed to check username [%s] for existence on whitelist operation: %s", username, err.Error())
 		f.AddError("username", "Failed to lookup the username")
 		return f.Errors.PassedValidation()
 	}
@@ -67,7 +67,7 @@ func (f *WhitelistConnection) Validate(c *gin.Context, db boil.ContextExecutor) 
 	).Exists(c, db)
 
 	if err != nil {
-		log.Printf("Failed to check username connection [%s] for existance on whitelist operation: %s", username, err.Error())
+		log.Printf("Failed to check username connection [%s] for existence on whitelist operation: %s", username, err.Error())
 		f.AddError("username", "Failed to lookup the your connections")
 		return f.Errors.PassedValidation()
 	} else if isConnection {
@@ -84,7 +84,7 @@ func (f *WhitelistConnection) Validate(c *gin.Context, db boil.ContextExecutor) 
 	).Exists(c, db)
 
 	if err != nil {
-		log.Printf("Failed to check username connection [%s] for existance on whitelist operation: %s", username, err.Error())
+		log.Printf("Failed to check username connection [%s] for existence on whitelist operation: %s", username, err.Error())
 		f.AddError("username", "Failed to lookup the your connections")
 		return f.Errors.PassedValidation()
 	} else if isWhitelisted {

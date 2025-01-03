@@ -503,7 +503,7 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	}
 
 	if userops.CannotSeeProfileLite(author, userData.DBUser) {
-		// don't wnat to tell whether a blog exists in the first place
+		// don't want to tell whether a blog exists in the first place
 		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
 	}
 
@@ -519,7 +519,7 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	}
 
 	if !userops.CanSeeProfile(author, userData.DBUser, connRadius) {
-		// don't wnat to tell whether a blog exists in the first place
+		// don't want to tell whether a blog exists in the first place
 		return mo.Err[*UserHomePage](ginhelpers.ErrNotFound)
 	}
 
@@ -538,7 +538,7 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		// second degree gets public and second degree posts
 		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}))
 	case userops.ConnectionRadiusDirect:
-		// direct users inlcuding the author have no restrictions
+		// direct users including the author have no restrictions
 		fallthrough
 	case userops.ConnectionRadiusSameUser:
 		m = append(m, qm.Load(core.PostRels.PostStat))
