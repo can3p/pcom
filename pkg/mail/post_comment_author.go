@@ -24,6 +24,7 @@ func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.
 
 	link := links.AbsLink("comment", post.ID, comment.ID)
 	body := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
+	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, links.AbsLink)
 
 	mail := &sender.Mail{
 		From: mail.Address{
@@ -50,7 +51,7 @@ Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings
 
 	<blockquote>%s</blockquote>
 
-	<p>Checkout the comment in the post: <a href="%s">%s</a></p>`, user.Username, post.Subject, body, link, link),
+	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, user.Username, post.Subject, htmlBody, link),
 	}
 
 	err := s.Send(ctx, exec, comment.ID+user.ID, "comment_notification", mail)
