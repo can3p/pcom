@@ -438,6 +438,7 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
 	).One(c, db)
 
 	if err == sql.ErrNoRows {
@@ -467,6 +468,12 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		return mo.Err[*EditPostPage](err)
 	}
 
+	var url string
+
+	if post.R.URL != nil {
+		url = post.R.URL.URL
+	}
+
 	editPostPage := &EditPostPage{
 		BasePage: getBasePage(c, title, userData),
 		PostID:   post.ID,
@@ -474,6 +481,7 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 			Subject:    post.Subject.String,
 			Body:       post.Body,
 			Visibility: post.VisibilityRadius,
+			URL:        url,
 		},
 		LastUpdatedAt: post.UpdatedAt.Time,
 		IsPublished:   post.PublishedAt.Valid,

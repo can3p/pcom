@@ -46,6 +46,18 @@
       {{ end }}
     </div>
 
+    <div>
+      <input name="url" type="url"
+                       value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
+                       class="form-control {{ if (.Errors.HasError "url") }}is-invalid{{ end }}"
+                       placeholder="URL (optional)"
+                       aria-describedby="urlHelp">
+      {{ if (.Errors.HasError "url") }}
+      <div class="invalid-feedback">{{ .Errors.url }}</div>
+      {{ end }}
+      <div id="urlHelp" class="form-text">Optional URL for this post</div>
+    </div>
+
     <div class="d-flex flex-column flex-grow-1"
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
