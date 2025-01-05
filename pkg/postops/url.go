@@ -60,17 +60,17 @@ func NormalizeURL(rawURL string) string {
 
 // StoreURL normalizes the given URL and stores it in the normalized_urls table,
 // handling the case where the URL already exists using upsert.
-// Returns the URL ID and any error.
-func StoreURL(ctx context.Context, exec boil.ContextExecutor, rawURL string) (string, error) {
+// Returns the URL struct and any error.
+func StoreURL(ctx context.Context, exec boil.ContextExecutor, rawURL string) (*core.NormalizedURL, error) {
 	normalizedURL := NormalizeURL(rawURL)
 	if normalizedURL == "" {
-		return "", nil
+		return nil, nil
 	}
 
 	// Generate UUID v7 for the new URL
 	id, err := uuid.NewV7()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	urlID := id.String()
@@ -85,8 +85,8 @@ func StoreURL(ctx context.Context, exec boil.ContextExecutor, rawURL string) (st
 	// we need to pass true to get existing id back
 	err = newURL.Upsert(ctx, exec, true, []string{core.NormalizedURLColumns.URL}, boil.Infer(), boil.Infer())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return newURL.ID, nil
+	return newURL, nil
 }

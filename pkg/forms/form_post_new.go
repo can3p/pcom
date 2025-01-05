@@ -208,10 +208,10 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	}
 
 	// Store URL if provided
-	var urlID string
+	var storedURL *core.NormalizedURL
 	var err error
 	if url != "" {
-		urlID, err = postops.StoreURL(c, exec, url)
+		storedURL, err = postops.StoreURL(c, exec, url)
 		if err != nil {
 			return nil, err
 		}
@@ -219,10 +219,16 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 
 	post := &core.Post{
 		Subject:          null.NewString(subject, subject != ""),
-		URLID:            null.NewString(urlID, urlID != ""),
+		URLID:            null.NewString(storedURL.ID, storedURL != nil),
 		Body:             body,
 		UserID:           f.User.ID,
 		VisibilityRadius: f.Input.Visibility,
+	}
+
+	// Set URL relation directly since we have it
+	if storedURL != nil {
+		post.R = post.R.NewStruct()
+		post.R.URL = storedURL
 	}
 
 	var action = forms.FormSaveDefault(true)

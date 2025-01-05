@@ -358,6 +358,7 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
 	).One(c, db)
 
 	if err == sql.ErrNoRows {
@@ -536,6 +537,7 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		core.PostWhere.UserID.EQ(author.ID),
 		core.PostWhere.PublishedAt.IsNotNull(),
 		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.URL),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	}
 
@@ -644,6 +646,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 			))),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)
 

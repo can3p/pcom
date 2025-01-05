@@ -67,6 +67,7 @@ func PostSubject(subject null.String) string {
 
 type Post struct {
 	*core.Post
+	LinkedURL      *core.NormalizedURL
 	Author         *core.User
 	Via            []*core.User
 	Capabilities   *PostCapabilities
@@ -91,14 +92,20 @@ func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRa
 		commentsNum = post.R.PostStat.CommentsNumber
 	}
 
+	var linkedURL *core.NormalizedURL
+	if post.R != nil && post.R.URL != nil {
+		linkedURL = post.R.URL
+	}
+
 	return &Post{
-		Author:         post.R.User,
 		Post:           post,
-		CommentsNumber: commentsNum,
-		Capabilities:   GetPostCapabilities(radius),
-		EditPreview:    editPreview && radius.IsSameUser(), // only authors can preview their own posts
-		Radius:         radius,
+		LinkedURL:      linkedURL,
+		Author:         post.R.User,
 		Via:            via,
+		Capabilities:   GetPostCapabilities(radius),
+		CommentsNumber: commentsNum,
+		Radius:         radius,
+		EditPreview:    editPreview,
 	}
 }
 

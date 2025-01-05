@@ -139,6 +139,7 @@ func (f *NewCommentForm) Save(c context.Context, exec boil.ContextExecutor) (for
 	post, err := core.Posts(
 		core.PostWhere.ID.EQ(f.Input.PostID),
 		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.URL),
 	).One(c, exec)
 
 	if err != nil {

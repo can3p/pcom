@@ -28,6 +28,12 @@
       {{ markdown_single_post .Body }}
       {{ end }}
     </div>
+
+    {{ if .LinkedURL }}
+    <div class="mt-2 text-center">
+      <a href="{{ .LinkedURL.URL }}" target="_blank" rel="noopener noreferrer">{{ .LinkedURL.URL }}</a>
+    </div>
+    {{ end }}
   </div>
   {{ if not .EditPreview }}
     {{ if .Capabilities.CanViewComments }}
