@@ -1,7 +1,6 @@
 package web
 
 import (
-	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
@@ -182,7 +181,7 @@ func Controls(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	drafts := lo.Map(rawDrafts, func(d *core.Post, idx int) *Draft {
 		return &Draft{
 			PostID:        d.ID,
-			Subject:       d.Subject,
+			Subject:       d.Subject.String,
 			LastUpdatedAt: d.UpdatedAt.Time,
 		}
 	})
@@ -335,10 +334,12 @@ func SharedPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 
 	author := post.R.User
 
+	subject := postops.PostSubject(post.Subject)
+
 	sharedPost := &SharedPostPage{
-		BasePage:    getBasePage(c, cmp.Or(post.Subject, "No Subject"), userData),
+		BasePage:    getBasePage(c, subject, userData),
 		Post:        post,
-		PostSubject: cmp.Or(post.Subject, "No Subject"),
+		PostSubject: subject,
 		Author:      author,
 	}
 
@@ -470,7 +471,7 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		BasePage: getBasePage(c, title, userData),
 		PostID:   post.ID,
 		Input: forms.PostFormInput{
-			Subject:    post.Subject,
+			Subject:    post.Subject.String,
 			Body:       post.Body,
 			Visibility: post.VisibilityRadius,
 		},

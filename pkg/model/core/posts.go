@@ -25,7 +25,7 @@ import (
 // Post is an object representing the database table.
 type Post struct {
 	ID               string         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Subject          string         `boil:"subject" json:"subject" toml:"subject" yaml:"subject"`
+	Subject          null.String    `boil:"subject" json:"subject,omitempty" toml:"subject" yaml:"subject,omitempty"`
 	Body             string         `boil:"body" json:"body" toml:"body" yaml:"body"`
 	UserID           string         `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
 	CreatedAt        null.Time      `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
@@ -126,7 +126,7 @@ func (w whereHelperPostVisibility) NIN(slice []PostVisibility) qm.QueryMod {
 
 var PostWhere = struct {
 	ID               whereHelperstring
-	Subject          whereHelperstring
+	Subject          whereHelpernull_String
 	Body             whereHelperstring
 	UserID           whereHelperstring
 	CreatedAt        whereHelpernull_Time
@@ -137,7 +137,7 @@ var PostWhere = struct {
 	RSSItemID        whereHelpernull_String
 }{
 	ID:               whereHelperstring{field: "\"posts\".\"id\""},
-	Subject:          whereHelperstring{field: "\"posts\".\"subject\""},
+	Subject:          whereHelpernull_String{field: "\"posts\".\"subject\""},
 	Body:             whereHelperstring{field: "\"posts\".\"body\""},
 	UserID:           whereHelperstring{field: "\"posts\".\"user_id\""},
 	CreatedAt:        whereHelpernull_Time{field: "\"posts\".\"created_at\""},
@@ -237,8 +237,8 @@ type postL struct{}
 
 var (
 	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at", "url_id", "rss_item_id"}
-	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visibility_radius"}
-	postColumnsWithDefault    = []string{"created_at", "updated_at", "published_at", "url_id", "rss_item_id"}
+	postColumnsWithoutDefault = []string{"id", "body", "user_id", "visibility_radius"}
+	postColumnsWithDefault    = []string{"subject", "created_at", "updated_at", "published_at", "url_id", "rss_item_id"}
 	postPrimaryKeyColumns     = []string{"id"}
 	postGeneratedColumns      = []string{}
 )

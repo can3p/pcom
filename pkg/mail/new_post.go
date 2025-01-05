@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -35,6 +36,8 @@ func NewPost(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, me
 		return links.AbsLink(in, add2...)
 	})
 
+	subject := postops.PostSubject(post.Subject)
+
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -45,12 +48,12 @@ func NewPost(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, me
 				Address: connection.Email,
 			},
 		},
-		Subject: fmt.Sprintf("New post \"%s\" from %s", post.Subject, user.Username),
+		Subject: fmt.Sprintf("New post \"%s\" from %s", subject, user.Username),
 		Text: fmt.Sprintf(`Hi!
 
 @%s has published a new post "%s"
 
-Head to the post to leave a comment! %s`, user.Username, post.Subject, link),
+Head to the post to leave a comment! %s`, user.Username, subject, link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
@@ -58,7 +61,7 @@ Head to the post to leave a comment! %s`, user.Username, post.Subject, link),
 
 	<blockquote>%s</blockquote>
 
-	<p>Head to the post to leave a comment! <a href="%s">%s</a></p>`, user.Username, post.Subject, htmlbody, link, link),
+	<p>Head to the post to leave a comment! <a href="%s">%s</a></p>`, user.Username, subject, htmlbody, link, link),
 	}
 
 	err := s.Send(ctx, exec, post.ID+connection.ID, "post_notification", mail)

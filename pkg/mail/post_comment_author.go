@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -26,6 +27,8 @@ func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.
 	body := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
 	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, links.AbsLink)
 
+	subject := postops.PostSubject(post.Subject)
+
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -36,14 +39,14 @@ func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.
 				Address: author.Email,
 			},
 		},
-		Subject: fmt.Sprintf("New comment in your post \"%s\"", post.Subject),
+		Subject: fmt.Sprintf("New comment in your post \"%s\"", subject),
 		Text: fmt.Sprintf(`Hi!
 
 @%s has left a comment in your post "%s".
 
 %s
 
-Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings.Join(strings.Split(body, "\n"), "\n> "), link),
+Checkout the comment in the post: %s`, user.Username, subject, "> "+strings.Join(strings.Split(body, "\n"), "\n> "), link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
@@ -51,7 +54,7 @@ Checkout the comment in the post: %s`, user.Username, post.Subject, "> "+strings
 
 	<blockquote>%s</blockquote>
 
-	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, user.Username, post.Subject, htmlBody, link),
+	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, user.Username, subject, htmlBody, link),
 	}
 
 	err := s.Send(ctx, exec, comment.ID+user.ID, "comment_notification", mail)

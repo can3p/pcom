@@ -8,6 +8,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/volatiletech/null/v8"
 )
 
 type CommentCapabilities struct {
@@ -60,6 +61,10 @@ func GetPostCapabilities(radius userops.ConnectionRadius) *PostCapabilities {
 	}
 }
 
+func PostSubject(subject null.String) string {
+	return cmp.Or(subject.String, "No Subject")
+}
+
 type Post struct {
 	*core.Post
 	Author         *core.User
@@ -76,7 +81,7 @@ func (p *Post) IsPublished() bool {
 }
 
 func (p *Post) PostSubject() string {
-	return cmp.Or(p.Subject, "No Subject")
+	return PostSubject(p.Subject)
 }
 
 func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, via []*core.User, editPreview bool) *Post {

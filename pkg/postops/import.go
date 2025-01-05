@@ -55,7 +55,7 @@ func parseExportedPost(b []byte) (map[string]string, string, error) {
 		}
 
 		if matched := headerRe.FindStringSubmatch(line); matched != nil {
-			headers[matched[1]] = matched[2]
+			headers[matched[1]] = strings.TrimSpace(matched[2])
 		} else {
 			body = append(body, line)
 			collectBody = true
@@ -87,7 +87,7 @@ func DeserializePost(b []byte) (*core.Post, error) {
 
 			post.ID = value
 		case string(Subject):
-			post.Subject = value
+			post.Subject = null.NewString(value, value != "")
 		case string(Visibility):
 			vis := core.PostVisibility(value)
 

@@ -202,7 +202,7 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	}
 
 	post := &core.Post{
-		Subject:          subject,
+		Subject:          null.NewString(subject, subject != ""),
 		Body:             body,
 		UserID:           f.User.ID,
 		VisibilityRadius: f.Input.Visibility,

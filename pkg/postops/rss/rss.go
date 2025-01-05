@@ -27,7 +27,7 @@ func ToFeed(title string, link string, author *core.User, posts []*postops.Post)
 		}
 
 		items = append(items, &feeds.Item{
-			Title: post.Subject,
+			Title: postops.PostSubject(post.Subject),
 			Author: &feeds.Author{
 				Name: func() string {
 					var by string
