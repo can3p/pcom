@@ -69,9 +69,15 @@
         {{ range .Posts }}
         <div class="mt-3 us-feed-post">
           <div class="card">
-            <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .Subject }}</a> <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</span></h5>
+            <h5 class="card-header"><a href="{{ link "post" .ID }}">{{ .PostSubject }}</a> <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</span></h5>
             <div class="card-body">
               <div class="mt-3 post-user-home">{{ markdown_feed .Body .ID }}</div>
+
+              {{ if .LinkedURL }}
+              <div class="mt-2 text-center">
+                <a href="{{ .LinkedURL.URL }}" target="_blank" rel="noopener noreferrer">{{ .LinkedURL.URL }}</a>
+              </div>
+              {{ end }}
 
               {{ if .Capabilities.CanViewComments }}
               <div class="text-center mt-2 us-feed-post-stats">

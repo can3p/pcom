@@ -103,7 +103,7 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 
 			return &ApiPost{
 				ID:          p.ID,
-				Subject:     p.Subject,
+				Subject:     postops.PostSubject(p.Subject),
 				MdBody:      p.Body,
 				Visibility:  p.VisibilityRadius,
 				IsPublished: p.PublishedAt.Valid,

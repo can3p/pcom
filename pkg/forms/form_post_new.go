@@ -25,6 +25,7 @@ import (
 
 type PostFormInput struct {
 	Subject    string              `form:"subject"`
+	URL        string              `form:"url"`
 	Body       string              `form:"body"`
 	Visibility core.PostVisibility `form:"visibility"`
 	SaveAction PostFormAction      `form:"save_action"`
@@ -137,6 +138,10 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 		f.AddError("subject", err.Error())
 	}
 
+	if err := validation.ValidateURL(f.Input.URL); err != nil {
+		f.AddError("url", err.Error())
+	}
+
 	if err := validation.ValidateMinMax("body", f.Input.Body, 0, 20_000); err != nil {
 		f.AddError("body", err.Error())
 	}
@@ -183,6 +188,7 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 
 func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
 	subject := strings.TrimSpace(f.Input.Subject)
+	url := strings.TrimSpace(f.Input.URL)
 	body := strings.TrimSpace(f.Input.Body)
 
 	saveAction := f.Input.SaveAction
@@ -201,11 +207,31 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		return forms.FormSaveRedirect(links.Link("controls")), nil
 	}
 
+	// Store URL if provided
+	var storedURL *core.NormalizedURL
+	var err error
+	if url != "" {
+		storedURL, err = postops.StoreURL(c, exec, url)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	post := &core.Post{
-		Subject:          subject,
+		Subject:          null.NewString(subject, subject != ""),
 		Body:             body,
 		UserID:           f.User.ID,
 		VisibilityRadius: f.Input.Visibility,
+	}
+
+	if storedURL != nil {
+		post.URLID = null.StringFrom(storedURL.ID)
+	}
+
+	// Set URL relation directly since we have it
+	if storedURL != nil {
+		post.R = post.R.NewStruct()
+		post.R.URL = storedURL
 	}
 
 	var action = forms.FormSaveDefault(true)

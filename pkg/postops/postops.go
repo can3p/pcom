@@ -8,6 +8,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/userops"
+	"github.com/volatiletech/null/v8"
 )
 
 type CommentCapabilities struct {
@@ -60,8 +61,13 @@ func GetPostCapabilities(radius userops.ConnectionRadius) *PostCapabilities {
 	}
 }
 
+func PostSubject(subject null.String) string {
+	return cmp.Or(subject.String, "No Subject")
+}
+
 type Post struct {
 	*core.Post
+	LinkedURL      *core.NormalizedURL
 	Author         *core.User
 	Via            []*core.User
 	Capabilities   *PostCapabilities
@@ -76,7 +82,7 @@ func (p *Post) IsPublished() bool {
 }
 
 func (p *Post) PostSubject() string {
-	return cmp.Or(p.Subject, "No Subject")
+	return PostSubject(p.Subject)
 }
 
 func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, via []*core.User, editPreview bool) *Post {
@@ -86,14 +92,20 @@ func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRa
 		commentsNum = post.R.PostStat.CommentsNumber
 	}
 
+	var linkedURL *core.NormalizedURL
+	if post.R != nil && post.R.URL != nil {
+		linkedURL = post.R.URL
+	}
+
 	return &Post{
-		Author:         post.R.User,
 		Post:           post,
-		CommentsNumber: commentsNum,
-		Capabilities:   GetPostCapabilities(radius),
-		EditPreview:    editPreview && radius.IsSameUser(), // only authors can preview their own posts
-		Radius:         radius,
+		LinkedURL:      linkedURL,
+		Author:         post.R.User,
 		Via:            via,
+		Capabilities:   GetPostCapabilities(radius),
+		CommentsNumber: commentsNum,
+		Radius:         radius,
+		EditPreview:    editPreview,
 	}
 }
 

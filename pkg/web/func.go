@@ -1,7 +1,6 @@
 package web
 
 import (
-	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
@@ -182,7 +181,7 @@ func Controls(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	drafts := lo.Map(rawDrafts, func(d *core.Post, idx int) *Draft {
 		return &Draft{
 			PostID:        d.ID,
-			Subject:       d.Subject,
+			Subject:       d.Subject.String,
 			LastUpdatedAt: d.UpdatedAt.Time,
 		}
 	})
@@ -335,10 +334,12 @@ func SharedPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 
 	author := post.R.User
 
+	subject := postops.PostSubject(post.Subject)
+
 	sharedPost := &SharedPostPage{
-		BasePage:    getBasePage(c, cmp.Or(post.Subject, "No Subject"), userData),
+		BasePage:    getBasePage(c, subject, userData),
 		Post:        post,
-		PostSubject: cmp.Or(post.Subject, "No Subject"),
+		PostSubject: subject,
 		Author:      author,
 	}
 
@@ -357,6 +358,7 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
 	).One(c, db)
 
 	if err == sql.ErrNoRows {
@@ -437,6 +439,7 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		core.PostWhere.ID.EQ(postID),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
 	).One(c, db)
 
 	if err == sql.ErrNoRows {
@@ -466,13 +469,20 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		return mo.Err[*EditPostPage](err)
 	}
 
+	var url string
+
+	if post.R.URL != nil {
+		url = post.R.URL.URL
+	}
+
 	editPostPage := &EditPostPage{
 		BasePage: getBasePage(c, title, userData),
 		PostID:   post.ID,
 		Input: forms.PostFormInput{
-			Subject:    post.Subject,
+			Subject:    post.Subject.String,
 			Body:       post.Body,
 			Visibility: post.VisibilityRadius,
+			URL:        url,
 		},
 		LastUpdatedAt: post.UpdatedAt.Time,
 		IsPublished:   post.PublishedAt.Valid,
@@ -527,6 +537,7 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		core.PostWhere.UserID.EQ(author.ID),
 		core.PostWhere.PublishedAt.IsNotNull(),
 		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.URL),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	}
 
@@ -635,6 +646,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 			))),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	).All(ctx, db)
 

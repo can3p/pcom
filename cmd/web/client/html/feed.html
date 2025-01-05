@@ -51,7 +51,7 @@
                 {{ else }}
                 to the post you've commented on
                 {{ end }}
-                <a href="{{ link "post" .Post.ID }}">{{ .Post.Subject }}</a>
+                <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a>
                 at {{ renderTimestamp .CreatedAt $.User.DBUser }}
               </h5>
               <div class="card-body">
@@ -64,9 +64,15 @@
         {{ with .Post }}
           <div class="mt-3 us-feed-post feed-post">
             <div class="card">
-              <h5 class="card-header fs-6"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> &#8594; {{ if gt (len .Via) 0 }} {{ range $index, $element := .Via }}{{ if $index }}, {{ end }}<a href="{{ link "user" $element.Username }}">{{ .Username }}</a>{{ end }} &#8594;{{ end }}<a href="{{ link "post" .ID }}">{{ .Subject }}</a> <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</span></h5>
+              <h5 class="card-header fs-6"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> &#8594; {{ if gt (len .Via) 0 }} {{ range $index, $element := .Via }}{{ if $index }}, {{ end }}<a href="{{ link "user" $element.Username }}">{{ .Username }}</a>{{ end }} &#8594;{{ end }}<a href="{{ link "post" .ID }}">{{ .PostSubject }}</a> <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</span></h5>
               <div class="card-body">
                 <div class="mt-3 post-in-feed">{{ markdown_feed .Body }}</div>
+
+                {{ if .LinkedURL }}
+                <div class="mt-2 text-center">
+                  <a href="{{ .LinkedURL.URL }}" target="_blank" rel="noopener noreferrer">{{ .LinkedURL.URL }}</a>
+                </div>
+                {{ end }}
 
                 {{ if .Capabilities.CanViewComments }}
                 <div class="text-center mt-2 us-feed-post-stats feed-post-stats">

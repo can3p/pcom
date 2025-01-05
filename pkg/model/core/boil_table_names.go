@@ -5,17 +5,22 @@ package core
 
 var TableNames = struct {
 	MediaUploads                    string
+	NormalizedUrls                  string
 	OutgoingEmails                  string
 	PostComments                    string
 	PostPrompts                     string
 	PostShares                      string
 	PostStats                       string
 	Posts                           string
+	RSSFeeds                        string
+	RSSItems                        string
 	SystemSettings                  string
 	UserAPIKeys                     string
 	UserConnectionMediationRequests string
 	UserConnectionMediators         string
 	UserConnections                 string
+	UserFeedItems                   string
+	UserFeedSubscriptions           string
 	UserInvitations                 string
 	UserSignupRequests              string
 	UserStyles                      string
@@ -23,17 +28,22 @@ var TableNames = struct {
 	WhitelistedConnections          string
 }{
 	MediaUploads:                    "media_uploads",
+	NormalizedUrls:                  "normalized_urls",
 	OutgoingEmails:                  "outgoing_emails",
 	PostComments:                    "post_comments",
 	PostPrompts:                     "post_prompts",
 	PostShares:                      "post_shares",
 	PostStats:                       "post_stats",
 	Posts:                           "posts",
+	RSSFeeds:                        "rss_feeds",
+	RSSItems:                        "rss_items",
 	SystemSettings:                  "system_settings",
 	UserAPIKeys:                     "user_api_keys",
 	UserConnectionMediationRequests: "user_connection_mediation_requests",
 	UserConnectionMediators:         "user_connection_mediators",
 	UserConnections:                 "user_connections",
+	UserFeedItems:                   "user_feed_items",
+	UserFeedSubscriptions:           "user_feed_subscriptions",
 	UserInvitations:                 "user_invitations",
 	UserSignupRequests:              "user_signup_requests",
 	UserStyles:                      "user_styles",

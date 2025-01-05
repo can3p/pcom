@@ -11,25 +11,49 @@ import (
 )
 
 func TestExportImport(t *testing.T) {
-	md := `This is a test *post*
+	testCases := []struct {
+		name    string
+		post    *core.Post
+		wantErr bool
+	}{
+		{
+			name: "post with subject",
+			post: &core.Post{
+				ID:      uuid.NewString(),
+				Subject: null.StringFrom("test subject"),
+				Body: `This is a test *post*
 
-that spans
+with some *markdown* in it`,
+				PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
+				VisibilityRadius: core.PostVisibilityDirectOnly,
+			},
+		},
+		{
+			name: "post without subject",
+			post: &core.Post{
+				ID:      uuid.NewString(),
+				Subject: null.String{},
+				Body: `This is a test *post*
 
-few lines`
-
-	initial := &core.Post{
-		ID:               uuid.NewString(),
-		Subject:          "test subject",
-		Body:             md,
-		PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
-		VisibilityRadius: core.PostVisibilityDirectOnly,
+with some *markdown* in it`,
+				PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
+				VisibilityRadius: core.PostVisibilityDirectOnly,
+			},
+		},
 	}
 
-	b := SerializePost(initial)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := SerializePost(tc.post)
+			imported, err := DeserializePost(b)
 
-	imported, err := DeserializePost(b)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
 
-	assert.NoError(t, err)
-
-	assert.Equal(t, initial, imported)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.post, imported)
+		})
+	}
 }
