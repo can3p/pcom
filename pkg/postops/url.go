@@ -2,6 +2,7 @@ package postops
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"sort"
 	"strings"
@@ -14,15 +15,23 @@ import (
 // NormalizeURL normalizes a URL by:
 // 1. Removing trailing slashes and question marks
 // 2. Normalizing query parameter order
-// Returns empty string if URL is invalid
-func NormalizeURL(rawURL string) string {
+// Returns an error if URL is invalid
+func NormalizeURL(rawURL string) (string, error) {
 	if rawURL == "" {
-		return ""
+		return "", fmt.Errorf("URL cannot be empty")
 	}
 
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("invalid URL format: %w", err)
+	}
+
+	// If there's no scheme and no host, it's not a valid URL
+	if u.Scheme == "" {
+		return "", fmt.Errorf("URL must include a protocol (e.g., https://)")
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("URL must include a domain name")
 	}
 
 	// Remove trailing slashes from path
@@ -51,20 +60,21 @@ func NormalizeURL(rawURL string) string {
 	}
 
 	// Remove trailing question mark if no query parameters
+	normalized := u.String()
 	if u.RawQuery == "" {
-		return strings.TrimRight(u.String(), "?")
+		normalized = strings.TrimRight(normalized, "?")
 	}
 
-	return u.String()
+	return normalized, nil
 }
 
 // StoreURL normalizes the given URL and stores it in the normalized_urls table,
 // handling the case where the URL already exists using upsert.
 // Returns the URL struct and any error.
 func StoreURL(ctx context.Context, exec boil.ContextExecutor, rawURL string) (*core.NormalizedURL, error) {
-	normalizedURL := NormalizeURL(rawURL)
-	if normalizedURL == "" {
-		return nil, nil
+	normalizedURL, err := NormalizeURL(rawURL)
+	if err != nil {
+		return nil, err
 	}
 
 	// Generate UUID v7 for the new URL
