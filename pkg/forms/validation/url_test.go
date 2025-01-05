@@ -18,8 +18,18 @@ func TestValidateURL(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "invalid url - no scheme",
+			name:        "invalid url - no protocol",
 			input:       "example.com",
+			expectError: true,
+		},
+		{
+			name:        "invalid url - no domain",
+			input:       "https:///path",
+			expectError: true,
+		},
+		{
+			name:        "invalid url - relative path",
+			input:       "/path/to/something",
 			expectError: true,
 		},
 		{
@@ -55,6 +65,16 @@ func TestValidateURL(t *testing.T) {
 		{
 			name:        "valid url - localhost",
 			input:       "http://localhost:3000",
+			expectError: false,
+		},
+		{
+			name:        "valid url - IP address",
+			input:       "https://192.168.1.1/path",
+			expectError: false,
+		},
+		{
+			name:        "valid url - with auth",
+			input:       "https://user:pass@example.com/path",
 			expectError: false,
 		},
 	}
