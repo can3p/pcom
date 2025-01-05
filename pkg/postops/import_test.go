@@ -19,13 +19,11 @@ func TestExportImport(t *testing.T) {
 		{
 			name: "post with subject",
 			post: &core.Post{
-				ID:               uuid.NewString(),
-				Subject:          null.StringFrom("test subject"),
-				Body:             `This is a test *post*
+				ID:      uuid.NewString(),
+				Subject: null.StringFrom("test subject"),
+				Body: `This is a test *post*
 
-that spans
-
-few lines`,
+with some *markdown* in it`,
 				PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
 				VisibilityRadius: core.PostVisibilityDirectOnly,
 			},
@@ -33,13 +31,11 @@ few lines`,
 		{
 			name: "post without subject",
 			post: &core.Post{
-				ID:               uuid.NewString(),
-				Subject:          null.String{},
-				Body:             `This is a test *post*
+				ID:      uuid.NewString(),
+				Subject: null.String{},
+				Body: `This is a test *post*
 
-that spans
-
-few lines`,
+with some *markdown* in it`,
 				PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
 				VisibilityRadius: core.PostVisibilityDirectOnly,
 			},

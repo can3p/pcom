@@ -219,10 +219,13 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 
 	post := &core.Post{
 		Subject:          null.NewString(subject, subject != ""),
-		URLID:            null.NewString(storedURL.ID, storedURL != nil),
 		Body:             body,
 		UserID:           f.User.ID,
 		VisibilityRadius: f.Input.Visibility,
+	}
+
+	if storedURL != nil {
+		post.URLID = null.StringFrom(storedURL.ID)
 	}
 
 	// Set URL relation directly since we have it
