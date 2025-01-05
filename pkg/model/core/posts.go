@@ -32,6 +32,8 @@ type Post struct {
 	UpdatedAt        null.Time      `boil:"updated_at" json:"updated_at,omitempty" toml:"updated_at" yaml:"updated_at,omitempty"`
 	VisibilityRadius PostVisibility `boil:"visibility_radius" json:"visibility_radius" toml:"visibility_radius" yaml:"visibility_radius"`
 	PublishedAt      null.Time      `boil:"published_at" json:"published_at,omitempty" toml:"published_at" yaml:"published_at,omitempty"`
+	URLID            null.String    `boil:"url_id" json:"url_id,omitempty" toml:"url_id" yaml:"url_id,omitempty"`
+	RSSItemID        null.String    `boil:"rss_item_id" json:"rss_item_id,omitempty" toml:"rss_item_id" yaml:"rss_item_id,omitempty"`
 
 	R *postR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -46,6 +48,8 @@ var PostColumns = struct {
 	UpdatedAt        string
 	VisibilityRadius string
 	PublishedAt      string
+	URLID            string
+	RSSItemID        string
 }{
 	ID:               "id",
 	Subject:          "subject",
@@ -55,6 +59,8 @@ var PostColumns = struct {
 	UpdatedAt:        "updated_at",
 	VisibilityRadius: "visibility_radius",
 	PublishedAt:      "published_at",
+	URLID:            "url_id",
+	RSSItemID:        "rss_item_id",
 }
 
 var PostTableColumns = struct {
@@ -66,6 +72,8 @@ var PostTableColumns = struct {
 	UpdatedAt        string
 	VisibilityRadius string
 	PublishedAt      string
+	URLID            string
+	RSSItemID        string
 }{
 	ID:               "posts.id",
 	Subject:          "posts.subject",
@@ -75,6 +83,8 @@ var PostTableColumns = struct {
 	UpdatedAt:        "posts.updated_at",
 	VisibilityRadius: "posts.visibility_radius",
 	PublishedAt:      "posts.published_at",
+	URLID:            "posts.url_id",
+	RSSItemID:        "posts.rss_item_id",
 }
 
 // Generated where
@@ -123,6 +133,8 @@ var PostWhere = struct {
 	UpdatedAt        whereHelpernull_Time
 	VisibilityRadius whereHelperPostVisibility
 	PublishedAt      whereHelpernull_Time
+	URLID            whereHelpernull_String
+	RSSItemID        whereHelpernull_String
 }{
 	ID:               whereHelperstring{field: "\"posts\".\"id\""},
 	Subject:          whereHelperstring{field: "\"posts\".\"subject\""},
@@ -132,16 +144,22 @@ var PostWhere = struct {
 	UpdatedAt:        whereHelpernull_Time{field: "\"posts\".\"updated_at\""},
 	VisibilityRadius: whereHelperPostVisibility{field: "\"posts\".\"visibility_radius\""},
 	PublishedAt:      whereHelpernull_Time{field: "\"posts\".\"published_at\""},
+	URLID:            whereHelpernull_String{field: "\"posts\".\"url_id\""},
+	RSSItemID:        whereHelpernull_String{field: "\"posts\".\"rss_item_id\""},
 }
 
 // PostRels is where relationship names are stored.
 var PostRels = struct {
+	RSSItem      string
+	URL          string
 	User         string
 	PostPrompt   string
 	PostShare    string
 	PostStat     string
 	PostComments string
 }{
+	RSSItem:      "RSSItem",
+	URL:          "URL",
 	User:         "User",
 	PostPrompt:   "PostPrompt",
 	PostShare:    "PostShare",
@@ -151,6 +169,8 @@ var PostRels = struct {
 
 // postR is where relationships are stored.
 type postR struct {
+	RSSItem      *RSSItem         `boil:"RSSItem" json:"RSSItem" toml:"RSSItem" yaml:"RSSItem"`
+	URL          *NormalizedURL   `boil:"URL" json:"URL" toml:"URL" yaml:"URL"`
 	User         *User            `boil:"User" json:"User" toml:"User" yaml:"User"`
 	PostPrompt   *PostPrompt      `boil:"PostPrompt" json:"PostPrompt" toml:"PostPrompt" yaml:"PostPrompt"`
 	PostShare    *PostShare       `boil:"PostShare" json:"PostShare" toml:"PostShare" yaml:"PostShare"`
@@ -161,6 +181,20 @@ type postR struct {
 // NewStruct creates a new relationship struct
 func (*postR) NewStruct() *postR {
 	return &postR{}
+}
+
+func (r *postR) GetRSSItem() *RSSItem {
+	if r == nil {
+		return nil
+	}
+	return r.RSSItem
+}
+
+func (r *postR) GetURL() *NormalizedURL {
+	if r == nil {
+		return nil
+	}
+	return r.URL
 }
 
 func (r *postR) GetUser() *User {
@@ -202,9 +236,9 @@ func (r *postR) GetPostComments() PostCommentSlice {
 type postL struct{}
 
 var (
-	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at"}
+	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at", "url_id", "rss_item_id"}
 	postColumnsWithoutDefault = []string{"id", "subject", "body", "user_id", "visibility_radius"}
-	postColumnsWithDefault    = []string{"created_at", "updated_at", "published_at"}
+	postColumnsWithDefault    = []string{"created_at", "updated_at", "published_at", "url_id", "rss_item_id"}
 	postPrimaryKeyColumns     = []string{"id"}
 	postGeneratedColumns      = []string{}
 )
@@ -340,6 +374,28 @@ func (q postQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool,
 	return count > 0, nil
 }
 
+// RSSItem pointed to by the foreign key.
+func (o *Post) RSSItem(mods ...qm.QueryMod) rssItemQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.RSSItemID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return RSSItems(queryMods...)
+}
+
+// URL pointed to by the foreign key.
+func (o *Post) URL(mods ...qm.QueryMod) normalizedURLQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.URLID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return NormalizedUrls(queryMods...)
+}
+
 // User pointed to by the foreign key.
 func (o *Post) User(mods ...qm.QueryMod) userQuery {
 	queryMods := []qm.QueryMod{
@@ -396,6 +452,238 @@ func (o *Post) PostComments(mods ...qm.QueryMod) postCommentQuery {
 	)
 
 	return PostComments(queryMods...)
+}
+
+// LoadRSSItem allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (postL) LoadRSSItem(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		if !queries.IsNil(object.RSSItemID) {
+			args[object.RSSItemID] = struct{}{}
+		}
+
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+
+			if !queries.IsNil(obj.RSSItemID) {
+				args[obj.RSSItemID] = struct{}{}
+			}
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`rss_items`),
+		qm.WhereIn(`rss_items.id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load RSSItem")
+	}
+
+	var resultSlice []*RSSItem
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice RSSItem")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for rss_items")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for rss_items")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.RSSItem = foreign
+		if foreign.R == nil {
+			foreign.R = &rssItemR{}
+		}
+		foreign.R.Posts = append(foreign.R.Posts, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if queries.Equal(local.RSSItemID, foreign.ID) {
+				local.R.RSSItem = foreign
+				if foreign.R == nil {
+					foreign.R = &rssItemR{}
+				}
+				foreign.R.Posts = append(foreign.R.Posts, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadURL allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (postL) LoadURL(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		if !queries.IsNil(object.URLID) {
+			args[object.URLID] = struct{}{}
+		}
+
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+
+			if !queries.IsNil(obj.URLID) {
+				args[obj.URLID] = struct{}{}
+			}
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`normalized_urls`),
+		qm.WhereIn(`normalized_urls.id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load NormalizedURL")
+	}
+
+	var resultSlice []*NormalizedURL
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice NormalizedURL")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for normalized_urls")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for normalized_urls")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.URL = foreign
+		if foreign.R == nil {
+			foreign.R = &normalizedURLR{}
+		}
+		foreign.R.URLPosts = append(foreign.R.URLPosts, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if queries.Equal(local.URLID, foreign.ID) {
+				local.R.URL = foreign
+				if foreign.R == nil {
+					foreign.R = &normalizedURLR{}
+				}
+				foreign.R.URLPosts = append(foreign.R.URLPosts, local)
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // LoadUser allows an eager lookup of values, cached into the
@@ -940,6 +1228,206 @@ func (postL) LoadPostComments(ctx context.Context, e boil.ContextExecutor, singu
 		}
 	}
 
+	return nil
+}
+
+// SetRSSItemP of the post to the related item.
+// Sets o.R.RSSItem to related.
+// Adds o to related.R.Posts.
+// Panics on error.
+func (o *Post) SetRSSItemP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *RSSItem) {
+	if err := o.SetRSSItem(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetRSSItem of the post to the related item.
+// Sets o.R.RSSItem to related.
+// Adds o to related.R.Posts.
+func (o *Post) SetRSSItem(ctx context.Context, exec boil.ContextExecutor, insert bool, related *RSSItem) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"posts\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"rss_item_id"}),
+		strmangle.WhereClause("\"", "\"", 2, postPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	queries.Assign(&o.RSSItemID, related.ID)
+	if o.R == nil {
+		o.R = &postR{
+			RSSItem: related,
+		}
+	} else {
+		o.R.RSSItem = related
+	}
+
+	if related.R == nil {
+		related.R = &rssItemR{
+			Posts: PostSlice{o},
+		}
+	} else {
+		related.R.Posts = append(related.R.Posts, o)
+	}
+
+	return nil
+}
+
+// RemoveRSSItemP relationship.
+// Sets o.R.RSSItem to nil.
+// Removes o from all passed in related items' relationships struct.
+// Panics on error.
+func (o *Post) RemoveRSSItemP(ctx context.Context, exec boil.ContextExecutor, related *RSSItem) {
+	if err := o.RemoveRSSItem(ctx, exec, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveRSSItem relationship.
+// Sets o.R.RSSItem to nil.
+// Removes o from all passed in related items' relationships struct.
+func (o *Post) RemoveRSSItem(ctx context.Context, exec boil.ContextExecutor, related *RSSItem) error {
+	var err error
+
+	queries.SetScanner(&o.RSSItemID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("rss_item_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.RSSItem = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.Posts {
+		if queries.Equal(o.RSSItemID, ri.RSSItemID) {
+			continue
+		}
+
+		ln := len(related.R.Posts)
+		if ln > 1 && i < ln-1 {
+			related.R.Posts[i] = related.R.Posts[ln-1]
+		}
+		related.R.Posts = related.R.Posts[:ln-1]
+		break
+	}
+	return nil
+}
+
+// SetURLP of the post to the related item.
+// Sets o.R.URL to related.
+// Adds o to related.R.URLPosts.
+// Panics on error.
+func (o *Post) SetURLP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *NormalizedURL) {
+	if err := o.SetURL(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetURL of the post to the related item.
+// Sets o.R.URL to related.
+// Adds o to related.R.URLPosts.
+func (o *Post) SetURL(ctx context.Context, exec boil.ContextExecutor, insert bool, related *NormalizedURL) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"posts\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"url_id"}),
+		strmangle.WhereClause("\"", "\"", 2, postPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	queries.Assign(&o.URLID, related.ID)
+	if o.R == nil {
+		o.R = &postR{
+			URL: related,
+		}
+	} else {
+		o.R.URL = related
+	}
+
+	if related.R == nil {
+		related.R = &normalizedURLR{
+			URLPosts: PostSlice{o},
+		}
+	} else {
+		related.R.URLPosts = append(related.R.URLPosts, o)
+	}
+
+	return nil
+}
+
+// RemoveURLP relationship.
+// Sets o.R.URL to nil.
+// Removes o from all passed in related items' relationships struct.
+// Panics on error.
+func (o *Post) RemoveURLP(ctx context.Context, exec boil.ContextExecutor, related *NormalizedURL) {
+	if err := o.RemoveURL(ctx, exec, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveURL relationship.
+// Sets o.R.URL to nil.
+// Removes o from all passed in related items' relationships struct.
+func (o *Post) RemoveURL(ctx context.Context, exec boil.ContextExecutor, related *NormalizedURL) error {
+	var err error
+
+	queries.SetScanner(&o.URLID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("url_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.URL = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.URLPosts {
+		if queries.Equal(o.URLID, ri.URLID) {
+			continue
+		}
+
+		ln := len(related.R.URLPosts)
+		if ln > 1 && i < ln-1 {
+			related.R.URLPosts[i] = related.R.URLPosts[ln-1]
+		}
+		related.R.URLPosts = related.R.URLPosts[:ln-1]
+		break
+	}
 	return nil
 }
 

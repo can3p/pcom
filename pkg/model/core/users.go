@@ -169,6 +169,8 @@ var UserRels = struct {
 	UserConnectionMediators                   string
 	User1UserConnections                      string
 	User2UserConnections                      string
+	UserFeedItems                             string
+	UserFeedSubscriptions                     string
 	CreatedUserUserInvitations                string
 	UserInvitations                           string
 	CreatedUserUserSignupRequests             string
@@ -187,6 +189,8 @@ var UserRels = struct {
 	UserConnectionMediators:                   "UserConnectionMediators",
 	User1UserConnections:                      "User1UserConnections",
 	User2UserConnections:                      "User2UserConnections",
+	UserFeedItems:                             "UserFeedItems",
+	UserFeedSubscriptions:                     "UserFeedSubscriptions",
 	CreatedUserUserInvitations:                "CreatedUserUserInvitations",
 	UserInvitations:                           "UserInvitations",
 	CreatedUserUserSignupRequests:             "CreatedUserUserSignupRequests",
@@ -208,6 +212,8 @@ type userR struct {
 	UserConnectionMediators                   UserConnectionMediatorSlice         `boil:"UserConnectionMediators" json:"UserConnectionMediators" toml:"UserConnectionMediators" yaml:"UserConnectionMediators"`
 	User1UserConnections                      UserConnectionSlice                 `boil:"User1UserConnections" json:"User1UserConnections" toml:"User1UserConnections" yaml:"User1UserConnections"`
 	User2UserConnections                      UserConnectionSlice                 `boil:"User2UserConnections" json:"User2UserConnections" toml:"User2UserConnections" yaml:"User2UserConnections"`
+	UserFeedItems                             UserFeedItemSlice                   `boil:"UserFeedItems" json:"UserFeedItems" toml:"UserFeedItems" yaml:"UserFeedItems"`
+	UserFeedSubscriptions                     UserFeedSubscriptionSlice           `boil:"UserFeedSubscriptions" json:"UserFeedSubscriptions" toml:"UserFeedSubscriptions" yaml:"UserFeedSubscriptions"`
 	CreatedUserUserInvitations                UserInvitationSlice                 `boil:"CreatedUserUserInvitations" json:"CreatedUserUserInvitations" toml:"CreatedUserUserInvitations" yaml:"CreatedUserUserInvitations"`
 	UserInvitations                           UserInvitationSlice                 `boil:"UserInvitations" json:"UserInvitations" toml:"UserInvitations" yaml:"UserInvitations"`
 	CreatedUserUserSignupRequests             UserSignupRequestSlice              `boil:"CreatedUserUserSignupRequests" json:"CreatedUserUserSignupRequests" toml:"CreatedUserUserSignupRequests" yaml:"CreatedUserUserSignupRequests"`
@@ -302,6 +308,20 @@ func (r *userR) GetUser2UserConnections() UserConnectionSlice {
 		return nil
 	}
 	return r.User2UserConnections
+}
+
+func (r *userR) GetUserFeedItems() UserFeedItemSlice {
+	if r == nil {
+		return nil
+	}
+	return r.UserFeedItems
+}
+
+func (r *userR) GetUserFeedSubscriptions() UserFeedSubscriptionSlice {
+	if r == nil {
+		return nil
+	}
+	return r.UserFeedSubscriptions
 }
 
 func (r *userR) GetCreatedUserUserInvitations() UserInvitationSlice {
@@ -641,6 +661,34 @@ func (o *User) User2UserConnections(mods ...qm.QueryMod) userConnectionQuery {
 	)
 
 	return UserConnections(queryMods...)
+}
+
+// UserFeedItems retrieves all the user_feed_item's UserFeedItems with an executor.
+func (o *User) UserFeedItems(mods ...qm.QueryMod) userFeedItemQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"user_feed_items\".\"user_id\"=?", o.ID),
+	)
+
+	return UserFeedItems(queryMods...)
+}
+
+// UserFeedSubscriptions retrieves all the user_feed_subscription's UserFeedSubscriptions with an executor.
+func (o *User) UserFeedSubscriptions(mods ...qm.QueryMod) userFeedSubscriptionQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"user_feed_subscriptions\".\"user_id\"=?", o.ID),
+	)
+
+	return UserFeedSubscriptions(queryMods...)
 }
 
 // CreatedUserUserInvitations retrieves all the user_invitation's UserInvitations with an executor via created_user_id column.
@@ -1991,6 +2039,218 @@ func (userL) LoadUser2UserConnections(ctx context.Context, e boil.ContextExecuto
 	return nil
 }
 
+// LoadUserFeedItems allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadUserFeedItems(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`user_feed_items`),
+		qm.WhereIn(`user_feed_items.user_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load user_feed_items")
+	}
+
+	var resultSlice []*UserFeedItem
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice user_feed_items")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on user_feed_items")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for user_feed_items")
+	}
+
+	if singular {
+		object.R.UserFeedItems = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &userFeedItemR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.UserID {
+				local.R.UserFeedItems = append(local.R.UserFeedItems, foreign)
+				if foreign.R == nil {
+					foreign.R = &userFeedItemR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadUserFeedSubscriptions allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadUserFeedSubscriptions(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`user_feed_subscriptions`),
+		qm.WhereIn(`user_feed_subscriptions.user_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load user_feed_subscriptions")
+	}
+
+	var resultSlice []*UserFeedSubscription
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice user_feed_subscriptions")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on user_feed_subscriptions")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for user_feed_subscriptions")
+	}
+
+	if singular {
+		object.R.UserFeedSubscriptions = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &userFeedSubscriptionR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.UserID {
+				local.R.UserFeedSubscriptions = append(local.R.UserFeedSubscriptions, foreign)
+				if foreign.R == nil {
+					foreign.R = &userFeedSubscriptionR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadCreatedUserUserInvitations allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (userL) LoadCreatedUserUserInvitations(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
@@ -3276,6 +3536,134 @@ func (o *User) AddUser2UserConnections(ctx context.Context, exec boil.ContextExe
 			}
 		} else {
 			rel.R.User2 = o
+		}
+	}
+	return nil
+}
+
+// AddUserFeedItemsP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.UserFeedItems.
+// Sets related.R.User appropriately.
+// Panics on error.
+func (o *User) AddUserFeedItemsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserFeedItem) {
+	if err := o.AddUserFeedItems(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddUserFeedItems adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.UserFeedItems.
+// Sets related.R.User appropriately.
+func (o *User) AddUserFeedItems(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserFeedItem) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"user_feed_items\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, userFeedItemPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			UserFeedItems: related,
+		}
+	} else {
+		o.R.UserFeedItems = append(o.R.UserFeedItems, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &userFeedItemR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
+	return nil
+}
+
+// AddUserFeedSubscriptionsP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.UserFeedSubscriptions.
+// Sets related.R.User appropriately.
+// Panics on error.
+func (o *User) AddUserFeedSubscriptionsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserFeedSubscription) {
+	if err := o.AddUserFeedSubscriptions(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddUserFeedSubscriptions adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.UserFeedSubscriptions.
+// Sets related.R.User appropriately.
+func (o *User) AddUserFeedSubscriptions(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserFeedSubscription) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"user_feed_subscriptions\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, userFeedSubscriptionPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			UserFeedSubscriptions: related,
+		}
+	} else {
+		o.R.UserFeedSubscriptions = append(o.R.UserFeedSubscriptions, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &userFeedSubscriptionR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
 		}
 	}
 	return nil
