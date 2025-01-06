@@ -24,19 +24,21 @@ import (
 
 // RSSFeed is an object representing the database table.
 type RSSFeed struct {
-	ID                      string      `boil:"id" json:"id" toml:"id" yaml:"id"`
-	URL                     string      `boil:"url" json:"url" toml:"url" yaml:"url"`
-	Title                   null.String `boil:"title" json:"title,omitempty" toml:"title" yaml:"title,omitempty"`
-	Description             null.String `boil:"description" json:"description,omitempty" toml:"description" yaml:"description,omitempty"`
-	LastFetchedAt           null.Time   `boil:"last_fetched_at" json:"last_fetched_at,omitempty" toml:"last_fetched_at" yaml:"last_fetched_at,omitempty"`
-	AvgItemsPerDay          float64     `boil:"avg_items_per_day" json:"avg_items_per_day" toml:"avg_items_per_day" yaml:"avg_items_per_day"`
-	LastItemsCount          int         `boil:"last_items_count" json:"last_items_count" toml:"last_items_count" yaml:"last_items_count"`
-	UpdateFrequencyMinutes  int         `boil:"update_frequency_minutes" json:"update_frequency_minutes" toml:"update_frequency_minutes" yaml:"update_frequency_minutes"`
-	NextFetchAt             null.Time   `boil:"next_fetch_at" json:"next_fetch_at,omitempty" toml:"next_fetch_at" yaml:"next_fetch_at,omitempty"`
-	LastManualRefreshAt     null.Time   `boil:"last_manual_refresh_at" json:"last_manual_refresh_at,omitempty" toml:"last_manual_refresh_at" yaml:"last_manual_refresh_at,omitempty"`
-	ConsecutiveEmptyFetches int         `boil:"consecutive_empty_fetches" json:"consecutive_empty_fetches" toml:"consecutive_empty_fetches" yaml:"consecutive_empty_fetches"`
-	CreatedAt               time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt               time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID                      string                   `boil:"id" json:"id" toml:"id" yaml:"id"`
+	URL                     string                   `boil:"url" json:"url" toml:"url" yaml:"url"`
+	Title                   null.String              `boil:"title" json:"title,omitempty" toml:"title" yaml:"title,omitempty"`
+	Description             null.String              `boil:"description" json:"description,omitempty" toml:"description" yaml:"description,omitempty"`
+	LastFetchedAt           null.Time                `boil:"last_fetched_at" json:"last_fetched_at,omitempty" toml:"last_fetched_at" yaml:"last_fetched_at,omitempty"`
+	AvgItemsPerDay          float64                  `boil:"avg_items_per_day" json:"avg_items_per_day" toml:"avg_items_per_day" yaml:"avg_items_per_day"`
+	LastItemsCount          int                      `boil:"last_items_count" json:"last_items_count" toml:"last_items_count" yaml:"last_items_count"`
+	UpdateFrequencyMinutes  int                      `boil:"update_frequency_minutes" json:"update_frequency_minutes" toml:"update_frequency_minutes" yaml:"update_frequency_minutes"`
+	NextFetchAt             null.Time                `boil:"next_fetch_at" json:"next_fetch_at,omitempty" toml:"next_fetch_at" yaml:"next_fetch_at,omitempty"`
+	LastManualRefreshAt     null.Time                `boil:"last_manual_refresh_at" json:"last_manual_refresh_at,omitempty" toml:"last_manual_refresh_at" yaml:"last_manual_refresh_at,omitempty"`
+	ConsecutiveEmptyFetches int                      `boil:"consecutive_empty_fetches" json:"consecutive_empty_fetches" toml:"consecutive_empty_fetches" yaml:"consecutive_empty_fetches"`
+	CreatedAt               time.Time                `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt               time.Time                `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	LastFetchError          null.String              `boil:"last_fetch_error" json:"last_fetch_error,omitempty" toml:"last_fetch_error" yaml:"last_fetch_error,omitempty"`
+	DisableReason           NullRSSFeedDisableReason `boil:"disable_reason" json:"disable_reason,omitempty" toml:"disable_reason" yaml:"disable_reason,omitempty"`
 
 	R *rssFeedR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L rssFeedL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -56,6 +58,8 @@ var RSSFeedColumns = struct {
 	ConsecutiveEmptyFetches string
 	CreatedAt               string
 	UpdatedAt               string
+	LastFetchError          string
+	DisableReason           string
 }{
 	ID:                      "id",
 	URL:                     "url",
@@ -70,6 +74,8 @@ var RSSFeedColumns = struct {
 	ConsecutiveEmptyFetches: "consecutive_empty_fetches",
 	CreatedAt:               "created_at",
 	UpdatedAt:               "updated_at",
+	LastFetchError:          "last_fetch_error",
+	DisableReason:           "disable_reason",
 }
 
 var RSSFeedTableColumns = struct {
@@ -86,6 +92,8 @@ var RSSFeedTableColumns = struct {
 	ConsecutiveEmptyFetches string
 	CreatedAt               string
 	UpdatedAt               string
+	LastFetchError          string
+	DisableReason           string
 }{
 	ID:                      "rss_feeds.id",
 	URL:                     "rss_feeds.url",
@@ -100,6 +108,8 @@ var RSSFeedTableColumns = struct {
 	ConsecutiveEmptyFetches: "rss_feeds.consecutive_empty_fetches",
 	CreatedAt:               "rss_feeds.created_at",
 	UpdatedAt:               "rss_feeds.updated_at",
+	LastFetchError:          "rss_feeds.last_fetch_error",
+	DisableReason:           "rss_feeds.disable_reason",
 }
 
 // Generated where
@@ -133,6 +143,48 @@ func (w whereHelperfloat64) NIN(slice []float64) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
+type whereHelperNullRSSFeedDisableReason struct{ field string }
+
+func (w whereHelperNullRSSFeedDisableReason) EQ(x NullRSSFeedDisableReason) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelperNullRSSFeedDisableReason) NEQ(x NullRSSFeedDisableReason) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelperNullRSSFeedDisableReason) LT(x NullRSSFeedDisableReason) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelperNullRSSFeedDisableReason) LTE(x NullRSSFeedDisableReason) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelperNullRSSFeedDisableReason) GT(x NullRSSFeedDisableReason) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelperNullRSSFeedDisableReason) GTE(x NullRSSFeedDisableReason) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+func (w whereHelperNullRSSFeedDisableReason) IN(slice []NullRSSFeedDisableReason) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperNullRSSFeedDisableReason) NIN(slice []NullRSSFeedDisableReason) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
+
+func (w whereHelperNullRSSFeedDisableReason) IsNull() qm.QueryMod {
+	return qmhelper.WhereIsNull(w.field)
+}
+func (w whereHelperNullRSSFeedDisableReason) IsNotNull() qm.QueryMod {
+	return qmhelper.WhereIsNotNull(w.field)
+}
+
 var RSSFeedWhere = struct {
 	ID                      whereHelperstring
 	URL                     whereHelperstring
@@ -147,6 +199,8 @@ var RSSFeedWhere = struct {
 	ConsecutiveEmptyFetches whereHelperint
 	CreatedAt               whereHelpertime_Time
 	UpdatedAt               whereHelpertime_Time
+	LastFetchError          whereHelpernull_String
+	DisableReason           whereHelperNullRSSFeedDisableReason
 }{
 	ID:                      whereHelperstring{field: "\"rss_feeds\".\"id\""},
 	URL:                     whereHelperstring{field: "\"rss_feeds\".\"url\""},
@@ -161,6 +215,8 @@ var RSSFeedWhere = struct {
 	ConsecutiveEmptyFetches: whereHelperint{field: "\"rss_feeds\".\"consecutive_empty_fetches\""},
 	CreatedAt:               whereHelpertime_Time{field: "\"rss_feeds\".\"created_at\""},
 	UpdatedAt:               whereHelpertime_Time{field: "\"rss_feeds\".\"updated_at\""},
+	LastFetchError:          whereHelpernull_String{field: "\"rss_feeds\".\"last_fetch_error\""},
+	DisableReason:           whereHelperNullRSSFeedDisableReason{field: "\"rss_feeds\".\"disable_reason\""},
 }
 
 // RSSFeedRels is where relationship names are stored.
@@ -201,9 +257,9 @@ func (r *rssFeedR) GetFeedUserFeedSubscriptions() UserFeedSubscriptionSlice {
 type rssFeedL struct{}
 
 var (
-	rssFeedAllColumns            = []string{"id", "url", "title", "description", "last_fetched_at", "avg_items_per_day", "last_items_count", "update_frequency_minutes", "next_fetch_at", "last_manual_refresh_at", "consecutive_empty_fetches", "created_at", "updated_at"}
+	rssFeedAllColumns            = []string{"id", "url", "title", "description", "last_fetched_at", "avg_items_per_day", "last_items_count", "update_frequency_minutes", "next_fetch_at", "last_manual_refresh_at", "consecutive_empty_fetches", "created_at", "updated_at", "last_fetch_error", "disable_reason"}
 	rssFeedColumnsWithoutDefault = []string{"id", "url", "avg_items_per_day", "update_frequency_minutes", "consecutive_empty_fetches", "created_at", "updated_at"}
-	rssFeedColumnsWithDefault    = []string{"title", "description", "last_fetched_at", "last_items_count", "next_fetch_at", "last_manual_refresh_at"}
+	rssFeedColumnsWithDefault    = []string{"title", "description", "last_fetched_at", "last_items_count", "next_fetch_at", "last_manual_refresh_at", "last_fetch_error", "disable_reason"}
 	rssFeedPrimaryKeyColumns     = []string{"id"}
 	rssFeedGeneratedColumns      = []string{}
 )
