@@ -1,4 +1,4 @@
-package postops
+package util
 
 import (
 	"testing"
