@@ -74,6 +74,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/form/save_settings"
 	case "form_user_styles":
 		out = "/controls/form/save_user_styles"
+	case "form_add_user_feed":
+		out = "/controls/form/add_user_feed"
 	case "form_send_invite":
 		out = "/controls/form/send_invite"
 	case "form_change_password":

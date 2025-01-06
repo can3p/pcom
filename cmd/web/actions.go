@@ -12,6 +12,7 @@ import (
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -318,6 +319,36 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaStorage server.MediaStor
 		prompt.DismissedAt = null.TimeFrom(time.Now())
 
 		if _, err := prompt.Update(c, db, boil.Infer()); err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
+
+	r.POST("/remove_rss_subscription", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		var input struct {
+			SubscriptionID string `json:"id"`
+		}
+
+		if err := c.BindJSON(&input); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		if input.SubscriptionID == "" {
+			reportError(c, "No subscription found")
+			return
+		}
+
+		// in case feedops make more than one query at some point
+		err := transact.Transact(db, func(tx *sql.Tx) error {
+			return feedops.UnsubscribeFromFeed(c, tx, userData.DBUser.ID, input.SubscriptionID)
+		})
+
+		if err != nil {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
 			return
 		}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -235,6 +236,7 @@ type SettingsPage struct {
 	ActiveAPIKey     *core.UserAPIKey
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
+	Feeds            []*feedops.RssFeed
 }
 
 func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
@@ -275,6 +277,12 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		formUserStyles.Input.Styles = userStyles.Styles
 	}
 
+	feeds, err := feedops.GetRssFeeds(c, db, userData.DBUser.ID)
+
+	if err != nil {
+		return mo.Err[*SettingsPage](err)
+	}
+
 	settingsPage := &SettingsPage{
 		BasePage:         getBasePage(c, "Settings", userData),
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
@@ -282,6 +290,7 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		ActiveAPIKey:     apiKey,
 		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
 		UserStyles:       formUserStyles,
+		Feeds:            feeds,
 	}
 
 	return mo.Ok(settingsPage)

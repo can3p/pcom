@@ -807,6 +807,15 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
+	controlsForms.POST("/add_user_feed", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+		dbUser := userData.DBUser
+
+		form := forms.NewAddFeedForm(dbUser)
+
+		gogoForms.DefaultHandler(c, db, form)
+	})
+
 	if err := router.Run(); err != nil {
 		panic(err)
 	}
