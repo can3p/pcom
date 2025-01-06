@@ -50,6 +50,11 @@ func TestNormalizeURL(t *testing.T) {
 			expected: "https://example.com",
 		},
 		{
+			name:     "capitalised case in the url",
+			input:    "hTTps://eXAMple.Com/ABC",
+			expected: "https://example.com/ABC",
+		},
+		{
 			name:     "url with trailing slash",
 			input:    "https://example.com/path/",
 			expected: "https://example.com/path",

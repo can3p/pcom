@@ -34,6 +34,8 @@ func NormalizeURL(rawURL string) (string, error) {
 		return "", fmt.Errorf("URL must include a domain name")
 	}
 
+	u.Host = strings.ToLower(u.Host)
+
 	// Remove trailing slashes from path
 	u.Path = strings.TrimRight(u.Path, "/")
 
