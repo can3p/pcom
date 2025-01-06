@@ -24,19 +24,19 @@ import (
 
 // RSSFeed is an object representing the database table.
 type RSSFeed struct {
-	ID                      string    `boil:"id" json:"id" toml:"id" yaml:"id"`
-	URL                     string    `boil:"url" json:"url" toml:"url" yaml:"url"`
-	Title                   string    `boil:"title" json:"title" toml:"title" yaml:"title"`
-	Description             string    `boil:"description" json:"description" toml:"description" yaml:"description"`
-	LastFetchedAt           null.Time `boil:"last_fetched_at" json:"last_fetched_at,omitempty" toml:"last_fetched_at" yaml:"last_fetched_at,omitempty"`
-	AvgItemsPerDay          float64   `boil:"avg_items_per_day" json:"avg_items_per_day" toml:"avg_items_per_day" yaml:"avg_items_per_day"`
-	LastItemsCount          int       `boil:"last_items_count" json:"last_items_count" toml:"last_items_count" yaml:"last_items_count"`
-	UpdateFrequencyMinutes  int       `boil:"update_frequency_minutes" json:"update_frequency_minutes" toml:"update_frequency_minutes" yaml:"update_frequency_minutes"`
-	NextFetchAt             null.Time `boil:"next_fetch_at" json:"next_fetch_at,omitempty" toml:"next_fetch_at" yaml:"next_fetch_at,omitempty"`
-	LastManualRefreshAt     null.Time `boil:"last_manual_refresh_at" json:"last_manual_refresh_at,omitempty" toml:"last_manual_refresh_at" yaml:"last_manual_refresh_at,omitempty"`
-	ConsecutiveEmptyFetches int       `boil:"consecutive_empty_fetches" json:"consecutive_empty_fetches" toml:"consecutive_empty_fetches" yaml:"consecutive_empty_fetches"`
-	CreatedAt               time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt               time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID                      string      `boil:"id" json:"id" toml:"id" yaml:"id"`
+	URL                     string      `boil:"url" json:"url" toml:"url" yaml:"url"`
+	Title                   null.String `boil:"title" json:"title,omitempty" toml:"title" yaml:"title,omitempty"`
+	Description             null.String `boil:"description" json:"description,omitempty" toml:"description" yaml:"description,omitempty"`
+	LastFetchedAt           null.Time   `boil:"last_fetched_at" json:"last_fetched_at,omitempty" toml:"last_fetched_at" yaml:"last_fetched_at,omitempty"`
+	AvgItemsPerDay          float64     `boil:"avg_items_per_day" json:"avg_items_per_day" toml:"avg_items_per_day" yaml:"avg_items_per_day"`
+	LastItemsCount          int         `boil:"last_items_count" json:"last_items_count" toml:"last_items_count" yaml:"last_items_count"`
+	UpdateFrequencyMinutes  int         `boil:"update_frequency_minutes" json:"update_frequency_minutes" toml:"update_frequency_minutes" yaml:"update_frequency_minutes"`
+	NextFetchAt             null.Time   `boil:"next_fetch_at" json:"next_fetch_at,omitempty" toml:"next_fetch_at" yaml:"next_fetch_at,omitempty"`
+	LastManualRefreshAt     null.Time   `boil:"last_manual_refresh_at" json:"last_manual_refresh_at,omitempty" toml:"last_manual_refresh_at" yaml:"last_manual_refresh_at,omitempty"`
+	ConsecutiveEmptyFetches int         `boil:"consecutive_empty_fetches" json:"consecutive_empty_fetches" toml:"consecutive_empty_fetches" yaml:"consecutive_empty_fetches"`
+	CreatedAt               time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt               time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *rssFeedR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L rssFeedL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -136,8 +136,8 @@ func (w whereHelperfloat64) NIN(slice []float64) qm.QueryMod {
 var RSSFeedWhere = struct {
 	ID                      whereHelperstring
 	URL                     whereHelperstring
-	Title                   whereHelperstring
-	Description             whereHelperstring
+	Title                   whereHelpernull_String
+	Description             whereHelpernull_String
 	LastFetchedAt           whereHelpernull_Time
 	AvgItemsPerDay          whereHelperfloat64
 	LastItemsCount          whereHelperint
@@ -150,8 +150,8 @@ var RSSFeedWhere = struct {
 }{
 	ID:                      whereHelperstring{field: "\"rss_feeds\".\"id\""},
 	URL:                     whereHelperstring{field: "\"rss_feeds\".\"url\""},
-	Title:                   whereHelperstring{field: "\"rss_feeds\".\"title\""},
-	Description:             whereHelperstring{field: "\"rss_feeds\".\"description\""},
+	Title:                   whereHelpernull_String{field: "\"rss_feeds\".\"title\""},
+	Description:             whereHelpernull_String{field: "\"rss_feeds\".\"description\""},
 	LastFetchedAt:           whereHelpernull_Time{field: "\"rss_feeds\".\"last_fetched_at\""},
 	AvgItemsPerDay:          whereHelperfloat64{field: "\"rss_feeds\".\"avg_items_per_day\""},
 	LastItemsCount:          whereHelperint{field: "\"rss_feeds\".\"last_items_count\""},
@@ -202,8 +202,8 @@ type rssFeedL struct{}
 
 var (
 	rssFeedAllColumns            = []string{"id", "url", "title", "description", "last_fetched_at", "avg_items_per_day", "last_items_count", "update_frequency_minutes", "next_fetch_at", "last_manual_refresh_at", "consecutive_empty_fetches", "created_at", "updated_at"}
-	rssFeedColumnsWithoutDefault = []string{"id", "url", "title", "description", "avg_items_per_day", "update_frequency_minutes", "consecutive_empty_fetches", "created_at", "updated_at"}
-	rssFeedColumnsWithDefault    = []string{"last_fetched_at", "last_items_count", "next_fetch_at", "last_manual_refresh_at"}
+	rssFeedColumnsWithoutDefault = []string{"id", "url", "avg_items_per_day", "update_frequency_minutes", "consecutive_empty_fetches", "created_at", "updated_at"}
+	rssFeedColumnsWithDefault    = []string{"title", "description", "last_fetched_at", "last_items_count", "next_fetch_at", "last_manual_refresh_at"}
 	rssFeedPrimaryKeyColumns     = []string{"id"}
 	rssFeedGeneratedColumns      = []string{}
 )
