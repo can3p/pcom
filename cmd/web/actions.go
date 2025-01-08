@@ -356,6 +356,49 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaStorage server.MediaStor
 		reportSuccess(c)
 	})
 
+	r.POST("/dissmiss_rss_item", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		var input struct {
+			SubscriptionItemID string `json:"id"`
+		}
+
+		if err := c.BindJSON(&input); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		if input.SubscriptionItemID == "" {
+			reportError(c, "No item found")
+			return
+		}
+
+		feedItem, err := core.UserFeedItems(
+			core.UserFeedItemWhere.ID.EQ(input.SubscriptionItemID),
+			core.UserFeedItemWhere.UserID.EQ(userData.DBUser.ID),
+		).One(c, db)
+
+		if err != nil {
+			reportError(c, err.Error())
+			return
+		}
+
+		// in case feedops make more than one query at some point
+		err = transact.Transact(db, func(tx *sql.Tx) error {
+			feedItem.IsDismissed = true
+			_, err := feedItem.Update(c, tx, boil.Infer())
+
+			return err
+		})
+
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
+
 	r.POST("/create_share", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
