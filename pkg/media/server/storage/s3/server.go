@@ -3,19 +3,20 @@ package s3
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/can3p/pcom/pkg/media"
 )
 
 type s3Server struct {
-	s3     *s3.S3
+	s3     *s3.Client
 	bucket string
 }
 
@@ -28,20 +29,24 @@ func NewS3Server() (*s3Server, error) {
 	region := os.Getenv("USER_MEDIA_REGION")
 	secret := os.Getenv("USER_MEDIA_SECRET")
 
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(key, secret, ""),
-		Endpoint:         aws.String(endpoint),
-		Region:           aws.String(region),
-		S3ForcePathStyle: aws.Bool(false), // // Configures to use subdomain/virtual calling format. Depending on your version, alternatively use o.UsePathStyle = false
-	}
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		return aws.Endpoint{
+			URL: endpoint,
+		}, nil
+	})
 
-	newSession, err := session.NewSession(s3Config)
+	creds := awscreds.NewStaticCredentialsProvider(key, secret, "")
 
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+		config.WithCredentialsProvider(creds),
+		config.WithEndpointResolverWithOptions(customResolver),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	s3Client := s3.New(newSession)
+	s3Client := s3.NewFromConfig(cfg)
 
 	return &s3Server{
 		s3:     s3Client,
@@ -50,14 +55,14 @@ func NewS3Server() (*s3Server, error) {
 }
 
 func (s3s *s3Server) UploadFile(ctx context.Context, fname string, b []byte, contentType string) error {
-	object := s3.PutObjectInput{
+	input := &s3.PutObjectInput{
 		Bucket:      aws.String(s3s.bucket),
 		Key:         aws.String(fname),
 		Body:        bytes.NewReader(b),
-		ACL:         aws.String("private"),
+		ACL:         types.ObjectCannedACLPrivate,
 		ContentType: aws.String(contentType),
 	}
-	_, err := s3s.s3.PutObject(&object)
+	_, err := s3s.s3.PutObject(ctx, input)
 
 	return err
 }
@@ -68,15 +73,13 @@ func (s3s *s3Server) DownloadFile(ctx context.Context, fname string) (io.ReadClo
 		Key:    aws.String(fname),
 	}
 
-	result, err := s3s.s3.GetObject(input)
+	result, err := s3s.s3.GetObject(ctx, input)
 
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == s3.ErrCodeNoSuchKey {
-				return nil, 0, "", media.ErrNotFound
-			}
+		var noSuchKey *types.NoSuchKey
+		if errors.As(err, &noSuchKey) {
+			return nil, 0, "", media.ErrNotFound
 		}
-
 		return nil, 0, "", err
 	}
 
