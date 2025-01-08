@@ -244,6 +244,12 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		markdown = fmt.Sprintf("Summary errors: %s", err.Error())
 	}
 
+	publishedAt := time.Now()
+
+	if rssFeedItem.PublishedAt != nil {
+		publishedAt = *rssFeedItem.PublishedAt
+	}
+
 	feedItem := &core.RSSItem{
 		ID:                   feedItemID,
 		FeedID:               feedID,
@@ -251,6 +257,7 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		GUID:                 rssFeedItem.URL,
 		Title:                cleaner.CleanField(rssFeedItem.Title),
 		Description:          rssFeedItem.Summary,
+		PublishedAt:          publishedAt,
 		SanitizedDescription: markdown,
 	}
 
