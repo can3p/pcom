@@ -18,7 +18,9 @@
                 data-id="{{ .ID }}"
                 ><i class="bi-trash"></i></button>
         </div>
-        {{ with .Title }}<small>{{ . }}</small>{{ end }}
+        {{ with .Title }}<div><small>{{ . }}</small></div>{{ end }}
+        {{ with .LastError }}<div><small>LastError: {{ . }}</small></div>{{ end }}
+        <div><small>Next fetch: {{ with .NextFetchAt }}{{ renderTimestamp . $.User.DBUser }}{{ else }}Now{{ end }}</small></div>
       </li>
       {{ end }}
     </ul>

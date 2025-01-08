@@ -3,6 +3,7 @@ package feedops
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/samber/lo"
@@ -11,9 +12,11 @@ import (
 )
 
 type RssFeed struct {
-	ID    string
-	URL   string
-	Title string
+	ID          string
+	URL         string
+	Title       string
+	NextFetchAt *time.Time
+	LastError   string
 }
 
 func GetRssFeeds(ctx context.Context, db boil.ContextExecutor, userID string) ([]*RssFeed, error) {
@@ -29,9 +32,11 @@ func GetRssFeeds(ctx context.Context, db boil.ContextExecutor, userID string) ([
 
 	feeds := lo.Map(rssFeeds, func(feed *core.UserFeedSubscription, idx int) *RssFeed {
 		return &RssFeed{
-			ID:    feed.ID,
-			URL:   feed.R.Feed.URL,
-			Title: feed.R.Feed.Title.String,
+			ID:          feed.ID,
+			URL:         feed.R.Feed.URL,
+			Title:       feed.R.Feed.Title.String,
+			NextFetchAt: feed.R.Feed.NextFetchAt.Ptr(),
+			LastError:   feed.R.Feed.LastFetchError.String,
 		}
 	})
 

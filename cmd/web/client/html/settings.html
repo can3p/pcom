@@ -77,7 +77,7 @@
 
   {{ template "partial--settings_user_styles.html"  .UserStyles.TemplateData }}
 
-  {{ template "partial--settings_feeds.html"  toMap "Feeds" .Feeds }}
+  {{ template "partial--settings_feeds.html"  toMap "Feeds" .Feeds "User" .User }}
 
   {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
     {{ template "partial--settings_invites.html" . }}
