@@ -37,6 +37,10 @@ func (f *AddFeedForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 		f.AddError("url", err.Error())
 	}
 
+	if !strings.HasPrefix(f.Input.URL, "http://") && !strings.HasPrefix(f.Input.URL, "https://") {
+		f.AddError("url", "url should have http or https protocol")
+	}
+
 	return f.Errors.PassedValidation()
 }
 
