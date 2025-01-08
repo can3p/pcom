@@ -15,7 +15,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func main() {
+func main() { //nolint:typecheck
 	db := sqlx.MustConnect("postgres", os.Getenv("DATABASE_URL")+"?sslmode=disable")
 	defer func() {
 		if err := db.Close(); err != nil {

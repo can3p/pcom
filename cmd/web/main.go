@@ -22,6 +22,7 @@ import (
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
@@ -114,6 +115,10 @@ func main() {
 	sender = dbSender
 
 	go dbSender.RunPoller(ctx)
+
+	feeder := feedops.DefaultRssReader(db)
+
+	go feeder.RunPoller(ctx)
 
 	if shouldUseS3 {
 		var err error
