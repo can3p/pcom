@@ -40,11 +40,11 @@ func (n *UserHandle) Kind() ast.NodeKind {
 }
 
 func (n *UserHandle) UserName(source []byte) []byte {
-	return n.value.Text(source)[1:]
+	return n.value.Value(source)[1:]
 }
 
 func (n *UserHandle) Label(source []byte) []byte {
-	return n.value.Text(source)
+	return n.value.Value(source)
 }
 
 // NewUserHandle returns a new UserHandle node.
