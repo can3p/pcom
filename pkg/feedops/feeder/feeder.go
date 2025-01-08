@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -114,12 +115,18 @@ func (f *Feeder) tryFetchFeed(ctx context.Context, exec boil.ContextExecutor, fe
 func GetFeedsToRefresh(ctx context.Context, exec boil.ContextExecutor) ([]*core.RSSFeed, error) {
 	feeds, err := core.RSSFeeds(
 		core.RSSFeedWhere.NextFetchAt.LT(null.TimeFrom(time.Now())),
+		qm.Load(core.RSSFeedRels.FeedUserFeedSubscriptions, qm.Limit(1)),
 		qm.Or2(core.RSSFeedWhere.NextFetchAt.IsNull()),
 	).All(ctx, exec)
 
 	if err != nil {
 		return nil, err
 	}
+
+	// we're only interested in refreshing feeds with at least one subscription
+	feeds = lo.Filter(feeds, func(f *core.RSSFeed, index int) bool {
+		return len(f.R.FeedUserFeedSubscriptions) > 0
+	})
 
 	return feeds, nil
 }
