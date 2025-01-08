@@ -1,6 +1,8 @@
 package reader
 
 import (
+	"html"
+
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/microcosm-cc/bluemonday"
 )
@@ -14,7 +16,9 @@ func DefaultCleaner() *Cleaner {
 func (c *Cleaner) CleanField(in string) string {
 	p := bluemonday.StrictPolicy()
 
-	return p.Sanitize(in)
+	sanitized := p.Sanitize(in)
+
+	return html.UnescapeString(sanitized)
 }
 
 func (c *Cleaner) HTMLToMarkdown(in string) (string, error) {
