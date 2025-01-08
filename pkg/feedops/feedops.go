@@ -11,8 +11,9 @@ import (
 )
 
 type RssFeed struct {
-	ID  string
-	URL string
+	ID    string
+	URL   string
+	Title string
 }
 
 func GetRssFeeds(ctx context.Context, db boil.ContextExecutor, userID string) ([]*RssFeed, error) {
@@ -28,8 +29,9 @@ func GetRssFeeds(ctx context.Context, db boil.ContextExecutor, userID string) ([
 
 	feeds := lo.Map(rssFeeds, func(feed *core.UserFeedSubscription, idx int) *RssFeed {
 		return &RssFeed{
-			ID:  feed.ID,
-			URL: feed.R.Feed.URL,
+			ID:    feed.ID,
+			URL:   feed.R.Feed.URL,
+			Title: feed.R.Feed.Title.String,
 		}
 	})
 
