@@ -2,11 +2,10 @@ pcom plans
 
 A Text file works for hobby projects just fine
 
-* Add post types. New post type - url. Title is optional, but there is a url field + text as usual.
 * Allow to set fields via url like `/write?title=nice title&body=this post is cool` for new posts. The page should get the field filled in and save the draft + update url right away in this case
 * On a single post page in case of url posts render all the posts from connections or public posts that are linked to the same url
-* Allow to subscribe to rss-feeds right in pcom
 * By default all rss items are only visible to the subscriber. They can dismiss rss items to remove them from feed
 * It's possible to convert any rss item into a url-post
 * If somebody from connections has written a url-post about an item from the feed, show url post only with a remark that the user has this url in the feed as well
 * User can set the visibility for their subscriptions, same as posts
+* Images from rss feeds should be proxied via pcom
