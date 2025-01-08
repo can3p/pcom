@@ -1,14 +1,15 @@
 module github.com/can3p/pcom
 
-go 1.22.1
-
-toolchain go1.23.0
+go 1.23.1
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.2.2
 	github.com/alecthomas/assert/v2 v2.9.0
 	github.com/antonlindstrom/pgstore v0.0.0-20220421113606-e3a6e3fed12a
-	github.com/aws/aws-sdk-go v1.53.0
+	github.com/aws/aws-sdk-go-v2 v1.25.0
+	github.com/aws/aws-sdk-go-v2/config v1.27.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.50.0
 	github.com/badoux/checkmail v1.2.1
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
 	github.com/can3p/gogo v0.0.0-20240724001046-388a9ef0ec1b
@@ -40,6 +41,20 @@ require (
 	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/alecthomas/repr v0.4.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.0 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.15.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.22.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.27.0 // indirect
+	github.com/aws/smithy-go v1.20.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -56,7 +71,6 @@ require (
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.2.1 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
