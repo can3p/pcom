@@ -43,3 +43,50 @@ func GetRssFeeds(ctx context.Context, db boil.ContextExecutor, userID string) ([
 	return feeds, nil
 
 }
+
+type RssFeedItem struct {
+	ID          string
+	URL         string
+	FeedTitle   string
+	FeedURL     string
+	Title       string
+	PublishedAt time.Time
+	Summary     string
+}
+
+func GetRssFeedItems(ctx context.Context, db boil.ContextExecutor, userID string) ([]*RssFeedItem, error) {
+	dbItems, err := core.UserFeedItems(
+		core.UserFeedItemWhere.UserID.EQ(userID),
+		core.UserFeedItemWhere.IsDismissed.EQ(false),
+		qm.Load(qm.Rels(
+			core.UserFeedItemRels.RSSItem,
+			core.RSSItemRels.Feed,
+		)),
+		qm.Load(core.UserFeedItemRels.URL),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.UserFeedItemColumns.ID)),
+	).All(ctx, db)
+
+	if err != nil {
+		return nil, err
+	}
+
+	items := lo.Map(dbItems, func(item *core.UserFeedItem, idx int) *RssFeedItem {
+		publishedAt := item.CreatedAt
+
+		if !item.R.RSSItem.PublishedAt.IsZero() {
+			publishedAt = item.R.RSSItem.PublishedAt
+		}
+
+		return &RssFeedItem{
+			ID:          item.ID,
+			URL:         item.R.URL.URL,
+			Title:       item.R.RSSItem.Title,
+			Summary:     item.R.RSSItem.SanitizedDescription,
+			PublishedAt: publishedAt,
+			FeedTitle:   item.R.RSSItem.R.Feed.Title.String,
+			FeedURL:     item.R.RSSItem.R.Feed.URL,
+		}
+	})
+
+	return items, nil
+}

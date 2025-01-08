@@ -612,14 +612,18 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 }
 
 type FeedItem struct {
-	Post    *postops.Post
-	Comment *postops.Comment
+	Post     *postops.Post
+	FeedItem *feedops.RssFeedItem
+	Comment  *postops.Comment
 }
 
 func (fi *FeedItem) PublishedAt() time.Time {
 	if fi.Post != nil {
 		return fi.Post.PublishedAt.Time
+	}
 
+	if fi.FeedItem != nil {
+		return fi.FeedItem.PublishedAt
 	}
 
 	return fi.Comment.CreatedAt
@@ -707,6 +711,20 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 
 		return mo.Ok(feedPage)
 	}
+
+	rssFeedItems, err := feedops.GetRssFeedItems(ctx, db, user.ID)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	rssFeedItemsMapped := lo.Map(rssFeedItems, func(p *feedops.RssFeedItem, idx int) *FeedItem {
+		return &FeedItem{
+			FeedItem: p,
+		}
+	})
+
+	items = append(items, rssFeedItemsMapped...)
 
 	comments, err := getComments(ctx, db, user.ID)
 
