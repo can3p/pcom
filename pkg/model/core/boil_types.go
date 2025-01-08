@@ -144,6 +144,154 @@ func (e PostVisibility) Ordinal() int {
 	}
 }
 
+type RSSFeedDisableReason string
+
+// Enum values for RSSFeedDisableReason
+const (
+	RSSFeedDisableReasonFetchFailure  RSSFeedDisableReason = "fetch_failure"
+	RSSFeedDisableReasonNoSubscribers RSSFeedDisableReason = "no_subscribers"
+)
+
+func AllRSSFeedDisableReason() []RSSFeedDisableReason {
+	return []RSSFeedDisableReason{
+		RSSFeedDisableReasonFetchFailure,
+		RSSFeedDisableReasonNoSubscribers,
+	}
+}
+
+func (e RSSFeedDisableReason) IsValid() error {
+	switch e {
+	case RSSFeedDisableReasonFetchFailure, RSSFeedDisableReasonNoSubscribers:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e RSSFeedDisableReason) String() string {
+	return string(e)
+}
+
+func (e RSSFeedDisableReason) Ordinal() int {
+	switch e {
+	case RSSFeedDisableReasonFetchFailure:
+		return 0
+	case RSSFeedDisableReasonNoSubscribers:
+		return 1
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
+}
+
+// NullRSSFeedDisableReason is a nullable RSSFeedDisableReason enum type. It supports SQL and JSON serialization.
+type NullRSSFeedDisableReason struct {
+	Val   RSSFeedDisableReason
+	Valid bool
+}
+
+// NullRSSFeedDisableReasonFrom creates a new RSSFeedDisableReason that will never be blank.
+func NullRSSFeedDisableReasonFrom(v RSSFeedDisableReason) NullRSSFeedDisableReason {
+	return NewNullRSSFeedDisableReason(v, true)
+}
+
+// NullRSSFeedDisableReasonFromPtr creates a new NullRSSFeedDisableReason that be null if s is nil.
+func NullRSSFeedDisableReasonFromPtr(v *RSSFeedDisableReason) NullRSSFeedDisableReason {
+	if v == nil {
+		return NewNullRSSFeedDisableReason("", false)
+	}
+	return NewNullRSSFeedDisableReason(*v, true)
+}
+
+// NewNullRSSFeedDisableReason creates a new NullRSSFeedDisableReason
+func NewNullRSSFeedDisableReason(v RSSFeedDisableReason, valid bool) NullRSSFeedDisableReason {
+	return NullRSSFeedDisableReason{
+		Val:   v,
+		Valid: valid,
+	}
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (e *NullRSSFeedDisableReason) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, null.NullBytes) {
+		e.Val = ""
+		e.Valid = false
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &e.Val); err != nil {
+		return err
+	}
+
+	e.Valid = true
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler.
+func (e NullRSSFeedDisableReason) MarshalJSON() ([]byte, error) {
+	if !e.Valid {
+		return null.NullBytes, nil
+	}
+	return json.Marshal(e.Val)
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (e NullRSSFeedDisableReason) MarshalText() ([]byte, error) {
+	if !e.Valid {
+		return []byte{}, nil
+	}
+	return []byte(e.Val), nil
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (e *NullRSSFeedDisableReason) UnmarshalText(text []byte) error {
+	if text == nil || len(text) == 0 {
+		e.Valid = false
+		return nil
+	}
+
+	e.Val = RSSFeedDisableReason(text)
+	e.Valid = true
+	return nil
+}
+
+// SetValid changes this NullRSSFeedDisableReason value and also sets it to be non-null.
+func (e *NullRSSFeedDisableReason) SetValid(v RSSFeedDisableReason) {
+	e.Val = v
+	e.Valid = true
+}
+
+// Ptr returns a pointer to this NullRSSFeedDisableReason value, or a nil pointer if this NullRSSFeedDisableReason is null.
+func (e NullRSSFeedDisableReason) Ptr() *RSSFeedDisableReason {
+	if !e.Valid {
+		return nil
+	}
+	return &e.Val
+}
+
+// IsZero returns true for null types.
+func (e NullRSSFeedDisableReason) IsZero() bool {
+	return !e.Valid
+}
+
+// Scan implements the Scanner interface.
+func (e *NullRSSFeedDisableReason) Scan(value interface{}) error {
+	if value == nil {
+		e.Val, e.Valid = "", false
+		return nil
+	}
+	e.Valid = true
+	return convert.ConvertAssign((*string)(&e.Val), value)
+}
+
+// Value implements the driver Valuer interface.
+func (e NullRSSFeedDisableReason) Value() (driver.Value, error) {
+	if !e.Valid {
+		return nil, nil
+	}
+	return string(e.Val), nil
+}
+
 type ConnectionRequestDecision string
 
 // Enum values for ConnectionRequestDecision

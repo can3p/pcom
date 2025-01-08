@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -235,6 +236,7 @@ type SettingsPage struct {
 	ActiveAPIKey     *core.UserAPIKey
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
+	Feeds            []*feedops.RssFeed
 }
 
 func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
@@ -275,6 +277,12 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		formUserStyles.Input.Styles = userStyles.Styles
 	}
 
+	feeds, err := feedops.GetRssFeeds(c, db, userData.DBUser.ID)
+
+	if err != nil {
+		return mo.Err[*SettingsPage](err)
+	}
+
 	settingsPage := &SettingsPage{
 		BasePage:         getBasePage(c, "Settings", userData),
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
@@ -282,6 +290,7 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		ActiveAPIKey:     apiKey,
 		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
 		UserStyles:       formUserStyles,
+		Feeds:            feeds,
 	}
 
 	return mo.Ok(settingsPage)
@@ -603,14 +612,18 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 }
 
 type FeedItem struct {
-	Post    *postops.Post
-	Comment *postops.Comment
+	Post     *postops.Post
+	FeedItem *feedops.RssFeedItem
+	Comment  *postops.Comment
 }
 
 func (fi *FeedItem) PublishedAt() time.Time {
 	if fi.Post != nil {
 		return fi.Post.PublishedAt.Time
+	}
 
+	if fi.FeedItem != nil {
+		return fi.FeedItem.PublishedAt
 	}
 
 	return fi.Comment.CreatedAt
@@ -698,6 +711,20 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 
 		return mo.Ok(feedPage)
 	}
+
+	rssFeedItems, err := feedops.GetRssFeedItems(ctx, db, user.ID)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	rssFeedItemsMapped := lo.Map(rssFeedItems, func(p *feedops.RssFeedItem, idx int) *FeedItem {
+		return &FeedItem{
+			FeedItem: p,
+		}
+	})
+
+	items = append(items, rssFeedItemsMapped...)
 
 	comments, err := getComments(ctx, db, user.ID)
 

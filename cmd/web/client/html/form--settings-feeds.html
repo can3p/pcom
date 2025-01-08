@@ -1,0 +1,23 @@
+<form
+      method="POST"
+      action="{{ link "form_add_user_feed" }}"
+      hx-post="{{ link "form_add_user_feed" }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="this"
+      autocomplete="off"
+      >
+
+  <div class="mb-3">
+    <label for="settingsUrl" class="form-label">Feed URL</label>
+      <input name="url" type="url"
+                       value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
+                       class="form-control {{ if (.Errors.HasError "url") }}is-invalid{{ end }}"
+                       placeholder="URL"
+                       aria-describedby="urlHelp">
+    {{ if (.Errors.HasError "url") }}
+    <div class="invalid-feedback">{{ .Errors.url }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary">Add url</button>
+</form>

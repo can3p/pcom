@@ -96,6 +96,32 @@
             </div>
           </div>
         {{ end }}
+
+        {{ with .FeedItem }}
+          <div class="mt-3 us-feed-post feed-post">
+            <div class="card">
+              <h5 class="card-header fs-6">New item from your feed <a href="{{ . }}">{{ with .FeedTitle }}{{ . }}{{ else }}no name yet{{ end }}</a> {{ .Title }} <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt $.User.DBUser }}</span></h5>
+              <div class="card-body">
+                <div class="mt-3 post-in-feed">{{ markdown_feed .Summary }}</div>
+
+                <div class="mt-2 text-center">
+                  <a href="{{ .URL }}" target="_blank" rel="noopener noreferrer">{{ .URL }}</a>
+                </div>
+
+                <div class="text-center mt-2 us-feed-post-stats feed-post-stats">
+                  <button type="button"
+                          class="btn btn-sm btn-danger"
+                          data-controller="action"
+                          data-action="action#run"
+                          data-action-action-value="dissmiss_rss_item"
+                          data-action-prompt-value="Do you want to remove the item from the feed?"
+                          data-id="{{ .ID }}"
+                          ><i class="bi-trash"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        {{ end }}
       {{ end }}
     {{ end }}
   </div>

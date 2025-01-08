@@ -1,0 +1,31 @@
+<div class="card mt-2">
+  <h5 class="card-header">Feeds</h5>
+  <div class="card-body">
+    <p>Add RSS feeds that you'd like to follow there</p>
+
+    {{ if gt (len .Feeds) 0}}
+    <ul class="list-group">
+      {{ range .Feeds }}
+      <li class="list-group-item">
+        <div class="d-flex w-100 justify-content-between">
+        <span>{{ .URL }}</span>
+        <button type="button"
+                class="btn btn-sm btn-danger"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="remove_rss_subscription"
+                data-action-prompt-value="Do you want to unsubcribe from {{ .URL }}?"
+                data-id="{{ .ID }}"
+                ><i class="bi-trash"></i></button>
+        </div>
+        {{ with .Title }}<div><small>{{ . }}</small></div>{{ end }}
+        {{ with .LastError }}<div><small>LastError: {{ . }}</small></div>{{ end }}
+        <div><small>Next fetch: {{ with .NextFetchAt }}{{ renderTimestamp . $.User.DBUser }}{{ else }}Now{{ end }}</small></div>
+      </li>
+      {{ end }}
+    </ul>
+    {{ end }}
+
+    {{ template "form--settings-feeds.html" . }}
+  </div>
+</div>

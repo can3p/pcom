@@ -39,7 +39,7 @@ func main() {
 
 	// Connect to database
 	db := sqlx.MustConnect("postgres", os.Getenv("DATABASE_URL")+"?sslmode=disable")
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 
 	ctx := context.Background()
 
@@ -69,7 +69,7 @@ func main() {
 	mockSender := &MockSender{}
 
 	// Set sender address for testing
-	os.Setenv("SENDER_ADDRESS", "noreply@example.com")
+	os.Setenv("SENDER_ADDRESS", "noreply@example.com") //nolint:errcheck
 
 	fmt.Printf("\n=== Generating email for participant: %s ===\n", participant.Username)
 	err = mail.PostCommentParticipants(ctx, db, mockSender, links.MediaReplacer, commentAuthor, participant, post, comment)

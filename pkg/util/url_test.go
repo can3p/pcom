@@ -1,4 +1,4 @@
-package postops
+package util
 
 import (
 	"testing"
@@ -48,6 +48,11 @@ func TestNormalizeURL(t *testing.T) {
 			name:     "simple url",
 			input:    "https://example.com",
 			expected: "https://example.com",
+		},
+		{
+			name:     "capitalised case in the url",
+			input:    "hTTps://eXAMple.Com/ABC",
+			expected: "https://example.com/ABC",
 		},
 		{
 			name:     "url with trailing slash",
