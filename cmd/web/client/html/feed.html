@@ -44,16 +44,10 @@
         {{ with .Comment }}
           <div class="mt-3 us-feed-comment feed-comment">
             <div class="card">
-              <h5 class="card-header fs-6">
-                <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> left a <a hx-boost="false" href="{{ link "comment" .PostID .ID }}">comment</a>
-                {{ if eq $.User.DBUser.ID .Post.UserID }}
-                to your post
-                {{ else }}
-                to the post you've commented on
-                {{ end }}
-                <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a>
-                at {{ renderTimestamp .CreatedAt $.User.DBUser }}
-              </h5>
+              <div class="card-header">
+                <h5 class="card-title fs-6">New Comment: <a href="{{ link "post" .ID }}">{{ .Post.PostSubject }}</a> </h5>
+                <small> <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> left a <a hx-boost="false" href="{{ link "comment" .PostID .ID }}">comment</a> {{ if eq $.User.DBUser.ID .Post.UserID }} to your post {{ else }} to the post you've commented on {{ end }} at {{ renderTimestamp .CreatedAt $.User.DBUser }} </small>
+              </div>
               <div class="card-body">
                 <div class="mt-3 post-in-feed">{{ markdown_feed .Body }}</div>
               </div>
@@ -64,7 +58,11 @@
         {{ with .Post }}
           <div class="mt-3 us-feed-post feed-post">
             <div class="card">
-              <h5 class="card-header fs-6"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> &#8594; {{ if gt (len .Via) 0 }} {{ range $index, $element := .Via }}{{ if $index }}, {{ end }}<a href="{{ link "user" $element.Username }}">{{ .Username }}</a>{{ end }} &#8594;{{ end }}<a href="{{ link "post" .ID }}">{{ .PostSubject }}</a> <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</span></h5>
+              <div class="card-header">
+                <h5 class="card-title fs-6"><a href="{{ link "post" .ID }}">{{ .PostSubject }}</a> </h5>
+                <small><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> {{ if gt (len .Via) 0 }}  &#8594; {{ range $index, $element := .Via }}{{ if $index }}, {{ end }}<a href="{{ link "user" $element.Username }}">{{ .Username }}</a>{{ end }}{{ end }} <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt.Time $.User.DBUser }}</span></small>
+              </div>
+
               <div class="card-body">
                 <div class="mt-3 post-in-feed">{{ markdown_feed .Body }}</div>
 
@@ -98,26 +96,29 @@
         {{ end }}
 
         {{ with .FeedItem }}
-          <div class="mt-3 us-feed-post feed-post">
+          <div class="mt-3 us-feed-rss-item feed-post">
             <div class="card">
-              <h5 class="card-header fs-6">New item from your feed <a href="{{ . }}">{{ with .FeedTitle }}{{ . }}{{ else }}no name yet{{ end }}</a> {{ .Title }} <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt $.User.DBUser }}</span></h5>
+              <div class="card-header">
+                <div class="d-flex w-100 justify-content-between">
+                  <div>
+                    <h5 class="card-title fs-6"><a href="{{ .URL }}" target="_blank" rel="noopener noreferrer">{{ with .Title }}{{ . }}{{ else }}No Title{{ end }}</a></h5>
+                    <small><i class="bi bi-rss"></i> <a href="{{ .FeedURL }}">{{ with .FeedTitle }}{{ . }}{{ else }}no name yet{{ end }}</a> <span class="us-post-date post-date">posted at {{ renderTimestamp .PublishedAt $.User.DBUser }}</span></small>
+                  </div>
+                  <div>
+                    <button type="button"
+                            class="btn btn-sm btn-danger"
+                            data-controller="action"
+                            data-action="action#run"
+                            data-action-action-value="dissmiss_rss_item"
+                            data-action-prompt-value="Do you want to remove the item from the feed?"
+                            data-id="{{ .ID }}"
+                            ><i class="bi-trash"></i></button>
+                  </div>
+                </div>
+              </div>
+
               <div class="card-body">
                 <div class="mt-3 post-in-feed">{{ markdown_feed .Summary }}</div>
-
-                <div class="mt-2 text-center">
-                  <a href="{{ .URL }}" target="_blank" rel="noopener noreferrer">{{ .URL }}</a>
-                </div>
-
-                <div class="text-center mt-2 us-feed-post-stats feed-post-stats">
-                  <button type="button"
-                          class="btn btn-sm btn-danger"
-                          data-controller="action"
-                          data-action="action#run"
-                          data-action-action-value="dissmiss_rss_item"
-                          data-action-prompt-value="Do you want to remove the item from the feed?"
-                          data-id="{{ .ID }}"
-                          ><i class="bi-trash"></i></button>
-                </div>
               </div>
             </div>
           </div>
