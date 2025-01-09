@@ -51,6 +51,7 @@ type RssFeedItem struct {
 	FeedURL     string
 	Title       string
 	PublishedAt time.Time
+	AddedAt     time.Time
 	Summary     string
 }
 
@@ -83,6 +84,7 @@ func GetRssFeedItems(ctx context.Context, db boil.ContextExecutor, userID string
 			Title:       item.R.RSSItem.Title,
 			Summary:     item.R.RSSItem.SanitizedDescription,
 			PublishedAt: publishedAt,
+			AddedAt:     item.CreatedAt,
 			FeedTitle:   item.R.RSSItem.R.Feed.Title.String,
 			FeedURL:     item.R.RSSItem.R.Feed.URL,
 		}

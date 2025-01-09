@@ -617,13 +617,13 @@ type FeedItem struct {
 	Comment  *postops.Comment
 }
 
-func (fi *FeedItem) PublishedAt() time.Time {
+func (fi *FeedItem) AddedToFeedAt() time.Time {
 	if fi.Post != nil {
 		return fi.Post.PublishedAt.Time
 	}
 
 	if fi.FeedItem != nil {
-		return fi.FeedItem.PublishedAt
+		return fi.FeedItem.AddedAt
 	}
 
 	return fi.Comment.CreatedAt
@@ -736,7 +736,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 
 	// newest items first
 	slices.SortFunc(items, func(a, b *FeedItem) int {
-		return b.PublishedAt().Compare(a.PublishedAt())
+		return b.AddedToFeedAt().Compare(a.AddedToFeedAt())
 	})
 
 	directConnections, err := core.Users(
