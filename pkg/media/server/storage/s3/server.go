@@ -29,24 +29,19 @@ func NewS3Server() (*s3Server, error) {
 	region := os.Getenv("USER_MEDIA_REGION")
 	secret := os.Getenv("USER_MEDIA_SECRET")
 
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			URL: endpoint,
-		}, nil
-	})
-
 	creds := awscreds.NewStaticCredentialsProvider(key, secret, "")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
 		config.WithCredentialsProvider(creds),
-		config.WithEndpointResolverWithOptions(customResolver),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	s3Client := s3.NewFromConfig(cfg)
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(endpoint)
+	})
 
 	return &s3Server{
 		s3:     s3Client,
