@@ -73,6 +73,7 @@ Edit the file given by sql-migrate
    flyctl secrets set SITE_ROOT=https://pcom.com
    flyctl secrets set MJ_APIKEY_PUBLIC=<public key from mailjet>
    flyctl secrets set MJ_APIKEY_PRIVATE=<private key from mailjet>
+   # this one should include scheme
    flyctl secrets set USER_MEDIA_ENDPOINT=<endpoint>
    flyctl secrets set USER_MEDIA_BUCKET=<bucket>
    flyctl secrets set USER_MEDIA_KEY=<key>
