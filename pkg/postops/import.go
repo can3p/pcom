@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -65,16 +66,27 @@ func parseExportedPost(b []byte) (map[string]string, string, error) {
 	return headers, strings.Trim(strings.Join(body, "\n"), "\n"), nil
 }
 
-func DeserializePost(b []byte) (*core.Post, error) {
+type AdditionalFields struct {
+	URL string
+}
+
+type PostWithMeta struct {
+	Post       *core.Post
+	Additional *AdditionalFields
+}
+
+func DeserializePost(b []byte) (*core.Post, *AdditionalFields, error) {
 	headers, body, err := parseExportedPost(b)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	post := &core.Post{
 		Body: body,
 	}
+
+	var additionalFields *AdditionalFields
 
 	for name, value := range headers {
 		switch name {
@@ -82,18 +94,20 @@ func DeserializePost(b []byte) (*core.Post, error) {
 			_, err := uuid.Parse(value)
 
 			if err != nil {
-				return nil, errors.Errorf("Invalid ID")
+				return nil, nil, errors.Errorf("Invalid ID")
 			}
 
 			post.ID = value
 		case string(Subject):
 			post.Subject = null.NewString(value, value != "")
+		case string(Url):
+			additionalFields = &AdditionalFields{URL: value}
 		case string(Visibility):
 			vis := core.PostVisibility(value)
 
 			if err := vis.IsValid(); err != nil {
 				allVis := lo.Map(core.AllPostVisibility(), func(v core.PostVisibility, idx int) string { return v.String() })
-				return nil, errors.Errorf("Invalid visibility value, possible values are: %s", strings.Join(allVis, ", "))
+				return nil, nil, errors.Errorf("Invalid visibility value, possible values are: %s", strings.Join(allVis, ", "))
 			}
 
 			post.VisibilityRadius = vis
@@ -101,30 +115,30 @@ func DeserializePost(b []byte) (*core.Post, error) {
 			d, err := time.Parse(time.RFC3339, value)
 
 			if err != nil {
-				return nil, errors.Wrapf(err, "invalid publish date")
+				return nil, nil, errors.Errorf("Invalid publish date")
 			}
 
 			post.PublishedAt = null.TimeFrom(d)
 		default:
-			return nil, errors.Errorf("Unknown header: %s", name)
+			return nil, nil, errors.Errorf("Unknown header: %s", name)
 		}
 	}
 
-	return post, nil
+	return post, additionalFields, nil
 }
 
-func DeserializeArchive(b []byte) ([]*core.Post, map[string][]byte, error) {
-
-	r, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
+func DeserializeArchive(b []byte) ([]*PostWithMeta, map[string][]byte, error) {
+	r := bytes.NewReader(b)
+	z, err := zip.NewReader(r, int64(len(b)))
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	posts := []*core.Post{}
-	images := map[string][]byte{}
+	var posts []*PostWithMeta
+	images := make(map[string][]byte)
 
-	for _, f := range r.File {
+	for _, f := range z.File {
 		fname := strings.ToLower(f.Name)
 
 		// some mac os shit
@@ -147,14 +161,21 @@ func DeserializeArchive(b []byte) ([]*core.Post, map[string][]byte, error) {
 			return nil, nil, err
 		}
 
+		if err := rc.Close(); err != nil {
+			return nil, nil, err
+		}
+
 		if strings.HasSuffix(fname, ".md") {
-			p, err := DeserializePost(b)
+			post, additional, err := DeserializePost(b)
 
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to parse file %s: %w", fname, err)
 			}
 
-			posts = append(posts, p)
+			posts = append(posts, &PostWithMeta{
+				Post:       post,
+				Additional: additional,
+			})
 		}
 
 		ftype := http.DetectContentType(b)
@@ -174,7 +195,7 @@ type InjectStats struct {
 	ImagesSkipped  int
 }
 
-func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorage server.MediaStorage, userID string, posts []*core.Post, images map[string][]byte) (*InjectStats, error) {
+func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorage server.MediaStorage, userID string, posts []*PostWithMeta, images map[string][]byte) (*InjectStats, error) {
 	stats := &InjectStats{}
 
 	// current assumption: if you've guessed the name of the file in db, we assume
@@ -213,8 +234,8 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorag
 	}
 
 	postIDs := lo.Map(
-		lo.Filter(posts, func(p *core.Post, idx int) bool { return p.ID != "" }),
-		func(p *core.Post, idx int) string { return p.ID })
+		lo.Filter(posts, func(p *PostWithMeta, idx int) bool { return p.Post.ID != "" }),
+		func(p *PostWithMeta, idx int) string { return p.Post.ID })
 
 	existingPosts, err := core.Posts(
 		core.PostWhere.UserID.EQ(userID),
@@ -231,7 +252,9 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorag
 		keepIDs[p.ID] = struct{}{}
 	}
 
-	for _, p := range posts {
+	for _, postWithMeta := range posts {
+		p := postWithMeta.Post
+
 		_, keepPostID := keepIDs[p.ID]
 		insertPost := p.ID == "" || !keepPostID
 
@@ -247,6 +270,16 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorag
 
 		p.Body = markdown.ReplaceImageUrls(p.Body, markdown.ImportReplacer(renameMap, existingMap))
 		p.UserID = userID
+
+		if postWithMeta.Additional != nil && postWithMeta.Additional.URL != "" {
+			url, err := StoreURL(ctx, exec, postWithMeta.Additional.URL)
+
+			if err != nil {
+				return nil, err
+			}
+
+			p.URLID = null.StringFrom(url.ID)
+		}
 
 		if insertPost {
 			if err := p.Insert(ctx, exec, boil.Infer()); err != nil {

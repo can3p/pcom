@@ -25,6 +25,7 @@ type ExportField string
 const (
 	OriginalID  ExportField = "original_id"
 	Subject     ExportField = "subject"
+	Url         ExportField = "url"
 	Visibility  ExportField = "visibility"
 	PublishDate ExportField = "published"
 )
@@ -36,6 +37,9 @@ func SerializePost(post *core.Post) []byte {
 	buf.WriteString(fmt.Sprintf("%s: %s\n", OriginalID, post.ID))
 	if post.Subject.Valid {
 		buf.WriteString(fmt.Sprintf("%s: %s\n", Subject, post.Subject.String))
+	}
+	if post.URLID.Valid {
+		buf.WriteString(fmt.Sprintf("%s: %s\n", Url, post.R.URL.URL))
 	}
 	buf.WriteString(fmt.Sprintf("%s: %s\n", Visibility, post.VisibilityRadius.String()))
 	if post.PublishedAt.Valid {
@@ -59,6 +63,7 @@ func isURLMediaUpload(url string) bool {
 func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaStorage server.MediaStorage, userID string, m ...qm.QueryMod) ([]byte, error) {
 	mod := []qm.QueryMod{
 		core.PostWhere.UserID.EQ(userID),
+		qm.Load(core.PostRels.URL),
 	}
 
 	mod = append(mod, m...)
@@ -69,6 +74,10 @@ func SerializeBlog(ctx context.Context, exec boil.ContextExecutor, mediaStorage 
 		return nil, err
 	}
 
+	return SerializeBlogSlice(ctx, posts, mediaStorage)
+}
+
+func SerializeBlogSlice(ctx context.Context, posts []*core.Post, mediaStorage server.MediaStorage) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 
