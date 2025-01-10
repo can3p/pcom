@@ -22,7 +22,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-var headerRe = regexp.MustCompile(`^(\w+)\s*:\s*(.+)$`)
+var headerRe = regexp.MustCompile(`^(\w+)\s*:\s*(.+)?$`)
 
 func parseExportedPost(b []byte) (map[string]string, string, error) {
 	lines := strings.Split(string(bytes.TrimSpace(b)), "\n")

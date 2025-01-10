@@ -11,6 +11,98 @@ import (
 	"github.com/volatiletech/null/v8"
 )
 
+func TestImport(t *testing.T) {
+	testCases := []struct {
+		name             string
+		content          string
+		post             *core.Post
+		additionalFields *AdditionalFields
+		wantErr          bool
+	}{
+		{
+			name: "post with subject",
+			content: `---
+original_id: 018f45ef-b63a-7426-a444-3957146ca700
+subject: test subject
+published: 2024-05-04T23:28:08Z
+visibility: direct_only
+---
+
+This is a test *post*
+
+with some *markdown* in it`,
+			post: &core.Post{
+				ID:      "018f45ef-b63a-7426-a444-3957146ca700",
+				Subject: null.StringFrom("test subject"),
+				Body: `This is a test *post*
+
+with some *markdown* in it`,
+				PublishedAt:      null.TimeFrom(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
+				VisibilityRadius: core.PostVisibilityDirectOnly,
+			},
+		},
+		{
+			name: "post with empty subject",
+			content: `---
+			original_id: 018f45ef-b63a-7426-a444-3957146ca700
+subject: 
+published: 2024-05-04T23:28:08Z
+visibility: direct_only
+---
+
+This is a test *post*
+
+with some *markdown* in it`,
+			post: &core.Post{
+				ID: "018f45ef-b63a-7426-a444-3957146ca700",
+				Body: `This is a test *post*
+
+with some *markdown* in it`,
+				PublishedAt:      null.TimeFrom(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
+				VisibilityRadius: core.PostVisibilityDirectOnly,
+			},
+		},
+		{
+			name: "post with URL",
+			content: `---
+			original_id: 018f45ef-b63a-7426-a444-3957146ca700
+			url: https://test.url
+published: 2024-05-04T23:28:08Z
+visibility: direct_only
+---
+
+This is a test *post*
+
+with some *markdown* in it`,
+			post: &core.Post{
+				ID: "018f45ef-b63a-7426-a444-3957146ca700",
+				Body: `This is a test *post*
+
+with some *markdown* in it`,
+				PublishedAt:      null.TimeFrom(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
+				VisibilityRadius: core.PostVisibilityDirectOnly,
+			},
+			additionalFields: &AdditionalFields{
+				URL: "https://test.url",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			imported, additionalFields, err := DeserializePost([]byte(tc.content))
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.post, imported)
+			assert.Equal(t, tc.additionalFields, additionalFields)
+		})
+	}
+}
 func TestExportImport(t *testing.T) {
 	testCases := []struct {
 		name             string
