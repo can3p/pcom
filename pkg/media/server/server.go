@@ -37,7 +37,7 @@ func WithClass(name string, params ClassParams) Option {
 func WithPermaCache(enabled bool) Option {
 	return func(o *options) {
 		if enabled {
-			o.addHeaders.Add("Cache-Control", "max-age=31536000, public")
+			o.addHeaders.Add("Cache-Control", "public, max-age=604800, immutable, stale-while-revalidate=86400")
 		}
 	}
 }

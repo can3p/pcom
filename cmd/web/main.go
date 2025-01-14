@@ -178,8 +178,6 @@ func main() {
 		log.Println("Custom error reporter skipped")
 	}
 
-	router.Use(csp.Csp)
-
 	html := flag.String("html", "client/html", "path to html templates")
 
 	flag.Parse()
@@ -187,34 +185,17 @@ func main() {
 	router.SetFuncMap(funcmap(staticAsset))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", *html))
 
-	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
-
-	setupApi(apiGroup, db, sender, mediaStorage)
-
-	r := router.Group("/", sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
-
-	r.GET("/", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
-		}
-
-		c.HTML(http.StatusOK, "index.html", web.Index(c, db, &userData))
-	})
-
 	//cache static forever
 	if util.InCluster() {
-		r.Group("/static", func(c *gin.Context) {
-			c.Header("cache-control", "max-age=31536000, public")
+		router.Group("/static", func(c *gin.Context) {
+			c.Header("Cache-Control", "public, max-age=604800, immutable, stale-while-revalidate=86400")
 			c.Next()
 		}).Static("/", "dist")
 	} else {
-		r.Group("/static").Static("/", "dist")
+		router.Group("/static").Static("/", "dist")
 	}
 
-	r.GET("user-media/:fname", func(c *gin.Context) {
+	router.GET("user-media/:fname", func(c *gin.Context) {
 		fname := c.Param("fname")
 
 		if fname == "" {
@@ -237,6 +218,23 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+	})
+
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
+
+	setupApi(apiGroup, db, sender, mediaStorage)
+
+	r := router.Group("/", csp.Csp, sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
+
+	r.GET("/", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		if userData.IsLoggedIn {
+			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+			return
+		}
+
+		c.HTML(http.StatusOK, "index.html", web.Index(c, db, &userData))
 	})
 
 	r.GET("/invite/:id", func(c *gin.Context) {
