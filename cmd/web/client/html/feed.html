@@ -45,7 +45,7 @@
           <div class="mt-3 us-feed-comment feed-comment">
             <div class="card">
               <div class="card-header">
-                <h5 class="card-title fs-6">New Comment: <a href="{{ link "post" .ID }}">{{ .Post.PostSubject }}</a> </h5>
+                <h5 class="card-title fs-6">New Comment: <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a> </h5>
                 <small> <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> left a <a hx-boost="false" href="{{ link "comment" .PostID .ID }}">comment</a> {{ if eq $.User.DBUser.ID .Post.UserID }} to your post {{ else }} to the post you've commented on {{ end }} at {{ renderTimestamp .CreatedAt $.User.DBUser }} </small>
               </div>
               <div class="card-body">
