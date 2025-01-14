@@ -138,7 +138,13 @@ func main() {
 
 	mediaServer := server.New(mediaStorage,
 		server.WithClass("thumb", server.ClassParams{Width: 720}),
+		server.WithClass("full", server.ClassParams{Width: 1200}),
 		server.WithPermaCache(util.InCluster()),
+		server.WithClassResolver(func(c context.Context, req *http.Request) string {
+			// we know that the context is gin
+			ginCtx := c.(*gin.Context)
+			return ginCtx.Param("class")
+		}),
 	)
 
 	if !util.InCluster() {
@@ -195,7 +201,7 @@ func main() {
 		router.Group("/static").Static("/", "dist")
 	}
 
-	router.GET("user-media/:fname", func(c *gin.Context) {
+	router.GET("user-media/:fname/:class", func(c *gin.Context) {
 		fname := c.Param("fname")
 
 		if fname == "" {

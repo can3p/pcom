@@ -21,12 +21,25 @@ type Server struct {
 	options options
 }
 
+type ClassResolver func(context.Context, *http.Request) string
+
 type options struct {
-	classMap   map[string]ClassParams
-	addHeaders http.Header
+	classResolver ClassResolver
+	classMap      map[string]ClassParams
+	addHeaders    http.Header
+}
+
+func defaultClassResolver(c context.Context, req *http.Request) string {
+	return req.URL.Query().Get("class")
 }
 
 type Option func(s *options)
+
+func WithClassResolver(r ClassResolver) Option {
+	return func(o *options) {
+		o.classResolver = r
+	}
+}
 
 func WithClass(name string, params ClassParams) Option {
 	return func(o *options) {
@@ -44,8 +57,9 @@ func WithPermaCache(enabled bool) Option {
 
 func New(storage MediaStorage, o ...Option) *Server {
 	opts := options{
-		classMap:   map[string]ClassParams{},
-		addHeaders: http.Header{},
+		classResolver: defaultClassResolver,
+		classMap:      map[string]ClassParams{},
+		addHeaders:    http.Header{},
 	}
 
 	for _, o := range o {
@@ -87,7 +101,14 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 }
 
 func (s Server) ServeImage(ctx context.Context, req *http.Request, w http.ResponseWriter, fname string) error {
-	class := req.URL.Query().Get("class")
+	class := s.options.classResolver(ctx, req)
+
+	// we control all the classes, never allow to
+	// enumerate them to ddos pod
+	if _, ok := s.options.classMap[class]; !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return nil
+	}
 
 	out, ct, err := s.GetImage(ctx, fname, class)
 

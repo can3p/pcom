@@ -63,8 +63,8 @@ func (r *LazyLoadRenderer) renderImage(w util.BufWriter, source []byte, node ast
 	imgUrl := string(n.Destination)
 
 	if shouldReplace {
-		imgUrl = updatedLink + "?class=thumb"
-		linkUrl := updatedLink + "?class=full"
+		imgUrl = updatedLink + "/thumb"
+		linkUrl := updatedLink + "/full"
 
 		_, _ = w.WriteString("<a target=\"_blank\" href=\"")
 		if r.Unsafe || !html.IsDangerousURL([]byte(linkUrl)) {
@@ -129,6 +129,8 @@ func (r *LazyLoadRenderer) renderImageClassic(w util.BufWriter, source []byte, n
 	// just in case media replacer forgets to return initial string
 	if !shouldReplace {
 		updatedLink = string(n.Destination)
+	} else {
+		updatedLink = updatedLink + "/thumb"
 	}
 
 	_, _ = w.WriteString("<img src=\"")
