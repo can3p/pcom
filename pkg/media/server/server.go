@@ -96,7 +96,8 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 
 	if params, ok := s.options.classMap[class]; ok {
 		// Resize to fit within the bounding box while maintaining aspect ratio
-		scale := 1.0
+		var scale float64
+
 		imgWidth := img.Width()
 		imgHeight := img.Height()
 
@@ -111,9 +112,11 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 			scale = heightScale
 		}
 
-		err = img.Resize(scale, vips.KernelLanczos3)
-		if err != nil {
-			return nil, "", err
+		if scale < 1.0 {
+			err = img.Resize(scale, vips.KernelLanczos3)
+			if err != nil {
+				return nil, "", err
+			}
 		}
 	}
 
