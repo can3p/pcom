@@ -39,7 +39,7 @@ func (m *mockMediaServer) GetImage(ctx context.Context, fname string, class stri
 	return bytes.NewReader([]byte("mock image data")), "image/jpeg", nil
 }
 
-func (m *mockMediaServer) ServeImage(ctx context.Context, req *http.Request, w http.ResponseWriter, fname string) error {
+func (m *mockMediaServer) ServeImage(ctx context.Context, getter MediaGetter, req *http.Request, w http.ResponseWriter, fname string) error {
 	return nil
 }
 

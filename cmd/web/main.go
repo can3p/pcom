@@ -141,6 +141,7 @@ func main() {
 
 	var mediaServer server.MediaServer
 	var mediaServerCleanup func()
+	var err error
 
 	mediaServer, mediaServerCleanup = server.New(mediaStorage,
 		server.WithClass("thumb", server.ClassParams{Width: 720, Height: 540}),
@@ -154,8 +155,12 @@ func main() {
 	)
 	defer mediaServerCleanup()
 
-	slog.Info("BEFORE new media server wrapper")
 	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
+	mediaServer, err = server.NewCachingServer(mediaServer, mediaStorage, 0)
+
+	if err != nil {
+		panic(err)
+	}
 
 	if !util.InCluster() {
 		slog.SetLogLoggerLevel(slog.LevelDebug)

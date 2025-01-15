@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/davidbyttow/govips/v2/vips"
@@ -140,6 +141,15 @@ func (s Server) ServeImage(ctx context.Context, getter MediaGetter, req *http.Re
 
 	if err != nil {
 		return err
+	}
+
+	// Close the reader if it implements io.Closer
+	if closer, ok := out.(io.Closer); ok {
+		defer func() {
+			if err := closer.Close(); err != nil {
+				slog.Warn("Failed to close the reader", "err", err)
+			}
+		}()
 	}
 
 	w.Header().Set("Content-Type", ct)
