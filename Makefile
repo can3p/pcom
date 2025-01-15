@@ -6,6 +6,9 @@ shell:
 tunnel:
 	flyctl proxy 5432 -a pcomdb
 
+pprof:
+	flyctl proxy 8081 -a pcomdb
+
 lint:
 	golangci-lint run ./... --timeout=5m
 

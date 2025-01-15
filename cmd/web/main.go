@@ -11,6 +11,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
@@ -829,6 +830,17 @@ func main() {
 
 		gogoForms.DefaultHandler(c, db, form)
 	})
+
+	pprofMux := http.DefaultServeMux
+	http.DefaultServeMux = http.NewServeMux()
+	go func() {
+		srv := &http.Server{
+			Addr:    "localhost:8081",
+			Handler: pprofMux,
+		}
+
+		log.Fatal(srv.ListenAndServe())
+	}()
 
 	if err := router.Run(); err != nil {
 		panic(err)
