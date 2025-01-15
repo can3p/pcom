@@ -3,6 +3,8 @@
 Private as in the content is not public by default and discovery requires a human touch. Please refer to [manifesto](cmd/web/client/articles/why.md)
 for more details.
 
+Pcom uses [gogo](https://github.com/can3p/gogo) to handle forms and some other things!
+
 If you want to follow the development, there is a [youtube playlist](https://www.youtube.com/playlist?list=PLa5K-kCUS-FozB6Cw7rJLFJaxyZd-MPpi) with demos!
 
 ## Dependencies
