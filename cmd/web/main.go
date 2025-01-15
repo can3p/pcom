@@ -842,14 +842,16 @@ func main() {
 
 	pprofMux := http.DefaultServeMux
 	http.DefaultServeMux = http.NewServeMux()
-	go func() {
-		srv := &http.Server{
-			Addr:    ":8081",
-			Handler: pprofMux,
-		}
+	if os.Getenv("ENABLE_PPROF") == "true" {
+		go func() {
+			srv := &http.Server{
+				Addr:    ":8081",
+				Handler: pprofMux,
+			}
 
-		log.Fatal(srv.ListenAndServe())
-	}()
+			log.Fatal(srv.ListenAndServe())
+		}()
+	}
 
 	if err := router.Run(); err != nil {
 		panic(err)
