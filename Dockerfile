@@ -11,7 +11,7 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -buildvcs=false ./cmd/web
 RUN cd cmd/web && yarn && yarn production
 
 FROM alpine
-RUN apk add --no-cache libwebp
+RUN apk add --no-cache libwebp htop curl
 COPY --from=builder /build/web /
 COPY --from=builder /build/cmd/web/dist /dist
 COPY --from=builder /build/cmd/web/client /client
