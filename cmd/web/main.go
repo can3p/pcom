@@ -53,6 +53,8 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
+const MediaServerConcurrency = 3
+
 var staticRoute = "/static"
 
 var requiredVars = []string{
@@ -136,7 +138,9 @@ func main() {
 		}
 	}
 
-	mediaServer := server.New(mediaStorage,
+	var mediaServer server.MediaServer
+
+	mediaServer = server.New(mediaStorage,
 		server.WithClass("thumb", server.ClassParams{Width: 720}),
 		server.WithClass("full", server.ClassParams{Width: 1200}),
 		server.WithPermaCache(util.InCluster()),
@@ -146,6 +150,7 @@ func main() {
 			return ginCtx.Param("class")
 		}),
 	)
+	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
 
 	if !util.InCluster() {
 		slog.SetLogLoggerLevel(slog.LevelDebug)

@@ -12,5 +12,6 @@ type MediaStorage interface {
 }
 
 type MediaServer interface {
-	ServeImage(ctx context.Context, w http.ResponseWriter, fname string)
+	ServeImage(ctx context.Context, req *http.Request, w http.ResponseWriter, fname string) error
+	GetImage(ctx context.Context, fname string, class string) (io.Reader, string, error)
 }
