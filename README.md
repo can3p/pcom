@@ -3,11 +3,17 @@
 Private as in the content is not public by default and discovery requires a human touch. Please refer to [manifesto](cmd/web/client/articles/why.md)
 for more details.
 
+Pcom uses [gogo](https://github.com/can3p/gogo) to handle forms and some other things!
+
 If you want to follow the development, there is a [youtube playlist](https://www.youtube.com/playlist?list=PLa5K-kCUS-FozB6Cw7rJLFJaxyZd-MPpi) with demos!
+
+## Official client
+
+Official client is [blg](https://github.com/can3p/blg), command line client that plays well with pcom.
 
 ## Dependencies
 
-* [libwebp](https://developers.google.com/speed/webp/docs/api)
+* libvips (`brew install vips pkg-config`)
 
 ## Dev Setup
 

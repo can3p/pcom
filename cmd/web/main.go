@@ -11,6 +11,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
@@ -139,10 +140,12 @@ func main() {
 	}
 
 	var mediaServer server.MediaServer
+	var mediaServerCleanup func()
+	var err error
 
-	mediaServer = server.New(mediaStorage,
-		server.WithClass("thumb", server.ClassParams{Width: 720}),
-		server.WithClass("full", server.ClassParams{Width: 1200}),
+	mediaServer, mediaServerCleanup = server.New(mediaStorage,
+		server.WithClass("thumb", server.ClassParams{Width: 720, Height: 540}),
+		server.WithClass("full", server.ClassParams{Width: 1200, Height: 900}),
 		server.WithPermaCache(util.InCluster()),
 		server.WithClassResolver(func(c context.Context, req *http.Request) string {
 			// we know that the context is gin
@@ -150,7 +153,14 @@ func main() {
 			return ginCtx.Param("class")
 		}),
 	)
+	defer mediaServerCleanup()
+
 	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
+	mediaServer, err = server.NewCachingServer(mediaServer, mediaStorage, 0)
+
+	if err != nil {
+		panic(err)
+	}
 
 	if !util.InCluster() {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -224,7 +234,7 @@ func main() {
 			return
 		}
 
-		err := mediaServer.ServeImage(c, c.Request, c.Writer, fname)
+		err := mediaServer.ServeImage(c, mediaServer, c.Request, c.Writer, fname)
 
 		if err != nil {
 			panic(err)
@@ -829,6 +839,19 @@ func main() {
 
 		gogoForms.DefaultHandler(c, db, form)
 	})
+
+	pprofMux := http.DefaultServeMux
+	http.DefaultServeMux = http.NewServeMux()
+	if os.Getenv("ENABLE_PPROF") == "true" {
+		go func() {
+			srv := &http.Server{
+				Addr:    ":8081",
+				Handler: pprofMux,
+			}
+
+			log.Fatal(srv.ListenAndServe())
+		}()
+	}
 
 	if err := router.Run(); err != nil {
 		panic(err)

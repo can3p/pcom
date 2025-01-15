@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"net/http"
+	"log/slog"
 	"sync"
 
 	"golang.org/x/sync/semaphore"
@@ -26,7 +26,7 @@ type inFlightRequest struct {
 
 // ServerWrapper wraps the media Server to provide request deduplication and concurrency limiting
 type ServerWrapper struct {
-	server        MediaServer
+	MediaServer
 	inFlight      map[requestKey]*inFlightRequest
 	mu            sync.Mutex
 	sem           *semaphore.Weighted
@@ -36,7 +36,7 @@ type ServerWrapper struct {
 // NewWrapper creates a new ServerWrapper with the given concurrency limit
 func NewWrapper(server MediaServer, maxConcurrent int64) *ServerWrapper {
 	return &ServerWrapper{
-		server:        server,
+		MediaServer:   server,
 		inFlight:      make(map[requestKey]*inFlightRequest),
 		sem:           semaphore.NewWeighted(maxConcurrent),
 		maxConcurrent: maxConcurrent,
@@ -66,6 +66,7 @@ func (w *ServerWrapper) GetImage(ctx context.Context, fname string, class string
 		buffer: &bytes.Buffer{},
 	}
 	w.inFlight[key] = req
+	slog.Info("Inflight image requests", "number", len(w.inFlight), "max", w.maxConcurrent)
 	w.mu.Unlock()
 
 	// Clean up when we're done
@@ -83,7 +84,7 @@ func (w *ServerWrapper) GetImage(ctx context.Context, fname string, class string
 	defer w.sem.Release(1)
 
 	// Process the request
-	reader, mime, err := w.server.GetImage(ctx, fname, class)
+	reader, mime, err := w.MediaServer.GetImage(ctx, fname, class)
 	if err != nil {
 		req.err = err
 		return nil, "", err
@@ -97,9 +98,4 @@ func (w *ServerWrapper) GetImage(ctx context.Context, fname string, class string
 
 	req.mime = mime
 	return bytes.NewReader(req.buffer.Bytes()), mime, nil
-}
-
-// ServeImage delegates to the underlying server's ServeImage implementation
-func (w *ServerWrapper) ServeImage(ctx context.Context, req *http.Request, resp http.ResponseWriter, fname string) error {
-	return w.server.ServeImage(ctx, req, resp, fname)
 }

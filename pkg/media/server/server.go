@@ -1,13 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 
-	"github.com/can3p/pcom/pkg/media/server/encoder"
-	"github.com/disintegration/imaging"
+	"github.com/davidbyttow/govips/v2/vips"
 )
 
 type ClassParams struct {
@@ -17,7 +18,6 @@ type ClassParams struct {
 
 type Server struct {
 	storage MediaStorage
-	encoder *encoder.Encoder
 	options options
 }
 
@@ -55,7 +55,9 @@ func WithPermaCache(enabled bool) Option {
 	}
 }
 
-func New(storage MediaStorage, o ...Option) *Server {
+func New(storage MediaStorage, o ...Option) (*Server, func()) {
+	vips.Startup(nil)
+
 	opts := options{
 		classResolver: defaultClassResolver,
 		classMap:      map[string]ClassParams{},
@@ -68,9 +70,8 @@ func New(storage MediaStorage, o ...Option) *Server {
 
 	return &Server{
 		storage: storage,
-		encoder: &encoder.Encoder{},
 		options: opts,
-	}
+	}, vips.Shutdown
 }
 
 // get the reader with downloaded and transformed image after all transformations
@@ -87,20 +88,49 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 		}
 	}()
 
-	img, err := s.encoder.Decode(dl)
+	img, err := vips.NewImageFromReader(dl)
 
 	if err != nil {
 		return nil, "", err
 	}
 
 	if params, ok := s.options.classMap[class]; ok {
-		img = imaging.Resize(img, params.Width, params.Height, imaging.Lanczos)
+		// Resize to fit within the bounding box while maintaining aspect ratio
+		var scale float64
+
+		imgWidth := img.Width()
+		imgHeight := img.Height()
+
+		// Calculate the scale factor to fit within the bounding box
+		widthScale := float64(params.Width) / float64(imgWidth)
+		heightScale := float64(params.Height) / float64(imgHeight)
+
+		// Use the smaller scale to ensure image fits within bounds
+		if widthScale < heightScale {
+			scale = widthScale
+		} else {
+			scale = heightScale
+		}
+
+		if scale < 1.0 {
+			err = img.Resize(scale, vips.KernelLanczos3)
+			if err != nil {
+				return nil, "", err
+			}
+		}
 	}
 
-	return s.encoder.Encode(img)
+	ep := vips.NewDefaultWEBPExportParams()
+
+	b, _, err := img.Export(ep)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return bytes.NewReader(b), "image/webp", nil
 }
 
-func (s Server) ServeImage(ctx context.Context, req *http.Request, w http.ResponseWriter, fname string) error {
+func (s Server) ServeImage(ctx context.Context, getter MediaGetter, req *http.Request, w http.ResponseWriter, fname string) error {
 	class := s.options.classResolver(ctx, req)
 
 	// we control all the classes, never allow to
@@ -110,10 +140,19 @@ func (s Server) ServeImage(ctx context.Context, req *http.Request, w http.Respon
 		return nil
 	}
 
-	out, ct, err := s.GetImage(ctx, fname, class)
+	out, ct, err := getter.GetImage(ctx, fname, class)
 
 	if err != nil {
 		return err
+	}
+
+	// Close the reader if it implements io.Closer
+	if closer, ok := out.(io.Closer); ok {
+		defer func() {
+			if err := closer.Close(); err != nil {
+				slog.Warn("Failed to close the reader", "err", err)
+			}
+		}()
 	}
 
 	w.Header().Set("Content-Type", ct)

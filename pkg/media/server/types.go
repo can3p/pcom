@@ -9,9 +9,14 @@ import (
 type MediaStorage interface {
 	UploadFile(ctx context.Context, fname string, b []byte, contentType string) error
 	DownloadFile(ctx context.Context, fname string) (io.ReadCloser, int64, string, error)
+	ObjectExists(ctx context.Context, fname string) (bool, error)
 }
 
 type MediaServer interface {
-	ServeImage(ctx context.Context, req *http.Request, w http.ResponseWriter, fname string) error
+	GetImage(ctx context.Context, fname string, class string) (io.Reader, string, error)
+	ServeImage(ctx context.Context, getter MediaGetter, req *http.Request, w http.ResponseWriter, fname string) error
+}
+
+type MediaGetter interface {
 	GetImage(ctx context.Context, fname string, class string) (io.Reader, string, error)
 }

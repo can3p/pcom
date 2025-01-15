@@ -12,7 +12,7 @@ import (
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/can3p/pcom/pkg/media"
+	mediaerrors "github.com/can3p/pcom/pkg/media/errors"
 )
 
 type s3Server struct {
@@ -73,10 +73,25 @@ func (s3s *s3Server) DownloadFile(ctx context.Context, fname string) (io.ReadClo
 	if err != nil {
 		var noSuchKey *types.NoSuchKey
 		if errors.As(err, &noSuchKey) {
-			return nil, 0, "", media.ErrNotFound
+			return nil, 0, "", mediaerrors.ErrNotFound
 		}
 		return nil, 0, "", err
 	}
 
 	return result.Body, *result.ContentLength, *result.ContentType, nil
+}
+
+func (s3s *s3Server) ObjectExists(ctx context.Context, fname string) (bool, error) {
+	_, err := s3s.s3.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s3s.bucket),
+		Key:    aws.String(fname),
+	})
+	if err != nil {
+		var apiErr *types.NoSuchKey
+		if errors.As(err, &apiErr) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
