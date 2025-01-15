@@ -140,10 +140,11 @@ func main() {
 	}
 
 	var mediaServer server.MediaServer
+	var mediaServerCleanup func()
 
-	mediaServer = server.New(mediaStorage,
-		server.WithClass("thumb", server.ClassParams{Width: 720}),
-		server.WithClass("full", server.ClassParams{Width: 1200}),
+	mediaServer, mediaServerCleanup = server.New(mediaStorage,
+		server.WithClass("thumb", server.ClassParams{Width: 720, Height: 540}),
+		server.WithClass("full", server.ClassParams{Width: 1200, Height: 900}),
 		server.WithPermaCache(util.InCluster()),
 		server.WithClassResolver(func(c context.Context, req *http.Request) string {
 			// we know that the context is gin
@@ -151,6 +152,9 @@ func main() {
 			return ginCtx.Param("class")
 		}),
 	)
+	defer mediaServerCleanup()
+
+	slog.Info("BEFORE new media server wrapper")
 	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
 
 	if !util.InCluster() {
@@ -225,7 +229,7 @@ func main() {
 			return
 		}
 
-		err := mediaServer.ServeImage(c, c.Request, c.Writer, fname)
+		err := mediaServer.ServeImage(c, mediaServer, c.Request, c.Writer, fname)
 
 		if err != nil {
 			panic(err)
@@ -835,7 +839,7 @@ func main() {
 	http.DefaultServeMux = http.NewServeMux()
 	go func() {
 		srv := &http.Server{
-			Addr:    "localhost:8081",
+			Addr:    ":8081",
 			Handler: pprofMux,
 		}
 
