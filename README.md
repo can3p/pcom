@@ -7,6 +7,10 @@ Pcom uses [gogo](https://github.com/can3p/gogo) to handle forms and some other t
 
 If you want to follow the development, there is a [youtube playlist](https://www.youtube.com/playlist?list=PLa5K-kCUS-FozB6Cw7rJLFJaxyZd-MPpi) with demos!
 
+## Official client
+
+Official client is [blg](https://github.com/can3p/blg), command line client that plays well with pcom.
+
 ## Dependencies
 
 * libvips (`brew install vips pkg-config`)
