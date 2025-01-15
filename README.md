@@ -7,7 +7,7 @@ If you want to follow the development, there is a [youtube playlist](https://www
 
 ## Dependencies
 
-* [libwebp](https://developers.google.com/speed/webp/docs/api)
+* libvips (`brew install vips pkg-config`)
 
 ## Dev Setup
 
