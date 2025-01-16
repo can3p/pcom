@@ -4,7 +4,7 @@ shell:
 	flyctl postgres connect -a pcomdb
 
 tunnel:
-	flyctl proxy 5432 -a pcomdb
+	flyctl proxy 5433 -a pcomdb
 
 pprof_tunnel:
 	flyctl proxy 9090:8081 -a pcom
