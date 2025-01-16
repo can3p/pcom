@@ -10,12 +10,12 @@
     <div class="row">
       <div class="col">
         <input name="uname" type="uname"
-                              value="{{ if .Input }}{{ .Input.uname }}{{ end }}"
-                              class="form-control {{ if (.Errors.HasError "uname") }}is-invalid{{ end }}"
+                              value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
+                              class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
                               placeholder="{{ .User.Username }}"
                               id="newPostUsername" required>
-        {{ if (.Errors.HasError "uname") }}
-        <div class="invalid-feedback">{{ .Errors.uname }}</div>
+        {{ if (.Errors.HasError "username") }}
+        <div class="invalid-feedback">{{ .Errors.username }}</div>
         {{ end }}
       </div>
       <div class="col">
