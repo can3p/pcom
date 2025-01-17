@@ -36,7 +36,7 @@ func main() { //nolint:typecheck
 		}
 
 		settings.RegistrationOpen = *enable
-		_, err = settings.Update(ctx, tx, boil.Infer())
+		_, err = settings.Update(ctx, tx, boil.Whitelist(core.SystemSettingColumns.RegistrationOpen))
 
 		return err
 	})

@@ -1,0 +1,31 @@
+{{ template "form--post-prompt.html" toMap "DirectConnections" .DirectConnections }}
+
+{{ range .OpenPrompts }}
+  <div class="mt-3">
+    <div class="card">
+      <h5 class="card-header fs-6">
+        <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> prompted you to write a post at {{ renderTimestamp .Prompt.CreatedAt $.User.DBUser }}
+      </h5>
+      <div class="card-body">
+        <div class="d-flex">
+          <div class="p-2 flex-grow-1">{{ .Prompt.Message }}</div>
+          {{ if .Post }}
+          <div class="p-2"><a href="{{ link "edit_post" .Post.ID }}">Edit your post</a></div>
+          {{ else }}
+          <div class="p-2"><a href="{{ link "write" "prompt" .Prompt.ID }}">Write</a></div>
+          {{ end }}
+          <div class="p-2">
+            <button type="button"
+                    class="btn btn-sm btn-danger"
+                    data-controller="action"
+                    data-action="action#run"
+                    data-action-action-value="dismiss_prompt"
+                    data-prompt-id="{{ .Prompt.ID }}"
+                    data-action-prompt-value="Do you want to dismiss the prompt from  {{ .Author.Username }}?"
+                    >Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{{ end }}

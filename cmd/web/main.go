@@ -549,6 +549,12 @@ func main() {
 		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData, false))
 	})
 
+	r.GET("/explore", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		ginhelpers.HTML(c, "feed.html", web.Explore(c, db, &userData))
+	})
+
 	r.GET("/rss/private/:key", func(c *gin.Context) {
 		api, err := core.UserAPIKeys(
 			core.UserAPIKeyWhere.APIKey.EQ(c.Param("key")),
