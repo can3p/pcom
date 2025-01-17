@@ -28,6 +28,8 @@ func Link(name string, args ...string) string {
 		out = "/write"
 	case "feed":
 		out = "/feed"
+	case "explore":
+		out = "/explore"
 	case "privacy_policy":
 		out = "/articles/privacy_policy"
 	case "terms_of_service":

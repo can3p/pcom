@@ -617,16 +617,8 @@ type FeedItem struct {
 	Comment  *postops.Comment
 }
 
-func (fi *FeedItem) AddedToFeedAt() time.Time {
-	if fi.Post != nil {
-		return fi.Post.PublishedAt.Time
-	}
-
-	if fi.FeedItem != nil {
-		return fi.FeedItem.AddedAt
-	}
-
-	return fi.Comment.CreatedAt
+type FeedPageCapabilities struct {
+	ShowPromptForm bool
 }
 
 type FeedPage struct {
@@ -634,6 +626,19 @@ type FeedPage struct {
 	DirectConnections []*core.User
 	OpenPrompts       []*postops.PostPrompt
 	Items             []*FeedItem
+	Capabilities      FeedPageCapabilities
+}
+
+func (i *FeedItem) AddedToFeedAt() time.Time {
+	if i.Post != nil {
+		return i.Post.PublishedAt.Time
+	}
+
+	if i.FeedItem != nil {
+		return i.FeedItem.AddedAt
+	}
+
+	return i.Comment.CreatedAt
 }
 
 func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, onlyPosts bool) mo.Result[*FeedPage] {
@@ -784,6 +789,50 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 		DirectConnections: directConnections,
 		OpenPrompts:       prompts,
 		Items:             items,
+		Capabilities:      FeedPageCapabilities{ShowPromptForm: true},
+	}
+
+	return mo.Ok(feedPage)
+}
+
+func Explore(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+	title := "Explore"
+
+	visibleProfiles := []core.ProfileVisibility{core.ProfileVisibilityPublic}
+
+	if userData.IsLoggedIn {
+		// we're not handling connections visibility there, since
+		// these posts will be visible in the usual feed anyway
+		visibleProfiles = append(visibleProfiles, core.ProfileVisibilityRegisteredUsers)
+	}
+
+	posts, err := core.Posts(
+		core.PostWhere.PublishedAt.IsNotNull(),
+		core.PostWhere.VisibilityRadius.EQ(core.PostVisibilityPublic),
+		qm.Load(core.PostRels.User),
+		qm.Load(core.PostRels.PostStat),
+		qm.Load(core.PostRels.URL),
+		qm.LeftOuterJoin("users on users.ID = posts.user_id"),
+		core.UserWhere.ProfileVisibility.IN(visibleProfiles),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
+	).All(ctx, db)
+
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	items := lo.Map(posts, func(p *core.Post, idx int) *FeedItem {
+		return &FeedItem{
+			Post: postops.ConstructPost(userData.DBUser, p, userops.ConnectionRadiusUnknown, nil, false),
+		}
+	})
+
+	basePage := getBasePage(ctx, title, userData)
+
+	feedPage := &FeedPage{
+		BasePage:     basePage,
+		Items:        items,
+		Capabilities: FeedPageCapabilities{ShowPromptForm: false},
 	}
 
 	return mo.Ok(feedPage)
