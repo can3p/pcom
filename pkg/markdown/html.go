@@ -16,6 +16,8 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/util"
+	"github.com/alecthomas/chroma/formatters/html"
+	highlighting "github.com/yuin/goldmark-highlighting"
 )
 
 func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link types.Link) goldmark.Markdown {
@@ -29,6 +31,16 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 		mdext.NewHandle(),
 		videoembed.NewVideoEmbedExtender(view),
 		headershift.NewHeaderShiftExtender(1),
+	}
+
+	// Only add syntax highlighting for feed, single post and preview views
+	if view == types.ViewFeed || view == types.ViewSinglePost || view == types.ViewEditPreview {
+		extensions = append(extensions, highlighting.NewHighlighting(
+			highlighting.WithStyle("github"),
+			highlighting.WithFormatOptions(
+				html.WithClasses(true),
+			),
+		))
 	}
 
 	blockParsers := util.PrioritizedSlice{}

@@ -1,0 +1,39 @@
+// Syntax highlighting styles
+.chroma {
+  // Background
+  background-color: #f8f8f8;
+  padding: 1em;
+  border-radius: 4px;
+  margin: 1em 0;
+  overflow-x: auto;
+
+  // Line numbers
+  .ln {
+    color: #505050;
+    padding-right: 1em;
+  }
+
+  // Keywords
+  .k, .kd, .kn { color: #0044e0; font-weight: bold; }
+
+  // Strings
+  .s, .s1, .s2 { color: #0a9122; }
+
+  // Comments
+  .c, .c1, .cm { color: #686868; font-style: italic; }
+
+  // Functions and types
+  .nf, .nx { color: #0077a0; }
+
+  // Numbers
+  .mi, .mf { color: #1750eb; }
+
+  // Operators
+  .o { color: #000000; font-weight: bold; }
+
+  // Built-ins
+  .nb { color: #0044e0; }
+
+  // Variables
+  .nv { color: #111111; }
+}

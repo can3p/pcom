@@ -5,6 +5,9 @@ $font-size-base: 1.2rem;
 $bootstrap-icons-font-dir: "~bootstrap-icons/font/fonts";
 @import "~bootstrap-icons/font/bootstrap-icons.scss";
 
+// Syntax highlighting styles
+@import "syntax";
+
 // @TODO: we should use class there
 blockquote {
   border-left: 4px solid #dedede;
