@@ -3,7 +3,9 @@ package markdown
 import (
 	"bytes"
 	"html/template"
+	"regexp"
 
+	"github.com/alecthomas/chroma/formatters/html"
 	"github.com/can3p/pcom/pkg/markdown/mdext"
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/markdown/mdext/headershift"
@@ -11,14 +13,18 @@ import (
 	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer"
 	"github.com/yuin/goldmark/util"
-	"github.com/alecthomas/chroma/formatters/html"
-	highlighting "github.com/yuin/goldmark-highlighting"
 )
+
+// Same thing as https://github.com/yuin/goldmark/blob/master/extension/linkify.go#L16
+// but with closing brace excluded.
+// Note: proper fix is probably something else
+var urlRegexpNoClosingBrace = regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(;,'">\^{}\[\]` + "`" + `]*)?`) //nolint:golint,lll
 
 func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link types.Link) goldmark.Markdown {
 	extensions := []goldmark.Extender{
@@ -27,6 +33,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 				[]byte("http:"),
 				[]byte("https:"),
 			}),
+			extension.WithLinkifyURLRegexp(urlRegexpNoClosingBrace),
 		),
 		mdext.NewHandle(),
 		videoembed.NewVideoEmbedExtender(view),
