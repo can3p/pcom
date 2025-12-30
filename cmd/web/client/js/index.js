@@ -1,5 +1,5 @@
 import htmx from 'htmx.org';
-import 'htmx-ext-head-support'; 
+import 'htmx-ext-head-support';
 import hyperscript from 'hyperscript.org';
 import { Application } from "@hotwired/stimulus"
 import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
@@ -23,3 +23,27 @@ htmx.config.allowScriptTags = false;
 window.Stimulus = Application.start()
 const context = require.context("./controllers", true, /\.js$/)
 Stimulus.load(definitionsFromContext(context))
+
+// Handle htmx errors during page transitions
+htmx.on('htmx:responseError', function(evt) {
+  const statusCode = evt.detail.xhr.status;
+  let message = `Failed to load page (Error ${statusCode})`;
+
+  if (statusCode === 0) {
+    message = 'Network error - please check your connection';
+  } else if (statusCode >= 500) {
+    message = 'Server error - please try again later';
+  } else if (statusCode === 404) {
+    message = 'Page not found';
+  } else if (statusCode === 403) {
+    message = 'Access denied';
+  }
+
+  htmx.trigger(document.body, 'operation:error', { explanation: message });
+});
+
+htmx.on('htmx:sendError', function(evt) {
+  htmx.trigger(document.body, 'operation:error', {
+    explanation: 'Network error - could not reach server'
+  });
+});
