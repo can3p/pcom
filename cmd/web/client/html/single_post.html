@@ -101,13 +101,15 @@
                 Leave a comment
               </button>
             </div>
-            <div class="border p-3 collapse" id="comment-wrapper{{ .PostID }}{{ .ID }}">
-              {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID }}
-            </div>
             {{ end }}
           </div>
         </div>
       </div>
+      {{ if $canLeaveComments }}
+      <div class="border p-3 collapse mt-2" id="comment-wrapper{{ .PostID }}{{ .ID }}">
+        {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID }}
+      </div>
+      {{ end }}
     {{ end }}
     </div>
   {{ end }}
