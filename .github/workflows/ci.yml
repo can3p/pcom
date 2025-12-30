@@ -39,4 +39,4 @@ jobs:
         run: go test -v ./...
 
       - name: Run Linter
-        run: golangci-lint run ./... --timeout=5m --out-format=colored-line-number
+        run: golangci-lint run ./... --timeout=5m
