@@ -25,9 +25,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libvips-dev
 
       - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.4.0
+          version: v2.7.0
           args: --timeout=5m
           skip-pkg-cache: true
           skip-build-cache: true
