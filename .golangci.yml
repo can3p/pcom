@@ -1,22 +1,26 @@
+version: "2"
+run:
+  tests: true
 linters:
   enable:
-    - gofmt
-    - govet
-    - staticcheck
-    - gosimple
-    - ineffassign
-    - unused
     - misspell
-  disable:
-    - goimports
-
-run:
-  timeout: 5m
-  tests: true
-
+  exclusions:
+    generated: lax
+    paths:
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-dirs:
-    - vendor
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - vendor
+      - third_party$
+      - builtin$
+      - examples$

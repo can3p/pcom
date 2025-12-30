@@ -69,7 +69,7 @@ func NewPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.
 		}
 	}
 
-	var form *PostForm = &PostForm{
+	form := &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
 			FormTemplate:        "form--post.html",
@@ -109,7 +109,7 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender
 		return nil, err
 	}
 
-	var form *PostForm = &PostForm{
+	form := &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
 			FormTemplate:        "form--post.html",
@@ -284,16 +284,16 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 	} else {
 		post.ID = f.Post.ID
 
-		if saveAction == PostFormActionMakeDraft {
-			// not null value means a published post
+		switch saveAction {
+		case PostFormActionMakeDraft:
 			post.PublishedAt = null.Time{}
-		} else if saveAction == PostFormActionPublish {
+		case PostFormActionPublish:
 			post.PublishedAt = null.TimeFrom(time.Now())
 
 			// let's redirect to the post whenever we publish a post
 			action = forms.FormSaveRedirect(links.Link("post", post.ID))
 			sendPublishNotification = true
-		} else {
+		default:
 			post.PublishedAt = f.Post.PublishedAt
 
 			if saveAction != PostFormActionAutosave && post.PublishedAt.Valid {

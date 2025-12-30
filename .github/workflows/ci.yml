@@ -18,16 +18,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23'
+          go-version: '1.25'
           cache: true
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libvips-dev
 
       - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.63.4
+          version: v2.4.0
           args: --timeout=5m
           skip-pkg-cache: true
           skip-build-cache: true

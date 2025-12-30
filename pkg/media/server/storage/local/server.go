@@ -31,7 +31,7 @@ func NewLocalServer(path string) (*localServer, error) {
 	}
 
 	if !fileMissing && !stat.IsDir() {
-		return nil, fmt.Errorf("Path [%s] exists and is not a folder", path)
+		return nil, fmt.Errorf("path [%s] exists and is not a folder", path)
 	}
 
 	if fileMissing {
@@ -67,7 +67,7 @@ func (ls *localServer) UploadFile(ctx context.Context, fname string, b []byte, c
 	}
 
 	if !fileMissing {
-		return fmt.Errorf("File [%s] already exits, will not overwrite", fname)
+		return fmt.Errorf("file [%s] already exits, will not overwrite", fname)
 	}
 
 	// Create a temporary file first

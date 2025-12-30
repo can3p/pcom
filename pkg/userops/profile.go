@@ -8,7 +8,7 @@ func CanSeeProfile(profile *core.User, visitor *core.User, connRadius Connection
 		return true
 	case profile.ProfileVisibility == core.ProfileVisibilityRegisteredUsers && visitor != nil:
 		return true
-	case profile.ProfileVisibility == core.ProfileVisibilityConnections && !(connRadius == ConnectionRadiusUnrelated || connRadius == ConnectionRadiusUnknown):
+	case profile.ProfileVisibility == core.ProfileVisibilityConnections && connRadius != ConnectionRadiusUnrelated && connRadius != ConnectionRadiusUnknown:
 		return true
 	}
 

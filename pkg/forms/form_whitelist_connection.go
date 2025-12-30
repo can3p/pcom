@@ -42,10 +42,11 @@ func WhitelistConnectionNew(u *core.User) forms.Form {
 func (f *WhitelistConnection) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	username := strings.ToLower(strings.TrimSpace(f.Input.Username))
 
-	if username == "" {
+	switch username {
+	case "":
 		f.AddError("username", "username is a required attribute")
 		return f.Errors.PassedValidation()
-	} else if username == f.User.Username {
+	case f.User.Username:
 		f.AddError("username", "Can't add yourself to the list")
 		return f.Errors.PassedValidation()
 	}
