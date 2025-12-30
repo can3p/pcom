@@ -4,7 +4,8 @@ export default class extends Controller {
   static values = {
     target: String,
     focus: String,
-    hideTarget: Boolean
+    hideTarget: Boolean,
+    closeOthersSelector: String
   }
 
   connect() {
@@ -19,6 +20,11 @@ export default class extends Controller {
   }
 
   show() {
+    // Close other toggles if selector is provided
+    if (this.closeOthersSelectorValue && this.closeOthersSelectorValue.trim() !== "") {
+      this.closeOtherToggles()
+    }
+
     this.target.classList.add("show")
 
     if (this.focusValue) {
@@ -28,6 +34,24 @@ export default class extends Controller {
     if (this.hideTargetValue) {
       this.element.classList.add("d-none")
     }
+  }
+
+  closeOtherToggles() {
+    // Find all elements matching the selector
+    const otherToggles = document.querySelectorAll(this.closeOthersSelectorValue)
+
+    otherToggles.forEach(toggle => {
+      // Skip the current target
+      if (toggle !== this.target && toggle.classList.contains("show")) {
+        toggle.classList.remove("show")
+
+        // Also show any hidden toggle buttons
+        const toggleButton = document.querySelector(`[data-toggle-target-value="#${toggle.id}"]`)
+        if (toggleButton && toggleButton.classList.contains("d-none")) {
+          toggleButton.classList.remove("d-none")
+        }
+      }
+    })
   }
 
   hide() {
