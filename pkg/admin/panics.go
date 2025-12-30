@@ -30,7 +30,7 @@ var (
 func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sender, err any, user *core.User) {
 	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
 
-	var userInfo string = "Anonymous"
+	userInfo := "Anonymous"
 
 	if user != nil {
 		userInfo = fmt.Sprintf("email (%s), id (%s)", user.Email, user.ID)
@@ -168,7 +168,7 @@ func function(pc uintptr) []byte {
 	if period := bytes.Index(name, dot); period >= 0 {
 		name = name[period+1:]
 	}
-	name = bytes.Replace(name, centerDot, dot, -1)
+	name = bytes.ReplaceAll(name, centerDot, dot)
 	return name
 }
 

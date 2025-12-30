@@ -21,7 +21,7 @@ func HTML[T any](c *gin.Context, templateName string, result mo.Result[T]) {
 		return
 	}
 
-	var httpCode int = http.StatusInternalServerError
+	httpCode := http.StatusInternalServerError
 
 	switch result.Error() {
 	case ErrNotFound:
@@ -52,7 +52,7 @@ func API[T any](c *gin.Context, result mo.Result[T]) {
 		return
 	}
 
-	var httpCode int = http.StatusInternalServerError
+	httpCode := http.StatusInternalServerError
 
 	switch result.Error() {
 	case ErrNotFound:
