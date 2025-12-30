@@ -70,8 +70,10 @@
     </div>
 
     {{ if .Capabilities.CanLeaveComments }}
-      <div class="mt-2 collapse" id="post{{ .ID }}">
-        {{ template "form--comment.html" toMap "PostID" .ID }}
+      <div class="card mt-2 collapse" id="post{{ .ID }}">
+        <div class="card-body bg-white">
+          {{ template "form--comment.html" toMap "PostID" .ID }}
+        </div>
       </div>
     {{ end }}
 
@@ -106,8 +108,10 @@
         </div>
       </div>
       {{ if $canLeaveComments }}
-      <div class="border p-3 collapse mt-2" id="comment-wrapper{{ .PostID }}{{ .ID }}">
-        {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID }}
+      <div class="card mt-2 collapse" id="comment-wrapper{{ .PostID }}{{ .ID }}">
+        <div class="card-body bg-white">
+          {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID "ReplyToAuthor" .Author.Username }}
+        </div>
       </div>
       {{ end }}
     {{ end }}

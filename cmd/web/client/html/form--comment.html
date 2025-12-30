@@ -8,6 +8,15 @@
       hx-disabled-elt="this"
       >
 
+  {{ if .ReplyTo }}
+  <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+    <i class="bi bi-reply-fill me-2"></i>
+    <div>
+      <strong>Replying to {{ .ReplyToAuthor }}</strong>
+    </div>
+  </div>
+  {{ end }}
+
   {{ with .FormError }}
   <div class="alert alert-danger">{{ . }}</div>
   {{ end }}
