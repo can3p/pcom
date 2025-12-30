@@ -856,10 +856,17 @@ has@^1.0.3:
   dependencies:
     function-bind "^1.1.1"
 
-htmx.org@^1.9.10:
-  version "1.9.10"
-  resolved "https://registry.yarnpkg.com/htmx.org/-/htmx.org-1.9.10.tgz#63c67e1e7a447086a3119c156f08722c624aacac"
-  integrity sha512-UgchasltTCrTuU2DQLom3ohHrBvwr7OqpwyAVJ9VxtNBng4XKkVsqrv0Qr3srqvM9ZNI3f1MmvVQQqK7KW/bTA==
+htmx-ext-head-support@^2.0.5:
+  version "2.0.5"
+  resolved "https://registry.yarnpkg.com/htmx-ext-head-support/-/htmx-ext-head-support-2.0.5.tgz#c318dd1da22b64f2bc13778333bb6935e3dc96d7"
+  integrity sha512-fTzqnCw7OnMijiS48CCBFBHTuOMvycbX0nEFRL0lkRxyu5DFWX90IV1SwXpQ92fJf02IzkXcRNyjXn3j0QtYxA==
+  dependencies:
+    htmx.org "^2.0.2"
+
+htmx.org@^2.0.2, htmx.org@^2.0.8:
+  version "2.0.8"
+  resolved "https://registry.yarnpkg.com/htmx.org/-/htmx.org-2.0.8.tgz#8ac8ba87c141b7bfda7576117476062eeb4aceda"
+  integrity sha512-fm297iru0iWsNJlBrjvtN7V9zjaxd+69Oqjh4F/Vq9Wwi2kFisLcrLCiv5oBX0KLfOX/zG8AUo9ROMU5XUB44Q==
 
 hyperscript.org@^0.9.7:
   version "0.9.7"

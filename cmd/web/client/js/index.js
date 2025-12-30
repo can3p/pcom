@@ -1,4 +1,5 @@
-import htmx from 'htmx.org/dist/htmx.js';
+import htmx from 'htmx.org';
+import 'htmx-ext-head-support'; 
 import hyperscript from 'hyperscript.org';
 import { Application } from "@hotwired/stimulus"
 import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
