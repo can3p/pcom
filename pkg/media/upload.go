@@ -12,7 +12,24 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-var ErrNotFound = errors.Errorf("Resource not found")
+var (
+	ErrNotFound            = errors.Errorf("Resource not found")
+	ErrUnsupportedMimeType = errors.New("unsupported mime type")
+)
+
+var supportedImageTypes = map[string]string{
+	"image/png":  ".png",
+	"image/jpeg": ".jpg",
+	"image/webp": ".webp",
+}
+
+func ValidateImageType(contentType string) (string, error) {
+	ext, ok := supportedImageTypes[contentType]
+	if !ok {
+		return "", errors.Wrapf(ErrUnsupportedMimeType, "%s", contentType)
+	}
+	return ext, nil
+}
 
 func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID *string, rssFeedID *string, reader io.Reader) (string, error) {
 	if (userID == nil && rssFeedID == nil) || (userID != nil && rssFeedID != nil) {
@@ -26,17 +43,10 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.M
 	}
 
 	ftype := http.DetectContentType(bytes)
-	var ext string
 
-	switch ftype {
-	case "image/png":
-		ext = ".png"
-	case "image/jpeg":
-		ext = ".jpg"
-	case "image/webp":
-		ext = ".webp"
-	default:
-		return "", errors.Errorf("unsupported mime type: %s", ftype)
+	ext, err := ValidateImageType(ftype)
+	if err != nil {
+		return "", err
 	}
 
 	id, err := uuid.NewV7()
