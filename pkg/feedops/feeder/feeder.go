@@ -11,11 +11,11 @@ import (
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/types"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
@@ -36,7 +36,7 @@ type fetcher interface {
 
 type cleaner interface {
 	CleanField(in string) string
-	HTMLToMarkdown(in string, replacer types.Replacer[string]) (string, error)
+	HTMLToMarkdown(in string, replacer markdown.ErrorReplacer) (string, error)
 }
 
 type Feeder struct {
@@ -246,10 +246,10 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 	feedItemID := id.String()
 
 	// First convert HTML to markdown without image replacement
-	markdown, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary, nil)
+	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary, nil)
 
 	if err != nil {
-		markdown = fmt.Sprintf("Summary errors: %s", err.Error())
+		markdownContent = fmt.Sprintf("Summary errors: %s", err.Error())
 	} else {
 		// Create a context with global timeout for all image downloads
 		downloadCtx, cancel := context.WithTimeout(ctx, reader.GlobalImageDownloadTimeout)
@@ -267,13 +267,10 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		}
 
 		// Create replacer that downloads images and handles errors
-		replacer := reader.CreateImageReplacer(downloadCtx, markdown, nil, uploadFunc)
+		replacer := reader.CreateImageReplacer(downloadCtx, markdownContent, nil, uploadFunc)
 
 		// Apply image URL replacement
-		markdown, err = cleaner.HTMLToMarkdown(rssFeedItem.Summary, replacer)
-		if err != nil {
-			markdown = fmt.Sprintf("Summary errors: %s", err.Error())
-		}
+		markdownContent = markdown.ReplaceImageUrlsOrErrorMessage(markdownContent, replacer)
 	}
 
 	publishedAt := time.Now()
@@ -290,7 +287,7 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		Title:                cleaner.CleanField(rssFeedItem.Title),
 		Description:          rssFeedItem.Summary,
 		PublishedAt:          publishedAt,
-		SanitizedDescription: markdown,
+		SanitizedDescription: markdownContent,
 	}
 
 	// Try to insert, if URL exists, get existing ID

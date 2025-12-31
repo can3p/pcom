@@ -18,6 +18,12 @@ type imgReplaceTransformer struct {
 	Replacer types.Replacer[string]
 }
 
+type ErrorReplacer func(in string) (bool, string, error)
+
+type imgReplaceOrErrorTransformer struct {
+	Replacer ErrorReplacer
+}
+
 func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
 	// Walk the AST in depth-first fashion and apply transformations
 	err := ast.Walk(node, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -76,6 +82,30 @@ func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
 
 }
 
+func (t *imgReplaceOrErrorTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
+	err := ast.Walk(node, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if node.Kind() == ast.KindImage {
+			imgNode := node.(*ast.Image)
+
+			shouldReplace, newValue, replaceErr := t.Replacer(string(imgNode.Destination))
+
+			if shouldReplace && replaceErr == nil {
+				imgNode.Destination = []byte(newValue)
+			}
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	if err != nil {
+		log.Fatal("Error encountered while transforming AST:", err)
+	}
+}
+
 func ExtractImageUrls(md string) []string {
 	var urls []string
 
@@ -97,6 +127,54 @@ func ExtractImageUrls(md string) []string {
 	})
 
 	return urls
+}
+
+func ReplaceImageUrlsOrErrorMessage(md string, replace ErrorReplacer) string {
+	urls := ExtractImageUrls(md)
+
+	result := md
+	for _, url := range urls {
+		shouldReplace, newValue, replaceErr := replace(url)
+		if shouldReplace && replaceErr != nil {
+			idx := strings.Index(result, url)
+			if idx == -1 {
+				continue
+			}
+
+			start := idx
+			for start > 0 && result[start-1] != '!' {
+				start--
+			}
+			if start > 0 {
+				start--
+			}
+
+			end := idx + len(url)
+			for end < len(result) && result[end] != ')' {
+				end++
+			}
+			if end < len(result) {
+				end++
+			}
+
+			result = result[:start] + newValue + result[end:]
+		}
+	}
+
+	t := &imgReplaceOrErrorTransformer{
+		Replacer: replace,
+	}
+
+	gm := NewModifier(t)
+
+	buf := bytes.Buffer{}
+
+	err := gm.Convert([]byte(result), &buf)
+	if err != nil {
+		log.Fatalf("Encountered Markdown conversion error: %v", err)
+	}
+
+	return strings.TrimSpace(buf.String())
 }
 
 func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) types.Replacer[string] {
