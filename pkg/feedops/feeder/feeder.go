@@ -4,14 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log/slog"
 	"runtime/debug"
 	"time"
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/types"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
@@ -27,24 +31,27 @@ const (
 
 type fetcher interface {
 	Fetch(urL string) (*reader.Feed, error)
+	FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error)
 }
 
 type cleaner interface {
 	CleanField(in string) string
-	HTMLToMarkdown(in string) (string, error)
+	HTMLToMarkdown(in string, replacer types.Replacer[string]) (string, error)
 }
 
 type Feeder struct {
-	db      *sqlx.DB
-	fetcher fetcher
-	cleaner cleaner
+	db           *sqlx.DB
+	fetcher      fetcher
+	cleaner      cleaner
+	mediaStorage server.MediaStorage
 }
 
-func NewFeeder(db *sqlx.DB, fetcher fetcher, cleaner cleaner) *Feeder {
+func NewFeeder(db *sqlx.DB, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage) *Feeder {
 	return &Feeder{
-		db:      db,
-		fetcher: fetcher,
-		cleaner: cleaner,
+		db:           db,
+		fetcher:      fetcher,
+		cleaner:      cleaner,
+		mediaStorage: mediaStorage,
 	}
 }
 
@@ -109,7 +116,7 @@ func (f *Feeder) tryFetchFeed(ctx context.Context, exec boil.ContextExecutor, fe
 		return nil
 	}
 
-	return SaveFeed(ctx, exec, feed, rssFeed, f.cleaner)
+	return SaveFeed(ctx, exec, feed, rssFeed, f.cleaner, f.fetcher, f.mediaStorage)
 }
 
 func GetFeedsToRefresh(ctx context.Context, exec boil.ContextExecutor) ([]*core.RSSFeed, error) {
@@ -155,7 +162,7 @@ func SaveFetchFailure(ctx context.Context, exec boil.ContextExecutor, feed *core
 	return err
 }
 
-func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, rssFeed *reader.Feed, cleaner cleaner) error {
+func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, rssFeed *reader.Feed, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) error {
 	var err error
 
 	if feed.Title.IsZero() {
@@ -173,7 +180,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	// items in an rss feed usually go in descending order
 	for idx := len(rssFeed.Items) - 1; idx >= 0; idx-- {
 		item := rssFeed.Items[idx]
-		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, cleaner)
+		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, cleaner, fetcher, mediaStorage)
 
 		if err != nil {
 			return err
@@ -218,7 +225,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	return err
 }
 
-func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, cleaner cleaner) (bool, error) {
+func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
 	if rssFeedItem.URL == "" {
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
@@ -238,10 +245,31 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 
 	feedItemID := id.String()
 
-	markdown, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
+	// First convert HTML to markdown without image replacement
+	markdown, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary, nil)
 
 	if err != nil {
 		markdown = fmt.Sprintf("Summary errors: %s", err.Error())
+	} else {
+		// Create upload function for images
+		uploadFunc := func(ctx context.Context, imageURL string) (string, error) {
+			readerIO, err := fetcher.FetchMedia(ctx, imageURL)
+			if err != nil {
+				return "", err
+			}
+			defer readerIO.Close()
+
+			return media.HandleUpload(ctx, exec, mediaStorage, nil, &feedID, readerIO)
+		}
+
+		// Create replacer that downloads images and handles errors
+		replacer := reader.CreateImageReplacer(ctx, markdown, nil, uploadFunc)
+
+		// Apply image URL replacement
+		markdown, err = cleaner.HTMLToMarkdown(rssFeedItem.Summary, replacer)
+		if err != nil {
+			markdown = fmt.Sprintf("Summary errors: %s", err.Error())
+		}
 	}
 
 	publishedAt := time.Now()

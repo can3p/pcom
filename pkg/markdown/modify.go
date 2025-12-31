@@ -76,6 +76,29 @@ func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
 
 }
 
+func ExtractImageUrls(md string) []string {
+	var urls []string
+
+	source := []byte(md)
+	reader := text.NewReader(source)
+	doc := goldmark.DefaultParser().Parse(reader)
+
+	ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if node.Kind() == ast.KindImage {
+			imgNode := node.(*ast.Image)
+			urls = append(urls, string(imgNode.Destination))
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	return urls
+}
+
 func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) types.Replacer[string] {
 	return func(in string) (bool, string) {
 		destRaw := in
