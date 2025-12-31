@@ -14,7 +14,11 @@ import (
 
 var ErrNotFound = errors.Errorf("Resource not found")
 
-func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID string, reader io.Reader) (string, error) {
+func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID *string, rssFeedID *string, reader io.Reader) (string, error) {
+	if (userID == nil && rssFeedID == nil) || (userID != nil && rssFeedID != nil) {
+		return "", errors.Errorf("exactly one of userID or rssFeedID must be provided")
+	}
+
 	bytes, err := io.ReadAll(reader)
 
 	if err != nil {
@@ -47,7 +51,14 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.M
 		ID:            id.String(),
 		UploadedFname: fname,
 		ContentType:   ftype,
-		UserID:        userID,
+	}
+
+	if userID != nil {
+		mediaUpload.UserID.SetValid(*userID)
+	}
+
+	if rssFeedID != nil {
+		mediaUpload.RSSFeedID.SetValid(*rssFeedID)
 	}
 
 	// we do actions inside and outside db in one go

@@ -221,15 +221,18 @@ var RSSFeedWhere = struct {
 
 // RSSFeedRels is where relationship names are stored.
 var RSSFeedRels = struct {
+	MediaUploads              string
 	FeedRSSItems              string
 	FeedUserFeedSubscriptions string
 }{
+	MediaUploads:              "MediaUploads",
 	FeedRSSItems:              "FeedRSSItems",
 	FeedUserFeedSubscriptions: "FeedUserFeedSubscriptions",
 }
 
 // rssFeedR is where relationships are stored.
 type rssFeedR struct {
+	MediaUploads              MediaUploadSlice          `boil:"MediaUploads" json:"MediaUploads" toml:"MediaUploads" yaml:"MediaUploads"`
 	FeedRSSItems              RSSItemSlice              `boil:"FeedRSSItems" json:"FeedRSSItems" toml:"FeedRSSItems" yaml:"FeedRSSItems"`
 	FeedUserFeedSubscriptions UserFeedSubscriptionSlice `boil:"FeedUserFeedSubscriptions" json:"FeedUserFeedSubscriptions" toml:"FeedUserFeedSubscriptions" yaml:"FeedUserFeedSubscriptions"`
 }
@@ -237,6 +240,13 @@ type rssFeedR struct {
 // NewStruct creates a new relationship struct
 func (*rssFeedR) NewStruct() *rssFeedR {
 	return &rssFeedR{}
+}
+
+func (r *rssFeedR) GetMediaUploads() MediaUploadSlice {
+	if r == nil {
+		return nil
+	}
+	return r.MediaUploads
 }
 
 func (r *rssFeedR) GetFeedRSSItems() RSSItemSlice {
@@ -395,6 +405,20 @@ func (q rssFeedQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bo
 	return count > 0, nil
 }
 
+// MediaUploads retrieves all the media_upload's MediaUploads with an executor.
+func (o *RSSFeed) MediaUploads(mods ...qm.QueryMod) mediaUploadQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"media_uploads\".\"rss_feed_id\"=?", o.ID),
+	)
+
+	return MediaUploads(queryMods...)
+}
+
 // FeedRSSItems retrieves all the rss_item's RSSItems with an executor via feed_id column.
 func (o *RSSFeed) FeedRSSItems(mods ...qm.QueryMod) rssItemQuery {
 	var queryMods []qm.QueryMod
@@ -421,6 +445,112 @@ func (o *RSSFeed) FeedUserFeedSubscriptions(mods ...qm.QueryMod) userFeedSubscri
 	)
 
 	return UserFeedSubscriptions(queryMods...)
+}
+
+// LoadMediaUploads allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (rssFeedL) LoadMediaUploads(ctx context.Context, e boil.ContextExecutor, singular bool, maybeRSSFeed interface{}, mods queries.Applicator) error {
+	var slice []*RSSFeed
+	var object *RSSFeed
+
+	if singular {
+		var ok bool
+		object, ok = maybeRSSFeed.(*RSSFeed)
+		if !ok {
+			object = new(RSSFeed)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeRSSFeed)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeRSSFeed))
+			}
+		}
+	} else {
+		s, ok := maybeRSSFeed.(*[]*RSSFeed)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeRSSFeed)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeRSSFeed))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &rssFeedR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &rssFeedR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`media_uploads`),
+		qm.WhereIn(`media_uploads.rss_feed_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load media_uploads")
+	}
+
+	var resultSlice []*MediaUpload
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice media_uploads")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on media_uploads")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for media_uploads")
+	}
+
+	if singular {
+		object.R.MediaUploads = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &mediaUploadR{}
+			}
+			foreign.R.RSSFeed = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if queries.Equal(local.ID, foreign.RSSFeedID) {
+				local.R.MediaUploads = append(local.R.MediaUploads, foreign)
+				if foreign.R == nil {
+					foreign.R = &mediaUploadR{}
+				}
+				foreign.R.RSSFeed = local
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // LoadFeedRSSItems allows an eager lookup of values, cached into the
@@ -629,6 +759,167 @@ func (rssFeedL) LoadFeedUserFeedSubscriptions(ctx context.Context, e boil.Contex
 				foreign.R.Feed = local
 				break
 			}
+		}
+	}
+
+	return nil
+}
+
+// AddMediaUploadsP adds the given related objects to the existing relationships
+// of the rss_feed, optionally inserting them as new records.
+// Appends related to o.R.MediaUploads.
+// Sets related.R.RSSFeed appropriately.
+// Panics on error.
+func (o *RSSFeed) AddMediaUploadsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MediaUpload) {
+	if err := o.AddMediaUploads(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddMediaUploads adds the given related objects to the existing relationships
+// of the rss_feed, optionally inserting them as new records.
+// Appends related to o.R.MediaUploads.
+// Sets related.R.RSSFeed appropriately.
+func (o *RSSFeed) AddMediaUploads(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MediaUpload) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			queries.Assign(&rel.RSSFeedID, o.ID)
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"media_uploads\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"rss_feed_id"}),
+				strmangle.WhereClause("\"", "\"", 2, mediaUploadPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.RSSFeedID, o.ID)
+		}
+	}
+
+	if o.R == nil {
+		o.R = &rssFeedR{
+			MediaUploads: related,
+		}
+	} else {
+		o.R.MediaUploads = append(o.R.MediaUploads, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &mediaUploadR{
+				RSSFeed: o,
+			}
+		} else {
+			rel.R.RSSFeed = o
+		}
+	}
+	return nil
+}
+
+// SetMediaUploadsP removes all previously related items of the
+// rss_feed replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.RSSFeed's MediaUploads accordingly.
+// Replaces o.R.MediaUploads with related.
+// Sets related.R.RSSFeed's MediaUploads accordingly.
+// Panics on error.
+func (o *RSSFeed) SetMediaUploadsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MediaUpload) {
+	if err := o.SetMediaUploads(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetMediaUploads removes all previously related items of the
+// rss_feed replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.RSSFeed's MediaUploads accordingly.
+// Replaces o.R.MediaUploads with related.
+// Sets related.R.RSSFeed's MediaUploads accordingly.
+func (o *RSSFeed) SetMediaUploads(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MediaUpload) error {
+	query := "update \"media_uploads\" set \"rss_feed_id\" = null where \"rss_feed_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.MediaUploads {
+			queries.SetScanner(&rel.RSSFeedID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.RSSFeed = nil
+		}
+		o.R.MediaUploads = nil
+	}
+
+	return o.AddMediaUploads(ctx, exec, insert, related...)
+}
+
+// RemoveMediaUploadsP relationships from objects passed in.
+// Removes related items from R.MediaUploads (uses pointer comparison, removal does not keep order)
+// Sets related.R.RSSFeed.
+// Panics on error.
+func (o *RSSFeed) RemoveMediaUploadsP(ctx context.Context, exec boil.ContextExecutor, related ...*MediaUpload) {
+	if err := o.RemoveMediaUploads(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveMediaUploads relationships from objects passed in.
+// Removes related items from R.MediaUploads (uses pointer comparison, removal does not keep order)
+// Sets related.R.RSSFeed.
+func (o *RSSFeed) RemoveMediaUploads(ctx context.Context, exec boil.ContextExecutor, related ...*MediaUpload) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.RSSFeedID, nil)
+		if rel.R != nil {
+			rel.R.RSSFeed = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("rss_feed_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.MediaUploads {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.MediaUploads)
+			if ln > 1 && i < ln-1 {
+				o.R.MediaUploads[i] = o.R.MediaUploads[ln-1]
+			}
+			o.R.MediaUploads = o.R.MediaUploads[:ln-1]
+			break
 		}
 	}
 

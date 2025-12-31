@@ -203,7 +203,7 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorag
 	// ideally we should do a checksum check ofc
 	imgInDB, err := core.MediaUploads(
 		core.MediaUploadWhere.UploadedFname.IN(lo.Keys(images)),
-		core.MediaUploadWhere.UserID.EQ(userID),
+		core.MediaUploadWhere.UserID.EQ(null.StringFrom(userID)),
 	).All(ctx, exec)
 
 	if err != nil {
@@ -223,7 +223,7 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorag
 	}
 
 	for name, b := range images {
-		fname, err := media.HandleUpload(ctx, exec, mediaStorage, userID, bytes.NewReader(b))
+		fname, err := media.HandleUpload(ctx, exec, mediaStorage, &userID, nil, bytes.NewReader(b))
 
 		if err != nil {
 			return nil, err

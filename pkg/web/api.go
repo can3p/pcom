@@ -248,7 +248,7 @@ func ApiUploadImage(c *gin.Context, db *sqlx.DB, dbUser *core.User, mediaStorage
 	var fname string
 
 	err = transact.Transact(db, func(tx *sql.Tx) error {
-		fname, err = media.HandleUpload(c, db, mediaStorage, dbUser.ID, f)
+		fname, err = media.HandleUpload(c, db, mediaStorage, &dbUser.ID, nil, f)
 		return err
 	})
 
