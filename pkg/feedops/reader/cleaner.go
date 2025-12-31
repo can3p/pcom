@@ -12,6 +12,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	MaxImagesPerFeedItem = 20
+)
+
 type Cleaner struct{}
 
 func DefaultCleaner() *Cleaner {
@@ -27,7 +31,13 @@ func CreateImageReplacer(ctx context.Context, md string, downloader ImageDownloa
 
 	downloadResults := make(map[string]string)
 
-	for _, url := range imageUrls {
+	for idx, url := range imageUrls {
+		// Check if we've exceeded the max images limit
+		if idx+1 >= MaxImagesPerFeedItem {
+			downloadResults[url] = fmt.Sprintf("_[Image limit exceeded (%d max): %s]_", MaxImagesPerFeedItem, url)
+			continue
+		}
+
 		newURL, err := uploadFunc(ctx, url)
 		if err != nil {
 			if errors.Is(err, ErrMediaTimeout) {

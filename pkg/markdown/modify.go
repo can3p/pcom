@@ -83,7 +83,7 @@ func ExtractImageUrls(md string) []string {
 	reader := text.NewReader(source)
 	doc := goldmark.DefaultParser().Parse(reader)
 
-	ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+	_ = ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}

@@ -251,19 +251,23 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 	if err != nil {
 		markdown = fmt.Sprintf("Summary errors: %s", err.Error())
 	} else {
+		// Create a context with global timeout for all image downloads
+		downloadCtx, cancel := context.WithTimeout(ctx, reader.GlobalImageDownloadTimeout)
+		defer cancel()
+
 		// Create upload function for images
 		uploadFunc := func(ctx context.Context, imageURL string) (string, error) {
 			readerIO, err := fetcher.FetchMedia(ctx, imageURL)
 			if err != nil {
 				return "", err
 			}
-			defer readerIO.Close()
+			defer func() { _ = readerIO.Close() }()
 
 			return media.HandleUpload(ctx, exec, mediaStorage, nil, &feedID, readerIO)
 		}
 
 		// Create replacer that downloads images and handles errors
-		replacer := reader.CreateImageReplacer(ctx, markdown, nil, uploadFunc)
+		replacer := reader.CreateImageReplacer(downloadCtx, markdown, nil, uploadFunc)
 
 		// Apply image URL replacement
 		markdown, err = cleaner.HTMLToMarkdown(rssFeedItem.Summary, replacer)

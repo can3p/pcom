@@ -27,8 +27,9 @@ type Item struct {
 }
 
 const (
-	MaxMediaSize         = 10 * 1024 * 1024
-	MediaDownloadTimeout = 30 * time.Second
+	MaxMediaSize               = 10 * 1024 * 1024
+	MediaDownloadTimeout       = 30 * time.Second
+	GlobalImageDownloadTimeout = 2 * time.Minute
 )
 
 var (
@@ -101,13 +102,13 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 		return nil, errors.Errorf("failed to fetch media: HTTP %d", resp.StatusCode)
 	}
 
 	if resp.ContentLength > MaxMediaSize {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 		return nil, errors.Wrapf(ErrMediaTooLarge, "content-length: %d bytes", resp.ContentLength)
 	}
@@ -115,7 +116,7 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 	peekBuf := make([]byte, 512)
 	n, err := io.ReadFull(resp.Body, peekBuf)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, ErrMediaTimeout
@@ -125,7 +126,7 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 
 	contentType := http.DetectContentType(peekBuf[:n])
 	if _, err := media.ValidateImageType(contentType); err != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 		return nil, err
 	}
