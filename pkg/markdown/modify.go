@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
 
@@ -16,12 +17,6 @@ import (
 
 type imgReplaceTransformer struct {
 	Replacer types.Replacer[string]
-}
-
-type ErrorReplacer func(in string) (bool, string, error)
-
-type imgReplaceOrErrorTransformer struct {
-	Replacer ErrorReplacer
 }
 
 func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
@@ -82,18 +77,53 @@ func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
 
 }
 
-func (t *imgReplaceOrErrorTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
-	err := ast.Walk(node, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+type ErrorReplacer func(in string) (string, error)
+
+type imgReplaceOrLinkifyTransformer struct {
+	Replacer ErrorReplacer
+}
+
+func (t *imgReplaceOrLinkifyTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
+	type imageReplacement struct {
+		img         *ast.Image
+		parent      ast.Node
+		replacement ast.Node
+	}
+
+	var replacements []imageReplacement
+
+	err := ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 
-		if node.Kind() == ast.KindImage {
-			imgNode := node.(*ast.Image)
+		if n.Kind() == ast.KindImage {
+			imgNode := n.(*ast.Image)
 
-			shouldReplace, newValue, replaceErr := t.Replacer(string(imgNode.Destination))
+			newValue, replaceErr := t.Replacer(string(imgNode.Destination))
 
-			if shouldReplace && replaceErr == nil {
+			if replaceErr != nil {
+				parent := imgNode.Parent()
+				link := ast.NewLink()
+				link.Destination = []byte(string(imgNode.Destination))
+
+				imgCaption := string(imgNode.Title)
+				if len(imgCaption) == 0 && imgNode.HasChildren() {
+					if firstChild, ok := imgNode.FirstChild().(*ast.Text); ok {
+						imgCaption = string(firstChild.Text(reader.Source()))
+					}
+				}
+				if len(imgCaption) == 0 {
+					imgCaption = string(imgNode.Destination)
+				}
+				link.AppendChild(link, ast.NewString([]byte(imgCaption+": "+replaceErr.Error())))
+
+				replacements = append(replacements, imageReplacement{
+					img:         imgNode,
+					parent:      parent,
+					replacement: link,
+				})
+			} else {
 				imgNode.Destination = []byte(newValue)
 			}
 		}
@@ -103,6 +133,12 @@ func (t *imgReplaceOrErrorTransformer) Transform(node *ast.Document, reader text
 
 	if err != nil {
 		log.Fatal("Error encountered while transforming AST:", err)
+	}
+
+	// Apply replacements
+	for _, repl := range replacements {
+		repl.parent.InsertBefore(repl.parent, repl.img, repl.replacement)
+		repl.parent.RemoveChild(repl.parent, repl.img)
 	}
 }
 
@@ -129,39 +165,8 @@ func ExtractImageUrls(md string) []string {
 	return urls
 }
 
-func ReplaceImageUrlsOrErrorMessage(md string, replace ErrorReplacer) string {
-	urls := ExtractImageUrls(md)
-
-	result := md
-	for _, url := range urls {
-		shouldReplace, newValue, replaceErr := replace(url)
-		if shouldReplace && replaceErr != nil {
-			idx := strings.Index(result, url)
-			if idx == -1 {
-				continue
-			}
-
-			start := idx
-			for start > 0 && result[start-1] != '!' {
-				start--
-			}
-			if start > 0 {
-				start--
-			}
-
-			end := idx + len(url)
-			for end < len(result) && result[end] != ')' {
-				end++
-			}
-			if end < len(result) {
-				end++
-			}
-
-			result = result[:start] + newValue + result[end:]
-		}
-	}
-
-	t := &imgReplaceOrErrorTransformer{
+func ReplaceImageUrlsOrLinkify(md string, replace ErrorReplacer) (string, error) {
+	t := &imgReplaceOrLinkifyTransformer{
 		Replacer: replace,
 	}
 
@@ -169,12 +174,12 @@ func ReplaceImageUrlsOrErrorMessage(md string, replace ErrorReplacer) string {
 
 	buf := bytes.Buffer{}
 
-	err := gm.Convert([]byte(result), &buf)
+	err := gm.Convert([]byte(md), &buf)
 	if err != nil {
-		log.Fatalf("Encountered Markdown conversion error: %v", err)
+		return "", fmt.Errorf("failed to process markdown: %w", err)
 	}
 
-	return strings.TrimSpace(buf.String())
+	return strings.TrimSpace(buf.String()), nil
 }
 
 func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) types.Replacer[string] {
