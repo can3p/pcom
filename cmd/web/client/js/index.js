@@ -20,6 +20,20 @@ window._hyperscript.browserInit()
 // script changes
 htmx.config.allowScriptTags = false;
 
+// Define JSON encoding extension for htmx
+htmx.defineExtension('json-enc', {
+    onEvent: function (name, evt) {
+        if (name === "htmx:configRequest") {
+            evt.detail.headers['Content-Type'] = "application/json";
+        }
+    },
+    
+    encodeParameters : function(xhr, parameters, elt) {
+        xhr.overrideMimeType('text/json');
+        return (JSON.stringify(parameters));
+    }
+});
+
 window.Stimulus = Application.start()
 const context = require.context("./controllers", true, /\.js$/)
 Stimulus.load(definitionsFromContext(context))

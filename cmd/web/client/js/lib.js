@@ -1,6 +1,6 @@
 
 
-export async function runAction(name, dataset, extraFields) {
+export async function runAction(name, dataset, extraFields, element) {
   const url = `/controls/action/${name}`
   let payload = toPayload(dataset)
 
@@ -8,10 +8,7 @@ export async function runAction(name, dataset, extraFields) {
     payload = { ...payload, ...extraFields }
   }
 
-  let headers = {
-    'Content-Type': 'application/json',
-  }
-
+  let headers = {}
 
   let addHeadersStr = document.body.getAttribute("hx-headers")
 
@@ -24,28 +21,20 @@ export async function runAction(name, dataset, extraFields) {
     }
   }
 
-  let response = await fetch(url, {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(payload),
+  return new Promise((resolve, reject) => {
+    htmx.ajax('POST', url, {
+      source: element,
+      target: element.getAttribute('hx-target') || element,
+      swap: element.getAttribute('hx-swap') || 'none',
+      headers: headers,
+      values: payload,
+      ext: 'json-enc',
+    }).then(() => {
+      resolve({})
+    }).catch((err) => {
+      reject(err?.xhr?.responseText || 'Unknown error')
+    })
   })
-
-  if (!response.ok) {
-    let respBody = await response.text()
-
-    if (respBody != "") {
-      try {
-        respBody = JSON.parse(respBody)
-      } catch(e){}
-    } else {
-      respBody = `Unknown error: Failed with response code ${response.status}`
-    }
-
-    throw respBody;
-  }
-
-  let j = await response.json()
-  return j
 }
 
 export function reloadPage() {
