@@ -196,6 +196,7 @@ func TestSaveFeedInitialAndFollowUp(t *testing.T) {
 
 	feed1, err := testutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed1", "Feed 1")
 	require.NoError(t, err)
+	feed1.LastFetchError = null.StringFrom("error fetching")
 	feed1.NextFetchAt = null.TimeFrom(pastTime)
 	_, err = feed1.Update(ctx, testDB.DB, boil.Infer())
 	require.NoError(t, err)
@@ -220,6 +221,11 @@ func TestSaveFeedInitialAndFollowUp(t *testing.T) {
 
 	err = feeder.SaveFeed(ctx, testDB.DB, feed1, feedContent, cleaner, fetcher, nil)
 	require.NoError(t, err)
+
+	err = feed1.Reload(ctx, testDB.DB)
+	require.NoError(t, err)
+
+	assert.Empty(t, feed1.LastFetchError.String, "successful fetch should erase any previous error")
 
 	fetchedFeeds, err := feedops.GetRssFeedItems(ctx, testDB.DB, user.ID)
 	require.NoError(t, err)

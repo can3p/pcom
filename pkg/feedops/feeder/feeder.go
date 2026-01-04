@@ -276,6 +276,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	}
 
 	feed.LastFetchedAt = null.TimeFrom(time.Now())
+	feed.LastFetchError = null.String{}
 
 	_, err = feed.Update(ctx, exec, boil.Infer())
 
