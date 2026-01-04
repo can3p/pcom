@@ -155,7 +155,7 @@ func LockFeed(ctx context.Context, exec boil.ContextExecutor, feedID string) (*c
 func SaveFetchFailure(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, fetchErr error) error {
 	feed.LastFetchError = null.StringFrom(fetchErr.Error())
 	feed.LastItemsCount = 0
-	feed.NextFetchAt = null.TimeFrom(time.Now().Add(reader.MaxFetchInterval * time.Hour))
+	feed.NextFetchAt = null.TimeFrom(time.Now().Add(reader.ErrorFetchInterval))
 	feed.LastFetchedAt = null.TimeFrom(time.Now())
 
 	_, err := feed.Update(ctx, exec, boil.Infer())

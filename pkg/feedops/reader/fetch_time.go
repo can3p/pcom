@@ -6,40 +6,42 @@ import (
 )
 
 const (
-	MinFetchInterval = 60
-	MaxFetchInterval = 60 * 24
+	ManualFetchInterval = time.Hour
+	MinFetchInterval    = time.Hour
+	MaxFetchInterval    = 24 * time.Hour
+	ErrorFetchInterval  = time.Hour
 )
 
 func CalculateNextFetchTime(consecutiveEmptyFetches int, avgItemsPerDay float64, wasManual bool) time.Time {
 	if wasManual {
-		return time.Now().Add(time.Hour)
+		return time.Now().Add(ManualFetchInterval)
 	}
 
-	var baseInterval int
+	var baseIntervalMins int
 
 	// Calculate base interval based on activity
 	switch {
 	case avgItemsPerDay > 10:
-		baseInterval = 60 // Very active feeds
+		baseIntervalMins = 60 // Very active feeds
 	case avgItemsPerDay > 2:
-		baseInterval = 180 // Moderately active feeds
+		baseIntervalMins = 180 // Moderately active feeds
 	case avgItemsPerDay > 0.5:
-		baseInterval = 360 // Less active feeds
+		baseIntervalMins = 360 // Less active feeds
 	default:
-		baseInterval = 720 // Rarely updated feeds
+		baseIntervalMins = 720 // Rarely updated feeds
 	}
 
 	// Adjust for consecutive empty fetches
 	emptyFetchMultiplier := 1 + int(math.Min(float64(consecutiveEmptyFetches), 3))
-	baseInterval *= emptyFetchMultiplier
+	baseIntervalMins *= emptyFetchMultiplier
 
 	// Ensure we stay within bounds
-	if baseInterval < MinFetchInterval {
-		baseInterval = MinFetchInterval
+	if baseIntervalMins < int(MinFetchInterval.Minutes()) {
+		baseIntervalMins = int(MinFetchInterval.Minutes())
 	}
-	if baseInterval > MaxFetchInterval {
-		baseInterval = MaxFetchInterval
+	if baseIntervalMins > int(MaxFetchInterval.Minutes()) {
+		baseIntervalMins = int(MaxFetchInterval.Minutes())
 	}
 
-	return time.Now().Add(time.Duration(baseInterval) * time.Minute)
+	return time.Now().Add(time.Duration(baseIntervalMins) * time.Minute)
 }
