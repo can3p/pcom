@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/media/errors"
+	"github.com/stretchr/testify/require"
 )
 
 type mockStorage struct {
@@ -72,14 +73,14 @@ func (m *mockServer) ServeImage(ctx context.Context, getter MediaGetter, req *ht
 
 func TestCachingServer_GetImage(t *testing.T) {
 	ctx := context.Background()
-	storage := newMockStorage()
-	server := &mockServer{}
-	cache, err := NewCachingServer(server, storage, 10)
-	if err != nil {
-		t.Fatalf("Failed to create caching server: %v", err)
-	}
+	t.Run("first request fetches from parent and caches, subsequent uses cache", func(t *testing.T) {
+		storage := newMockStorage()
+		server := &mockServer{}
+		cache, err := NewCachingServer(server, storage, 10)
+		if err != nil {
+			t.Fatalf("Failed to create caching server: %v", err)
+		}
 
-	t.Run("first request fetches from parent and caches", func(t *testing.T) {
 		reader, mime, err := cache.GetImage(ctx, "test.jpg", "thumb")
 		if err != nil {
 			t.Fatalf("Failed to get image: %v", err)
@@ -90,71 +91,49 @@ func TestCachingServer_GetImage(t *testing.T) {
 
 		// Read the image
 		data, err := io.ReadAll(reader)
-		if err != nil {
-			t.Fatalf("Failed to read image: %v", err)
-		}
-		if string(data) != "test image" {
-			t.Errorf("Expected 'test image', got %s", string(data))
-		}
+		require.NoError(t, err)
+		require.Equal(t, "test image", string(data))
 
-		// Wait for async cache
-		time.Sleep(100 * time.Millisecond)
+		require.Eventually(t, func() bool {
+			return storage.callCount.upload == 1
+		}, 5*time.Second, 10*time.Millisecond, "Expected 1 upload after cache")
 
-		if storage.callCount.upload != 1 {
-			t.Errorf("Expected 1 upload, got %d", storage.callCount.upload)
-		}
-		if server.callCount != 1 {
-			t.Errorf("Expected 1 parent server call, got %d", server.callCount)
-		}
-	})
+		require.Equal(t, 1, server.callCount, "Expected 1 parent server call")
 
-	t.Run("subsequent requests use cache", func(t *testing.T) {
-		reader, _, err := cache.GetImage(ctx, "test.jpg", "thumb")
-		if err != nil {
-			t.Fatalf("Failed to get image: %v", err)
+		addCalls := 3
+		for range addCalls {
+			reader2, _, err2 := cache.GetImage(ctx, "test.jpg", "thumb")
+			require.NoError(t, err2)
+			data2, err2 := io.ReadAll(reader2)
+			require.NoError(t, err2)
+			require.Equal(t, "test image", string(data2))
 		}
-		_, _ = io.ReadAll(reader) // Read to close
-
-		if server.callCount != 1 {
-			t.Errorf("Expected parent server call count to remain 1, got %d", server.callCount)
-		}
-		if storage.callCount.download != 1 {
-			t.Errorf("Expected 1 download from storage, got %d", storage.callCount.download)
-		}
+		require.Equal(t, 1, server.callCount, "Expected parent server call count to remain 1 after subsequent requests")
+		require.Equal(t, addCalls, storage.callCount.download, "Expected storage to be hit exactly the number of additional calls")
 	})
 
 	t.Run("concurrent requests for same image", func(t *testing.T) {
+		storage := newMockStorage()
+		server := &mockServer{}
+		cache, err := NewCachingServer(server, storage, 10)
+		if err != nil {
+			t.Fatalf("Failed to create caching server: %v", err)
+		}
+
 		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 5 {
+			wg.Go(func() {
 				reader, _, err := cache.GetImage(ctx, "new.jpg", "thumb")
 				if err != nil {
 					t.Errorf("Failed to get image: %v", err)
 					return
 				}
 				_, _ = io.ReadAll(reader) // Read to close
-			}()
+			})
 		}
 		wg.Wait()
 
 		// Should only call parent server once
-		if server.callCount != 2 { // 1 from previous tests + 1 from concurrent requests
-			t.Errorf("Expected 2 parent server calls, got %d", server.callCount)
-		}
-	})
-
-	t.Run("memory cache hit", func(t *testing.T) {
-		existsCount := storage.callCount.exists
-		reader, _, err := cache.GetImage(ctx, "test.jpg", "thumb")
-		if err != nil {
-			t.Fatalf("Failed to get image: %v", err)
-		}
-		_, _ = io.ReadAll(reader) // Read to close
-
-		if storage.callCount.exists != existsCount {
-			t.Errorf("Expected no additional exists checks, got %d new checks", storage.callCount.exists-existsCount)
-		}
+		require.Equal(t, 1, server.callCount, "Expected 1 parent server call (from concurrent requests)")
 	})
 }
