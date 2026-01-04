@@ -173,8 +173,11 @@ func TestSaveFeed(t *testing.T) {
 	require.Len(t, fetchedFeeds, 2)
 
 	// Verify the order (newest first)
-	require.Equal(t, "https://example.com/post2", fetchedFeeds[0].URL)
-	require.Equal(t, "https://example.com/post1", fetchedFeeds[1].URL)
+	require.Equal(t, "https://example.com/post1", fetchedFeeds[0].URL)
+	require.Equal(t, "https://example.com/post0", fetchedFeeds[1].URL)
+
+	// feed items are actually sorted by AddedAt field
+	require.True(t, fetchedFeeds[0].AddedAt.After(fetchedFeeds[1].AddedAt))
 }
 
 func TestSaveFeedInitialAndFollowUp(t *testing.T) {
