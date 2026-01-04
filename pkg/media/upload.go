@@ -12,9 +12,30 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-var ErrNotFound = errors.Errorf("Resource not found")
+var (
+	ErrNotFound            = errors.Errorf("Resource not found")
+	ErrUnsupportedMimeType = errors.New("unsupported mime type")
+)
 
-func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID string, reader io.Reader) (string, error) {
+var supportedImageTypes = map[string]string{
+	"image/png":  ".png",
+	"image/jpeg": ".jpg",
+	"image/webp": ".webp",
+}
+
+func ValidateImageType(contentType string) (string, error) {
+	ext, ok := supportedImageTypes[contentType]
+	if !ok {
+		return "", errors.Wrapf(ErrUnsupportedMimeType, "%s", contentType)
+	}
+	return ext, nil
+}
+
+func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID *string, rssFeedID *string, reader io.Reader) (string, error) {
+	if (userID == nil && rssFeedID == nil) || (userID != nil && rssFeedID != nil) {
+		return "", errors.Errorf("exactly one of userID or rssFeedID must be provided")
+	}
+
 	bytes, err := io.ReadAll(reader)
 
 	if err != nil {
@@ -22,17 +43,10 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.M
 	}
 
 	ftype := http.DetectContentType(bytes)
-	var ext string
 
-	switch ftype {
-	case "image/png":
-		ext = ".png"
-	case "image/jpeg":
-		ext = ".jpg"
-	case "image/webp":
-		ext = ".webp"
-	default:
-		return "", errors.Errorf("unsupported mime type: %s", ftype)
+	ext, err := ValidateImageType(ftype)
+	if err != nil {
+		return "", err
 	}
 
 	id, err := uuid.NewV7()
@@ -47,7 +61,14 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.M
 		ID:            id.String(),
 		UploadedFname: fname,
 		ContentType:   ftype,
-		UserID:        userID,
+	}
+
+	if userID != nil {
+		mediaUpload.UserID.SetValid(*userID)
+	}
+
+	if rssFeedID != nil {
+		mediaUpload.RSSFeedID.SetValid(*rssFeedID)
 	}
 
 	// we do actions inside and outside db in one go

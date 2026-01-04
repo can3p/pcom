@@ -1071,7 +1071,7 @@ func (userL) LoadMediaUploads(ctx context.Context, e boil.ContextExecutor, singu
 
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == foreign.UserID {
+			if queries.Equal(local.ID, foreign.UserID) {
 				local.R.MediaUploads = append(local.R.MediaUploads, foreign)
 				if foreign.R == nil {
 					foreign.R = &mediaUploadR{}
@@ -2920,7 +2920,7 @@ func (o *User) AddMediaUploads(ctx context.Context, exec boil.ContextExecutor, i
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.UserID = o.ID
+			queries.Assign(&rel.UserID, o.ID)
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
@@ -2941,7 +2941,7 @@ func (o *User) AddMediaUploads(ctx context.Context, exec boil.ContextExecutor, i
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.UserID = o.ID
+			queries.Assign(&rel.UserID, o.ID)
 		}
 	}
 
@@ -2962,6 +2962,103 @@ func (o *User) AddMediaUploads(ctx context.Context, exec boil.ContextExecutor, i
 			rel.R.User = o
 		}
 	}
+	return nil
+}
+
+// SetMediaUploadsP removes all previously related items of the
+// user replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.User's MediaUploads accordingly.
+// Replaces o.R.MediaUploads with related.
+// Sets related.R.User's MediaUploads accordingly.
+// Panics on error.
+func (o *User) SetMediaUploadsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MediaUpload) {
+	if err := o.SetMediaUploads(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetMediaUploads removes all previously related items of the
+// user replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.User's MediaUploads accordingly.
+// Replaces o.R.MediaUploads with related.
+// Sets related.R.User's MediaUploads accordingly.
+func (o *User) SetMediaUploads(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MediaUpload) error {
+	query := "update \"media_uploads\" set \"user_id\" = null where \"user_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.MediaUploads {
+			queries.SetScanner(&rel.UserID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.User = nil
+		}
+		o.R.MediaUploads = nil
+	}
+
+	return o.AddMediaUploads(ctx, exec, insert, related...)
+}
+
+// RemoveMediaUploadsP relationships from objects passed in.
+// Removes related items from R.MediaUploads (uses pointer comparison, removal does not keep order)
+// Sets related.R.User.
+// Panics on error.
+func (o *User) RemoveMediaUploadsP(ctx context.Context, exec boil.ContextExecutor, related ...*MediaUpload) {
+	if err := o.RemoveMediaUploads(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveMediaUploads relationships from objects passed in.
+// Removes related items from R.MediaUploads (uses pointer comparison, removal does not keep order)
+// Sets related.R.User.
+func (o *User) RemoveMediaUploads(ctx context.Context, exec boil.ContextExecutor, related ...*MediaUpload) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.UserID, nil)
+		if rel.R != nil {
+			rel.R.User = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("user_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.MediaUploads {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.MediaUploads)
+			if ln > 1 && i < ln-1 {
+				o.R.MediaUploads[i] = o.R.MediaUploads[ln-1]
+			}
+			o.R.MediaUploads = o.R.MediaUploads[:ln-1]
+			break
+		}
+	}
+
 	return nil
 }
 

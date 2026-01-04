@@ -31,11 +31,11 @@ require (
 	github.com/samber/lo v1.47.0
 	github.com/samber/mo v1.13.0
 	github.com/stretchr/testify v1.9.0
-	github.com/teekennedy/goldmark-markdown v0.4.1
+	github.com/teekennedy/goldmark-markdown v0.5.1
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.18.0
 	github.com/volatiletech/strmangle v0.0.6
-	github.com/yuin/goldmark v1.7.8
+	github.com/yuin/goldmark v1.7.13
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
 	golang.org/x/sync v0.10.0
 )

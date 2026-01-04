@@ -4,12 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log/slog"
 	"runtime/debug"
 	"time"
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/markdown"
+	"github.com/can3p/pcom/pkg/media"
+	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/google/uuid"
@@ -27,6 +31,7 @@ const (
 
 type fetcher interface {
 	Fetch(urL string) (*reader.Feed, error)
+	FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error)
 }
 
 type cleaner interface {
@@ -35,16 +40,18 @@ type cleaner interface {
 }
 
 type Feeder struct {
-	db      *sqlx.DB
-	fetcher fetcher
-	cleaner cleaner
+	db           *sqlx.DB
+	fetcher      fetcher
+	cleaner      cleaner
+	mediaStorage server.MediaStorage
 }
 
-func NewFeeder(db *sqlx.DB, fetcher fetcher, cleaner cleaner) *Feeder {
+func NewFeeder(db *sqlx.DB, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage) *Feeder {
 	return &Feeder{
-		db:      db,
-		fetcher: fetcher,
-		cleaner: cleaner,
+		db:           db,
+		fetcher:      fetcher,
+		cleaner:      cleaner,
+		mediaStorage: mediaStorage,
 	}
 }
 
@@ -109,7 +116,7 @@ func (f *Feeder) tryFetchFeed(ctx context.Context, exec boil.ContextExecutor, fe
 		return nil
 	}
 
-	return SaveFeed(ctx, exec, feed, rssFeed, f.cleaner)
+	return SaveFeed(ctx, exec, feed, rssFeed, f.cleaner, f.fetcher, f.mediaStorage)
 }
 
 func GetFeedsToRefresh(ctx context.Context, exec boil.ContextExecutor) ([]*core.RSSFeed, error) {
@@ -155,7 +162,7 @@ func SaveFetchFailure(ctx context.Context, exec boil.ContextExecutor, feed *core
 	return err
 }
 
-func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, rssFeed *reader.Feed, cleaner cleaner) error {
+func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, rssFeed *reader.Feed, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) error {
 	var err error
 
 	if feed.Title.IsZero() {
@@ -173,7 +180,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	// items in an rss feed usually go in descending order
 	for idx := len(rssFeed.Items) - 1; idx >= 0; idx-- {
 		item := rssFeed.Items[idx]
-		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, cleaner)
+		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, cleaner, fetcher, mediaStorage)
 
 		if err != nil {
 			return err
@@ -218,19 +225,17 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	return err
 }
 
-func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, cleaner cleaner) (bool, error) {
+func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
 	if rssFeedItem.URL == "" {
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
 
-	// this call takes care of empty urls
 	url, err := postops.StoreURL(ctx, exec, rssFeedItem.URL)
 
 	if err != nil {
 		return false, err
 	}
 
-	// Generate UUID v7 for the new URL
 	id, err := uuid.NewV7()
 	if err != nil {
 		return false, err
@@ -238,10 +243,38 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 
 	feedItemID := id.String()
 
-	markdown, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
+	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
 
 	if err != nil {
-		markdown = fmt.Sprintf("Summary errors: %s", err.Error())
+		markdownContent = fmt.Sprintf("Summary errors: %s", err.Error())
+	} else {
+		// Create a context with global timeout for all image downloads
+		downloadCtx, cancel := context.WithTimeout(ctx, reader.GlobalImageDownloadTimeout)
+		defer cancel()
+
+		// XXX: the code is kind of backwards because we're passing the control to cleaner
+		// only for it to extract urls and call us back to upload them and the return a replacer
+		// that we will call there. We could just
+		// On the other hand I don't want to have another abstraction and also do not want to
+		// inflate the function logic there.
+
+		uploadFunc := func(imageURL string) (string, error) {
+			readerIO, err := fetcher.FetchMedia(downloadCtx, imageURL)
+			if err != nil {
+				return "", err
+			}
+			defer func() { _ = readerIO.Close() }()
+
+			// XXX: using download context for upload to maintain timeout consistency
+			return media.HandleUpload(downloadCtx, exec, mediaStorage, nil, &feedID, readerIO)
+		}
+
+		replacer := reader.CreateImageReplacer(markdownContent, uploadFunc)
+
+		markdownContent, err = markdown.ReplaceImageUrlsOrLinkify(markdownContent, replacer)
+		if err != nil {
+			return false, fmt.Errorf("failed to process images in feed item: %w", err)
+		}
 	}
 
 	publishedAt := time.Now()
@@ -258,7 +291,7 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		Title:                cleaner.CleanField(rssFeedItem.Title),
 		Description:          rssFeedItem.Summary,
 		PublishedAt:          publishedAt,
-		SanitizedDescription: markdown,
+		SanitizedDescription: markdownContent,
 	}
 
 	// Try to insert, if URL exists, get existing ID

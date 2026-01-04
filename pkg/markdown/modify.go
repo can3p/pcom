@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
 
@@ -74,6 +75,111 @@ func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
 
 	return strings.TrimSpace(buf.String())
 
+}
+
+type ErrorReplacer func(in string) (string, error)
+
+type imgReplaceOrLinkifyTransformer struct {
+	Replacer ErrorReplacer
+}
+
+func (t *imgReplaceOrLinkifyTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
+	type imageReplacement struct {
+		img         *ast.Image
+		parent      ast.Node
+		replacement ast.Node
+	}
+
+	var replacements []imageReplacement
+
+	err := ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if n.Kind() == ast.KindImage {
+			imgNode := n.(*ast.Image)
+
+			newValue, replaceErr := t.Replacer(string(imgNode.Destination))
+
+			if replaceErr != nil {
+				parent := imgNode.Parent()
+				link := ast.NewLink()
+				link.Destination = []byte(string(imgNode.Destination))
+
+				imgCaption := string(imgNode.Title)
+				if len(imgCaption) == 0 && imgNode.HasChildren() {
+					if firstChild, ok := imgNode.FirstChild().(*ast.Text); ok {
+						imgCaption = string(firstChild.Value(reader.Source()))
+					}
+				}
+				if len(imgCaption) == 0 {
+					imgCaption = string(imgNode.Destination)
+				}
+				link.AppendChild(link, ast.NewString([]byte(imgCaption+": "+replaceErr.Error())))
+
+				replacements = append(replacements, imageReplacement{
+					img:         imgNode,
+					parent:      parent,
+					replacement: link,
+				})
+			} else {
+				imgNode.Destination = []byte(newValue)
+			}
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	if err != nil {
+		log.Fatal("Error encountered while transforming AST:", err)
+	}
+
+	// Apply replacements
+	for _, repl := range replacements {
+		repl.parent.InsertBefore(repl.parent, repl.img, repl.replacement)
+		repl.parent.RemoveChild(repl.parent, repl.img)
+	}
+}
+
+func ExtractImageUrls(md string) []string {
+	var urls []string
+
+	source := []byte(md)
+	reader := text.NewReader(source)
+	doc := goldmark.DefaultParser().Parse(reader)
+
+	_ = ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if node.Kind() == ast.KindImage {
+			imgNode := node.(*ast.Image)
+			urls = append(urls, string(imgNode.Destination))
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	return urls
+}
+
+func ReplaceImageUrlsOrLinkify(md string, replace ErrorReplacer) (string, error) {
+	t := &imgReplaceOrLinkifyTransformer{
+		Replacer: replace,
+	}
+
+	gm := NewModifier(t)
+
+	buf := bytes.Buffer{}
+
+	err := gm.Convert([]byte(md), &buf)
+	if err != nil {
+		return "", fmt.Errorf("failed to process markdown: %w", err)
+	}
+
+	return strings.TrimSpace(buf.String()), nil
 }
 
 func ImportReplacer(renameMap map[string]string, existingMap map[string]struct{}) types.Replacer[string] {

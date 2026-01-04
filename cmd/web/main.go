@@ -119,10 +119,6 @@ func main() {
 
 	go dbSender.RunPoller(ctx)
 
-	feeder := feedops.DefaultRssReader(db)
-
-	go feeder.RunPoller(ctx)
-
 	if shouldUseS3 {
 		var err error
 		mediaStorage, err = s3.NewS3Server()
@@ -138,6 +134,10 @@ func main() {
 			panic(err)
 		}
 	}
+
+	feeder := feedops.DefaultRssReader(db, mediaStorage)
+
+	go feeder.RunPoller(ctx)
 
 	var mediaServer server.MediaServer
 	var mediaServerCleanup func()
