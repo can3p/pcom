@@ -105,7 +105,7 @@ func TestLockFeed(t *testing.T) {
 }
 
 type fetcher interface {
-	Fetch(urL string) (*reader.Feed, error)
+	Fetch(ctx context.Context, url string) (*reader.Feed, error)
 	FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error)
 }
 

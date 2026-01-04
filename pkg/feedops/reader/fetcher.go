@@ -52,8 +52,8 @@ func NewFetcher(httpClient *http.Client) *Fetcher {
 	}
 }
 
-func (f *Fetcher) Fetch(rssURL string) (*Feed, error) {
-	feed, err := f.parser.ParseURL(rssURL)
+func (f *Fetcher) Fetch(ctx context.Context, rssURL string) (*Feed, error) {
+	feed, err := f.parser.ParseURLWithContext(rssURL, ctx)
 	if err != nil {
 		return nil, err
 	}

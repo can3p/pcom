@@ -31,7 +31,7 @@ const (
 )
 
 type fetcher interface {
-	Fetch(urL string) (*reader.Feed, error)
+	Fetch(ctx context.Context, url string) (*reader.Feed, error)
 	FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error)
 }
 
@@ -105,7 +105,7 @@ func (f *Feeder) refreshFeeds(ctx context.Context) (err error) {
 }
 
 func (f *Feeder) tryFetchFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed) (err error) {
-	rssFeed, fetchErr := f.fetcher.Fetch(feed.URL)
+	rssFeed, fetchErr := f.fetcher.Fetch(ctx, feed.URL)
 
 	if fetchErr != nil {
 		err := SaveFetchFailure(ctx, exec, feed, fetchErr)
