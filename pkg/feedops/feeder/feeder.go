@@ -187,19 +187,54 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	isInitialFetch = existingCount == 0
 
 	newItems := 0
-
-	// items in an rss feed usually go in descending order
-	// For initial fetch, limit to maxInitialFetchItems most recent items
-	// For subsequent fetches, process all items until we hit a known one
-	startIdx := len(rssFeed.Items) - 1
-	if isInitialFetch && len(rssFeed.Items) > maxInitialFetchItems {
+	totalItemsToFetch := len(rssFeed.Items)
+	if isInitialFetch && totalItemsToFetch > maxInitialFetchItems {
 		// Only process the N most recent items (which are at the beginning of the slice)
-		startIdx = maxInitialFetchItems - 1
+		totalItemsToFetch = maxInitialFetchItems
 	}
 
-	for idx := startIdx; idx >= 0; idx-- {
+	itemIDs := make([]uuid.UUID, totalItemsToFetch)
+
+	// uuid.NewV7 guarantees ordering between subsequent calls.
+	// We generate IDs in reverse order to match the RSS item order (most recent first).
+	// Why the order is important: feed page fetches rss items by id desc, hence
+	// the newest items should have bigger uuid.
+	// pregeneration allows to keep this logic and traverse items in direct order at the same time
+	// stop at the first known item.
+	for idx := range totalItemsToFetch {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return err
+		}
+		itemIDs[totalItemsToFetch-1-idx] = id
+	}
+
+	// Get subscribers once for all items
+	subscribers, err := core.UserFeedSubscriptions(
+		core.UserFeedSubscriptionWhere.FeedID.EQ(feed.ID),
+	).All(ctx, exec)
+	if err != nil {
+		return err
+	}
+
+	// Pre-generate user feed item IDs in descending order (one set per subscriber)
+	// This ensures user feed items are also ordered newest to oldest
+	userItemIDs := make(map[string][]uuid.UUID) // map[userID][]itemIDs
+	for _, s := range subscribers {
+		ids := make([]uuid.UUID, totalItemsToFetch)
+		for idx := range totalItemsToFetch {
+			id, err := uuid.NewV7()
+			if err != nil {
+				return err
+			}
+			ids[totalItemsToFetch-1-idx] = id
+		}
+		userItemIDs[s.UserID] = ids
+	}
+
+	for idx, itemID := range itemIDs {
 		item := rssFeed.Items[idx]
-		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, cleaner, fetcher, mediaStorage)
+		isNew, err := SaveFeedItem(ctx, exec, feed.ID, itemID, item, subscribers, userItemIDs, idx, cleaner, fetcher, mediaStorage)
 
 		if err != nil {
 			return err
@@ -247,7 +282,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	return err
 }
 
-func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
+func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, itemID uuid.UUID, rssFeedItem *reader.Item, subscribers core.UserFeedSubscriptionSlice, userItemIDs map[string][]uuid.UUID, itemIdx int, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
 	if rssFeedItem.URL == "" {
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
@@ -258,12 +293,7 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		return false, err
 	}
 
-	id, err := uuid.NewV7()
-	if err != nil {
-		return false, err
-	}
-
-	feedItemID := id.String()
+	feedItemID := itemID.String()
 
 	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
 
@@ -333,22 +363,10 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		return false, nil
 	}
 
-	subscribers, err := core.UserFeedSubscriptions(
-		core.UserFeedSubscriptionWhere.FeedID.EQ(feedID),
-	).All(ctx, exec)
-
-	if err != nil {
-		return false, err
-	}
-
+	// Create user feed items with pre-generated IDs (in descending order)
 	for _, s := range subscribers {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return false, err
-		}
-
 		userItem := core.UserFeedItem{
-			ID:        id.String(),
+			ID:        userItemIDs[s.UserID][itemIdx].String(),
 			UserID:    s.UserID,
 			RSSItemID: feedItem.ID,
 			URLID:     url.ID,
