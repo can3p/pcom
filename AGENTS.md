@@ -3,64 +3,57 @@
 ## Frontend Architecture
 
 ### Technology Stack
-- **htmx** - For AJAX requests and smooth page transitions
-- **Stimulus.js** - For JavaScript controllers
+- **htmx** - AJAX requests and page transitions
+- **Stimulus.js** - JavaScript controllers
 - **Go Templates** - Server-side HTML rendering
 - **Bootstrap** - CSS framework
 
-### Key Implementation Details
-
-#### Page Transitions with htmx
-- The `<body>` tag uses `hx-boost="true"` to enable smooth page transitions
-- Located in: `/Users/dima/code/pcom/cmd/web/client/html/header.html:22`
-- The `hx-ext="head-support"` extension is enabled for logged-in users to automatically merge `<head>` elements during navigation
-- Extension imported in: `/Users/dima/code/pcom/cmd/web/client/js/index.js`
-
-#### Head Element Updates
-During page transitions, the following `<head>` elements are automatically updated:
-- `<title>` tag
-- Meta tags (description, keywords, og:* properties)
-- Dynamic stylesheets (e.g., user-specific styles)
-- RSS feed links
-- Other page-specific head content
-
-This is handled by the `htmx-ext-head-support` extension.
-
-#### Template Structure
-- Each page template includes `{{ template "header.html" . }}` at the top
-- Each page template includes `{{ template "footer.html" . }}` at the bottom
-- Header contains: `<html>`, `<head>`, opening `<body>` tag, and navigation
-- Footer contains: closing page container divs, toast container, scripts, closing `</body>` and `</html>` tags
-
-#### CSRF Protection
-- CSRF token is passed via htmx headers for logged-in users
-- Configured in the `<body>` tag: `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'`
-
-#### Stimulus Controllers
-Located in: `/Users/dima/code/pcom/cmd/web/client/js/controllers/`
-- `action_controller.js` - Generic action handling
-- `clipboard_controller.js` - Clipboard operations
-- `collapse_controller.js` - Bootstrap collapse handling
-- `commentform_controller.js` - Comment form interactions
-- `confirm_controller.js` - Confirmation dialogs
-- `gallery_controller.js` - Image gallery
-- `mdeditor_controller.js` - Markdown editor
-- `selfsubmit_controller.js` - Auto-submit forms
-- `spoiler_controller.js` - Spoiler content
-- `toast_controller.js` - Toast notifications
-- `toaster_controller.js` - Toast container management
-- `toggle_controller.js` - Toggle UI elements
-
-#### htmx Configuration
-In `/Users/dima/code/pcom/cmd/web/client/js/index.js`:
+### htmx Configuration
+Located in `/Users/dima/code/pcom/cmd/web/client/js/index.js`:
 - `htmx.config.includeIndicatorStyles = false` - CSP compliance
 - `htmx.config.allowScriptTags = false` - Security and Turbo-like behavior
+- `hx-boost="true"` on `<body>` enables smooth page transitions
+- `hx-ext="head-support"` auto-merges `<head>` elements during navigation
+- `json-enc` extension for JSON payloads (sets `Content-Type: application/json`, stringifies parameters)
 
-#### Special Cases
-- Some links use `hx-boost="false"` to disable boosting for:
-  - Direct comment links (anchor links)
-  - Export functionality (file downloads)
-  - External links
+### Template Structure
+- Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
+- Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
+
+### CSRF Protection
+- Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
+
+### Action Controller Pattern
+**Location**: `/Users/dima/code/pcom/cmd/web/client/js/controllers/action_controller.js`
+
+Generic controller for server actions with confirmation dialogs:
+- **Values**: `action`, `prompt`, `promptField`, `skipReload`
+- **Behavior**: Calls `/controls/action/{action}` via `runAction()` with JSON payload
+- **`connect()`**: Automatically adds `json-enc` extension to element
+- **`skipReload`**: When `true`, skips page reload on success (allows htmx response headers to control behavior)
+
+**runAction Implementation** (`pkg/web/client/js/lib.js`):
+- Uses `htmx.ajax()` instead of `fetch()` to enable htmx response header interpretation
+- Reads `hx-target` and `hx-swap` attributes from element
+- Constructs URL as `/controls/action/{name}` and payload from element dataset
+- Merges CSRF headers from `<body hx-headers>`
+- Returns promise that resolves on success or rejects with error
+
+**Usage Pattern**:
+```html
+<div id="item-{{ .ID }}">
+  <button data-controller="action"
+          data-action="action#run"
+          data-action-action-value="delete_item"
+          data-action-prompt-value="Confirm?"
+          data-action-skip-reload-value="true"
+          data-id="{{ .ID }}"
+          hx-target="#item-{{ .ID }}"
+          hx-swap="delete">Delete</button>
+</div>
+```
+
+Server can control behavior via htmx response headers (`HX-Reswap`, `HX-Redirect`, etc.)
 
 ## RSS Feed Image Processing
 

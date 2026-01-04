@@ -6,6 +6,13 @@ export default class extends Controller {
     action: String,
     prompt: String,
     promptField: String,
+    skipReload: Boolean,
+  }
+
+  connect() {
+    const existingExt = this.element.getAttribute("hx-ext") || "";
+    const newExt = existingExt ? existingExt + ",json-enc" : "json-enc";
+    this.element.setAttribute("hx-ext", newExt);
   }
 
   run(event) {
@@ -29,7 +36,9 @@ export default class extends Controller {
       }
     }
 
-    runAction(this.actionValue, this.element.dataset, extraFields)
-    .then(reloadPage, reportError)
+    const onSuccess = this.skipReloadValue ? () => {} : reloadPage
+
+    runAction(this.actionValue, this.element.dataset, extraFields, this.element)
+    .then(onSuccess, reportError)
   }
 }
