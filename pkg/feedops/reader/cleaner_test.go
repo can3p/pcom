@@ -1,7 +1,6 @@
 package reader_test
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -9,11 +8,10 @@ import (
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateImageReplacer(t *testing.T) {
-	ctx := context.Background()
-
 	tests := []struct {
 		name           string
 		inputMarkdown  string
@@ -43,7 +41,7 @@ func TestCreateImageReplacer(t *testing.T) {
 			uploadResults: map[string]uploadResult{
 				"https://example.com/slow.jpg": {url: "", err: reader.ErrMediaTimeout},
 			},
-			expectedOutput: "*[Image download timed out: https://example.com/slow.jpg]*",
+			expectedOutput: "[timeout: image download timed out](https://example.com/slow.jpg)",
 		},
 		{
 			name:          "image too large error",
@@ -51,7 +49,7 @@ func TestCreateImageReplacer(t *testing.T) {
 			uploadResults: map[string]uploadResult{
 				"https://example.com/huge.jpg": {url: "", err: reader.ErrMediaTooLarge},
 			},
-			expectedOutput: "*[Image too large: https://example.com/huge.jpg]*",
+			expectedOutput: "[large: image too large](https://example.com/huge.jpg)",
 		},
 		{
 			name:          "generic download error",
@@ -59,7 +57,7 @@ func TestCreateImageReplacer(t *testing.T) {
 			uploadResults: map[string]uploadResult{
 				"https://example.com/broken.jpg": {url: "", err: errors.New("network error")},
 			},
-			expectedOutput: "*[Image download failed: https://example.com/broken.jpg]*",
+			expectedOutput: "[failed: image download failed](https://example.com/broken.jpg)",
 		},
 		{
 			name:          "mixed success and errors",
@@ -69,7 +67,7 @@ func TestCreateImageReplacer(t *testing.T) {
 				"https://example.com/slow.jpg": {url: "", err: reader.ErrMediaTimeout},
 				"https://example.com/huge.jpg": {url: "", err: reader.ErrMediaTooLarge},
 			},
-			expectedOutput: "![ok](/local/ok.jpg)\n*[Image download timed out: https://example.com/slow.jpg]*\n*[Image too large: https://example.com/huge.jpg]*",
+			expectedOutput: "![ok](/local/ok.jpg)\n[timeout: image download timed out](https://example.com/slow.jpg)\n[large: image too large](https://example.com/huge.jpg)",
 		},
 		{
 			name:          "max images limit",
@@ -81,7 +79,7 @@ func TestCreateImageReplacer(t *testing.T) {
 					parts = append(parts, "![img]("+generateLocalURL(i)+")")
 				}
 				for i := reader.MaxImagesPerFeedItem - 1; i < 25; i++ {
-					parts = append(parts, "*[Image limit exceeded ("+fmt.Sprintf("%d", reader.MaxImagesPerFeedItem)+" max): "+generateImageURL(i)+"]*")
+					parts = append(parts, "[img: image limit exceeded ("+fmt.Sprintf("%d", reader.MaxImagesPerFeedItem)+" max)]("+generateImageURL(i)+")")
 				}
 				return strings.Join(parts, "\n\n")
 			}(),
@@ -104,7 +102,7 @@ func TestCreateImageReplacer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uploadFunc := func(ctx context.Context, url string) (string, error) {
+			uploadFunc := func(url string) (string, error) {
 				result, ok := tt.uploadResults[url]
 				if !ok {
 					return "", errors.New("unexpected URL: " + url)
@@ -112,12 +110,10 @@ func TestCreateImageReplacer(t *testing.T) {
 				return result.url, result.err
 			}
 
-			replacer := reader.CreateImageReplacer(ctx, tt.inputMarkdown, nil, uploadFunc)
-			output := markdown.ReplaceImageUrlsOrErrorMessage(tt.inputMarkdown, replacer)
-
-			if output != tt.expectedOutput {
-				t.Errorf("CreateImageReplacer() output mismatch\nGot:\n%s\n\nWant:\n%s", output, tt.expectedOutput)
-			}
+			replacer := reader.CreateImageReplacer(tt.inputMarkdown, uploadFunc)
+			output, err := markdown.ReplaceImageUrlsOrLinkify(tt.inputMarkdown, replacer)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedOutput, output)
 		})
 	}
 }

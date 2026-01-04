@@ -36,7 +36,7 @@ type fetcher interface {
 
 type cleaner interface {
 	CleanField(in string) string
-	HTMLToMarkdown(in string, replacer markdown.ErrorReplacer) (string, error)
+	HTMLToMarkdown(in string) (string, error)
 }
 
 type Feeder struct {
@@ -230,14 +230,12 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
 
-	// this call takes care of empty urls
 	url, err := postops.StoreURL(ctx, exec, rssFeedItem.URL)
 
 	if err != nil {
 		return false, err
 	}
 
-	// Generate UUID v7 for the new URL
 	id, err := uuid.NewV7()
 	if err != nil {
 		return false, err
@@ -245,8 +243,7 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 
 	feedItemID := id.String()
 
-	// First convert HTML to markdown without image replacement
-	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary, nil)
+	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
 
 	if err != nil {
 		markdownContent = fmt.Sprintf("Summary errors: %s", err.Error())
@@ -255,22 +252,29 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		downloadCtx, cancel := context.WithTimeout(ctx, reader.GlobalImageDownloadTimeout)
 		defer cancel()
 
-		// Create upload function for images
-		uploadFunc := func(ctx context.Context, imageURL string) (string, error) {
-			readerIO, err := fetcher.FetchMedia(ctx, imageURL)
+		// XXX: the code is kind of backwards because we're passing the control to cleaner
+		// only for it to extract urls and call us back to upload them and the return a replacer
+		// that we will call there. We could just
+		// On the other hand I don't want to have another abstraction and also do not want to
+		// inflate the function logic there.
+
+		uploadFunc := func(imageURL string) (string, error) {
+			readerIO, err := fetcher.FetchMedia(downloadCtx, imageURL)
 			if err != nil {
 				return "", err
 			}
 			defer func() { _ = readerIO.Close() }()
 
-			return media.HandleUpload(ctx, exec, mediaStorage, nil, &feedID, readerIO)
+			// XXX: using download context for upload to maintain timeout consistency
+			return media.HandleUpload(downloadCtx, exec, mediaStorage, nil, &feedID, readerIO)
 		}
 
-		// Create replacer that downloads images and handles errors
-		replacer := reader.CreateImageReplacer(downloadCtx, markdownContent, nil, uploadFunc)
+		replacer := reader.CreateImageReplacer(markdownContent, uploadFunc)
 
-		// Apply image URL replacement
-		markdownContent = markdown.ReplaceImageUrlsOrErrorMessage(markdownContent, replacer)
+		markdownContent, err = markdown.ReplaceImageUrlsOrLinkify(markdownContent, replacer)
+		if err != nil {
+			return false, fmt.Errorf("failed to process images in feed item: %w", err)
+		}
 	}
 
 	publishedAt := time.Now()

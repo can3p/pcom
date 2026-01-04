@@ -1,9 +1,10 @@
 package reader
 
 import (
-	"context"
 	"fmt"
 	"html"
+
+	"log/slog"
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/can3p/pcom/pkg/markdown"
@@ -21,12 +22,17 @@ func DefaultCleaner() *Cleaner {
 	return &Cleaner{}
 }
 
-type ImageDownloader interface {
-	FetchMedia(ctx context.Context, mediaURL string) (interface{}, error)
-}
-
-func CreateImageReplacer(ctx context.Context, md string, downloader ImageDownloader, uploadFunc func(ctx context.Context, url string) (string, error)) markdown.ErrorReplacer {
+func CreateImageReplacer(md string, uploadFunc func(url string) (string, error)) markdown.ErrorReplacer {
 	imageUrls := markdown.ExtractImageUrls(md)
+
+	uniqueUrls := make(map[string]bool)
+	var dedupedUrls []string
+	for _, url := range imageUrls {
+		if !uniqueUrls[url] {
+			uniqueUrls[url] = true
+			dedupedUrls = append(dedupedUrls, url)
+		}
+	}
 
 	type result struct {
 		newURL string
@@ -34,37 +40,38 @@ func CreateImageReplacer(ctx context.Context, md string, downloader ImageDownloa
 	}
 	downloadResults := make(map[string]result)
 
-	for idx, url := range imageUrls {
+	for idx, url := range dedupedUrls {
 		// Check if we've exceeded the max images limit
 		if idx+1 >= MaxImagesPerFeedItem {
 			downloadResults[url] = result{
-				newURL: fmt.Sprintf("_[Image limit exceeded (%d max): %s]_", MaxImagesPerFeedItem, url),
-				err:    errors.New("image limit exceeded"),
+				err: fmt.Errorf("image limit exceeded (%d max)", MaxImagesPerFeedItem),
 			}
 			continue
 		}
 
-		newURL, err := uploadFunc(ctx, url)
+		newURL, err := uploadFunc(url)
 		if err != nil {
-			var errorMsg string
+			var readableErr error
 			if errors.Is(err, ErrMediaTimeout) {
-				errorMsg = fmt.Sprintf("_[Image download timed out: %s]_", url)
+				readableErr = fmt.Errorf("image download timed out")
 			} else if errors.Is(err, ErrMediaTooLarge) {
-				errorMsg = fmt.Sprintf("_[Image too large: %s]_", url)
+				readableErr = fmt.Errorf("image too large")
 			} else {
-				errorMsg = fmt.Sprintf("_[Image download failed: %s]_", url)
+				readableErr = fmt.Errorf("image download failed")
+				slog.Warn("image download failed", "url", url, "error", err)
 			}
-			downloadResults[url] = result{newURL: errorMsg, err: err}
+
+			downloadResults[url] = result{err: readableErr}
 		} else {
 			downloadResults[url] = result{newURL: newURL, err: nil}
 		}
 	}
 
-	return func(in string) (bool, string, error) {
+	return func(in string) (string, error) {
 		if res, ok := downloadResults[in]; ok {
-			return true, res.newURL, res.err
+			return res.newURL, res.err
 		}
-		return false, in, nil
+		return in, nil
 	}
 }
 
@@ -76,7 +83,7 @@ func (c *Cleaner) CleanField(in string) string {
 	return html.UnescapeString(sanitized)
 }
 
-func (c *Cleaner) HTMLToMarkdown(in string, replacer markdown.ErrorReplacer) (string, error) {
+func (c *Cleaner) HTMLToMarkdown(in string) (string, error) {
 	p := bluemonday.UGCPolicy()
 
 	sanitized := p.Sanitize(in)
@@ -84,10 +91,6 @@ func (c *Cleaner) HTMLToMarkdown(in string, replacer markdown.ErrorReplacer) (st
 	md, err := htmltomarkdown.ConvertString(sanitized)
 	if err != nil {
 		return "", err
-	}
-
-	if replacer != nil {
-		md = markdown.ReplaceImageUrlsOrErrorMessage(md, replacer)
 	}
 
 	return md, nil

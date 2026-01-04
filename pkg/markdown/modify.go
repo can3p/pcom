@@ -110,7 +110,7 @@ func (t *imgReplaceOrLinkifyTransformer) Transform(node *ast.Document, reader te
 				imgCaption := string(imgNode.Title)
 				if len(imgCaption) == 0 && imgNode.HasChildren() {
 					if firstChild, ok := imgNode.FirstChild().(*ast.Text); ok {
-						imgCaption = string(firstChild.Text(reader.Source()))
+						imgCaption = string(firstChild.Value(reader.Source()))
 					}
 				}
 				if len(imgCaption) == 0 {
