@@ -186,27 +186,10 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	}
 	isInitialFetch = existingCount == 0
 
-	newItems := 0
 	totalItemsToFetch := len(rssFeed.Items)
 	if isInitialFetch && totalItemsToFetch > maxInitialFetchItems {
 		// Only process the N most recent items (which are at the beginning of the slice)
 		totalItemsToFetch = maxInitialFetchItems
-	}
-
-	itemIDs := make([]uuid.UUID, totalItemsToFetch)
-
-	// uuid.NewV7 guarantees ordering between subsequent calls.
-	// We generate IDs in reverse order to match the RSS item order (most recent first).
-	// Why the order is important: feed page fetches rss items by id desc, hence
-	// the newest items should have bigger uuid.
-	// pregeneration allows to keep this logic and traverse items in direct order at the same time
-	// stop at the first known item.
-	for idx := range totalItemsToFetch {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-		itemIDs[totalItemsToFetch-1-idx] = id
 	}
 
 	// Get subscribers once for all items
@@ -217,24 +200,44 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 		return err
 	}
 
-	// Pre-generate user feed item IDs in descending order (one set per subscriber)
-	// This ensures user feed items are also ordered newest to oldest
-	userItemIDs := make(map[string][]uuid.UUID) // map[userID][]itemIDs
-	for _, s := range subscribers {
-		ids := make([]uuid.UUID, totalItemsToFetch)
-		for idx := range totalItemsToFetch {
-			id, err := uuid.NewV7()
+	// Prefetch to find the index of the first known item
+	// For initial fetch, all items (up to totalItemsToFetch) are new
+	// For subsequent fetches, find where new items end
+	firstKnownItemIdx := totalItemsToFetch
+	if !isInitialFetch {
+		for idx := 0; idx < totalItemsToFetch; idx++ {
+			item := rssFeed.Items[idx]
+			if item.URL == "" {
+				continue
+			}
+
+			url, err := postops.StoreURL(ctx, exec, item.URL)
 			if err != nil {
 				return err
 			}
-			ids[totalItemsToFetch-1-idx] = id
+
+			exists, err := core.RSSItems(
+				core.RSSItemWhere.FeedID.EQ(feed.ID),
+				core.RSSItemWhere.URLID.EQ(url.ID),
+			).Exists(ctx, exec)
+			if err != nil {
+				return err
+			}
+
+			if exists {
+				// Found first known item, all items before this are new
+				firstKnownItemIdx = idx
+				break
+			}
 		}
-		userItemIDs[s.UserID] = ids
 	}
 
-	for idx, itemID := range itemIDs {
+	// Insert items in chronological order (from oldest new item to newest)
+	// This means iterating from firstKnownItemIdx-1 down to 0
+	newItems := 0
+	for idx := firstKnownItemIdx - 1; idx >= 0; idx-- {
 		item := rssFeed.Items[idx]
-		isNew, err := SaveFeedItem(ctx, exec, feed.ID, itemID, item, subscribers, userItemIDs, idx, cleaner, fetcher, mediaStorage)
+		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, subscribers, cleaner, fetcher, mediaStorage)
 
 		if err != nil {
 			return err
@@ -242,9 +245,6 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 
 		if isNew {
 			newItems++
-		} else if !isInitialFetch {
-			// On subsequent fetches, stop when we hit an item we've already seen
-			break
 		}
 	}
 
@@ -282,7 +282,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	return err
 }
 
-func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, itemID uuid.UUID, rssFeedItem *reader.Item, subscribers core.UserFeedSubscriptionSlice, userItemIDs map[string][]uuid.UUID, itemIdx int, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
+func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, subscribers core.UserFeedSubscriptionSlice, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
 	if rssFeedItem.URL == "" {
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
@@ -293,6 +293,11 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		return false, err
 	}
 
+	// Generate a new UUID v7 for this item (chronological ordering)
+	itemID, err := uuid.NewV7()
+	if err != nil {
+		return false, err
+	}
 	feedItemID := itemID.String()
 
 	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
@@ -363,10 +368,15 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		return false, nil
 	}
 
-	// Create user feed items with pre-generated IDs (in descending order)
+	// Create user feed items with generated UUIDs (chronological ordering)
 	for _, s := range subscribers {
+		userItemID, err := uuid.NewV7()
+		if err != nil {
+			return false, err
+		}
+
 		userItem := core.UserFeedItem{
-			ID:        userItemIDs[s.UserID][itemIdx].String(),
+			ID:        userItemID.String(),
 			UserID:    s.UserID,
 			RSSItemID: feedItem.ID,
 			URLID:     url.ID,

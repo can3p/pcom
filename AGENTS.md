@@ -85,6 +85,49 @@ Failed downloads are replaced with readable error messages in markdown:
 - `media_uploads` table supports either `user_id` OR `rss_feed_id` (mutual exclusivity enforced)
 - Migration: `migrations/20251231005904-media_uploads_feeds.sql`
 
+## Testing
+
+### Testing Packages
+- **github.com/ovechkin-dm/mockio/v2** - Mock library for Go without code generation
+- **github.com/stretchr/testify** - Assertion and testing utilities (require, assert)
+- **testcontainers/postgres** - PostgreSQL test container helper
+
+### Test Container Usage
+Located in `/Users/dima/code/pcom/testcontainers/postgres`:
+- Provides `NewTestDB()` function that returns a `*TestDB` with a clean database instance
+- Each test gets its own isolated database
+- Migrations are automatically applied from `/Users/dima/code/pcom/migrations`
+- Container is shared across tests in a package for efficiency
+- Container cleanup happens automatically after tests complete (with 5-minute expiration as fallback)
+- Use `defer testDB.Close()` to clean up the database after each test
+
+### Test Factory Pattern
+Located in `/Users/dima/code/pcom/pkg/feedops/testutil/factory.go`:
+- Factory functions for creating test entities: `CreateUser`, `CreateRSSFeed`, `CreateRSSItem`, etc.
+- Helper functions for retrieving entities: `GetRSSFeed`, `GetRSSItemsByFeed`, `GetUserFeedItemsByUser`
+- All factory functions accept `context.Context` and `boil.ContextExecutor` for transaction support
+
+### Mockio v2 Usage
+```go
+import . "github.com/ovechkin-dm/mockio/v2/mock"
+
+func TestExample(t *testing.T) {
+    ctrl := NewMockController(t)
+    mockObj := Mock[MyInterface](ctrl)
+    
+    // Single return value
+    WhenSingle(mockObj.Method(Any[string]())).ThenReturn("result")
+    
+    // Multiple return values
+    WhenDouble(mockObj.Method(Any[string]())).ThenReturn("result", nil)
+    
+    // Dynamic answers
+    WhenSingle(mockObj.Method(Any[string]())).ThenAnswer(func(args []any) string {
+        return "dynamic result"
+    })
+}
+```
+
 ## File Locations
 - HTML Templates: `/Users/dima/code/pcom/cmd/web/client/html/`
 - JavaScript: `/Users/dima/code/pcom/cmd/web/client/js/`
