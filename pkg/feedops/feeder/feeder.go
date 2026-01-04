@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	pollEvery     = 10 * time.Second
-	avgWindowDays = 3
+	pollEvery            = 10 * time.Second
+	avgWindowDays        = 3
+	maxInitialFetchItems = 5
 )
 
 type fetcher interface {
@@ -175,10 +176,28 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 		feed.Description = null.NewString(cleaned, cleaned != "")
 	}
 
+	// Check if this is an initial fetch by seeing if any items exist for this feed
+	isInitialFetch := false
+	existingCount, err := core.RSSItems(
+		core.RSSItemWhere.FeedID.EQ(feed.ID),
+	).Count(ctx, exec)
+	if err != nil {
+		return err
+	}
+	isInitialFetch = existingCount == 0
+
 	newItems := 0
 
 	// items in an rss feed usually go in descending order
-	for idx := len(rssFeed.Items) - 1; idx >= 0; idx-- {
+	// For initial fetch, limit to maxInitialFetchItems most recent items
+	// For subsequent fetches, process all items until we hit a known one
+	startIdx := len(rssFeed.Items) - 1
+	if isInitialFetch && len(rssFeed.Items) > maxInitialFetchItems {
+		// Only process the N most recent items (which are at the beginning of the slice)
+		startIdx = maxInitialFetchItems - 1
+	}
+
+	for idx := startIdx; idx >= 0; idx-- {
 		item := rssFeed.Items[idx]
 		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, cleaner, fetcher, mediaStorage)
 
@@ -188,6 +207,9 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 
 		if isNew {
 			newItems++
+		} else if !isInitialFetch {
+			// On subsequent fetches, stop when we hit an item we've already seen
+			break
 		}
 	}
 
