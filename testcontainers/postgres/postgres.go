@@ -102,7 +102,7 @@ func getOrCreateContainer() (*containerInstance, error) {
 		}
 
 		hostAndPort := resource.GetHostPort("5432/tcp")
-		resource.Expire(300)
+		_ = resource.Expire(300)
 
 		var testConn *sql.DB
 		if err = pool.Retry(func() error {
@@ -110,10 +110,10 @@ func getOrCreateContainer() (*containerInstance, error) {
 			if err != nil {
 				return err
 			}
-			defer testConn.Close()
+			defer func() { _ = testConn.Close() }()
 			return testConn.Ping()
 		}); err != nil {
-			pool.Purge(resource)
+			_ = pool.Purge(resource)
 			containerInitErr = fmt.Errorf("could not connect to database: %w", err)
 			return
 		}
@@ -151,21 +151,21 @@ func NewTestDB() (*TestDB, error) {
 
 	_, err = adminDB.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
 	if err != nil {
-		adminDB.Close()
+		_ = adminDB.Close()
 		return nil, fmt.Errorf("could not create database %s: %w", dbName, err)
 	}
 
 	dbURL := fmt.Sprintf("postgres://testuser:secret@%s/%s?sslmode=disable", container.hostAndPort, dbName)
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		adminDB.Close()
+		_ = adminDB.Close()
 		return nil, fmt.Errorf("could not connect to test database: %w", err)
 	}
 
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		db.Close()
-		adminDB.Close()
+		_ = db.Close()
+		_ = adminDB.Close()
 		return nil, fmt.Errorf("could not get caller information")
 	}
 	migrationsDir := filepath.Join(filepath.Dir(filename), "..", "..", "migrations")
@@ -176,8 +176,8 @@ func NewTestDB() (*TestDB, error) {
 
 	n, err := migrate.Exec(db, "postgres", migrations, migrate.Up)
 	if err != nil {
-		db.Close()
-		adminDB.Close()
+		_ = db.Close()
+		_ = adminDB.Close()
 		return nil, fmt.Errorf("could not run migrations: %w", err)
 	}
 

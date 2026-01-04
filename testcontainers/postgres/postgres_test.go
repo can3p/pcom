@@ -9,7 +9,7 @@ import (
 
 func TestMain(m *testing.M) {
 	code := m.Run()
-	Cleanup()
+	_ = Cleanup()
 	if code != 0 {
 		panic(code)
 	}
@@ -18,7 +18,7 @@ func TestMain(m *testing.M) {
 func TestNewTestDB(t *testing.T) {
 	testDB, err := NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	var result int
 	err = testDB.DB.Get(&result, "SELECT 1")
@@ -36,7 +36,7 @@ func TestParallelDatabases(t *testing.T) {
 		t.Parallel()
 		testDB, err := NewTestDB()
 		require.NoError(t, err)
-		defer testDB.Close()
+		defer func() { _ = testDB.Close() }()
 
 		_, err = testDB.DB.Exec("INSERT INTO users (id, email, timezone, username) VALUES ($1, $2, $3, $4)",
 			"00000000-0000-0000-0000-000000000001", "test1@example.com", "UTC", "user1")
@@ -52,7 +52,7 @@ func TestParallelDatabases(t *testing.T) {
 		t.Parallel()
 		testDB, err := NewTestDB()
 		require.NoError(t, err)
-		defer testDB.Close()
+		defer func() { _ = testDB.Close() }()
 
 		var count int
 		err = testDB.DB.Get(&count, "SELECT COUNT(*) FROM users")
@@ -64,7 +64,7 @@ func TestParallelDatabases(t *testing.T) {
 		t.Parallel()
 		testDB, err := NewTestDB()
 		require.NoError(t, err)
-		defer testDB.Close()
+		defer func() { _ = testDB.Close() }()
 
 		_, err = testDB.DB.Exec("INSERT INTO users (id, email, timezone, username) VALUES ($1, $2, $3, $4)",
 			"00000000-0000-0000-0000-000000000002", "test2@example.com", "UTC", "user2")

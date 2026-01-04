@@ -14,7 +14,7 @@ import (
 func TestGetRssFeedItems_FiltersDismissedItems(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctx := context.Background()
 
@@ -54,7 +54,7 @@ func TestGetRssFeedItems_FiltersDismissedItems(t *testing.T) {
 func TestGetRssFeedItems_EmptyResult(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctx := context.Background()
 

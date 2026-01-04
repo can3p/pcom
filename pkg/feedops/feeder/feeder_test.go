@@ -23,7 +23,7 @@ import (
 func TestGetFeedsToRefresh(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctx := context.Background()
 
@@ -67,7 +67,7 @@ func TestGetFeedsToRefresh(t *testing.T) {
 func TestSaveFetchFailure(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctx := context.Background()
 
@@ -91,7 +91,7 @@ func TestSaveFetchFailure(t *testing.T) {
 func TestLockFeed(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctx := context.Background()
 
@@ -132,7 +132,7 @@ func createFeedItems(num int, startTime time.Time) []*reader.Item {
 func TestSaveFeed(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctrl := NewMockController(t)
 
@@ -183,7 +183,7 @@ func TestSaveFeed(t *testing.T) {
 func TestSaveFeedInitialAndFollowUp(t *testing.T) {
 	testDB, err := postgres.NewTestDB()
 	require.NoError(t, err)
-	defer testDB.Close()
+	defer func() { _ = testDB.Close() }()
 
 	ctrl := NewMockController(t)
 
