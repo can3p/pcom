@@ -20,7 +20,7 @@ blockquote {
 }
 
 .standalone-img {
-  max-width: 500px;
+  max-width: min(500px, 100%);
 }
 
 .img-gallery {
