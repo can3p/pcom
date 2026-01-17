@@ -113,6 +113,36 @@
     color: var(--text-color);
   }
 
+  // Card backgrounds
+  .card {
+    background-color: #252525;
+    border-color: #404040;
+  }
+
+  .card-header {
+    background-color: #2d2d2d;
+    border-bottom-color: #404040;
+    color: var(--text-color);
+  }
+
+  .card-header a {
+    color: var(--primary-color);
+  }
+
+  .card-header a:hover {
+    color: #4a9fd8;
+  }
+
+  .card-body {
+    background-color: #252525;
+    color: var(--text-color);
+  }
+
+  // Theme-aware background for forms and content areas
+  .bg-theme-surface {
+    background-color: #252525;
+  }
+
   // Post in feed
   .post-in-feed {
     color: var(--text-color);
@@ -199,6 +229,24 @@
 
   .navbar-light .navbar-nav .nav-link:hover {
     color: var(--primary-color);
+  }
+
+  // Navbar text (e.g., "Hi username!")
+  .navbar-text {
+    color: var(--text-color) !important;
+  }
+
+  // Navbar toggler (hamburger menu) for mobile
+  .navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .navbar-toggler:focus {
+    box-shadow: 0 0 0 0.25rem rgba(93, 173, 226, 0.25);
+  }
+
+  .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
   }
 
   // Dropdown menus
