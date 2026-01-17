@@ -1,0 +1,291 @@
+// Dark mode styles using Bootstrap's data-bs-theme approach
+// This file contains dark mode overrides for custom components
+// Supports both manual (data-bs-theme="dark") and automatic (prefers-color-scheme) dark mode
+
+// Mixin to avoid code duplication
+@mixin dark-mode-styles {
+  // Custom CSS variables for dark mode
+  --primary-color: #5dade2;
+  --secondary-color: #ecf0f1;
+  --background-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --muted-text: #a0a0a0;
+
+  // Body background
+  body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+
+  // Blockquote styling
+  blockquote {
+    border-left-color: #4a4a4a;
+  }
+
+  // Carousel controls
+  .carousel-caption,
+  .carousel-control-prev,
+  .carousel-control-next {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  // Edit preview containers
+  .block-container-edit-preview-cut,
+  .block-container-edit-preview-spoiler {
+    border-color: #6c757d;
+  }
+
+  .block-container-edit-preview-spoiler {
+    background-color: #2d2d2d;
+  }
+
+  .block-container-edit-preview-cut {
+    background-color: #252525;
+  }
+
+  // Markdown editor loading overlay
+  .mdeditor__loading {
+    background: rgba(50, 50, 50, 0.5);
+  }
+
+  // YouTube fallback
+  .lite-youtube-fallback {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  // User header links
+  .user-header a {
+    color: var(--primary-color);
+  }
+
+  // Post prompt
+  .post-prompt {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .post-prompt .form-control {
+    background-color: #1a1a1a;
+    border-color: #404040;
+    color: var(--text-color);
+  }
+
+  .post-prompt .form-control:focus {
+    background-color: #252525;
+    border-color: var(--primary-color);
+    color: var(--text-color);
+  }
+
+  .post-prompt .btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #1a1a1a;
+  }
+
+  .post-prompt .btn-primary:hover {
+    background-color: #4a9fd8;
+    border-color: #4a9fd8;
+  }
+
+  // Feed cards
+  .feed-comment .card-header,
+  .feed-post .card-header {
+    background-color: #2d2d2d;
+    border-bottom-color: #404040;
+  }
+
+  .feed-comment .card,
+  .feed-post .card {
+    background-color: #252525;
+    border-color: #404040;
+  }
+
+  .feed-comment .card-header a,
+  .feed-post .card-header a {
+    color: var(--secondary-color);
+  }
+
+  .feed-comment .card-body,
+  .feed-post .card-body {
+    background-color: #252525;
+    color: var(--text-color);
+  }
+
+  // Post in feed
+  .post-in-feed {
+    color: var(--text-color);
+  }
+
+  // Stats and links
+  .feed-post-stats,
+  .comment-stats {
+    color: var(--muted-text);
+  }
+
+  .feed-post-stats a,
+  .comment-stats a {
+    color: var(--primary-color);
+  }
+
+  .feed-post-stats a:hover,
+  .comment-stats a:hover {
+    color: #4a9fd8;
+  }
+
+  .post-date {
+    color: var(--muted-text);
+  }
+
+  // Spoiler container
+  .block-container-spoiler-summary {
+    color: var(--primary-color);
+  }
+
+  // Form controls
+  .form-control,
+  .form-select {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    color: var(--text-color);
+  }
+
+  .form-control:focus,
+  .form-select:focus {
+    background-color: #353535;
+    border-color: var(--primary-color);
+    color: var(--text-color);
+    box-shadow: 0 0 0 0.25rem rgba(93, 173, 226, 0.25);
+  }
+
+  .form-control::placeholder {
+    color: #6c757d;
+  }
+
+  // Textarea
+  textarea.form-control,
+  .comment-textarea {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    color: var(--text-color);
+  }
+
+  textarea.form-control:focus,
+  .comment-textarea:focus {
+    background-color: #353535;
+    border-color: var(--primary-color);
+    color: var(--text-color);
+  }
+
+  // Links
+  a {
+    color: var(--primary-color);
+  }
+
+  a:hover {
+    color: #4a9fd8;
+  }
+
+  // Navbar overrides (if needed)
+  .navbar {
+    background-color: #2d2d2d !important;
+    border-bottom: 1px solid #404040;
+  }
+
+  .navbar-light .navbar-nav .nav-link {
+    color: var(--text-color);
+  }
+
+  .navbar-light .navbar-nav .nav-link:hover {
+    color: var(--primary-color);
+  }
+
+  // Dropdown menus
+  .dropdown-menu {
+    background-color: #2d2d2d;
+    border-color: #404040;
+  }
+
+  .dropdown-item {
+    color: var(--text-color);
+  }
+
+  .dropdown-item:hover,
+  .dropdown-item:focus {
+    background-color: #353535;
+    color: var(--primary-color);
+  }
+
+  // Modals
+  .modal-content {
+    background-color: #252525;
+    border-color: #404040;
+  }
+
+  .modal-header {
+    border-bottom-color: #404040;
+  }
+
+  .modal-footer {
+    border-top-color: #404040;
+  }
+
+  // Tables
+  .table {
+    color: var(--text-color);
+    border-color: #404040;
+  }
+
+  .table-striped > tbody > tr:nth-of-type(odd) > * {
+    color: var(--text-color);
+  }
+
+  // Alerts
+  .alert {
+    border-color: #404040;
+  }
+
+  // Badges
+  .badge {
+    background-color: #404040;
+    color: var(--text-color);
+  }
+
+  // Pagination
+  .pagination .page-link {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    color: var(--primary-color);
+  }
+
+  .pagination .page-link:hover {
+    background-color: #353535;
+    border-color: #404040;
+    color: #4a9fd8;
+  }
+
+  .pagination .page-item.active .page-link {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #1a1a1a;
+  }
+
+  .pagination .page-item.disabled .page-link {
+    background-color: #2d2d2d;
+    border-color: #404040;
+    color: #6c757d;
+  }
+}
+
+// Apply dark mode styles manually with data-bs-theme="dark"
+[data-bs-theme="dark"] {
+  @include dark-mode-styles;
+}
+
+// Apply dark mode styles automatically based on system preference
+@media (prefers-color-scheme: dark) {
+  :root:not([data-bs-theme="light"]) {
+    @include dark-mode-styles;
+  }
+}
