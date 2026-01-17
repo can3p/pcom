@@ -193,6 +193,11 @@
     color: #6c757d;
   }
 
+  // Form help text
+  .form-text {
+    color: var(--muted-text);
+  }
+
   // Textarea
   textarea.form-control,
   .comment-textarea {
