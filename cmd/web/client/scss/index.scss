@@ -8,6 +8,15 @@ $bootstrap-icons-font-dir: "~bootstrap-icons/font/fonts";
 // Syntax highlighting styles
 @import "syntax";
 
+// Theme-aware background class (light mode default)
+.bg-theme-surface {
+  background-color: #ffffff;
+}
+
+// Dark mode styles
+@import "dark-mode";
+@import "syntax-dark";
+
 // @TODO: we should use class there
 blockquote {
   border-left: 4px solid #dedede;

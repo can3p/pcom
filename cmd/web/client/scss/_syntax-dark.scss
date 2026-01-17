@@ -1,0 +1,144 @@
+// Dark mode syntax highlighting styles
+// Supports both manual (data-bs-theme="dark") and automatic (prefers-color-scheme) dark mode
+
+@mixin syntax-dark-mode-styles {
+  .chroma {
+    // Dark background for code blocks
+    background-color: #1e1e1e;
+    border: 1px solid #404040;
+
+    // Line numbers
+    .ln {
+      color: #858585;
+    }
+
+    // Keywords
+    .k, .kd, .kn { 
+      color: #569cd6; 
+      font-weight: bold; 
+    }
+
+    // Strings
+    .s, .s1, .s2 { 
+      color: #ce9178; 
+    }
+
+    // Comments
+    .c, .c1, .cm { 
+      color: #6a9955; 
+      font-style: italic; 
+    }
+
+    // Functions and types
+    .nf, .nx { 
+      color: #dcdcaa; 
+    }
+
+    // Numbers
+    .mi, .mf { 
+      color: #b5cea8; 
+    }
+
+    // Operators
+    .o { 
+      color: #d4d4d4; 
+      font-weight: bold; 
+    }
+
+    // Built-ins
+    .nb { 
+      color: #4ec9b0; 
+    }
+
+    // Variables
+    .nv { 
+      color: #9cdcfe; 
+    }
+
+    // Types
+    .kt, .nc { 
+      color: #4ec9b0; 
+    }
+
+    // Punctuation
+    .p { 
+      color: #d4d4d4; 
+    }
+
+    // Errors
+    .err { 
+      color: #f48771; 
+    }
+
+    // Generic
+    .g { 
+      color: #d4d4d4; 
+    }
+
+    // Names
+    .n, .na, .nd { 
+      color: #d4d4d4; 
+    }
+
+    // Literals
+    .l { 
+      color: #b5cea8; 
+    }
+
+    // Escapes
+    .se { 
+      color: #d7ba7d; 
+    }
+
+    // Symbols
+    .ss { 
+      color: #ce9178; 
+    }
+
+    // Booleans
+    .kc { 
+      color: #569cd6; 
+    }
+
+    // Imports
+    .kp { 
+      color: #c586c0; 
+    }
+
+    // Preprocessor
+    .cp { 
+      color: #9b9b9b; 
+    }
+  }
+
+  // Inline code
+  code {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border: 1px solid #404040;
+  }
+
+  // Pre blocks
+  pre {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #404040;
+  }
+
+  pre code {
+    background-color: transparent;
+    border: none;
+  }
+}
+
+// Apply syntax dark mode manually with data-bs-theme="dark"
+[data-bs-theme="dark"] {
+  @include syntax-dark-mode-styles;
+}
+
+// Apply syntax dark mode automatically based on system preference
+@media (prefers-color-scheme: dark) {
+  :root:not([data-bs-theme="light"]) {
+    @include syntax-dark-mode-styles;
+  }
+}
