@@ -10,6 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/markdown/mdext/headershift"
 	"github.com/can3p/pcom/pkg/markdown/mdext/lazyload"
+	"github.com/can3p/pcom/pkg/markdown/mdext/linkrenderer"
 	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
@@ -67,6 +68,11 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 			func(in []byte) (bool, []byte) {
 				return true, []byte(link("user", string(in)))
 			}), 500),
+	}
+
+	// Add custom link renderer for RSS feed view to open links in new tab
+	if view == types.ViewFeed {
+		nodeRenderers = append(nodeRenderers, util.Prioritized(linkrenderer.NewLinkRenderer(true), 500))
 	}
 
 	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost || view == types.ViewEmail || view == types.ViewRSS {
