@@ -329,6 +329,14 @@
     border-color: #404040;
     color: #6c757d;
   }
+
+  // List groups
+  .list-group {
+    --bs-list-group-bg: #2d2d2d;
+    --bs-list-group-border-color: #404040;
+    --bs-list-group-color: var(--text-color);
+    --bs-list-group-action-hover-bg: #353535;
+  }
 }
 
 // Apply dark mode styles manually with data-bs-theme="dark"

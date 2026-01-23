@@ -174,8 +174,28 @@ Configured in `NewParser()`:
 3. Register in `NewParser()` via `nodeRenderers` slice
 4. Conditionally add based on view type if needed
 
+## Dark Mode Styling
+
+### Architecture
+Located in `/Users/dima/code/pcom/cmd/web/client/scss/_dark-mode.scss`:
+- Uses Bootstrap 5.3+ color modes with `data-bs-theme="dark"` and `prefers-color-scheme` media query
+- All styles defined in `@mixin dark-mode-styles` for reusability
+
+### CSS Variable Override Pattern
+**Override Bootstrap component variables by scoping them within component selectors:**
+```scss
+.list-group {
+  --bs-list-group-bg: #2d2d2d;
+  --bs-list-group-border-color: #404040;
+  --bs-list-group-color: var(--text-color);
+}
+```
+
+**Do NOT define ad-hoc colors directly on elements** - always use Bootstrap's CSS variables to ensure proper inheritance and theming.
+
 ## File Locations
 - HTML Templates: `/Users/dima/code/pcom/cmd/web/client/html/`
 - JavaScript: `/Users/dima/code/pcom/cmd/web/client/js/`
 - Main JS entry: `/Users/dima/code/pcom/cmd/web/client/js/index.js`
 - Markdown package: `/Users/dima/code/pcom/pkg/markdown/`
+- Dark mode styles: `/Users/dima/code/pcom/cmd/web/client/scss/_dark-mode.scss`
