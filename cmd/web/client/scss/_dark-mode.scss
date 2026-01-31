@@ -337,6 +337,11 @@
     --bs-list-group-color: var(--text-color);
     --bs-list-group-action-hover-bg: #353535;
   }
+
+  // Text utilities
+  .text-muted {
+    color: var(--muted-text) !important;
+  }
 }
 
 // Apply dark mode styles manually with data-bs-theme="dark"

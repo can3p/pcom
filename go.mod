@@ -15,6 +15,7 @@ require (
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
 	github.com/can3p/gogo v0.0.0-20240724001046-388a9ef0ec1b
 	github.com/davidbyttow/govips/v2 v2.15.0
+	github.com/dustin/go-humanize v1.0.0
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-contrib/sessions v1.0.2
 	github.com/gin-gonic/gin v1.10.0
@@ -28,6 +29,7 @@ require (
 	github.com/mileusna/useragent v1.3.5
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/ory/dockertest/v3 v3.12.0
+	github.com/ovechkin-dm/mockio/v2 v2.0.4
 	github.com/pkg/errors v0.9.1
 	github.com/rubenv/sql-migrate v1.8.1
 	github.com/samber/lo v1.47.0
@@ -110,8 +112,6 @@ require (
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/opencontainers/runc v1.2.3 // indirect
 	github.com/ovechkin-dm/go-dyno v0.5.3 // indirect
-	github.com/ovechkin-dm/mockio v1.0.2 // indirect
-	github.com/ovechkin-dm/mockio/v2 v2.0.4 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/petermattis/goid v0.0.0-20250721140440-ea1c0173183e // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
