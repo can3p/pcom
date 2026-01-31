@@ -1,9 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { bootstrapTextareaMarkdown } from "textarea-markdown-editor/dist/bootstrap";
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+import { bootstrapTextareaMarkdown } from "@can3p/headless-mde/headless";
 
 export default class extends Controller {
   static values = {
@@ -15,8 +11,6 @@ export default class extends Controller {
     const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea, {
       options: {
         enableLinkPasteExtension: false,
-        enablePrefixWrappingExtension: true,
-        customPrefixWrapping: ['*'],
       }
     });
 
@@ -115,7 +109,8 @@ export default class extends Controller {
         }
       }
 
-      const uploadFiles = async(files) => {
+      const uploadFiles = (files) => {
+        textarea.focus();
         this.element.classList.add("mdeditor--loading")
 
         let promises = [];
@@ -126,11 +121,12 @@ export default class extends Controller {
           if (cursor.position.line.text) {
             cursor.insert('\n'); // wrap to next line if some line is not empty
           }
-          const loadingPlaceholder = `[uploading (${file.name})...${Math.random()}]`;
-          cursor.insert('\n' + loadingPlaceholder + '\n');
 
-          let prom =  uploadFile(file).then((resultUrl) => {
-            textarea.value = cursor.value.replace(loadingPlaceholder, `![${file.name}](${resultUrl})`)
+          const loadingPlaceholder = `[uploading (${file.name})...${Math.random()}]`;
+          cursor.insertAndScrollIntoView(loadingPlaceholder);
+
+          let prom = uploadFile(file).then((url) => {
+            cursor.replace(loadingPlaceholder, `![${file.name}](${url})`);
           }).catch((e) => {
             console.log("image upload failure:" , e)
           });
@@ -138,11 +134,11 @@ export default class extends Controller {
           promises.push(prom)
         }
 
-        htmx.trigger(textarea, "change")
-
-        await Promise.all(promises)
-        upload.value = null;
-        this.element.classList.remove("mdeditor--loading")
+        Promise.all(promises).then(() => {
+          htmx.trigger(textarea, "change")
+          upload.value = null;
+          this.element.classList.remove("mdeditor--loading")
+        })
       }
 
       const handler = async () => {

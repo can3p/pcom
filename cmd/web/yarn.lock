@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@can3p/headless-mde@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@can3p/headless-mde/-/headless-mde-0.0.4.tgz#b45c0c00db5fafe660426673e7301cc9a70dab83"
+  integrity sha512-m3L7mbuYQrBDIR0CLxqvRL6sQ+CZKaVFIihkvRZ8/XAEZOExgPqgunPQjTNibGOE3g+qskhIEpCJGkU5vi1qUw==
+
 "@discoveryjs/json-ext@^0.5.0":
   version "0.5.7"
   resolved "https://registry.yarnpkg.com/@discoveryjs/json-ext/-/json-ext-0.5.7.tgz#1d572bfbbe14b7704e0ba0f39b74815b84870d70"

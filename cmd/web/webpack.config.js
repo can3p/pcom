@@ -69,6 +69,14 @@ module.exports = (env, argv) => {
     // custom loaders configuration
     module: {
       rules: [
+        {
+          test: /\.m?js$/,
+          include: /node_modules\/@can3p\/headless-mde/,
+          resolve: {
+            fullySpecified: false,
+          },
+        },
+
         // styles loader
         {
           test: /\.(sa|sc|c)ss$/,
