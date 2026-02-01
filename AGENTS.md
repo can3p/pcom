@@ -193,9 +193,32 @@ Located in `/Users/dima/code/pcom/cmd/web/client/scss/_dark-mode.scss`:
 
 **Do NOT define ad-hoc colors directly on elements** - always use Bootstrap's CSS variables to ensure proper inheritance and theming.
 
+## Date/Time Rendering
+
+Use `renderHumanTime` template helper to display timestamps with relative time and full timestamp on hover:
+
+```html
+{{ renderHumanTime .CreatedAt $.User.DBUser }}
+```
+
+**Output**: `<span title="Mon, 15 Jan 2024 12:30">5 minutes ago</span>`
+
+- First argument: `time.Time` value to display
+- Second argument: `*core.User` for timezone localization (can be nil for UTC)
+- Implementation: `pkg/util/date`
+
+## Development
+
+### Verification
+Use `make check` to verify code compiles and tests pass without producing build artifacts:
+```bash
+make check
+```
+
 ## File Locations
 - HTML Templates: `/Users/dima/code/pcom/cmd/web/client/html/`
 - JavaScript: `/Users/dima/code/pcom/cmd/web/client/js/`
 - Main JS entry: `/Users/dima/code/pcom/cmd/web/client/js/index.js`
 - Markdown package: `/Users/dima/code/pcom/pkg/markdown/`
 - Dark mode styles: `/Users/dima/code/pcom/cmd/web/client/scss/_dark-mode.scss`
+- Date utilities: `/Users/dima/code/pcom/pkg/util/date/`

@@ -38,11 +38,11 @@ import (
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util"
+	"github.com/can3p/pcom/pkg/util/date"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csrf"
 	"github.com/can3p/pcom/pkg/web"
-	"github.com/dustin/go-humanize"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -890,16 +890,8 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 
 		"abslink": links.AbsLink,
 
-		"renderTimestamp": func(t time.Time, user *core.User) string {
-			if user != nil {
-				t = util.LocalizeTime(user, t)
-			}
-
-			return t.Format("Mon, 02 Jan 2006 15:04")
-		},
-
-		"relativeTime": func(t time.Time) string {
-			return humanize.Time(t)
+		"renderHumanTime": func(t time.Time, user *core.User) template.HTML {
+			return date.RenderTimeHTML(t, user, time.Now())
 		},
 
 		"toMap": func(args ...interface{}) map[string]interface{} {

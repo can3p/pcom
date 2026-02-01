@@ -1,4 +1,4 @@
-.PHONY: shell tunnel lint test build
+.PHONY: shell tunnel lint test build check
 
 shell:
 	flyctl postgres connect -a pcomdb
@@ -20,3 +20,7 @@ test:
 
 build:
 	go build -v ./...
+
+check:
+	go build -o /dev/null ./...
+	go test ./...
