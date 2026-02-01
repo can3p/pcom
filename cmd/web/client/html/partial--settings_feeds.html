@@ -14,9 +14,9 @@
               <a href="{{ .URL }}" target="_blank" rel="noopener noreferrer" class="ms-1 text-muted small" title="RSS Feed"><i class="bi bi-rss"></i></a>
             </div>
             <div class="d-flex flex-wrap small gap-2">
-              <span><span class="text-muted">Fetched:</span> {{ with .LastFetchedAt }}<span title="{{ renderTimestamp . $.User.DBUser }}">{{ relativeTime . }}</span>{{ else }}Never{{ end }}</span>
-              <span><span class="text-muted">Post:</span> {{ with .LastImportedAt }}<span title="{{ renderTimestamp . $.User.DBUser }}">{{ relativeTime . }}</span>{{ else }}None{{ end }}</span>
-              <span><span class="text-muted">Next:</span> {{ with .NextFetchAt }}<span title="{{ renderTimestamp . $.User.DBUser }}">{{ relativeTime . }}</span>{{ else }}Now{{ end }}</span>
+              <span><span class="text-muted">Fetched:</span> {{ with .LastFetchedAt }}{{ renderHumanTime . $.User.DBUser }}{{ else }}Never{{ end }}</span>
+              <span><span class="text-muted">Post:</span> {{ with .LastImportedAt }}{{ renderHumanTime . $.User.DBUser }}{{ else }}None{{ end }}</span>
+              <span><span class="text-muted">Next:</span> {{ with .NextFetchAt }}{{ renderHumanTime . $.User.DBUser }}{{ else }}Now{{ end }}</span>
             </div>
             {{ with .LastError }}
             <details class="small">

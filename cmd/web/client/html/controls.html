@@ -36,7 +36,7 @@
                 {{ range . }}
                   <tr>
                     <td><a href="{{ link "edit_post" .PostID }}">{{ with .Subject }}{{ . }}{{ else }}No subject{{ end }}</a></td>
-                    <td>{{ renderTimestamp .LastUpdatedAt $.User.DBUser }}</td>
+                    <td>{{ renderHumanTime .LastUpdatedAt $.User.DBUser }}</td>
                     <td>
                       <button type="button"
                               class="btn btn-sm btn-danger"

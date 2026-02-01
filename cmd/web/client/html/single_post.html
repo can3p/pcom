@@ -87,7 +87,7 @@
         <div class="card">
           <h5 class="card-header fs-6">
             [<a hx-boost="false" href="{{ link "comment" .PostID .ID }}">#</a>]
-            <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> responded at {{ renderTimestamp .CreatedAt $.User.DBUser }}
+            <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> responded {{ renderHumanTime .CreatedAt $.User.DBUser }}
           </h5>
           <div class="card-body">
             <div class="mt-3 post-user-home">{{ markdown_comment .Body }}</div>

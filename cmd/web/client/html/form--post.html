@@ -1,7 +1,7 @@
 {{ if .DraftSaved }}
 <div id="last_draft_save">
   <input type="hidden" name="post_id" value="{{ .PostID }}" />
-  <p class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</p>
+  <p class="fw-lighter">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</p>
 </div>
 {{ else }}
 <div id="form-container" class="container mt-lg-4 mt-2 flex-grow-1 d-flex flex-column">
@@ -27,7 +27,7 @@
     <div id="last_draft_save">
     {{ if .PostID }}
       <input type="hidden" name="post_id" value="{{ .PostID }}" />
-      <small class="fw-lighter">Last Updated at {{ renderTimestamp .LastUpdatedAt .User }}</small>
+      <small class="fw-lighter">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</small>
     {{ else }}
       {{ with .Prompt }}
         <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
