@@ -10,27 +10,27 @@
   "license": "unlicensed",
   "dependencies": {
     "@can3p/headless-mde": "^0.0.4",
-    "@justinribeiro/lite-youtube": "^1.5.0",
-    "bootstrap": "^5.3.2",
-    "bootstrap-icons": "^1.11.3",
+    "@justinribeiro/lite-youtube": "^1.9.0",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
     "htmx-ext-head-support": "^2.0.5",
     "htmx.org": "^2.0.8",
     "lazysizes": "^5.3.2",
-    "stimulus": "^3.2.0",
+    "stimulus": "^3.2.2",
     "textarea-markdown-editor": "^1.0.4"
   },
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",
-    "copy-webpack-plugin": "^11.0.0",
-    "css-loader": "^6.7.1",
-    "hyperscript.org": "^0.9.7",
-    "mini-css-extract-plugin": "^2.6.1",
+    "copy-webpack-plugin": "^13.0.1",
+    "css-loader": "^7.1.4",
+    "hyperscript.org": "^0.9.14",
+    "mini-css-extract-plugin": "^2.10.0",
     "optimize-css-assets-webpack-plugin": "^6.0.1",
-    "sass": "^1.55.0",
-    "sass-loader": "^13.1.0",
-    "terser-webpack-plugin": "^5.3.6",
-    "webpack": "^5.74.0",
-    "webpack-cli": "^4.10.0",
-    "webpack-manifest-plugin": "^5.0.0"
+    "sass": "^1.97.3",
+    "sass-loader": "^16.0.7",
+    "terser-webpack-plugin": "^5.3.16",
+    "webpack": "^5.105.2",
+    "webpack-cli": "^6.0.1",
+    "webpack-manifest-plugin": "^6.0.1"
   }
 }
