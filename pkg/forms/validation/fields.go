@@ -2,6 +2,7 @@ package validation
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -42,10 +43,8 @@ func ValidateMinMax(label string, p string, minL int, maxL int) error {
 }
 
 func ValidateEnum[A comparable](value A, vals []A, labels []string) error {
-	for _, v := range vals {
-		if v == value {
-			return nil
-		}
+	if slices.Contains(vals, value) {
+		return nil
 	}
 
 	return errors.Errorf("The only allowed options are: %s", strings.Join(labels, ", "))

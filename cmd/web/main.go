@@ -376,7 +376,7 @@ func main() {
 			waitingList.UpdateP(c, db, boil.Infer())
 		}
 
-		c.HTML(http.StatusOK, "waiting_list_confirmed.html", map[string]interface{}{
+		c.HTML(http.StatusOK, "waiting_list_confirmed.html", map[string]any{
 			"User": userData,
 		})
 	})
@@ -649,7 +649,7 @@ func main() {
 			admin.NotifySignupConfirmed(c, db, sender, user)
 		}
 
-		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]interface{}{
+		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]any{
 			"User": userData,
 		})
 	})
@@ -894,12 +894,12 @@ func funcmap(staticAsset staticAssetFunc) template.FuncMap {
 			return date.RenderTimeHTML(t, user, time.Now())
 		},
 
-		"toMap": func(args ...interface{}) map[string]interface{} {
+		"toMap": func(args ...any) map[string]any {
 			if len(args)%2 != 0 {
 				panic("toMap got uneven number of arguments")
 			}
 
-			out := map[string]interface{}{}
+			out := map[string]any{}
 
 			idx := 0
 

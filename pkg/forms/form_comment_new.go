@@ -41,7 +41,7 @@ func NewCommentFormNew(sender sender.Sender, u *core.User, postID string, mediaR
 			FormTemplate:        "form--comment.html",
 			KeepValuesAfterSave: true,
 			Input:               &NewCommentFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User":   u,
 				"PostID": postID,
 			},

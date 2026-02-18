@@ -36,7 +36,7 @@ func PostPromptFormNew(sender sender.Sender, u *core.User, directConnections []*
 			FormTemplate:        "form--post-prompt.html",
 			KeepValuesAfterSave: true,
 			Input:               &PostPromptFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User":              u,
 				"DirectConnections": directConnections,
 			},

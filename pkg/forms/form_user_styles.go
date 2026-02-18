@@ -28,7 +28,7 @@ func SettingsUserStylesNew(u *core.User) *SettingsUserStyles {
 			FormTemplate:        "form--settings-user-styles.html",
 			KeepValuesAfterSave: true,
 			Input:               &SettingsUserStylesInput{},
-			ExtraTemplateData:   map[string]interface{}{},
+			ExtraTemplateData:   map[string]any{},
 		},
 		User: u,
 	}
