@@ -100,7 +100,7 @@ jobs:
         run: make fix
 
       - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "chore: apply go fix"
           file_pattern: "*.go"
