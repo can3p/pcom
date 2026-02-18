@@ -75,7 +75,7 @@ func TestCreateImageReplacer(t *testing.T) {
 			uploadResults: generateUploadResults(25),
 			expectedOutput: func() string {
 				var parts []string
-				for i := 0; i < reader.MaxImagesPerFeedItem-1; i++ {
+				for i := range reader.MaxImagesPerFeedItem - 1 {
 					parts = append(parts, "![img]("+generateLocalURL(i)+")")
 				}
 				for i := reader.MaxImagesPerFeedItem - 1; i < 25; i++ {
@@ -125,7 +125,7 @@ type uploadResult struct {
 
 func generateMarkdownWithImages(count int) string {
 	var parts []string
-	for i := 0; i < count; i++ {
+	for i := range count {
 		parts = append(parts, "![img]("+generateImageURL(i)+")")
 	}
 	return strings.Join(parts, "\n\n")
@@ -133,7 +133,7 @@ func generateMarkdownWithImages(count int) string {
 
 func generateUploadResults(count int) map[string]uploadResult {
 	results := make(map[string]uploadResult)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		url := generateImageURL(i)
 		if i < reader.MaxImagesPerFeedItem-1 {
 			results[url] = uploadResult{url: generateLocalURL(i), err: nil}

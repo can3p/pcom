@@ -3,6 +3,7 @@ package forms
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/values"
@@ -30,7 +31,7 @@ func SettingsGeneralFormNew(u *core.User) *SettingsGeneralForm {
 			FormTemplate:        "form--settings-general.html",
 			KeepValuesAfterSave: true,
 			Input:               &SettingsGeneralFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User":              u,
 				"ProfileVisibility": values.ProfileVisibilityValues,
 			},
@@ -52,13 +53,7 @@ func (f *SettingsGeneralForm) Validate(c *gin.Context, db boil.ContextExecutor) 
 		return forms.ErrValidationFailed
 	}
 
-	found := false
-	for _, tz := range util.TimeZones {
-		if tz == f.Input.Timezone {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(util.TimeZones, f.Input.Timezone)
 
 	if !found {
 		f.AddError("timezone", fmt.Sprintf("Cannot find the timezone [%s]", f.Input.Timezone))

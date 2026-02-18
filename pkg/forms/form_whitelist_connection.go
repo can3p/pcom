@@ -29,7 +29,7 @@ func WhitelistConnectionNew(u *core.User) forms.Form {
 			FormTemplate:        "form--whitelist-connection.html",
 			KeepValuesAfterSave: true,
 			Input:               &WhitelistConnectionInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User": u,
 			},
 		},

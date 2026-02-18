@@ -32,7 +32,7 @@ func AcceptInviteFormNew(sender sender.Sender, invite *core.UserInvitation) form
 			Name:         "accept_invite",
 			FormTemplate: "form--accept-invite.html",
 			Input:        &AcceptInviteFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"Invite": invite,
 			},
 		},
