@@ -11,7 +11,6 @@ import (
 	"github.com/can3p/pcom/pkg/feedops/feeder"
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/feedops/testutil"
-	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/testcontainers/postgres"
 	. "github.com/ovechkin-dm/mockio/v2/mock"
 	"github.com/stretchr/testify/assert"
@@ -122,7 +121,7 @@ func createFeedItems(num int, startTime time.Time) []*reader.Item {
 			URL:         "https://example.com/post" + n,
 			Title:       "Test Post " + n,
 			Summary:     "Summary of test post " + n,
-			PublishedAt: util.Pointer(startTime.Add(-time.Duration(idx) * time.Hour)),
+			PublishedAt: new(startTime.Add(-time.Duration(idx) * time.Hour)),
 		}
 	}
 

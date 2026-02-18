@@ -75,7 +75,7 @@ func NewPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.
 			FormTemplate:        "form--post.html",
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User":   u,
 				"Prompt": prompt,
 			},
@@ -115,7 +115,7 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender
 			FormTemplate:        "form--post.html",
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User":          u,
 				"PostID":        post.ID,
 				"IsPublished":   post.PublishedAt.Valid,
