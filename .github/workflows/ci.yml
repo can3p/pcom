@@ -1,42 +1,98 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
-    branches:
-      - master
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+env:
+  GOLANGCI_LINT_VERSION: "v2.10.1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    name: Run Tests and Linter
+    name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
           cache: true
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libvips-dev
 
-      - name: Install golangci-lint
+      - name: Run tests
+        run: make test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.out
+        continue-on-error: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+
+      - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.7.0
-          args: --timeout=5m
-          skip-pkg-cache: true
-          skip-build-cache: true
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
 
-      - name: Build
-        run: go build -v ./...
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
 
-      - name: Run Tests
-        run: go test -v ./...
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
 
-      - name: Run Linter
-        run: golangci-lint run ./... --timeout=5m
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+
+      - name: Build Go
+        run: make check
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "yarn"
+          cache-dependency-path: cmd/web/yarn.lock
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+        working-directory: cmd/web
+
+      - name: Build frontend
+        run: yarn build
+        working-directory: cmd/web
