@@ -232,7 +232,7 @@ func GetAPIUserData(c *gin.Context) UserData {
 	return out
 }
 
-func AddFlash(c *gin.Context, flash interface{}, vars ...string) {
+func AddFlash(c *gin.Context, flash any, vars ...string) {
 	session := sessions.Default(c)
 
 	session.AddFlash(flash, vars...)
@@ -241,7 +241,7 @@ func AddFlash(c *gin.Context, flash interface{}, vars ...string) {
 	}
 }
 
-func GetFlashes(c *gin.Context, vars ...string) []interface{} {
+func GetFlashes(c *gin.Context, vars ...string) []any {
 	session := sessions.Default(c)
 
 	flashes := session.Flashes(vars...)
