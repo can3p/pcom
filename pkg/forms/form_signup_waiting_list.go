@@ -70,6 +70,6 @@ func (f *SignupWaitingListForm) Save(c context.Context, exec boil.ContextExecuto
 	admin.NotifyNewWaitingListMember(c, exec, f.Sender, &request)
 
 	return func(c *gin.Context, f forms.Form) {
-		c.HTML(http.StatusOK, "partial--added-to-waitlist.html", map[string]interface{}{})
+		c.HTML(http.StatusOK, "partial--added-to-waitlist.html", map[string]any{})
 	}, nil
 }

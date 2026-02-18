@@ -34,20 +34,20 @@ func SerializePost(post *core.Post) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteString("---\n")
-	buf.WriteString(fmt.Sprintf("%s: %s\n", OriginalID, post.ID))
+	fmt.Fprintf(&buf, "%s: %s\n", OriginalID, post.ID)
 	if post.Subject.Valid {
-		buf.WriteString(fmt.Sprintf("%s: %s\n", Subject, post.Subject.String))
+		fmt.Fprintf(&buf, "%s: %s\n", Subject, post.Subject.String)
 	}
 	if post.URLID.Valid {
-		buf.WriteString(fmt.Sprintf("%s: %s\n", Url, post.R.URL.URL))
+		fmt.Fprintf(&buf, "%s: %s\n", Url, post.R.URL.URL)
 	}
-	buf.WriteString(fmt.Sprintf("%s: %s\n", Visibility, post.VisibilityRadius.String()))
+	fmt.Fprintf(&buf, "%s: %s\n", Visibility, post.VisibilityRadius.String())
 	if post.PublishedAt.Valid {
-		buf.WriteString(fmt.Sprintf("%s: %s\n", PublishDate, post.PublishedAt.Time.Format(time.RFC3339)))
+		fmt.Fprintf(&buf, "%s: %s\n", PublishDate, post.PublishedAt.Time.Format(time.RFC3339))
 	}
 	buf.WriteString("---\n")
 
-	buf.WriteString(fmt.Sprintf("\n%s", post.Body))
+	fmt.Fprintf(&buf, "\n%s", post.Body)
 
 	return buf.Bytes()
 }

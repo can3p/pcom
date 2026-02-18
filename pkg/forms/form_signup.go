@@ -106,6 +106,6 @@ func (f *SignupForm) Save(c context.Context, exec boil.ContextExecutor) (forms.F
 	}
 
 	return func(c *gin.Context, f forms.Form) {
-		c.HTML(http.StatusOK, "partial--signup-goto-email.html", map[string]interface{}{})
+		c.HTML(http.StatusOK, "partial--signup-goto-email.html", map[string]any{})
 	}, nil
 }

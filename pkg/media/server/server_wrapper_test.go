@@ -55,10 +55,8 @@ func TestServerWrapper_GetImage(t *testing.T) {
 		wrapper := NewWrapper(mock, 10)
 
 		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 5 {
+			wg.Go(func() {
 				reader, mime, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
@@ -75,7 +73,7 @@ func TestServerWrapper_GetImage(t *testing.T) {
 				if string(data) != "mock image data" {
 					t.Errorf("unexpected response data: %s", string(data))
 				}
-			}()
+			})
 		}
 		wg.Wait()
 
@@ -90,7 +88,7 @@ func TestServerWrapper_GetImage(t *testing.T) {
 
 		start := time.Now()
 		var wg sync.WaitGroup
-		for i := 0; i < 6; i++ {
+		for i := range 6 {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
@@ -138,7 +136,7 @@ func TestServerWrapper_GetImage(t *testing.T) {
 		wrapper := NewWrapper(mock, 1)
 
 		// Make several requests and verify that in-flight map is cleaned up
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)

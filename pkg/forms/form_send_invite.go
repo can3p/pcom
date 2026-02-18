@@ -27,7 +27,7 @@ func SendInviteFormNew(sender sender.Sender, u *core.User) forms.Form {
 			Name:         "send_invite",
 			FormTemplate: "form--send-invite.html",
 			Input:        &SendInviteFormInput{},
-			ExtraTemplateData: map[string]interface{}{
+			ExtraTemplateData: map[string]any{
 				"User": u,
 			},
 		},
