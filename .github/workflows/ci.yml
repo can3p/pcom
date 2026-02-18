@@ -76,6 +76,35 @@ jobs:
       - name: Build Go
         run: make check
 
+  gofix:
+    name: Go Fix
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+
+      - name: Run go fix
+        run: make fix
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: apply go fix"
+          file_pattern: "*.go"
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
