@@ -20,6 +20,10 @@ window._hyperscript.browserInit()
 // script changes
 htmx.config.allowScriptTags = false;
 
+// attempt to fix the problems reported by some users
+htmx.config.inlineScriptNonce = window.scriptNonce;
+htmx.config.inlineStyleNonce = window.styleNonce;
+
 // Define JSON encoding extension for htmx
 htmx.defineExtension('json-enc', {
     onEvent: function (name, evt) {
