@@ -21,16 +21,16 @@
   },
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",
-    "copy-webpack-plugin": "^13.0.1",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.4",
-    "hyperscript.org": "^0.9.14",
-    "mini-css-extract-plugin": "^2.10.0",
+    "hyperscript.org": "^0.9.90",
+    "mini-css-extract-plugin": "^2.10.2",
     "optimize-css-assets-webpack-plugin": "^6.0.1",
-    "sass": "^1.97.3",
+    "sass": "^1.99.0",
     "sass-loader": "^16.0.7",
-    "terser-webpack-plugin": "^5.3.16",
-    "webpack": "^5.105.2",
-    "webpack-cli": "^6.0.1",
+    "terser-webpack-plugin": "^5.4.0",
+    "webpack": "^5.106.1",
+    "webpack-cli": "^7.0.2",
     "webpack-manifest-plugin": "^6.0.1"
   }
 }
