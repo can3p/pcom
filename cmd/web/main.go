@@ -300,7 +300,6 @@ func main() {
 		fname := fmt.Sprintf("client/articles/%s.md", articleName)
 
 		if _, err := os.Stat(fname); errors.Is(err, fs.ErrNotExist) {
-			panic(2)
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		} else if err != nil {
