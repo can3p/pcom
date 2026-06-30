@@ -72,9 +72,9 @@ export default class extends Controller {
     // it gets modified and an ordinary loop would screw us
     while (paragraphs.length > 0) {
       let p = paragraphs.item(0)
-      let img = p.querySelector("img")
+      let imgs = p.querySelectorAll("img")
 
-      if (!img) {
+      if (imgs.length === 0) {
         // any leading paragraphs without photo cannot be used as captions, hence we're simply
         // pushing htem outside of gallery
 
@@ -89,17 +89,17 @@ export default class extends Controller {
         continue
       }
 
-      if (!currentImg) {
+      // a paragraph may contain multiple images (e.g. when not separated
+      // by blank lines in markdown), each one becomes its own carousel item
+      for (let img of imgs) {
+        if (currentImg) {
+          addNewItem(inner, fragmentItemsContainer, currentImg, currentCaption, seenFirstItem)
+          seenFirstItem = true
+          currentCaption = []
+        }
         currentImg = img
-        inner.removeChild(p)
-        continue
       }
-
-      addNewItem(inner, fragmentItemsContainer, currentImg, currentCaption, seenFirstItem)
       inner.removeChild(p)
-      seenFirstItem = true
-      currentImg = img
-      currentCaption = []
     }
 
     if (currentImg) {

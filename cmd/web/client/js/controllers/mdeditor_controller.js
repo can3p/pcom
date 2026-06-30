@@ -54,6 +54,7 @@ export default class extends Controller {
 
     let runCmd = function(cmd, e) {
       e.preventDefault()
+      textarea.focus()
 
       switch (cmd) {
         case "gallery":
