@@ -149,7 +149,7 @@ func main() {
 	var mediaServerCleanup func()
 	var err error
 
-	mediaServer, mediaServerCleanup = server.New(mediaStorage,
+	mediaServer, mediaServerCleanup, err = server.New(mediaStorage,
 		server.WithClass("thumb", server.ClassParams{Width: 720, Height: 540}),
 		server.WithClass("full", server.ClassParams{Width: 1200, Height: 900}),
 		server.WithPermaCache(util.InCluster()),
@@ -160,6 +160,10 @@ func main() {
 		}),
 	)
 	defer mediaServerCleanup()
+
+	if err != nil {
+		panic(err)
+	}
 
 	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
 	mediaServer, err = server.NewCachingServer(mediaServer, mediaStorage, 0)
