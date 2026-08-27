@@ -1,6 +1,5 @@
 import htmx from 'htmx.org';
 import 'htmx-ext-head-support';
-import 'hyperscript.org';
 import { Application } from "@hotwired/stimulus"
 import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
 import 'lazysizes';

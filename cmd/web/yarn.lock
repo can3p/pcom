@@ -845,11 +845,6 @@ htmx.org@^2.0.10, htmx.org@^2.0.2:
   resolved "https://registry.yarnpkg.com/htmx.org/-/htmx.org-2.0.10.tgz#62442b0e2952a885ae2e50a7654b8b20d0981134"
   integrity sha512-kdeJe7ZVwaS6QMz/ebBIVtZdpwen6L0OQ5GOhPV9MKBb196TCZeZu4yA7ZIQsaLKv7EpXz+So7KSXNuHXhj7Cw==
 
-hyperscript.org@^0.9.91:
-  version "0.9.91"
-  resolved "https://registry.yarnpkg.com/hyperscript.org/-/hyperscript.org-0.9.91.tgz#3e3566111adf29f9a12833f8b4570d195d2e97d2"
-  integrity sha512-T9mi1yiGcMu5okkVxju8S330TUc+J4eAVBlosfSGPyexCD9BjR2RoDKi6l8NnP9YRA5ya1w5IMOvxj82HeNMXQ==
-
 icss-utils@^5.0.0, icss-utils@^5.1.0:
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/icss-utils/-/icss-utils-5.1.0.tgz#c6be6858abd013d768e98366ae47e25d5887b1ae"
