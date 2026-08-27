@@ -46,7 +46,7 @@ function snapScroller(track, onChange) {
     let drag = null
     let suppressClickUntil = 0
     const onPointerDown = (event) => {
-        if (event.button !== 0) {
+        if (event.button !== 0 || event.pointerType !== "mouse") {
             return
         }
 
@@ -221,6 +221,7 @@ function buildStrip(slides, galleryId) {
         link.className = "gallery__link"
         // stays a working link to the full size image if our js never runs
         link.href = slide.full
+        link.setAttribute("hx-boost", "false")
         link.dataset.index = String(index)
         link.draggable = false
 
