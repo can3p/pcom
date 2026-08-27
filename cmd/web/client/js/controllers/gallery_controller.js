@@ -46,7 +46,7 @@ function snapScroller(track, onChange) {
     let drag = null
     let suppressClickUntil = 0
     const onPointerDown = (event) => {
-        if (event.button !== 0) {
+        if (event.button !== 0 || event.pointerType !== "mouse") {
             return
         }
 
