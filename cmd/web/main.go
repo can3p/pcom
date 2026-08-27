@@ -5,14 +5,17 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 	_ "time/tzdata" // help go learn about timezones
@@ -64,6 +67,8 @@ var requiredVars = []string{
 	"SESSION_SALT",
 	"SITE_ROOT",
 }
+
+var articlesRE = regexp.MustCompile("^[a-z0-9]+(_[a-z0-9]+)*$")
 
 func enforceEnvVars(requiredVars []string) {
 	for _, v := range requiredVars {
@@ -144,7 +149,7 @@ func main() {
 	var mediaServerCleanup func()
 	var err error
 
-	mediaServer, mediaServerCleanup = server.New(mediaStorage,
+	mediaServer, mediaServerCleanup, err = server.New(mediaStorage,
 		server.WithClass("thumb", server.ClassParams{Width: 720, Height: 540}),
 		server.WithClass("full", server.ClassParams{Width: 1200, Height: 900}),
 		server.WithPermaCache(util.InCluster()),
@@ -155,6 +160,10 @@ func main() {
 		}),
 	)
 	defer mediaServerCleanup()
+
+	if err != nil {
+		panic(err)
+	}
 
 	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
 	mediaServer, err = server.NewCachingServer(mediaServer, mediaStorage, 0)
@@ -287,7 +296,19 @@ func main() {
 	r.GET("/articles/:id", func(c *gin.Context) {
 		articleName := c.Param("id")
 
+		if !articlesRE.MatchString(articleName) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+
 		fname := fmt.Sprintf("client/articles/%s.md", articleName)
+
+		if _, err := os.Stat(fname); errors.Is(err, fs.ErrNotExist) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		} else if err != nil {
+			panic(err)
+		}
 
 		body, err := os.ReadFile((fname))
 

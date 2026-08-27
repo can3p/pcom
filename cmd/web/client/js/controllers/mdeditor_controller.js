@@ -8,11 +8,7 @@ export default class extends Controller {
 
   connect() {
     let textarea = this.element.querySelector("textarea")
-    const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea, {
-      options: {
-        enableLinkPasteExtension: false,
-      }
-    });
+    const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea);
 
     this.dispose = dispose
     this.element.classList.add("mdeditor")
@@ -54,6 +50,7 @@ export default class extends Controller {
 
     let runCmd = function(cmd, e) {
       e.preventDefault()
+      textarea.focus()
 
       switch (cmd) {
         case "gallery":
