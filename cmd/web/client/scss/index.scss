@@ -32,15 +32,215 @@ blockquote {
   max-width: min(500px, 100%);
 }
 
-.img-gallery {
-  max-height: 400px;
-  max-width: 100%;
+// Photo gallery ({gallery} block tag, see gallery_controller.js).
+//
+// Both the inline strip and the fullscreen viewer use the same scroll-snap
+// track, including the pointer-drag behavior in gallery_controller.js.
+%snap-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  // keep a horizontal swipe from triggering browser back navigation
+  overscroll-behavior-x: contain;
+  touch-action: pan-y pinch-zoom;
+  scrollbar-width: none;
+
+  &.is-dragging {
+    scroll-snap-type: none;
+    cursor: grabbing;
+  }
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  > * {
+    scroll-snap-align: center;
+    margin: 0;
+  }
 }
 
-.carousel-caption,
-.carousel-control-prev,
-.carousel-control-next {
-  background-color: rgba(0,0,0,0.1);
+.gallery__track {
+  @extend %snap-track;
+  gap: $spacer;
+}
+
+.gallery__item {
+  display: flex;
+  flex-direction: column;
+  gap: ($spacer * .5);
+}
+
+.gallery__link {
+  display: block;
+  cursor: zoom-in;
+}
+
+.gallery__img {
+  display: block;
+  margin: 0 auto;
+  max-height: 400px;
+  max-width: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+// captions used to be hidden below the md breakpoint, which meant most
+// readers never saw them
+.gallery__caption {
+  font-size: $font-size-base * 0.8;
+  color: var(--muted-text);
+  text-align: center;
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.gallery__bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacer;
+  margin-top: ($spacer * .5);
+}
+
+.gallery__counter {
+  font-size: $font-size-base * 0.8;
+  color: var(--muted-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.gallery__nav {
+  background: none;
+  border: 0;
+  padding: ($spacer * .25) ($spacer * .5);
+  color: var(--text-color);
+  line-height: 1;
+
+  &:disabled {
+    opacity: .3;
+  }
+}
+
+// Fullscreen viewer.
+//
+// This deliberately does not use the Fullscreen API: requestFullscreen on a
+// non-video element is still unreliable on iPhone. A modal dialog sized to
+// the viewport is full bleed everywhere and gives us the top layer, focus
+// trapping and escape-to-close for free.
+.viewer {
+  width: 100dvw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+
+  &::backdrop {
+    background: #000;
+  }
+}
+
+// a modal dialog does not stop the page behind it from scrolling
+html:has(.viewer[open]) {
+  overflow: clip;
+}
+
+.viewer__track {
+  @extend %snap-track;
+  height: 100%;
+}
+
+.viewer__item {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  place-items: center;
+  padding: ($spacer * .5);
+}
+
+.viewer__img {
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.viewer__caption {
+  font-size: $font-size-base * 0.8;
+  text-align: center;
+  padding: ($spacer * .5) 0;
+  max-width: 60ch;
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.viewer__close,
+.viewer__nav {
+  position: absolute;
+  background: rgba(0, 0, 0, .45);
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  width: 2.5em;
+  height: 2.5em;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+
+  &:disabled {
+    opacity: .25;
+  }
+}
+
+.viewer__close {
+  top: $spacer;
+  right: $spacer;
+}
+
+.viewer__nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.viewer__nav--prev {
+  left: $spacer;
+}
+
+.viewer__nav--next {
+  right: $spacer;
+}
+
+// touch devices get swipe, so the arrows are only in the way
+@media (hover: none) {
+  .viewer__nav {
+    display: none;
+  }
+}
+
+.viewer__counter {
+  position: absolute;
+  top: $spacer;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: $font-size-base * 0.8;
+  font-variant-numeric: tabular-nums;
+  opacity: .7;
 }
 
 .comment-1 {

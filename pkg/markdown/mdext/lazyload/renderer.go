@@ -126,10 +126,13 @@ func (r *LazyLoadRenderer) renderImageClassic(w util.BufWriter, source []byte, n
 	n := node.(*ast.Image)
 	shouldReplace, updatedLink := r.mediaReplacer(string(n.Destination))
 
+	var fullLink string
+
 	// just in case media replacer forgets to return initial string
 	if !shouldReplace {
 		updatedLink = string(n.Destination)
 	} else {
+		fullLink = updatedLink + "/full"
 		updatedLink = updatedLink + "/thumb"
 	}
 
@@ -137,7 +140,18 @@ func (r *LazyLoadRenderer) renderImageClassic(w util.BufWriter, source []byte, n
 	if r.Unsafe || !html.IsDangerousURL([]byte(updatedLink)) {
 		_, _ = w.Write(util.EscapeHTML(util.URLEscape([]byte(updatedLink), true)))
 	}
-	_, _ = w.WriteString(`" alt="`)
+	_, _ = w.WriteString(`"`)
+
+	// the gallery controller opens this in the fullscreen viewer. Images we
+	// do not host have no /full variant, so the attribute is omitted and the
+	// thumbnail is shown instead.
+	if fullLink != "" && (r.Unsafe || !html.IsDangerousURL([]byte(fullLink))) {
+		_, _ = w.WriteString(` data-full="`)
+		_, _ = w.Write(util.EscapeHTML(util.URLEscape([]byte(fullLink), true)))
+		_ = w.WriteByte('"')
+	}
+
+	_, _ = w.WriteString(` alt="`)
 	_, _ = w.Write(nodeToHTMLText(n, source))
 	_ = w.WriteByte('"')
 	if n.Title != nil {
