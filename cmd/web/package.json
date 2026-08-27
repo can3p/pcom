@@ -9,7 +9,7 @@
   "private": true,
   "license": "unlicensed",
   "dependencies": {
-    "@can3p/headless-mde": "^0.0.4",
+    "@can3p/headless-mde": "^0.0.5",
     "@justinribeiro/lite-youtube": "^1.9.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
