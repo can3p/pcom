@@ -40,16 +40,96 @@ function snapScroller(track, onChange) {
         timer = setTimeout(() => onChange(index()), 100)
     }
 
-    track.addEventListener(hasScrollEnd ? "scrollend" : "scroll", handler, {
-        passive: true,
-    })
+    const scrollEvent = hasScrollEnd ? "scrollend" : "scroll"
+    track.addEventListener(scrollEvent, handler, { passive: true })
+
+    let drag = null
+    let suppressClickUntil = 0
+    const onPointerDown = (event) => {
+        if (event.button !== 0) {
+            return
+        }
+
+        drag = {
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            left: track.scrollLeft,
+            index: index(),
+            active: false,
+        }
+    }
+    const onPointerMove = (event) => {
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return
+        }
+
+        const deltaX = event.clientX - drag.x
+        const deltaY = event.clientY - drag.y
+
+        if (!drag.active) {
+            if (Math.abs(deltaX) <= 5 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+                return
+            }
+
+            drag.active = true
+            track.classList.add("is-dragging")
+            track.setPointerCapture(event.pointerId)
+        }
+
+        event.preventDefault()
+        track.scrollLeft = drag.left - deltaX
+    }
+    const finishDrag = (event, cancelled = false) => {
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return
+        }
+
+        const currentDrag = drag
+        drag = null
+        track.classList.remove("is-dragging")
+
+        if (track.hasPointerCapture(event.pointerId)) {
+            track.releasePointerCapture(event.pointerId)
+        }
+
+        if (!currentDrag.active) {
+            return
+        }
+
+        suppressClickUntil = Date.now() + 500
+        const deltaX = event.clientX - currentDrag.x
+        const target =
+            !cancelled && Math.abs(deltaX) > 40
+                ? currentDrag.index + (deltaX < 0 ? 1 : -1)
+                : index()
+        goTo(target)
+    }
+    const onClick = (event) => {
+        if (Date.now() < suppressClickUntil) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+        }
+    }
+    const onPointerCancel = (event) => finishDrag(event, true)
+    const onDragStart = (event) => event.preventDefault()
+
+    track.addEventListener("pointerdown", onPointerDown)
+    track.addEventListener("pointermove", onPointerMove)
+    track.addEventListener("pointerup", finishDrag)
+    track.addEventListener("pointercancel", onPointerCancel)
+    track.addEventListener("click", onClick, true)
+    track.addEventListener("dragstart", onDragStart)
 
     const destroy = () => {
         clearTimeout(timer)
-        track.removeEventListener(
-            hasScrollEnd ? "scrollend" : "scroll",
-            handler
-        )
+        track.removeEventListener(scrollEvent, handler)
+        track.removeEventListener("pointerdown", onPointerDown)
+        track.removeEventListener("pointermove", onPointerMove)
+        track.removeEventListener("pointerup", finishDrag)
+        track.removeEventListener("pointercancel", onPointerCancel)
+        track.removeEventListener("click", onClick, true)
+        track.removeEventListener("dragstart", onDragStart)
     }
 
     return { index, goTo, destroy }
@@ -142,9 +222,11 @@ function buildStrip(slides, galleryId) {
         // stays a working link to the full size image if our js never runs
         link.href = slide.full
         link.dataset.index = String(index)
+        link.draggable = false
 
         slide.img.className = "gallery__img"
         slide.img.loading = "lazy"
+        slide.img.draggable = false
         link.appendChild(slide.img)
         figure.appendChild(link)
 
@@ -200,6 +282,7 @@ function buildViewer(slides) {
         const img = document.createElement("img")
         img.className = "viewer__img"
         img.alt = slide.alt
+        img.draggable = false
         // src is filled in on demand so opening the viewer does not pull
         // every full size image at once
         img.dataset.src = slide.full

@@ -34,9 +34,8 @@ blockquote {
 
 // Photo gallery ({gallery} block tag, see gallery_controller.js).
 //
-// Both the inline strip and the fullscreen viewer are scroll-snap
-// containers, so swiping, momentum and snapping are handled by the browser
-// rather than by touch handlers of ours.
+// Both the inline strip and the fullscreen viewer use the same scroll-snap
+// track, including the pointer-drag behavior in gallery_controller.js.
 %snap-track {
   display: grid;
   grid-auto-flow: column;
@@ -46,7 +45,13 @@ blockquote {
   scroll-snap-type: x mandatory;
   // keep a horizontal swipe from triggering browser back navigation
   overscroll-behavior-x: contain;
+  touch-action: pan-y pinch-zoom;
   scrollbar-width: none;
+
+  &.is-dragging {
+    scroll-snap-type: none;
+    cursor: grabbing;
+  }
 
   &::-webkit-scrollbar {
     display: none;
@@ -79,6 +84,8 @@ blockquote {
   margin: 0 auto;
   max-height: 400px;
   max-width: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 // captions used to be hidden below the md breakpoint, which meant most
@@ -152,17 +159,24 @@ html:has(.viewer[open]) {
 }
 
 .viewer__item {
+  width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   place-items: center;
   padding: ($spacer * .5);
 }
 
 .viewer__img {
+  min-width: 0;
+  min-height: 0;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .viewer__caption {
@@ -221,7 +235,7 @@ html:has(.viewer[open]) {
 
 .viewer__counter {
   position: absolute;
-  bottom: $spacer;
+  top: $spacer;
   left: 50%;
   transform: translateX(-50%);
   font-size: $font-size-base * 0.8;
