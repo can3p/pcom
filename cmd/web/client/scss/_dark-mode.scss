@@ -284,8 +284,9 @@
 
   // Tables
   .table {
-    color: var(--text-color);
-    border-color: #404040;
+    --bs-table-color: var(--text-color);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: #404040;
   }
 
   .table-striped > tbody > tr:nth-of-type(odd) > * {
