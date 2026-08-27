@@ -1,6 +1,6 @@
 import htmx from 'htmx.org';
 import 'htmx-ext-head-support';
-import hyperscript from 'hyperscript.org';
+import 'hyperscript.org';
 import { Application } from "@hotwired/stimulus"
 import { definitionsFromContext } from "@hotwired/stimulus-webpack-helpers"
 import 'lazysizes';
@@ -11,8 +11,6 @@ import '@justinribeiro/lite-youtube'
 htmx.config.includeIndicatorStyles = false
 
 window.htmx = htmx
-window._hyperscript = hyperscript
-window._hyperscript.browserInit()
 
 // this is kinda lame since that means that htmx will never execute any new js
 // however that's the closest we can get to turbo behavior which is smart enough
