@@ -22,11 +22,9 @@
     border-left-color: #4a4a4a;
   }
 
-  // Carousel controls
-  .carousel-caption,
-  .carousel-control-prev,
-  .carousel-control-next {
-    background-color: rgba(255, 255, 255, 0.1);
+  // Gallery captions
+  .gallery__caption {
+    color: #adb5bd;
   }
 
   // Edit preview containers
@@ -286,8 +284,9 @@
 
   // Tables
   .table {
-    color: var(--text-color);
-    border-color: #404040;
+    --bs-table-color: var(--text-color);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: #404040;
   }
 
   .table-striped > tbody > tr:nth-of-type(odd) > * {
