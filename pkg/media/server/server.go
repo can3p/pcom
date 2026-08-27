@@ -55,8 +55,12 @@ func WithPermaCache(enabled bool) Option {
 	}
 }
 
-func New(storage MediaStorage, o ...Option) (*Server, func()) {
-	vips.Startup(nil)
+func New(storage MediaStorage, o ...Option) (*Server, func(), error) {
+	err := vips.Startup(nil)
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	opts := options{
 		classResolver: defaultClassResolver,
@@ -71,7 +75,7 @@ func New(storage MediaStorage, o ...Option) (*Server, func()) {
 	return &Server{
 		storage: storage,
 		options: opts,
-	}, vips.Shutdown
+	}, vips.Shutdown, nil
 }
 
 // get the reader with downloaded and transformed image after all transformations
