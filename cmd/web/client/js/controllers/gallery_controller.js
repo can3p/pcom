@@ -221,6 +221,7 @@ function buildStrip(slides, galleryId) {
         link.className = "gallery__link"
         // stays a working link to the full size image if our js never runs
         link.href = slide.full
+        link.setAttribute("hx-boost", "false")
         link.dataset.index = String(index)
         link.draggable = false
 
