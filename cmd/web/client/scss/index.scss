@@ -65,6 +65,7 @@ blockquote {
 
 .gallery__track {
   @extend %snap-track;
+  align-items: end;
   gap: $spacer;
 }
 
