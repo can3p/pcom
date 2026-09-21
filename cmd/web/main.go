@@ -735,6 +735,12 @@ func main() {
 			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
 		}
 
+		// bots are destroying the endpoint
+		if true {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+
 		systemSettings := core.SystemSettings().OneP(c, db)
 
 		registrationOpen := systemSettings.RegistrationOpen || forceOpenRegistation
