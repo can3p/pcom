@@ -238,8 +238,7 @@ The task:
   source file and calls `postgres.New(t, postgres.WithMigrationsDir(dir))`.
   The E2E harness hands `TestDB.URL` to the binary.
 - Move the existing callers from `NewTestDB` to `testdb.New`: `pkg/feedops`,
-  `pkg/feedops/feeder`, and `pkg/web` once #118 is merged. That's a
-  test-only change.
+  `pkg/feedops/feeder` and `pkg/web`. That's a test-only change.
 
 ### T0.2 Factories: `pkg/testutil/factory`
 
@@ -657,8 +656,8 @@ in place first.
 ### Known bugs (for de-duplication)
 
 Filed: #108–#117 and #119–#124. Already fixed: the foreign-post delete
-through `DELETE /api/v1/posts/:id`, in PR #118. Once #118 merges, W2.D3 and
-W3.E6 test the ownership check as a normal, non-skipped test.
+through `DELETE /api/v1/posts/:id`, in PR #118 (merged). W2.D3 and W3.E6
+test the ownership check as a normal, non-skipped test.
 
 ---
 
