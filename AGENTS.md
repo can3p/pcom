@@ -9,7 +9,7 @@
 - **Bootstrap** - CSS framework
 
 ### htmx Configuration
-Located in `/Users/dima/code/pcom/cmd/web/client/js/index.js`:
+Located in `cmd/web/client/js/index.js`:
 - `htmx.config.includeIndicatorStyles = false` - CSP compliance
 - `htmx.config.allowScriptTags = false` - Security and Turbo-like behavior
 - `hx-boost="true"` on `<body>` enables smooth page transitions
@@ -24,7 +24,7 @@ Located in `/Users/dima/code/pcom/cmd/web/client/js/index.js`:
 - Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
 
 ### Action Controller Pattern
-**Location**: `/Users/dima/code/pcom/cmd/web/client/js/controllers/action_controller.js`
+**Location**: `cmd/web/client/js/controllers/action_controller.js`
 
 Generic controller for server actions with confirmation dialogs:
 - **Values**: `action`, `prompt`, `promptField`, `skipReload`
@@ -93,16 +93,16 @@ Failed downloads are replaced with readable error messages in markdown:
 - **testcontainers/postgres** - PostgreSQL test container helper
 
 ### Test Container Usage
-Located in `/Users/dima/code/pcom/testcontainers/postgres`:
+Located in `testcontainers/postgres`:
 - Provides `NewTestDB()` function that returns a `*TestDB` with a clean database instance
 - Each test gets its own isolated database
-- Migrations are automatically applied from `/Users/dima/code/pcom/migrations`
+- Migrations are automatically applied from `migrations`
 - Container is shared across tests in a package for efficiency
 - Container cleanup happens automatically after tests complete (with 5-minute expiration as fallback)
 - Use `defer testDB.Close()` to clean up the database after each test
 
 ### Test Factory Pattern
-Located in `/Users/dima/code/pcom/pkg/feedops/testutil/factory.go`:
+Located in `pkg/feedops/testutil/factory.go`:
 - Factory functions for creating test entities: `CreateUser`, `CreateRSSFeed`, `CreateRSSItem`, etc.
 - Helper functions for retrieving entities: `GetRSSFeed`, `GetRSSItemsByFeed`, `GetUserFeedItemsByUser`
 - All factory functions accept `context.Context` and `boil.ContextExecutor` for transaction support
@@ -177,7 +177,7 @@ Configured in `NewParser()`:
 ## Dark Mode Styling
 
 ### Architecture
-Located in `/Users/dima/code/pcom/cmd/web/client/scss/_dark-mode.scss`:
+Located in `cmd/web/client/scss/_dark-mode.scss`:
 - Uses Bootstrap 5.3+ color modes with `data-bs-theme="dark"` and `prefers-color-scheme` media query
 - All styles defined in `@mixin dark-mode-styles` for reusability
 
@@ -207,6 +207,13 @@ Use `renderHumanTime` template helper to display timestamps with relative time a
 - Second argument: `*core.User` for timezone localization (can be nil for UTC)
 - Implementation: `pkg/util/date`
 
+## Modernization Plan
+
+Ongoing work is planned in `docs/implementation-plan.md` (waves, tasks, model tiers, file ownership).
+Before starting a wave, read it together with `docs/open-questions.md` (undecided questions; never resolve one in code)
+and `docs/gogo-extraction.md`. Test waves (W0–W5) must not change production code; bugs are filed as GitHub issues
+and pinned with skipped tests.
+
 ## Development
 
 ### Verification
@@ -216,9 +223,9 @@ make check
 ```
 
 ## File Locations
-- HTML Templates: `/Users/dima/code/pcom/cmd/web/client/html/`
-- JavaScript: `/Users/dima/code/pcom/cmd/web/client/js/`
-- Main JS entry: `/Users/dima/code/pcom/cmd/web/client/js/index.js`
-- Markdown package: `/Users/dima/code/pcom/pkg/markdown/`
-- Dark mode styles: `/Users/dima/code/pcom/cmd/web/client/scss/_dark-mode.scss`
-- Date utilities: `/Users/dima/code/pcom/pkg/util/date/`
+- HTML Templates: `cmd/web/client/html/`
+- JavaScript: `cmd/web/client/js/`
+- Main JS entry: `cmd/web/client/js/index.js`
+- Markdown package: `pkg/markdown/`
+- Dark mode styles: `cmd/web/client/scss/_dark-mode.scss`
+- Date utilities: `pkg/util/date/`

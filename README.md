@@ -9,39 +9,58 @@ If you want to follow the development, there is a [youtube playlist](https://www
 
 ## Official client
 
-Official client is [blg](https://github.com/can3p/blg), command line client that plays well with pcom.
+Official client is [blg](https://github.com/can3p/blg), command line client that plays well with pcom. See [docs/api.md](docs/api.md) for the API.
 
 ## Dependencies
 
+* Go (version from `go.mod`)
+* Node.js (version from `.tool-versions`) and yarn
+* PostgreSQL
 * libvips (`brew install vips pkg-config`)
+* Docker, for the test suite (tests start their own Postgres container)
+* `envsubst` (`brew install gettext`), used by `./generate.sh`
 
 ## Dev Setup
 
 * Install go, asdf, postgres, watchexec
-* `asdf install`
+* `asdf install` (installs node)
 * `npm install -g yarn`
 * `cd cmd/web; yarn install`
-* `go install github.com/rubenv/sql-migrate/...@latest`
+* `go install github.com/rubenv/sql-migrate/sql-migrate@latest`
 * `go install github.com/volatiletech/sqlboiler/v4@latest`
 * `go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest`
 * `createuser pcom -W` use `pcom` as a password there
 * `createdb --owner=pcom pcom_dev`
 * `echo 'SESSION_SALT=random' >> cmd/web/.env`
-* `echo 'SITE_ROOT=http://localhost:8000' >> cmd/web/.env`
+* `echo 'SITE_ROOT=http://localhost:8080' >> cmd/web/.env`
 * `echo 'DATABASE_URL=postgres://pcom:pcom@localhost:5432/pcom_dev?sslmode=disable' >> cmd/web/.env`
-* `./sqlmigrate up`
+* `./sqlmigrate.sh up`
 
-### Run the frontend
+The server listens on `$PORT`, 8080 by default, so `SITE_ROOT` has to match it.
+Registration is controlled by `system_settings.registration_open`. For local
+development you can bypass it with `go run . -force-signup`.
 
-```
-cd cmd/web; yarn watch
-```
-
-### Run the server
+### Run the app
 
 ```
-cd cmd/web; make watchexec
+cd cmd/web
+yarn watch          # in one tab: rebuilds frontend assets into cmd/web/dist
+make watchexec      # in another tab: restarts the server on changes
 ```
+
+The server needs `cmd/web/dist/manifest.json` to exist, so run `yarn watch`
+(or `yarn build`) at least once before starting it.
+
+### Tests
+
+```
+make check   # build + all tests, no artifacts
+make test    # tests only
+make lint    # golangci-lint
+```
+
+Docker must be running: tests that touch the database start a Postgres
+container via `testcontainers/postgres`.
 
 ### psql access
 
@@ -52,18 +71,18 @@ psql -U pcom pcom_dev
 ### schema changes
 
 ```
-./sql-migrate new migration_name
+./sqlmigrate.sh new migration_name
 ```
 
 Edit the file given by sql-migrate
 
 ```
-./sql-migrate up
-```
-
-```
+./sqlmigrate.sh up
 ./generate.sh
 ```
+
+`./generate.sh` regenerates the sqlboiler models in `pkg/model/core` from the
+database in `cmd/web/.env`.
 
 ## Initial Setup
 
@@ -89,42 +108,40 @@ Edit the file given by sql-migrate
    flyctl secrets set ADMIN_ADDRESS=<address>
    flyctl secrets set STATIC_CDN=<address> # in case you want to put static resources behind the cdn
    flyctl secrets set USER_MEDIA_CDN=<address> # in case you want to put user images behind the cdn
-
+   flyctl secrets set ENABLE_PPROF=true # optional, serves pprof on :8081 (see `make pprof_tunnel`)
    ```
-6. Before
+
+   The app switches to production behavior (mailjet sender, S3 storage,
+   secure cookies, HSTS) when `FLY_APP_NAME` is set, which fly does
+   automatically.
 7. Do first deploy `fly deploy`, make sure you can reach the app via <appname>.fly.dev
 8. Create a cert for your custom domain `fly certs add pcom.com`
 9. After it screams at you, add required A and AAAA records
 10. You might need to run `fly certs check pcom.com` a couple of times, `fly certs list` should show your domain with the status `ready`.
 11. You should be able to reach your app via custom domain at this point
-12. Got to mailjet and add new domain
+12. Go to mailjet and add new domain
 13. Add sender email address there
 14. Add required txt record to validate domain
 15. Add required txt records to add DKIM and SPF settings
-16. Add postgres db env var to `cmd/web/.env` via `./env.pl > cmd/web/.env`, remove `sslmode=disable` and replace domain name with localhost
-18. Run the following from the project root to get the database schema in place
+16. Run the following from the project root to get the database schema in place
 
 Tab 1:
 
 ```
-fly proxy 5433:5432 -a pcomdb
+fly proxy 5433:5432 -a pcomdb   # or: make tunnel
 ```
 
-Tab 2
+Tab 2:
 
 ```
-./run.sh
+./run.sh             # opens a shell with the production secrets loaded
 ./sqlmigrate.sh up
 ```
 
-## Development
-
-```
-cd cmd/web
-yarn
-yarn watch # in one tab
-make watchexec # in another tab
-```
+`run.sh` evaluates `./env.pl`, which reads the app's secrets from fly and
+rewrites `DATABASE_URL` to point at the proxied `localhost:5433`. Don't redirect
+`./env.pl` into `cmd/web/.env`, because that would overwrite your local
+development settings with production ones.
 
 ## Operational notes
 
@@ -134,6 +151,11 @@ make watchexec # in another tab
   fly scale count 0
   fly scale count 1 --region ams
   ```
+
+## Modernization
+
+Work to add test coverage and then modernize the codebase is planned in
+[docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## Credits
 
