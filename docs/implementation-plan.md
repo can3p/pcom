@@ -33,7 +33,7 @@ Related documents:
 
 | Wave | Name | Depends on | State | Branch |
 |---|---|---|---|---|
-| W0 | Test foundation | — (gogo#5 merged) | not started | `test/w0-foundation` |
+| W0 | Test foundation | — (gogo `v0.0.2` released) | not started | `test/w0-foundation` |
 | W1 | Unit tests, no database | W0 | not started | `test/w1-unit` |
 | W2 | Package tests against Postgres | W0 | not started | `test/w2-db` |
 | W3 | End-to-end HTTP tests | W0 | not started | `test/w3-e2e` |
@@ -213,9 +213,8 @@ contracts written here. Write them first, commit, then build.
 Owns `testcontainers/postgres/` and `pkg/testutil/testdb/`.
 
 **Available in gogo:** the upgraded `testcontainers/postgres` was merged in
-[can3p/gogo#5](https://github.com/can3p/gogo/pull/5) (`51eb4cb`). It isn't
-tagged yet. Tag `v0.0.2` on gogo, or pin the pseudo-version with
-`go get github.com/can3p/gogo@51eb4cb`. It provides:
+[can3p/gogo#5](https://github.com/can3p/gogo/pull/5) and released as
+**`v0.0.2`** (`go get github.com/can3p/gogo@v0.0.2`). It provides:
 
 - testcontainers-go instead of dockertest;
 - migrations applied once into a template database, with each test database

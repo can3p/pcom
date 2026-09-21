@@ -12,8 +12,8 @@ and `util/transact`.
 ## 1. Done
 
 - **`testcontainers/postgres` upgrade**, merged in
-  [can3p/gogo#5](https://github.com/can3p/gogo/pull/5) (`51eb4cb`, not
-  tagged yet):
+  [can3p/gogo#5](https://github.com/can3p/gogo/pull/5) released as
+  `v0.0.2`:
   - testcontainers-go instead of dockertest;
   - migrations applied once into a template database, and every test
     database copied from it;
