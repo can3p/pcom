@@ -13,6 +13,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
+	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
@@ -219,7 +220,23 @@ func ApiEditPost(c *gin.Context, db *sqlx.DB, sender sender.Sender, dbUser *core
 }
 
 func ApiDeletePost(c *gin.Context, db *sqlx.DB, dbUser *core.User, postID string) mo.Result[any] {
-	err := postops.DeletePost(c, db, postID)
+	err := transact.Transact(db, func(tx *sql.Tx) error {
+		// only the author is allowed to delete a post, anybody else
+		// should not even learn that the post exists
+		post, err := core.Posts(
+			core.PostWhere.ID.EQ(postID),
+			core.PostWhere.UserID.EQ(dbUser.ID),
+			qm.For("UPDATE"),
+		).One(c, tx)
+
+		if err == sql.ErrNoRows {
+			return ginhelpers.ErrNotFound
+		} else if err != nil {
+			return err
+		}
+
+		return postops.DeletePost(c, tx, post.ID)
+	})
 
 	if err != nil {
 		return mo.Err[any](err)
