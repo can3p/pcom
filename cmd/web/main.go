@@ -738,6 +738,7 @@ func main() {
 		// bots are destroying the endpoint
 		if true {
 			c.AbortWithStatus(http.StatusNotFound)
+			return
 		}
 
 		systemSettings := core.SystemSettings().OneP(c, db)
