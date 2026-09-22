@@ -41,7 +41,7 @@ require (
 	github.com/volatiletech/strmangle v0.0.8
 	github.com/yuin/goldmark v1.8.6
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 )
 
 require (
