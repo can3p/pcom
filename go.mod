@@ -17,7 +17,7 @@ require (
 	github.com/davidbyttow/govips/v2 v2.18.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/friendsofgo/errors v0.9.2
-	github.com/gin-contrib/sessions v1.1.1
+	github.com/gin-contrib/sessions v1.1.2
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/feeds v1.2.0
@@ -41,7 +41,7 @@ require (
 	github.com/volatiletech/strmangle v0.0.8
 	github.com/yuin/goldmark v1.8.6
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 )
 
 require (
@@ -126,7 +126,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.29.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/image v0.41.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
