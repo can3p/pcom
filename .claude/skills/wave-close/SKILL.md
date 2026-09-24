@@ -1,6 +1,6 @@
 ---
 name: wave-close
-description: Finish a pcom modernization wave (W0-W5, WB, R1-R6) - update the plan and history, record the wave's token statistics, make split commits, open the PR and watch CI. Use when all tasks of a wave are done, or when asked to wrap up, close or ship a wave.
+description: Finish a pcom modernization wave (W0-W6, WB, R1-R6, RS) - update the plan and history, record the wave's token statistics, make split commits, open the PR and watch CI. Use when all tasks of a wave are done, or when asked to wrap up, close or ship a wave.
 ---
 
 # Closing a wave
@@ -23,6 +23,7 @@ A wave is finished when the documents are accurate again and CI is green, not wh
 6. **Commits.** Logically split commits, with the docs commit last. Never a single "wave complete" commit.
 7. **PR and CI.** Push, open the PR (with `--base <parent branch>` if the parent wave hasn't merged), and
    watch CI with `gh pr checks --watch`. On a failure, read `gh run view --log-failed | tail -n 60` and follow
-   the `test-failure` skill. **A wave with red or pending CI is not finished.**
+   the `test-failure` skill. From W6 on, that includes the `browser` job. **A wave with red or pending CI
+   is not finished.**
 8. **Report and stop.** Four lines at most: PR link, coverage change, bugs filed, cost line. Merging is the
    owner's call.
