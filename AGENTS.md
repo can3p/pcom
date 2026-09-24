@@ -209,17 +209,34 @@ Use `renderHumanTime` template helper to display timestamps with relative time a
 
 ## Modernization Plan
 
-Ongoing work is planned in `docs/implementation-plan.md` (waves, tasks, model tiers, file ownership).
-Before starting a wave, read it together with `docs/open-questions.md` (undecided questions; never resolve one in code)
-and `docs/gogo-extraction.md`. Test waves (W0–W5) must not change production code; bugs are filed as GitHub issues
-and pinned with skipped tests.
+Ongoing work is planned in `docs/implementation-plan.md` (the index: status, ground rules, how waves run).
+Each wave's tasks are in their own file, `docs/plan/<id>.md`. **Read the index and only the one wave file you
+are working on**, plus `docs/open-questions.md` (undecided questions; never resolve one in code). Read
+`docs/gogo-extraction.md` only when a task cites it. Test waves (W0–W5) must not change production code; bugs
+are filed as GitHub issues and pinned with skipped tests.
+
+**Before dispatching or starting any wave task, read `docs/plan/README.md`.** It sets the token rules below in
+detail: coordinators plan, dispatch and verify; bulk writing goes to subagents at the cheapest adequate tier;
+subagents report in at most 12 lines.
 
 ## Development
 
+### Token economy (applies to every task)
+- Verify with the quiet targets, not raw `go test`: `make check-q` (build, vet, tests), and for one package
+  tree `make test-q PKG=./pkg/x/...`, `make cover-q PKG=...`, `make vet-q PKG=...`. They print one line on
+  success and a trimmed report plus a log path on failure.
+- Never run `go test -v ./...`, never print whole logs. Dig into a failure with `grep -n` on the log, or re-run
+  the single test with `-run`.
+- Iterate on one package or test; run the whole suite once per commit.
+- Don't read generated code (`pkg/model/core`) or whole large files (`cmd/web/main.go`). Use `go doc`, `grep -n`
+  and `Read` with `offset`/`limit`.
+- Don't re-read what you just wrote, and don't paste code or logs into reports to the coordinator.
+
 ### Verification
-Use `make check` to verify code compiles and tests pass without producing build artifacts:
+Use `make check` (verbose, used by CI) to verify code compiles and tests pass without producing build
+artifacts; agents use `make check-q`, which does the same with quiet output:
 ```bash
-make check
+make check-q
 ```
 
 ## File Locations
