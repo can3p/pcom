@@ -1,248 +1,64 @@
 # Agent Context for PCOM Project
 
-## Frontend Architecture
+Go (gin, sqlboiler, Postgres) server rendering Go templates, with htmx, Stimulus.js and Bootstrap on the
+client. This file is loaded into every session, so it holds only what every task needs. Area notes live next to
+the code or in skills (`.claude/skills/<name>/SKILL.md`; agents without skill support read that file); read
+the one for the area you touch:
 
-### Technology Stack
-- **htmx** - AJAX requests and page transitions
-- **Stimulus.js** - JavaScript controllers
-- **Go Templates** - Server-side HTML rendering
-- **Bootstrap** - CSS framework
-
-### htmx Configuration
-Located in `cmd/web/client/js/index.js`:
-- `htmx.config.includeIndicatorStyles = false` - CSP compliance
-- `htmx.config.allowScriptTags = false` - Security and Turbo-like behavior
-- `hx-boost="true"` on `<body>` enables smooth page transitions
-- `hx-ext="head-support"` auto-merges `<head>` elements during navigation
-- `json-enc` extension for JSON payloads (sets `Content-Type: application/json`, stringifies parameters)
-
-### Template Structure
-- Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
-- Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
-
-### CSRF Protection
-- Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
-
-### Action Controller Pattern
-**Location**: `cmd/web/client/js/controllers/action_controller.js`
-
-Generic controller for server actions with confirmation dialogs:
-- **Values**: `action`, `prompt`, `promptField`, `skipReload`
-- **Behavior**: Calls `/controls/action/{action}` via `runAction()` with JSON payload
-- **`connect()`**: Automatically adds `json-enc` extension to element
-- **`skipReload`**: When `true`, skips page reload on success (allows htmx response headers to control behavior)
-
-**runAction Implementation** (`pkg/web/client/js/lib.js`):
-- Uses `htmx.ajax()` instead of `fetch()` to enable htmx response header interpretation
-- Reads `hx-target` and `hx-swap` attributes from element
-- Constructs URL as `/controls/action/{name}` and payload from element dataset
-- Merges CSRF headers from `<body hx-headers>`
-- Returns promise that resolves on success or rejects with error
-
-**Usage Pattern**:
-```html
-<div id="item-{{ .ID }}">
-  <button data-controller="action"
-          data-action="action#run"
-          data-action-action-value="delete_item"
-          data-action-prompt-value="Confirm?"
-          data-action-skip-reload-value="true"
-          data-id="{{ .ID }}"
-          hx-target="#item-{{ .ID }}"
-          hx-swap="delete">Delete</button>
-</div>
-```
-
-Server can control behavior via htmx response headers (`HX-Reswap`, `HX-Redirect`, etc.)
-
-## RSS Feed Image Processing
-
-### Architecture
-Images from RSS feeds are automatically downloaded and hosted locally to avoid third-party dependencies.
-
-### Budget Limits
-- **Max images per feed item**: 20 (enforced in `pkg/feedops/reader/cleaner.go`)
-- **Max size per image**: 10 MB (enforced in `pkg/feedops/reader/fetcher.go`)
-- **Max total size per item**: 50 MB (tracked in `pkg/feedops/reader/cleaner.go`)
-- **Individual image timeout**: 30 seconds (per image download)
-- **Global timeout**: 2 minutes (for all images in one feed item)
-
-### Implementation Flow
-1. **`SaveFeedItem`** (`pkg/feedops/feeder/feeder.go`) - Creates global timeout context and upload function
-2. **`CreateImageReplacer`** (`pkg/feedops/reader/cleaner.go`) - Extracts image URLs, enforces max images limit, handles errors
-3. **`FetchMedia`** (`pkg/feedops/reader/fetcher.go`) - Downloads images with size/timeout limits, validates MIME types
-4. **`HandleUpload`** (`pkg/media/upload.go`) - Stores images linked to RSS feed ID
-5. **`ReplaceImageUrls`** (`pkg/markdown/modify.go`) - Replaces URLs in markdown AST
-
-### Error Handling
-Failed downloads are replaced with readable error messages in markdown:
-- `_[Image download timed out: URL]_`
-- `_[Image too large: URL]_`
-- `_[Image limit exceeded (20 max): URL]_`
-- `_[Image download failed: URL]_`
-
-### Database
-- `media_uploads` table supports either `user_id` OR `rss_feed_id` (mutual exclusivity enforced)
-- Migration: `migrations/20251231005904-media_uploads_feeds.sql`
-
-## Testing
-
-### Testing Packages
-- **github.com/ovechkin-dm/mockio/v2** - Mock library for Go without code generation
-- **github.com/stretchr/testify** - Assertion and testing utilities (require, assert)
-- **testcontainers/postgres** - PostgreSQL test container helper
-
-### Test Container Usage
-Located in `testcontainers/postgres`:
-- Provides `NewTestDB()` function that returns a `*TestDB` with a clean database instance
-- Each test gets its own isolated database
-- Migrations are automatically applied from `migrations`
-- Container is shared across tests in a package for efficiency
-- Container cleanup happens automatically after tests complete (with 5-minute expiration as fallback)
-- Use `defer testDB.Close()` to clean up the database after each test
-
-### Test Factory Pattern
-Located in `pkg/feedops/testutil/factory.go`:
-- Factory functions for creating test entities: `CreateUser`, `CreateRSSFeed`, `CreateRSSItem`, etc.
-- Helper functions for retrieving entities: `GetRSSFeed`, `GetRSSItemsByFeed`, `GetUserFeedItemsByUser`
-- All factory functions accept `context.Context` and `boil.ContextExecutor` for transaction support
-
-### Mockio v2 Usage
-```go
-import . "github.com/ovechkin-dm/mockio/v2/mock"
-
-func TestExample(t *testing.T) {
-    ctrl := NewMockController(t)
-    mockObj := Mock[MyInterface](ctrl)
-    
-    // Single return value
-    WhenSingle(mockObj.Method(Any[string]())).ThenReturn("result")
-    
-    // Multiple return values
-    WhenDouble(mockObj.Method(Any[string]())).ThenReturn("result", nil)
-    
-    // Dynamic answers
-    WhenSingle(mockObj.Method(Any[string]())).ThenAnswer(func(args []any) string {
-        return "dynamic result"
-    })
-}
-```
-
-## Markdown Rendering
-
-### Architecture
-- **Library**: goldmark (extensible markdown parser)
-- **Location**: `pkg/markdown/`
-- **Entry point**: `ToEnrichedTemplate()` in `pkg/markdown/html.go`
-
-### View Types
-Defined in `pkg/types/types.go`:
-- `ViewFeed` - RSS feed items (links open in new tab)
-- `ViewSinglePost` - Individual post view
-- `ViewEditPreview` - Post editor preview
-- `ViewComment` - Comment rendering
-- `ViewArticle` - Article view
-- `ViewEmail` - Email notifications
-- `ViewRSS` - RSS feed output
-
-### Template Functions
-Defined in `cmd/web/main.go` funcmap:
-- `markdown_feed` - Renders feed items with `ViewFeed`
-- `markdown_single_post` - Renders posts with `ViewSinglePost`
-- `markdown_edit_preview` - Renders editor preview with `ViewEditPreview`
-- `markdown_comment` - Renders comments with `ViewComment`
-- `markdown_article` - Renders articles with `ViewArticle`
-
-### Custom Renderers
-Located in `pkg/markdown/mdext/`:
-- **linkrenderer** - Custom link renderer, adds `target="_blank" rel="noopener noreferrer"` for `ViewFeed`
-- **lazyload** - Lazy loading for images
-- **blocktags** - Custom block tags (gallery, etc.)
-- **headershift** - Shifts header levels (h1→h2, etc.)
-- **videoembed** - Embeds videos from URLs
-- **handle** - Renders @username mentions
-
-### Extensions
-Configured in `NewParser()`:
-- **Linkify** - Auto-converts URLs to links (custom regex excludes closing braces)
-- **Syntax highlighting** - Only for feed, single post, and edit preview views
-- Custom node renderers registered via `util.Prioritized()` with priority 500
-
-### Adding Custom Renderers
-1. Create renderer in `pkg/markdown/mdext/<name>/`
-2. Implement `renderer.NodeRenderer` interface with `RegisterFuncs()`
-3. Register in `NewParser()` via `nodeRenderers` slice
-4. Conditionally add based on view type if needed
-
-## Dark Mode Styling
-
-### Architecture
-Located in `cmd/web/client/scss/_dark-mode.scss`:
-- Uses Bootstrap 5.3+ color modes with `data-bs-theme="dark"` and `prefers-color-scheme` media query
-- All styles defined in `@mixin dark-mode-styles` for reusability
-
-### CSS Variable Override Pattern
-**Override Bootstrap component variables by scoping them within component selectors:**
-```scss
-.list-group {
-  --bs-list-group-bg: #2d2d2d;
-  --bs-list-group-border-color: #404040;
-  --bs-list-group-color: var(--text-color);
-}
-```
-
-**Do NOT define ad-hoc colors directly on elements** - always use Bootstrap's CSS variables to ensure proper inheritance and theming.
-
-## Date/Time Rendering
-
-Use `renderHumanTime` template helper to display timestamps with relative time and full timestamp on hover:
-
-```html
-{{ renderHumanTime .CreatedAt $.User.DBUser }}
-```
-
-**Output**: `<span title="Mon, 15 Jan 2024 12:30">5 minutes ago</span>`
-
-- First argument: `time.Time` value to display
-- Second argument: `*core.User` for timezone localization (can be nil for UTC)
-- Implementation: `pkg/util/date`
+| Area | Notes |
+|---|---|
+| Templates, JS, SCSS, htmx, action controller, dark mode, `renderHumanTime` | skill `frontend-htmx` |
+| A model's fields, relationships, query helpers | skill `model-shape` |
+| A failing test or build | skill `test-failure` |
+| Running a modernization wave / finishing one | skills `wave-run` / `wave-close` |
+| Markdown rendering, view types, custom renderers | `pkg/markdown/AGENTS.md` |
+| RSS feed fetching and image budgets | `pkg/feedops/AGENTS.md` |
+| Writing tests: libraries, test DB, factories, mocks, ground rules | `docs/testing.md` |
 
 ## Modernization Plan
 
 Ongoing work is planned in `docs/implementation-plan.md` (the index: status, ground rules, how waves run).
-Each wave's tasks are in their own file, `docs/plan/<id>.md`. **Read the index and only the one wave file you
-are working on**, plus `docs/open-questions.md` (undecided questions; never resolve one in code). Read
-`docs/gogo-extraction.md` only when a task cites it. Test waves (W0–W5) must not change production code; bugs
-are filed as GitHub issues and pinned with skipped tests.
+Each wave's tasks are in `docs/plan/<id>.md`. Coordinators use the `wave-run` and `wave-close` skills and
+read the index, the one wave file they run and `docs/open-questions.md` (undecided questions; never resolve
+one in code). Subagents read only what their prompt names. Test waves (W0–W5) must not change
+production code; bugs are filed as GitHub issues and pinned with skipped tests.
 
-**Before dispatching or starting any wave task, read `docs/plan/README.md`.** It sets the token rules below in
-detail: coordinators plan, dispatch and verify; bulk writing goes to subagents at the cheapest adequate tier;
-subagents report in at most 12 lines.
+## Reading code economically
 
-## Development
+- **Generated code is never read.** `pkg/model/core` is 1 MB of sqlboiler output. `make model` lists the
+  models and `make model T=User` prints one model's fields, relationships, query helpers and methods in a few
+  KB. Reach for `go doc ./pkg/model/core <Symbol>` only for a symbol that summary doesn't cover.
+- **Navigate with the LSP tool (gopls)**, not by reading files. It is a deferred tool: load it once with
+  `ToolSearch` query `select:LSP`.
+  - `documentSymbol` gives a file's outline; then `Read` only the lines you need (`offset`/`limit`). This is how
+    to approach large files such as `cmd/web/main.go`.
+  - `workspaceSymbol` finds a definition by name. It also searches the module cache, so use distinctive names.
+  - `hover` and `goToDefinition` give a type or signature; `findReferences`, `incomingCalls` and
+    `goToImplementation` answer "who uses this". Positions are 1-based line and column; get them from
+    `documentSymbol` or `grep -n`.
+  - Don't run `findReferences` on the core model types (`core.User`, `core.Post`): the result is huge.
+- Don't re-read a file you just wrote or edited.
 
-### Token economy (applies to every task)
-- Verify with the quiet targets, not raw `go test`: `make check-q` (build, vet, tests), and for one package
-  tree `make test-q PKG=./pkg/x/...`, `make cover-q PKG=...`, `make vet-q PKG=...`. They print one line on
-  success and a trimmed report plus a log path on failure.
-- Never run `go test -v ./...`, never print whole logs. Dig into a failure with `grep -n` on the log, or re-run
-  the single test with `-run`.
-- Iterate on one package or test; run the whole suite once per commit.
-- Don't read generated code (`pkg/model/core`) or whole large files (`cmd/web/main.go`). Use `go doc`, `grep -n`
-  and `Read` with `offset`/`limit`.
-- Don't re-read what you just wrote, and don't paste code or logs into reports to the coordinator.
+## Verifying economically
 
-### Verification
-Use `make check` (verbose, used by CI) to verify code compiles and tests pass without producing build
-artifacts; agents use `make check-q`, which does the same with quiet output:
-```bash
-make check-q
-```
+- **Compile errors come from gopls for free, in the main session only.** After an edit, its diagnostics
+  arrive with the next tool result; fix those instead of running `go build` or `go vet`. **Subagents don't
+  receive diagnostics** (they are delivered to the parent session), so a subagent runs `make vet-q PKG=...`
+  after editing, before any test run.
+- Use the quiet targets. They print one line on success and, on failure, the failing tests, the panic location
+  and a log path; the log is kept only on failure.
 
-## File Locations
-- HTML Templates: `cmd/web/client/html/`
-- JavaScript: `cmd/web/client/js/`
-- Main JS entry: `cmd/web/client/js/index.js`
-- Markdown package: `pkg/markdown/`
-- Dark mode styles: `cmd/web/client/scss/_dark-mode.scss`
-- Date utilities: `pkg/util/date/`
+  ```bash
+  make check-q                       # build + vet + tests: the same steps as `make check` (CI)
+  make test-q PKG=./pkg/links/...    # one package tree
+  make cover-q PKG=./pkg/links/...   # "ok <pkg> ... coverage: 91.2%"
+  make vet-q PKG=./pkg/links/...
+  go test ./pkg/x/ -run TestName -count=1   # one test while iterating
+  ```
+
+- Iterate on one package or one test; run `make check-q` once per commit.
+- Never `go test -v ./...`, never `-json`, never `cat` a log. Dig into a failure with `grep -n` on the log path
+  the report prints, or re-run the single test with `-v`.
+- Golden files: after `UPDATE_GOLDEN=1`, check `git diff --stat`, not the contents.
+- Pipe unavoidable noisy commands (`docker compose`, `yarn`, `gh run view`) through `tail -n 40` or `grep`.
+- Don't paste code or logs into reports to a coordinator.
