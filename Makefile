@@ -1,4 +1,4 @@
-.PHONY: shell tunnel lint test build check fix check-q test-q vet-q cover-q
+.PHONY: shell tunnel lint test build check fix check-q test-q vet-q cover-q model
 
 PKG ?= ./...
 
@@ -25,13 +25,15 @@ build:
 
 check:
 	go build -o /dev/null ./...
+	go vet ./...
 	go test ./...
 
 fix:
 	go fix ./...
 
 # Quiet variants for agents: one line on success, a trimmed report on failure
-# (full output goes to a log file). `make check` stays the verbose CI form.
+# (full output goes to a log file). They run the same steps as `make check`,
+# which stays the verbose CI form.
 # Narrow with PKG, for example `make test-q PKG=./pkg/links/...`.
 check-q:
 	@tools/qrun.sh build go build -o /dev/null ./...
@@ -46,3 +48,8 @@ vet-q:
 
 cover-q:
 	@QRUN_SHOW_OK=1 tools/qrun.sh cover go test -cover $(PKG)
+
+# Shape of a generated model without reading pkg/model/core:
+# `make model` lists the models, `make model T=User` prints one.
+model:
+	@tools/model.sh $(T)
