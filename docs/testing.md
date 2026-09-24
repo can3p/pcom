@@ -1,12 +1,22 @@
 # Testing
 
 The one document a test-writing subagent reads besides `AGENTS.md` and its own prompt. W0 (task T0.5) extends
-it with the new helpers and one worked example each of a unit, a DB and an E2E test.
+it with the new helpers and one worked example each of a unit, a DB and an E2E test. W6 (task B0) adds a
+"Browser tests" section with one worked example.
 
-## Ground rules for W0–W5
+The test layers, from cheapest to most expensive:
+
+| Layer | Where | Runs with | Checks |
+|---|---|---|---|
+| Unit | next to the code | `make test-short` | pure functions, goldens |
+| Package (DB) | next to the code; after RS, the service tests | `make test` (Docker) | business rules and queries against a fresh database |
+| E2E HTTP | `e2e/` | `make test` (Docker) | the real binary: statuses, redirects, htmx headers, HTML, resulting state. From R2, mail and S3 through tommy |
+| Browser | `e2e/browser` (build tag `browser`) | `make test-ui` | the real binary with real assets in Chromium: JS, htmx swaps, dialogs, layout, no console or CSP errors |
+
+## Ground rules for W0–W6
 
 1. **No production code changes.** No file that is compiled into `cmd/web`
-   changes, apart from the three additive exceptions below. A wave that finds it
+   changes, and neither do its templates, JS or SCSS, apart from the three additive exceptions below. A wave that finds it
    cannot test something without changing code stops and reports it; that is
    input for R1, not a reason to refactor. Allowed:
    - `_test.go` files, and `testdata/` directories.
@@ -16,8 +26,8 @@ it with the new helpers and one worked example each of a unit, a DB and an E2E t
      `docker-compose.yml`, `.env.example`, `tools/` and `docs/`. The
      migration and codegen scripts (`dbconfig.yml`, `sqlmigrate.sh`,
      `generate.sh`, `sqlboiler.toml`) may change **in W4 only**.
-   - `go.mod`/`go.sum`, **only in W0** (test dependencies) and **W4.S2**
-     (the `tool` directives).
+   - `go.mod`/`go.sum`, **only in W0** (test dependencies), **W4.S2**
+     (the `tool` directives) and **W6.B0** (playwright-go).
 2. **Bugs are filed, not fixed.** If a test exposes a bug, write the test for
    the *correct* behavior, skipped, and report it; the coordinator files the
    GitHub issue (label `bug`) and fills in the number:
