@@ -13,15 +13,19 @@ the one for the area you touch:
 | Running a modernization wave / finishing one | skills `wave-run` / `wave-close` |
 | Markdown rendering, view types, custom renderers | `pkg/markdown/AGENTS.md` |
 | RSS feed fetching and image budgets | `pkg/feedops/AGENTS.md` |
-| Writing tests: libraries, test DB, factories, mocks, ground rules | `docs/testing.md` |
+| Writing tests: libraries, test DB, factories, mocks, E2E and browser tests, ground rules | `docs/testing.md` |
 
 ## Modernization Plan
 
 Ongoing work is planned in `docs/implementation-plan.md` (the index: status, ground rules, how waves run).
 Each wave's tasks are in `docs/plan/<id>.md`. Coordinators use the `wave-run` and `wave-close` skills and
 read the index, the one wave file they run and `docs/open-questions.md` (undecided questions; never resolve
-one in code). Subagents read only what their prompt names. Test waves (W0–W5) must not change
+one in code). Subagents read only what their prompt names. Test waves (W0–W6) must not change
 production code; bugs are filed as GitHub issues and pinned with skipped tests.
+
+Target layering (built by waves R1 and RS; new code follows it now): handlers only bind input, call a
+service and render; services (`pkg/service/<area>`) hold business rules, authorization and transactions;
+all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a handler.
 
 ## Reading code economically
 

@@ -13,11 +13,17 @@ Raised by the 2026-09-21 modernization survey.
   that holds the feed row lock (`feeder.refreshFeeds`). With a 2-minute image
   budget per item, a transaction can stay open for minutes. Restructure when
   moving email and feed work to a general job queue?
-- **Q10. "Every mutation is a command".** Should every state change go
-  through a named command with an actor, an authorization check, an audit
-  entry and an idempotency key? HTTP, API and CLI would then all be
-  transports over the same commands. That's large; the alternative is to
-  converge only on shared plumbing.
+- **Q10. Audit and idempotency for mutations (narrowed 2026-09-24).** The
+  layering is decided (below): services take an actor, check authorization,
+  and HTTP, API and CLI are transports over them. Still open: should every
+  mutating service method also write an audit entry and accept an
+  idempotency key?
+- **Q13. Domain types at the repository boundary.** RS lets the generated
+  `core` structs cross from repositories into services and templates, so RS
+  doesn't touch templates. Should repositories return pcom-owned types
+  instead? That decouples templates and services from the ORM, at the cost
+  of mapping code. Deciding before R5 matters, because bob changes the
+  generated types anyway (see `docs/plan/r5.md`).
 
 ## Decided
 
@@ -43,8 +49,25 @@ Raised by the 2026-09-21 modernization survey.
   there are no credentials and no init container, and it supports
   path-style addressing. MinIO no longer publishes maintained community
   images; SeaweedFS, Garage and RustFS all need bucket or layout
-  bootstrapping. See W4.S2.
+  bootstrapping. See W4.S2. For tests this was superseded on 2026-09-24
+  by tommy's S3 listener (below).
 - **2026-09-21. Mail in development and tests:**
   [tommy](https://github.com/can3p/tommy) runs in compose and in the E2E
   harness. The Mailjet sender points at it through a configurable base URL,
   and the console sender is dropped (R2).
+- **2026-09-24. Layering:** database code is encapsulated in repositories
+  (`pkg/repo`), business rules and authorization in services
+  (`pkg/service/<area>`), and handlers stay thin. R1 moves the handlers and
+  RS extracts the layers, enforced by an architecture test. R5 then swaps
+  the ORM inside `pkg/repo` only.
+- **2026-09-24. S3 in tests:** tommy (v0.2.0 or later) is the S3 target for
+  the S3 storage tests and the E2E harness, in the same container that
+  captures mail. Development keeps `adobe/s3mock` in compose (Q12), because
+  tommy holds its S3 catalog in memory and development uploads should
+  survive a restart. Once
+  [can3p/tommy#40](https://github.com/can3p/tommy/issues/40) (persistence)
+  and [#41](https://github.com/can3p/tommy/issues/41) (buckets from config)
+  ship, compose drops s3mock for tommy.
+- **2026-09-24. Browser tests:** playwright-go in `e2e/browser`, behind a
+  build tag, reusing the E2E harness and the factories (W6). No pixel
+  snapshots until browsers run in the tools container.

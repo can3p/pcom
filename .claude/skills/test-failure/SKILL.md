@@ -14,11 +14,18 @@ Goal: find the cause while reading as little as possible. Stop at the first step
 3. **One test, verbose:** `go test ./pkg/x/ -run '^TestName$' -count=1 -v 2>&1 | tail -n 40`.
    Add `/subtest_name` to the `-run` pattern for table tests.
 4. **Search the log, don't print it:** `grep -n -A5 'TestName' <log path>`. Never `cat` a log.
+   **Browser tests** (`e2e/browser`, `make test-ui`): the report line names a screenshot and a trace. Look
+   at the screenshot first (the Read tool shows images), then the guard message: console error, CSP
+   violation or failed request. Open the trace only if both leave it unclear. Re-run one test with
+   `make test-ui RUN='^TestName$'`. Stale assets are a common cause, and `make test-ui` rebuilds them.
+   A locator timeout usually means the markup changed, not that the app is slow; don't raise timeouts.
+   An `architecture` test failure (`pkg/arch`, from RS on) names the package and the forbidden import:
+   move the query into `pkg/repo` rather than extending the allowlist.
 5. **Go to the code under test with the LSP tool,** not by reading the file: `documentSymbol` for the
    outline, `goToDefinition` from the failing line, then `Read` with `offset`/`limit` around that function.
 6. **Decide what kind of failure it is:**
    - The test is wrong: fix the test.
-   - The code is wrong and you are in a test wave (W0–W5): don't fix it. Write the test for the correct
+   - The code is wrong and you are in a test wave (W0–W6): don't fix it. Write the test for the correct
      behavior, add `t.Skip("known bug: <describe>")`, and report a one-line repro. Check
      `gh issue list --label bug --search '<keyword>'` first; it may be known.
    - Flaky (it passes with `-count=5` sometimes): look for wall-clock asserts, map ordering, shared DB

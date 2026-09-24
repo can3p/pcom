@@ -1,6 +1,6 @@
 ---
 name: frontend-htmx
-description: Conventions for pcom's frontend - Go HTML templates, htmx (hx-boost, json-enc, response headers), Stimulus controllers including the generic action controller, CSRF, Bootstrap dark-mode SCSS and the renderHumanTime helper. Use before changing or adding anything under cmd/web/client/ (html, js, scss) or a handler that returns htmx responses.
+description: Conventions for pcom's frontend - Go HTML templates, htmx (hx-boost, json-enc, response headers), Stimulus controllers including the generic action controller, CSRF, Bootstrap dark-mode SCSS, the renderHumanTime helper, and checking a change with the browser test suite (make test-ui). Use before changing or adding anything under cmd/web/client/ (html, js, scss) or a handler that returns htmx responses.
 ---
 
 # Frontend (templates, JS, styles)
@@ -37,7 +37,7 @@ Generic controller for server actions with confirmation dialogs:
 - **`connect()`**: Automatically adds `json-enc` extension to element
 - **`skipReload`**: When `true`, skips page reload on success (allows htmx response headers to control behavior)
 
-**runAction Implementation** (`pkg/web/client/js/lib.js`):
+**runAction Implementation** (`cmd/web/client/js/lib.js`):
 - Uses `htmx.ajax()` instead of `fetch()` to enable htmx response header interpretation
 - Reads `hx-target` and `hx-swap` attributes from element
 - Constructs URL as `/controls/action/{name}` and payload from element dataset
@@ -59,6 +59,28 @@ Generic controller for server actions with confirmation dialogs:
 ```
 
 Server can control behavior via htmx response headers (`HX-Reswap`, `HX-Redirect`, etc.)
+
+## Checking a frontend change
+
+The browser suite (`e2e/browser`, from W6 on; `docs/testing.md` has the "Browser tests" section) runs the
+real app with freshly built assets in Chromium. It fails on console errors, uncaught exceptions and CSP
+violations on every page, so an inline script or a style without the nonce shows up without a dedicated test.
+
+- `make test-ui RUN='<TestName>'` while iterating; `HEADED=1 SLOWMO=250` to watch it run. The target runs
+  `yarn build` first. Run the whole suite once before committing.
+- On a failure, the report prints a trace and a screenshot path. `make ui-trace F=<path>` opens the trace
+  (DOM snapshot per step, network, console). Look at the screenshot before reading any HTML.
+- A change to a controller, a template's interactive parts or an htmx attribute comes with a browser test in
+  the matching `e2e/browser/<area>_test.go`. Server-only behavior (statuses, headers, DB state) belongs in
+  the cheaper `e2e/` HTTP tests instead.
+- Locate by role, label and text (`page.GetByRole("button", …{Name: "Publish"})`). Where that's ambiguous,
+  add a `data-testid` to the template. That is fine in frontend work, but not in test waves, which don't
+  change templates.
+- Wait with auto-waiting locator assertions, never sleeps. After an htmx action, assert on the swapped
+  element, not on the network.
+
+Handlers behind htmx endpoints are thin (see the layering note in `AGENTS.md`): they call a service and set
+the response headers. Don't put queries into a handler to feed a template.
 
 ## Dark Mode Styling
 

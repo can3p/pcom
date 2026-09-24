@@ -17,6 +17,12 @@ description: Look up the fields, relationships and query helpers of a pcom datab
 3. The database schema itself is in `migrations/*.sql`; `grep -n 'CREATE TABLE posts' -A30 migrations/*.sql`
    shows constraints and defaults the model doesn't.
 
+## Where queries go
+
+Once RS has landed, a query is written in `pkg/repo` (one file per aggregate) and called from a service,
+never from a handler, form or template helper; `pkg/arch/arch_test.go` enforces it. Before RS, don't add
+new queries to handlers: put them into the domain package the handler already calls.
+
 ## In tests
 
 - Create and read back fixtures only through the test factories (`pkg/testutil/factory` from W0 on,

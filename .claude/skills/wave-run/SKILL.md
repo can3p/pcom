@@ -1,6 +1,6 @@
 ---
 name: wave-run
-description: Coordinate one wave of the pcom modernization plan (W0-W5, WB, R1-R6) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
+description: Coordinate one wave of the pcom modernization plan (W0-W6, WB, R1-R6, RS) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
 ---
 
 # Running a wave
@@ -14,7 +14,7 @@ adds what only a coordinator needs. When the wave is done, use the `wave-close` 
 | Role | Reads |
 |---|---|
 | Coordinator | `docs/implementation-plan.md` (the index), the one wave file `docs/plan/<id>.md`, `docs/open-questions.md` |
-| Subagent | `docs/testing.md`, its prompt (which carries the task excerpt), and the source files it owns or tests |
+| Subagent | `docs/testing.md`, its prompt (which carries the task excerpt), and the source files it owns or tests. In RS and later refactor waves, also `docs/architecture.md` |
 
 `AGENTS.md` is loaded automatically into every session and every subagent, as are the skill descriptions.
 Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` unless the task says so.
@@ -31,10 +31,17 @@ Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` un
 .claude/skills/wave-run/task_prompt.py w1 U1 U2 U3     # one prompt per task, separated by =====
 ```
 
-It pastes the task's table row or `###` section into the standard preamble (read only `docs/testing.md`,
-LSP, `model-shape` and `test-failure` skills, quiet `make` targets, the 12-line report) and prints the
-`model` to use on the first line. Replace every `<FILL: ...>`, above all the owned files, before dispatching.
-A prompt that isn't a test task (W4 tooling, R-waves) needs its first line and "Verify only" line adjusted.
+It pastes the task's table row or `###` section into a preamble and prints the `model` to use on the first
+line. Replace every `<FILL: ...>`, above all the owned files, before dispatching. There are three preambles,
+chosen by wave:
+
+- **Test waves** (W0–W5): read only `docs/testing.md`; LSP, the `model-shape` and `test-failure` skills;
+  quiet `make` targets; the 12-line report.
+- **W6**: the same, but tests run through `make test-ui` and compile with `TAGS=browser`.
+- **R-waves, RS and WB**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
+  their assertions, and the layering rules apply.
+
+W4's tooling tasks use the test preamble with its first line and "Test only" line adjusted by hand.
 
 ## 4. Dispatch; don't do
 
@@ -77,6 +84,15 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
    through `make test-q`, revert. A test that doesn't fail when you break the code under it covers nothing.
 
+Variations by wave:
+
+- **W6 (browser):** step 1 is `make test-ui RUN=<the task's tests>`. The mutation check breaks a Stimulus
+  controller or an htmx attribute the task covers.
+- **R-waves and RS (refactors):** replace step 1 with `make test-q PKG=<task packages>` plus
+  `git diff --stat -- e2e/`, which must be empty. Also check that the task shrank the `pkg/arch` allowlist
+  and didn't grow it. The mutation check becomes: break the service method the task extracted and watch an
+  E2E or service test fail. Run `make test-ui` once per commit, next to `make check-q`.
+
 Not part of the budget: reading every test file. Read a test only when the mutation check fails to fail.
 Run `make check-q` once before each commit; commit per task.
 
@@ -90,6 +106,6 @@ the number into the test's `t.Skip`.
   `docs/archive/history.md`. Start the next wave in a fresh session (or after `/clear`).
 - After each commit, if the conversation is long, `/compact` with the instruction
   "keep: current wave, task statuses, open bugs filed, next step".
-- W0 is the only wave with real coordinator work (contracts); its delegable parts are marked in
-  `docs/plan/w0.md`. W1–W4 are almost entirely dispatch: expect a few thousand coordinator tokens per task,
-  not tens of thousands.
+- W0, W6.B0 and RS step 0 are the coordinator's own contract work; their delegable parts are marked in
+  their wave files. Everything else is almost entirely dispatch: expect a few thousand coordinator tokens per
+  task, not tens of thousands.
