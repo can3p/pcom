@@ -14,7 +14,7 @@ require (
 	github.com/badoux/checkmail v1.2.4
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
 	github.com/can3p/gogo v0.0.1
-	github.com/davidbyttow/govips/v2 v2.18.0
+	github.com/davidbyttow/govips/v2 v2.19.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gin-contrib/sessions v1.1.2
