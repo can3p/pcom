@@ -1,4 +1,6 @@
-.PHONY: shell tunnel lint test build check fix
+.PHONY: shell tunnel lint test build check fix check-q test-q vet-q cover-q model
+
+PKG ?= ./...
 
 shell:
 	flyctl postgres connect -a pcomdb
@@ -23,7 +25,31 @@ build:
 
 check:
 	go build -o /dev/null ./...
+	go vet ./...
 	go test ./...
 
 fix:
 	go fix ./...
+
+# Quiet variants for agents: one line on success, a trimmed report on failure
+# (full output goes to a log file). They run the same steps as `make check`,
+# which stays the verbose CI form.
+# Narrow with PKG, for example `make test-q PKG=./pkg/links/...`.
+check-q:
+	@tools/qrun.sh build go build -o /dev/null ./...
+	@tools/qrun.sh vet go vet ./...
+	@tools/qrun.sh test go test ./...
+
+test-q:
+	@tools/qrun.sh test go test $(PKG)
+
+vet-q:
+	@tools/qrun.sh vet go vet $(PKG)
+
+cover-q:
+	@QRUN_SHOW_OK=1 tools/qrun.sh cover go test -cover $(PKG)
+
+# Shape of a generated model without reading pkg/model/core:
+# `make model` lists the models, `make model T=User` prints one.
+model:
+	@tools/model.sh $(T)
