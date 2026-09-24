@@ -1,0 +1,7 @@
+{
+    "permissions": {
+      "deny": ["Read(./pkg/model/core/**)"],
+      "allow": ["Bash(make check-q)", "Bash(make test-q:*)", "Bash(make cover-q:*)",
+                "Bash(make vet-q:*)", "Bash(make model:*)", "Bash(go doc:*)", "Bash(git diff --stat:*)"]
+    }
+}
