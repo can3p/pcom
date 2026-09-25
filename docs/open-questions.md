@@ -49,8 +49,8 @@ Raised by the 2026-09-21 modernization survey.
   there are no credentials and no init container, and it supports
   path-style addressing. MinIO no longer publishes maintained community
   images; SeaweedFS, Garage and RustFS all need bucket or layout
-  bootstrapping. See W4.S2. For tests this was superseded on 2026-09-24
-  by tommy's S3 listener (below).
+  bootstrapping. Superseded: for tests on 2026-09-24, and for development
+  on 2026-09-26, by tommy's S3 listener (below).
 - **2026-09-21. Mail in development and tests:**
   [tommy](https://github.com/can3p/tommy) runs in compose and in the E2E
   harness. The Mailjet sender points at it through a configurable base URL,
@@ -68,6 +68,11 @@ Raised by the 2026-09-21 modernization survey.
   [can3p/tommy#40](https://github.com/can3p/tommy/issues/40) (persistence)
   and [#41](https://github.com/can3p/tommy/issues/41) (buckets from config)
   ship, compose drops s3mock for tommy.
+- **2026-09-26. S3 in development:** both tommy issues shipped in v0.3.0
+  (`TOMMY_PERSIST`, `TOMMY_S3_BUCKETS`), so compose runs tommy as the only
+  object store and s3mock is dropped before W4 starts (W4.S2). Verified
+  against `can3p/tommy:0.3.0`: the configured bucket exists at startup, and
+  an object survives recreating the container on the same volume.
 - **2026-09-24. Browser tests:** playwright-go in `e2e/browser`, behind a
   build tag, reusing the E2E harness and the factories (W6). No pixel
   snapshots until browsers run in the tools container.
