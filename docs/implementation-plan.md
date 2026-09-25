@@ -21,9 +21,9 @@ The end state:
   service (`pkg/service/<area>`), and handlers and CLI subcommands only
   translate to and from service calls. An architecture test enforces it;
 - a browser test suite, so frontend changes can be iterated on safely;
-- a docker-compose development stack (Postgres, S3-compatible object storage,
-  and [tommy](https://github.com/can3p/tommy) as the mail sink) with every
-  build tool in a container;
+- a docker-compose development stack (Postgres, and
+  [tommy](https://github.com/can3p/tommy) as the mail sink and S3-compatible
+  object store) with every build tool in a container;
 - shared plumbing in [gogo](https://github.com/can3p/gogo).
 
 **None of that starts until the safety net exists.** Waves W0–W6 only add
@@ -48,13 +48,13 @@ Related documents:
 | W1 | Unit tests, no database | W0 | not started | `test/w1-unit` |
 | W2 | Package tests against Postgres | W0 | not started | `test/w2-db` |
 | W3 | End-to-end HTTP tests | W0 | not started | `test/w3-e2e` |
-| W4 | Local stack (Postgres, s3mock, tommy), dev tooling container, app in compose, seed | W0 | not started | `test/w4-local-stack` |
+| W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | not started | `test/w4-local-stack` |
 | W5 | Coverage ratchet | W1–W4 | not started | `test/w5-ratchet` |
 | W6 | Browser tests (playwright-go) | W0 | not started | `test/w6-browser` |
 | WB | Bug-fix wave (#108–#117, #119–#122) | W1–W3 | not started | `fix/wb-survey-bugs` |
 | R1 | Router decomposition (move handlers) | W3, W6, WB | planned | `refactor/r1-router` |
 | RS | Repositories and services, thin handlers | R1 | planned | `refactor/rs-layers` |
-| R2 | go-flags config, single binary, tommy mail and S3 in tests, object storage only | RS, R3 (mailjet BaseURL) | planned | `refactor/r2-config` |
+| R2 | go-flags config, single binary, tommy for mail and S3, object storage only | RS, R3 (mailjet BaseURL) | planned | `refactor/r2-config` |
 | R3 | gogo convergence | W5 | planned | `refactor/r3-gogo` |
 | R4 | Mailers | W1 (mail goldens), R2 | planned | `refactor/r4-mailers` |
 | R5 | bob ORM, one repository at a time | RS, R3 | planned | `refactor/r5-bob` |
