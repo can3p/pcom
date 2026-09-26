@@ -227,7 +227,7 @@ func TestSettings_FeedAddSeeItemDismissAndUnsubscribe(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/feed.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		fmt.Fprintf(w, b5RSSTemplate, srv.URL, itemTitle, time.Now().Format(time.RFC1123Z))
+		_, _ = fmt.Fprintf(w, b5RSSTemplate, srv.URL, itemTitle, time.Now().Format(time.RFC1123Z))
 	})
 	srv = httptest.NewServer(mux)
 	t.Cleanup(srv.Close)

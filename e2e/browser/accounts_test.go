@@ -98,7 +98,7 @@ func TestAccounts_Logout(t *testing.T) {
 
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log out"}).Click())
 
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`^` + regexp.QuoteMeta(app.URL) + `/$`)))
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`^`+regexp.QuoteMeta(app.URL)+`/$`)))
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Login", Exact: playwright.Bool(true)})).ToBeVisible())
 }
 
