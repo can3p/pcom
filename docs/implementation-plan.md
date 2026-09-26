@@ -2,7 +2,7 @@
 
 Forward-looking only. This file is the **index**: status, ground rules and how
 waves are run. Each wave's tasks live in their own file, `docs/plan/<wave>.md`
-(`w0.md`, `w1.md`, … `wb.md`, `r1.md`, …). **Read this file and the one wave file
+(`w1.md`, … `wb.md`, `r1.md`, …). **Read this file and the one wave file
 you are working on; never the other wave files.**
 
 Running a wave (prompts, dispatch, verification) is the `wave-run` skill;
@@ -44,7 +44,7 @@ Related documents:
 
 | Wave | Name | Depends on | State | Branch |
 |---|---|---|---|---|
-| W0 | Test foundation | — (gogo `v0.0.2` released) | not started | `test/w0-foundation` |
+| W0 | Test foundation | — (gogo `v0.0.2` released) | done | `test/w0-foundation` |
 | W1 | Unit tests, no database | W0 | not started | `test/w1-unit` |
 | W2 | Package tests against Postgres | W0 | not started | `test/w2-db` |
 | W3 | End-to-end HTTP tests | W0 | not started | `test/w3-e2e` |
@@ -69,7 +69,7 @@ W0 ─────────┼── W3 (6 tasks)  ──┼── W5 ── 
                                                   R3: after W5   R6: any time
 ```
 
-Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w0.md`, `wb.md`, `r1.md`).
+Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.md`); a finished wave's file is deleted and its record moves to `docs/archive/history.md`.
 
 **After W0 lands, W1, W2, W3, W4 and W6 are independent of each other** and
 can run at the same time: about 40 tasks in total, each owning disjoint files.
