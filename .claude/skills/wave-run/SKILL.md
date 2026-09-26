@@ -100,7 +100,7 @@ Variations by wave:
   E2E or service test fail. Run `make test-ui` once per commit, next to `make check-q`.
 
 Not part of the budget: reading every test file. Read a test only when the mutation check fails to fail.
-Run `make check-q` once before each commit; commit per task.
+Run `make check-q` and `make lint` (CI lints; `check-q` does not) once before each commit; commit per task.
 
 For each bug a subagent reports: check `gh issue list --label bug` and the "Known bugs" list in
 `docs/plan/wb.md`, file an issue if it is new (security bugs go to the owner, not a public issue), and put
