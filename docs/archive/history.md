@@ -38,8 +38,8 @@ out wrong, what was left out on purpose, and what the wave cost in tokens.
   an action name; `ginctx.New` takes options (`WithUser`, `WithCSPNonces`)
   after the four planned arguments.
 
-**Left out.** CI still runs `make test`, so Codecov doesn't see E2E coverage
-(see Q14). `pkg/feedops/testutil` stays, for W2.D8.
+**Left out.** `pkg/feedops/testutil` stays, for W2.D8. (CI switched from
+`make test` to `make cover` before merge, so Codecov sees E2E coverage: Q14.)
 
 **Cost.** 5 sessions (coordinator plus 4 subagents: 2 sonnet builders, 1 haiku, 1 sonnet docs),
 280 turns in total; the coordinator peaked at 148k context with 88k of tool
