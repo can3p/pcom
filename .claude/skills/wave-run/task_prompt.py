@@ -28,6 +28,7 @@ You own exactly these files: {owns}. Do not edit any other file.
 Do not change production code. Do not run git. Do not edit go.mod.
 Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
+Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
 Create fixtures with the test factories. If a helper is missing, stop and report exactly what you need rather
 than writing ORM calls in your test.
 If you find a bug: write the test for correct behavior, add t.Skip("known bug: <describe>"), and put a
@@ -60,6 +61,7 @@ You own exactly these files: {owns}. Do not edit any other file; if another file
 report it under needs:. Do not run git. Do not edit go.mod.
 Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
+Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
 Behavior must not change: the E2E tests (e2e/), the browser tests (e2e/browser) and the seed crawl are not
 edited. A test you move may change its call site but not its assertions. If an assertion has to change,
 stop and report it.
