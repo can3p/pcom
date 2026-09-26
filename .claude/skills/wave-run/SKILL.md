@@ -86,7 +86,8 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 
 Variations by wave:
 
-- **W6 (browser):** step 1 is `make test-ui RUN=<the task's tests>`. The mutation check breaks a Stimulus
+- **W6 (browser):** step 1 is `make test-ui RUN=<the task's tests>`, then again with `COUNT=3` (a flaky
+  test is sent back, not accepted). The mutation check breaks a Stimulus
   controller or an htmx attribute the task covers.
 - **R-waves and RS (refactors):** replace step 1 with `make test-q PKG=<task packages>` plus
   `git diff --stat -- e2e/`, which must be empty. Also check that the task shrank the `pkg/arch` allowlist
