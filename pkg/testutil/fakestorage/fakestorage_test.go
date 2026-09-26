@@ -25,7 +25,7 @@ func TestStorage_RoundTrips(t *testing.T) {
 
 	r, size, contentType, err := s.DownloadFile(ctx, "a.png")
 	require.NoError(t, err)
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	got, err := io.ReadAll(r)
 	require.NoError(t, err)
