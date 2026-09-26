@@ -89,7 +89,7 @@ func buildBinary(dir string) (string, error) {
 	}
 
 	var coverPkgs []string
-	for _, p := range strings.Fields(string(pkgs)) {
+	for p := range strings.FieldsSeq(string(pkgs)) {
 		if p != hookPkg {
 			coverPkgs = append(coverPkgs, p)
 		}
