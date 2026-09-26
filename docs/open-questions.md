@@ -24,6 +24,10 @@ Raised by the 2026-09-21 modernization survey.
   instead? That decouples templates and services from the ORM, at the cost
   of mapping code. Deciding before R5 matters, because bob changes the
   generated types anyway (see `docs/plan/r5.md`).
+- **Q14. E2E coverage in CI.** CI runs `make test`, whose `coverage.out`
+  holds unit coverage only. Switching the CI step to `make cover` would send
+  the merged unit and E2E coverage to Codecov (`cmd/web` included) at the cost
+  of a slightly longer job. Switch now, or when W3 lands?
 
 ## Decided
 
