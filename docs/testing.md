@@ -113,11 +113,76 @@ with `RequireStatus(code)`, `Doc()` (goquery) and `Location()`; `Header` and `Bo
 never a real remote URL. Mail is asserted through the outgoing queue for now:
 `factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ(...))`.
 
+## Browser tests: e2e/browser
+
+Every user flow that needs the page's JavaScript is tested here, in headless Chromium through
+[playwright-go](https://github.com/mxschmitt/playwright-go): forms, action buttons, htmx swaps and
+redirects, Stimulus controllers, confirmations, toasts, dark mode. The package is behind the build tag
+`browser`, so `make test` and `make check` need no browser. Run it with `make test-ui`, which builds the
+frontend first (`RUN=<regex>` narrows it, `COUNT=<n>` repeats it, `HEADED=1 SLOWMO=250` shows the browser);
+install Chromium once with `make ui-deps`. Compile it with `make vet-q PKG=./e2e/browser/... TAGS=browser`.
+
+- `e2e.Start(t, e2e.WithRealAssets())` serves the real `cmd/web/dist`. Every test starts its own app.
+- `browser.NewUser(t, app, opts...)` is `factory.User` with the password `browser.Password`, and
+  `browser.Page(t, app, browser.As(user))` returns a page in a fresh browser context, already logged in
+  (it reuses an HTTP login's session cookie). The base URL is the app's, so `page.Goto("/feed")`.
+- **Guards:** the page fails the test on an uncaught error, a `console.error`, a CSP violation, a failed
+  request to the app or an app response of 404 or 5xx. A test that causes an error on purpose exempts it
+  with `browser.Allow(regexp)`, matched against the guard message. `browser.Configure(fn)` changes the
+  context options (viewport, `ColorScheme`).
+- **On failure** a full-page screenshot and a trace are saved to `.ui-artifacts/` (or `$UI_ARTIFACTS`) and
+  both paths are logged in one line; open the trace with `make ui-trace F=<path>`. CI uploads the directory.
+
+Reliability rules, because a red run must mean a real regression:
+
+1. **Assert outcomes, not mechanisms:** what the user sees (text, roles, visibility, URL, title) and the
+   database state through the factory readers. Never wait for htmx events, read `hx-*` attributes, inspect
+   request headers or call `window.htmx`, so the tests survive an htmx upgrade and catch one that breaks a page.
+2. **Wait by assertion only:** `browser.Expect` (Playwright's auto-waiting assertions), never a sleep or
+   `WaitForTimeout`. A "nothing happened" check asserts on a state the action would have changed.
+3. **Locate by role, label and text**, then by existing CSS classes. Test waves don't add `data-testid`.
+4. **Isolation:** no shared fixtures; every test may call `t.Parallel()`.
+5. **No retries:** a flaky test is fixed, or skipped with an issue number. A new test must pass
+   `make test-ui RUN=<it> COUNT=3` before it is accepted.
+
+A browser test:
+
+```go
+//go:build browser
+
+package browser_test
+
+func TestSmoke_ActionButton(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	draft, err := factory.Post(context.Background(), app.DB, user.ID)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	page.OnDialog(func(d playwright.Dialog) { _ = d.Accept() })
+
+	_, err = page.Goto("/controls")
+	require.NoError(t, err)
+
+	row := page.GetByRole("row").Filter(playwright.LocatorFilterOptions{HasText: draft.Subject.String})
+	require.NoError(t, row.GetByRole("button").Click())
+
+	require.NoError(t, browser.Expect.Locator(row).ToHaveCount(0))
+
+	posts, err := factory.ListPosts(context.Background(), app.DB, user.ID)
+	require.NoError(t, err)
+	require.Empty(t, posts)
+}
+```
+
 ## Make targets
 
 `make test-short` runs everything except E2E. `make cover` runs unit, package and E2E tests together under one
 `GOCOVERDIR` and prints a merged per-package coverage table. The quiet targets `check-q`, `test-q`, `vet-q` and
-`cover-q` (see `AGENTS.md`) are for agents and narrow with `PKG=./pkg/links/...`.
+`cover-q` (see `AGENTS.md`) are for agents, narrow with `PKG=./pkg/links/...` and take build tags with
+`TAGS=browser`. The browser targets are `ui-deps`, `test-ui` and `ui-trace` (above).
 
 ## Worked examples
 

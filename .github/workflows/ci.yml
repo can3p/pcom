@@ -105,6 +105,56 @@ jobs:
           commit_message: "chore: apply go fix"
           file_pattern: "*.go"
 
+  browser:
+    name: Browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "yarn"
+          cache-dependency-path: cmd/web/yarn.lock
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile
+        working-directory: cmd/web
+
+      - name: Cache Playwright driver and Chromium
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/ms-playwright-go
+          key: playwright-${{ runner.os }}-${{ hashFiles('go.sum') }}
+
+      - name: Install Chromium
+        run: make ui-deps UI_DEPS_FLAGS=--with-deps
+
+      - name: Browser tests
+        run: make test-ui
+        env:
+          QRUN_MAX: "400"
+
+      - name: Upload traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-artifacts
+          path: .ui-artifacts/
+          if-no-files-found: ignore
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
