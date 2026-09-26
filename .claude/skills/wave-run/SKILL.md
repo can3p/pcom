@@ -53,6 +53,10 @@ subagents, whose context is thrown away.
   the plan says so (contract-defining work), or after a task has failed twice.
 - Tasks that own disjoint files go out in **one message** with several `Agent` calls,
   `subagent_type: "general-purpose"`. Never `fork`: a fork drags the coordinator's context along.
+- Parallel tasks that write files in **one package** (W3's `e2e`, W6's `e2e/browser`) each iterate under
+  their own build tag (`//go:build browser && b3`, run with `-tags browser,b3`) and switch to the shared
+  tag before reporting, so one agent's half-written file doesn't break the others' compile. Shared build
+  steps such as `yarn build` run once in the coordinator before dispatch, never in each agent.
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
 - **Subagents run no git commands** and don't touch `go.mod` (only W0 and W4.S2 do, each as a single task).
@@ -88,7 +92,8 @@ Variations by wave:
 
 - **W6 (browser):** step 1 is `make test-ui RUN=<the task's tests>`, then again with `COUNT=3` (a flaky
   test is sent back, not accepted). The mutation check breaks a Stimulus
-  controller or an htmx attribute the task covers.
+  controller or an htmx attribute the task covers. At the end of the wave, empty each controller's
+  `connect()` in turn and run the suite: a controller that survives is untested, whatever the reports say.
 - **R-waves and RS (refactors):** replace step 1 with `make test-q PKG=<task packages>` plus
   `git diff --stat -- e2e/`, which must be empty. Also check that the task shrank the `pkg/arch` allowlist
   and didn't grow it. The mutation check becomes: break the service method the task extracted and watch an

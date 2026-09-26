@@ -51,7 +51,7 @@ Related documents:
 | W3 | End-to-end HTTP tests: server rules | W0 | not started | `test/w3-e2e` |
 | W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | not started | `test/w4-local-stack` |
 | W5 | Coverage ratchet | W1–W4 | not started | `test/w5-ratchet` |
-| W6 | Browser tests (playwright-go): user flows | W0 | not started | `test/w6-browser` |
+| W6 | Browser tests (playwright-go): user flows | W0 | done | `test/w6-browser` |
 | WB | Bug-fix wave (#108–#117, #119–#122) | W1–W3 | not started | `fix/wb-survey-bugs` |
 | R1 | Router decomposition (move handlers) | W3, W6, WB | planned | `refactor/r1-router` |
 | RS | Repositories and services, thin handlers | R1 | planned | `refactor/rs-layers` |
