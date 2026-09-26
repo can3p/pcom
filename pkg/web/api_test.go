@@ -8,9 +8,9 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops/testutil"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
-	"github.com/can3p/pcom/testcontainers/postgres"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -18,9 +18,7 @@ import (
 )
 
 func TestApiDeletePost_OnlyAuthorCanDelete(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctx := context.Background()
 

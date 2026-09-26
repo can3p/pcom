@@ -7,14 +7,12 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/feedops/testutil"
-	"github.com/can3p/pcom/testcontainers/postgres"
+	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetRssFeedItems_FiltersDismissedItems(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctx := context.Background()
 
@@ -52,9 +50,7 @@ func TestGetRssFeedItems_FiltersDismissedItems(t *testing.T) {
 }
 
 func TestGetRssFeedItems_EmptyResult(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctx := context.Background()
 
