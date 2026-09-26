@@ -13,9 +13,15 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-// Client is a browser-like HTTP client for one App: it keeps cookies, does
-// not follow redirects (tests assert on them), and sends the CSRF token that
-// pages carry in <body hx-headers='{"X-CSRFToken": …}'>, as htmx does.
+// Client is a plain HTTP client for one App, for testing server rules that
+// don't depend on the frontend: access control, status codes, the API, RSS,
+// security headers. It keeps cookies, does not follow redirects (tests assert
+// on them), and sends the CSRF token the pages carry.
+//
+// It deliberately does not imitate htmx: no HX-Request header, and Response
+// has no accessors for HX-* response headers. Anything that depends on htmx
+// or the page's JavaScript is tested in a real browser (e2e/browser), where
+// an htmx upgrade that breaks the page fails the test.
 type Client struct {
 	t    testing.TB
 	app  *App
@@ -57,7 +63,7 @@ func (c *Client) Get(path string) *Response {
 	return c.Do(req)
 }
 
-// PostForm posts url-encoded form values, as a plain htmx form does.
+// PostForm posts url-encoded form values.
 func (c *Client) PostForm(path string, form url.Values) *Response {
 	c.t.Helper()
 
@@ -71,8 +77,7 @@ func (c *Client) PostForm(path string, form url.Values) *Response {
 	return c.post(req)
 }
 
-// PostJSON posts v as JSON, as htmx's json-enc extension does for the
-// action controller: c.PostJSON("/controls/action/<name>", payload).
+// PostJSON posts v as JSON, the body the /controls/action endpoints accept.
 func (c *Client) PostJSON(path string, v any) *Response {
 	c.t.Helper()
 
@@ -91,27 +96,23 @@ func (c *Client) PostJSON(path string, v any) *Response {
 	return c.post(req)
 }
 
-// LoginAs logs in through the login form and fails the test if the login is
-// rejected.
+// LoginAs logs in by posting the login form, and fails the test unless the
+// session can then open /feed.
 func (c *Client) LoginAs(email, password string) {
 	c.t.Helper()
 
 	c.Get("/login").RequireStatus(http.StatusOK)
 
 	resp := c.PostForm("/form/login", url.Values{"email": {email}, "password": {password}})
-	resp.RequireStatus(http.StatusOK)
 
-	if resp.HXRedirect() == "" {
-		c.t.Fatalf("e2e: login as %s was rejected:\n%s", email, resp.Body)
+	if feed := c.Get("/feed"); feed.StatusCode != http.StatusOK {
+		c.t.Fatalf("e2e: login as %s was rejected (status %d):\n%s", email, resp.StatusCode, resp.Body)
 	}
 }
 
-// Do sends req as htmx would: with the HX-Request header and, on anything
-// but GET, the CSRF token.
+// Do sends req, adding the CSRF token to anything but a GET.
 func (c *Client) Do(req *http.Request) *Response {
 	c.t.Helper()
-
-	req.Header.Set("HX-Request", "true")
 
 	if req.Method != http.MethodGet && c.csrf != "" {
 		req.Header.Set("X-CSRFToken", c.csrf)
@@ -200,18 +201,3 @@ func (r *Response) Doc() *goquery.Document {
 
 // Location is the redirect target of a 3xx response.
 func (r *Response) Location() string { return r.Header.Get("Location") }
-
-// HXRedirect is the htmx client-side redirect target.
-func (r *Response) HXRedirect() string { return r.Header.Get("HX-Redirect") }
-
-// HXTrigger is the events htmx triggers on the client.
-func (r *Response) HXTrigger() string { return r.Header.Get("HX-Trigger") }
-
-// HXRetarget is the CSS selector htmx swaps the response into instead.
-func (r *Response) HXRetarget() string { return r.Header.Get("HX-Retarget") }
-
-// HXReplaceURL is the URL htmx puts into the address bar.
-func (r *Response) HXReplaceURL() string { return r.Header.Get("HX-Replace-Url") }
-
-// HXRefresh reports whether htmx is told to reload the page.
-func (r *Response) HXRefresh() bool { return r.Header.Get("HX-Refresh") == "true" }
