@@ -8,8 +8,12 @@ The test layers, from cheapest to most expensive:
 |---|---|---|---|
 | Unit | next to the code | `make test-short` | pure functions, goldens |
 | Package (DB) | next to the code; after RS, the service tests | `make test` (Docker) | business rules and queries against a fresh database |
-| E2E HTTP | `e2e/` | `make test` (Docker) | the real binary: statuses, redirects, htmx headers, HTML, resulting state. From R2, mail and S3 through tommy |
-| Browser | `e2e/browser` (build tag `browser`) | `make test-ui` | the real binary with real assets in Chromium: JS, htmx swaps, dialogs, layout, no console or CSP errors |
+| E2E HTTP | `e2e/` | `make test` (Docker) | server rules that don't depend on the frontend: access control and visibility, statuses, CSRF and auth guards, API, RSS, security headers, resulting state. From R2, mail and S3 through tommy |
+| Browser | `e2e/browser` (build tag `browser`) | `make test-ui` | **everything a user does in a page**, in Chromium with the real assets: forms, buttons, htmx swaps and redirects, Stimulus controllers, dialogs, layout, no console or CSP errors |
+
+The split matters: an HTTP test that imitates htmx (sending its headers, pinning `HX-*` response headers)
+keeps passing when an htmx upgrade breaks every page. So a behavior that needs the page's JavaScript to
+happen is tested in the browser, never over plain HTTP.
 
 ## Ground rules for W0–W6
 
@@ -97,14 +101,15 @@ improvised inline. `pkg/feedops/testutil` is legacy: don't use it in new tests.
 
 ## End-to-end: e2e
 
-Runs the real `cmd/web` binary against its own database and drives it over HTTP, so a test sees only what a
-browser would (statuses, redirects, htmx headers, HTML). `-short` (`make test-short`) skips E2E entirely.
+Runs the real `cmd/web` binary against its own database and drives it with plain HTTP: statuses, redirects,
+headers, HTML and the resulting database state. It is for server rules that don't depend on the frontend
+(see the layers table); the client does not imitate htmx, and user flows belong in the browser suite.
+`-short` (`make test-short`) skips E2E entirely.
 Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
 
 `e2e.Start(t, opts...)` returns `*App{URL, DB}`. `app.Client(t)` gives a cookie-carrying `*Client` with `Get`,
 `PostForm`, `PostJSON`, `LoginAs(email, password)` and `Do(req)` for anything else; each returns a `*Response`
-with `RequireStatus(code)`, `Doc()` (goquery), `Location()`, `HXRedirect()`, `HXTrigger()`, `HXRetarget()`,
-`HXReplaceURL()` and `HXRefresh()`. A feed a test creates must point at an `httptest.Server` the test owns,
+with `RequireStatus(code)`, `Doc()` (goquery) and `Location()`; `Header` and `Body` are plain fields. A feed a test creates must point at an `httptest.Server` the test owns,
 never a real remote URL. Mail is asserted through the outgoing queue for now:
 `factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ(...))`.
 
