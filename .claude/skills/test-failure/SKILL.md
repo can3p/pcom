@@ -14,9 +14,10 @@ Goal: find the cause while reading as little as possible. Stop at the first step
 3. **One test, verbose:** `go test ./pkg/x/ -run '^TestName$' -count=1 -v 2>&1 | tail -n 40`.
    Add `/subtest_name` to the `-run` pattern for table tests.
 4. **Search the log, don't print it:** `grep -n -A5 'TestName' <log path>`. Never `cat` a log.
-   **Browser tests** (`e2e/browser`, `make test-ui`): the report line names a screenshot and a trace. Look
-   at the screenshot first (the Read tool shows images), then the guard message: console error, CSP
-   violation or failed request. Open the trace only if both leave it unclear. Re-run one test with
+   **Browser tests** (`e2e/browser`, `make test-ui`; see "Browser tests" in `docs/testing.md`): the
+   report line names a screenshot and a trace in `.ui-artifacts/`. Look at the screenshot first (the Read
+   tool shows images), then the guard message (`browser: console.error: …`, a CSP violation, a failed
+   request or a 404/5xx response). Open the trace only if both leave it unclear. Re-run one test with
    `make test-ui RUN='^TestName$'`. Stale assets are a common cause, and `make test-ui` rebuilds them.
    A locator timeout usually means the markup changed, not that the app is slow; don't raise timeouts.
    An `architecture` test failure (`pkg/arch`, from RS on) names the package and the forbidden import:
