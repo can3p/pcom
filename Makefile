@@ -1,4 +1,4 @@
-.PHONY: shell tunnel lint test build check fix check-q test-q vet-q cover-q model
+.PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model
 
 PKG ?= ./...
 
@@ -18,7 +18,19 @@ lint:
 	golangci-lint run ./... --timeout=5m
 
 test:
-	go test ./...
+	go test -coverprofile=coverage.out ./...
+
+test-short:
+	go test -short ./...
+
+COVDIR := $(CURDIR)/.cover
+
+cover:
+	@rm -rf $(COVDIR)
+	@mkdir -p $(COVDIR)
+	@GOCOVERDIR=$(COVDIR) go test -cover ./... -args -test.gocoverdir=$(COVDIR)
+	@go tool covdata percent -i=$(COVDIR) | perl -pe 's/\t\t\t/\n/g' | grep "coverage:" | grep -v github.com/can3p/pcom/pkg/model/core
+	@go tool covdata textfmt -i=$(COVDIR) -o coverage.out
 
 build:
 	go build -v ./...
