@@ -24,7 +24,7 @@ as well. Each fix removes the matching `t.Skip`, and that test is the proof.
 
 **Future, not part of WB:** #123 (re-enable signups with bot protection;
 signups are off on purpose) and #124 (feed and explore pagination). Both come
-after R1, because they touch routes R1 moves. #124 needs W3's feed E2E tests
+after R1, because they touch routes R1 moves. #124 needs W6.B5's feed browser tests
 in place first.
 
 ### Known bugs (for de-duplication)

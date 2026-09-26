@@ -71,8 +71,10 @@ violations on every page, so an inline script or a style without the nonce shows
 - On a failure, the report prints a trace and a screenshot path. `make ui-trace F=<path>` opens the trace
   (DOM snapshot per step, network, console). Look at the screenshot before reading any HTML.
 - A change to a controller, a template's interactive parts or an htmx attribute comes with a browser test in
-  the matching `e2e/browser/<area>_test.go`. Server-only behavior (statuses, headers, DB state) belongs in
-  the cheaper `e2e/` HTTP tests instead.
+  the matching `e2e/browser/<area>_test.go`. Assert what the user sees and the DB state, never htmx
+  internals (events, `hx-*` attributes, request headers), so the test survives an htmx upgrade and catches
+  one that breaks the page. Only server rules that don't need the page's JavaScript (access control,
+  guards, API, RSS, headers) belong in the cheaper `e2e/` HTTP tests, which don't imitate htmx.
 - Locate by role, label and text (`page.GetByRole("button", …{Name: "Publish"})`). Where that's ambiguous,
   add a `data-testid` to the template. That is fine in frontend work, but not in test waves, which don't
   change templates.

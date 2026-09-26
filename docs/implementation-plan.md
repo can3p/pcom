@@ -20,7 +20,8 @@ The end state:
   repository (`pkg/repo`), every business rule and authorization check in a
   service (`pkg/service/<area>`), and handlers and CLI subcommands only
   translate to and from service calls. An architecture test enforces it;
-- a browser test suite, so frontend changes can be iterated on safely;
+- a browser test suite that specifies every user flow, so frontend changes and
+  frontend dependency upgrades (htmx, Stimulus) are checked in one command;
 - a docker-compose development stack (Postgres, and
   [tommy](https://github.com/can3p/tommy) as the mail sink and S3-compatible
   object store) with every build tool in a container;
@@ -47,10 +48,10 @@ Related documents:
 | W0 | Test foundation | — (gogo `v0.0.2` released) | done | `test/w0-foundation` |
 | W1 | Unit tests, no database | W0 | not started | `test/w1-unit` |
 | W2 | Package tests against Postgres | W0 | not started | `test/w2-db` |
-| W3 | End-to-end HTTP tests | W0 | not started | `test/w3-e2e` |
+| W3 | End-to-end HTTP tests: server rules | W0 | not started | `test/w3-e2e` |
 | W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | not started | `test/w4-local-stack` |
 | W5 | Coverage ratchet | W1–W4 | not started | `test/w5-ratchet` |
-| W6 | Browser tests (playwright-go) | W0 | not started | `test/w6-browser` |
+| W6 | Browser tests (playwright-go): user flows | W0 | not started | `test/w6-browser` |
 | WB | Bug-fix wave (#108–#117, #119–#122) | W1–W3 | not started | `fix/wb-survey-bugs` |
 | R1 | Router decomposition (move handlers) | W3, W6, WB | planned | `refactor/r1-router` |
 | RS | Repositories and services, thin handlers | R1 | planned | `refactor/rs-layers` |
@@ -63,9 +64,9 @@ Related documents:
 ```
             ┌── W1 (12 tasks) ──┐
             ├── W2 (9 tasks)  ──┤
-W0 ─────────┼── W3 (6 tasks)  ──┼── W5 ── WB ── R1 ── RS ── R2 ── R4
+W0 ─────────┼── W3 (4 tasks)  ──┼── W5 ── WB ── R1 ── RS ── R2 ── R4
 (1 session) ├── W4 (5 tasks)  ──┘              │     │
-            └── W6 (7 tasks) ──────────────────┘     └─ R5 (also after R3)
+            └── W6 (8 tasks) ──────────────────┘     └─ R5 (also after R3)
                                                   R3: after W5   R6: any time
 ```
 
@@ -75,6 +76,11 @@ Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.m
 can run at the same time: about 40 tasks in total, each owning disjoint files.
 Each of those waves branches from `test/w0-foundation` (or `master` once W0
 has merged), not from each other.
+
+**Start W6.B0 first.** User flows are tested in the browser, not over plain
+HTTP: an HTTP test that imitates htmx keeps passing when an htmx upgrade
+breaks the pages. So the browser suite is the main safety net for R1 and RS,
+and W3 covers only the server rules that don't depend on the frontend.
 
 **Layering is two waves on purpose.** R1 moves handlers verbatim, so its diff
 is reviewable as a move. RS then extracts repositories and services area by
@@ -126,7 +132,7 @@ cost, and opens the PR.
 
 | Tier | `model:` value for the Agent tool | Use for |
 |---|---|---|
-| strong | `opus` | W0; wave coordination; visibility/permission tests (W2.D2a, W3.E1); W6.B0 browser harness; R1 skeleton; RS contracts (step 0) and the visibility service (L1); R5 planning |
+| strong | `opus` | W0; wave coordination; visibility/permission tests (W2.D2a, W3.E1, W3.E2); W6.B0 browser harness; R1 skeleton; RS contracts (step 0) and the visibility service (L1); R5 planning |
 | mid | `sonnet` | business-logic tests (connections, forms, feed composition), E2E and browser scenarios, WB fixes, RS area extractions |
 | cheap | `haiku` | pure-function unit tests, golden tests, factory-driven CRUD checks, docs, CI config |
 
