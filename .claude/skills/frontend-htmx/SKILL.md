@@ -62,9 +62,11 @@ Server can control behavior via htmx response headers (`HX-Reswap`, `HX-Redirect
 
 ## Checking a frontend change
 
-The browser suite (`e2e/browser`, from W6 on; `docs/testing.md` has the "Browser tests" section) runs the
-real app with freshly built assets in Chromium. It fails on console errors, uncaught exceptions and CSP
-violations on every page, so an inline script or a style without the nonce shows up without a dedicated test.
+The browser suite (`e2e/browser`; `docs/testing.md` has the "Browser tests" section with a worked example)
+runs the real app with freshly built assets in Chromium. It fails on console errors, uncaught exceptions,
+CSP violations and failed or 404/5xx requests on every page, so an inline script or a style without the
+nonce shows up without a dedicated test. A test that provokes an error on purpose exempts it with
+`browser.Allow`.
 
 - `make test-ui RUN='<TestName>'` while iterating; `HEADED=1 SLOWMO=250` to watch it run. The target runs
   `yarn build` first. Run the whole suite once before committing.

@@ -110,6 +110,17 @@ func (c *Client) LoginAs(email, password string) {
 	}
 }
 
+// Cookies returns the cookies the client holds for the app, such as the
+// session cookie after LoginAs, so a browser can reuse the session.
+func (c *Client) Cookies() []*http.Cookie {
+	u, err := url.Parse(c.app.URL)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+
+	return c.http.Jar.Cookies(u)
+}
+
 // Do sends req, adding the CSRF token to anything but a GET.
 func (c *Client) Do(req *http.Request) *Response {
 	c.t.Helper()

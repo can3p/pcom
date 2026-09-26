@@ -48,30 +48,36 @@ var (
 // Main builds the web binary once for the test package, runs the tests and
 // cleans up. With -short it builds nothing, and Start skips the test.
 func Main(m *testing.M) {
+	os.Exit(Run(m))
+}
+
+// Run is Main without the exit: it returns the exit code, for a TestMain
+// that has its own setup and teardown around the tests.
+func Run(m *testing.M) int {
 	flag.Parse()
 
 	if testing.Short() {
-		os.Exit(m.Run())
+		return m.Run()
 	}
 
 	dir, err := os.MkdirTemp("", "pcom-e2e-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
-		os.Exit(1)
+		return 1
 	}
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	binPath, err = buildBinary(dir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
-		_ = os.RemoveAll(dir)
-		os.Exit(1)
+		return 1
 	}
 
 	code := m.Run()
 
 	_ = postgres.Cleanup()
-	_ = os.RemoveAll(dir)
-	os.Exit(code)
+
+	return code
 }
 
 // buildBinary builds ./cmd/web with coverage instrumentation. An overlay adds
@@ -135,12 +141,20 @@ type App struct {
 type Option func(*config)
 
 type config struct {
-	env map[string]string
+	env        map[string]string
+	realAssets bool
 }
 
 // WithEnv sets an extra environment variable for the binary.
 func WithEnv(key, value string) Option {
 	return func(c *config) { c.env[key] = value }
+}
+
+// WithRealAssets serves the frontend build in cmd/web/dist instead of the
+// stub assets, for tests that run the page's JavaScript and styles in a
+// browser. The build must exist: `make test-ui` runs `yarn build` first.
+func WithRealAssets() Option {
+	return func(c *config) { c.realAssets = true }
 }
 
 // Start runs the web binary against a fresh database and returns once it
@@ -163,7 +177,7 @@ func Start(t testing.TB, opts ...Option) *App {
 	}
 
 	db := testdb.New(t)
-	work := workDir(t)
+	work := workDir(t, cfg.realAssets)
 	port := freePort(t)
 	url := fmt.Sprintf("http://127.0.0.1:%d", port)
 
@@ -243,15 +257,29 @@ func processEnv(overrides map[string]string) []string {
 }
 
 // workDir makes the binary's working directory: templates and articles
-// through a `client` symlink, and a stub `dist` whose manifest names every
-// asset the templates ask for, because static_asset panics on unknown keys.
-func workDir(t testing.TB) string {
+// through a `client` symlink, and either the real `dist` through a symlink or
+// a stub `dist` whose manifest names every asset the templates ask for,
+// because static_asset panics on unknown keys.
+func workDir(t testing.TB, realAssets bool) string {
 	t.Helper()
 
 	work := t.TempDir()
 
 	if err := os.Symlink(filepath.Join(repoRoot, "cmd", "web", "client"), filepath.Join(work, "client")); err != nil {
 		t.Fatal(err)
+	}
+
+	if realAssets {
+		dist := filepath.Join(repoRoot, "cmd", "web", "dist")
+		if _, err := os.Stat(filepath.Join(dist, "manifest.json")); err != nil {
+			t.Fatalf("e2e: no frontend build in %s; run `yarn build` in cmd/web (make test-ui does): %v", dist, err)
+		}
+
+		if err := os.Symlink(dist, filepath.Join(work, "dist")); err != nil {
+			t.Fatal(err)
+		}
+
+		return work
 	}
 
 	keys, err := templateAssets(filepath.Join(repoRoot, "cmd", "web", "client", "html"))

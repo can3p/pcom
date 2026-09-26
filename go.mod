@@ -29,6 +29,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mileusna/useragent v1.3.5
 	github.com/mmcdole/gofeed v1.4.2
+	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/ovechkin-dm/mockio/v2 v2.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.53.0
@@ -76,6 +77,7 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
+	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
@@ -92,6 +94,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.30.3 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect

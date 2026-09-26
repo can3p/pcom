@@ -1,6 +1,8 @@
-.PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model
+.PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace
 
 PKG ?= ./...
+TAGS ?=
+tags_flag = $(if $(TAGS),-tags $(TAGS))
 
 shell:
 	flyctl postgres connect -a pcomdb
@@ -46,20 +48,42 @@ fix:
 # Quiet variants for agents: one line on success, a trimmed report on failure
 # (full output goes to a log file). They run the same steps as `make check`,
 # which stays the verbose CI form.
-# Narrow with PKG, for example `make test-q PKG=./pkg/links/...`.
+# Narrow with PKG, for example `make test-q PKG=./pkg/links/...`, and pass
+# build tags with TAGS, for example `make vet-q PKG=./e2e/browser/... TAGS=browser`.
 check-q:
 	@tools/qrun.sh build go build -o /dev/null ./...
 	@tools/qrun.sh vet go vet ./...
 	@tools/qrun.sh test go test ./...
 
 test-q:
-	@tools/qrun.sh test go test $(PKG)
+	@tools/qrun.sh test go test $(tags_flag) $(PKG)
 
 vet-q:
-	@tools/qrun.sh vet go vet $(PKG)
+	@tools/qrun.sh vet go vet $(tags_flag) $(PKG)
 
 cover-q:
-	@QRUN_SHOW_OK=1 tools/qrun.sh cover go test -cover $(PKG)
+	@QRUN_SHOW_OK=1 tools/qrun.sh cover go test $(tags_flag) -cover $(PKG)
+
+# Browser tests (e2e/browser, build tag `browser`). `make ui-deps` installs the
+# Playwright driver and Chromium once (UI_DEPS_FLAGS=--with-deps also installs
+# the system libraries, on Linux). `make test-ui` builds the frontend and runs
+# the suite quietly: RUN=<regex> narrows it, COUNT=<n> repeats it, and
+# HEADED=1 SLOWMO=250 shows the browser. A failed test logs the path of its
+# trace; open it with `make ui-trace F=<path>`.
+PLAYWRIGHT = go run github.com/mxschmitt/playwright-go/cmd/playwright
+RUN ?=
+COUNT ?= 1
+UI_DEPS_FLAGS ?=
+
+ui-deps:
+	$(PLAYWRIGHT) install $(UI_DEPS_FLAGS) chromium
+
+test-ui:
+	@tools/qrun.sh ui-build yarn --cwd cmd/web build
+	@HEADED=$(HEADED) SLOWMO=$(SLOWMO) tools/qrun.sh test-ui go test -tags browser -count=$(COUNT) $(if $(RUN),-run '$(RUN)') ./e2e/browser/...
+
+ui-trace:
+	$(PLAYWRIGHT) show-trace $(F)
 
 # Shape of a generated model without reading pkg/model/core:
 # `make model` lists the models, `make model T=User` prints one.
