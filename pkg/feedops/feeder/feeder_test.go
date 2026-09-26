@@ -11,7 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/feedops/feeder"
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/feedops/testutil"
-	"github.com/can3p/pcom/testcontainers/postgres"
+	"github.com/can3p/pcom/pkg/testutil/testdb"
 	. "github.com/ovechkin-dm/mockio/v2/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,9 +20,7 @@ import (
 )
 
 func TestGetFeedsToRefresh(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctx := context.Background()
 
@@ -64,9 +62,7 @@ func TestGetFeedsToRefresh(t *testing.T) {
 }
 
 func TestSaveFetchFailure(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctx := context.Background()
 
@@ -88,9 +84,7 @@ func TestSaveFetchFailure(t *testing.T) {
 }
 
 func TestLockFeed(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctx := context.Background()
 
@@ -129,9 +123,7 @@ func createFeedItems(num int, startTime time.Time) []*reader.Item {
 }
 
 func TestSaveFeed(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctrl := NewMockController(t)
 
@@ -180,9 +172,7 @@ func TestSaveFeed(t *testing.T) {
 }
 
 func TestSaveFeedInitialAndFollowUp(t *testing.T) {
-	testDB, err := postgres.NewTestDB()
-	require.NoError(t, err)
-	defer func() { _ = testDB.Close() }()
+	testDB := testdb.New(t)
 
 	ctrl := NewMockController(t)
 

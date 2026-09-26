@@ -60,7 +60,7 @@ make lint    # golangci-lint
 ```
 
 Docker must be running: tests that touch the database start a Postgres
-container via `testcontainers/postgres`.
+container via `pkg/testutil/testdb`.
 
 ### psql access
 
