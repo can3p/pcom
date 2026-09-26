@@ -5,8 +5,8 @@ Usage: task_prompt.py <wave> <task> [<task> ...]
        task_prompt.py w1 U1 U2 U3        one prompt per task, separated by "=====" lines
        task_prompt.py w4 S1
 
-The task's table row (with the table header) or its "### <task>" section is pasted in verbatim, so the
-subagent never opens the wave file. The first line of each prompt, starting with "#", is for the coordinator:
+The task's "### <task>" section and its table row (with the table header) are pasted in verbatim, so the
+subagent never opens the wave file. The section holds the spec; the row adds the tier and ownership. The first line of each prompt, starting with "#", is for the coordinator:
 the Agent tool `model` to use. Anything the script can't infer is left as <FILL: ...>; fill it in before
 dispatching.
 """
@@ -119,9 +119,9 @@ def build(wave, task):
     path = ROOT / "docs" / "plan" / f"{wave.lower()}.md"
     text = path.read_text()
     lines = text.splitlines()
-    excerpt, fields = from_table(lines, task)
-    if excerpt is None:
-        excerpt = from_section(lines, task) or from_paragraph(text, task)
+    row, fields = from_table(lines, task)
+    section = from_section(lines, task)
+    excerpt = "\n\n".join(x for x in (section, row) if x) or from_paragraph(text, task)
     if excerpt is None:
         sys.exit(f"task {task} not found in {path.relative_to(ROOT)}")
 
@@ -131,7 +131,9 @@ def build(wave, task):
     if not tier:
         m = re.search(r"\b(cheap|mid|strong)\b", excerpt)
         tier = m.group(1) if m else ""
-    where = next((v for k, v in fields.items() if k.startswith("package")), excerpt)
+    m = re.search(r"\bOwns (.+?)\.(?=\s|\||$)", excerpt, re.S)
+    owned = m.group(1).strip() if m else None
+    where = owned or next((v for k, v in fields.items() if k.startswith("package")), excerpt)
     pkgs = re.findall(r"`((?:pkg|cmd|e2e)/[\w/.-]+)`", where)
     dirs = [p.rsplit("/", 1)[0] if p.endswith(".go") else p.rstrip("/") for p in pkgs]
     pkg = " ".join(f"./{d}/..." for d in dict.fromkeys(dirs)) or "<FILL: ./pkg/x/...>"
@@ -149,11 +151,14 @@ def build(wave, task):
         browser = wave.lower() == "w6"
         if browser:
             pkg = "./e2e/browser/... TAGS=browser"
-        body = TEMPLATE.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done, report=REPORT,
+        template = TEMPLATE
+        if wave.lower() == "w0":
+            template = template.replace("You are adding tests to pcom.", "You are building pcom's test infrastructure.")
+        body = template.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done, report=REPORT,
                                testcmd=(BROWSER_TESTCMD if browser else TESTCMD).format(pkg=pkg),
-                               owns="<FILL: new _test.go files and testdata/ in "
+                               owns=owned or ("<FILL: new _test.go files and testdata/ in "
                                     + ("e2e/browser/<area>_test.go" if browser else pkg if pkgs else "the task's packages")
-                                    + ">")
+                                    + ">"))
     return "\n".join([header, body])
 
 
