@@ -49,3 +49,56 @@ results, and the subagents at 43k–167k (the factories were the most expensive:
 each. model-shape was used through `make model` (5 calls). LSP was loaded once
 in total and test-failure never, because nothing failed. This is the first
 recorded wave, so there is no earlier cost line to compare with.
+
+## W6 — Browser tests (2026-09-26, branch `test/w6-browser`)
+
+**Built.**
+
+- B0 (coordinator): `e2e/browser` behind the `browser` build tag, playwright-go,
+  `e2e.WithRealAssets()`, logged-in pages from the session cookie, guards on page
+  errors, `console.error`, CSP violations and failed same-origin requests, a trace
+  and screenshot on failure, `make ui-deps`/`test-ui`/`ui-trace`, and a `Browser`
+  CI job. Smoke tests for login, boosted navigation, an action button and the
+  error toast.
+- B1–B7: one file per area (navigation, writing, comments, actions, settings,
+  layout sweep, accounts). The suite runs in about 35 seconds, and passes
+  `-count=3`.
+- Every Stimulus controller except `selfsubmit` (used by no template) and
+  `collapse` (only under the mobile-menu test skipped on #140) fails a test when
+  its `connect()` is emptied. Removing `json-enc`, `head-support`, the
+  `htmx:responseError` handler or the `htmx:sendError` handler each fails a test.
+- Every mutating browser route is used successfully, except `signup` (skipped on
+  #139) and `signup_waiting_list`, which is switched off in code (Q6). The API
+  routes are W3's.
+- Bugs filed: #139 (pages rendered from a bare map have no CSP nonce: `/signup`,
+  `/confirm_signup`, `/articles`, `/confirm_waiting_list`), #140 (opening the
+  mobile menu violates `style-src-attr`), #141 (a submit right after the post
+  form re-renders itself can go out natively and get a 403).
+
+**Wrong.**
+
+- The plan said comments update "without a full reload". The comment form
+  reloads the page on purpose (it keeps the scroll position), so a subagent
+  pinned the intended behavior as a bug. The test now asserts the reload
+  behavior, and no issue was filed.
+- The share link has no copy button, so the planned "copy the share link"
+  step had nothing to click. The clipboard controller is tested through the
+  API key instead.
+- The haiku layout sweep was vacuous (`window.scrollWidth` is undefined, so
+  the overflow check could never fail) and allowed CSP violations. It was
+  redone at sonnet.
+
+**Left out.** `/confirm_signup` in the layout sweep (it needs a user with a
+known confirmation seed, and #139 blocks the page anyway). The `Browser`
+check becomes required on `master` right after this PR merges (not before, or
+open PRs without the job would wait forever); that is the owner's step.
+
+**Cost.** 2 coordinator sessions (B0, then B1–B7) and 8 subagents (7 sonnet,
+1 haiku), 945 turns in total. The coordinators peaked at 133k and 140k
+context with 92k and 108k of tool results; subagents at 79k–262k, with the
+settings and writing tasks the most expensive (150–167 turns, 234k–271k of
+results). 91 wasteful calls, almost all `cat` of whole files. Skills:
+frontend-htmx by 4 agents, wave-run twice, wave-close once; model-shape and
+test-failure never, and LSP barely (2k of results). Compared with W0, the
+wave cost about three times the turns for twice the subagents: browser
+tasks iterate far more than unit tests do.
