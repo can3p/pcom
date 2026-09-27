@@ -18,6 +18,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -373,6 +374,129 @@ func TestWriting_BodyLimitCountsCharacters(t *testing.T) {
 	stored, err := factory.GetPost(ctx, app.DB, post.ID)
 	require.NoError(t, err)
 	require.Equal(t, body, stored.Body)
+}
+
+// b2Anonymous names the anonymous viewer in b2RequireSees.
+const b2Anonymous = "an anonymous visitor"
+
+// b2Viewers is the audience a visibility test checks a post against: a
+// direct connection of the author, a connection of that connection, a
+// logged-in stranger and an anonymous visitor.
+type b2Viewers struct {
+	direct, secondDegree, stranger, anonymous playwright.Page
+}
+
+func b2NewViewers(t *testing.T, app *e2e.App, author *core.User) b2Viewers {
+	t.Helper()
+
+	ctx := context.Background()
+	direct := browser.NewUser(t, app)
+	secondDegree := browser.NewUser(t, app)
+	stranger := browser.NewUser(t, app)
+
+	_, _, err := factory.Connect(ctx, app.DB, author.ID, direct.ID)
+	require.NoError(t, err)
+	_, _, err = factory.Connect(ctx, app.DB, direct.ID, secondDegree.ID)
+	require.NoError(t, err)
+
+	return b2Viewers{
+		direct:       browser.Page(t, app, browser.As(direct), browser.Allow(`404`)),
+		secondDegree: browser.Page(t, app, browser.As(secondDegree), browser.Allow(`404`)),
+		stranger:     browser.Page(t, app, browser.As(stranger), browser.Allow(`404`)),
+		anonymous:    browser.Page(t, app, browser.Allow(`404`)),
+	}
+}
+
+// b2RequireSees asserts whether viewer can open the post. A post the viewer
+// may not see answers 404 to a logged-in user, so its existence isn't
+// revealed, and sends an anonymous visitor to the login page.
+func b2RequireSees(t *testing.T, viewer playwright.Page, postID, subject string, sees bool, who string) {
+	t.Helper()
+
+	resp, err := viewer.Goto("/posts/" + postID)
+	require.NoError(t, err)
+
+	if !sees {
+		if who == b2Anonymous {
+			require.NoError(t, browser.Expect.Page(viewer).ToHaveURL(regexp.MustCompile(`/login`)), "%s can open the post", who)
+		} else {
+			require.Equal(t, 404, resp.Status(), "%s can open the post", who)
+		}
+		require.NoError(t, browser.Expect.Locator(viewer.GetByText(subject)).ToHaveCount(0), "%s sees the subject", who)
+		return
+	}
+
+	require.Equal(t, 200, resp.Status(), "%s can't open the post", who)
+	require.NoError(t, browser.Expect.Locator(viewer.Locator(".us-post-header")).ToContainText(subject), who)
+}
+
+// The visibility chosen in the editor decides who can open the post: a new
+// post defaults to "their connections as well", and changing it on a
+// published post takes effect at once, in both directions.
+func TestWriting_PostVisibility(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	author := browser.NewUser(t, app)
+	viewers := b2NewViewers(t, app, author)
+	ctx := context.Background()
+
+	page := browser.Page(t, app, browser.As(author))
+	page.OnDialog(func(d playwright.Dialog) { _ = d.Accept() })
+
+	direct := page.GetByLabel("Show to direct connections only")
+	secondDegree := page.GetByLabel("Show to their connections as well")
+	public := page.GetByLabel("Public", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+
+	require.NoError(t, browser.Expect.Locator(secondDegree).ToBeChecked())
+
+	const subject = "Visibility story"
+	require.NoError(t, page.GetByPlaceholder("Subject").Fill(subject))
+	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("Who can read this?"))
+	require.NoError(t, direct.Check())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: playwright.Bool(true)}).Click())
+
+	postURLRe := regexp.MustCompile(`/posts/([^/]+)$`)
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
+	postID := postURLRe.FindStringSubmatch(page.URL())[1]
+
+	steps := []struct {
+		choose   playwright.Locator
+		want     core.PostVisibility
+		audience [4]bool // direct, second degree, stranger, anonymous
+	}{
+		{nil, core.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
+		{secondDegree, core.PostVisibilitySecondDegree, [4]bool{true, true, false, false}},
+		{public, core.PostVisibilityPublic, [4]bool{true, true, true, true}},
+		{direct, core.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
+	}
+
+	for _, step := range steps {
+		if step.choose != nil {
+			_, err := page.Goto("/posts/" + postID + "/edit")
+			require.NoError(t, err)
+			require.NoError(t, step.choose.Check())
+			require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: playwright.Bool(true)}).Click())
+			require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
+		}
+
+		stored, err := factory.GetPost(ctx, app.DB, postID)
+		require.NoError(t, err)
+		require.Equal(t, step.want, stored.VisibilityRadius)
+
+		b2RequireSees(t, viewers.direct, postID, subject, step.audience[0], "a direct connection")
+		b2RequireSees(t, viewers.secondDegree, postID, subject, step.audience[1], "a second-degree connection")
+		b2RequireSees(t, viewers.stranger, postID, subject, step.audience[2], "a stranger")
+		b2RequireSees(t, viewers.anonymous, postID, subject, step.audience[3], b2Anonymous)
+	}
+
+	// The editor shows the stored choice.
+	_, err = page.Goto("/posts/" + postID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(direct).ToBeChecked())
 }
 
 // /write?prompt=<id> shows the asker's name and message in a banner.
