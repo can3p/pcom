@@ -111,7 +111,9 @@ Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
 `PostForm`, `PostJSON`, `LoginAs(email, password)` and `Do(req)` for anything else; each returns a `*Response`
 with `RequireStatus(code)`, `Doc()` (goquery) and `Location()`; `Header` and `Body` are plain fields. A feed a test creates must point at an `httptest.Server` the test owns,
 never a real remote URL. Mail is asserted through the outgoing queue for now:
-`factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ(...))`.
+`factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ(...))`. This is temporary:
+the app can't deliver to tommy until R2 makes the Mailjet base URL configurable, and R2 then moves every
+E2E and browser mail assertion to delivered mail in tommy (`app.Mails`).
 
 ## Browser tests: e2e/browser
 
