@@ -5,6 +5,7 @@ package browser_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
@@ -251,6 +252,69 @@ func TestActions_ConnectionRequestReject(t *testing.T) {
 	exists, err := factory.ConnectionExists(ctx, app.DB, x.ID, z.ID)
 	require.NoError(t, err)
 	require.False(t, exists)
+}
+
+// Only the author gets the share button: a connection who can read the post
+// doesn't.
+func TestActions_ShareButtonOnlyForAuthor(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	author := browser.NewUser(t, app)
+	friend := browser.NewUser(t, app)
+	_, _, err := factory.Connect(context.Background(), app.DB, author.ID, friend.ID)
+	require.NoError(t, err)
+
+	post, err := factory.Post(context.Background(), app.DB, author.ID, factory.Published())
+	require.NoError(t, err)
+
+	share := `.us-comment-stats a:has(i.bi-share)`
+
+	authorPage := browser.Page(t, app, browser.As(author))
+	_, err = authorPage.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(authorPage.Locator(share)).ToBeVisible())
+
+	friendPage := browser.Page(t, app, browser.As(friend))
+	_, err = friendPage.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(friendPage.Locator(".us-post-header")).ToContainText(post.Subject.String))
+	require.NoError(t, browser.Expect.Locator(friendPage.Locator(share)).ToHaveCount(0))
+}
+
+// Cancelling the share confirmation creates no public link.
+func TestActions_ShareCancelledCreatesNothing(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	author := browser.NewUser(t, app)
+	post, err := factory.Post(context.Background(), app.DB, author.ID, factory.Published())
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(author))
+	asked := make(chan string, 1)
+	page.OnDialog(func(d playwright.Dialog) {
+		asked <- d.Message()
+		_ = d.Dismiss()
+	})
+
+	_, err = page.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, page.Locator(".us-comment-stats a:has(i.bi-share)").Click())
+
+	select {
+	case msg := <-asked:
+		require.Contains(t, msg, "public link")
+	case <-time.After(5 * time.Second):
+		t.Fatal("the share button did not ask for confirmation")
+	}
+
+	// Nothing was sent, so a fresh load shows no link.
+	_, err = page.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-comment-stats a:has(i.bi-share)")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-public-link")).ToHaveCount(0))
 }
 
 // Creating a share exposes a public link that opens anonymously; deleting the share makes it disappear
