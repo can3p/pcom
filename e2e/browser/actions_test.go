@@ -4,11 +4,13 @@ package browser_test
 
 import (
 	"context"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -254,34 +256,6 @@ func TestActions_ConnectionRequestReject(t *testing.T) {
 	require.False(t, exists)
 }
 
-// Only the author gets the share button: a connection who can read the post
-// doesn't.
-func TestActions_ShareButtonOnlyForAuthor(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t, e2e.WithRealAssets())
-	author := browser.NewUser(t, app)
-	friend := browser.NewUser(t, app)
-	_, _, err := factory.Connect(context.Background(), app.DB, author.ID, friend.ID)
-	require.NoError(t, err)
-
-	post, err := factory.Post(context.Background(), app.DB, author.ID, factory.Published())
-	require.NoError(t, err)
-
-	share := `.us-comment-stats a:has(i.bi-share)`
-
-	authorPage := browser.Page(t, app, browser.As(author))
-	_, err = authorPage.Goto("/posts/" + post.ID)
-	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(authorPage.Locator(share)).ToBeVisible())
-
-	friendPage := browser.Page(t, app, browser.As(friend))
-	_, err = friendPage.Goto("/posts/" + post.ID)
-	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(friendPage.Locator(".us-post-header")).ToContainText(post.Subject.String))
-	require.NoError(t, browser.Expect.Locator(friendPage.Locator(share)).ToHaveCount(0))
-}
-
 // Cancelling the share confirmation creates no public link.
 func TestActions_ShareCancelledCreatesNothing(t *testing.T) {
 	t.Parallel()
@@ -317,24 +291,35 @@ func TestActions_ShareCancelledCreatesNothing(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.Locator(".us-public-link")).ToHaveCount(0))
 }
 
-// Creating a share exposes a public link that opens anonymously; deleting the share makes it disappear
-// from the post page and the link stop working.
+// Sharing makes a private post readable through a public link, without
+// logging in. The post is visible to direct connections only, so an
+// anonymous visitor can't open it directly; the link the share button
+// creates shows its subject and body, stays on the post page across
+// reloads, and stops working once the share is deleted.
 func TestActions_ShareLifecycle(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
+	ctx := context.Background()
 
 	author := browser.NewUser(t, app)
-	post, err := factory.Post(context.Background(), app.DB, author.ID, factory.Published())
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
-	page := browser.Page(t, app, browser.As(author), browser.Allow(`404`))
+	anon := browser.Page(t, app, browser.Allow(`404`))
+
+	// Without a share, the post needs a login.
+	_, err = anon.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Page(anon).ToHaveURL(regexp.MustCompile(`/login`)))
+	require.NoError(t, browser.Expect.Locator(anon.GetByText(post.Body)).ToHaveCount(0))
+
+	page := browser.Page(t, app, browser.As(author))
 	acceptDialogs(page)
 
 	_, err = page.Goto("/posts/" + post.ID)
 	require.NoError(t, err)
 
-	// create_share
 	require.NoError(t, page.Locator(".us-comment-stats a:has(i.bi-share)").Click())
 
 	shareLink := page.Locator(`.us-public-link a[href^="/shared/"]`)
@@ -342,24 +327,29 @@ func TestActions_ShareLifecycle(t *testing.T) {
 
 	href, err := shareLink.GetAttribute("href")
 	require.NoError(t, err)
-	require.NotEmpty(t, href)
 
-	// open the share anonymously
-	anon := browser.Page(t, app, browser.Allow(`404`))
-
-	_, err = anon.Goto(href)
+	// The link is stored, not just rendered once.
+	_, err = page.Reload()
 	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(anon.GetByRole("heading", playwright.PageGetByRoleOptions{Name: post.Subject.String})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(shareLink).ToHaveAttribute("href", href))
 
-	// delete_share
+	// Anyone with the link reads the post without logging in.
+	resp, err := anon.Goto(href)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.Status())
+	require.NoError(t, browser.Expect.Page(anon).ToHaveURL(regexp.MustCompile(regexp.QuoteMeta(href)+`$`)))
+	require.NoError(t, browser.Expect.Locator(anon.GetByRole("heading", playwright.PageGetByRoleOptions{Name: post.Subject.String})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(anon.GetByText(post.Body)).ToBeVisible())
+
+	// Deleting the share removes the link from the post page and disables it.
 	require.NoError(t, page.Locator(".us-public-link a:has(i.bi-trash)").Click())
 	require.NoError(t, browser.Expect.Locator(page.Locator(".us-public-link")).ToHaveCount(0))
 	require.NoError(t, browser.Expect.Locator(page.Locator(".us-comment-stats a:has(i.bi-share)")).ToBeVisible())
 
-	resp, err := anon.Goto(href)
+	resp, err = anon.Goto(href)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
 	require.Equal(t, 404, resp.Status())
+	require.NoError(t, browser.Expect.Locator(anon.GetByText(post.Body)).ToHaveCount(0))
 }
 
 // Asking a direct connection for a post and dismissing an incoming prompt.
