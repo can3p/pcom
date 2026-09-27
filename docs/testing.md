@@ -122,6 +122,23 @@ redirects, Stimulus controllers, confirmations, toasts, dark mode. The package i
 frontend first (`RUN=<regex>` narrows it, `COUNT=<n>` repeats it, `HEADED=1 SLOWMO=250` shows the browser);
 install Chromium once with `make ui-deps`. Compile it with `make vet-q PKG=./e2e/browser/... TAGS=browser`.
 
+What a run does:
+
+1. `make test-ui` runs `yarn build`, so the suite tests the current frontend source, then
+   `go test -tags browser ./e2e/browser/...` through the quiet runner. A passing run prints one line.
+2. `TestMain` starts the Playwright driver bundled with playwright-go and launches **one Chromium for
+   the package**, headless unless `HEADED` is set (`SLOWMO=<ms>` delays every action). It uses the
+   browsers `make ui-deps` installed in Playwright's cache (`~/Library/Caches/ms-playwright` on macOS).
+3. Each test starts its own app (the real web binary against a fresh test database) and gets a fresh
+   browser context in that Chromium: separate cookies and storage, so tests run in parallel.
+4. On failure the screenshot and trace paths are printed. `make ui-trace F=<path>` opens Playwright's trace
+   viewer, a timeline of every action with a DOM snapshot, console and network log at each step.
+
+To watch a test, run one at a time: `make test-ui HEADED=1 SLOWMO=250 RUN=<TestName>`. Without `RUN`,
+every parallel test opens its own window.
+
+The harness API:
+
 - `e2e.Start(t, e2e.WithRealAssets())` serves the real `cmd/web/dist`. Every test starts its own app.
 - `browser.NewUser(t, app, opts...)` is `factory.User` with the password `browser.Password`, and
   `browser.Page(t, app, browser.As(user))` returns a page in a fresh browser context, already logged in

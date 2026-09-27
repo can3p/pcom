@@ -62,6 +62,28 @@ make lint    # golangci-lint
 Docker must be running: tests that touch the database start a Postgres
 container via `pkg/testutil/testdb`.
 
+### Browser tests
+
+User flows (forms, htmx swaps, Stimulus controllers) are tested in a real
+Chromium driven by [playwright-go](https://github.com/mxschmitt/playwright-go).
+They live in `e2e/browser` behind the build tag `browser`, so `make test` and
+`make check` don't run them.
+
+```
+make ui-deps    # once: installs the Playwright driver and Chromium
+make test-ui    # builds the frontend, then runs the suite
+make test-ui RUN=TestSmoke COUNT=3                  # narrow it, repeat it
+make test-ui HEADED=1 SLOWMO=250 RUN=TestSmoke_LoginAndBoostedNavigation
+make ui-trace F=.ui-artifacts/<Test>.trace.zip      # inspect a failure
+```
+
+Chromium runs **headless** by default, so no window opens and a passing run
+prints only `ok: test-ui`. Add `HEADED=1` to see the browser and `SLOWMO=<ms>`
+to slow each step down. Narrow the run with `RUN` when watching, because the
+tests run in parallel and each one opens its own window. A failed test saves a
+screenshot and a trace under `.ui-artifacts/` and prints their paths.
+`docs/testing.md` explains how the suite works and how to write a test.
+
 ### psql access
 
 ```
