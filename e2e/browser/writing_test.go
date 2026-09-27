@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -286,6 +287,92 @@ func TestWriting_EditExistingPost(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Updated subject", updated.Subject.String)
 	require.True(t, updated.PublishedAt.Valid)
+}
+
+// b2BodyLimit is the post body limit PostForm.Validate enforces.
+const b2BodyLimit = 20_000
+
+// b2SaveBody replaces the body of a published post in the editor and saves
+// it.
+func b2SaveBody(t *testing.T, page playwright.Page, postID, body string) {
+	t.Helper()
+
+	_, err := page.Goto(fmt.Sprintf("/posts/%s/edit", postID))
+	require.NoError(t, err)
+
+	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill(body))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: playwright.Bool(true)}).Click())
+}
+
+// A body over the limit is rejected: the editor shows the error under the
+// body, stays on the edit page, and the stored post is unchanged.
+func TestWriting_BodyOverLimitShowsError(t *testing.T) {
+	t.Parallel()
+	t.Skip("known bug #142: the body textarea never gets is-invalid, so its invalid-feedback message stays hidden")
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	post, err := factory.Post(ctx, app.DB, user.ID, factory.Published())
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	b2SaveBody(t, page, post.ID, strings.Repeat("a", b2BodyLimit+1))
+
+	require.NoError(t, browser.Expect.Locator(page.GetByText("body should be between 0 and 20000 characters")).ToBeVisible())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+regexp.QuoteMeta(post.ID)+`/edit$`)))
+
+	stored, err := factory.GetPost(ctx, app.DB, post.ID)
+	require.NoError(t, err)
+	require.Equal(t, post.Body, stored.Body)
+}
+
+// A body exactly at the limit is saved.
+func TestWriting_BodyAtLimitSaves(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	post, err := factory.Post(ctx, app.DB, user.ID, factory.Published())
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	body := strings.Repeat("a", b2BodyLimit)
+	b2SaveBody(t, page, post.ID, body)
+
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+regexp.QuoteMeta(post.ID)+`$`)))
+
+	stored, err := factory.GetPost(ctx, app.DB, post.ID)
+	require.NoError(t, err)
+	require.Equal(t, body, stored.Body)
+}
+
+// The limit is in characters, as the error message says, so a body of
+// non-ASCII text under the limit is saved even though it takes more bytes.
+func TestWriting_BodyLimitCountsCharacters(t *testing.T) {
+	t.Parallel()
+	t.Skip("known bug #143: ValidateMinMax counts bytes, so 15,000 Cyrillic letters (30,000 bytes) are rejected")
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	post, err := factory.Post(ctx, app.DB, user.ID, factory.Published())
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	// 15,000 Cyrillic letters: 30,000 bytes of UTF-8.
+	body := strings.Repeat("я", 15_000)
+	b2SaveBody(t, page, post.ID, body)
+
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+regexp.QuoteMeta(post.ID)+`$`)))
+
+	stored, err := factory.GetPost(ctx, app.DB, post.ID)
+	require.NoError(t, err)
+	require.Equal(t, body, stored.Body)
 }
 
 // /write?prompt=<id> shows the asker's name and message in a banner.
