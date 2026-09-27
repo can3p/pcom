@@ -68,7 +68,7 @@ cover-q:
 # Playwright driver and Chromium once (UI_DEPS_FLAGS=--with-deps also installs
 # the system libraries, on Linux). `make test-ui` builds the frontend and runs
 # the suite quietly: RUN=<regex> narrows it, COUNT=<n> repeats it, and
-# HEADED=1 SLOWMO=250 shows the browser. A failed test logs the path of its
+# HEADED=1 SLOWMO=250 shows the browser (headless otherwise). A failed test logs the path of its
 # trace; open it with `make ui-trace F=<path>`.
 PLAYWRIGHT = go run github.com/mxschmitt/playwright-go/cmd/playwright
 RUN ?=
