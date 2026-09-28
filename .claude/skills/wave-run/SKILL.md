@@ -64,6 +64,10 @@ subagents, whose context is thrown away.
   them, and the prefix is noise once merged. Name helpers for what they do; a name clash at merge time is
   the signal that a helper belongs in a shared `helpers_test.go`, which the coordinator writes once.
   Test names take the area, as in `TestActions_ShareLifecycle`.
+  The same applies to ordinary packages shared by several tasks (W2's `pkg/web`, `pkg/forms`). There, a
+  task's coverage target is for its own files or functions: tell it to measure them with
+  `go tool cover -func` on a profile. When a shared package suddenly fails to build, check first for an
+  agent that left its files untagged (W2's cheap D4b did).
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
 - **Subagents run no git commands** and don't touch `go.mod` (only W0 and W4.S2 do, each as a single task).
@@ -94,12 +98,15 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 2. `git diff --stat`, to confirm only the owned files changed.
 3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
    through `make test-q`, revert. A test that doesn't fail when you break the code under it covers nothing.
-4. **Audit the assertions**, because one mutation samples one test. For E2E and browser tasks, have a
-   read-only `Explore` agent (strong tier) classify every test as weak (passes whether or not the behavior
-   works: only a status on a page that always answers 200, "body exists", asserting the setup), duplicated
-   within the wave, duplicated by the other suite (W3 vs W6), or OK, with a concrete fix for each. Send the
-   fixes back before committing. W3 shipped two identical tests and several that could not fail because
-   this step was missing.
+4. **Audit the assertions**, because one mutation samples one test. For every test task (package, E2E and
+   browser), have a read-only `Explore` agent (strong tier) classify every test as weak (passes whether or
+   not the behavior works: only a status on a page that always answers 200, "body exists", `NotNil` on a
+   returned action, asserting the setup), duplicated within the wave, duplicated by another suite (W2 vs
+   W3 vs W6), pinning wrong behavior, a skip that can't fail, or OK, with a concrete fix for each. Run it
+   per task as it reports, not once at the end, and send the fixes back before committing. W3 shipped two
+   identical tests and several that could not fail because this step was missing; W2 ran it only at the
+   end and found 35 weak tests, 18 duplicates and 5 skips that couldn't fail after every task had passed
+   its mutation check.
 
 Variations by wave:
 

@@ -33,8 +33,11 @@ Create fixtures with the test factories. If a helper is missing, stop and report
 than writing ORM calls in your test.
 If you find a bug: write the test for correct behavior, add t.Skip("known bug: <describe>"), and put a
 one-line repro in your report. Never assert today's wrong behavior, and never leave a test whose body is
-commented out: the skipped test holds the real assertions. Code you can't reach goes in your report, not in
-a placeholder test.
+commented out: the skipped test holds the real assertions. Remove the skip once and watch the test fail
+today, deterministically: one that fails only in another time zone or under a lucky race is not a pin.
+Code you can't reach goes in your report, not in a placeholder test. A test must be able to fail when the
+behavior it names breaks: `NotNil` on a returned action, "no error", or reading back the object you just
+built proves nothing, so assert the stored row, the mail sent, the redirect.
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 {testcmd}{nodb}
 Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
