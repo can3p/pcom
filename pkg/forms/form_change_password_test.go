@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -131,4 +132,7 @@ func TestChangePasswordForm_SaveUpdatesPassword(t *testing.T) {
 	updatedUser, err := factory.GetUser(ctx, db, user.ID)
 	require.NoError(t, err)
 	require.NotEqual(t, oldPwdhash, updatedUser.Pwdhash)
+
+	require.NoError(t, auth.CheckCredentials(c, db, user.Email, "newpassword123!"))
+	require.Error(t, auth.CheckCredentials(c, db, user.Email, "oldpassword"))
 }

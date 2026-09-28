@@ -289,12 +289,6 @@ func TestPostForm_Validate_EditPermission(t *testing.T) {
 	})
 }
 
-func TestPostFormAction_String(t *testing.T) {
-	t.Parallel()
-
-	require.Equal(t, "publish", forms.PostFormActionPublish.String())
-}
-
 func TestPostForm_Save_NewPost(t *testing.T) {
 	t.Parallel()
 
@@ -306,7 +300,6 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 		forms.PostFormActionMakeDraft,
 		forms.PostFormActionPublish,
 		forms.PostFormActionAutosave,
-		forms.PostFormActionDelete,
 		forms.PostFormAction(""),
 	} {
 		t.Run(string(saveAction)+" or empty", func(t *testing.T) {
@@ -346,11 +339,12 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 				require.Equal(t, "post_notification", sent[0].EmailType)
 				require.Equal(t, conn.Email, sent[0].Mail.To[0].Address)
 			} else {
-				// SavePost, MakeDraft, Autosave, Delete (a brand new post
-				// has nothing to delete) and the empty default all take the
-				// same "still a draft" path: the post is created but not
-				// published, and the response retargets the draft-saved
-				// indicator instead of redirecting.
+				// SavePost, MakeDraft, Autosave and the empty default all
+				// take the same "still a draft" path: the post is created
+				// but not published, and the response retargets the
+				// draft-saved indicator instead of redirecting. Delete is
+				// exercised on an existing post below; what it should do on
+				// a never-saved post is an open product question.
 				require.False(t, post.PublishedAt.Valid)
 				require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
 				require.Equal(t, links.Link("edit_post", post.ID), w.Header().Get("HX-Replace-Url"))
@@ -447,11 +441,10 @@ func TestPostForm_Save_NewPost_WithPrompt_Publish(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, posts, 1)
 
-	// Save mutates the very *core.PostPrompt held by form.Prompt.Prompt (the
-	// row NewPostFormNew loaded), so its fields can be read back off it
-	// without a dedicated factory reader.
-	require.Equal(t, posts[0].ID, form.Prompt.Prompt.PostID.String)
-	require.True(t, form.Prompt.Prompt.DismissedAt.Valid)
+	storedPrompt, err := factory.GetPostPrompt(ctx, db, promptRow.ID)
+	require.NoError(t, err)
+	require.Equal(t, posts[0].ID, storedPrompt.PostID.String)
+	require.True(t, storedPrompt.DismissedAt.Valid)
 
 	sent := sender.Sent()
 	var gotAnswerMail bool
@@ -494,11 +487,13 @@ func TestPostForm_Save_NewPost_WithPrompt_Draft(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, posts, 1)
 
+	storedPrompt, err := factory.GetPostPrompt(ctx, db, promptRow.ID)
+	require.NoError(t, err)
 	// The prompt is linked to the draft as soon as the post exists...
-	require.Equal(t, posts[0].ID, form.Prompt.Prompt.PostID.String)
+	require.Equal(t, posts[0].ID, storedPrompt.PostID.String)
 	// ...but only dismissed, and answered by mail, once the post is
 	// actually published.
-	require.False(t, form.Prompt.Prompt.DismissedAt.Valid)
+	require.False(t, storedPrompt.DismissedAt.Valid)
 
 	for _, s := range sender.Sent() {
 		require.NotEqual(t, "post_prompt_answer", s.EmailType)

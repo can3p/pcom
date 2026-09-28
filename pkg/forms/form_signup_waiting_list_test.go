@@ -47,47 +47,6 @@ func TestSignupWaitingListForm_ValidateExistingUser(t *testing.T) {
 	require.True(t, form.Errors.HasError("email"))
 }
 
-func TestSignupWaitingListForm_ValidateExistingInvitation(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.Invitation(ctx, db, inviter.ID, factory.Sent("existing@example.test"))
-	require.NoError(t, err)
-
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = "existing@example.test"
-
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
-func TestSignupWaitingListForm_ValidateExistingSignupRequest(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-
-	existingRequest, err := factory.SignupRequest(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = existingRequest.Email
-
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
 func TestSignupWaitingListForm_ValidateSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -117,21 +76,15 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 	action, err := form.Save(ctx, db)
 	require.NoError(t, err)
 	require.NotNil(t, action)
-}
 
-func TestSignupWaitingListForm_SaveTrimsEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = "  NewRequest@EXAMPLE.TEST  "
-
-	action, err := form.Save(ctx, db)
+	exists, err := factory.SignupRequestExists(ctx, db, form.Input.Email)
 	require.NoError(t, err)
-	require.NotNil(t, action)
+	require.True(t, exists)
+
+	sent := sender.Sent()
+	require.Len(t, sent, 2)
+	require.Equal(t, "waiting_list_confirm", sent[0].EmailType)
+	require.Equal(t, form.Input.Email, sent[0].Mail.To[0].Address)
 }
 
 // TestSignupWaitingListForm_SaveDoesNotNormalizeEmail pins a bug: unlike

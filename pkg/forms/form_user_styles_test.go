@@ -107,6 +107,10 @@ func TestSettingsUserStyles_SaveCreatesUserStyle(t *testing.T) {
 	action, err := form.Save(c, db)
 	require.NoError(t, err)
 	require.NotNil(t, action)
+
+	style, err := factory.GetUserStyle(ctx, db, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, ".profile { color: blue; }", style.Styles)
 }
 
 func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
@@ -145,4 +149,8 @@ func TestSettingsUserStyles_SaveUpdatesExistingStyle(t *testing.T) {
 	action, err := form.Save(c, db)
 	require.NoError(t, err)
 	require.NotNil(t, action)
+
+	style, err := factory.GetUserStyle(ctx, db, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, ".new { color: green; }", style.Styles)
 }

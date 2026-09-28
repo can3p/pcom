@@ -172,4 +172,8 @@ func TestWhitelistConnection_SaveCreatesWhitelist(t *testing.T) {
 	action, err := form.Save(c, db)
 	require.NoError(t, err)
 	require.NotNil(t, action)
+
+	exists, err := factory.WhitelistExists(ctx, db, user1.ID, user2.ID)
+	require.NoError(t, err)
+	require.True(t, exists)
 }
