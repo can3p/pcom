@@ -11,45 +11,16 @@ If you want to follow the development, there is a [youtube playlist](https://www
 
 Official client is [blg](https://github.com/can3p/blg), command line client that plays well with pcom. See [docs/api.md](docs/api.md) for the API.
 
-## Dependencies
+## Local development
 
-* Go (version from `go.mod`)
-* Node.js (version from `.tool-versions`) and yarn
-* PostgreSQL
-* libvips (`brew install vips pkg-config`)
-* Docker, for the test suite (tests start their own Postgres container)
-* `envsubst` (`brew install gettext`), used by `./generate.sh`
-
-## Dev Setup
-
-* Install go, asdf, postgres, watchexec
-* `asdf install` (installs node)
-* `npm install -g yarn`
-* `cd cmd/web; yarn install`
-* `go install github.com/rubenv/sql-migrate/sql-migrate@latest`
-* `go install github.com/volatiletech/sqlboiler/v4@latest`
-* `go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest`
-* `createuser pcom -W` use `pcom` as a password there
-* `createdb --owner=pcom pcom_dev`
-* `echo 'SESSION_SALT=random' >> cmd/web/.env`
-* `echo 'SITE_ROOT=http://localhost:8080' >> cmd/web/.env`
-* `echo 'DATABASE_URL=postgres://pcom:pcom@localhost:5432/pcom_dev?sslmode=disable' >> cmd/web/.env`
-* `./sqlmigrate.sh up`
-
-The server listens on `$PORT`, 8080 by default, so `SITE_ROOT` has to match it.
-Registration is controlled by `system_settings.registration_open`. For local
-development you can bypass it with `go run . -force-signup`.
-
-### Run the app
+Docker is the only dependency. Cold start, seeded users, ports, everyday commands and troubleshooting are in
+[docs/running.md](docs/running.md):
 
 ```
-cd cmd/web
-yarn watch          # in one tab: rebuilds frontend assets into cmd/web/dist
-make watchexec      # in another tab: restarts the server on changes
+cp .env.example cmd/web/.env
+make dev-up && make migrate && make seed
+make dev        # app and asset watcher in containers, http://localhost:8080
 ```
-
-The server needs `cmd/web/dist/manifest.json` to exist, so run `yarn watch`
-(or `yarn build`) at least once before starting it.
 
 ### Tests
 
@@ -83,28 +54,6 @@ to slow each step down. Narrow the run with `RUN` when watching, because the
 tests run in parallel and each one opens its own window. A failed test saves a
 screenshot and a trace under `.ui-artifacts/` and prints their paths.
 `docs/testing.md` explains how the suite works and how to write a test.
-
-### psql access
-
-```
-psql -U pcom pcom_dev
-```
-
-### schema changes
-
-```
-./sqlmigrate.sh new migration_name
-```
-
-Edit the file given by sql-migrate
-
-```
-./sqlmigrate.sh up
-./generate.sh
-```
-
-`./generate.sh` regenerates the sqlboiler models in `pkg/model/core` from the
-database in `cmd/web/.env`.
 
 ## Initial Setup
 
@@ -150,20 +99,19 @@ database in `cmd/web/.env`.
 Tab 1:
 
 ```
-fly proxy 5433:5432 -a pcomdb   # or: make tunnel
+make tunnel          # fly proxy 5433 -a pcomdb
 ```
 
 Tab 2:
 
 ```
-./run.sh             # opens a shell with the production secrets loaded
-./sqlmigrate.sh up
+make migrate-prod    # asks for confirmation first
 ```
 
-`run.sh` evaluates `./env.pl`, which reads the app's secrets from fly and
-rewrites `DATABASE_URL` to point at the proxied `localhost:5433`. Don't redirect
-`./env.pl` into `cmd/web/.env`, because that would overwrite your local
-development settings with production ones.
+`make migrate-prod` runs the migrations from the tools container against the
+tunnel, with `DATABASE_URL` taken from `./env.pl` (the app's secrets on fly).
+On Linux the tunnel must listen on an address the container can reach
+(`flyctl proxy --bind-addr`). See [docs/running.md](docs/running.md).
 
 ## Operational notes
 
