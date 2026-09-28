@@ -28,6 +28,11 @@ func ListComments(ctx context.Context, exec boil.ContextExecutor, postID string)
 	return core.PostComments(core.PostCommentWhere.PostID.EQ(postID)).All(ctx, exec)
 }
 
+// GetPostStat returns the stat row of postID, or sql.ErrNoRows if none exists yet.
+func GetPostStat(ctx context.Context, exec boil.ContextExecutor, postID string) (*core.PostStat, error) {
+	return core.PostStats(core.PostStatWhere.PostID.EQ(postID)).One(ctx, exec)
+}
+
 // ListOutgoingEmails returns the queued emails matching filter, e.g.
 // factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("welcome")).
 func ListOutgoingEmails(ctx context.Context, exec boil.ContextExecutor, filter ...qm.QueryMod) (core.OutgoingEmailSlice, error) {
