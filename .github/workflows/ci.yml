@@ -175,3 +175,30 @@ jobs:
       - name: Build frontend
         run: yarn build
         working-directory: cmd/web
+
+  models:
+    name: Generated models are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build tools image
+        run: docker compose --profile tools build tools
+
+      - name: Start Postgres
+        run: docker compose up -d --wait postgres
+
+      - name: Generate models
+        run: make generate
+
+      - name: Check for a diff
+        run: git diff --exit-code -- pkg/model
+
+  dev-image:
+    name: Dev image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build dev image
+        run: docker build --target dev -f tools/Dockerfile .

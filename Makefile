@@ -109,7 +109,7 @@ model:
 #   make dev-up / dev-down          start or stop postgres and tommy
 #   make migrate                    apply migrations (migrate-status, migrate-down)
 #   make migration name=add_foo     create migrations/<timestamp>-add_foo.sql
-#   make generate                   regenerate pkg/model/core with sqlboiler
+#   make generate                   regenerate pkg/model/core from the migrations (throwaway DB)
 #   make psql [ARGS="-c '...'"]     psql on the compose database
 #   make db-reset                   drop, recreate and migrate the dev database
 #   make seed / seed-reset          go run ./cmd/seed [--reset]
