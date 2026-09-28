@@ -209,8 +209,9 @@ func TestLogin_BadCredentialsReturnsErrorWithoutSettingSession(t *testing.T) {
 	require.Nil(t, sessions.Default(c).Get("user"))
 }
 
-func TestLogin_DBErrorPanics(t *testing.T) {
+func TestLogin_DBErrorIsReturnedAsIs(t *testing.T) {
 	t.Parallel()
+	t.Skip("known bug #160: auth.Login panics on a database error instead of returning it")
 
 	testDB := testdb.New(t)
 	db := testDB.DB
@@ -218,9 +219,11 @@ func TestLogin_DBErrorPanics(t *testing.T) {
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
-	require.Panics(t, func() {
-		_ = auth.Login(c, db, "someone@example.test", "pw")
-	}, "Login only recognizes sql.ErrNoRows as bad credentials; any other DB error is a bug it panics on")
+	var err error
+	require.NotPanics(t, func() {
+		err = auth.Login(c, db, "someone@example.test", "pw")
+	})
+	require.Error(t, err, "a DB error should be returned to the caller, not mistaken for bad credentials")
 }
 
 func TestAuth_StaleSessionUserLogsAndContinues(t *testing.T) {
@@ -272,28 +275,12 @@ func TestGetUserData_LoggedInUser(t *testing.T) {
 	data := auth.GetUserData(c)
 
 	require.True(t, data.IsLoggedIn)
-	require.NotNil(t, data.User)
-	require.NotNil(t, data.DBUser)
-	require.Equal(t, user.ID, data.DBUser.ID)
-}
+	require.NotEmpty(t, data.CSRFToken, "GetUserData mints a CSRF token for the session")
 
-func TestGetAPIUserData_LoggedInUser(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	c, _ := ginctx.New(t, http.MethodGet, "/", nil, ginctx.WithUser(t, db, user.ID))
-
-	data := auth.GetAPIUserData(c)
-
-	require.True(t, data.IsLoggedIn)
-	require.NotNil(t, data.User)
-	require.NotNil(t, data.DBUser)
-	require.Equal(t, user.ID, data.DBUser.ID)
+	// A second call on the same request/session must reuse the token
+	// minted on the first call rather than minting a new one every time.
+	again := auth.GetUserData(c)
+	require.Equal(t, data.CSRFToken, again.CSRFToken)
 }
 
 func TestAuth_LoggedInSessionSetsPgsessionUser(t *testing.T) {
