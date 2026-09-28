@@ -1,5 +1,5 @@
 .PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace \
-	dev-up dev-down migrate migrate-status migrate-down migration generate psql db-reset seed seed-reset \
+	dev-up dev dev-logs dev-down migrate migrate-status migrate-down migration generate psql db-reset seed seed-reset \
 	tools-shell migrate-prod
 
 PKG ?= ./...
@@ -122,6 +122,13 @@ TOOLS = $(TOOLS_RUN) tools
 
 dev-up:
 	$(COMPOSE) up -d --wait postgres tommy
+
+# The app (live reload) and the frontend watcher in containers; foreground.
+dev:
+	$(COMPOSE) --profile dev up
+
+dev-logs:
+	$(COMPOSE) --profile dev logs -f
 
 dev-down:
 	$(COMPOSE) --profile '*' down

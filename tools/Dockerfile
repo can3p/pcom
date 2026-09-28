@@ -35,3 +35,8 @@ FROM tools AS dev
 # the frontend bundle; watchexec to rebuild and restart on change.
 RUN apk add --no-cache vips-dev gcc musl-dev nodejs yarn watchexec
 ENV CGO_ENABLED=1
+
+# Compose mounts a named volume over node_modules (the host copy may hold
+# macOS binaries). A new volume copies this directory's owner and mode, so make
+# it writable for whatever host UID the container runs as.
+RUN mkdir -p /src/cmd/web/node_modules && chmod 1777 /src/cmd/web/node_modules
