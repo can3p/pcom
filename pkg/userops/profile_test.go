@@ -1,0 +1,412 @@
+package userops_test
+
+import (
+	"testing"
+
+	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/userops"
+	"github.com/stretchr/testify/require"
+)
+
+// TestCanSeeProfile tests visibility × visitor × radius combinations
+func TestCanSeeProfile(t *testing.T) {
+	t.Parallel()
+
+	// Create test users
+	alice := &core.User{ProfileVisibility: core.ProfileVisibilityPublic}
+	bob := &core.User{ProfileVisibility: core.ProfileVisibilityRegisteredUsers}
+	charlie := &core.User{ProfileVisibility: core.ProfileVisibilityConnections}
+
+	testCases := []struct {
+		name        string
+		profile     *core.User
+		visitor     *core.User
+		connRadius  userops.ConnectionRadius
+		expectSee   bool
+		description string
+	}{
+		// Public profiles: anyone can see
+		{
+			name:        "PublicProfile_NoVisitor",
+			profile:     alice,
+			visitor:     nil,
+			connRadius:  userops.ConnectionRadiusUnrelated,
+			expectSee:   true,
+			description: "Public profiles visible to anyone including anonymous",
+		},
+		{
+			name:        "PublicProfile_RegisteredVisitor",
+			profile:     alice,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusUnrelated,
+			expectSee:   true,
+			description: "Public profiles visible to registered users",
+		},
+		{
+			name:        "PublicProfile_SameUserRadius",
+			profile:     alice,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusSameUser,
+			expectSee:   true,
+			description: "Public profiles always visible regardless of radius",
+		},
+
+		// RegisteredUsers profiles: only registered users (visitor != nil)
+		{
+			name:        "RegisteredUsersProfile_NoVisitor",
+			profile:     bob,
+			visitor:     nil,
+			connRadius:  userops.ConnectionRadiusUnrelated,
+			expectSee:   false,
+			description: "RegisteredUsers profiles hidden from anonymous users",
+		},
+		{
+			name:        "RegisteredUsersProfile_HasVisitor_Unrelated",
+			profile:     bob,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusUnrelated,
+			expectSee:   true,
+			description: "RegisteredUsers profiles visible to any registered user",
+		},
+		{
+			name:        "RegisteredUsersProfile_HasVisitor_Direct",
+			profile:     bob,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusDirect,
+			expectSee:   true,
+			description: "RegisteredUsers profiles visible to connected users",
+		},
+		{
+			name:        "RegisteredUsersProfile_HasVisitor_SecondDegree",
+			profile:     bob,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusSecondDegree,
+			expectSee:   true,
+			description: "RegisteredUsers profiles visible to second-degree connections",
+		},
+		{
+			name:        "RegisteredUsersProfile_HasVisitor_SameUser",
+			profile:     bob,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusSameUser,
+			expectSee:   true,
+			description: "RegisteredUsers profiles visible to self",
+		},
+		{
+			name:        "RegisteredUsersProfile_HasVisitor_Unknown",
+			profile:     bob,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusUnknown,
+			expectSee:   true,
+			description: "RegisteredUsers profiles visible even when radius unknown",
+		},
+
+		// Connections profiles: only direct and indirect connections
+		{
+			name:        "ConnectionsProfile_NoVisitor",
+			profile:     charlie,
+			visitor:     nil,
+			connRadius:  userops.ConnectionRadiusUnrelated,
+			expectSee:   false,
+			description: "Connections profiles hidden from anonymous users",
+		},
+		{
+			name:        "ConnectionsProfile_HasVisitor_Unrelated",
+			profile:     charlie,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusUnrelated,
+			expectSee:   false,
+			description: "Connections profiles hidden from unrelated users",
+		},
+		{
+			name:        "ConnectionsProfile_HasVisitor_Unknown",
+			profile:     charlie,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusUnknown,
+			expectSee:   false,
+			description: "Connections profiles hidden when radius unknown",
+		},
+		{
+			name:        "ConnectionsProfile_HasVisitor_Direct",
+			profile:     charlie,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusDirect,
+			expectSee:   true,
+			description: "Connections profiles visible to direct connections",
+		},
+		{
+			name:        "ConnectionsProfile_HasVisitor_SecondDegree",
+			profile:     charlie,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusSecondDegree,
+			expectSee:   true,
+			description: "Connections profiles visible to second-degree connections",
+		},
+		{
+			name:        "ConnectionsProfile_HasVisitor_SameUser",
+			profile:     charlie,
+			visitor:     &core.User{},
+			connRadius:  userops.ConnectionRadiusSameUser,
+			expectSee:   true,
+			description: "Users can see their own Connections profile",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := userops.CanSeeProfile(tc.profile, tc.visitor, tc.connRadius)
+			require.Equal(t, tc.expectSee, got, tc.description)
+		})
+	}
+}
+
+// TestCannotSeeProfileLite tests visibility combinations for lite check
+func TestCannotSeeProfileLite(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name              string
+		profileVisibility core.ProfileVisibility
+		visitor           *core.User
+		expectCannotSee   bool
+		description       string
+	}{
+		// Public profiles: never blocked by lite check
+		{
+			name:              "PublicProfile_NoVisitor",
+			profileVisibility: core.ProfileVisibilityPublic,
+			visitor:           nil,
+			expectCannotSee:   false,
+			description:       "Public profiles are always visible, lite check returns false",
+		},
+		{
+			name:              "PublicProfile_HasVisitor",
+			profileVisibility: core.ProfileVisibilityPublic,
+			visitor:           &core.User{},
+			expectCannotSee:   false,
+			description:       "Public profiles are always visible",
+		},
+
+		// RegisteredUsers profiles: blocked only for anonymous
+		{
+			name:              "RegisteredUsersProfile_NoVisitor",
+			profileVisibility: core.ProfileVisibilityRegisteredUsers,
+			visitor:           nil,
+			expectCannotSee:   true,
+			description:       "RegisteredUsers profiles blocked for anonymous users",
+		},
+		{
+			name:              "RegisteredUsersProfile_HasVisitor",
+			profileVisibility: core.ProfileVisibilityRegisteredUsers,
+			visitor:           &core.User{},
+			expectCannotSee:   false,
+			description:       "RegisteredUsers profiles visible to registered users",
+		},
+
+		// Connections profiles: blocked only for anonymous
+		{
+			name:              "ConnectionsProfile_NoVisitor",
+			profileVisibility: core.ProfileVisibilityConnections,
+			visitor:           nil,
+			expectCannotSee:   true,
+			description:       "Connections profiles blocked for anonymous users",
+		},
+		{
+			name:              "ConnectionsProfile_HasVisitor",
+			profileVisibility: core.ProfileVisibilityConnections,
+			visitor:           &core.User{},
+			expectCannotSee:   false,
+			description:       "Connections profiles visible to registered users at lite level",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			profile := &core.User{ProfileVisibility: tc.profileVisibility}
+			got := userops.CannotSeeProfileLite(profile, tc.visitor)
+			require.Equal(t, tc.expectCannotSee, got, tc.description)
+		})
+	}
+}
+
+// TestConnectionRadius tests the radius type methods
+func TestConnectionRadius_IsSameUser(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		radius     userops.ConnectionRadius
+		expectTrue bool
+	}{
+		{
+			name:       "SameUser",
+			radius:     userops.ConnectionRadiusSameUser,
+			expectTrue: true,
+		},
+		{
+			name:       "Direct",
+			radius:     userops.ConnectionRadiusDirect,
+			expectTrue: false,
+		},
+		{
+			name:       "SecondDegree",
+			radius:     userops.ConnectionRadiusSecondDegree,
+			expectTrue: false,
+		},
+		{
+			name:       "Unrelated",
+			radius:     userops.ConnectionRadiusUnrelated,
+			expectTrue: false,
+		},
+		{
+			name:       "Unknown",
+			radius:     userops.ConnectionRadiusUnknown,
+			expectTrue: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := tc.radius.IsSameUser()
+			require.Equal(t, tc.expectTrue, got)
+		})
+	}
+}
+
+// TestConnectionRadius_IsDirect tests the IsDirect method
+func TestConnectionRadius_IsDirect(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		radius     userops.ConnectionRadius
+		expectTrue bool
+	}{
+		{
+			name:       "SameUser",
+			radius:     userops.ConnectionRadiusSameUser,
+			expectTrue: false,
+		},
+		{
+			name:       "Direct",
+			radius:     userops.ConnectionRadiusDirect,
+			expectTrue: true,
+		},
+		{
+			name:       "SecondDegree",
+			radius:     userops.ConnectionRadiusSecondDegree,
+			expectTrue: false,
+		},
+		{
+			name:       "Unrelated",
+			radius:     userops.ConnectionRadiusUnrelated,
+			expectTrue: false,
+		},
+		{
+			name:       "Unknown",
+			radius:     userops.ConnectionRadiusUnknown,
+			expectTrue: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := tc.radius.IsDirect()
+			require.Equal(t, tc.expectTrue, got)
+		})
+	}
+}
+
+// TestConnectionRadius_IsSecondDegree tests the IsSecondDegree method
+func TestConnectionRadius_IsSecondDegree(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		radius     userops.ConnectionRadius
+		expectTrue bool
+	}{
+		{
+			name:       "SameUser",
+			radius:     userops.ConnectionRadiusSameUser,
+			expectTrue: false,
+		},
+		{
+			name:       "Direct",
+			radius:     userops.ConnectionRadiusDirect,
+			expectTrue: false,
+		},
+		{
+			name:       "SecondDegree",
+			radius:     userops.ConnectionRadiusSecondDegree,
+			expectTrue: true,
+		},
+		{
+			name:       "Unrelated",
+			radius:     userops.ConnectionRadiusUnrelated,
+			expectTrue: false,
+		},
+		{
+			name:       "Unknown",
+			radius:     userops.ConnectionRadiusUnknown,
+			expectTrue: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := tc.radius.IsSecondDegree()
+			require.Equal(t, tc.expectTrue, got)
+		})
+	}
+}
+
+// TestConnectionRadius_IsUnrelated tests the IsUnrelated method
+func TestConnectionRadius_IsUnrelated(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name       string
+		radius     userops.ConnectionRadius
+		expectTrue bool
+	}{
+		{
+			name:       "SameUser",
+			radius:     userops.ConnectionRadiusSameUser,
+			expectTrue: false,
+		},
+		{
+			name:       "Direct",
+			radius:     userops.ConnectionRadiusDirect,
+			expectTrue: false,
+		},
+		{
+			name:       "SecondDegree",
+			radius:     userops.ConnectionRadiusSecondDegree,
+			expectTrue: false,
+		},
+		{
+			name:       "Unrelated",
+			radius:     userops.ConnectionRadiusUnrelated,
+			expectTrue: true,
+		},
+		{
+			name:       "Unknown",
+			radius:     userops.ConnectionRadiusUnknown,
+			expectTrue: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := tc.radius.IsUnrelated()
+			require.Equal(t, tc.expectTrue, got)
+		})
+	}
+}
