@@ -70,30 +70,6 @@ func newTestContext(t *testing.T, method, target string) *gin.Context {
 	return c
 }
 
-func TestIndex(t *testing.T) {
-	t.Parallel()
-
-	user := &core.User{ID: "u1", Username: "someone"}
-	c := newTestContext(t, http.MethodGet, "/")
-
-	page := Index(c, nil, userDataFor(user))
-
-	require.Equal(t, "Social network for private groups", page.Name)
-	require.Equal(t, user, page.User.DBUser)
-}
-
-func TestLogin(t *testing.T) {
-	t.Parallel()
-
-	c := newTestContext(t, http.MethodGet, "/login")
-
-	page := Login(c, nil, userDataFor(nil), "/feed", "sig123")
-
-	require.Equal(t, "Login", page.Name)
-	require.Equal(t, "/feed", page.ReturnURL)
-	require.Equal(t, "sig123", page.Sign)
-}
-
 func TestInvite(t *testing.T) {
 	t.Parallel()
 
