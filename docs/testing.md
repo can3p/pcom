@@ -199,8 +199,8 @@ func TestSmoke_ActionButton(t *testing.T) {
 ## Make targets
 
 `make test-short` runs everything except E2E. `make cover` runs unit, package and E2E tests together under one
-`GOCOVERDIR` and prints a merged per-package coverage table. The quiet targets `check-q`, `test-q`, `vet-q` and
-`cover-q` (see `AGENTS.md`) are for agents, narrow with `PKG=./pkg/links/...` and take build tags with
+`GOCOVERDIR` and prints a merged per-package coverage table. The quiet targets `check-q`, `test-q`, `vet-q`,
+`cover-q`, `fix-q` and `lint-q` (see `AGENTS.md`) are for agents, narrow with `PKG=./pkg/links/...` and take build tags with
 `TAGS=browser`. The browser targets are `ui-deps`, `test-ui` and `ui-trace` (above).
 
 ## Worked examples

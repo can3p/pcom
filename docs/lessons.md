@@ -48,3 +48,8 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   haiku agents still wrote tests asserting today's wrong output, and
   placeholder tests with commented-out bodies. Read every `t.Skip` and every
   "known bug" comment in their files; the preamble now forbids both.
+- **Run go fix before pushing.** CI's Go Fix job commits its rewrites onto
+  the branch, and on W1 that commit failed Lint: go fix inlined a
+  `//go:fix inline` helper everywhere and left it unused. `make check-q` now
+  runs `fix-q` and `lint-q` first, and every task prompt runs them on the
+  task's packages before reporting.

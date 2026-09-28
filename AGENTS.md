@@ -53,7 +53,9 @@ all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a 
   and a log path; the log is kept only on failure.
 
   ```bash
-  make check-q                       # build + vet + tests: the same steps as `make check` (CI)
+  make check-q                       # go fix + lint + build + vet + tests: what CI runs
+  make fix-q PKG=./pkg/links/...     # go fix, rewriting files in place
+  make lint-q PKG=./pkg/links/...    # golangci-lint
   make test-q PKG=./pkg/links/...    # one package tree
   make cover-q PKG=./pkg/links/...   # "ok <pkg> ... coverage: 91.2%"
   make vet-q PKG=./pkg/links/...
@@ -61,6 +63,9 @@ all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a 
   ```
 
 - Iterate on one package or one test; run `make check-q` once per commit.
+- **Run go fix on your changes before you finish** (`make fix-q PKG=...`, then `make lint-q PKG=...` and the
+  tests). CI's Go Fix job commits whatever go fix rewrites, straight onto the branch, and that commit must
+  still pass Lint: a helper go fix inlines everywhere is left unused, for example.
 - Never `go test -v ./...`, never `-json`, never `cat` a log. Dig into a failure with `grep -n` on the log path
   the report prints, or re-run the single test with `-v`.
 - Golden files: after `UPDATE_GOLDEN=1`, check `git diff --stat`, not the contents.

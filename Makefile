@@ -50,10 +50,20 @@ fix:
 # which stays the verbose CI form.
 # Narrow with PKG, for example `make test-q PKG=./pkg/links/...`, and pass
 # build tags with TAGS, for example `make vet-q PKG=./e2e/browser/... TAGS=browser`.
-check-q:
+# check-q also runs go fix and the linter first, as CI does: the Go Fix job
+# commits whatever go fix rewrites, and the result must still pass Lint.
+check-q: fix-q lint-q
 	@tools/qrun.sh build go build -o /dev/null ./...
 	@tools/qrun.sh vet go vet ./...
 	@tools/qrun.sh test go test ./...
+
+# go fix rewrites files in place; lint-q afterwards catches what a rewrite
+# leaves behind (a helper that go fix inlined everywhere becomes unused).
+fix-q:
+	@tools/qrun.sh fix go fix $(tags_flag) $(or $(PKG),./...)
+
+lint-q:
+	@tools/qrun.sh lint golangci-lint run --timeout=5m $(if $(TAGS),--build-tags $(TAGS)) $(or $(PKG),./...)
 
 test-q:
 	@tools/qrun.sh test go test $(tags_flag) $(PKG)

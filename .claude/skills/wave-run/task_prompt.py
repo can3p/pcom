@@ -37,6 +37,8 @@ commented out: the skipped test holds the real assertions. Code you can't reach 
 a placeholder test.
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 {testcmd}{nodb}
+Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
+`make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
 Done when: tests pass and {done}.
 {report}"""
 
@@ -71,6 +73,8 @@ Layering: handlers bind input, call one service method and render; services hold
 and transactions; every query lives in pkg/repo. Remove your area's entries from the pkg/arch allowlist.
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end.
+Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
+`make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
 Done when: tests pass and {done}.
 {report}"""
 
