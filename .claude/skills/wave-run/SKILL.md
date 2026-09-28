@@ -60,6 +60,10 @@ subagents, whose context is thrown away.
   their own build tag (`//go:build browser && b3`, run with `-tags browser,b3`) and switch to the shared
   tag before reporting, so one agent's half-written file doesn't break the others' compile. Shared build
   steps such as `yarn build` run once in the coordinator before dispatch, never in each agent.
+  Don't have them prefix identifiers with the task id (`e1User`, `b2Anonymous`): the tag already isolates
+  them, and the prefix is noise once merged. Name helpers for what they do; a name clash at merge time is
+  the signal that a helper belongs in a shared `helpers_test.go`, which the coordinator writes once.
+  Test names take the area, as in `TestActions_ShareLifecycle`.
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
 - **Subagents run no git commands** and don't touch `go.mod` (only W0 and W4.S2 do, each as a single task).
