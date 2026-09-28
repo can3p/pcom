@@ -64,6 +64,14 @@ happen is tested in the browser, never over plain HTTP.
 8. **Mail content is golden-tested** under `testdata/*.golden`, with the
    convention `UPDATE_GOLDEN=1 go test ./pkg/mail/...` to rewrite.
    These goldens are the safety net for R4.
+9. **Keep tests compact.** Cases that differ only in inputs and expectations
+   are rows of one table-driven test with `t.Run`, not one function each. A
+   table test opens one database at the top, and each row makes its own
+   users with the factory, so rows can run in parallel. Create fixtures in
+   one line with `testutil.Must(t, factory.User(ctx, db))`. Setup that
+   several tests of a file repeat goes into one small helper in that file.
+   No comments that restate the test name, and no separate tests for trivial
+   variations.
 
 ## Libraries
 
