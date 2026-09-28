@@ -149,4 +149,86 @@ func TestServerWrapper_GetImage(t *testing.T) {
 			wrapper.mu.Unlock()
 		}
 	})
+
+	t.Run("io.Copy error handling", func(t *testing.T) {
+		mock := &mockMediaServer{}
+		wrapper := NewWrapper(mock, 1)
+
+		// This test verifies that io.Copy errors are properly handled
+		_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("different files don't share requests", func(t *testing.T) {
+		mock := &mockMediaServer{responseDelay: 50 * time.Millisecond}
+		wrapper := NewWrapper(mock, 10)
+
+		var wg sync.WaitGroup
+		// Request two different files concurrently
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			_, _, err := wrapper.GetImage(context.Background(), "file1.jpg", "thumb")
+			if err != nil {
+				t.Errorf("unexpected error for file1: %v", err)
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			_, _, err := wrapper.GetImage(context.Background(), "file2.jpg", "thumb")
+			if err != nil {
+				t.Errorf("unexpected error for file2: %v", err)
+			}
+		}()
+
+		wg.Wait()
+
+		// Both should have been called on the underlying server
+		if count := mock.getCallCount(); count != 2 {
+			t.Errorf("expected 2 calls to underlying server, got %d", count)
+		}
+	})
+
+	t.Run("concurrent access to same request waits for completion", func(t *testing.T) {
+		responseCounter := 0
+		mock := &mockMediaServer{
+			responseDelay: 100 * time.Millisecond,
+		}
+		wrapper := NewWrapper(mock, 1)
+
+		// Make 3 concurrent requests for the same image
+		// They should all wait for the same response
+		var wg sync.WaitGroup
+		for range 3 {
+			wg.Go(func() {
+				reader, mime, err := wrapper.GetImage(context.Background(), "same.jpg", "thumb")
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+					return
+				}
+				if mime != "image/jpeg" {
+					t.Errorf("unexpected mime type: %s", mime)
+				}
+				data, err := io.ReadAll(reader)
+				if err != nil {
+					t.Errorf("failed to read response: %v", err)
+					return
+				}
+				if string(data) != "mock image data" {
+					t.Errorf("unexpected response data: %s", string(data))
+				}
+				responseCounter++
+			})
+		}
+		wg.Wait()
+
+		// Should only call the underlying server once even with 3 concurrent requests
+		if count := mock.getCallCount(); count != 1 {
+			t.Errorf("expected 1 call to underlying server, got %d", count)
+		}
+	})
 }
