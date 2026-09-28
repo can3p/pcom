@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs sql-migrate (pinned in go.mod, run as `go tool sql-migrate`) with the
+# Runs sql-migrate (installed in the tools image, see tools/Dockerfile) with the
 # given arguments. dbconfig.yml reads the database from DATABASE_URL.
 #
 # Runs inside the tools container: use `make migrate`, `make migrate-status`,
@@ -14,4 +14,4 @@ fi
 : "${DATABASE_URL:?DATABASE_URL must be set}"
 
 cd "$(dirname "$0")"
-exec go tool sql-migrate "$@"
+exec sql-migrate "$@"
