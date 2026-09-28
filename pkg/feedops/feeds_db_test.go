@@ -2,6 +2,8 @@ package feedops_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -25,10 +27,64 @@ func TestSubscribeToFeed_InvalidURL(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDefaultRssReader(t *testing.T) {
+// TestDefaultRssReader_FetchesAndParsesFeed exercises the reader
+// DefaultRssReader wires together: given a subscribed feed backed by a real
+// HTTP server, its poller should fetch the RSS document, parse it and store
+// the item, not just construct without panicking.
+func TestDefaultRssReader_FetchesAndParsesFeed(t *testing.T) {
 	t.Parallel()
 
-	require.NotNil(t, feedops.DefaultRssReader(testdb.New(t).DB, fakestorage.New()))
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	const rssXML = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test feed description</description>
+    <item>
+      <title>Hello world</title>
+      <link>https://example.test/hello-world</link>
+      <description>hello</description>
+      <guid>https://example.test/hello-world</guid>
+    </item>
+  </channel>
+</rss>`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = w.Write([]byte(rssXML))
+	}))
+	t.Cleanup(srv.Close)
+
+	user, err := factory.User(ctx, db)
+	require.NoError(t, err)
+
+	require.NoError(t, feedops.SubscribeToFeed(ctx, db, user.ID, srv.URL))
+
+	rssReader := feedops.DefaultRssReader(db, fakestorage.New())
+
+	pollCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	done := make(chan struct{})
+	go func() {
+		rssReader.RunPoller(pollCtx)
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		items, err := feedops.GetRssFeedItems(ctx, db, user.ID)
+		return err == nil && len(items) == 1
+	}, 20*time.Second, 200*time.Millisecond, "DefaultRssReader should fetch and store the feed's item")
+
+	cancel()
+	<-done
+
+	items, err := feedops.GetRssFeedItems(ctx, db, user.ID)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "Hello world", items[0].Title)
 }
 
 func TestGetRssFeeds_LastImportedMap(t *testing.T) {

@@ -19,48 +19,6 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func TestGetFeedsToRefresh(t *testing.T) {
-	testDB := testdb.New(t)
-
-	ctx := context.Background()
-
-	user, err := testutil.CreateUser(ctx, testDB.DB, "test@example.com")
-	require.NoError(t, err)
-
-	pastTime := time.Now().Add(-1 * time.Hour)
-	futureTime := time.Now().Add(1 * time.Hour)
-
-	feed1, err := testutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed1", "Feed 1")
-	require.NoError(t, err)
-	feed1.NextFetchAt = null.TimeFrom(pastTime)
-	_, err = feed1.Update(ctx, testDB.DB, boil.Infer())
-	require.NoError(t, err)
-
-	feed2, err := testutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed2", "Feed 2")
-	require.NoError(t, err)
-	feed2.NextFetchAt = null.TimeFrom(futureTime)
-	_, err = feed2.Update(ctx, testDB.DB, boil.Infer())
-	require.NoError(t, err)
-
-	feed3, err := testutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed3", "Feed 3")
-	require.NoError(t, err)
-	feed3.NextFetchAt = null.TimeFrom(pastTime)
-	_, err = feed3.Update(ctx, testDB.DB, boil.Infer())
-	require.NoError(t, err)
-
-	_, err = testutil.CreateUserFeedSubscription(ctx, testDB.DB, user.ID, feed1.ID)
-	require.NoError(t, err)
-
-	_, err = testutil.CreateUserFeedSubscription(ctx, testDB.DB, user.ID, feed2.ID)
-	require.NoError(t, err)
-
-	feeds, err := feeder.GetFeedsToRefresh(ctx, testDB.DB)
-	require.NoError(t, err)
-
-	require.Len(t, feeds, 1, "Should only return feed1 (past time and has subscription)")
-	assert.Equal(t, feed1.ID, feeds[0].ID)
-}
-
 func TestSaveFetchFailure(t *testing.T) {
 	testDB := testdb.New(t)
 

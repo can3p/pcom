@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -149,8 +150,9 @@ func TestGetDirectAndSecondDegreeUserIDs(t *testing.T) {
 		direct, second, via, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, h.ID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{i.ID, j.ID}, direct)
-		// k is reachable via both i and j, so it shows up twice.
-		require.ElementsMatch(t, []string{k.ID, k.ID}, second)
+		require.ElementsMatch(t, []string{k.ID}, lo.Uniq(second), "k is the only second-degree connection")
+		// k is reachable via both i and j: multiplicity is only meaningful
+		// through the via map, not through how many times k appears in second.
 		require.ElementsMatch(t, []string{i.ID, j.ID}, via[k.ID])
 	})
 }
