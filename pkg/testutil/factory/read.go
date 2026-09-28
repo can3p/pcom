@@ -99,3 +99,13 @@ func WhitelistExists(ctx context.Context, exec boil.ContextExecutor, whoID, allo
 func ShareExists(ctx context.Context, exec boil.ContextExecutor, postID string) (bool, error) {
 	return core.PostShares(core.PostShareWhere.PostID.EQ(postID)).Exists(ctx, exec)
 }
+
+// SignupRequestExists reports whether a waiting-list request exists for email.
+func SignupRequestExists(ctx context.Context, exec boil.ContextExecutor, email string) (bool, error) {
+	return core.UserSignupRequests(core.UserSignupRequestWhere.Email.EQ(email)).Exists(ctx, exec)
+}
+
+// ListAPIKeys returns userID's API keys.
+func ListAPIKeys(ctx context.Context, exec boil.ContextExecutor, userID string) (core.UserAPIKeySlice, error) {
+	return core.UserAPIKeys(core.UserAPIKeyWhere.UserID.EQ(userID)).All(ctx, exec)
+}
