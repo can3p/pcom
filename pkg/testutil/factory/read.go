@@ -94,3 +94,8 @@ func WhitelistExists(ctx context.Context, exec boil.ContextExecutor, whoID, allo
 		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(allowsWhoID),
 	).Exists(ctx, exec)
 }
+
+// ShareExists reports whether postID has a share link.
+func ShareExists(ctx context.Context, exec boil.ContextExecutor, postID string) (bool, error) {
+	return core.PostShares(core.PostShareWhere.PostID.EQ(postID)).Exists(ctx, exec)
+}
