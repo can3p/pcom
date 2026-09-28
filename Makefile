@@ -1,4 +1,6 @@
-.PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace
+.PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace \
+	dev-up dev-down migrate migrate-status migrate-down migration generate psql db-reset seed seed-reset \
+	tools-shell migrate-prod
 
 PKG ?= ./...
 TAGS ?=
@@ -99,3 +101,72 @@ ui-trace:
 # `make model` lists the models, `make model T=User` prints one.
 model:
 	@tools/model.sh $(T)
+
+# Local stack (docker-compose.yml): Postgres on localhost:5442 and tommy (mail
+# sink on http://localhost:8811/ui/, S3 on localhost:9555). The database
+# targets run in the `tools` container against the compose database, as your
+# UID/GID so the files they write belong to you.
+#   make dev-up / dev-down          start or stop postgres and tommy
+#   make migrate                    apply migrations (migrate-status, migrate-down)
+#   make migration name=add_foo     create migrations/<timestamp>-add_foo.sql
+#   make generate                   regenerate pkg/model/core with sqlboiler
+#   make psql [ARGS="-c '...'"]     psql on the compose database
+#   make db-reset                   drop, recreate and migrate the dev database
+#   make seed / seed-reset          go run ./cmd/seed [--reset]
+#   make tools-shell [CMD='...']    bash in the tools container
+COMPOSE ?= docker compose
+export HOST_UID := $(shell id -u)
+export HOST_GID := $(shell id -g)
+TOOLS_RUN = $(COMPOSE) run --rm $(if $(shell [ -t 0 ] || echo notty),-T)
+TOOLS = $(TOOLS_RUN) tools
+
+dev-up:
+	$(COMPOSE) up -d --wait postgres tommy
+
+dev-down:
+	$(COMPOSE) --profile '*' down
+
+migrate:
+	$(TOOLS) ./sqlmigrate.sh up
+
+migrate-status:
+	$(TOOLS) ./sqlmigrate.sh status
+
+migrate-down:
+	$(TOOLS) ./sqlmigrate.sh down
+
+migration:
+	@test -n "$(name)" || { echo "usage: make migration name=add_foo" >&2; exit 1; }
+	$(TOOLS) ./sqlmigrate.sh new $(name)
+
+generate:
+	$(TOOLS) ./generate.sh
+
+psql:
+	$(TOOLS) bash -c 'exec psql "$$DATABASE_URL" "$$@"' psql $(ARGS)
+
+db-reset:
+	$(COMPOSE) up -d --wait postgres
+	$(COMPOSE) exec -T postgres sh -c 'dropdb -U "$$POSTGRES_USER" --if-exists --force "$$POSTGRES_DB" && createdb -U "$$POSTGRES_USER" "$$POSTGRES_DB"'
+	$(MAKE) migrate
+
+seed:
+	$(TOOLS) go run ./cmd/seed
+
+seed-reset:
+	$(TOOLS) go run ./cmd/seed --reset
+
+tools-shell:
+	$(TOOLS) bash $(if $(CMD),-c '$(CMD)')
+
+# Production migrations through the fly proxy tunnel: run `make tunnel` in
+# another terminal first. DATABASE_URL comes from ./env.pl (flyctl), pointed
+# at the tunnel from inside the container. On Linux the tunnel must listen on
+# an address the container can reach (flyctl proxy --bind-addr).
+migrate-prod:
+	@printf 'Apply migrations to the PRODUCTION database through the tunnel on :5433? [y/N] '; \
+	 read ans; [ "$$ans" = y ] || { echo aborted; exit 1; }
+	@DATABASE_URL=$$(./env.pl | sed -n 's/^DATABASE_URL=//p' | sed 's/@localhost:/@host.docker.internal:/'); \
+	 test -n "$$DATABASE_URL" || { echo "env.pl printed no DATABASE_URL" >&2; exit 1; }; \
+	 export DATABASE_URL; \
+	 $(TOOLS_RUN) --no-deps -e DATABASE_URL -e PGSSLMODE=disable tools ./sqlmigrate.sh up -env=production

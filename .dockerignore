@@ -1,0 +1,14 @@
+# Shared by the production Dockerfile (COPY . .) and tools/Dockerfile (which
+# copies nothing; the repository is mounted at run time).
+.git
+.github
+.claude
+.cover
+.ui-artifacts
+coverage.out
+**/node_modules
+cmd/web/dist
+cmd/web/.env
+.env
+env.pl
+docker-compose.yml

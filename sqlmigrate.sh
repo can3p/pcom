@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
+# Runs sql-migrate (pinned in go.mod, run as `go tool sql-migrate`) with the
+# given arguments. dbconfig.yml reads the database from DATABASE_URL.
+#
+# Runs inside the tools container: use `make migrate`, `make migrate-status`,
+# `make migrate-down`, `make migration name=...` or `make migrate-prod`.
+# PCOM_ALLOW_HOST_TOOLS=1 lets it run on the host (with DATABASE_URL set).
+set -euo pipefail
 
-# quick hack - if we run under run.sh, all vars are in the env already
-if [ -z "$DATABASE_URL" ]; then
-  set -a; source cmd/web/.env; set +a
+if [ -z "${PCOM_TOOLS_CONTAINER:-}" ] && [ "${PCOM_ALLOW_HOST_TOOLS:-}" != 1 ]; then
+  echo "sqlmigrate.sh runs in the tools container: use make migrate (or set PCOM_ALLOW_HOST_TOOLS=1)" >&2
+  exit 1
 fi
+: "${DATABASE_URL:?DATABASE_URL must be set}"
 
-FIELDS=$(echo $DATABASE_URL | awk '{n = split($0, arr, /[\/@:?]*/); for (i = 1; i <= n; ++i) { print arr[i] }}')
-DATABASE_PROTO=$( echo $FIELDS | awk '{ print $1 }')
-export POSTGRES_USER=$( echo $FIELDS | awk '{ print $2 }')
-export POSTGRES_PASSWORD=$( echo $FIELDS | awk '{ print $3 }')
-export POSTGRES_HOST=$( echo $FIELDS | awk '{ print $4 }')
-export POSTGRES_PORT=$( echo $FIELDS | awk '{ print $5 }')
-export POSTGRES_DB=$( echo $FIELDS | awk '{ print $6 }')
-
-sql-migrate $@
+cd "$(dirname "$0")"
+exec go tool sql-migrate "$@"
