@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -135,4 +136,9 @@ func TestAddFeedForm_SaveTrimsURL(t *testing.T) {
 	action, err := form.Save(c, db)
 	require.NoError(t, err)
 	require.NotNil(t, action)
+
+	feeds, err := feedops.GetRssFeeds(ctx, db, user.ID)
+	require.NoError(t, err)
+	require.Len(t, feeds, 1)
+	require.Equal(t, "https://example.com/feed.xml", feeds[0].URL)
 }

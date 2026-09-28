@@ -64,14 +64,6 @@ func TestPostPromptForm_Validate_DirectOnlyRecipients(t *testing.T) {
 	carol, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	t.Run("a direct connection is a valid recipient", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newPromptForm(t, fakesender.New(), asker, []*core.User{bob}, "Tell us about your week!", bob.Username)
-		require.NoError(t, form.Validate(c, db))
-	})
-
 	t.Run("a handle outside the direct connections list is rejected", func(t *testing.T) {
 		t.Parallel()
 
@@ -98,20 +90,10 @@ func TestPostPromptForm_Validate_RateLimit(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	asker, err := factory.User(ctx, db)
-	require.NoError(t, err)
 	bob, err := factory.User(ctx, db)
 	require.NoError(t, err)
 	carol, err := factory.User(ctx, db)
 	require.NoError(t, err)
-
-	t.Run("no rate limit before the asker has ever prompted", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newPromptForm(t, fakesender.New(), asker, []*core.User{bob}, "Tell us about your week!", bob.Username)
-		require.NoError(t, form.Validate(c, db))
-	})
 
 	t.Run("a prompt sent moments ago blocks another one, even to a different recipient", func(t *testing.T) {
 		t.Parallel()

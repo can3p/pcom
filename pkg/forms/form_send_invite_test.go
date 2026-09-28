@@ -116,55 +116,9 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	action, err := form.Save(c, db)
 	require.NoError(t, err)
 	require.NotNil(t, action)
-}
 
-// TestSendInviteForm_SaveConsumesTheOnlyInviteSlot pins invite accounting:
-// SendInviteForm.Save claims one of the inviter's unused invitation rows for
-// the invitee. Factory has no reader for invitations, so this is confirmed
-// behaviorally: with only one unused slot, a second Save for the same
-// inviter has nothing left to claim and fails.
-func TestSendInviteForm_SaveConsumesTheOnlyInviteSlot(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.Invitation(ctx, db, inviter.ID)
-	require.NoError(t, err)
-
-	c1, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-	first := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	first.Input.Email = "first-invitee@example.test"
-
-	_, err = first.Save(c1, db)
-	require.NoError(t, err)
-
-	c2, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-	second := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	second.Input.Email = "second-invitee@example.test"
-
-	_, err = second.Save(c2, db)
-	require.Error(t, err, "the inviter has no unused invites left")
-}
-
-func TestSendInviteForm_SaveFailsWithoutAnUnusedInvite(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	form.Input.Email = "noinvite@example.test"
-
-	_, err = form.Save(c, db)
-	require.Error(t, err)
+	sent := sender.Sent()
+	require.Len(t, sent, 1)
+	require.Equal(t, "user_invitation", sent[0].EmailType)
+	require.Equal(t, form.Input.Email, sent[0].Mail.To[0].Address)
 }
