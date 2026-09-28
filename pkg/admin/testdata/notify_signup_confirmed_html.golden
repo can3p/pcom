@@ -1,0 +1,9 @@
+
+	<p>Hi!</p>
+
+	<p>New conrirmed user alert:</p>
+
+	<ul>
+		<li>ID: [UUID]</li>
+		<li>Email: user3@example.test</li>
+	</ul>
