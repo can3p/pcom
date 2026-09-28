@@ -75,5 +75,9 @@ Raised by the 2026-09-21 modernization survey.
 - **2026-09-24. Browser tests:** playwright-go in `e2e/browser`, behind a
   build tag, reusing the E2E harness and the factories (W6). No pixel
   snapshots until browsers run in the tools container.
+- **2026-09-28. Q15, profile visibility and public posts:** a public post
+  is visible to everybody at `/posts/:id`, whatever the author's profile
+  visibility. Such posts must not appear in the public posts feed (#146),
+  which respects profile visibility.
 - **2026-09-26. Q14, E2E coverage in CI:** CI runs `make cover`, so Codecov
   gets the merged unit and E2E coverage, `cmd/web` included.

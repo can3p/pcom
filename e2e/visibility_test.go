@@ -361,9 +361,9 @@ type e1PostKey struct {
 // for connections of connections, direct_only for direct connections; the
 // author sees everything. A draft is the author's alone.
 //
-// The profile's visibility plays no part at /posts/:id today (unlike the
-// journal, RSS and explore). The cells where that shows are pinned as
-// characterization and reported as an open question.
+// The profile's visibility plays no part at /posts/:id (unlike the journal,
+// RSS and explore): a public post is visible to everybody, by decision
+// (docs/open-questions.md, 2026-09-28).
 func TestE1SinglePostMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -421,7 +421,7 @@ func TestE1SinglePostMatrix(t *testing.T) {
 		{e1Author, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, e1Published, e1Visible, ""},
 		{e1Author, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, e1Published, e1Visible, ""},
 		// registered profile
-		{e1Anon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, e1Published, e1Visible, ""}, // profile visibility is not checked: characterization, reported
+		{e1Anon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, e1Published, e1Visible, ""}, // a public post is public whatever the profile visibility
 		{e1Anon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, e1Published, e1NeedsLogin, ""},
 		{e1Anon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, e1Published, e1NeedsLogin, ""},
 		{e1Unrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, e1Published, e1Visible, ""},
@@ -437,10 +437,10 @@ func TestE1SinglePostMatrix(t *testing.T) {
 		{e1Author, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, e1Published, e1Visible, ""},
 		{e1Author, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, e1Published, e1Visible, ""},
 		// connections profile
-		{e1Anon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, e1Published, e1Visible, ""}, // profile visibility is not checked: characterization, reported
+		{e1Anon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, e1Published, e1Visible, ""}, // a public post is public whatever the profile visibility
 		{e1Anon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, e1Published, e1NeedsLogin, ""},
 		{e1Anon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, e1Published, e1NeedsLogin, ""},
-		{e1Unrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, e1Published, e1Visible, ""}, // profile visibility is not checked: characterization, reported
+		{e1Unrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, e1Published, e1Visible, ""}, // a public post is public whatever the profile visibility
 		{e1Unrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, e1Published, e1NotFound, ""},
 		{e1Unrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, e1Published, e1NotFound, ""},
 		{e1Second, core.ProfileVisibilityConnections, core.PostVisibilityPublic, e1Published, e1Visible, ""},
