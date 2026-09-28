@@ -22,13 +22,13 @@ func TestAcceptInviteForm_ValidateEmptyUsername(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = ""
 	form.Input.Password = "ValidPassword123!"
 
@@ -45,17 +45,17 @@ func TestAcceptInviteForm_ValidateExistingUsername(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofExistingUser, err := factory.User(ctx, db)
+	existingUser, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
-	form.Input.Username = ofExistingUser.Username
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
+	form.Input.Username = existingUser.Username
 	form.Input.Password = "ValidPassword123!"
 
 	err = form.Validate(c, db)
@@ -71,13 +71,13 @@ func TestAcceptInviteForm_ValidateEmptyPassword(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = ""
 
@@ -94,13 +94,13 @@ func TestAcceptInviteForm_ValidateInvalidPasswordFormat(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "short"
 
@@ -117,13 +117,13 @@ func TestAcceptInviteForm_ValidateInvalidUsernameFormat(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "1abc"
 	form.Input.Password = "ValidPassword123!"
 
@@ -140,13 +140,13 @@ func TestAcceptInviteForm_ValidateSuccess(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
@@ -162,13 +162,13 @@ func TestAcceptInviteForm_SaveCreatesUserAndConnection(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
@@ -179,15 +179,15 @@ func TestAcceptInviteForm_SaveCreatesUserAndConnection(t *testing.T) {
 	// AcceptInvite stamps f.Invite (the same *core.UserInvitation the test
 	// built with the factory) with the new user's id; factory has no
 	// by-email user reader, so that field is how the test gets it.
-	require.True(t, ofInvite.CreatedUserID.Valid)
+	require.True(t, invite.CreatedUserID.Valid)
 
-	ofNewUser, err := factory.GetUser(ctx, db, ofInvite.CreatedUserID.String)
+	newUser, err := factory.GetUser(ctx, db, invite.CreatedUserID.String)
 	require.NoError(t, err)
-	require.Equal(t, "newuser", ofNewUser.Username)
+	require.Equal(t, "newuser", newUser.Username)
 
-	ofConnectionExists, err := factory.ConnectionExists(ctx, db, ofInviter.ID, ofNewUser.ID)
+	connectionExists, err := factory.ConnectionExists(ctx, db, inviter.ID, newUser.ID)
 	require.NoError(t, err)
-	require.True(t, ofConnectionExists)
+	require.True(t, connectionExists)
 }
 
 func TestAcceptInviteForm_SaveFailsWithEmptyPassword(t *testing.T) {
@@ -198,15 +198,15 @@ func TestAcceptInviteForm_SaveFailsWithEmptyPassword(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
 	// Save doesn't re-run Validate, so calling it directly with an empty
 	// password reaches auth.AcceptInvite's own "Not enough data" guard.
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = ""
 
@@ -222,13 +222,13 @@ func TestAcceptInviteForm_SaveLogsInUser(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
@@ -250,24 +250,24 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofInvite, err := factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("newuser@example.test"))
+	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test"))
 	require.NoError(t, err)
 
-	form := forms.AcceptInviteFormNew(sender, ofInvite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
 	_, err = form.Save(c, db)
 	require.NoError(t, err)
-	require.True(t, ofInvite.CreatedUserID.Valid)
+	require.True(t, invite.CreatedUserID.Valid)
 
-	ofNewUser, err := factory.GetUser(ctx, db, ofInvite.CreatedUserID.String)
+	newUser, err := factory.GetUser(ctx, db, invite.CreatedUserID.String)
 	require.NoError(t, err)
 
-	sendInvite := forms.SendInviteFormNew(sender, ofNewUser).(*forms.SendInviteForm)
+	sendInvite := forms.SendInviteFormNew(sender, newUser).(*forms.SendInviteForm)
 	sendInvite.Input.Email = "invitee-of-invitee@example.test"
 
 	sendC, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)

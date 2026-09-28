@@ -51,13 +51,13 @@ func TestLoginForm_ValidateInvalidCredentials(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	ofExistingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
 	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Password = "wrongpassword"
 
 	err = form.Validate(c, db)
@@ -70,13 +70,13 @@ func TestLoginForm_ValidateValidCredentials(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	ofExistingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
 	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Password = "correctpassword"
 
 	err = form.Validate(c, db)
@@ -89,13 +89,13 @@ func TestLoginForm_SaveLogsInUser(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	ofExistingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
 	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Password = "correctpassword"
 	form.Input.ReturnURL = ""
 
@@ -103,7 +103,7 @@ func TestLoginForm_SaveLogsInUser(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
-	require.Equal(t, ofExistingUser.ID, sessions.Default(c).Get("user"))
+	require.Equal(t, existingUser.ID, sessions.Default(c).Get("user"))
 }
 
 func TestLoginForm_SaveFailsWithWrongPassword(t *testing.T) {
@@ -112,7 +112,7 @@ func TestLoginForm_SaveFailsWithWrongPassword(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	ofExistingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
@@ -120,7 +120,7 @@ func TestLoginForm_SaveFailsWithWrongPassword(t *testing.T) {
 	// Save doesn't re-run Validate, so calling it directly with the wrong
 	// password reaches auth.Login's own bad-credentials error path.
 	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Password = "wrongpassword"
 
 	_, err = form.Save(c, db)
@@ -133,13 +133,13 @@ func TestLoginForm_SaveRedirectsToSignedReturnURL(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	ofExistingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
 	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Password = "correctpassword"
 	form.Input.ReturnURL = "/feed"
 	form.Input.Sign = auth.HashValue(form.Input.ReturnURL)

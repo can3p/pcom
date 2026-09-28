@@ -22,22 +22,22 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-// errFeedInjectedQuery is the error a feedFailingExecutor reports once its query
+// errFeedInjectedQuery is the error a failingExecutor reports once its query
 // budget runs out.
 var errFeedInjectedQuery = errors.New("feed: injected query failure")
 
-// feedFailingExecutor wraps a boil.ContextExecutor and lets exactly
+// failingExecutor wraps a boil.ContextExecutor and lets exactly
 // failAfter queries through before failing every one after that. It exists
 // to reach a handler's "return mo.Err(err)" branches, which a real database
 // only takes on an actual failure, without the test body calling the ORM
 // directly.
-type feedFailingExecutor struct {
+type failingExecutor struct {
 	boil.ContextExecutor
 	calls     int
 	failAfter int
 }
 
-func (e *feedFailingExecutor) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (e *failingExecutor) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	e.calls++
 	if e.calls > e.failAfter {
 		return nil, errFeedInjectedQuery
@@ -45,7 +45,7 @@ func (e *feedFailingExecutor) QueryContext(ctx context.Context, query string, ar
 	return e.ContextExecutor.QueryContext(ctx, query, args...)
 }
 
-func (e *feedFailingExecutor) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	e.calls++
 	if e.calls > e.failAfter {
 		// *sql.Row carries no exported way to inject an error directly, so
@@ -56,15 +56,15 @@ func (e *feedFailingExecutor) QueryRowContext(ctx context.Context, query string,
 	return e.ContextExecutor.QueryRowContext(ctx, query, args...)
 }
 
-// feedUserData wraps u as a logged-in *auth.UserData, the way auth.Auth
+// userDataFor wraps u as a logged-in *auth.UserData, the way auth.Auth
 // would for a signed-in request.
-func feedUserData(u *core.User) *auth.UserData {
+func userDataFor(u *core.User) *auth.UserData {
 	return &auth.UserData{DBUser: u, IsLoggedIn: true}
 }
 
-// feedCtx returns a *gin.Context for method/target with no body, wired the
+// newTestContext returns a *gin.Context for method/target with no body, wired the
 // way a real request is.
-func feedCtx(t *testing.T, method, target string) *gin.Context {
+func newTestContext(t *testing.T, method, target string) *gin.Context {
 	t.Helper()
 	c, _ := ginctx.New(t, method, target, nil)
 	return c
@@ -74,9 +74,9 @@ func TestIndex(t *testing.T) {
 	t.Parallel()
 
 	user := &core.User{ID: "u1", Username: "someone"}
-	c := feedCtx(t, http.MethodGet, "/")
+	c := newTestContext(t, http.MethodGet, "/")
 
-	page := Index(c, nil, feedUserData(user))
+	page := Index(c, nil, userDataFor(user))
 
 	require.Equal(t, "Social network for private groups", page.Name)
 	require.Equal(t, user, page.User.DBUser)
@@ -85,9 +85,9 @@ func TestIndex(t *testing.T) {
 func TestLogin(t *testing.T) {
 	t.Parallel()
 
-	c := feedCtx(t, http.MethodGet, "/login")
+	c := newTestContext(t, http.MethodGet, "/login")
 
-	page := Login(c, nil, feedUserData(nil), "/feed", "sig123")
+	page := Login(c, nil, userDataFor(nil), "/feed", "sig123")
 
 	require.Equal(t, "Login", page.Name)
 	require.Equal(t, "/feed", page.ReturnURL)
@@ -106,9 +106,9 @@ func TestInvite(t *testing.T) {
 	invite, err := factory.Invitation(ctx, db, inviter.ID)
 	require.NoError(t, err)
 
-	c := feedCtx(t, http.MethodGet, "/invite/"+invite.ID)
+	c := newTestContext(t, http.MethodGet, "/invite/"+invite.ID)
 
-	page := Invite(c, db, invite, feedUserData(nil))
+	page := Invite(c, db, invite, userDataFor(nil))
 
 	require.Equal(t, "Accept Invitation", page.Name)
 	require.Equal(t, invite.ID, page.Invite.ID)
@@ -131,18 +131,18 @@ func TestWrite(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no prompt query param", func(t *testing.T) {
-		c := feedCtx(t, http.MethodGet, "/write")
+		c := newTestContext(t, http.MethodGet, "/write")
 
-		res := Write(c, db, feedUserData(recipient))
+		res := Write(c, db, userDataFor(recipient))
 		page, err := res.Get()
 		require.NoError(t, err)
 		require.Nil(t, page.Prompt)
 	})
 
 	t.Run("prompt belongs to the recipient", func(t *testing.T) {
-		c := feedCtx(t, http.MethodGet, "/write?prompt="+prompt.ID)
+		c := newTestContext(t, http.MethodGet, "/write?prompt="+prompt.ID)
 
-		res := Write(c, db, feedUserData(recipient))
+		res := Write(c, db, userDataFor(recipient))
 		page, err := res.Get()
 		require.NoError(t, err)
 		require.NotNil(t, page.Prompt)
@@ -153,9 +153,9 @@ func TestWrite(t *testing.T) {
 		stranger, err := factory.User(ctx, db)
 		require.NoError(t, err)
 
-		c := feedCtx(t, http.MethodGet, "/write?prompt="+prompt.ID)
+		c := newTestContext(t, http.MethodGet, "/write?prompt="+prompt.ID)
 
-		res := Write(c, db, feedUserData(stranger))
+		res := Write(c, db, userDataFor(stranger))
 		page, err := res.Get()
 		require.NoError(t, err)
 		require.Nil(t, page.Prompt)
@@ -187,9 +187,9 @@ func TestEditPost(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("author can edit", func(t *testing.T) {
-		c := feedCtx(t, http.MethodGet, "/posts/"+post.ID+"/edit")
+		c := newTestContext(t, http.MethodGet, "/posts/"+post.ID+"/edit")
 
-		res := EditPost(c, db, feedUserData(author), post.ID)
+		res := EditPost(c, db, userDataFor(author), post.ID)
 		page, err := res.Get()
 		require.NoError(t, err)
 
@@ -204,17 +204,17 @@ func TestEditPost(t *testing.T) {
 	})
 
 	t.Run("stranger cannot edit", func(t *testing.T) {
-		c := feedCtx(t, http.MethodGet, "/posts/"+post.ID+"/edit")
+		c := newTestContext(t, http.MethodGet, "/posts/"+post.ID+"/edit")
 
-		res := EditPost(c, db, feedUserData(stranger), post.ID)
+		res := EditPost(c, db, userDataFor(stranger), post.ID)
 		require.True(t, res.IsError())
 		require.ErrorIs(t, res.Error(), ginhelpers.ErrForbidden)
 	})
 
 	t.Run("missing post", func(t *testing.T) {
-		c := feedCtx(t, http.MethodGet, "/posts/missing/edit")
+		c := newTestContext(t, http.MethodGet, "/posts/missing/edit")
 
-		res := EditPost(c, db, feedUserData(author), "0190a0a0-0000-7000-8000-000000000000")
+		res := EditPost(c, db, userDataFor(author), "0190a0a0-0000-7000-8000-000000000000")
 		require.True(t, res.IsError())
 		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 	})
@@ -298,9 +298,9 @@ func TestControls(t *testing.T) {
 	_, err = factory.MediationRequest(ctx, db, stranger2.ID, user.ID)
 	require.NoError(t, err)
 
-	c := feedCtx(t, http.MethodGet, "/controls")
+	c := newTestContext(t, http.MethodGet, "/controls")
 
-	res := Controls(c, db, feedUserData(user))
+	res := Controls(c, db, userDataFor(user))
 	page, err := res.Get()
 	require.NoError(t, err)
 
@@ -337,10 +337,10 @@ func TestSettings(t *testing.T) {
 	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	c := feedCtx(t, http.MethodGet, "/controls/settings")
+	c := newTestContext(t, http.MethodGet, "/controls/settings")
 
 	// baseline: no invites, no api key, no custom style, no feeds.
-	res := Settings(c, db, feedUserData(user))
+	res := Settings(c, db, userDataFor(user))
 	page, err := res.Get()
 	require.NoError(t, err)
 
@@ -376,7 +376,7 @@ func TestSettings(t *testing.T) {
 	_, err = factory.RSSFeed(ctx, db)
 	require.NoError(t, err)
 
-	res = Settings(c, db, feedUserData(user))
+	res = Settings(c, db, userDataFor(user))
 	page, err = res.Get()
 	require.NoError(t, err)
 
@@ -434,9 +434,9 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 	strangerPost, err := factory.Post(ctx, db, stranger.ID, factory.Published())
 	require.NoError(t, err)
 
-	c := feedCtx(t, http.MethodGet, "/feed")
+	c := newTestContext(t, http.MethodGet, "/feed")
 
-	res := Feed(c, db, feedUserData(user), true)
+	res := Feed(c, db, userDataFor(user), true)
 	page, err := res.Get()
 	require.NoError(t, err)
 
@@ -500,9 +500,9 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	post, err := factory.Post(ctx, db, direct.ID, factory.Published())
 	require.NoError(t, err)
 
-	c := feedCtx(t, http.MethodGet, "/feed")
+	c := newTestContext(t, http.MethodGet, "/feed")
 
-	res := Feed(c, db, feedUserData(user), false)
+	res := Feed(c, db, userDataFor(user), false)
 	page, err := res.Get()
 	require.NoError(t, err)
 	require.Empty(t, page.RSSFeed, "no private feed link without an api key")
@@ -515,7 +515,7 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	require.NotNil(t, page.Items[2].FeedItem)
 	require.Equal(t, rssItem.Title, page.Items[2].FeedItem.Title)
 
-	onlyPostsRes := Feed(c, db, feedUserData(user), true)
+	onlyPostsRes := Feed(c, db, userDataFor(user), true)
 	onlyPostsPage, err := onlyPostsRes.Get()
 	require.NoError(t, err)
 	require.Nil(t, onlyPostsPage.BasePage, "onlyPosts skips the rest of page composition")
@@ -525,7 +525,7 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	apiKey, err := factory.APIKey(ctx, db, user.ID)
 	require.NoError(t, err)
 
-	withKeyRes := Feed(c, db, feedUserData(user), false)
+	withKeyRes := Feed(c, db, userDataFor(user), false)
 	withKeyPage, err := withKeyRes.Get()
 	require.NoError(t, err)
 	require.Equal(t, links.Link("private_user_feed", apiKey.APIKey), withKeyPage.RSSFeed)
@@ -611,7 +611,7 @@ func TestGetComments_QueryErrorsPropagate(t *testing.T) {
 		{"direct user ids lookup fails", 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			exec := &feedFailingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
+			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
 
 			_, err := getComments(ctx, exec, user.ID)
 			require.ErrorIs(t, err, errFeedInjectedQuery)
@@ -628,7 +628,7 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	c := feedCtx(t, http.MethodGet, "/controls/settings")
+	c := newTestContext(t, http.MethodGet, "/controls/settings")
 
 	for _, tc := range []struct {
 		name      string
@@ -639,9 +639,9 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 		{"api key lookup fails", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			exec := &feedFailingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
+			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
 
-			res := Settings(c, exec, feedUserData(user))
+			res := Settings(c, exec, userDataFor(user))
 			require.True(t, res.IsError())
 		})
 	}

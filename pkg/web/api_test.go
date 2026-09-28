@@ -71,10 +71,10 @@ func TestApiDeletePost_OnlyAuthorCanDelete(t *testing.T) {
 	require.False(t, postExists(), "the author should be able to delete their post")
 }
 
-// apiNewGetContext builds a *gin.Context for an ApiGetPosts call against
+// newGetContext builds a *gin.Context for an ApiGetPosts call against
 // target (which may include a query string), the way c.ShouldBind reads GET
 // query parameters.
-func apiNewGetContext() func(target string) *gin.Context {
+func newGetContext() func(target string) *gin.Context {
 	return func(target string) *gin.Context {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		c.Request = httptest.NewRequest(http.MethodGet, target, nil)
@@ -89,7 +89,7 @@ func TestApiGetPosts_EmptyResults(t *testing.T) {
 	user, err := factory.User(ctx, testDB.DB)
 	require.NoError(t, err)
 
-	newCtx := apiNewGetContext()
+	newCtx := newGetContext()
 
 	res := web.ApiGetPosts(newCtx("/api/v1/posts"), testDB.DB, user.ID)
 	require.True(t, res.IsOk())
@@ -106,14 +106,14 @@ func TestApiGetPosts_LimitClamping(t *testing.T) {
 	user, err := factory.User(ctx, testDB.DB)
 	require.NoError(t, err)
 
-	const apiTotalPosts = web.GetPostsLimitMax + 5
+	const totalPosts = web.GetPostsLimitMax + 5
 
-	for range apiTotalPosts {
+	for range totalPosts {
 		_, err := factory.Post(ctx, testDB.DB, user.ID)
 		require.NoError(t, err)
 	}
 
-	newCtx := apiNewGetContext()
+	newCtx := newGetContext()
 
 	// limit <= 0 is clamped up to 1.
 	res := web.ApiGetPosts(newCtx("/api/v1/posts?limit=0"), testDB.DB, user.ID)
@@ -144,7 +144,7 @@ func TestApiGetPosts_Cursor(t *testing.T) {
 	p3, err := factory.Post(ctx, testDB.DB, user.ID)
 	require.NoError(t, err)
 
-	newCtx := apiNewGetContext()
+	newCtx := newGetContext()
 
 	res := web.ApiGetPosts(newCtx("/api/v1/posts?limit=2"), testDB.DB, user.ID)
 	require.True(t, res.IsOk())
@@ -172,26 +172,26 @@ func TestApiGetPosts_UpdatedSince(t *testing.T) {
 	post, err := factory.Post(ctx, testDB.DB, user.ID)
 	require.NoError(t, err)
 
-	newCtx := apiNewGetContext()
+	newCtx := newGetContext()
 
 	// A threshold far in the past includes the post, and one far in the
 	// future excludes it. These stay clear of the known boundary bug
 	// below (a few hours either way don't flip either outcome).
 	longAgo := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
-	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+apiFormatUnix(longAgo)), testDB.DB, user.ID)
+	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(longAgo)), testDB.DB, user.ID)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 1)
 	require.Equal(t, post.ID, resp.Posts[0].ID)
 
 	farFuture := time.Now().Add(24 * time.Hour).Unix()
-	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+apiFormatUnix(farFuture)), testDB.DB, user.ID)
+	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(farFuture)), testDB.DB, user.ID)
 	require.True(t, res.IsOk())
 	resp = res.MustGet()
 	require.Empty(t, resp.Posts)
 }
 
-// apiUpdatedSinceBoundaryBug describes a real bug found while pinning
+// updatedSinceBoundaryBug describes a real bug found while pinning
 // ApiGetPosts's updated_since filter, reported to the coordinator to file:
 // ApiGetPosts builds time.Unix(updated_since, 0), which is a time.Time in
 // the process's local zone, and compares it against the "updated_at" column
@@ -199,13 +199,13 @@ func TestApiGetPosts_UpdatedSince(t *testing.T) {
 // shifts by the host's UTC offset: a post updated a minute after the
 // threshold can be wrongly excluded (reproduced on a host running two hours
 // ahead of UTC).
-const apiUpdatedSinceBoundaryBug = "known bug #156: ApiGetPosts's updated_since filter is timezone-dependent: " +
+const updatedSinceBoundaryBug = "known bug #156: ApiGetPosts's updated_since filter is timezone-dependent: " +
 	"time.Unix(updated_since, 0) is compared against the updated_at column (a timestamp with no time " +
 	"zone) using the process's local zone, so outside UTC the threshold is off by the host's UTC " +
 	"offset and a post updated shortly after the threshold can be wrongly excluded"
 
 func TestApiGetPosts_UpdatedSince_Boundary(t *testing.T) {
-	t.Skip(apiUpdatedSinceBoundaryBug)
+	t.Skip(updatedSinceBoundaryBug)
 
 	testDB := testdb.New(t)
 	ctx := context.Background()
@@ -219,29 +219,29 @@ func TestApiGetPosts_UpdatedSince_Boundary(t *testing.T) {
 	saved, err := factory.GetPost(ctx, testDB.DB, post.ID)
 	require.NoError(t, err)
 
-	newCtx := apiNewGetContext()
+	newCtx := newGetContext()
 
 	before := saved.UpdatedAt.Time.Add(-time.Minute).Unix()
-	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+apiFormatUnix(before)), testDB.DB, user.ID)
+	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(before)), testDB.DB, user.ID)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 1)
 	require.Equal(t, post.ID, resp.Posts[0].ID)
 
 	after := saved.UpdatedAt.Time.Add(time.Minute).Unix()
-	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+apiFormatUnix(after)), testDB.DB, user.ID)
+	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(after)), testDB.DB, user.ID)
 	require.True(t, res.IsOk())
 	resp = res.MustGet()
 	require.Empty(t, resp.Posts)
 }
 
-func apiFormatUnix(u int64) string {
+func formatUnix(u int64) string {
 	return strconv.FormatInt(u, 10)
 }
 
-// apiJSONContext builds a *gin.Context for a POST/PUT with a JSON body, the
+// jsonContext builds a *gin.Context for a POST/PUT with a JSON body, the
 // way c.BindJSON reads it (it ignores the Content-Type header).
-func apiJSONContext(t *testing.T, target string, body any) *gin.Context {
+func jsonContext(t *testing.T, target string, body any) *gin.Context {
 	t.Helper()
 
 	raw, err := json.Marshal(body)
@@ -266,7 +266,7 @@ func TestApiNewPost_Publish(t *testing.T) {
 
 	sender := fakesender.New()
 
-	c := apiJSONContext(t, "/api/v1/posts", &web.ApiPost{
+	c := jsonContext(t, "/api/v1/posts", &web.ApiPost{
 		Subject:     "Hello world",
 		MdBody:      "some **body**",
 		Visibility:  core.PostVisibilityPublic,
@@ -304,7 +304,7 @@ func TestApiNewPost_Draft(t *testing.T) {
 
 	sender := fakesender.New()
 
-	c := apiJSONContext(t, "/api/v1/posts", &web.ApiPost{
+	c := jsonContext(t, "/api/v1/posts", &web.ApiPost{
 		Subject:     "Draft subject",
 		MdBody:      "draft body",
 		Visibility:  core.PostVisibilityDirectOnly,
@@ -338,7 +338,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 
 	sender := fakesender.New()
 
-	c := apiJSONContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
+	c := jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
 		MdBody:      "edited body",
 		Visibility:  core.PostVisibilityPublic,
@@ -361,7 +361,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 
 	// Editing again with is_published=false moves the post back to draft
 	// and does not send a second round of notifications.
-	c = apiJSONContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
+	c = jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
 		MdBody:      "edited body",
 		Visibility:  core.PostVisibilityPublic,
@@ -386,7 +386,7 @@ func TestApiEditPost_UnknownPost(t *testing.T) {
 
 	sender := fakesender.New()
 
-	c := apiJSONContext(t, "/api/v1/posts/unknown", &web.ApiPost{
+	c := jsonContext(t, "/api/v1/posts/unknown", &web.ApiPost{
 		Subject: "x",
 		MdBody:  "y",
 	})
@@ -396,9 +396,9 @@ func TestApiEditPost_UnknownPost(t *testing.T) {
 	require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 }
 
-// apiPNGBytes is a minimal, valid one-pixel PNG file, enough for
+// pngBytes is a minimal, valid one-pixel PNG file, enough for
 // http.DetectContentType to report "image/png".
-var apiPNGBytes = []byte{
+var pngBytes = []byte{
 	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
 	0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
 	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -410,10 +410,10 @@ var apiPNGBytes = []byte{
 	0x44, 0xAE, 0x42, 0x60, 0x82,
 }
 
-// apiMultipartFileContext builds a *gin.Context for a POST carrying a single
+// multipartFileContext builds a *gin.Context for a POST carrying a single
 // multipart file field named "file", the way c.FormFile reads it. An empty
 // fieldName skips attaching any file, to exercise the missing-file path.
-func apiMultipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Context {
+func multipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Context {
 	t.Helper()
 
 	var buf bytes.Buffer
@@ -444,7 +444,7 @@ func TestApiUploadImage_Success(t *testing.T) {
 
 	storage := fakestorage.New()
 
-	c := apiMultipartFileContext(t, "file", apiPNGBytes)
+	c := multipartFileContext(t, "file", pngBytes)
 
 	res := web.ApiUploadImage(c, testDB.DB, user, storage)
 	require.True(t, res.IsOk())
@@ -465,7 +465,7 @@ func TestApiUploadImage_MissingFile(t *testing.T) {
 
 	storage := fakestorage.New()
 
-	c := apiMultipartFileContext(t, "", nil)
+	c := multipartFileContext(t, "", nil)
 
 	res := web.ApiUploadImage(c, testDB.DB, user, storage)
 	require.True(t, res.IsError())
@@ -480,7 +480,7 @@ func TestApiUploadImage_UnsupportedType(t *testing.T) {
 
 	storage := fakestorage.New()
 
-	c := apiMultipartFileContext(t, "file", []byte("just some plain text, not an image"))
+	c := multipartFileContext(t, "file", []byte("just some plain text, not an image"))
 
 	res := web.ApiUploadImage(c, testDB.DB, user, storage)
 	require.True(t, res.IsError())

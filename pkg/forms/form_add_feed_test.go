@@ -19,10 +19,10 @@ func TestAddFeedForm_ValidateEmptyURL(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = ""
 
 	err = form.Validate(c, db)
@@ -37,10 +37,10 @@ func TestAddFeedForm_ValidateInvalidURL(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = "not-a-valid-url"
 
 	err = form.Validate(c, db)
@@ -55,10 +55,10 @@ func TestAddFeedForm_ValidateNoProtocol(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = "example.com/feed.xml"
 
 	err = form.Validate(c, db)
@@ -73,10 +73,10 @@ func TestAddFeedForm_ValidateValidHTTPURL(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = "http://example.com/feed.xml"
 
 	err = form.Validate(c, db)
@@ -90,10 +90,10 @@ func TestAddFeedForm_ValidateValidHTTPSURL(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = "https://example.com/feed.xml"
 
 	err = form.Validate(c, db)
@@ -107,12 +107,12 @@ func TestAddFeedForm_SaveFailsOnBlankURL(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
 	// Save doesn't re-run Validate, so calling it directly with a
 	// whitespace-only URL reaches feedops.SubscribeToFeed's own error path.
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = "   "
 
 	_, err = form.Save(c, db)
@@ -126,10 +126,10 @@ func TestAddFeedForm_SaveTrimsURL(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.NewAddFeedForm(ofUser)
+	form := forms.NewAddFeedForm(user)
 	form.Input.URL = "  https://example.com/feed.xml  "
 
 	action, err := form.Save(c, db)

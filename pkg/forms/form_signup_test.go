@@ -38,11 +38,11 @@ func TestSignupForm_ValidateExistingEmail(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
 
-	ofExistingUser, err := factory.User(ctx, db)
+	existingUser, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
 	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
@@ -76,12 +76,12 @@ func TestSignupForm_ValidateExistingUsername(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
 
-	ofExistingUser, err := factory.User(ctx, db)
+	existingUser, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
 	form := forms.SignupFormNew(sender).(*forms.SignupForm)
 	form.Input.Email = "valid@example.test"
-	form.Input.Username = ofExistingUser.Username
+	form.Input.Username = existingUser.Username
 	form.Input.Password = "ValidPassword123!"
 
 	err = form.Validate(c, db)
@@ -173,14 +173,14 @@ func TestSignupForm_SaveCreatesUserAndSendsEmail(t *testing.T) {
 	_, err := form.Save(ctx, db)
 	require.NoError(t, err)
 
-	ofNewUser, err := factory.GetUser(ctx, db, form.Input.Email)
+	newUser, err := factory.GetUser(ctx, db, form.Input.Email)
 	require.NoError(t, err)
-	require.Equal(t, "newuser", ofNewUser.Username)
-	require.Equal(t, "unknown", ofNewUser.SignupAttribution.String)
+	require.Equal(t, "newuser", newUser.Username)
+	require.Equal(t, "unknown", newUser.SignupAttribution.String)
 
-	ofEmails, err := factory.ListOutgoingEmails(ctx, db)
+	emails, err := factory.ListOutgoingEmails(ctx, db)
 	require.NoError(t, err)
-	require.Len(t, ofEmails, 1)
+	require.Len(t, emails, 1)
 }
 
 func TestSignupForm_SaveFailsOnDuplicateEmail(t *testing.T) {
@@ -190,13 +190,13 @@ func TestSignupForm_SaveFailsOnDuplicateEmail(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	ofExistingUser, err := factory.User(ctx, db)
+	existingUser, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
 	// Save doesn't re-run Validate, so calling it directly with an
 	// already-used email reaches auth.Signup's own unique-constraint error.
 	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 

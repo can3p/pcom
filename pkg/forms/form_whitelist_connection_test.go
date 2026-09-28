@@ -19,10 +19,10 @@ func TestWhitelistConnection_ValidateEmptyUsername(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser).(*forms.WhitelistConnection)
+	form := forms.WhitelistConnectionNew(user).(*forms.WhitelistConnection)
 	form.Input.Username = ""
 
 	err = form.Validate(c, db)
@@ -37,11 +37,11 @@ func TestWhitelistConnection_ValidateOwnUsername(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser).(*forms.WhitelistConnection)
-	form.Input.Username = ofUser.Username
+	form := forms.WhitelistConnectionNew(user).(*forms.WhitelistConnection)
+	form.Input.Username = user.Username
 
 	err = form.Validate(c, db)
 	require.Error(t, err)
@@ -55,10 +55,10 @@ func TestWhitelistConnection_ValidateNonexistentUser(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser).(*forms.WhitelistConnection)
+	form := forms.WhitelistConnectionNew(user).(*forms.WhitelistConnection)
 	form.Input.Username = "nonexistent"
 
 	err = form.Validate(c, db)
@@ -73,17 +73,17 @@ func TestWhitelistConnection_ValidateExistingConnection(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser1, err := factory.User(ctx, db)
+	user1, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofUser2, err := factory.User(ctx, db)
+	user2, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	_, _, err = factory.Connect(ctx, db, ofUser1.ID, ofUser2.ID)
+	_, _, err = factory.Connect(ctx, db, user1.ID, user2.ID)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser1).(*forms.WhitelistConnection)
-	form.Input.Username = ofUser2.Username
+	form := forms.WhitelistConnectionNew(user1).(*forms.WhitelistConnection)
+	form.Input.Username = user2.Username
 
 	err = form.Validate(c, db)
 	require.Error(t, err)
@@ -97,17 +97,17 @@ func TestWhitelistConnection_ValidateAlreadyWhitelisted(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser1, err := factory.User(ctx, db)
+	user1, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofUser2, err := factory.User(ctx, db)
+	user2, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	_, err = factory.Whitelist(ctx, db, ofUser1.ID, ofUser2.ID)
+	_, err = factory.Whitelist(ctx, db, user1.ID, user2.ID)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser1).(*forms.WhitelistConnection)
-	form.Input.Username = ofUser2.Username
+	form := forms.WhitelistConnectionNew(user1).(*forms.WhitelistConnection)
+	form.Input.Username = user2.Username
 
 	err = form.Validate(c, db)
 	require.Error(t, err)
@@ -121,14 +121,14 @@ func TestWhitelistConnection_ValidateSuccess(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser1, err := factory.User(ctx, db)
+	user1, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofUser2, err := factory.User(ctx, db)
+	user2, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser1).(*forms.WhitelistConnection)
-	form.Input.Username = ofUser2.Username
+	form := forms.WhitelistConnectionNew(user1).(*forms.WhitelistConnection)
+	form.Input.Username = user2.Username
 
 	err = form.Validate(c, db)
 	require.NoError(t, err)
@@ -141,12 +141,12 @@ func TestWhitelistConnection_SaveFailsForNonexistentUser(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
 	// Save doesn't re-run Validate, so calling it directly with a username
 	// that doesn't exist reaches the target lookup's own error path.
-	form := forms.WhitelistConnectionNew(ofUser).(*forms.WhitelistConnection)
+	form := forms.WhitelistConnectionNew(user).(*forms.WhitelistConnection)
 	form.Input.Username = "nonexistent"
 
 	_, err = form.Save(c, db)
@@ -160,14 +160,14 @@ func TestWhitelistConnection_SaveCreatesWhitelist(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-	ofUser1, err := factory.User(ctx, db)
+	user1, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	ofUser2, err := factory.User(ctx, db)
+	user2, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.WhitelistConnectionNew(ofUser1).(*forms.WhitelistConnection)
-	form.Input.Username = ofUser2.Username
+	form := forms.WhitelistConnectionNew(user1).(*forms.WhitelistConnection)
+	form.Input.Username = user2.Username
 
 	action, err := form.Save(c, db)
 	require.NoError(t, err)

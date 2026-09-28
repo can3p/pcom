@@ -22,10 +22,10 @@ func TestSettingsUserStyles_ValidateEmptyStyles(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = ""
 
 	err = form.Validate(c, db)
@@ -39,10 +39,10 @@ func TestSettingsUserStyles_ValidateTooLongStylesRecordsFieldError(t *testing.T)
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = strings.Repeat("a", 10_001)
 
 	// Validate always returns nil (see the skipped test below), but it does
@@ -63,10 +63,10 @@ func TestSettingsUserStyles_ValidateTooLongStylesFailsValidation(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = strings.Repeat("a", 10_001)
 
 	err = form.Validate(c, db)
@@ -81,10 +81,10 @@ func TestSettingsUserStyles_ValidateValidStyles(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = ".profile { color: red; }"
 
 	err = form.Validate(c, db)
@@ -98,10 +98,10 @@ func TestSettingsUserStyles_SaveCreatesUserStyle(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = ".profile { color: blue; }"
 
 	action, err := form.Save(c, db)
@@ -117,9 +117,9 @@ func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
 
 	// A user id with no matching row violates the styles table's foreign
 	// key, reaching Save's own Upsert error path.
-	ofUser := &core.User{ID: uuid.NewString()}
+	user := &core.User{ID: uuid.NewString()}
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = ".profile { color: blue; }"
 
 	_, err := form.Save(c, db)
@@ -133,13 +133,13 @@ func TestSettingsUserStyles_SaveUpdatesExistingStyle(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	_, err = factory.UserStyle(ctx, db, ofUser.ID, ".old { color: red; }")
+	_, err = factory.UserStyle(ctx, db, user.ID, ".old { color: red; }")
 	require.NoError(t, err)
 
-	form := forms.SettingsUserStylesNew(ofUser)
+	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = ".new { color: green; }"
 
 	action, err := form.Save(c, db)

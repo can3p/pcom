@@ -35,86 +35,86 @@ import (
 //	second   - a connection of a direct connection of the author
 //	direct   - directly connected to the author
 //	author   - the author
-type privViewer string
+type viewer string
 
 const (
-	privAnon     privViewer = "anon"
-	privStranger privViewer = "stranger"
-	privSecond   privViewer = "second"
-	privDirect   privViewer = "direct"
-	privAuthor   privViewer = "author"
+	asAnonymous    viewer = "anon"
+	asStranger     viewer = "stranger"
+	asSecondDegree viewer = "second"
+	asDirect       viewer = "direct"
+	asAuthor       viewer = "author"
 )
 
-var privProfiles = []core.ProfileVisibility{
+var profileVisibilities = []core.ProfileVisibility{
 	core.ProfileVisibilityPublic,
 	core.ProfileVisibilityRegisteredUsers,
 	core.ProfileVisibilityConnections,
 }
 
-var privPostVisibilities = []core.PostVisibility{
+var postVisibilities = []core.PostVisibility{
 	core.PostVisibilityDirectOnly,
 	core.PostVisibilitySecondDegree,
 	core.PostVisibilityPublic,
 }
 
-// privAccess is what a visitor gets when they open a post.
-type privAccess string
+// access is what a visitor gets when they open a post.
+type access string
 
 const (
-	// privNeedsLogin: the visitor is sent to log in.
-	privNeedsLogin privAccess = "needs login"
-	// privNotFound: the post doesn't exist as far as the visitor can tell.
-	privNotFound privAccess = "not found"
-	// privReader: the post is shown; comments are hidden and nothing can be done with it.
-	privReader privAccess = "reader"
-	// privCommenter: the post and its comments are shown and the visitor can comment.
-	privCommenter privAccess = "commenter"
-	// privOwner: everything, including edit and share.
-	privOwner privAccess = "owner"
+	// needsLogin: the visitor is sent to log in.
+	needsLogin access = "needs login"
+	// notFound: the post doesn't exist as far as the visitor can tell.
+	notFound access = "not found"
+	// reader: the post is shown; comments are hidden and nothing can be done with it.
+	reader access = "reader"
+	// asCommenter: the post and its comments are shown and the visitor can comment.
+	asCommenter access = "commenter"
+	// owner: everything, including edit and share.
+	owner access = "owner"
 )
 
-func (a privAccess) capabilities() postops.PostCapabilities {
+func (a access) capabilities() postops.PostCapabilities {
 	switch a {
-	case privOwner:
+	case owner:
 		return postops.PostCapabilities{CanViewComments: true, CanLeaveComments: true, CanEdit: true, CanShare: true}
-	case privCommenter:
+	case asCommenter:
 		return postops.PostCapabilities{CanViewComments: true, CanLeaveComments: true}
 	default:
 		return postops.PostCapabilities{}
 	}
 }
 
-type privPostKey struct {
+type postKey struct {
 	profile   core.ProfileVisibility
 	vis       core.PostVisibility
 	published bool
 }
 
-// privWorld holds one author per profile visibility, each with one post per
+// world holds one author per profile visibility, each with one post per
 // post visibility, as a draft and published. Every post has a comment and a
 // share link. friend is directly connected to every author, fof is connected
 // to friend only and stranger to nobody.
-type privWorld struct {
+type world struct {
 	db       *sqlx.DB
 	authors  map[core.ProfileVisibility]*core.User
 	friend   *core.User
 	fof      *core.User
 	stranger *core.User
-	posts    map[privPostKey]*core.Post
-	shares   map[privPostKey]*core.PostShare
+	posts    map[postKey]*core.Post
+	shares   map[postKey]*core.PostShare
 }
 
-func privNewWorld(t *testing.T) *privWorld {
+func newWorld(t *testing.T) *world {
 	t.Helper()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	w := &privWorld{
+	w := &world{
 		db:      db,
 		authors: map[core.ProfileVisibility]*core.User{},
-		posts:   map[privPostKey]*core.Post{},
-		shares:  map[privPostKey]*core.PostShare{},
+		posts:   map[postKey]*core.Post{},
+		shares:  map[postKey]*core.PostShare{},
 	}
 
 	var err error
@@ -129,7 +129,7 @@ func privNewWorld(t *testing.T) *privWorld {
 	_, _, err = factory.Connect(ctx, db, w.friend.ID, w.fof.ID)
 	require.NoError(t, err)
 
-	for _, profile := range privProfiles {
+	for _, profile := range profileVisibilities {
 		author, err := factory.User(ctx, db, factory.WithVisibility(profile))
 		require.NoError(t, err)
 		w.authors[profile] = author
@@ -137,7 +137,7 @@ func privNewWorld(t *testing.T) *privWorld {
 		_, _, err = factory.Connect(ctx, db, author.ID, w.friend.ID)
 		require.NoError(t, err)
 
-		for _, vis := range privPostVisibilities {
+		for _, vis := range postVisibilities {
 			for _, published := range []bool{false, true} {
 				opts := []factory.PostOpt{factory.Visibility(vis)}
 				if published {
@@ -151,7 +151,7 @@ func privNewWorld(t *testing.T) *privWorld {
 				share, err := factory.PostShare(ctx, db, post.ID)
 				require.NoError(t, err)
 
-				key := privPostKey{profile: profile, vis: vis, published: published}
+				key := postKey{profile: profile, vis: vis, published: published}
 				w.posts[key] = post
 				w.shares[key] = share
 			}
@@ -163,20 +163,20 @@ func privNewWorld(t *testing.T) *privWorld {
 
 // userData returns the request context and user data of viewer looking at
 // the author whose profile visibility is profile.
-func (w *privWorld) userData(t *testing.T, viewer privViewer, profile core.ProfileVisibility) (*gin.Context, *auth.UserData) {
+func (w *world) userData(t *testing.T, viewer viewer, profile core.ProfileVisibility) (*gin.Context, *auth.UserData) {
 	t.Helper()
 
 	var user *core.User
 
 	switch viewer {
-	case privAnon:
-	case privStranger:
+	case asAnonymous:
+	case asStranger:
 		user = w.stranger
-	case privSecond:
+	case asSecondDegree:
 		user = w.fof
-	case privDirect:
+	case asDirect:
 		user = w.friend
-	case privAuthor:
+	case asAuthor:
 		user = w.authors[profile]
 	}
 
@@ -191,69 +191,66 @@ func (w *privWorld) userData(t *testing.T, viewer privViewer, profile core.Profi
 	return c, &userData
 }
 
-const privDraftBug = "known bug: SinglePost ignores published_at, so a draft is shown to everyone who could see it once published " +
-	"(e.g. an anonymous visitor opens a public draft)"
-
-const privUserHomeBug = "known bug: UserHome applies no visibility filter for a logged-in visitor unrelated to the author, " +
+const userHomeBug = "known bug: UserHome applies no visibility filter for a logged-in visitor unrelated to the author, " +
 	"so they see direct_only and second_degree posts"
 
 func TestPrivacyMatrix(t *testing.T) {
 	t.Parallel()
 
-	w := privNewWorld(t)
+	w := newWorld(t)
 
 	// Opening a post by its URL, /posts/:id. The author's profile visibility
 	// doesn't matter here: only the post's own visibility does, so every row
-	// holds for all three profile visibilities. (This is current behavior,
-	// pinned on purpose: a public post of a connections-only profile can be
-	// read by anyone who has its link, although Explore and the profile page
-	// don't list it.)
+	// holds for all three profile visibilities. A public post of a
+	// connections-only profile is readable by anyone with its link, by
+	// decision (docs/open-questions.md, Q15), although Explore and the
+	// profile page don't list it.
 	singlePostSpec := []struct {
-		viewer    privViewer
+		viewer    viewer
 		vis       core.PostVisibility
 		published bool
-		want      privAccess
+		want      access
 		bug       string
 	}{
-		{privAuthor, core.PostVisibilityDirectOnly, true, privOwner, ""},
-		{privAuthor, core.PostVisibilitySecondDegree, true, privOwner, ""},
-		{privAuthor, core.PostVisibilityPublic, true, privOwner, ""},
+		{asAuthor, core.PostVisibilityDirectOnly, true, owner, ""},
+		{asAuthor, core.PostVisibilitySecondDegree, true, owner, ""},
+		{asAuthor, core.PostVisibilityPublic, true, owner, ""},
 		// the author previews their own drafts
-		{privAuthor, core.PostVisibilityDirectOnly, false, privOwner, ""},
-		{privAuthor, core.PostVisibilitySecondDegree, false, privOwner, ""},
-		{privAuthor, core.PostVisibilityPublic, false, privOwner, ""},
+		{asAuthor, core.PostVisibilityDirectOnly, false, owner, ""},
+		{asAuthor, core.PostVisibilitySecondDegree, false, owner, ""},
+		{asAuthor, core.PostVisibilityPublic, false, owner, ""},
 
-		{privDirect, core.PostVisibilityDirectOnly, true, privCommenter, ""},
-		{privDirect, core.PostVisibilitySecondDegree, true, privCommenter, ""},
-		{privDirect, core.PostVisibilityPublic, true, privCommenter, ""},
-		{privDirect, core.PostVisibilityDirectOnly, false, privNotFound, privDraftBug},
-		{privDirect, core.PostVisibilitySecondDegree, false, privNotFound, privDraftBug},
-		{privDirect, core.PostVisibilityPublic, false, privNotFound, privDraftBug},
+		{asDirect, core.PostVisibilityDirectOnly, true, asCommenter, ""},
+		{asDirect, core.PostVisibilitySecondDegree, true, asCommenter, ""},
+		{asDirect, core.PostVisibilityPublic, true, asCommenter, ""},
+		{asDirect, core.PostVisibilityDirectOnly, false, notFound, ""},
+		{asDirect, core.PostVisibilitySecondDegree, false, notFound, ""},
+		{asDirect, core.PostVisibilityPublic, false, notFound, ""},
 
-		{privSecond, core.PostVisibilityDirectOnly, true, privNotFound, ""},
-		{privSecond, core.PostVisibilitySecondDegree, true, privReader, ""},
-		{privSecond, core.PostVisibilityPublic, true, privReader, ""},
-		{privSecond, core.PostVisibilityDirectOnly, false, privNotFound, ""},
-		{privSecond, core.PostVisibilitySecondDegree, false, privNotFound, privDraftBug},
-		{privSecond, core.PostVisibilityPublic, false, privNotFound, privDraftBug},
+		{asSecondDegree, core.PostVisibilityDirectOnly, true, notFound, ""},
+		{asSecondDegree, core.PostVisibilitySecondDegree, true, reader, ""},
+		{asSecondDegree, core.PostVisibilityPublic, true, reader, ""},
+		{asSecondDegree, core.PostVisibilityDirectOnly, false, notFound, ""},
+		{asSecondDegree, core.PostVisibilitySecondDegree, false, notFound, ""},
+		{asSecondDegree, core.PostVisibilityPublic, false, notFound, ""},
 
-		{privStranger, core.PostVisibilityDirectOnly, true, privNotFound, ""},
-		{privStranger, core.PostVisibilitySecondDegree, true, privNotFound, ""},
-		{privStranger, core.PostVisibilityPublic, true, privReader, ""},
-		{privStranger, core.PostVisibilityDirectOnly, false, privNotFound, ""},
-		{privStranger, core.PostVisibilitySecondDegree, false, privNotFound, ""},
-		{privStranger, core.PostVisibilityPublic, false, privNotFound, privDraftBug},
+		{asStranger, core.PostVisibilityDirectOnly, true, notFound, ""},
+		{asStranger, core.PostVisibilitySecondDegree, true, notFound, ""},
+		{asStranger, core.PostVisibilityPublic, true, reader, ""},
+		{asStranger, core.PostVisibilityDirectOnly, false, notFound, ""},
+		{asStranger, core.PostVisibilitySecondDegree, false, notFound, ""},
+		{asStranger, core.PostVisibilityPublic, false, notFound, ""},
 
 		// anonymous visitors are asked to log in rather than told the post is missing
-		{privAnon, core.PostVisibilityDirectOnly, true, privNeedsLogin, ""},
-		{privAnon, core.PostVisibilitySecondDegree, true, privNeedsLogin, ""},
-		{privAnon, core.PostVisibilityPublic, true, privReader, ""},
-		{privAnon, core.PostVisibilityDirectOnly, false, privNeedsLogin, ""},
-		{privAnon, core.PostVisibilitySecondDegree, false, privNeedsLogin, ""},
-		{privAnon, core.PostVisibilityPublic, false, privNeedsLogin, privDraftBug},
+		{asAnonymous, core.PostVisibilityDirectOnly, true, needsLogin, ""},
+		{asAnonymous, core.PostVisibilitySecondDegree, true, needsLogin, ""},
+		{asAnonymous, core.PostVisibilityPublic, true, reader, ""},
+		{asAnonymous, core.PostVisibilityDirectOnly, false, needsLogin, ""},
+		{asAnonymous, core.PostVisibilitySecondDegree, false, needsLogin, ""},
+		{asAnonymous, core.PostVisibilityPublic, false, needsLogin, ""},
 	}
 
-	for _, profile := range privProfiles {
+	for _, profile := range profileVisibilities {
 		for _, row := range singlePostSpec {
 			state := "draft"
 			if row.published {
@@ -269,17 +266,17 @@ func TestPrivacyMatrix(t *testing.T) {
 					t.Skip(row.bug)
 				}
 
-				key := privPostKey{profile: profile, vis: row.vis, published: row.published}
+				key := postKey{profile: profile, vis: row.vis, published: row.published}
 				post := w.posts[key]
 				c, userData := w.userData(t, row.viewer, profile)
 
 				res := web.SinglePost(c, w.db, userData, post.ID, false)
 
 				switch row.want {
-				case privNeedsLogin:
+				case needsLogin:
 					require.ErrorIs(t, res.Error(), ginhelpers.ErrNeedsLogin)
 					return
-				case privNotFound:
+				case notFound:
 					require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 					return
 				}
@@ -309,10 +306,10 @@ func TestPrivacyMatrix(t *testing.T) {
 	t.Run("SinglePost/unknown post", func(t *testing.T) {
 		t.Parallel()
 
-		for _, viewer := range []privViewer{privAnon, privStranger} {
-			c, userData := w.userData(t, viewer, core.ProfileVisibilityPublic)
+		for _, v := range []viewer{asAnonymous, asStranger} {
+			c, userData := w.userData(t, v, core.ProfileVisibilityPublic)
 			res := web.SinglePost(c, w.db, userData, uuid.NewString(), false)
-			require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound, viewer)
+			require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound, v)
 		}
 	})
 
@@ -320,34 +317,34 @@ func TestPrivacyMatrix(t *testing.T) {
 	// open it at all (a hidden profile is always "not found", so its existence
 	// isn't revealed); post visibility then decides which published posts it
 	// lists. Drafts are never listed.
-	all := privPostVisibilities
+	all := postVisibilities
 	secondAndPublic := []core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}
 	publicOnly := []core.PostVisibility{core.PostVisibilityPublic}
 
 	userHomeSpec := []struct {
 		profile core.ProfileVisibility
-		viewer  privViewer
-		want    privAccess // privNotFound, or the access to every listed post
+		viewer  viewer
+		want    access // notFound, or the access to every listed post
 		lists   []core.PostVisibility
 		bug     string
 	}{
-		{core.ProfileVisibilityPublic, privAnon, privReader, publicOnly, ""},
-		{core.ProfileVisibilityPublic, privStranger, privReader, publicOnly, privUserHomeBug},
-		{core.ProfileVisibilityPublic, privSecond, privReader, secondAndPublic, ""},
-		{core.ProfileVisibilityPublic, privDirect, privCommenter, all, ""},
-		{core.ProfileVisibilityPublic, privAuthor, privOwner, all, ""},
+		{core.ProfileVisibilityPublic, asAnonymous, reader, publicOnly, ""},
+		{core.ProfileVisibilityPublic, asStranger, reader, publicOnly, userHomeBug},
+		{core.ProfileVisibilityPublic, asSecondDegree, reader, secondAndPublic, ""},
+		{core.ProfileVisibilityPublic, asDirect, asCommenter, all, ""},
+		{core.ProfileVisibilityPublic, asAuthor, owner, all, ""},
 
-		{core.ProfileVisibilityRegisteredUsers, privAnon, privNotFound, nil, ""},
-		{core.ProfileVisibilityRegisteredUsers, privStranger, privReader, publicOnly, privUserHomeBug},
-		{core.ProfileVisibilityRegisteredUsers, privSecond, privReader, secondAndPublic, ""},
-		{core.ProfileVisibilityRegisteredUsers, privDirect, privCommenter, all, ""},
-		{core.ProfileVisibilityRegisteredUsers, privAuthor, privOwner, all, ""},
+		{core.ProfileVisibilityRegisteredUsers, asAnonymous, notFound, nil, ""},
+		{core.ProfileVisibilityRegisteredUsers, asStranger, reader, publicOnly, userHomeBug},
+		{core.ProfileVisibilityRegisteredUsers, asSecondDegree, reader, secondAndPublic, ""},
+		{core.ProfileVisibilityRegisteredUsers, asDirect, asCommenter, all, ""},
+		{core.ProfileVisibilityRegisteredUsers, asAuthor, owner, all, ""},
 
-		{core.ProfileVisibilityConnections, privAnon, privNotFound, nil, ""},
-		{core.ProfileVisibilityConnections, privStranger, privNotFound, nil, ""},
-		{core.ProfileVisibilityConnections, privSecond, privReader, secondAndPublic, ""},
-		{core.ProfileVisibilityConnections, privDirect, privCommenter, all, ""},
-		{core.ProfileVisibilityConnections, privAuthor, privOwner, all, ""},
+		{core.ProfileVisibilityConnections, asAnonymous, notFound, nil, ""},
+		{core.ProfileVisibilityConnections, asStranger, notFound, nil, ""},
+		{core.ProfileVisibilityConnections, asSecondDegree, reader, secondAndPublic, ""},
+		{core.ProfileVisibilityConnections, asDirect, asCommenter, all, ""},
+		{core.ProfileVisibilityConnections, asAuthor, owner, all, ""},
 	}
 
 	for _, row := range userHomeSpec {
@@ -363,7 +360,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 			res := web.UserHome(c, w.db, userData, author.Username)
 
-			if row.want == privNotFound {
+			if row.want == notFound {
 				require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 				return
 			}
@@ -374,7 +371,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 			wantIDs := []string{}
 			for _, vis := range row.lists {
-				wantIDs = append(wantIDs, w.posts[privPostKey{profile: row.profile, vis: vis, published: true}].ID)
+				wantIDs = append(wantIDs, w.posts[postKey{profile: row.profile, vis: vis, published: true}].ID)
 			}
 
 			gotIDs := []string{}
@@ -397,7 +394,7 @@ func TestPrivacyMatrix(t *testing.T) {
 	t.Run("UserHome/unknown user", func(t *testing.T) {
 		t.Parallel()
 
-		c, userData := w.userData(t, privStranger, core.ProfileVisibilityPublic)
+		c, userData := w.userData(t, asStranger, core.ProfileVisibilityPublic)
 		res := web.UserHome(c, w.db, userData, "no-such-user")
 		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 	})
@@ -408,13 +405,13 @@ func TestPrivacyMatrix(t *testing.T) {
 	// logged in. Connections-only profiles never show up, whatever the
 	// visitor's connections. Nobody gets comments or actions there.
 	exploreSpec := []struct {
-		viewer   privViewer
+		viewer   viewer
 		profiles []core.ProfileVisibility
 	}{
-		{privAnon, []core.ProfileVisibility{core.ProfileVisibilityPublic}},
-		{privStranger, []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers}},
-		{privSecond, []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers}},
-		{privDirect, []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers}},
+		{asAnonymous, []core.ProfileVisibility{core.ProfileVisibilityPublic}},
+		{asStranger, []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers}},
+		{asSecondDegree, []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers}},
+		{asDirect, []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers}},
 	}
 
 	for _, row := range exploreSpec {
@@ -428,7 +425,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 			wantIDs := []string{}
 			for _, profile := range row.profiles {
-				wantIDs = append(wantIDs, w.posts[privPostKey{profile: profile, vis: core.PostVisibilityPublic, published: true}].ID)
+				wantIDs = append(wantIDs, w.posts[postKey{profile: profile, vis: core.PostVisibilityPublic, published: true}].ID)
 			}
 
 			gotIDs := []string{}
@@ -446,18 +443,18 @@ func TestPrivacyMatrix(t *testing.T) {
 	// it, whatever the post's or the profile's visibility: that is what the
 	// author creates it for. It never opens a draft.
 	for key, share := range w.shares {
-		for _, viewer := range []privViewer{privAnon, privStranger} {
+		for _, v := range []viewer{asAnonymous, asStranger} {
 			state := "draft"
 			if key.published {
 				state = "published"
 			}
 
-			name := fmt.Sprintf("SharedPost/%s profile/%s %s post/%s", key.profile, key.vis, state, viewer)
+			name := fmt.Sprintf("SharedPost/%s profile/%s %s post/%s", key.profile, key.vis, state, v)
 
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 
-				c, userData := w.userData(t, viewer, key.profile)
+				c, userData := w.userData(t, v, key.profile)
 				res := web.SharedPost(c, w.db, userData, share.ID)
 
 				if !key.published {
@@ -476,7 +473,7 @@ func TestPrivacyMatrix(t *testing.T) {
 	t.Run("SharedPost/unknown share", func(t *testing.T) {
 		t.Parallel()
 
-		c, userData := w.userData(t, privAnon, core.ProfileVisibilityPublic)
+		c, userData := w.userData(t, asAnonymous, core.ProfileVisibilityPublic)
 		res := web.SharedPost(c, w.db, userData, uuid.NewString())
 		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 	})
@@ -484,32 +481,32 @@ func TestPrivacyMatrix(t *testing.T) {
 
 var errPrivInjected = errors.New("injected database failure")
 
-// privFailingExec passes queries through to db, except the failAt-th one,
+// failingExecutor passes queries through to db, except the failAt-th one,
 // which fails.
-type privFailingExec struct {
+type failingExecutor struct {
 	db     *sqlx.DB
 	failAt int
 	calls  int
 }
 
-func (e *privFailingExec) fail() bool {
+func (e *failingExecutor) fail() bool {
 	e.calls++
 	return e.calls == e.failAt
 }
 
-func (e *privFailingExec) Exec(query string, args ...any) (sql.Result, error) {
+func (e *failingExecutor) Exec(query string, args ...any) (sql.Result, error) {
 	return e.ExecContext(context.Background(), query, args...)
 }
 
-func (e *privFailingExec) Query(query string, args ...any) (*sql.Rows, error) {
+func (e *failingExecutor) Query(query string, args ...any) (*sql.Rows, error) {
 	return e.QueryContext(context.Background(), query, args...)
 }
 
-func (e *privFailingExec) QueryRow(query string, args ...any) *sql.Row {
+func (e *failingExecutor) QueryRow(query string, args ...any) *sql.Row {
 	return e.QueryRowContext(context.Background(), query, args...)
 }
 
-func (e *privFailingExec) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+func (e *failingExecutor) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	if e.fail() {
 		return nil, errPrivInjected
 	}
@@ -517,7 +514,7 @@ func (e *privFailingExec) ExecContext(ctx context.Context, query string, args ..
 	return e.db.ExecContext(ctx, query, args...)
 }
 
-func (e *privFailingExec) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+func (e *failingExecutor) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	if e.fail() {
 		return nil, errPrivInjected
 	}
@@ -525,7 +522,7 @@ func (e *privFailingExec) QueryContext(ctx context.Context, query string, args .
 	return e.db.QueryContext(ctx, query, args...)
 }
 
-func (e *privFailingExec) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	if e.fail() {
 		// a *sql.Row can't be built by hand; a query that can't run carries the error
 		return e.db.QueryRowContext(ctx, "SELECT priv_injected_failure()")
@@ -540,32 +537,32 @@ func (e *privFailingExec) QueryRowContext(ctx context.Context, query string, arg
 func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 	t.Parallel()
 
-	w := privNewWorld(t)
+	w := newWorld(t)
 	publicAuthor := w.authors[core.ProfileVisibilityPublic]
-	post := w.posts[privPostKey{profile: core.ProfileVisibilityPublic, vis: core.PostVisibilityPublic, published: true}]
-	share := w.shares[privPostKey{profile: core.ProfileVisibilityPublic, vis: core.PostVisibilityPublic, published: true}]
+	post := w.posts[postKey{profile: core.ProfileVisibilityPublic, vis: core.PostVisibilityPublic, published: true}]
+	share := w.shares[postKey{profile: core.ProfileVisibilityPublic, vis: core.PostVisibilityPublic, published: true}]
 
 	cases := []struct {
 		name   string
-		viewer privViewer
+		viewer viewer
 		call   func(c *gin.Context, exec boil.ContextExecutor, userData *auth.UserData) error
 	}{
-		{"SinglePost/author", privAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"SinglePost/author", asAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.SinglePost(c, exec, u, post.ID, false).Error()
 		}},
-		{"SinglePost/second", privSecond, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"SinglePost/second", asSecondDegree, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.SinglePost(c, exec, u, post.ID, false).Error()
 		}},
-		{"UserHome/author", privAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"UserHome/author", asAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.UserHome(c, exec, u, publicAuthor.Username).Error()
 		}},
-		{"UserHome/second", privSecond, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"UserHome/second", asSecondDegree, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.UserHome(c, exec, u, publicAuthor.Username).Error()
 		}},
-		{"Explore/anon", privAnon, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"Explore/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.Explore(c, exec, u).Error()
 		}},
-		{"SharedPost/anon", privAnon, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"SharedPost/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.SharedPost(c, exec, u, share.ID).Error()
 		}},
 	}
@@ -576,7 +573,7 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 
 			for failAt := 1; ; failAt++ {
 				c, userData := w.userData(t, tc.viewer, core.ProfileVisibilityPublic)
-				exec := &privFailingExec{db: w.db, failAt: failAt}
+				exec := &failingExecutor{db: w.db, failAt: failAt}
 
 				err := tc.call(c, exec, userData)
 

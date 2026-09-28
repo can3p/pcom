@@ -18,43 +18,43 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// pfMissingID is a well-formed but never-inserted UUID, for exercising a
+// missingID is a well-formed but never-inserted UUID, for exercising a
 // not-found lookup: these tables use uuid columns, so an arbitrary
 // non-uuid string like "does-not-exist" fails at the database driver
 // instead of reaching the "no rows" path under test.
-const pfMissingID = "00000000-0000-0000-0000-000000000000"
+const missingID = "00000000-0000-0000-0000-000000000000"
 
-// pfMediaReplacer is a no-op media.Replacer[string]: none of these tests
+// mediaReplacer is a no-op media.Replacer[string]: none of these tests
 // exercise media rewriting, only that a replacer was threaded through.
-func pfMediaReplacer(in string) (bool, string) {
+func mediaReplacer(in string) (bool, string) {
 	return false, in
 }
 
-// pfRenderStub/pfRenderInstance make c.HTML a no-op. ginctx.New's context
+// renderStub/renderInstance make c.HTML a no-op. ginctx.New's context
 // never calls LoadHTMLGlob, so the real gin engine has a nil HTMLRender and
 // panics on the first template render; forms.FormSaveDefault's fallback
 // path (and PostPromptForm.Save's) always renders the form on save, so a
 // direct ginctx.New context can't be used to invoke a FormSaveAction here.
 // These tests only care about status and headers, never the rendered body.
-type pfRenderStub struct{}
+type renderStub struct{}
 
-func (pfRenderStub) Instance(name string, data any) render.Render { return pfRenderInstance{} }
+func (renderStub) Instance(name string, data any) render.Render { return renderInstance{} }
 
-type pfRenderInstance struct{}
+type renderInstance struct{}
 
-func (pfRenderInstance) Render(w http.ResponseWriter) error     { return nil }
-func (pfRenderInstance) WriteContentType(w http.ResponseWriter) {}
+func (renderInstance) Render(w http.ResponseWriter) error     { return nil }
+func (renderInstance) WriteContentType(w http.ResponseWriter) {}
 
-// pfNewCtx returns a *gin.Context wired like pkg/testutil/ginctx.New, plus a
+// newCtx returns a *gin.Context wired like pkg/testutil/ginctx.New, plus a
 // working (no-op) HTML renderer so a form's FormSaveAction can be invoked
-// without panicking. See pfRenderStub.
-func pfNewCtx(t *testing.T) (*gin.Context, *httptest.ResponseRecorder) {
+// without panicking. See renderStub.
+func newCtx(t *testing.T) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, r := gin.CreateTestContext(w)
-	r.HTMLRender = pfRenderStub{}
+	r.HTMLRender = renderStub{}
 	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
 
 	return c, w
@@ -72,7 +72,7 @@ func TestNewPostFormNew(t *testing.T) {
 	t.Run("without a prompt id", func(t *testing.T) {
 		t.Parallel()
 
-		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, pfMediaReplacer, "")
+		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, "")
 		require.NoError(t, err)
 		require.Nil(t, form.Prompt)
 	})
@@ -85,7 +85,7 @@ func TestNewPostFormNew(t *testing.T) {
 		prompt, err := factory.PostPrompt(ctx, db, asker.ID, user.ID)
 		require.NoError(t, err)
 
-		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, pfMediaReplacer, prompt.ID)
+		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, prompt.ID)
 		require.NoError(t, err)
 		require.NotNil(t, form.Prompt)
 		require.Equal(t, prompt.ID, form.Prompt.Prompt.ID)
@@ -94,7 +94,7 @@ func TestNewPostFormNew(t *testing.T) {
 	t.Run("with an unknown prompt id, prompt is left nil", func(t *testing.T) {
 		t.Parallel()
 
-		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, pfMediaReplacer, pfMissingID)
+		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, missingID)
 		require.NoError(t, err)
 		require.Nil(t, form.Prompt)
 	})
@@ -116,7 +116,7 @@ func TestEditPostFormNew(t *testing.T) {
 	t.Run("loads the author's own post", func(t *testing.T) {
 		t.Parallel()
 
-		form, err := forms.EditPostFormNew(ctx, db, fakesender.New(), author, pfMediaReplacer, post.ID)
+		form, err := forms.EditPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, post.ID)
 		require.NoError(t, err)
 		require.Equal(t, post.ID, form.Post.ID)
 	})
@@ -124,14 +124,14 @@ func TestEditPostFormNew(t *testing.T) {
 	t.Run("another user's post is not found", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := forms.EditPostFormNew(ctx, db, fakesender.New(), other, pfMediaReplacer, post.ID)
+		_, err := forms.EditPostFormNew(ctx, db, fakesender.New(), other, mediaReplacer, post.ID)
 		require.ErrorIs(t, err, ginhelpers.ErrNotFound)
 	})
 
 	t.Run("an unknown post is not found", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := forms.EditPostFormNew(ctx, db, fakesender.New(), author, pfMediaReplacer, pfMissingID)
+		_, err := forms.EditPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, missingID)
 		require.ErrorIs(t, err, ginhelpers.ErrNotFound)
 	})
 }
@@ -146,7 +146,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 
 	newValidForm := func(t *testing.T) *forms.PostForm {
 		t.Helper()
-		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, pfMediaReplacer, "")
+		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, "")
 		require.NoError(t, err)
 		form.Input.Subject = "A subject"
 		form.Input.Body = "A body"
@@ -159,7 +159,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("valid input passes", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		require.NoError(t, form.Validate(c, db))
 	})
@@ -167,7 +167,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("an empty save action defaults to autosave and passes", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		form.Input.SaveAction = forms.PostFormAction("")
 		require.NoError(t, form.Validate(c, db))
@@ -176,7 +176,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("subject too long", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		for range 101 {
 			form.Input.Subject += "a"
@@ -188,7 +188,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("body too long", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		body := make([]byte, 20_001)
 		for i := range body {
@@ -202,7 +202,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("invalid url", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		form.Input.URL = "not-a-url"
 		require.Error(t, form.Validate(c, db))
@@ -212,7 +212,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("valid url passes", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		form.Input.URL = "https://example.test/article"
 		require.NoError(t, form.Validate(c, db))
@@ -221,7 +221,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 	t.Run("invalid visibility", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		form.Input.Visibility = core.PostVisibility("bogus")
 		require.Error(t, form.Validate(c, db))
@@ -235,7 +235,7 @@ func TestPostForm_Validate_FieldErrors(t *testing.T) {
 		// AddError calls share a copy-pasted key.
 		t.Skip("known bug #157: PostForm.Validate records an invalid save_action under the visibility error key")
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newValidForm(t)
 		form.Input.SaveAction = forms.PostFormAction("bogus")
 		require.Error(t, form.Validate(c, db))
@@ -259,8 +259,8 @@ func TestPostForm_Validate_EditPermission(t *testing.T) {
 	t.Run("the author can edit", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
-		form, err := forms.EditPostFormNew(ctx, db, fakesender.New(), author, pfMediaReplacer, post.ID)
+		c, _ := newCtx(t)
+		form, err := forms.EditPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, post.ID)
 		require.NoError(t, err)
 		form.Input.Subject = "Updated"
 		form.Input.Body = "Updated body"
@@ -273,11 +273,11 @@ func TestPostForm_Validate_EditPermission(t *testing.T) {
 	t.Run("a stranger cannot edit", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		// Construct as if `other` were editing `post` (bypassing
 		// EditPostFormNew's own ownership check, which would already
 		// reject this) to reach PostForm.Validate's own capability check.
-		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), other, pfMediaReplacer, "")
+		form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), other, mediaReplacer, "")
 		require.NoError(t, err)
 		form.Post = post
 		form.Input.Subject = "Updated"
@@ -320,14 +320,14 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			require.NoError(t, err)
 
 			sender := fakesender.New()
-			form, err := forms.NewPostFormNew(ctx, db, sender, author, pfMediaReplacer, "")
+			form, err := forms.NewPostFormNew(ctx, db, sender, author, mediaReplacer, "")
 			require.NoError(t, err)
 			form.Input.Subject = "A subject"
 			form.Input.Body = "A body"
 			form.Input.Visibility = core.PostVisibilityDirectOnly
 			form.Input.SaveAction = saveAction
 
-			c, w := pfNewCtx(t)
+			c, w := newCtx(t)
 			action, err := form.Save(ctx, db)
 			require.NoError(t, err)
 			action(c, form)
@@ -370,7 +370,7 @@ func TestPostForm_Save_NewPost_WithURL(t *testing.T) {
 	author, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), author, pfMediaReplacer, "")
+	form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, "")
 	require.NoError(t, err)
 	form.Input.Subject = "A subject"
 	form.Input.Body = "A body"
@@ -378,7 +378,7 @@ func TestPostForm_Save_NewPost_WithURL(t *testing.T) {
 	form.Input.Visibility = core.PostVisibilityDirectOnly
 	form.Input.SaveAction = forms.PostFormActionAutosave
 
-	c, _ := pfNewCtx(t)
+	c, _ := newCtx(t)
 	action, err := form.Save(ctx, db)
 	require.NoError(t, err)
 	action(c, form)
@@ -398,14 +398,14 @@ func TestPostForm_Save_NewPost_WithoutURL(t *testing.T) {
 	author, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), author, pfMediaReplacer, "")
+	form, err := forms.NewPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, "")
 	require.NoError(t, err)
 	form.Input.Subject = "A subject"
 	form.Input.Body = "A body"
 	form.Input.Visibility = core.PostVisibilityDirectOnly
 	form.Input.SaveAction = forms.PostFormActionAutosave
 
-	c, _ := pfNewCtx(t)
+	c, _ := newCtx(t)
 	action, err := form.Save(ctx, db)
 	require.NoError(t, err)
 	action(c, form)
@@ -430,7 +430,7 @@ func TestPostForm_Save_NewPost_WithPrompt_Publish(t *testing.T) {
 	require.NoError(t, err)
 
 	sender := fakesender.New()
-	form, err := forms.NewPostFormNew(ctx, db, sender, author, pfMediaReplacer, promptRow.ID)
+	form, err := forms.NewPostFormNew(ctx, db, sender, author, mediaReplacer, promptRow.ID)
 	require.NoError(t, err)
 	require.NotNil(t, form.Prompt)
 	form.Input.Subject = "In answer"
@@ -438,7 +438,7 @@ func TestPostForm_Save_NewPost_WithPrompt_Publish(t *testing.T) {
 	form.Input.Visibility = core.PostVisibilityDirectOnly
 	form.Input.SaveAction = forms.PostFormActionPublish
 
-	c, _ := pfNewCtx(t)
+	c, _ := newCtx(t)
 	action, err := form.Save(ctx, db)
 	require.NoError(t, err)
 	action(c, form)
@@ -478,14 +478,14 @@ func TestPostForm_Save_NewPost_WithPrompt_Draft(t *testing.T) {
 	require.NoError(t, err)
 
 	sender := fakesender.New()
-	form, err := forms.NewPostFormNew(ctx, db, sender, author, pfMediaReplacer, promptRow.ID)
+	form, err := forms.NewPostFormNew(ctx, db, sender, author, mediaReplacer, promptRow.ID)
 	require.NoError(t, err)
 	form.Input.Subject = "Draft answer"
 	form.Input.Body = "Still writing"
 	form.Input.Visibility = core.PostVisibilityDirectOnly
 	form.Input.SaveAction = forms.PostFormActionMakeDraft
 
-	c, _ := pfNewCtx(t)
+	c, _ := newCtx(t)
 	action, err := form.Save(ctx, db)
 	require.NoError(t, err)
 	action(c, form)
@@ -515,7 +515,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		t.Helper()
 		post, err := factory.Post(ctx, db, author.ID, opts...)
 		require.NoError(t, err)
-		form, err := forms.EditPostFormNew(ctx, db, sender, author, pfMediaReplacer, post.ID)
+		form, err := forms.EditPostFormNew(ctx, db, sender, author, mediaReplacer, post.ID)
 		require.NoError(t, err)
 		form.Input.Subject = "Updated subject"
 		form.Input.Body = "Updated body"
@@ -532,7 +532,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		form, _ := newForm(t, author, fakesender.New(), factory.Published())
 		form.Input.SaveAction = forms.PostFormActionMakeDraft
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
 		action(c, form)
@@ -556,7 +556,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		form, _ := newForm(t, author, sender)
 		form.Input.SaveAction = forms.PostFormActionPublish
 
-		c, w := pfNewCtx(t)
+		c, w := newCtx(t)
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
 		action(c, form)
@@ -580,7 +580,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		form, _ := newForm(t, author, sender, factory.Published())
 		form.Input.SaveAction = forms.PostFormActionSavePost
 
-		c, w := pfNewCtx(t)
+		c, w := newCtx(t)
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
 		action(c, form)
@@ -597,7 +597,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		form, _ := newForm(t, author, fakesender.New())
 		form.Input.SaveAction = forms.PostFormActionSavePost
 
-		c, w := pfNewCtx(t)
+		c, w := newCtx(t)
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
 		action(c, form)
@@ -616,7 +616,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		form, _ := newForm(t, author, fakesender.New())
 		form.Input.SaveAction = forms.PostFormActionAutosave
 
-		c, w := pfNewCtx(t)
+		c, w := newCtx(t)
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
 		action(c, form)
@@ -635,7 +635,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		form, _ := newForm(t, author, fakesender.New())
 		form.Input.SaveAction = forms.PostFormActionDelete
 
-		c, w := pfNewCtx(t)
+		c, w := newCtx(t)
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
 		action(c, form)

@@ -36,11 +36,11 @@ func TestSignupWaitingListForm_ValidateExistingUser(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
 
-	ofExistingUser, err := factory.User(ctx, db)
+	existingUser, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
 	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = ofExistingUser.Email
+	form.Input.Email = existingUser.Email
 
 	err = form.Validate(c, db)
 	require.Error(t, err)
@@ -55,10 +55,10 @@ func TestSignupWaitingListForm_ValidateExistingInvitation(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
 
-	ofInviter, err := factory.User(ctx, db)
+	inviter, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	_, err = factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("existing@example.test"))
+	_, err = factory.Invitation(ctx, db, inviter.ID, factory.Sent("existing@example.test"))
 	require.NoError(t, err)
 
 	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
@@ -77,11 +77,11 @@ func TestSignupWaitingListForm_ValidateExistingSignupRequest(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
 
-	ofExistingRequest, err := factory.SignupRequest(ctx, db)
+	existingRequest, err := factory.SignupRequest(ctx, db)
 	require.NoError(t, err)
 
 	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = ofExistingRequest.Email
+	form.Input.Email = existingRequest.Email
 
 	err = form.Validate(c, db)
 	require.Error(t, err)
