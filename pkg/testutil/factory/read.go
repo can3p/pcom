@@ -13,6 +13,21 @@ func GetUser(ctx context.Context, exec boil.ContextExecutor, id string) (*core.U
 	return core.FindUser(ctx, exec, id)
 }
 
+// GetUserByEmail looks up a user by email, for tests of code that creates one.
+func GetUserByEmail(ctx context.Context, exec boil.ContextExecutor, email string) (*core.User, error) {
+	return core.Users(core.UserWhere.Email.EQ(email)).One(ctx, exec)
+}
+
+// GetUserStyle returns userID's custom styles, or sql.ErrNoRows if there are none.
+func GetUserStyle(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserStyle, error) {
+	return core.UserStyles(core.UserStyleWhere.UserID.EQ(userID)).One(ctx, exec)
+}
+
+// GetRSSItem looks up a feed item by id.
+func GetRSSItem(ctx context.Context, exec boil.ContextExecutor, id string) (*core.RSSItem, error) {
+	return core.FindRSSItem(ctx, exec, id)
+}
+
 // GetPost looks up a post by id.
 func GetPost(ctx context.Context, exec boil.ContextExecutor, id string) (*core.Post, error) {
 	return core.FindPost(ctx, exec, id)
