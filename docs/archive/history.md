@@ -199,6 +199,14 @@ but three tasks were sent back and five were patched by the coordinator.
   subagents can read neither, so the coordinator pasted both into the
   prompts. `task_prompt.py` doesn't do this.
 - The first push failed with a 403 until GitHub access was reconnected.
+- The owner's review of the PR found tests that could not fail: the open and
+  closed `/signup` tests were identical and checked only that a body existed,
+  one test repeated another as a logged-in user, and others duplicated browser
+  tests. An audit of all four files confirmed about a dozen such cases (weak
+  assertions, duplicates of W6 tests, a case missing: a foreign edit through
+  the API). All were fixed on the branch, each checked with a mutation. The
+  per-task check had been "tests pass plus one mutation", which samples one
+  test per task; `wave-run` now adds an assertion audit.
 
 **Left out.** Three browser tests fail only in the cloud sandbox (older
 Chromium, no outbound network); CI's `browser` job is the reference for them.

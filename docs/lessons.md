@@ -69,3 +69,8 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   fresh cloud session failed for four environment reasons, none in the
   code. The SessionStart hook now fixes them; if a later wave meets a new
   one, extend the hook rather than working around it by hand.
+- **One mutation per task samples one test.** It proved each task's most
+  important test, and said nothing about the rest: W3 shipped identical tests
+  and assertions that could not fail, found only by the owner. Audit every
+  test's assertions (weak, duplicated, or already covered by the other suite)
+  before committing a test task.

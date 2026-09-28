@@ -90,6 +90,12 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 2. `git diff --stat`, to confirm only the owned files changed.
 3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
    through `make test-q`, revert. A test that doesn't fail when you break the code under it covers nothing.
+4. **Audit the assertions**, because one mutation samples one test. For E2E and browser tasks, have a
+   read-only `Explore` agent (strong tier) classify every test as weak (passes whether or not the behavior
+   works: only a status on a page that always answers 200, "body exists", asserting the setup), duplicated
+   within the wave, duplicated by the other suite (W3 vs W6), or OK, with a concrete fix for each. Send the
+   fixes back before committing. W3 shipped two identical tests and several that could not fail because
+   this step was missing.
 
 Variations by wave:
 
