@@ -1,0 +1,10 @@
+
+	<p>Hi!</p>
+
+	<p>New user alert:</p>
+
+	<ul>
+		<li>ID: [UUID]</li>
+		<li>Blog: <a href="/users/user1">/users/user1</a></li>
+		<li>Email: user1@example.test</li>
+	</ul>
