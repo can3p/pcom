@@ -212,6 +212,7 @@ step fails:
 - installs `libvips-dev` (cgo headers for `pkg/media`; without them `cmd/web` and `e2e` don't compile);
 - starts `dockerd` (testcontainers Postgres for `testdb` and E2E; log in `/tmp/dockerd.log`);
 - installs the frontend's `node_modules` and downloads Go modules;
+- builds `go tool covdata`, which the image's Go install lacks and `make cover` needs;
 - installs golangci-lint at CI's `GOLANGCI_LINT_VERSION` (the image's copy is built with an older Go and
   refuses to lint this module);
 - installs the playwright-go driver and sets `CHROMIUM_PATH=/opt/pw-browsers/chromium`, because the
