@@ -1,0 +1,20 @@
+EmailType: post_prompt_answer
+UniqueID: post-1
+From: Your pcom <noreply@pcom.test>
+To: asker@example.test
+Subject: Response to your prompt from bob
+
+--- TEXT ---
+Hi!
+
+@bob has responded on your prompt "What is your favorite hobby?" with the post "My Answer"
+
+Check out their post! /posts/post-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>@bob has responded on your prompt "What is your favorite hobby?" with the post "My Answer"</p>
+
+	<p>Head to new post page to give an update! <a href="/posts/post-1">/posts/post-1</a></p>

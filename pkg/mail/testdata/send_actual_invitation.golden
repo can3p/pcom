@@ -1,0 +1,21 @@
+EmailType: user_invitation
+UniqueID: user-1
+From: Your pcom <noreply@pcom.test>
+To: newuser@example.test
+Subject: Welcome to pcom
+
+--- TEXT ---
+
+	Hi!
+
+	Welcome to pcom! Please follow the link to set up your account.
+
+	/invite/invite-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>Welcome to pcom! Please follow the link to set up your account.</p>
+
+	<a href="/invite/invite-1">/invite/invite-1</a>

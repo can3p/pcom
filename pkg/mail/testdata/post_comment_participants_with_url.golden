@@ -1,0 +1,26 @@
+EmailType: comment_notification
+UniqueID: comment-1user-2
+From: Your pcom <noreply@pcom.test>
+To: participant@example.test
+Subject: New comment in the post "Original Post"
+
+--- TEXT ---
+Hi!
+
+@alice has left a comment in the post "Original Post" where you've also left a comment.
+Linked URL: https://example.com/article
+
+> Great comment!
+
+Checkout the comment in the post: /posts/post-1#commentpost-1comment-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>@alice has left a comment in the post "Original Post" where you've also left a comment.</p><p>Linked URL: <a href="https://example.com/article">https://example.com/article</a></p>
+
+	<blockquote><p>Great comment!</p>
+</blockquote>
+
+	<p>Checkout the comment in the <a href="/posts/post-1#commentpost-1comment-1">post</a>.</p>
