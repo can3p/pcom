@@ -106,8 +106,8 @@ func TestHandleUpload_ArgumentValidation(t *testing.T) {
 		},
 		{
 			name:      "both_provided",
-			userID:    ptrStr("user123"),
-			rssFeedID: ptrStr("feed456"),
+			userID:    new("user123"),
+			rssFeedID: new("feed456"),
 			desc:      "both userID and rssFeedID are provided",
 		},
 	}
@@ -142,14 +142,14 @@ func TestHandleUpload_ReaderError(t *testing.T) {
 	t.Parallel()
 	t.Skip("known bug #147: HandleUpload panics when reading the upload fails instead of returning the error")
 
-	_, err := media.HandleUpload(context.Background(), nil, fakestorage.New(), ptrStr("user123"), nil, failReader{})
+	_, err := media.HandleUpload(context.Background(), nil, fakestorage.New(), new("user123"), nil, failReader{})
 	require.Error(t, err)
 }
 
 func TestHandleUpload_InvalidImageType(t *testing.T) {
 	t.Parallel()
 
-	userID := ptrStr("user123")
+	userID := new("user123")
 	mockStorage := fakestorage.New()
 
 	// Create a reader with data that detects as text, not an image
@@ -169,6 +169,8 @@ func TestHandleUpload_InvalidImageType(t *testing.T) {
 // error cases that don't require database access.
 
 // ptrStr is a helper to create a pointer to a string.
+//
+//go:fix inline
 func ptrStr(s string) *string {
-	return &s
+	return new(s)
 }

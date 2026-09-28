@@ -55,7 +55,6 @@ func TestToFeed_NonPublicPostHidesBody(t *testing.T) {
 	}
 
 	for _, vis := range testCases {
-		vis := vis
 		t.Run(vis.String(), func(t *testing.T) {
 			t.Parallel()
 
