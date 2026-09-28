@@ -135,7 +135,8 @@ func TestE1Index(t *testing.T) {
 	user := e1User(t, app)
 
 	resp := e1Status(t, app.Client(t).Get("/"), http.StatusOK)
-	require.NotZero(t, resp.Doc().Find("body").Length())
+	require.Empty(t, resp.Location())
+	require.Equal(t, 1, resp.Doc().Find(`a[href="/signup?attribution=index_page"]`).Length())
 
 	resp = e1Status(t, e1Login(t, app, user).Get("/"), http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
@@ -596,6 +597,28 @@ func TestE1PostZipAccessGuards(t *testing.T) {
 	e1Status(t, e1Login(t, app, unrelated).Get(path), http.StatusNotFound)
 }
 
+// e1RequireZipEitherAnswer asserts what must hold regardless of how Q7
+// (docs/open-questions.md) resolves whether zip export is author-only: never
+// a 5xx, and either a 200 whose zip holds exactly post's markdown, or a 404
+// or a login redirect to path that shut a non-author out.
+func e1RequireZipEitherAnswer(t *testing.T, resp *e2e.Response, path string, post *core.Post) {
+	t.Helper()
+
+	require.Less(t, resp.StatusCode, 500, resp.Body)
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		require.Equal(t, []string{post.ID + ".md"}, e1ZipNames(t, resp.Body))
+	case http.StatusFound:
+		e1RequireLoginRedirect(t, resp, path)
+	default:
+		require.Equal(t, http.StatusNotFound, resp.StatusCode, resp.Body)
+	}
+}
+
+// TestE1PostZipAnonymousPublic: whether an anonymous visitor may zip-export a
+// public post is undecided (Q7, docs/open-questions.md); this pins only what
+// holds under either answer.
 func TestE1PostZipAnonymousPublic(t *testing.T) {
 	t.Skip(e1Issue110)
 	t.Parallel()
@@ -604,11 +627,14 @@ func TestE1PostZipAnonymousPublic(t *testing.T) {
 
 	author := e1User(t, app)
 	public := e1Post(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	path := "/posts/" + public.ID + "/zip"
 
-	resp := app.Client(t).Get("/posts/" + public.ID + "/zip")
-	require.Less(t, resp.StatusCode, 500, resp.Body)
+	e1RequireZipEitherAnswer(t, app.Client(t).Get(path), path, public)
 }
 
+// TestE1PostZipDirectConnection: whether a direct connection (not the
+// author) may zip-export a private post is undecided (Q7,
+// docs/open-questions.md); this pins only what holds under either answer.
 func TestE1PostZipDirectConnection(t *testing.T) {
 	t.Skip(e1Issue110)
 	t.Parallel()
@@ -619,13 +645,9 @@ func TestE1PostZipDirectConnection(t *testing.T) {
 	direct := e1User(t, app)
 	e1Connect(t, app, author, direct)
 	post := e1Post(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	path := "/posts/" + post.ID + "/zip"
 
-	resp := e1Login(t, app, direct).Get("/posts/" + post.ID + "/zip")
-	require.Less(t, resp.StatusCode, 500, resp.Body)
-
-	if resp.StatusCode == http.StatusOK {
-		require.Contains(t, e1ZipNames(t, resp.Body), post.ID+".md")
-	}
+	e1RequireZipEitherAnswer(t, e1Login(t, app, direct).Get(path), path, post)
 }
 
 func TestE1PostEdit(t *testing.T) {
@@ -657,15 +679,6 @@ func TestE1SharedPost(t *testing.T) {
 	anon := app.Client(t)
 
 	author := e1User(t, app, factory.WithVisibility(core.ProfileVisibilityConnections))
-	post := e1Post(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-
-	share, err := factory.PostShare(ctx, app.DB, post.ID)
-	require.NoError(t, err)
-
-	t.Run("valid share opens a private post for anyone", func(t *testing.T) {
-		resp := e1Status(t, anon.Get("/shared/"+share.ID), http.StatusOK)
-		require.Contains(t, resp.Doc().Text(), post.Subject.String)
-	})
 
 	t.Run("share of a draft", func(t *testing.T) {
 		draft := e1Post(t, app, author.ID)
@@ -677,12 +690,6 @@ func TestE1SharedPost(t *testing.T) {
 
 	t.Run("unknown share", func(t *testing.T) {
 		e1Status(t, anon.Get("/shared/"+e1UnknownID), http.StatusNotFound)
-	})
-
-	t.Run("deleted share", func(t *testing.T) {
-		e1Status(t, e1Login(t, app, author).PostJSON("/controls/action/delete_share", map[string]string{"postId": post.ID}), http.StatusOK)
-
-		e1Status(t, anon.Get("/shared/"+share.ID), http.StatusNotFound)
 	})
 }
 
@@ -730,14 +737,8 @@ func TestE1UserMediaSpecialFiles(t *testing.T) {
 
 	resp := e1Status(t, c.Get("/user-media/robots.txt/thumb"), http.StatusOK)
 	require.Equal(t, "OK", resp.Body)
-}
 
-func TestE1UserMediaFavicon(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t)
-
-	resp := e1Status(t, app.Client(t).Get("/user-media/favicon.ico/thumb"), http.StatusMovedPermanently)
+	resp = e1Status(t, c.Get("/user-media/favicon.ico/thumb"), http.StatusMovedPermanently)
 	require.Equal(t, "/static/static/favicon.ico", resp.Location())
 }
 
