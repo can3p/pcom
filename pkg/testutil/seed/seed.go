@@ -1,9 +1,9 @@
-// Command seed fills a development database with a small, named world that
+// Package seed fills a development database with a small, named world that
 // exercises every feature of pcom. Run it with
 //
 //	go run ./cmd/seed [--reset]
 //
-// It reads DATABASE_URL (and SITE_ROOT, default http://localhost:8080) from
+// (cmd/seed is a thin wrapper around Run.) It reads DATABASE_URL (and SITE_ROOT, default http://localhost:8080) from
 // .env or the environment, like the app. It refuses to run when FLY_APP_NAME
 // is set. Without --reset it exits if users already exist; --reset truncates
 // every table except migrations and system_settings first.
@@ -21,7 +21,7 @@
 //	00000000-0000-4000-8000-000000000001
 //
 // for blg development. Registration is opened in the seeded database only.
-package main
+package seed
 
 import (
 	"context"
@@ -46,6 +46,12 @@ const (
 	// DefaultSiteRoot is used when SITE_ROOT is not set.
 	DefaultSiteRoot = "http://localhost:8080"
 )
+
+// Usernames returns the seeded usernames; each user's email is
+// <username>@example.test.
+func Usernames() []string {
+	return []string{"alice", "bob", "carol", "dave", "eve"}
+}
 
 // Options configures Run.
 type Options struct {
