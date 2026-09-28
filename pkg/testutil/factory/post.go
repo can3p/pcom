@@ -196,6 +196,13 @@ func Dismissed() PostPromptOpt {
 	}
 }
 
+// PromptCreatedAt backdates the prompt, for tests that depend on prompt order.
+func PromptCreatedAt(t time.Time) PostPromptOpt {
+	return func(p *core.PostPrompt) {
+		p.CreatedAt = t
+	}
+}
+
 // PostPrompt inserts askerID's prompt asking recipientID to write about
 // something.
 func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipientID string, opts ...PostPromptOpt) (*core.PostPrompt, error) {

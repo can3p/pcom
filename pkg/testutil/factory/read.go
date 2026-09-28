@@ -33,6 +33,11 @@ func GetPostStat(ctx context.Context, exec boil.ContextExecutor, postID string) 
 	return core.PostStats(core.PostStatWhere.PostID.EQ(postID)).One(ctx, exec)
 }
 
+// GetMediaUploadByFname looks up the upload row that HandleUpload created for fname.
+func GetMediaUploadByFname(ctx context.Context, exec boil.ContextExecutor, fname string) (*core.MediaUpload, error) {
+	return core.MediaUploads(core.MediaUploadWhere.UploadedFname.EQ(fname)).One(ctx, exec)
+}
+
 // ListOutgoingEmails returns the queued emails matching filter, e.g.
 // factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("welcome")).
 func ListOutgoingEmails(ctx context.Context, exec boil.ContextExecutor, filter ...qm.QueryMod) (core.OutgoingEmailSlice, error) {
