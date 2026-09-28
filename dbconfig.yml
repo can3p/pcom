@@ -1,11 +1,14 @@
+# sql-migrate config. sql-migrate expands environment variables in datasource.
+# Run it through sqlmigrate.sh (make migrate, make migrate-prod), which
+# checks that DATABASE_URL is set.
 development:
   dialect: postgres
-  datasource: host=${POSTGRES_HOST} port=${POSTGRES_PORT} dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} sslmode=disable
+  datasource: ${DATABASE_URL}
   dir: migrations
   table: migrations
 
 production:
   dialect: postgres
-  datasource: host=${POSTGRES_HOST} port=${POSTGRES_PORT} dbname=${POSTGRES_DB} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} sslmode=disable
+  datasource: ${DATABASE_URL}
   dir: migrations
   table: migrations

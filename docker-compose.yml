@@ -1,0 +1,98 @@
+# Local development stack for pcom. Use the make targets rather than typing
+# `docker compose` by hand: `make dev-up` / `make dev-down`, `make migrate`,
+# `make psql`, `make tools-shell` and so on (see the Makefile).
+#
+# Published host ports (each overridable through the env var in brackets, so
+# a second checkout can run next to this one with `docker compose -p <name>`):
+#
+#   host port  what answers                          in-network equivalent
+#   ---------  ------------------------------------  ---------------------
+#   5442       Postgres 16, db/user/password `pcom`  postgres:5432         [PCOM_PG_PORT]
+#              (not 5432, so a native Postgres can't silently take the app's connections)
+#   8811       tommy UI (/ui/) and API (/api/v1/)    tommy:8811            [PCOM_TOMMY_PORT]
+#              captured mail: http://localhost:8811/ui/ or GET /api/v1/events?plugin=mail
+#              Mailjet v3.1 send API is answered here too
+#   8822       tommy fake vendor ingress             tommy:8822            [PCOM_TOMMY_INGRESS_PORT]
+#   9555       tommy S3 (path-style, any creds),     tommy:9000            [PCOM_S3_PORT]
+#              bucket `pcom-media`; objects: GET :8811/api/v1/s3/buckets/pcom-media/objects
+#              (not 9000/9090/9091: MinIO, `make pprof_tunnel`, `make pprof_heap`)
+#   8080       the app (profile `dev`, task S4)      app:8080              [PCOM_APP_PORT]
+#
+# No service sets container_name, so the project name (-p) keeps checkouts apart.
+# Volumes: pgdata (database), tommydata (S3 buckets and objects; captured mail
+# is not persisted), gomod and gobuild (Go caches of the tools container).
+# `docker compose down -v` gives a clean slate.
+
+services:
+  postgres:
+    # The same image as the test harness.
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pcom
+      POSTGRES_PASSWORD: pcom
+      POSTGRES_DB: pcom
+    ports:
+      - "${PCOM_PG_PORT:-5442}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pcom -d pcom"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Mail sink and object store in one container.
+  tommy:
+    image: can3p/tommy:0.3.0
+    environment:
+      TOMMY_S3_BUCKETS: pcom-media
+      TOMMY_PERSIST: /data/tommy
+    ports:
+      - "${PCOM_TOMMY_PORT:-8811}:8811"
+      - "${PCOM_TOMMY_INGRESS_PORT:-8822}:8822"
+      - "${PCOM_S3_PORT:-9555}:9000"
+    volumes:
+      - tommydata:/data
+
+  # Dev tooling: sql-migrate, sqlboiler, psql, go run. Run through make
+  # (`make tools-shell`, `make migrate`, ...), which sets HOST_UID/HOST_GID so
+  # the files it writes belong to you.
+  tools:
+    build:
+      context: .
+      dockerfile: tools/Dockerfile
+      target: tools
+    profiles: ["tools"]
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /src
+    environment:
+      DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
+    volumes:
+      - .:/src
+      - gomod:/cache/gomod
+      - gobuild:/cache/gobuild
+    extra_hosts:
+      # `make migrate-prod` reaches the `make tunnel` fly proxy on the host.
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Task S4: the app with live reload and the frontend watcher, both built
+  # from tools/Dockerfile target `dev`, profile `dev`, app on 8080. They set
+  # the in-network settings (postgres:5432, tommy:8811, tommy:9000) as real
+  # environment variables, which godotenv never overrides.
+  #
+  # app:
+  #   build: {context: ., dockerfile: tools/Dockerfile, target: dev}
+  #   profiles: ["dev"]
+  #   ports: ["${PCOM_APP_PORT:-8080}:8080"]
+  # assets:
+  #   build: {context: ., dockerfile: tools/Dockerfile, target: dev}
+  #   profiles: ["dev"]
+
+volumes:
+  pgdata:
+  tommydata:
+  gomod:
+  gobuild:
