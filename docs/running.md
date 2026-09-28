@@ -88,7 +88,7 @@ Every account logs in with the email and the password `password`.
 | dave | dave@example.test | password | connections | unrelated to everyone |
 | eve | eve@example.test | password | registered_users | has an unaccepted invite (eve-friend@example.test) |
 
-This table mirrors the doc comment of `cmd/seed/seed.go`; when one changes, change the other.
+This table mirrors the doc comment of `pkg/testutil/seed/seed.go`; when one changes, change the other.
 
 ### What else is seeded
 
