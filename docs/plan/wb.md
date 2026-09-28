@@ -24,6 +24,11 @@ as well. Each fix removes the matching `t.Skip`, and that test is the proof.
 | #151 | `/user-media/robots.txt` and `favicon.ico` 404 without a class segment | `cmd/web/main.go`, cheap; skipped `TestE1UserMediaSpecialFilesAtRoot` |
 | #152 | Malformed UUID in `/invite/:id` returns 500 | check the other UUID path params too; skipped `TestE3_InviteInvalidUUID` |
 | #154 | Unknown `/user-media` name returns 500 | `cmd/web/main.go` panics on not-found; skipped `TestE4_UploadImage_UnknownName` |
+| #156 | API `updated_since` is off by the server's UTC offset | `pkg/web/api.go`; skipped `TestApiGetPosts_UpdatedSince_Boundary` forces a non-UTC zone |
+| #157 | Invalid `save_action` reported under `visibility` | one-line key fix in `form_post_new.go`, cheap |
+| #158 | Waiting list stores the email as typed | same family as #114; store the normalized email |
+| #159 | User styles over the limit are saved | `Validate` returns nil after `AddError`, cheap |
+| #160 | `auth.Login` panics on a database error | return the error; with the auth work |
 
 **Future, not part of WB:** #123 (re-enable signups with bot protection;
 signups are off on purpose) and #124 (feed and explore pagination). Both come
@@ -32,8 +37,11 @@ in place first.
 
 ### Known bugs (for de-duplication)
 
-Filed: #108–#117, #119–#124, #147, #148, #151, #152 and #154. Already fixed:
+Filed: #108–#117, #119–#124, #147, #148, #151, #152, #154 and #156–#160. Already fixed:
 the foreign-post delete through `DELETE /api/v1/posts/:id`, in PR #118
 (merged); W2.D3 and W3.E4 test the ownership check as a normal, non-skipped
 test. Drafts served to non-authors at `/posts/:id` (found by W3.E1) are fixed
-in PR #153, stacked on W3.
+in PR #153, stacked on W3. W2.D2a found that the journal (`UserHome`) loaded
+direct-only and second-degree posts for a logged-in visitor unrelated to the
+author (the template never rendered them); fixed in its own PR, stacked on
+W2.
