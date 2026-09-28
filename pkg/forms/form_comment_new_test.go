@@ -35,7 +35,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 
 	newForm := func(t *testing.T, u *core.User) *forms.NewCommentForm {
 		t.Helper()
-		f := forms.NewCommentFormNew(fakesender.New(), u, post.ID, pfMediaReplacer)
+		f := forms.NewCommentFormNew(fakesender.New(), u, post.ID, mediaReplacer)
 		cf, ok := f.(*forms.NewCommentForm)
 		require.True(t, ok)
 		cf.Input.Body = "A perfectly fine comment body"
@@ -47,7 +47,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	t.Run("the author can comment", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, author)
 		require.NoError(t, form.Validate(c, db))
 	})
@@ -55,7 +55,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	t.Run("a direct connection can comment", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, direct)
 		require.NoError(t, form.Validate(c, db))
 	})
@@ -63,7 +63,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	t.Run("a stranger cannot comment", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, stranger)
 		require.ErrorIs(t, form.Validate(c, db), ginhelpers.ErrForbidden)
 	})
@@ -71,7 +71,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	t.Run("body too short", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, author)
 		form.Input.Body = "hi"
 		require.Error(t, form.Validate(c, db))
@@ -81,7 +81,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	t.Run("replying to an existing comment on the post is allowed", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, direct)
 		form.Input.ReplyTo = topComment.ID
 		require.NoError(t, form.Validate(c, db))
@@ -95,7 +95,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 		otherComment, err := factory.Comment(ctx, db, otherPost.ID, author.ID)
 		require.NoError(t, err)
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, direct)
 		form.Input.ReplyTo = otherComment.ID
 		require.ErrorIs(t, form.Validate(c, db), ginhelpers.ErrNotFound)
@@ -104,18 +104,18 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	t.Run("replying to an unknown comment is not found", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, direct)
-		form.Input.ReplyTo = pfMissingID
+		form.Input.ReplyTo = missingID
 		require.ErrorIs(t, form.Validate(c, db), ginhelpers.ErrNotFound)
 	})
 
 	t.Run("commenting on an unknown post surfaces the lookup error", func(t *testing.T) {
 		t.Parallel()
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		form := newForm(t, direct)
-		form.Input.PostID = pfMissingID
+		form.Input.PostID = missingID
 		require.Error(t, form.Validate(c, db))
 	})
 }
@@ -137,13 +137,13 @@ func TestNewCommentForm_Save_TopLevel_NotifiesAuthorOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	sender := fakesender.New()
-	f := forms.NewCommentFormNew(sender, commenter, post.ID, pfMediaReplacer)
+	f := forms.NewCommentFormNew(sender, commenter, post.ID, mediaReplacer)
 	form, ok := f.(*forms.NewCommentForm)
 	require.True(t, ok)
 	form.Input.Body = "First comment on the post"
 	form.Input.PostID = post.ID
 
-	c, _ := pfNewCtx(t)
+	c, _ := newCtx(t)
 	require.NoError(t, form.Validate(c, db))
 
 	action, err := form.Save(ctx, db)
@@ -178,13 +178,13 @@ func TestNewCommentForm_Save_IncrementsPostStat(t *testing.T) {
 
 	saveComment := func(t *testing.T, u *core.User) {
 		t.Helper()
-		f := forms.NewCommentFormNew(fakesender.New(), u, post.ID, pfMediaReplacer)
+		f := forms.NewCommentFormNew(fakesender.New(), u, post.ID, mediaReplacer)
 		form, ok := f.(*forms.NewCommentForm)
 		require.True(t, ok)
 		form.Input.Body = "Another comment on the post"
 		form.Input.PostID = post.ID
 
-		c, _ := pfNewCtx(t)
+		c, _ := newCtx(t)
 		require.NoError(t, form.Validate(c, db))
 		action, err := form.Save(ctx, db)
 		require.NoError(t, err)
@@ -220,12 +220,12 @@ func TestNewCommentForm_Save_ReplyToVanishedComment(t *testing.T) {
 	// Save is exercised directly, without Validate, the way the table asks
 	// for it: a reply-to id that no longer resolves to a comment surfaces
 	// the lookup error instead of panicking or inserting an orphan reply.
-	f := forms.NewCommentFormNew(fakesender.New(), author, post.ID, pfMediaReplacer)
+	f := forms.NewCommentFormNew(fakesender.New(), author, post.ID, mediaReplacer)
 	form, ok := f.(*forms.NewCommentForm)
 	require.True(t, ok)
 	form.Input.Body = "A reply to nothing"
 	form.Input.PostID = post.ID
-	form.Input.ReplyTo = pfMissingID
+	form.Input.ReplyTo = missingID
 
 	_, err = form.Save(ctx, db)
 	require.Error(t, err)
@@ -254,14 +254,14 @@ func TestNewCommentForm_Save_Reply_ThreadingAndParticipants(t *testing.T) {
 	require.NoError(t, err)
 
 	sender := fakesender.New()
-	f := forms.NewCommentFormNew(sender, replier, post.ID, pfMediaReplacer)
+	f := forms.NewCommentFormNew(sender, replier, post.ID, mediaReplacer)
 	form, ok := f.(*forms.NewCommentForm)
 	require.True(t, ok)
 	form.Input.Body = "A reply to the first comment"
 	form.Input.PostID = post.ID
 	form.Input.ReplyTo = topComment.ID
 
-	c, _ := pfNewCtx(t)
+	c, _ := newCtx(t)
 	require.NoError(t, form.Validate(c, db))
 
 	action, err := form.Save(ctx, db)

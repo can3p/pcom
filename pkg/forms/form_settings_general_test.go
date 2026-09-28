@@ -20,10 +20,10 @@ func TestSettingsGeneralForm_ValidateEmptyTimezone(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsGeneralFormNew(ofUser)
+	form := forms.SettingsGeneralFormNew(user)
 	form.Input.Timezone = ""
 	form.Input.ProfileVisibility = string(core.ProfileVisibilityPublic)
 
@@ -39,10 +39,10 @@ func TestSettingsGeneralForm_ValidateInvalidTimezone(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsGeneralFormNew(ofUser)
+	form := forms.SettingsGeneralFormNew(user)
 	form.Input.Timezone = "Invalid/Timezone"
 	form.Input.ProfileVisibility = string(core.ProfileVisibilityPublic)
 
@@ -58,10 +58,10 @@ func TestSettingsGeneralForm_ValidateEmptyProfileVisibility(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsGeneralFormNew(ofUser)
+	form := forms.SettingsGeneralFormNew(user)
 	form.Input.Timezone = "America/New_York"
 	form.Input.ProfileVisibility = ""
 
@@ -77,10 +77,10 @@ func TestSettingsGeneralForm_ValidateInvalidProfileVisibility(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsGeneralFormNew(ofUser)
+	form := forms.SettingsGeneralFormNew(user)
 	form.Input.Timezone = "America/New_York"
 	form.Input.ProfileVisibility = "invalid"
 
@@ -96,10 +96,10 @@ func TestSettingsGeneralForm_ValidateSuccess(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsGeneralFormNew(ofUser)
+	form := forms.SettingsGeneralFormNew(user)
 	form.Input.Timezone = "America/New_York"
 	form.Input.ProfileVisibility = string(core.ProfileVisibilityConnections)
 
@@ -114,10 +114,10 @@ func TestSettingsGeneralForm_SaveUpdatesSettings(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-	ofUser, err := factory.User(ctx, db)
+	user, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	form := forms.SettingsGeneralFormNew(ofUser)
+	form := forms.SettingsGeneralFormNew(user)
 	form.Input.Timezone = "America/Los_Angeles"
 	form.Input.ProfileVisibility = string(core.ProfileVisibilityRegisteredUsers)
 
@@ -125,8 +125,8 @@ func TestSettingsGeneralForm_SaveUpdatesSettings(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
-	ofUpdatedUser, err := factory.GetUser(ctx, db, ofUser.ID)
+	updatedUser, err := factory.GetUser(ctx, db, user.ID)
 	require.NoError(t, err)
-	require.Equal(t, "America/Los_Angeles", ofUpdatedUser.Timezone)
-	require.Equal(t, core.ProfileVisibilityRegisteredUsers, ofUpdatedUser.ProfileVisibility)
+	require.Equal(t, "America/Los_Angeles", updatedUser.Timezone)
+	require.Equal(t, core.ProfileVisibilityRegisteredUsers, updatedUser.ProfileVisibility)
 }

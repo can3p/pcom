@@ -19,10 +19,10 @@ func TestChangePasswordForm_ValidateEmptyOldPassword(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-	ofUser, err := factory.User(ctx, db, factory.WithPassword("oldpassword"))
+	user, err := factory.User(ctx, db, factory.WithPassword("oldpassword"))
 	require.NoError(t, err)
 
-	form := forms.ChangePasswordFormNew(ofUser).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = ""
 	form.Input.Password = "newpassword123!"
 
@@ -38,10 +38,10 @@ func TestChangePasswordForm_ValidateEmptyNewPassword(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-	ofUser, err := factory.User(ctx, db, factory.WithPassword("oldpassword"))
+	user, err := factory.User(ctx, db, factory.WithPassword("oldpassword"))
 	require.NoError(t, err)
 
-	form := forms.ChangePasswordFormNew(ofUser).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = "oldpassword"
 	form.Input.Password = ""
 
@@ -57,10 +57,10 @@ func TestChangePasswordForm_ValidateWrongOldPassword(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-	ofUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	user, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
-	form := forms.ChangePasswordFormNew(ofUser).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = "wrongpassword"
 	form.Input.Password = "newpassword123!"
 
@@ -76,10 +76,10 @@ func TestChangePasswordForm_ValidateWeakNewPassword(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-	ofUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	user, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
-	form := forms.ChangePasswordFormNew(ofUser).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = "correctpassword"
 	form.Input.Password = "short"
 
@@ -95,10 +95,10 @@ func TestChangePasswordForm_ValidateSuccess(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-	ofUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
+	user, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
 	require.NoError(t, err)
 
-	form := forms.ChangePasswordFormNew(ofUser).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = "correctpassword"
 	form.Input.Password = "newpassword123!"
 
@@ -113,14 +113,14 @@ func TestChangePasswordForm_SaveUpdatesPassword(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-	ofUser, err := factory.User(ctx, db, factory.WithPassword("oldpassword"))
+	user, err := factory.User(ctx, db, factory.WithPassword("oldpassword"))
 	require.NoError(t, err)
 
 	// ChangePasswordFormNew keeps the same *core.User pointer Save mutates,
 	// so the old hash is captured before Save overwrites it in place.
-	ofOldPwdhash := ofUser.Pwdhash
+	oldPwdhash := user.Pwdhash
 
-	form := forms.ChangePasswordFormNew(ofUser).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = "oldpassword"
 	form.Input.Password = "newpassword123!"
 
@@ -128,7 +128,7 @@ func TestChangePasswordForm_SaveUpdatesPassword(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
-	ofUpdatedUser, err := factory.GetUser(ctx, db, ofUser.ID)
+	updatedUser, err := factory.GetUser(ctx, db, user.ID)
 	require.NoError(t, err)
-	require.NotEqual(t, ofOldPwdhash, ofUpdatedUser.Pwdhash)
+	require.NotEqual(t, oldPwdhash, updatedUser.Pwdhash)
 }
