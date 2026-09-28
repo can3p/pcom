@@ -167,10 +167,3 @@ func TestHandleUpload_InvalidImageType(t *testing.T) {
 // because they require testdb.New(t) which needs Docker/Postgres testcontainers.
 // W1 focuses on unit tests: argument validation, image type validation, and
 // error cases that don't require database access.
-
-// ptrStr is a helper to create a pointer to a string.
-//
-//go:fix inline
-func ptrStr(s string) *string {
-	return new(s)
-}
