@@ -190,10 +190,9 @@ func TestE3_ConfirmWaitingListValid(t *testing.T) {
 	require.NotZero(t, doc.Find("body").Length())
 
 	// Verify the signup request is now confirmed
-	// FIXME: Need reader to check EmailConfirmedAt after confirmation
-	// signup, err = factory.GetSignupRequest(ctx, app.DB, signup.ID)
-	// require.NoError(t, err)
-	// require.True(t, signup.EmailConfirmedAt.Valid)
+	signup, err = factory.GetSignupRequest(ctx, app.DB, signup.ID)
+	require.NoError(t, err)
+	require.True(t, signup.EmailConfirmedAt.Valid)
 }
 
 // TestE3_ConfirmWaitingListUnknown tests GET /confirm_waiting_list/:id with an unknown ID.
