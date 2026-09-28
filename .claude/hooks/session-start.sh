@@ -41,6 +41,14 @@ fi
 # Go modules, so the first build doesn't spend minutes downloading.
 (cd "$CLAUDE_PROJECT_DIR" && go mod download)
 
+# covdata: `make cover` merges unit and E2E coverage with `go tool covdata`,
+# which the image's Go install leaves out. It builds from the Go source tree.
+tooldir=$(go env GOTOOLDIR)
+if [ ! -x "$tooldir/covdata" ]; then
+  log "building go tool covdata"
+  go build -o "$tooldir/covdata" cmd/covdata
+fi
+
 # golangci-lint at CI's version. The image ships an older one, built with a Go
 # older than go.mod's, which refuses to load the config.
 want=$(sed -n 's/.*GOLANGCI_LINT_VERSION: *"v\([^"]*\)".*/\1/p' "$CLAUDE_PROJECT_DIR/.github/workflows/ci.yml")

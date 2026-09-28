@@ -45,7 +45,7 @@ all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a 
 
 ## Verifying economically
 
-- **Cloud sessions** are prepared by the SessionStart hook (Docker for the test database, libvips, CI's
+- **Cloud sessions** are prepared by the SessionStart hook (Docker for the test database, libvips, covdata, CI's
   golangci-lint, Chromium). If a test can't reach Docker or a build can't find `vips`, the hook failed: re-run
   `CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh` rather than troubleshooting by hand. Details and
   known sandbox-only browser failures: "Claude Code on the web" in `docs/testing.md`.
