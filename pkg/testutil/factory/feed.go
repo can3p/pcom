@@ -34,6 +34,13 @@ func NextFetchAt(t time.Time) RSSFeedOpt {
 	}
 }
 
+// WithoutTitle leaves the title empty, as for a feed that was never fetched.
+func WithoutTitle() RSSFeedOpt {
+	return func(f *core.RSSFeed) {
+		f.Title = null.String{}
+	}
+}
+
 // RSSFeed inserts a feed with a unique URL.
 func RSSFeed(ctx context.Context, exec boil.ContextExecutor, opts ...RSSFeedOpt) (*core.RSSFeed, error) {
 	id, err := newID()
