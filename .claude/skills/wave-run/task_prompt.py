@@ -32,9 +32,11 @@ Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the 
 Create fixtures with the test factories. If a helper is missing, stop and report exactly what you need rather
 than writing ORM calls in your test.
 If you find a bug: write the test for correct behavior, add t.Skip("known bug: <describe>"), and put a
-one-line repro in your report.
+one-line repro in your report. Never assert today's wrong behavior, and never leave a test whose body is
+commented out: the skipped test holds the real assertions. Code you can't reach goes in your report, not in
+a placeholder test.
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
-{testcmd}
+{testcmd}{nodb}
 Done when: tests pass and {done}.
 {report}"""
 
@@ -159,7 +161,10 @@ def build(wave, task):
         template = TEMPLATE
         if wave.lower() == "w0":
             template = template.replace("You are adding tests to pcom.", "You are building pcom's test infrastructure.")
-        body = template.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done, report=REPORT,
+        nodb = ("\nNo database: don't call testdb or the factories; build the structs in memory. testdb skips under"
+                " -short, so a test that uses it silently stops running in the Docker-free check."
+                if wave.lower() == "w1" else "")
+        body = template.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done, report=REPORT, nodb=nodb,
                                testcmd=(BROWSER_TESTCMD if browser else TESTCMD).format(pkg=pkg),
                                owns=owned or ("<FILL: new _test.go files and testdata/ in "
                                     + ("e2e/browser/<area>_test.go" if browser else pkg if pkgs else "the task's packages")
