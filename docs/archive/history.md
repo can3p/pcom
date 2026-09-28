@@ -153,3 +153,62 @@ tool results; subagents at 51k–122k, the most expensive being U10 (haiku,
 wave-close once each; test-failure never. Compared with W6, about the same
 turns for 13 tasks instead of 8: unit tests iterate less than browser tests,
 but three tasks were sent back and five were patched by the coordinator.
+
+## W3 — End-to-end HTTP tests: server rules (2026-09-28, branch `test/w3-e2e`)
+
+**Built.**
+
+- 4 tasks, one file each in `e2e/`: E1 visibility and read access
+  (`visibility_test.go`, the post visibility matrix over viewer × profile
+  visibility × post visibility × draft), E2 guards on every mutating route
+  (`guards_test.go`, a table checked against the routes parsed from
+  `cmd/web`), E3 one-shot links and account pages (`accounts_test.go`), E4
+  API v1, private RSS and black-box uploads (`api_test.go`). Total coverage
+  without the generated models went from 49.0% (after W1) to 67.7%;
+  `cmd/web` is at 65.4%, all of it from the binary under test. The E2E suite
+  runs in about 25 seconds.
+- Factory options (unconfirmed users with a confirm seed, used invitations,
+  confirmed waiting-list requests) and readers for shares, subscriptions,
+  feed items, prompts, whitelist, mediator decisions and signup requests, so
+  refused mutations are asserted against the database.
+- E0, not in the original plan: a SessionStart hook for Claude Code on the
+  web (`.claude/hooks/session-start.sh`). Fresh cloud containers had no
+  running Docker, no libvips, a golangci-lint too old for go.mod, no
+  `go tool covdata`, and no way to download Playwright's Chromium; the
+  browser harness gained `CHROMIUM_PATH` to use the image's copy.
+- Route union with W6 checked: every route is covered by W3, by W6, or (for
+  `POST /form/signup` and `/form/signup_waiting_list`, off on purpose) by
+  skipped tests for #139 and W3.E3's 404 pin.
+- Bugs: drafts served to non-authors at `/posts/:id` (a direct connection
+  saw every draft, anyone saw a public draft), fixed in PR #153 on top of
+  this wave at the owner's request. Filed #151 (`/user-media` special
+  files), #152 (malformed invite id → 500), #154 (unknown media name → 500);
+  #109, #110 and #115 got skipped tests.
+- Decided with the owner (Q15): a public post is visible to everybody
+  whatever the profile visibility, but stays out of the public feed (#146).
+
+**Wrong.**
+
+- E4 (haiku) skipped three tests as "response not returning ID" and asked
+  for handler changes: it never found that `ginhelpers.API` wraps every
+  response in `{"data": ...}`. It also left its build tag on and skipped
+  pagination. Re-dispatched once at sonnet with the root cause; that passed.
+- E3 (haiku) left a DB assertion commented out behind a FIXME even after the
+  reader existed; the mutation check caught it and the coordinator fixed it.
+- The task table referred to W2's D2a matrix and to issues by number; the
+  subagents can read neither, so the coordinator pasted both into the
+  prompts. `task_prompt.py` doesn't do this.
+- The first push failed with a 403 until GitHub access was reconnected.
+
+**Left out.** Three browser tests fail only in the cloud sandbox (older
+Chromium, no outbound network); CI's `browser` job is the reference for them.
+
+**Cost.** 1 coordinator session and 7 subagent runs (2 opus, 2 haiku, 1
+sonnet retry, 1 sonnet Explore for the route union; E2 and E3 were resumed
+once each with new factory helpers), about 510 turns in total. The
+coordinator peaked at 217k context with 142k of tool results, much of it the
+environment troubleshooting and the draft fix; subagents at 90k–154k. 31
+wasteful-call flags (25 `cat`, 4 raw builds, 2 full reads). Skills: wave-run,
+wave-close and session-start-hook once each, model-shape by 2 agents,
+test-failure never. Compared with W1, about half the turns for a third of
+the tasks: E2E tasks are larger, and one was sent back.

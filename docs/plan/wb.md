@@ -21,6 +21,9 @@ as well. Each fix removes the matching `t.Skip`, and that test is the proof.
 | #120 | Unescaped user content in HTML emails | quick `html.EscapeString` fix here; R4 makes it structural |
 | #121 | Private RSS URL carries the read/write API key | separate read-only feed token; needs a migration |
 | #122 | Session not rotated on login | small; with the auth work |
+| #151 | `/user-media/robots.txt` and `favicon.ico` 404 without a class segment | `cmd/web/main.go`, cheap; skipped `TestE1UserMediaSpecialFilesAtRoot` |
+| #152 | Malformed UUID in `/invite/:id` returns 500 | check the other UUID path params too; skipped `TestE3_InviteInvalidUUID` |
+| #154 | Unknown `/user-media` name returns 500 | `cmd/web/main.go` panics on not-found; skipped `TestE4_UploadImage_UnknownName` |
 
 **Future, not part of WB:** #123 (re-enable signups with bot protection;
 signups are off on purpose) and #124 (feed and explore pagination). Both come
@@ -29,6 +32,8 @@ in place first.
 
 ### Known bugs (for de-duplication)
 
-Filed: #108–#117 and #119–#124. Already fixed: the foreign-post delete
-through `DELETE /api/v1/posts/:id`, in PR #118 (merged). W2.D3 and W3.E6
-test the ownership check as a normal, non-skipped test.
+Filed: #108–#117, #119–#124, #147, #148, #151, #152 and #154. Already fixed:
+the foreign-post delete through `DELETE /api/v1/posts/:id`, in PR #118
+(merged); W2.D3 and W3.E4 test the ownership check as a normal, non-skipped
+test. Drafts served to non-authors at `/posts/:id` (found by W3.E1) are fixed
+in PR #153, stacked on W3.

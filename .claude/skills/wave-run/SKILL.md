@@ -32,7 +32,10 @@ Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` un
 ```
 
 It pastes the task's table row or `###` section into a preamble and prints the `model` to use on the first
-line. Replace every `<FILL: ...>`, above all the owned files, before dispatching. There are three preambles,
+line. Replace every `<FILL: ...>`, above all the owned files, before dispatching. If the excerpt names
+something a subagent can't read (another wave's matrix, an issue by number, an open question), paste its
+definition or a one-line summary into the prompt: subagents read no other wave files and have no GitHub
+access. There are three preambles,
 chosen by wave:
 
 - **Test waves** (W0–W5): read only `docs/testing.md`; LSP, the `model-shape` and `test-failure` skills;

@@ -53,3 +53,19 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   `//go:fix inline` helper everywhere and left it unused. `make check-q` now
   runs `fix-q` and `lint-q` first, and every task prompt runs them on the
   task's packages before reporting.
+- **Prompts can't point at things subagents can't read.** A task row that
+  names another wave's matrix ("the D2a matrix") or an issue number gives a
+  subagent nothing: it may not read other wave files and has no GitHub
+  access. Paste the definition and a one-line summary of each issue into the
+  prompt.
+- **An envelope looks like a missing field.** A cheap agent that decoded
+  API responses without the `{"data": ...}` wrapper concluded the handlers
+  were broken and asked for production changes. A "needs: fix the handler"
+  from a test wave is a reason to check the agent's reading first.
+- **Mutation-check commented-out assertions.** A `// require...` behind a
+  FIXME survived the preamble's ban again. `grep -n "FIXME\|// require" `
+  over a cheap agent's files before the mutation check.
+- **Make the cloud container reproducible first.** The first E2E run in a
+  fresh cloud session failed for four environment reasons, none in the
+  code. The SessionStart hook now fixes them; if a later wave meets a new
+  one, extend the hook rather than working around it by hand.
