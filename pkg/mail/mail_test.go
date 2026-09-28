@@ -27,7 +27,7 @@ func setPostURL(post *core.Post, url *core.NormalizedURL) {
 	postVal := reflect.ValueOf(post).Elem()
 
 	// Get the type of the R field
-	rField, ok := reflect.TypeOf(*post).FieldByName("R")
+	rField, ok := reflect.TypeFor[core.Post]().FieldByName("R")
 	if !ok {
 		return
 	}

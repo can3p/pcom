@@ -92,7 +92,7 @@ func TestTrigger(t *testing.T) {
 		var parsed gin.H
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
-		require.Equal(t, "value", parsed["myEvent"].(map[string]interface{})["detail"])
+		require.Equal(t, "value", parsed["myEvent"].(map[string]any)["detail"])
 	})
 
 	t.Run("calls wrapped action", func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestTrigger(t *testing.T) {
 		action(ctx, nil)
 
 		headerValue := recorder.Header().Get("HX-Trigger")
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 		require.Equal(t, "value", parsed["myEvent"])
@@ -133,7 +133,7 @@ func TestTrigger(t *testing.T) {
 		action(ctx, nil)
 
 		headerValue := recorder.Header().Get("HX-Trigger")
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 		require.Equal(t, "value1", parsed["event1"])
@@ -148,12 +148,12 @@ func TestTrigger(t *testing.T) {
 		action(ctx, nil)
 
 		headerValue := recorder.Header().Get("HX-Trigger")
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 		nestedObj, ok := parsed["complexEvent"]
 		require.True(t, ok)
-		nested, ok := nestedObj.(map[string]interface{})
+		nested, ok := nestedObj.(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "data", nested["nested"])
 	})
@@ -230,13 +230,13 @@ func TestSuccessBadge(t *testing.T) {
 		headerValue := recorder.Header().Get("HX-Trigger")
 		require.NotEmpty(t, headerValue)
 
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 
 		successEventRaw, ok := parsed["operation:success"]
 		require.True(t, ok)
-		successEvent, ok := successEventRaw.(map[string]interface{})
+		successEvent, ok := successEventRaw.(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "Operation completed", successEvent["explanation"])
 	})
@@ -250,12 +250,12 @@ func TestSuccessBadge(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, ctx.Writer.Status())
 
 		headerValue := recorder.Header().Get("HX-Trigger")
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 		successEventRaw, ok := parsed["operation:success"]
 		require.True(t, ok)
-		successEvent, ok := successEventRaw.(map[string]interface{})
+		successEvent, ok := successEventRaw.(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "Custom message", successEvent["explanation"])
 	})
@@ -269,12 +269,12 @@ func TestSuccessBadge(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, ctx.Writer.Status())
 
 		headerValue := recorder.Header().Get("HX-Trigger")
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 		successEventRaw, ok := parsed["operation:success"]
 		require.True(t, ok)
-		successEvent, ok := successEventRaw.(map[string]interface{})
+		successEvent, ok := successEventRaw.(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, "", successEvent["explanation"])
 	})
@@ -294,7 +294,7 @@ func TestComposedActions(t *testing.T) {
 
 		require.Equal(t, "#target", recorder.Header().Get("HX-Retarget"))
 		headerValue := recorder.Header().Get("HX-Trigger")
-		var parsed map[string]interface{}
+		var parsed map[string]any
 		err := json.Unmarshal([]byte(headerValue), &parsed)
 		require.NoError(t, err)
 		require.Equal(t, true, parsed["updated"])
