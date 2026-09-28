@@ -16,11 +16,12 @@
 #   9555       tommy S3 (path-style, any creds),     tommy:9000            [PCOM_S3_PORT]
 #              bucket `pcom-media`; objects: GET :8811/api/v1/s3/buckets/pcom-media/objects
 #              (not 9000/9090/9091: MinIO, `make pprof_tunnel`, `make pprof_heap`)
-#   8080       the app (profile `dev`, task S4)      app:8080              [PCOM_APP_PORT]
+#   8080       the app (profile `dev`, `make dev`)   app:8080              [PCOM_APP_PORT]
 #
 # No service sets container_name, so the project name (-p) keeps checkouts apart.
 # Volumes: pgdata (database), tommydata (S3 buckets and objects; captured mail
-# is not persisted), gomod and gobuild (Go caches of the tools container).
+# is not persisted), gomod and gobuild (Go caches of the tools and dev containers),
+# webnodemodules (node_modules of the dev containers).
 # `docker compose down -v` gives a clean slate.
 
 services:
@@ -78,21 +79,58 @@ services:
       postgres:
         condition: service_healthy
 
-  # Task S4: the app with live reload and the frontend watcher, both built
-  # from tools/Dockerfile target `dev`, profile `dev`, app on 8080. They set
-  # the in-network settings (postgres:5432, tommy:8811, tommy:9000) as real
-  # environment variables, which godotenv never overrides.
+  # Container mode (`make dev`, profile `dev`): the app with live reload and
+  # the frontend watcher, both from tools/Dockerfile target `dev`. Host mode
+  # (`make dev-up`, then `cd cmd/web && make watchexec` and `yarn watch`) keeps
+  # working against the published ports. The services set the in-network
+  # values as real environment variables; godotenv never overrides them, so
+  # cmd/web/.env (host-mode values) can stay in place. Mail and object storage
+  # are left at the app's defaults (not tommy yet).
   #
-  # app:
-  #   build: {context: ., dockerfile: tools/Dockerfile, target: dev}
-  #   profiles: ["dev"]
-  #   ports: ["${PCOM_APP_PORT:-8080}:8080"]
-  # assets:
-  #   build: {context: ., dockerfile: tools/Dockerfile, target: dev}
-  #   profiles: ["dev"]
+  # File watching: watchexec uses inotify, which is reliable on Linux. Through
+  # a bind mount on macOS Docker Desktop events may not arrive; if edits do not
+  # restart the app, change the command to `watchexec --poll 1000 ...`
+  # (`--poll <interval in ms>`), or run the app in host mode instead.
+  app:
+    build: &dev-build
+      context: .
+      dockerfile: tools/Dockerfile
+      target: dev
+    profiles: ["dev"]
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /src/cmd/web
+    command: ["watchexec", "-w", "/src", "--exts", "go,html,md", "--ignore", "**/node_modules/**", "--restart", "--", "go", "run", "."]
+    environment:
+      DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
+      SESSION_SALT: local-dev-session-salt-change-me
+      SITE_ROOT: http://localhost:8080
+      PORT: "8080"
+    ports:
+      - "${PCOM_APP_PORT:-8080}:8080"
+    volumes:
+      - .:/src
+      - webnodemodules:/src/cmd/web/node_modules
+      - gomod:/cache/gomod
+      - gobuild:/cache/gobuild
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Frontend bundle watcher; writes cmd/web/dist on the bind mount, which host
+  # mode reads too.
+  assets:
+    build: *dev-build
+    profiles: ["dev"]
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /src/cmd/web
+    command: ["sh", "-c", "yarn install --frozen-lockfile && yarn watch"]
+    volumes:
+      - .:/src
+      - webnodemodules:/src/cmd/web/node_modules
 
 volumes:
   pgdata:
   tommydata:
   gomod:
   gobuild:
+  webnodemodules:
