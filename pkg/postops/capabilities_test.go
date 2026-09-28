@@ -3,14 +3,17 @@ package postops_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/stretchr/testify/require"
+	"github.com/volatiletech/null/v8"
 )
 
-// TestCanSeePost covers CanSeePost over the full radius x visibility matrix.
+// TestCanSeePost covers CanSeePost over the full radius x visibility matrix,
+// for a published post and for a draft.
 func TestCanSeePost(t *testing.T) {
 	t.Parallel()
 
@@ -63,8 +66,12 @@ func TestCanSeePost(t *testing.T) {
 			t.Run(fmt.Sprintf("radius=%d/visibility=%s", radius, vis), func(t *testing.T) {
 				t.Parallel()
 
-				post := &core.Post{VisibilityRadius: vis}
+				post := &core.Post{VisibilityRadius: vis, PublishedAt: null.TimeFrom(time.Now())}
 				require.Equal(t, want[radius][vis], postops.CanSeePost(post, radius))
+
+				// a draft is the author's only, whatever its visibility
+				draft := &core.Post{VisibilityRadius: vis}
+				require.Equal(t, radius == userops.ConnectionRadiusSameUser, postops.CanSeePost(draft, radius))
 			})
 		}
 	}
