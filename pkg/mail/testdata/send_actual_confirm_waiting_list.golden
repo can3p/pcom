@@ -1,0 +1,21 @@
+EmailType: waiting_list_confirm
+UniqueID: request-1
+From: Your pcom <noreply@pcom.test>
+To: newuser@example.test
+Subject: Waiting list on pcom
+
+--- TEXT ---
+
+	Hi!
+
+	Thank you for your interest pcom! Please follow the link to confirm your email address
+
+	/confirm_waiting_list/request-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>Thank you for your interest pcom! Please follow the link to confirm your email address</p>
+
+	<a href="/confirm_waiting_list/request-1">/confirm_waiting_list/request-1</a>
