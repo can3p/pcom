@@ -87,10 +87,11 @@ services:
   # cmd/web/.env (host-mode values) can stay in place. Mail and object storage
   # are left at the app's defaults (not tommy yet).
   #
-  # File watching: watchexec uses inotify, which is reliable on Linux. Through
-  # a bind mount on macOS Docker Desktop events may not arrive; if edits do not
-  # restart the app, change the command to `watchexec --poll 1000 ...`
-  # (`--poll <interval in ms>`), or run the app in host mode instead.
+  # File watching: watchexec uses inotify. On macOS, Docker Desktop's file
+  # sharing (VirtioFS) forwards change events for bind mounts, so edits made on
+  # the host restart the app. If they don't (older Docker Desktop, or gRPC FUSE
+  # file sharing), run `PCOM_WATCH_POLL=1000 make dev` to poll every second
+  # instead, or run the app in host mode.
   app:
     build: &dev-build
       context: .
@@ -99,12 +100,17 @@ services:
     profiles: ["dev"]
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /src/cmd/web
-    command: ["watchexec", "-w", "/src", "--exts", "go,html,md", "--ignore", "**/node_modules/**", "--restart", "--", "go", "run", "."]
+    # PCOM_WATCH_POLL=<ms> switches watchexec to polling (see above).
+    command:
+      - sh
+      - -c
+      - exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md --ignore '**/node_modules/**' --restart -- go run .
     environment:
       DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
       SESSION_SALT: local-dev-session-salt-change-me
       SITE_ROOT: http://localhost:8080
       PORT: "8080"
+      PCOM_WATCH_POLL: ${PCOM_WATCH_POLL:-}
     ports:
       - "${PCOM_APP_PORT:-8080}:8080"
     volumes:
