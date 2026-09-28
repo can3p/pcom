@@ -32,3 +32,19 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   `connect()` in turn and running the suite found the one controller whose
   tests only ever took the happy path (confirm: every test accepted the
   dialog). The agents' own "covers" lists overstated coverage.
+- **Check that "no database" is true in the code, not the plan.** Three W1
+  targets assumed a pure branch that sits behind a query. Before setting a
+  unit-test target, read the function's first statements. Report
+  unreachable code, don't pad for it.
+- **A skipped test can hide a test that never runs.** `testdb` skips under
+  `-short`, so a unit test that quietly used the database passed the
+  Docker-free check by not running. Grep a no-database wave's files for
+  `testdb` and `factory.` before accepting them.
+- **Goldens must not depend on shared sequences.** Factory emails and
+  usernames come from a counter shared by parallel tests; a golden that
+  contains one depends on test order. Build golden fixtures with fixed
+  values.
+- **Cheap agents characterize bugs.** Told to pin bugs with skipped tests,
+  haiku agents still wrote tests asserting today's wrong output, and
+  placeholder tests with commented-out bodies. Read every `t.Skip` and every
+  "known bug" comment in their files; the preamble now forbids both.

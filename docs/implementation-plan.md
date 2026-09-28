@@ -46,7 +46,7 @@ Related documents:
 | Wave | Name | Depends on | State | Branch |
 |---|---|---|---|---|
 | W0 | Test foundation | — (gogo `v0.0.2` released) | done | `test/w0-foundation` |
-| W1 | Unit tests, no database | W0 | not started | `test/w1-unit` |
+| W1 | Unit tests, no database | W0 | done | `test/w1-unit` |
 | W2 | Package tests against Postgres | W0 | not started | `test/w2-db` |
 | W3 | End-to-end HTTP tests: server rules | W0 | not started | `test/w3-e2e` |
 | W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | not started | `test/w4-local-stack` |
