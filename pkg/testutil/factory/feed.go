@@ -10,8 +10,25 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
+// RSSFeedOpt customizes an RSSFeed before it is inserted.
+type RSSFeedOpt func(*core.RSSFeed)
+
+// WithFeedURL overrides the made-up feed URL.
+func WithFeedURL(url string) RSSFeedOpt {
+	return func(f *core.RSSFeed) {
+		f.URL = url
+	}
+}
+
+// WithFeedTitle overrides the made-up feed title.
+func WithFeedTitle(title string) RSSFeedOpt {
+	return func(f *core.RSSFeed) {
+		f.Title = null.StringFrom(title)
+	}
+}
+
 // RSSFeed inserts a feed with a unique URL.
-func RSSFeed(ctx context.Context, exec boil.ContextExecutor) (*core.RSSFeed, error) {
+func RSSFeed(ctx context.Context, exec boil.ContextExecutor, opts ...RSSFeedOpt) (*core.RSSFeed, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -25,6 +42,10 @@ func RSSFeed(ctx context.Context, exec boil.ContextExecutor) (*core.RSSFeed, err
 		Title:                  null.StringFrom(fmt.Sprintf("Test feed %d", n)),
 		Description:            null.StringFrom("Test feed description"),
 		UpdateFrequencyMinutes: 60,
+	}
+
+	for _, opt := range opts {
+		opt(f)
 	}
 
 	if err := f.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -62,6 +83,13 @@ type RSSItemOpt func(*core.RSSItem)
 func WithURLID(urlID string) RSSItemOpt {
 	return func(i *core.RSSItem) {
 		i.URLID = urlID
+	}
+}
+
+// WithItemTitle overrides the made-up item title.
+func WithItemTitle(title string) RSSItemOpt {
+	return func(i *core.RSSItem) {
+		i.Title = title
 	}
 }
 
