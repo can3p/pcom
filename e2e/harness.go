@@ -287,6 +287,10 @@ func workDir(t testing.TB, realAssets bool) string {
 		t.Fatal(err)
 	}
 
+	// Assets the Go code asks for rather than a template:
+	// the /user-media/favicon.ico redirect.
+	keys = append(keys, "static/favicon.ico")
+
 	manifest := map[string]string{}
 
 	for _, key := range keys {

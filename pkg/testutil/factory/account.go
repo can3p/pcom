@@ -22,6 +22,13 @@ func Sent(email string) InvitationOpt {
 	}
 }
 
+// UsedBy marks the invitation as accepted by createdUserID.
+func UsedBy(createdUserID string) InvitationOpt {
+	return func(i *core.UserInvitation) {
+		i.CreatedUserID = null.StringFrom(createdUserID)
+	}
+}
+
 // Invitation inserts one of userID's invitation slots.
 func Invitation(ctx context.Context, exec boil.ContextExecutor, userID string, opts ...InvitationOpt) (*core.UserInvitation, error) {
 	id, err := newID()
@@ -45,8 +52,19 @@ func Invitation(ctx context.Context, exec boil.ContextExecutor, userID string, o
 	return i, nil
 }
 
+// SignupRequestOpt customizes a UserSignupRequest before it is inserted.
+type SignupRequestOpt func(*core.UserSignupRequest)
+
+// EmailConfirmed marks the request's email as already confirmed through
+// /confirm_waiting_list/:id.
+func EmailConfirmed() SignupRequestOpt {
+	return func(r *core.UserSignupRequest) {
+		r.EmailConfirmedAt = null.TimeFrom(time.Now())
+	}
+}
+
 // SignupRequest inserts a pending request to join, with a unique email.
-func SignupRequest(ctx context.Context, exec boil.ContextExecutor) (*core.UserSignupRequest, error) {
+func SignupRequest(ctx context.Context, exec boil.ContextExecutor, opts ...SignupRequestOpt) (*core.UserSignupRequest, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -57,6 +75,10 @@ func SignupRequest(ctx context.Context, exec boil.ContextExecutor) (*core.UserSi
 	r := &core.UserSignupRequest{
 		ID:    id,
 		Email: fmt.Sprintf("signup%d@example.test", n),
+	}
+
+	for _, opt := range opts {
+		opt(r)
 	}
 
 	if err := r.Insert(ctx, exec, boil.Infer()); err != nil {

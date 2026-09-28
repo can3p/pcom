@@ -53,3 +53,44 @@ func ConnectionExists(ctx context.Context, exec boil.ContextExecutor, aID, bID s
 func GetMediationRequest(ctx context.Context, exec boil.ContextExecutor, id string) (*core.UserConnectionMediationRequest, error) {
 	return core.FindUserConnectionMediationRequest(ctx, exec, id)
 }
+
+// GetSignupRequest looks up a waiting-list request by id.
+func GetSignupRequest(ctx context.Context, exec boil.ContextExecutor, id string) (*core.UserSignupRequest, error) {
+	return core.FindUserSignupRequest(ctx, exec, id)
+}
+
+// ListMediatorDecisions returns the mediators' decisions on mediation request requestID.
+func ListMediatorDecisions(ctx context.Context, exec boil.ContextExecutor, requestID string) (core.UserConnectionMediatorSlice, error) {
+	return core.UserConnectionMediators(core.UserConnectionMediatorWhere.MediationID.EQ(requestID)).All(ctx, exec)
+}
+
+// GetPostShare looks up a post share by id.
+func GetPostShare(ctx context.Context, exec boil.ContextExecutor, id string) (*core.PostShare, error) {
+	return core.FindPostShare(ctx, exec, id)
+}
+
+// SubscriptionExists reports whether userID subscribes to feedID.
+func SubscriptionExists(ctx context.Context, exec boil.ContextExecutor, userID, feedID string) (bool, error) {
+	return core.UserFeedSubscriptions(
+		core.UserFeedSubscriptionWhere.UserID.EQ(userID),
+		core.UserFeedSubscriptionWhere.FeedID.EQ(feedID),
+	).Exists(ctx, exec)
+}
+
+// GetUserFeedItem looks up a user's feed item by id.
+func GetUserFeedItem(ctx context.Context, exec boil.ContextExecutor, id string) (*core.UserFeedItem, error) {
+	return core.FindUserFeedItem(ctx, exec, id)
+}
+
+// GetPostPrompt looks up a post prompt by id.
+func GetPostPrompt(ctx context.Context, exec boil.ContextExecutor, id string) (*core.PostPrompt, error) {
+	return core.FindPostPrompt(ctx, exec, id)
+}
+
+// WhitelistExists reports whether whoID allows allowsWhoID to connect.
+func WhitelistExists(ctx context.Context, exec boil.ContextExecutor, whoID, allowsWhoID string) (bool, error) {
+	return core.WhitelistedConnections(
+		core.WhitelistedConnectionWhere.WhoID.EQ(whoID),
+		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(allowsWhoID),
+	).Exists(ctx, exec)
+}
