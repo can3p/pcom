@@ -28,6 +28,11 @@ func GetRSSItem(ctx context.Context, exec boil.ContextExecutor, id string) (*cor
 	return core.FindRSSItem(ctx, exec, id)
 }
 
+// ListRSSItems returns every item stored for feedID.
+func ListRSSItems(ctx context.Context, exec boil.ContextExecutor, feedID string) (core.RSSItemSlice, error) {
+	return core.RSSItems(core.RSSItemWhere.FeedID.EQ(feedID)).All(ctx, exec)
+}
+
 // GetPost looks up a post by id.
 func GetPost(ctx context.Context, exec boil.ContextExecutor, id string) (*core.Post, error) {
 	return core.FindPost(ctx, exec, id)
