@@ -88,8 +88,18 @@ func SignupRequest(ctx context.Context, exec boil.ContextExecutor, opts ...Signu
 	return r, nil
 }
 
-// APIKey issues userID a fresh API key.
-func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserAPIKey, error) {
+// APIKeyOpt customizes a UserAPIKey before it is inserted.
+type APIKeyOpt func(*core.UserAPIKey)
+
+// WithAPIKey sets a fixed key value instead of a random one.
+func WithAPIKey(key string) APIKeyOpt {
+	return func(k *core.UserAPIKey) {
+		k.APIKey = key
+	}
+}
+
+// APIKey issues userID a fresh API key, or the one WithAPIKey gives.
+func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string, opts ...APIKeyOpt) (*core.UserAPIKey, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -104,6 +114,10 @@ func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string) (*cor
 		ID:     id,
 		APIKey: key.String(),
 		UserID: userID,
+	}
+
+	for _, opt := range opts {
+		opt(k)
 	}
 
 	if err := k.Insert(ctx, exec, boil.Infer()); err != nil {

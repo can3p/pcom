@@ -29,6 +29,20 @@ func Visibility(v core.PostVisibility) PostOpt {
 	}
 }
 
+// WithSubject overrides the made-up subject.
+func WithSubject(subject string) PostOpt {
+	return func(p *core.Post) {
+		p.Subject = null.StringFrom(subject)
+	}
+}
+
+// WithBody overrides the made-up body.
+func WithBody(body string) PostOpt {
+	return func(p *core.Post) {
+		p.Body = body
+	}
+}
+
 // WithURL attaches the post to an already-created NormalizedURL.
 func WithURL(urlID string) PostOpt {
 	return func(p *core.Post) {
@@ -72,6 +86,13 @@ type CommentOpt func(*core.PostComment)
 func ReplyTo(commentID string) CommentOpt {
 	return func(c *core.PostComment) {
 		c.ParentCommentID = null.StringFrom(commentID)
+	}
+}
+
+// WithCommentBody overrides the made-up comment body.
+func WithCommentBody(body string) CommentOpt {
+	return func(c *core.PostComment) {
+		c.Body = body
 	}
 }
 
@@ -158,6 +179,13 @@ type PostPromptOpt func(*core.PostPrompt)
 func WithPost(postID string) PostPromptOpt {
 	return func(p *core.PostPrompt) {
 		p.PostID = null.StringFrom(postID)
+	}
+}
+
+// WithPromptMessage overrides the made-up prompt message.
+func WithPromptMessage(msg string) PostPromptOpt {
+	return func(p *core.PostPrompt) {
+		p.Message = msg
 	}
 }
 

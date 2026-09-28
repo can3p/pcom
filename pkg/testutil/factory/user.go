@@ -24,6 +24,21 @@ func WithPassword(pw string) UserOpt {
 	}
 }
 
+// WithUsername overrides the made-up username.
+func WithUsername(name string) UserOpt {
+	return func(u *core.User) {
+		u.Username = name
+	}
+}
+
+// WithEmail overrides the made-up email. Apply it before WithPassword, which
+// hashes the password together with the email.
+func WithEmail(email string) UserOpt {
+	return func(u *core.User) {
+		u.Email = email
+	}
+}
+
 // WithVisibility overrides the user's default profile visibility.
 func WithVisibility(v core.ProfileVisibility) UserOpt {
 	return func(u *core.User) {
