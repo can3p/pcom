@@ -188,9 +188,6 @@ func (w *world) userData(t *testing.T, viewer viewer, profile core.ProfileVisibi
 	return c, &userData
 }
 
-const userHomeBug = "known bug: UserHome applies no visibility filter for a logged-in visitor unrelated to the author, " +
-	"so they see direct_only and second_degree posts"
-
 func TestPrivacyMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -326,13 +323,13 @@ func TestPrivacyMatrix(t *testing.T) {
 		bug     string
 	}{
 		{core.ProfileVisibilityPublic, asAnonymous, reader, publicOnly, ""},
-		{core.ProfileVisibilityPublic, asStranger, reader, publicOnly, userHomeBug},
+		{core.ProfileVisibilityPublic, asStranger, reader, publicOnly, ""},
 		{core.ProfileVisibilityPublic, asSecondDegree, reader, secondAndPublic, ""},
 		{core.ProfileVisibilityPublic, asDirect, asCommenter, all, ""},
 		{core.ProfileVisibilityPublic, asAuthor, owner, all, ""},
 
 		{core.ProfileVisibilityRegisteredUsers, asAnonymous, notFound, nil, ""},
-		{core.ProfileVisibilityRegisteredUsers, asStranger, reader, publicOnly, userHomeBug},
+		{core.ProfileVisibilityRegisteredUsers, asStranger, reader, publicOnly, ""},
 		{core.ProfileVisibilityRegisteredUsers, asSecondDegree, reader, secondAndPublic, ""},
 		{core.ProfileVisibilityRegisteredUsers, asDirect, asCommenter, all, ""},
 		{core.ProfileVisibilityRegisteredUsers, asAuthor, owner, all, ""},

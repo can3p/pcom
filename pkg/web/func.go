@@ -551,17 +551,18 @@ func UserHome(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	}
 
 	switch connRadius {
-	case userops.ConnectionRadiusUnknown:
-		// anon users get public posts only
-		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilityPublic}))
-	case userops.ConnectionRadiusSecondDegree:
-		// second degree gets public and second degree posts
-		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}))
 	case userops.ConnectionRadiusDirect:
 		// direct users including the author have no restrictions
 		fallthrough
 	case userops.ConnectionRadiusSameUser:
 		m = append(m, qm.Load(core.PostRels.PostStat))
+	case userops.ConnectionRadiusSecondDegree:
+		// second degree gets public and second degree posts
+		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}))
+	default:
+		// anonymous and unrelated visitors, and any radius added later, get
+		// public posts only
+		m = append(m, core.PostWhere.VisibilityRadius.IN([]core.PostVisibility{core.PostVisibilityPublic}))
 	}
 
 	rawPosts, err := core.Posts(m...).All(ctx, db)
