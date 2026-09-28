@@ -1,7 +1,28 @@
 {
     "permissions": {
-      "deny": ["Read(./pkg/model/core/**)"],
-      "allow": ["Bash(make check-q)", "Bash(make test-q:*)", "Bash(make cover-q:*)",
-                "Bash(make vet-q:*)", "Bash(make model:*)", "Bash(go doc:*)", "Bash(git diff --stat:*)"]
+        "deny": [
+            "Read(./pkg/model/core/**)"
+        ],
+        "allow": [
+            "Bash(make check-q)",
+            "Bash(make test-q:*)",
+            "Bash(make cover-q:*)",
+            "Bash(make vet-q:*)",
+            "Bash(make model:*)",
+            "Bash(go doc:*)",
+            "Bash(git diff --stat:*)"
+        ]
+    },
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+                    }
+                ]
+            }
+        ]
     }
 }

@@ -203,6 +203,24 @@ func TestSmoke_ActionButton(t *testing.T) {
 `cover-q`, `fix-q` and `lint-q` (see `AGENTS.md`) are for agents, narrow with `PKG=./pkg/links/...` and take build tags with
 `TAGS=browser`. The browser targets are `ui-deps`, `test-ui` and `ui-trace` (above).
 
+## Claude Code on the web
+
+Cloud sessions get a fresh container that lacks some of what the tests need. The SessionStart hook
+`.claude/hooks/session-start.sh` fixes that before the session starts, and is safe to re-run by hand if a
+step fails:
+
+- installs `libvips-dev` (cgo headers for `pkg/media`; without them `cmd/web` and `e2e` don't compile);
+- starts `dockerd` (testcontainers Postgres for `testdb` and E2E; log in `/tmp/dockerd.log`);
+- installs the frontend's `node_modules` and downloads Go modules;
+- installs golangci-lint at CI's `GOLANGCI_LINT_VERSION` (the image's copy is built with an older Go and
+  refuses to lint this module);
+- installs the playwright-go driver and sets `CHROMIUM_PATH=/opt/pw-browsers/chromium`, because the
+  network policy blocks Playwright's CDN, so `make ui-deps` can't download Chromium.
+
+The image's Chromium is older than the one CI installs, and the sandbox has no general outbound network, so a
+few browser tests fail only there (an embedded external resource, inline-style CSP reports). Trust CI's
+`browser` job for those; W6 and refactor waves run the full suite there.
+
 ## Worked examples
 
 A unit test, pinning an unexported function's logic (ground rule 4):

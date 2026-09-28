@@ -45,6 +45,11 @@ all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a 
 
 ## Verifying economically
 
+- **Cloud sessions** are prepared by the SessionStart hook (Docker for the test database, libvips, CI's
+  golangci-lint, Chromium). If a test can't reach Docker or a build can't find `vips`, the hook failed: re-run
+  `CLAUDE_CODE_REMOTE=true .claude/hooks/session-start.sh` rather than troubleshooting by hand. Details and
+  known sandbox-only browser failures: "Claude Code on the web" in `docs/testing.md`.
+
 - **Compile errors come from gopls for free, in the main session only.** After an edit, its diagnostics
   arrive with the next tool result; fix those instead of running `go build` or `go vet`. **Subagents don't
   receive diagnostics** (they are delivered to the parent session), so a subagent runs `make vet-q PKG=...`

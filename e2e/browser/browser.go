@@ -48,6 +48,7 @@ var (
 // Main starts one Chromium for the test package, builds the web binary
 // through e2e.Run and runs the tests. HEADED=1 shows the browser and
 // SLOWMO=<ms> slows every action down, for watching a test locally.
+// CHROMIUM_PATH=<binary> launches that Chromium instead of Playwright's own.
 func Main(m *testing.M) {
 	os.Exit(run(m))
 }
@@ -63,6 +64,11 @@ func run(m *testing.M) int {
 	opts := playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(os.Getenv("HEADED") == "")}
 	if ms, err := strconv.ParseFloat(os.Getenv("SLOWMO"), 64); err == nil {
 		opts.SlowMo = playwright.Float(ms)
+	}
+	// CHROMIUM_PATH runs a Chromium that is already installed instead of the
+	// one `make ui-deps` downloads, for sandboxes that can't reach Playwright's CDN.
+	if path := os.Getenv("CHROMIUM_PATH"); path != "" {
+		opts.ExecutablePath = playwright.String(path)
 	}
 
 	chromium, err = pw.Chromium.Launch(opts)
