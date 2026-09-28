@@ -21,11 +21,9 @@ import (
 	"github.com/volatiletech/null/v8"
 )
 
-const e2Password = "guard-secret-pw"
-
-// e2World is the fixture every guard test acts on: an owner who is logged in,
+// guardWorld is the fixture every guard test acts on: an owner who is logged in,
 // plus the objects the mutating routes could touch.
-type e2World struct {
+type guardWorld struct {
 	app *e2e.App
 
 	owner, friend, stranger, requester *core.User
@@ -41,19 +39,19 @@ type e2World struct {
 	ownerSessionCookie []*http.Cookie
 }
 
-func e2NewWorld(t *testing.T, app *e2e.App) *e2World {
+func newGuardWorld(t *testing.T, app *e2e.App) *guardWorld {
 	t.Helper()
 
 	ctx := context.Background()
 	db := app.DB
-	w := &e2World{app: app}
+	w := &guardWorld{app: app}
 
 	var err error
 
-	w.owner = e2User(t, app)
-	w.friend = e2User(t, app)
-	w.stranger = e2User(t, app)
-	w.requester = e2User(t, app)
+	w.owner = newUser(t, app)
+	w.friend = newUser(t, app)
+	w.stranger = newUser(t, app)
+	w.requester = newUser(t, app)
 
 	_, _, err = factory.Connect(ctx, db, w.owner.ID, w.friend.ID)
 	require.NoError(t, err)
@@ -85,23 +83,14 @@ func e2NewWorld(t *testing.T, app *e2e.App) *e2World {
 	require.NoError(t, factory.SetRegistrationOpen(ctx, db, true))
 
 	w.ownerClient = app.Client(t)
-	w.ownerClient.LoginAs(w.owner.Email, e2Password)
+	w.ownerClient.LoginAs(w.owner.Email, testPassword)
 	w.ownerSessionCookie = w.ownerClient.Cookies()
 
 	return w
 }
 
-func e2User(t *testing.T, app *e2e.App) *core.User {
-	t.Helper()
-
-	u, err := factory.User(context.Background(), app.DB, factory.WithPassword(e2Password))
-	require.NoError(t, err)
-
-	return u
-}
-
-// e2Snapshot is the part of the world a mutating route could change.
-type e2Snapshot struct {
+// dbSnapshot is the part of the world a mutating route could change.
+type dbSnapshot struct {
 	Users      []string
 	Posts      []string
 	Comments   []string
@@ -115,13 +104,13 @@ type e2Snapshot struct {
 	LoggedInAs string
 }
 
-func (w *e2World) snapshot(t *testing.T) e2Snapshot {
+func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	t.Helper()
 
 	ctx := context.Background()
 	db := w.app.DB
 
-	var s e2Snapshot
+	var s dbSnapshot
 
 	for _, u := range []*core.User{w.owner, w.friend, w.stranger, w.requester} {
 		got, err := factory.GetUser(ctx, db, u.ID)
@@ -173,14 +162,14 @@ func (w *e2World) snapshot(t *testing.T) e2Snapshot {
 	require.NoError(t, err)
 	s.Prompt = prompt.DismissedAt.Valid
 
-	s.LoggedInAs = e2CurrentUsername(t, w.ownerClient)
+	s.LoggedInAs = currentUsername(t, w.ownerClient)
 
 	return s
 }
 
-// e2CurrentUsername is the username the navbar greets on /feed, or "" when the
+// currentUsername is the username the navbar greets on /feed, or "" when the
 // session is anonymous.
-func e2CurrentUsername(t *testing.T, c *e2e.Client) string {
+func currentUsername(t *testing.T, c *e2e.Client) string {
 	t.Helper()
 
 	resp := c.Get("/feed")
@@ -191,143 +180,143 @@ func e2CurrentUsername(t *testing.T, c *e2e.Client) string {
 	return strings.TrimSpace(resp.Doc().Find(".navbar-text a").First().Text())
 }
 
-// e2Route is one mutating or EnforceAuth route, as registered in cmd/web.
-type e2Route struct {
+// guardRoute is one mutating or EnforceAuth route, as registered in cmd/web.
+type guardRoute struct {
 	method  string
 	pattern string
 	// path returns the concrete path for the pattern.
-	path func(w *e2World) string
+	path func(w *guardWorld) string
 	// payload is what a legitimate request would send, so that a guard that
 	// let the request through would visibly change the database.
-	payload func(w *e2World) map[string]string
+	payload func(w *guardWorld) map[string]string
 }
 
-func (r e2Route) key() string { return r.method + " " + r.pattern }
+func (r guardRoute) key() string { return r.method + " " + r.pattern }
 
-func (r e2Route) isJSON() bool {
+func (r guardRoute) isJSON() bool {
 	return strings.HasPrefix(r.pattern, "/controls/action/")
 }
 
-func e2Static(p string) func(*e2World) string { return func(*e2World) string { return p } }
+func staticPath(p string) func(*guardWorld) string { return func(*guardWorld) string { return p } }
 
-func e2None(*e2World) map[string]string { return nil }
+func noExtra(*guardWorld) map[string]string { return nil }
 
-// e2Routes is every POST/PUT/DELETE and EnforceAuth route of cmd/web outside
-// /api/v1. TestE2RouteTableMatchesSource keeps it in sync with the source.
-var e2Routes = []e2Route{
+// guardRoutes is every POST/PUT/DELETE and EnforceAuth route of cmd/web outside
+// /api/v1. TestGuards_RouteTableMatchesSource keeps it in sync with the source.
+var guardRoutes = []guardRoute{
 	// EnforceAuth GET routes
-	{http.MethodGet, "/posts/:id/edit", func(w *e2World) string { return "/posts/" + w.draft.ID + "/edit" }, e2None},
-	{http.MethodGet, "/write", e2Static("/write"), e2None},
-	{http.MethodGet, "/feed", e2Static("/feed"), e2None},
-	{http.MethodGet, "/controls/", e2Static("/controls/"), e2None},
-	{http.MethodGet, "/controls/settings", e2Static("/controls/settings"), e2None},
+	{http.MethodGet, "/posts/:id/edit", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/edit" }, noExtra},
+	{http.MethodGet, "/write", staticPath("/write"), noExtra},
+	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
+	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
+	{http.MethodGet, "/controls/settings", staticPath("/controls/settings"), noExtra},
 
 	// /controls/action (actions.go and logout)
-	{http.MethodPost, "/controls/action/logout", e2Static("/controls/action/logout"), e2None},
-	{http.MethodPost, "/controls/action/remove_from_whitelist", e2Static("/controls/action/remove_from_whitelist"),
-		func(w *e2World) map[string]string { return map[string]string{"userId": w.stranger.ID} }},
-	{http.MethodPost, "/controls/action/create_connection", e2Static("/controls/action/create_connection"),
-		func(w *e2World) map[string]string { return map[string]string{"userId": w.stranger.ID} }},
-	{http.MethodPost, "/controls/action/drop_connection", e2Static("/controls/action/drop_connection"),
-		func(w *e2World) map[string]string { return map[string]string{"userId": w.friend.ID} }},
-	{http.MethodPost, "/controls/action/request_mediation", e2Static("/controls/action/request_mediation"),
-		func(w *e2World) map[string]string {
+	{http.MethodPost, "/controls/action/logout", staticPath("/controls/action/logout"), noExtra},
+	{http.MethodPost, "/controls/action/remove_from_whitelist", staticPath("/controls/action/remove_from_whitelist"),
+		func(w *guardWorld) map[string]string { return map[string]string{"userId": w.stranger.ID} }},
+	{http.MethodPost, "/controls/action/create_connection", staticPath("/controls/action/create_connection"),
+		func(w *guardWorld) map[string]string { return map[string]string{"userId": w.stranger.ID} }},
+	{http.MethodPost, "/controls/action/drop_connection", staticPath("/controls/action/drop_connection"),
+		func(w *guardWorld) map[string]string { return map[string]string{"userId": w.friend.ID} }},
+	{http.MethodPost, "/controls/action/request_mediation", staticPath("/controls/action/request_mediation"),
+		func(w *guardWorld) map[string]string {
 			return map[string]string{"userId": w.stranger.ID, "mediation_note": "hi"}
 		}},
-	{http.MethodPost, "/controls/action/revoke_mediation_request", e2Static("/controls/action/revoke_mediation_request"),
-		func(w *e2World) map[string]string { return map[string]string{"userId": w.stranger.ID} }},
-	{http.MethodPost, "/controls/action/dismiss_mediation", e2Static("/controls/action/dismiss_mediation"),
-		func(w *e2World) map[string]string { return map[string]string{"requestId": w.request.ID} }},
-	{http.MethodPost, "/controls/action/sign_mediation", e2Static("/controls/action/sign_mediation"),
-		func(w *e2World) map[string]string { return map[string]string{"requestId": w.request.ID} }},
-	{http.MethodPost, "/controls/action/reject_connection", e2Static("/controls/action/reject_connection"),
-		func(w *e2World) map[string]string { return map[string]string{"requestId": w.request.ID} }},
-	{http.MethodPost, "/controls/action/accept_connection", e2Static("/controls/action/accept_connection"),
-		func(w *e2World) map[string]string { return map[string]string{"requestId": w.request.ID} }},
-	{http.MethodPost, "/controls/action/delete_draft", e2Static("/controls/action/delete_draft"),
-		func(w *e2World) map[string]string { return map[string]string{"postId": w.draft.ID} }},
-	{http.MethodPost, "/controls/action/generate_api_key", e2Static("/controls/action/generate_api_key"), e2None},
-	{http.MethodPost, "/controls/action/dismiss_prompt", e2Static("/controls/action/dismiss_prompt"),
-		func(w *e2World) map[string]string { return map[string]string{"promptId": w.prompt.ID} }},
-	{http.MethodPost, "/controls/action/remove_rss_subscription", e2Static("/controls/action/remove_rss_subscription"),
-		func(w *e2World) map[string]string { return map[string]string{"id": w.subscription.ID} }},
-	{http.MethodPost, "/controls/action/dissmiss_rss_item", e2Static("/controls/action/dissmiss_rss_item"),
-		func(w *e2World) map[string]string { return map[string]string{"id": w.feedItem.ID} }},
-	{http.MethodPost, "/controls/action/create_share", e2Static("/controls/action/create_share"),
-		func(w *e2World) map[string]string { return map[string]string{"postId": w.published.ID} }},
-	{http.MethodPost, "/controls/action/delete_share", e2Static("/controls/action/delete_share"),
-		func(w *e2World) map[string]string { return map[string]string{"postId": w.published.ID} }},
-	{http.MethodPost, "/controls/action/upload_media", e2Static("/controls/action/upload_media"), e2None},
-	{http.MethodPost, "/controls/action/settings/export", e2Static("/controls/action/settings/export"), e2None},
-	{http.MethodPost, "/controls/action/settings/import", e2Static("/controls/action/settings/import"), e2None},
+	{http.MethodPost, "/controls/action/revoke_mediation_request", staticPath("/controls/action/revoke_mediation_request"),
+		func(w *guardWorld) map[string]string { return map[string]string{"userId": w.stranger.ID} }},
+	{http.MethodPost, "/controls/action/dismiss_mediation", staticPath("/controls/action/dismiss_mediation"),
+		func(w *guardWorld) map[string]string { return map[string]string{"requestId": w.request.ID} }},
+	{http.MethodPost, "/controls/action/sign_mediation", staticPath("/controls/action/sign_mediation"),
+		func(w *guardWorld) map[string]string { return map[string]string{"requestId": w.request.ID} }},
+	{http.MethodPost, "/controls/action/reject_connection", staticPath("/controls/action/reject_connection"),
+		func(w *guardWorld) map[string]string { return map[string]string{"requestId": w.request.ID} }},
+	{http.MethodPost, "/controls/action/accept_connection", staticPath("/controls/action/accept_connection"),
+		func(w *guardWorld) map[string]string { return map[string]string{"requestId": w.request.ID} }},
+	{http.MethodPost, "/controls/action/delete_draft", staticPath("/controls/action/delete_draft"),
+		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.draft.ID} }},
+	{http.MethodPost, "/controls/action/generate_api_key", staticPath("/controls/action/generate_api_key"), noExtra},
+	{http.MethodPost, "/controls/action/dismiss_prompt", staticPath("/controls/action/dismiss_prompt"),
+		func(w *guardWorld) map[string]string { return map[string]string{"promptId": w.prompt.ID} }},
+	{http.MethodPost, "/controls/action/remove_rss_subscription", staticPath("/controls/action/remove_rss_subscription"),
+		func(w *guardWorld) map[string]string { return map[string]string{"id": w.subscription.ID} }},
+	{http.MethodPost, "/controls/action/dissmiss_rss_item", staticPath("/controls/action/dissmiss_rss_item"),
+		func(w *guardWorld) map[string]string { return map[string]string{"id": w.feedItem.ID} }},
+	{http.MethodPost, "/controls/action/create_share", staticPath("/controls/action/create_share"),
+		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.published.ID} }},
+	{http.MethodPost, "/controls/action/delete_share", staticPath("/controls/action/delete_share"),
+		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.published.ID} }},
+	{http.MethodPost, "/controls/action/upload_media", staticPath("/controls/action/upload_media"), noExtra},
+	{http.MethodPost, "/controls/action/settings/export", staticPath("/controls/action/settings/export"), noExtra},
+	{http.MethodPost, "/controls/action/settings/import", staticPath("/controls/action/settings/import"), noExtra},
 
 	// /controls/form
-	{http.MethodPost, "/controls/form/whitelist_connection", e2Static("/controls/form/whitelist_connection"),
-		func(w *e2World) map[string]string { return map[string]string{"uname": w.stranger.Username} }},
-	{http.MethodPost, "/controls/form/send_invite", e2Static("/controls/form/send_invite"),
-		func(*e2World) map[string]string { return map[string]string{"email": "invitee@example.test"} }},
-	{http.MethodPost, "/controls/form/edit_post", e2Static("/controls/form/edit_post"),
-		func(w *e2World) map[string]string {
+	{http.MethodPost, "/controls/form/whitelist_connection", staticPath("/controls/form/whitelist_connection"),
+		func(w *guardWorld) map[string]string { return map[string]string{"uname": w.stranger.Username} }},
+	{http.MethodPost, "/controls/form/send_invite", staticPath("/controls/form/send_invite"),
+		func(*guardWorld) map[string]string { return map[string]string{"email": "invitee@example.test"} }},
+	{http.MethodPost, "/controls/form/edit_post", staticPath("/controls/form/edit_post"),
+		func(w *guardWorld) map[string]string {
 			return map[string]string{
 				"post_id": w.published.ID, "subject": "hijacked", "body": "hijacked body",
 				"visibility": string(core.PostVisibilityDirectOnly), "save_action": "save_post",
 			}
 		}},
-	{http.MethodPost, "/controls/form/new_comment", e2Static("/controls/form/new_comment"),
-		func(w *e2World) map[string]string {
+	{http.MethodPost, "/controls/form/new_comment", staticPath("/controls/form/new_comment"),
+		func(w *guardWorld) map[string]string {
 			return map[string]string{"post_id": w.published.ID, "body": "a forged comment"}
 		}},
-	{http.MethodPost, "/controls/form/save_settings", e2Static("/controls/form/save_settings"),
-		func(*e2World) map[string]string {
+	{http.MethodPost, "/controls/form/save_settings", staticPath("/controls/form/save_settings"),
+		func(*guardWorld) map[string]string {
 			return map[string]string{"timezone": "Europe/Berlin", "profile_visibility": "registered_users"}
 		}},
-	{http.MethodPost, "/controls/form/save_user_styles", e2Static("/controls/form/save_user_styles"),
-		func(*e2World) map[string]string { return map[string]string{"styles": "body { color: red }"} }},
-	{http.MethodPost, "/controls/form/change_password", e2Static("/controls/form/change_password"),
-		func(*e2World) map[string]string {
-			return map[string]string{"old_password": e2Password, "password": "a-new-password-123"}
+	{http.MethodPost, "/controls/form/save_user_styles", staticPath("/controls/form/save_user_styles"),
+		func(*guardWorld) map[string]string { return map[string]string{"styles": "body { color: red }"} }},
+	{http.MethodPost, "/controls/form/change_password", staticPath("/controls/form/change_password"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"old_password": testPassword, "password": "a-new-password-123"}
 		}},
-	{http.MethodPost, "/controls/form/prompt_post", e2Static("/controls/form/prompt_post"),
-		func(w *e2World) map[string]string {
+	{http.MethodPost, "/controls/form/prompt_post", staticPath("/controls/form/prompt_post"),
+		func(w *guardWorld) map[string]string {
 			return map[string]string{"message": "write about it", "recipient_handle": w.friend.Username}
 		}},
-	{http.MethodPost, "/controls/form/add_user_feed", e2Static("/controls/form/add_user_feed"),
-		func(*e2World) map[string]string { return map[string]string{"url": "http://127.0.0.1:1/feed.xml"} }},
+	{http.MethodPost, "/controls/form/add_user_feed", staticPath("/controls/form/add_user_feed"),
+		func(*guardWorld) map[string]string { return map[string]string{"url": "http://127.0.0.1:1/feed.xml"} }},
 
 	// /form
-	{http.MethodPost, "/form/login", e2Static("/form/login"),
-		func(w *e2World) map[string]string {
-			return map[string]string{"email": w.stranger.Email, "password": e2Password}
+	{http.MethodPost, "/form/login", staticPath("/form/login"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"email": w.stranger.Email, "password": testPassword}
 		}},
-	{http.MethodPost, "/form/accept_invite/:id", func(w *e2World) string { return "/form/accept_invite/" + w.invitation.ID },
-		func(*e2World) map[string]string {
+	{http.MethodPost, "/form/accept_invite/:id", func(w *guardWorld) string { return "/form/accept_invite/" + w.invitation.ID },
+		func(*guardWorld) map[string]string {
 			return map[string]string{"username": "invitedguest", "password": "invited-password-1"}
 		}},
-	{http.MethodPost, "/form/signup", e2Static("/form/signup"),
-		func(*e2World) map[string]string {
+	{http.MethodPost, "/form/signup", staticPath("/form/signup"),
+		func(*guardWorld) map[string]string {
 			return map[string]string{"email": "newcomer@example.com", "username": "newcomer", "password": "newcomer-password-1"}
 		}},
-	{http.MethodPost, "/form/signup_waiting_list", e2Static("/form/signup_waiting_list"),
-		func(*e2World) map[string]string {
+	{http.MethodPost, "/form/signup_waiting_list", staticPath("/form/signup_waiting_list"),
+		func(*guardWorld) map[string]string {
 			return map[string]string{"email": "waiter@example.com", "reason": "curious"}
 		}},
 }
 
-// e2Excluded are routes of the scanned files deliberately left out of the
+// excludedRoutes are routes of the scanned files deliberately left out of the
 // table, with the reason.
-var e2Excluded = map[string]string{
-	"GET /api/v1/posts":        "bearer-token API, owned by E4",
-	"POST /api/v1/posts":       "bearer-token API, owned by E4",
-	"POST /api/v1/posts/:id":   "bearer-token API, owned by E4",
-	"DELETE /api/v1/posts/:id": "bearer-token API, owned by E4",
-	"PUT /api/v1/image":        "bearer-token API, owned by E4",
+var excludedRoutes = map[string]string{
+	"GET /api/v1/posts":        "bearer-token API, covered in api_test.go",
+	"POST /api/v1/posts":       "bearer-token API, covered in api_test.go",
+	"POST /api/v1/posts/:id":   "bearer-token API, covered in api_test.go",
+	"DELETE /api/v1/posts/:id": "bearer-token API, covered in api_test.go",
+	"PUT /api/v1/image":        "bearer-token API, covered in api_test.go",
 }
 
-var e2RouteRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)
+var routeRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)
 
-// TestE2RouteTableMatchesSource builds the list of guarded routes from
-// cmd/web and checks that e2Routes covers exactly those.
-func TestE2RouteTableMatchesSource(t *testing.T) {
+// TestGuards_RouteTableMatchesSource builds the list of guarded routes from
+// cmd/web and checks that guardRoutes covers exactly those.
+func TestGuards_RouteTableMatchesSource(t *testing.T) {
 	t.Parallel()
 
 	prefixes := map[string]map[string]string{
@@ -346,7 +335,7 @@ func TestE2RouteTableMatchesSource(t *testing.T) {
 		require.NoError(t, err)
 
 		for line := range strings.SplitSeq(string(src), "\n") {
-			m := e2RouteRe.FindStringSubmatch(line)
+			m := routeRe.FindStringSubmatch(line)
 			if m == nil {
 				continue
 			}
@@ -368,14 +357,14 @@ func TestE2RouteTableMatchesSource(t *testing.T) {
 			mutating := m[2] != http.MethodGet
 			enforced := strings.Contains(m[4], "auth.EnforceAuth") || strings.HasPrefix(full, "/controls")
 
-			if (mutating || enforced || strings.HasPrefix(full, "/api/")) && e2Excluded[key] == "" {
+			if (mutating || enforced || strings.HasPrefix(full, "/api/")) && excludedRoutes[key] == "" {
 				want[key] = true
 			}
 		}
 	}
 
 	var have []string
-	for _, r := range e2Routes {
+	for _, r := range guardRoutes {
 		have = append(have, r.key())
 	}
 
@@ -389,9 +378,9 @@ func TestE2RouteTableMatchesSource(t *testing.T) {
 	require.Equal(t, wantList, have)
 }
 
-// e2Raw sends a request outside e2e.Client, so the test controls the
+// rawRequest sends a request outside e2e.Client, so the test controls the
 // X-CSRFToken header exactly (the client always adds the right one).
-func e2Raw(t *testing.T, app *e2e.App, cookies []*http.Cookie, method, path, contentType, body, csrfHeader string) *http.Response {
+func rawRequest(t *testing.T, app *e2e.App, cookies []*http.Cookie, method, path, contentType, body, csrfHeader string) *http.Response {
 	t.Helper()
 
 	req, err := http.NewRequest(method, app.URL+path, strings.NewReader(body))
@@ -420,7 +409,7 @@ func e2Raw(t *testing.T, app *e2e.App, cookies []*http.Cookie, method, path, con
 	return resp
 }
 
-func e2Encode(t *testing.T, r e2Route, w *e2World, asForm bool, extra url.Values) (string, string) {
+func encodeBody(t *testing.T, r guardRoute, w *guardWorld, asForm bool, extra url.Values) (string, string) {
 	t.Helper()
 
 	payload := r.payload(w)
@@ -442,18 +431,18 @@ func e2Encode(t *testing.T, r e2Route, w *e2World, asForm bool, extra url.Values
 	return "application/x-www-form-urlencoded", form.Encode()
 }
 
-func e2Mutating(r e2Route) bool { return r.method != http.MethodGet }
+func isMutating(r guardRoute) bool { return r.method != http.MethodGet }
 
-// TestE2AnonymousRedirectsToLogin: every EnforceAuth route sends an anonymous
+// TestGuards_AnonymousRedirectsToLogin: every EnforceAuth route sends an anonymous
 // visitor to /login with a signed return_url, and changes nothing.
-func TestE2AnonymousRedirectsToLogin(t *testing.T) {
+func TestGuards_AnonymousRedirectsToLogin(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	w := e2NewWorld(t, app)
+	w := newGuardWorld(t, app)
 	before := w.snapshot(t)
 
-	for _, r := range e2Routes {
+	for _, r := range guardRoutes {
 		if strings.HasPrefix(r.pattern, "/form/") {
 			continue // not behind EnforceAuth
 		}
@@ -465,7 +454,7 @@ func TestE2AnonymousRedirectsToLogin(t *testing.T) {
 			var resp *e2e.Response
 
 			switch {
-			case !e2Mutating(r):
+			case !isMutating(r):
 				resp = anon.Get(path)
 			case r.isJSON():
 				resp = anon.PostJSON(path, r.payload(w))
@@ -491,14 +480,14 @@ func TestE2AnonymousRedirectsToLogin(t *testing.T) {
 	require.Equal(t, before, w.snapshot(t))
 }
 
-// TestE2CSRFRequired: every /form and /controls POST refuses a request whose
+// TestGuards_CSRFRequired: every /form and /controls POST refuses a request whose
 // CSRF token is missing or wrong, in the header or in the header_csrf field,
 // and nothing changes.
-func TestE2CSRFRequired(t *testing.T) {
+func TestGuards_CSRFRequired(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	w := e2NewWorld(t, app)
+	w := newGuardWorld(t, app)
 	before := w.snapshot(t)
 
 	type variant struct {
@@ -509,8 +498,8 @@ func TestE2CSRFRequired(t *testing.T) {
 		field   url.Values
 	}
 
-	for _, r := range e2Routes {
-		if !e2Mutating(r) {
+	for _, r := range guardRoutes {
+		if !isMutating(r) {
 			continue
 		}
 
@@ -534,8 +523,8 @@ func TestE2CSRFRequired(t *testing.T) {
 
 		for _, v := range variants {
 			t.Run(r.key()+"/"+v.name, func(t *testing.T) {
-				ct, body := e2Encode(t, r, w, v.asForm, v.field)
-				resp := e2Raw(t, app, v.cookies, r.method, r.path(w), ct, body, v.header)
+				ct, body := encodeBody(t, r, w, v.asForm, v.field)
+				resp := rawRequest(t, app, v.cookies, r.method, r.path(w), ct, body, v.header)
 				require.Equal(t, http.StatusForbidden, resp.StatusCode)
 			})
 		}
@@ -544,60 +533,60 @@ func TestE2CSRFRequired(t *testing.T) {
 	require.Equal(t, before, w.snapshot(t))
 }
 
-// TestE2CSRFTokenAccepted is the positive control for TestE2CSRFRequired:
+// TestGuards_CSRFTokenAccepted is the positive control for TestGuards_CSRFRequired:
 // the same raw requests pass with the session's token, in the header or in
 // the header_csrf field the settings page's export form carries.
-func TestE2CSRFTokenAccepted(t *testing.T) {
+func TestGuards_CSRFTokenAccepted(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	w := e2NewWorld(t, app)
+	w := newGuardWorld(t, app)
 
 	token, ok := w.ownerClient.Get("/controls/settings").RequireStatus(http.StatusOK).
 		Doc().Find(`input[name="header_csrf"]`).First().Attr("value")
 	require.True(t, ok)
 	require.NotEmpty(t, token)
 
-	resp := e2Raw(t, app, w.ownerSessionCookie, http.MethodPost, "/controls/action/generate_api_key",
+	resp := rawRequest(t, app, w.ownerSessionCookie, http.MethodPost, "/controls/action/generate_api_key",
 		"application/json", "{}", token)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	resp = e2Raw(t, app, w.ownerSessionCookie, http.MethodPost, "/controls/action/settings/export",
+	resp = rawRequest(t, app, w.ownerSessionCookie, http.MethodPost, "/controls/action/settings/export",
 		"application/x-www-form-urlencoded", url.Values{"header_csrf": {token}}.Encode(), "")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "application/zip", resp.Header.Get("Content-Type"))
 
 	// the owner's token is useless in another session
 	other := app.Client(t)
-	other.LoginAs(w.friend.Email, e2Password)
-	resp = e2Raw(t, app, other.Cookies(), http.MethodPost, "/controls/action/generate_api_key",
+	other.LoginAs(w.friend.Email, testPassword)
+	resp = rawRequest(t, app, other.Cookies(), http.MethodPost, "/controls/action/generate_api_key",
 		"application/json", "{}", token)
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
-// TestE2ForeignObjects: acting on objects that belong to someone else is
+// TestGuards_ForeignObjects: acting on objects that belong to someone else is
 // refused and leaves the database unchanged.
-func TestE2ForeignObjects(t *testing.T) {
+func TestGuards_ForeignObjects(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
 	db := app.DB
 
-	// e2Pair is an attacker, logged in, and a victim with their own session.
-	type e2Pair struct {
+	// attackerPair is an attacker, logged in, and a victim with their own session.
+	type attackerPair struct {
 		attacker, victim             *core.User
 		attackerClient, victimClient *e2e.Client
 	}
 
-	newPair := func(t *testing.T) e2Pair {
+	newPair := func(t *testing.T) attackerPair {
 		t.Helper()
 
-		p := e2Pair{attacker: e2User(t, app), victim: e2User(t, app)}
+		p := attackerPair{attacker: newUser(t, app), victim: newUser(t, app)}
 		p.attackerClient = app.Client(t)
-		p.attackerClient.LoginAs(p.attacker.Email, e2Password)
+		p.attackerClient.LoginAs(p.attacker.Email, testPassword)
 		p.victimClient = app.Client(t)
-		p.victimClient.LoginAs(p.victim.Email, e2Password)
+		p.victimClient.LoginAs(p.victim.Email, testPassword)
 
 		return p
 	}
@@ -680,7 +669,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		visible, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
 		require.NoError(t, err)
 
-		stranger := e2User(t, app)
+		stranger := newUser(t, app)
 		hidden, err := factory.Post(ctx, db, stranger.ID, factory.Published())
 		require.NoError(t, err)
 		foreign, err := factory.Comment(ctx, db, hidden.ID, stranger.ID)
@@ -802,7 +791,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		asker := e2User(t, app)
+		asker := newUser(t, app)
 		_, _, err := factory.Connect(ctx, db, asker.ID, p.victim.ID)
 		require.NoError(t, err)
 		prompt, err := factory.PostPrompt(ctx, db, asker.ID, p.victim.ID)
@@ -820,7 +809,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		requester := e2User(t, app)
+		requester := newUser(t, app)
 		req, err := factory.MediationRequest(ctx, db, requester.ID, p.victim.ID)
 		require.NoError(t, err)
 
@@ -845,7 +834,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		requester := e2User(t, app)
+		requester := newUser(t, app)
 		req, err := factory.MediationRequest(ctx, db, requester.ID, p.victim.ID)
 		require.NoError(t, err)
 
@@ -867,7 +856,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		requester := e2User(t, app)
+		requester := newUser(t, app)
 		req, err := factory.MediationRequest(ctx, db, requester.ID, p.victim.ID)
 		require.NoError(t, err)
 
@@ -882,7 +871,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		other := e2User(t, app)
+		other := newUser(t, app)
 		_, _, err := factory.Connect(ctx, db, p.victim.ID, other.ID)
 		require.NoError(t, err)
 
@@ -899,7 +888,7 @@ func TestE2ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		other := e2User(t, app)
+		other := newUser(t, app)
 		_, err := factory.Whitelist(ctx, db, p.victim.ID, other.ID)
 		require.NoError(t, err)
 
@@ -926,15 +915,15 @@ func TestE2ForeignObjects(t *testing.T) {
 	})
 }
 
-// TestE2LoginWhileLoggedIn: the login and signup pages send a logged-in user
+// TestGuards_LoginWhileLoggedIn: the login and signup pages send a logged-in user
 // home.
-func TestE2LoginWhileLoggedIn(t *testing.T) {
+func TestGuards_LoginWhileLoggedIn(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	user := e2User(t, app)
+	user := newUser(t, app)
 	client := app.Client(t)
-	client.LoginAs(user.Email, e2Password)
+	client.LoginAs(user.Email, testPassword)
 
 	for _, path := range []string{"/login", "/login?return_url=%2Fwrite&sign=x", "/signup"} {
 		resp := client.Get(path).RequireStatus(http.StatusFound)
@@ -942,9 +931,9 @@ func TestE2LoginWhileLoggedIn(t *testing.T) {
 	}
 }
 
-// TestE2LoginReturnURL: /login keeps a return_url signed by the server and
+// TestGuards_LoginReturnURL: /login keeps a return_url signed by the server and
 // drops one whose signature is missing or wrong.
-func TestE2LoginReturnURL(t *testing.T) {
+func TestGuards_LoginReturnURL(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
@@ -982,21 +971,21 @@ func TestE2LoginReturnURL(t *testing.T) {
 	}
 }
 
-// TestE2LoginBadCredentials: a wrong password, an unknown email and an
+// TestGuards_LoginBadCredentials: a wrong password, an unknown email and an
 // unconfirmed account all fail to log in.
-func TestE2LoginBadCredentials(t *testing.T) {
+func TestGuards_LoginBadCredentials(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
-	unconfirmed, err := factory.User(ctx, app.DB, factory.WithPassword(e2Password), func(u *core.User) {
+	unconfirmed, err := factory.User(ctx, app.DB, factory.WithPassword(testPassword), func(u *core.User) {
 		u.EmailConfirmedAt = null.Time{}
 	})
 	require.NoError(t, err)
 
 	for _, creds := range [][2]string{
-		{"nobody@example.test", e2Password},
-		{unconfirmed.Email, e2Password},
+		{"nobody@example.test", testPassword},
+		{unconfirmed.Email, testPassword},
 	} {
 		client := app.Client(t)
 		client.Get("/login").RequireStatus(http.StatusOK)
@@ -1009,15 +998,15 @@ func TestE2LoginBadCredentials(t *testing.T) {
 	}
 }
 
-// TestE2LoginCaseInsensitiveEmail: logging in with the account's email
+// TestGuards_LoginCaseInsensitiveEmail: logging in with the account's email
 // upper-cased, and the correct password, should succeed. Today the lookup is
 // case-sensitive and the attempt is refused as bad credentials.
-func TestE2LoginCaseInsensitiveEmail(t *testing.T) {
+func TestGuards_LoginCaseInsensitiveEmail(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/114")
 	t.Parallel()
 
 	app := e2e.Start(t)
-	user := e2User(t, app)
+	user := newUser(t, app)
 
 	// a fresh, never-logged-in client is sent to /login from /feed, so a 200
 	// below proves the session the form login established, not a default.
@@ -1027,7 +1016,7 @@ func TestE2LoginCaseInsensitiveEmail(t *testing.T) {
 	client.Get("/login").RequireStatus(http.StatusOK)
 
 	client.PostForm("/form/login", url.Values{
-		"email": {strings.ToUpper(user.Email)}, "password": {e2Password},
+		"email": {strings.ToUpper(user.Email)}, "password": {testPassword},
 	}).RequireStatus(http.StatusOK)
 
 	client.Get("/feed").RequireStatus(http.StatusOK)
@@ -1036,23 +1025,13 @@ func TestE2LoginCaseInsensitiveEmail(t *testing.T) {
 // The #109 tests: a logged-in user hitting a guest-only route is redirected
 // home and the handler has no side effect.
 
-func e2LoggedIn(t *testing.T, app *e2e.App) (*core.User, *e2e.Client) {
-	t.Helper()
-
-	user := e2User(t, app)
-	client := app.Client(t)
-	client.LoginAs(user.Email, e2Password)
-
-	return user, client
-}
-
-func TestE2LoggedInConfirmSignupHasNoEffect(t *testing.T) {
+func TestGuards_LoggedInConfirmSignupHasNoEffect(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
-	_, client := e2LoggedIn(t, app)
+	_, client := newLoggedIn(t, app)
 
 	pending, err := factory.User(ctx, app.DB, func(u *core.User) {
 		u.EmailConfirmedAt = null.Time{}
@@ -1072,13 +1051,13 @@ func TestE2LoggedInConfirmSignupHasNoEffect(t *testing.T) {
 	require.Empty(t, emails)
 }
 
-func TestE2LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
+func TestGuards_LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
-	_, client := e2LoggedIn(t, app)
+	_, client := newLoggedIn(t, app)
 
 	request, err := factory.SignupRequest(ctx, app.DB)
 	require.NoError(t, err)
@@ -1091,29 +1070,29 @@ func TestE2LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
 	require.False(t, got.EmailConfirmedAt.Valid)
 }
 
-func TestE2LoggedInFormLoginHasNoEffect(t *testing.T) {
+func TestGuards_LoggedInFormLoginHasNoEffect(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
-	user, client := e2LoggedIn(t, app)
-	other := e2User(t, app)
+	user, client := newLoggedIn(t, app)
+	other := newUser(t, app)
 
-	resp := client.PostForm("/form/login", url.Values{"email": {other.Email}, "password": {e2Password}}).
+	resp := client.PostForm("/form/login", url.Values{"email": {other.Email}, "password": {testPassword}}).
 		RequireStatus(http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 
-	require.Equal(t, user.Username, e2CurrentUsername(t, client))
+	require.Equal(t, user.Username, currentUsername(t, client))
 }
 
-func TestE2LoggedInFormSignupHasNoEffect(t *testing.T) {
+func TestGuards_LoggedInFormSignupHasNoEffect(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
 	require.NoError(t, factory.SetRegistrationOpen(ctx, app.DB, true))
-	user, client := e2LoggedIn(t, app)
+	user, client := newLoggedIn(t, app)
 
 	resp := client.PostForm("/form/signup", url.Values{
 		"email": {"newcomer@example.com"}, "username": {"newcomer"}, "password": {"newcomer-password-1"},
@@ -1124,17 +1103,17 @@ func TestE2LoggedInFormSignupHasNoEffect(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, emails)
 
-	require.Equal(t, user.Username, e2CurrentUsername(t, client))
+	require.Equal(t, user.Username, currentUsername(t, client))
 	app.Client(t).Get("/users/newcomer").RequireStatus(http.StatusNotFound)
 }
 
-func TestE2LoggedInFormSignupWaitingListHasNoEffect(t *testing.T) {
+func TestGuards_LoggedInFormSignupWaitingListHasNoEffect(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
-	_, client := e2LoggedIn(t, app)
+	_, client := newLoggedIn(t, app)
 
 	resp := client.PostForm("/form/signup_waiting_list", url.Values{
 		"email": {"waiter@example.com"}, "reason": {"curious"},

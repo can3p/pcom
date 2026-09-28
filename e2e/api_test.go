@@ -22,24 +22,24 @@ import (
 	"golang.org/x/image/webp"
 )
 
-// e4Envelope unwraps ginhelpers.API's success shape: {"data": <payload>}.
-type e4Envelope[T any] struct {
+// envelope unwraps ginhelpers.API's success shape: {"data": <payload>}.
+type envelope[T any] struct {
 	Data T `json:"data"`
 }
 
-func e4DecodeData[T any](t *testing.T, body string) T {
+func decodeData[T any](t *testing.T, body string) T {
 	t.Helper()
 
-	var env e4Envelope[T]
+	var env envelope[T]
 	require.NoError(t, json.Unmarshal([]byte(body), &env))
 
 	return env.Data
 }
 
-// TestE4_BearerToken tests the Authorization header handling in
+// TestAPI_BearerToken tests the Authorization header handling in
 // pkg/auth.AuthAPI: a missing header, a malformed scheme or shape, and a
 // well-formed but unknown bearer key.
-func TestE4_BearerToken(t *testing.T) {
+func TestAPI_BearerToken(t *testing.T) {
 	app := e2e.Start(t)
 
 	cases := []struct {
@@ -71,10 +71,10 @@ func TestE4_BearerToken(t *testing.T) {
 	}
 }
 
-// TestE4_GetPosts_Empty tests GET /api/v1/posts with an empty posts list,
+// TestAPI_GetPosts_Empty tests GET /api/v1/posts with an empty posts list,
 // even when another user has a published post: pins the UserID filter in
 // pkg/web/api.go ApiGetPosts.
-func TestE4_GetPosts_Empty(t *testing.T) {
+func TestAPI_GetPosts_Empty(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -96,15 +96,15 @@ func TestE4_GetPosts_Empty(t *testing.T) {
 	resp := client.Do(req)
 	resp.RequireStatus(http.StatusOK)
 
-	result := e4DecodeData[web.ApiGetPostsResponse](t, resp.Body)
+	result := decodeData[web.ApiGetPostsResponse](t, resp.Body)
 	require.Empty(t, result.Posts)
 	require.Empty(t, result.Cursor)
 }
 
-// TestE4_GetPosts_Pagination tests that GET /api/v1/posts pages through more
+// TestAPI_GetPosts_Pagination tests that GET /api/v1/posts pages through more
 // posts than fit in a single page, following the returned cursor, without
 // duplicates or gaps.
-func TestE4_GetPosts_Pagination(t *testing.T) {
+func TestAPI_GetPosts_Pagination(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -141,7 +141,7 @@ func TestE4_GetPosts_Pagination(t *testing.T) {
 		resp := client.Do(req)
 		resp.RequireStatus(http.StatusOK)
 
-		result := e4DecodeData[web.ApiGetPostsResponse](t, resp.Body)
+		result := decodeData[web.ApiGetPostsResponse](t, resp.Body)
 		require.LessOrEqual(t, len(result.Posts), pageSize)
 
 		for _, p := range result.Posts {
@@ -159,9 +159,9 @@ func TestE4_GetPosts_Pagination(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-// TestE4_GetPosts_LimitClamping tests that a limit above GetPostsLimitMax is
+// TestAPI_GetPosts_LimitClamping tests that a limit above GetPostsLimitMax is
 // clamped, and that paging continues correctly past the clamp.
-func TestE4_GetPosts_LimitClamping(t *testing.T) {
+func TestAPI_GetPosts_LimitClamping(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -185,7 +185,7 @@ func TestE4_GetPosts_LimitClamping(t *testing.T) {
 	resp := client.Do(req)
 	resp.RequireStatus(http.StatusOK)
 
-	result := e4DecodeData[web.ApiGetPostsResponse](t, resp.Body)
+	result := decodeData[web.ApiGetPostsResponse](t, resp.Body)
 	require.Len(t, result.Posts, web.GetPostsLimitMax)
 	require.NotEmpty(t, result.Cursor)
 
@@ -196,13 +196,13 @@ func TestE4_GetPosts_LimitClamping(t *testing.T) {
 	resp2 := client.Do(req2)
 	resp2.RequireStatus(http.StatusOK)
 
-	result2 := e4DecodeData[web.ApiGetPostsResponse](t, resp2.Body)
+	result2 := decodeData[web.ApiGetPostsResponse](t, resp2.Body)
 	require.Len(t, result2.Posts, total-web.GetPostsLimitMax)
 	require.Empty(t, result2.Cursor)
 }
 
-// TestE4_NewPost tests POST /api/v1/posts to create a new post.
-func TestE4_NewPost(t *testing.T) {
+// TestAPI_NewPost tests POST /api/v1/posts to create a new post.
+func TestAPI_NewPost(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -231,7 +231,7 @@ func TestE4_NewPost(t *testing.T) {
 	resp := client.Do(req)
 	resp.RequireStatus(http.StatusOK)
 
-	result := e4DecodeData[web.ApiNewPostResponse](t, resp.Body)
+	result := decodeData[web.ApiNewPostResponse](t, resp.Body)
 	require.NotEmpty(t, result.ID)
 	require.NotEmpty(t, result.PublicURL)
 
@@ -261,15 +261,15 @@ func TestE4_NewPost(t *testing.T) {
 	publishedResp := client.Do(publishedReq)
 	publishedResp.RequireStatus(http.StatusOK)
 
-	publishedResult := e4DecodeData[web.ApiNewPostResponse](t, publishedResp.Body)
+	publishedResult := decodeData[web.ApiNewPostResponse](t, publishedResp.Body)
 
 	publishedPost, err := factory.GetPost(ctx, app.DB, publishedResult.ID)
 	require.NoError(t, err)
 	require.True(t, publishedPost.PublishedAt.Valid)
 }
 
-// TestE4_EditPost tests POST /api/v1/posts/:id to edit an existing post.
-func TestE4_EditPost(t *testing.T) {
+// TestAPI_EditPost tests POST /api/v1/posts/:id to edit an existing post.
+func TestAPI_EditPost(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -301,7 +301,7 @@ func TestE4_EditPost(t *testing.T) {
 	resp := client.Do(req)
 	resp.RequireStatus(http.StatusOK)
 
-	result := e4DecodeData[web.ApiNewPostResponse](t, resp.Body)
+	result := decodeData[web.ApiNewPostResponse](t, resp.Body)
 	require.Equal(t, post.ID, result.ID)
 
 	got, err := factory.GetPost(ctx, app.DB, post.ID)
@@ -310,10 +310,10 @@ func TestE4_EditPost(t *testing.T) {
 	require.Equal(t, "# Updated Body", got.Body)
 }
 
-// TestE4_EditPost_Foreign tests POST /api/v1/posts/:id for someone else's
+// TestAPI_EditPost_Foreign tests POST /api/v1/posts/:id for someone else's
 // post (must return 404, and the post must be left unchanged). Pins the
 // UserID filter in forms.EditPostFormNew.
-func TestE4_EditPost_Foreign(t *testing.T) {
+func TestAPI_EditPost_Foreign(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user1, err := factory.User(ctx, app.DB)
@@ -355,8 +355,8 @@ func TestE4_EditPost_Foreign(t *testing.T) {
 	require.Equal(t, post.VisibilityRadius, got.VisibilityRadius)
 }
 
-// TestE4_DeletePost_Own tests DELETE /api/v1/posts/:id for one's own post.
-func TestE4_DeletePost_Own(t *testing.T) {
+// TestAPI_DeletePost_Own tests DELETE /api/v1/posts/:id for one's own post.
+func TestAPI_DeletePost_Own(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -381,9 +381,9 @@ func TestE4_DeletePost_Own(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
-// TestE4_DeletePost_Foreign tests DELETE /api/v1/posts/:id for someone else's
+// TestAPI_DeletePost_Foreign tests DELETE /api/v1/posts/:id for someone else's
 // post (must return 404, not leak that the post exists). Fixed in #118.
-func TestE4_DeletePost_Foreign(t *testing.T) {
+func TestAPI_DeletePost_Foreign(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user1, err := factory.User(ctx, app.DB)
@@ -412,19 +412,19 @@ func TestE4_DeletePost_Foreign(t *testing.T) {
 	require.NotNil(t, got)
 }
 
-// e4GenerateTestImage generates a PNG image (2400x1800) strictly larger than
+// testImage generates a PNG image (2400x1800) strictly larger than
 // every configured media class ("full" is 1200x900, "thumb" is 720x540), so
 // every class must actually shrink it.
-func e4GenerateTestImage() []byte {
+func testImage() []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 2400, 1800))
 	buf := new(bytes.Buffer)
 	_ = png.Encode(buf, img)
 	return buf.Bytes()
 }
 
-// e4UploadImage uploads the fixture image over the API and returns the fname
+// uploadImage uploads the fixture image over the API and returns the fname
 // the server assigned to it.
-func e4UploadImage(t *testing.T, app *e2e.App, client *e2e.Client, apiKey string) string {
+func uploadImage(t *testing.T, app *e2e.App, client *e2e.Client, apiKey string) string {
 	t.Helper()
 
 	buf := new(bytes.Buffer)
@@ -432,7 +432,7 @@ func e4UploadImage(t *testing.T, app *e2e.App, client *e2e.Client, apiKey string
 	part, err := writer.CreateFormFile("file", "test.png")
 	require.NoError(t, err)
 
-	_, err = io.Copy(part, bytes.NewReader(e4GenerateTestImage()))
+	_, err = io.Copy(part, bytes.NewReader(testImage()))
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
@@ -444,16 +444,16 @@ func e4UploadImage(t *testing.T, app *e2e.App, client *e2e.Client, apiKey string
 	resp := client.Do(req)
 	resp.RequireStatus(http.StatusOK)
 
-	result := e4DecodeData[web.ApiUploadImageResponse](t, resp.Body)
+	result := decodeData[web.ApiUploadImageResponse](t, resp.Body)
 	require.NotEmpty(t, result.ImageID)
 
 	return result.ImageID
 }
 
-// TestE4_UploadImage tests PUT /api/v1/image, then fetches the resized
+// TestAPI_UploadImage tests PUT /api/v1/image, then fetches the resized
 // classes of the uploaded image through /user-media and checks their width,
 // black-box: upload, GET, decode.
-func TestE4_UploadImage(t *testing.T) {
+func TestAPI_UploadImage(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -464,7 +464,7 @@ func TestE4_UploadImage(t *testing.T) {
 
 	client := app.Client(t)
 
-	fname := e4UploadImage(t, app, client, apiKey.APIKey)
+	fname := uploadImage(t, app, client, apiKey.APIKey)
 
 	cases := []struct {
 		class     string
@@ -486,9 +486,9 @@ func TestE4_UploadImage(t *testing.T) {
 	}
 }
 
-// TestE4_UploadImage_UnknownName tests that fetching an unknown fname through
+// TestAPI_UploadImage_UnknownName tests that fetching an unknown fname through
 // /user-media returns 404.
-func TestE4_UploadImage_UnknownName(t *testing.T) {
+func TestAPI_UploadImage_UnknownName(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/154")
 
 	app := e2e.Start(t)
@@ -499,12 +499,12 @@ func TestE4_UploadImage_UnknownName(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-// TestE4_RSSPrivate_Valid tests GET /rss/private/:key with a valid API key.
+// TestAPI_RSSPrivate_Valid tests GET /rss/private/:key with a valid API key.
 // The route renders the key owner's feed (web.Feed), which includes a direct
 // connection's published post regardless of visibility, but never an
 // unrelated user's post, however public: seed one of each and check which
 // subject shows up.
-func TestE4_RSSPrivate_Valid(t *testing.T) {
+func TestAPI_RSSPrivate_Valid(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	user, err := factory.User(ctx, app.DB)
@@ -536,8 +536,8 @@ func TestE4_RSSPrivate_Valid(t *testing.T) {
 	require.NotContains(t, resp.Body, unrelatedPost.Subject.String)
 }
 
-// TestE4_RSSPrivate_Unknown tests GET /rss/private/:key with an unknown key.
-func TestE4_RSSPrivate_Unknown(t *testing.T) {
+// TestAPI_RSSPrivate_Unknown tests GET /rss/private/:key with an unknown key.
+func TestAPI_RSSPrivate_Unknown(t *testing.T) {
 	t.Skip("known bug: https://github.com/can3p/pcom/issues/115")
 
 	app := e2e.Start(t)

@@ -16,10 +16,10 @@ import (
 // signing up and confirming, skipped for #139); here are the server rules:
 // which link is honored, which is refused, and what the database records.
 
-// TestE3_SignupRendersFormForRegistrationState checks that /signup offers
+// TestAccounts_SignupRendersFormForRegistrationState checks that /signup offers
 // the signup form only while registration is open, and the waiting list
 // otherwise.
-func TestE3_SignupRendersFormForRegistrationState(t *testing.T) {
+func TestAccounts_SignupRendersFormForRegistrationState(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
@@ -40,18 +40,18 @@ func TestE3_SignupRendersFormForRegistrationState(t *testing.T) {
 	}
 }
 
-// TestE3_SignupWaitingListIsDisabled pins the waiting-list endpoint as off:
+// TestAccounts_SignupWaitingListIsDisabled pins the waiting-list endpoint as off:
 // bots abused it, and it stays a 404 until signups come back with bot
 // protection (https://github.com/can3p/pcom/issues/123).
-func TestE3_SignupWaitingListIsDisabled(t *testing.T) {
+func TestAccounts_SignupWaitingListIsDisabled(t *testing.T) {
 	app := e2e.Start(t)
 
 	app.Client(t).PostForm("/form/signup_waiting_list", nil).RequireStatus(http.StatusNotFound)
 }
 
-// TestE3_InviteLinks checks that /invite/:id serves the accept form for an
+// TestAccounts_InviteLinks checks that /invite/:id serves the accept form for an
 // unused invitation only.
-func TestE3_InviteLinks(t *testing.T) {
+func TestAccounts_InviteLinks(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
@@ -88,9 +88,9 @@ func TestE3_InviteLinks(t *testing.T) {
 	})
 }
 
-// TestE3_ConfirmSignup checks that /confirm_signup/:seed confirms the account
+// TestAccounts_ConfirmSignup checks that /confirm_signup/:seed confirms the account
 // and notifies the admins once, and only for a known seed.
-func TestE3_ConfirmSignup(t *testing.T) {
+func TestAccounts_ConfirmSignup(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
@@ -138,9 +138,9 @@ func TestE3_ConfirmSignup(t *testing.T) {
 	})
 }
 
-// TestE3_ConfirmWaitingList checks that /confirm_waiting_list/:id records the
+// TestAccounts_ConfirmWaitingList checks that /confirm_waiting_list/:id records the
 // confirmation once, and only for a known request.
-func TestE3_ConfirmWaitingList(t *testing.T) {
+func TestAccounts_ConfirmWaitingList(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
