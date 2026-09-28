@@ -4,5 +4,5 @@
 	New user alert:
 
 	* ID: [UUID]
-	* Blog: /users/user1
-	* Email: user1@example.test
+	* Blog: /users/alice
+	* Email: alice@example.test
