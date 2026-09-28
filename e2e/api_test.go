@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/google/uuid"
@@ -35,45 +36,44 @@ func e4DecodeData[T any](t *testing.T, body string) T {
 	return env.Data
 }
 
-// TestE4_BearerToken_Missing tests API auth with missing bearer token.
-func TestE4_BearerToken_Missing(t *testing.T) {
+// TestE4_BearerToken tests the Authorization header handling in
+// pkg/auth.AuthAPI: a missing header, a malformed scheme or shape, and a
+// well-formed but unknown bearer key.
+func TestE4_BearerToken(t *testing.T) {
 	app := e2e.Start(t)
-	client := app.Client(t)
 
-	resp := client.Get("/api/v1/posts")
+	cases := []struct {
+		name   string
+		header string
+		want   int
+	}{
+		{"missing", "", http.StatusBadRequest},
+		{"bearer_no_key", "Bearer", http.StatusBadRequest},
+		{"unknown_key", fmt.Sprintf("Bearer %s", uuid.NewString()), http.StatusForbidden},
+		{"basic_scheme", "Basic x", http.StatusBadRequest},
+		{"bearer_extra_token", "Bearer a b", http.StatusBadRequest},
+	}
 
-	resp.RequireStatus(http.StatusBadRequest)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := app.Client(t)
+
+			req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
+			require.NoError(t, err)
+
+			if tc.header != "" {
+				req.Header.Set("Authorization", tc.header)
+			}
+
+			resp := client.Do(req)
+			resp.RequireStatus(tc.want)
+		})
+	}
 }
 
-// TestE4_BearerToken_Malformed tests API auth with a malformed bearer token
-// (no key, just the "Bearer" prefix).
-func TestE4_BearerToken_Malformed(t *testing.T) {
-	app := e2e.Start(t)
-	client := app.Client(t)
-
-	req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer")
-
-	resp := client.Do(req)
-	resp.RequireStatus(http.StatusBadRequest)
-}
-
-// TestE4_BearerToken_Unknown tests API auth with a well-formed (API keys are
-// UUIDs) but unknown bearer key.
-func TestE4_BearerToken_Unknown(t *testing.T) {
-	app := e2e.Start(t)
-	client := app.Client(t)
-
-	req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", uuid.NewString()))
-
-	resp := client.Do(req)
-	resp.RequireStatus(http.StatusForbidden)
-}
-
-// TestE4_GetPosts_Empty tests GET /api/v1/posts with an empty posts list.
+// TestE4_GetPosts_Empty tests GET /api/v1/posts with an empty posts list,
+// even when another user has a published post: pins the UserID filter in
+// pkg/web/api.go ApiGetPosts.
 func TestE4_GetPosts_Empty(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
@@ -81,6 +81,11 @@ func TestE4_GetPosts_Empty(t *testing.T) {
 	require.NoError(t, err)
 
 	apiKey, err := factory.APIKey(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+
+	other, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+	_, err = factory.Post(ctx, app.DB, other.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	client := app.Client(t)
@@ -235,6 +240,32 @@ func TestE4_NewPost(t *testing.T) {
 	require.Equal(t, "Test Subject", post.Subject.String)
 	require.Equal(t, "# Test Body", post.Body)
 	require.Equal(t, user.ID, post.UserID)
+	require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
+	require.False(t, post.PublishedAt.Valid)
+
+	publishedData := map[string]any{
+		"subject":      "Test Subject Published",
+		"md_body":      "# Test Body",
+		"visibility":   "public",
+		"is_published": true,
+	}
+
+	publishedBody, err := json.Marshal(publishedData)
+	require.NoError(t, err)
+
+	publishedReq, err := http.NewRequest(http.MethodPost, app.URL+"/api/v1/posts", bytes.NewReader(publishedBody))
+	require.NoError(t, err)
+	publishedReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey.APIKey))
+	publishedReq.Header.Set("Content-Type", "application/json")
+
+	publishedResp := client.Do(publishedReq)
+	publishedResp.RequireStatus(http.StatusOK)
+
+	publishedResult := e4DecodeData[web.ApiNewPostResponse](t, publishedResp.Body)
+
+	publishedPost, err := factory.GetPost(ctx, app.DB, publishedResult.ID)
+	require.NoError(t, err)
+	require.True(t, publishedPost.PublishedAt.Valid)
 }
 
 // TestE4_EditPost tests POST /api/v1/posts/:id to edit an existing post.
@@ -277,6 +308,51 @@ func TestE4_EditPost(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Updated Subject", got.Subject.String)
 	require.Equal(t, "# Updated Body", got.Body)
+}
+
+// TestE4_EditPost_Foreign tests POST /api/v1/posts/:id for someone else's
+// post (must return 404, and the post must be left unchanged). Pins the
+// UserID filter in forms.EditPostFormNew.
+func TestE4_EditPost_Foreign(t *testing.T) {
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user1, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+
+	user2, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+
+	post, err := factory.Post(ctx, app.DB, user2.ID)
+	require.NoError(t, err)
+
+	apiKey, err := factory.APIKey(ctx, app.DB, user1.ID)
+	require.NoError(t, err)
+
+	client := app.Client(t)
+
+	postData := map[string]any{
+		"subject":      "Hijacked Subject",
+		"md_body":      "# Hijacked Body",
+		"visibility":   "public",
+		"is_published": false,
+	}
+
+	body, err := json.Marshal(postData)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/v1/posts/%s", app.URL, post.ID), bytes.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey.APIKey))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp := client.Do(req)
+	resp.RequireStatus(http.StatusNotFound)
+
+	got, err := factory.GetPost(ctx, app.DB, post.ID)
+	require.NoError(t, err)
+	require.Equal(t, post.Subject.String, got.Subject.String)
+	require.Equal(t, post.Body, got.Body)
+	require.Equal(t, post.VisibilityRadius, got.VisibilityRadius)
 }
 
 // TestE4_DeletePost_Own tests DELETE /api/v1/posts/:id for one's own post.
@@ -336,11 +412,11 @@ func TestE4_DeletePost_Foreign(t *testing.T) {
 	require.NotNil(t, got)
 }
 
-// e4GenerateTestImage generates a small PNG image (1200x900, matching the
-// "full" media class exactly, so that "thumb" is the only class that shrinks
-// it).
+// e4GenerateTestImage generates a PNG image (2400x1800) strictly larger than
+// every configured media class ("full" is 1200x900, "thumb" is 720x540), so
+// every class must actually shrink it.
 func e4GenerateTestImage() []byte {
-	img := image.NewRGBA(image.Rect(0, 0, 1200, 900))
+	img := image.NewRGBA(image.Rect(0, 0, 2400, 1800))
 	buf := new(bytes.Buffer)
 	_ = png.Encode(buf, img)
 	return buf.Bytes()
@@ -424,6 +500,10 @@ func TestE4_UploadImage_UnknownName(t *testing.T) {
 }
 
 // TestE4_RSSPrivate_Valid tests GET /rss/private/:key with a valid API key.
+// The route renders the key owner's feed (web.Feed), which includes a direct
+// connection's published post regardless of visibility, but never an
+// unrelated user's post, however public: seed one of each and check which
+// subject shows up.
 func TestE4_RSSPrivate_Valid(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
@@ -433,6 +513,18 @@ func TestE4_RSSPrivate_Valid(t *testing.T) {
 	apiKey, err := factory.APIKey(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 
+	direct, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+	_, _, err = factory.Connect(ctx, app.DB, user.ID, direct.ID)
+	require.NoError(t, err)
+	directPost, err := factory.Post(ctx, app.DB, direct.ID, factory.Published())
+	require.NoError(t, err)
+
+	unrelated, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+	unrelatedPost, err := factory.Post(ctx, app.DB, unrelated.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	require.NoError(t, err)
+
 	client := app.Client(t)
 
 	resp := client.Get(fmt.Sprintf("/rss/private/%s", apiKey.APIKey))
@@ -440,6 +532,8 @@ func TestE4_RSSPrivate_Valid(t *testing.T) {
 
 	require.Contains(t, resp.Body, "<?xml")
 	require.Contains(t, resp.Body, "<rss")
+	require.Contains(t, resp.Body, directPost.Subject.String)
+	require.NotContains(t, resp.Body, unrelatedPost.Subject.String)
 }
 
 // TestE4_RSSPrivate_Unknown tests GET /rss/private/:key with an unknown key.
