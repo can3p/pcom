@@ -138,7 +138,10 @@ def build(wave, task):
     where = owned or next((v for k, v in fields.items() if k.startswith("package")), excerpt)
     pkgs = re.findall(r"`((?:pkg|cmd|e2e)/[\w/.-]+)`", where)
     dirs = [p.rsplit("/", 1)[0] if p.endswith(".go") else p.rstrip("/") for p in pkgs]
-    pkg = " ".join(f"./{d}/..." for d in dict.fromkeys(dirs)) or "<FILL: ./pkg/x/...>"
+    dirs = [d for d in dict.fromkeys(dirs) if not any(d.startswith(o + "/") for o in dirs)]
+    pkg = " ".join(f"./{d}/..." for d in dirs) or "<FILL: ./pkg/x/...>"
+    if len(dirs) > 1:
+        pkg = f'"{pkg}"'  # make would read a second unquoted path as a target
     target = fields.get("target")
     if not target:
         m = re.search(r"target (\d+%)", excerpt)
