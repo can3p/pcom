@@ -25,10 +25,6 @@ const (
 	unknownID = "00000000-0000-0000-0000-000000000000"
 
 	issue110 = "known bug: https://github.com/can3p/pcom/issues/110"
-	// draftBug marks matrix cells where a draft is served to someone other
-	// than its author: shared links, the author's journal and create_share
-	// all treat drafts as private to the author, /posts/:id does not.
-	draftBug = "known bug: /posts/:id serves a draft to non-authors that the post's visibility radius admits"
 )
 
 func newPost(t *testing.T, app *e2e.App, authorID string, opts ...factory.PostOpt) *core.Post {
@@ -380,106 +376,105 @@ func TestVisibility_SinglePostMatrix(t *testing.T) {
 		post    core.PostVisibility
 		draft   bool
 		want    outcome
-		skip    string
 	}{
 		// Published posts
 		// public profile
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin, ""},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin, ""},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound, ""},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound, ""},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound, ""},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeVisible, ""},
+		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
+		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
 		// registered profile
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible, ""}, // a public post is public whatever the profile visibility
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin, ""},
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin, ""},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound, ""},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound, ""},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound, ""},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeVisible, ""},
+		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
+		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
+		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
 		// connections profile
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible, ""}, // a public post is public whatever the profile visibility
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin, ""},
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin, ""},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible, ""}, // a public post is public whatever the profile visibility
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound, ""},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound, ""},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound, ""},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeVisible, ""},
+		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
+		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
+		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
+		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
 		// Draft posts
 		// public profile
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin, draftBug},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin, ""},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin, ""},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, ""},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, ""},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, draftBug},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, ""},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, draftBug},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, draftBug},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeVisible, ""},
+		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
+		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeVisible},
 		// registered profile
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin, draftBug},
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin, ""},
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin, ""},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, ""},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, ""},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, draftBug},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, ""},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, draftBug},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, draftBug},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeVisible, ""},
+		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
+		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeVisible},
 		// connections profile
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin, draftBug},
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin, ""},
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin, ""},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, ""},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, ""},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, draftBug},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, ""},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound, draftBug},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound, draftBug},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound, draftBug},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeVisible, ""},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeVisible, ""},
+		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
+		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
+		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeVisible},
+		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeVisible},
 	}
 
 	for _, tc := range cases {
@@ -489,10 +484,6 @@ func TestVisibility_SinglePostMatrix(t *testing.T) {
 		}
 
 		t.Run(fmt.Sprintf("%s/%s-profile/%s-post/%s", tc.viewer, tc.profile, tc.post, state), func(t *testing.T) {
-			if tc.skip != "" {
-				t.Skip(tc.skip)
-			}
-
 			post := posts[postKey{tc.profile, tc.post, tc.draft}]
 			path := "/posts/" + post.ID
 

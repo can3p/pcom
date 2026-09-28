@@ -28,7 +28,13 @@ func (c *Comment) String() string {
 		c.ID, c.ParentCommentID.String, c.CreatedAt.Format(time.ANSIC), c.Author.Username)
 }
 
+// CanSeePost reports whether a visitor at the given radius from the author may
+// read the post. A draft is visible to its author only, whatever its visibility.
 func CanSeePost(p *core.Post, radius userops.ConnectionRadius) bool {
+	if !p.PublishedAt.Valid && !radius.IsSameUser() {
+		return false
+	}
+
 	switch {
 	case radius.IsSameUser():
 		fallthrough
