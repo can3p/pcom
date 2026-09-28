@@ -5,6 +5,6 @@
 
 	<ul>
 		<li>ID: [UUID]</li>
-		<li>Blog: <a href="/users/user1">/users/user1</a></li>
-		<li>Email: user1@example.test</li>
+		<li>Blog: <a href="/users/alice">/users/alice</a></li>
+		<li>Email: alice@example.test</li>
 	</ul>

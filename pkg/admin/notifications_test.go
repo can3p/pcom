@@ -6,10 +6,9 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/admin"
-	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/golden"
-	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,13 +23,15 @@ func TestNotifyNewUser(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testdb.New(t).DB
 	sender := fakesender.New()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := &core.User{
+		ID:       "0190a3b4-0000-7000-8000-000000000001",
+		Email:    "alice@example.test",
+		Username: "alice",
+	}
 
-	admin.NotifyNewUser(ctx, db, sender, user)
+	admin.NotifyNewUser(ctx, nil, sender, user)
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -48,13 +49,14 @@ func TestNotifyNewWaitingListMember(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testdb.New(t).DB
 	sender := fakesender.New()
 
-	signup, err := factory.SignupRequest(ctx, db)
-	require.NoError(t, err)
+	signup := &core.UserSignupRequest{
+		ID:    "0190a3b4-0000-7000-8000-000000000002",
+		Email: "signup@example.test",
+	}
 
-	admin.NotifyNewWaitingListMember(ctx, db, sender, signup)
+	admin.NotifyNewWaitingListMember(ctx, nil, sender, signup)
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -72,13 +74,15 @@ func TestNotifySignupConfirmed(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testdb.New(t).DB
 	sender := fakesender.New()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := &core.User{
+		ID:       "0190a3b4-0000-7000-8000-000000000001",
+		Email:    "alice@example.test",
+		Username: "alice",
+	}
 
-	admin.NotifySignupConfirmed(ctx, db, sender, user)
+	admin.NotifySignupConfirmed(ctx, nil, sender, user)
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -96,11 +100,10 @@ func TestNotifyThrowAwayEmailSignupAttempt(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testdb.New(t).DB
 	sender := fakesender.New()
 
 	email := "test@throwaway.example.com"
-	admin.NotifyThrowAwayEmailSignupAttempt(ctx, db, sender, email)
+	admin.NotifyThrowAwayEmailSignupAttempt(ctx, nil, sender, email)
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
