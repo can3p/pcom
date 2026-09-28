@@ -11,9 +11,13 @@ cp .env.example cmd/web/.env
 make dev-up && make migrate && make seed
 ```
 
+If you already have a `cmd/web/.env` from the old setup, move it aside first: its `DATABASE_URL` probably points
+at a Postgres installed on your machine (port 5432). The one from `.env.example` points at the compose Postgres
+on `localhost:5442`.
+
 `make dev-up` starts Postgres and tommy (mail sink and S3 stand-in) and waits until they are healthy.
 `make migrate` applies the migrations, `make seed` fills the database with a small named world (see
-[Seeding](#seeding)). The first `make migrate` compiles the migration tools, which is slow once.
+[Seeding](#seeding)). The first run builds the tools image (sql-migrate, sqlboiler, psql), which is slow once.
 
 Then pick one way to run the app.
 
@@ -31,9 +35,7 @@ The containers set their in-network values (database host, `SITE_ROOT`, `PORT`) 
 and the app never lets `cmd/web/.env` override a variable that is already set, so the same `.env` serves both
 modes.
 
-File watching uses inotify, which is reliable on Linux. On macOS Docker Desktop, events may not arrive through
-the bind mount. If edits do not restart the app, change the `app` service command in `docker-compose.yml` to
-`watchexec --poll 1000 ...` (`--poll <interval in ms>`), or use host mode.
+File watching: see [macOS](#macos) if edits don't restart the app.
 
 ### Host mode
 
@@ -54,14 +56,15 @@ once first. The server listens on `$PORT` (8080), and `SITE_ROOT` has to match. 
 
 ## Mail and uploads
 
-Captured mail is at http://localhost:8811/ui/ (or `GET /api/v1/events?plugin=mail` on the same port). tommy also
-answers the Mailjet v3.1 send API. Captured mail is not persisted across tommy restarts.
+tommy runs in the stack and is ready, but **the app doesn't use it yet**:
 
-Uploads are meant to go to tommy's S3 bucket `pcom-media` (path-style, any credentials; objects are listed at
-`http://localhost:8811/api/v1/s3/buckets/pcom-media/objects`). That happens only after a later refactor makes
-the endpoints configurable. Today the app still uses its own mail and storage defaults: `.env.example` lists the
-`USER_MEDIA_*`, `MJ_APIKEY_*` and `SENDER_ADDRESS` values tommy would take, commented out, and the compose `app`
-service leaves mail and storage at the defaults. Do not expect mail in tommy yet.
+* Mail: outside production the app prints mail to its console (the `make dev` logs, or the terminal running
+  `make watchexec`). tommy's inbox at http://localhost:8811/ui/ stays empty.
+* Uploads: outside production the app stores them in `cmd/web/user_media/`. tommy's S3 bucket `pcom-media` on
+  port 9555 stays empty.
+
+Pointing the app at tommy needs code changes (S3 outside production with path-style addressing, and a
+configurable Mailjet base URL), planned for wave R2. The values it will use are in `.env.example`, commented out.
 
 ## Seeding
 
@@ -151,9 +154,23 @@ host mode and `.env.example` assume the default ports; if you override one, upda
 |---|---|---|
 | `make seed-reset` | All rows except `migrations` and `system_settings`; then reseeds. | Schema, S3 objects, volumes. |
 | `make db-reset` | The whole dev database (schema and data), recreated and migrated, empty. Run `make seed` after. | S3 objects in tommy, Go caches, node_modules. |
-| `docker compose down -v` | Everything: database, tommy's buckets and objects, Go caches, `node_modules` volumes. Next `make migrate` recompiles the tools. | Files in the checkout. |
+| `docker compose down -v` | Everything: database, tommy's buckets and objects, Go caches, `node_modules` volumes. The next `make seed` recompiles the seed command. | Files in the checkout. |
 
 Use `docker compose --profile '*' down -v` if the `dev` profile containers exist.
+
+## macOS
+
+macOS with Docker Desktop is the primary development platform. All images (Postgres, tommy, the tools and dev
+images built from `golang:1.26-alpine`) have arm64 variants, so nothing runs under emulation on Apple silicon.
+
+* **File watching in container mode.** Docker Desktop's VirtioFS file sharing (the default) forwards change
+  events through the bind mount, so saving a file restarts the app. If it doesn't (older Docker Desktop or gRPC
+  FUSE file sharing), poll instead: `PCOM_WATCH_POLL=1000 make dev` checks every second.
+* **`node_modules`.** The containers keep their own Linux `node_modules` in a volume; the macOS copy under
+  `cmd/web/node_modules` (for host mode) is never used by them, and the other way round.
+* **Host mode** needs `brew install vips pkg-config watchexec` and Node.js from `.tool-versions`.
+* **`make migrate-prod`** reaches `make tunnel` on your Mac through `host.docker.internal`, which Docker Desktop
+  provides; no extra flags are needed (on Linux the tunnel must bind an address the container can reach).
 
 ## Troubleshooting
 
@@ -162,8 +179,10 @@ Use `docker compose --profile '*' down -v` if the `dev` profile containers exist
 * Files written by the containers (migrations, generated models, `cmd/web/dist`) belong to your UID/GID: make
   passes `HOST_UID` and `HOST_GID` to compose. Run the make targets rather than `docker compose` directly, or
   set those variables yourself.
-* The first `make migrate` (or `make generate`, `make seed`) compiles sql-migrate, sqlboiler and the seed
-  command. It is slow once; the results are cached in the `gomod` and `gobuild` volumes, and `docker compose down -v`
-  clears them.
+* The first make target builds the tools image; sql-migrate and sqlboiler are installed in it
+  (`tools/Dockerfile`), not in `go.mod`. The first `make seed` compiles the seed command; the Go caches live in
+  the `gomod` and `gobuild` volumes, which `docker compose down -v` clears.
+* `make generate` says the sqlboiler versions differ: `go.mod` moved the sqlboiler library, so bump
+  `SQLBOILER_VERSION` in `tools/Dockerfile` to match and run `docker compose build tools`.
 * `make seed` says users already exist: use `make seed-reset`.
 * A port is already in use: override it, see [Ports](#ports).
