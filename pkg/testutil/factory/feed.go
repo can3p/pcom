@@ -27,6 +27,13 @@ func WithFeedTitle(title string) RSSFeedOpt {
 	}
 }
 
+// NextFetchAt sets when the poller should fetch the feed next.
+func NextFetchAt(t time.Time) RSSFeedOpt {
+	return func(f *core.RSSFeed) {
+		f.NextFetchAt = null.TimeFrom(t)
+	}
+}
+
 // RSSFeed inserts a feed with a unique URL.
 func RSSFeed(ctx context.Context, exec boil.ContextExecutor, opts ...RSSFeedOpt) (*core.RSSFeed, error) {
 	id, err := newID()
