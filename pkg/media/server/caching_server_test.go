@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -17,6 +18,8 @@ import (
 type mockStorage struct {
 	mu        sync.RWMutex
 	files     map[string][]byte
+	existsErr error
+	uploadErr error
 	callCount struct {
 		exists   int
 		download int
@@ -34,13 +37,19 @@ func (m *mockStorage) UploadFile(ctx context.Context, fname string, b []byte, co
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.callCount.upload++
+	if m.uploadErr != nil {
+		return m.uploadErr
+	}
 	m.files[fname] = b
 	return nil
 }
 
 func (m *mockStorage) DownloadFile(ctx context.Context, fname string) (io.ReadCloser, int64, string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	// A plain Lock, not RLock: this mutates callCount.download, so
+	// concurrent calls (as exercised by the concurrency tests below) must
+	// not race on that counter.
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.callCount.download++
 	if data, ok := m.files[fname]; ok {
 		return io.NopCloser(bytes.NewReader(data)), int64(len(data)), "image/webp", nil
@@ -49,11 +58,24 @@ func (m *mockStorage) DownloadFile(ctx context.Context, fname string) (io.ReadCl
 }
 
 func (m *mockStorage) ObjectExists(ctx context.Context, fname string) (bool, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	// A plain Lock, not RLock: see DownloadFile above.
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.callCount.exists++
+	if m.existsErr != nil {
+		return false, m.existsErr
+	}
 	_, exists := m.files[fname]
 	return exists, nil
+}
+
+// uploadCount reads callCount.upload under the lock, so it's safe to poll
+// from a require.Eventually callback while an upload may still be in flight
+// on another goroutine.
+func (m *mockStorage) uploadCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.callCount.upload
 }
 
 type mockServer struct {
@@ -91,30 +113,36 @@ func TestNewCachingServer(t *testing.T) {
 		storage := newMockStorage()
 		server := &mockServer{}
 		cache, err := NewCachingServer(server, storage, -1)
-		if err != nil {
-			t.Fatalf("Failed to create caching server: %v", err)
+		require.NoError(t, err)
+
+		for i := range defaultCacheSize + 1 {
+			cache.cache.Add(fmt.Sprintf("key-%d", i), true)
 		}
-		require.NotNil(t, cache)
+		require.Equal(t, defaultCacheSize, cache.cache.Len(), "cache should be capped at the default size")
 	})
 
 	t.Run("zero cache size uses default", func(t *testing.T) {
 		storage := newMockStorage()
 		server := &mockServer{}
 		cache, err := NewCachingServer(server, storage, 0)
-		if err != nil {
-			t.Fatalf("Failed to create caching server: %v", err)
+		require.NoError(t, err)
+
+		for i := range defaultCacheSize + 1 {
+			cache.cache.Add(fmt.Sprintf("key-%d", i), true)
 		}
-		require.NotNil(t, cache)
+		require.Equal(t, defaultCacheSize, cache.cache.Len(), "cache should be capped at the default size")
 	})
 
 	t.Run("positive cache size is respected", func(t *testing.T) {
 		storage := newMockStorage()
 		server := &mockServer{}
 		cache, err := NewCachingServer(server, storage, 50)
-		if err != nil {
-			t.Fatalf("Failed to create caching server: %v", err)
+		require.NoError(t, err)
+
+		for i := range 51 {
+			cache.cache.Add(fmt.Sprintf("key-%d", i), true)
 		}
-		require.NotNil(t, cache)
+		require.Equal(t, 50, cache.cache.Len(), "cache should evict once it exceeds the configured size")
 	})
 }
 
@@ -142,7 +170,7 @@ func TestCachingServer_GetImage(t *testing.T) {
 		require.Equal(t, "test image", string(data))
 
 		require.Eventually(t, func() bool {
-			return storage.callCount.upload == 1
+			return storage.uploadCount() == 1
 		}, 5*time.Second, 10*time.Millisecond, "Expected 1 upload after cache")
 
 		require.Equal(t, 1, server.callCount, "Expected 1 parent server call")
@@ -161,19 +189,20 @@ func TestCachingServer_GetImage(t *testing.T) {
 
 	t.Run("error when checking storage existence", func(t *testing.T) {
 		storage := newMockStorage()
+		storage.existsErr = errors.New("existence check failed")
 		server := &mockServer{}
 		cache, err := NewCachingServer(server, storage, 10)
 		require.NoError(t, err)
 
-		// This test verifies the code path where ObjectExists returns an error
-		// The current implementation handles this gracefully and continues
+		// ObjectExists fails on both checks, but GetImage must still fall
+		// through to the parent server rather than error out.
 		reader, mime, err := cache.GetImage(ctx, "missing.jpg", "thumb")
-		// Should still work because it continues to the parent server
-		if err == nil {
-			require.Equal(t, "image/webp", mime)
-			data, _ := io.ReadAll(reader)
-			require.Greater(t, len(data), 0)
-		}
+		require.NoError(t, err)
+		require.Equal(t, "image/webp", mime)
+		data, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.Equal(t, "test image", string(data))
+		require.Equal(t, 1, server.callCount, "expected fallback to the parent server")
 	})
 
 	t.Run("parent server error propagates", func(t *testing.T) {
@@ -189,8 +218,7 @@ func TestCachingServer_GetImage(t *testing.T) {
 
 	t.Run("upload failure doesn't break response to client", func(t *testing.T) {
 		storage := newMockStorage()
-		err := storage.UploadFile(ctx, "test.jpg", []byte("test image"), "image/jpeg")
-		require.NoError(t, err)
+		storage.uploadErr = errors.New("upload failed")
 		server := &mockServer{}
 		cache, err := NewCachingServer(server, storage, 10)
 		require.NoError(t, err)
@@ -202,6 +230,12 @@ func TestCachingServer_GetImage(t *testing.T) {
 		data, err := io.ReadAll(reader)
 		require.NoError(t, err)
 		require.Equal(t, "test image", string(data))
+
+		require.Eventually(t, func() bool {
+			return storage.uploadCount() == 1
+		}, 5*time.Second, 10*time.Millisecond, "expected an upload attempt despite the injected failure")
+
+		require.False(t, cache.cache.Contains(cache.getCacheKey("test.jpg", "thumb")), "a failed upload must not be recorded as cached")
 	})
 
 	t.Run("concurrent requests for same image", func(t *testing.T) {

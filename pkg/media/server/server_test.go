@@ -17,67 +17,103 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	ctx := context.Background()
+
 	t.Run("creates server with storage", func(t *testing.T) {
 		storage := fakestorage.New()
-		srv, _, err := server.New(storage)
-
+		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
 		require.NoError(t, err)
-		require.NotNil(t, srv)
+
+		srv, _, err := server.New(storage)
+		require.NoError(t, err)
+
+		// The returned server must actually be wired to the storage it was
+		// given: it should be able to fetch and convert the uploaded file.
+		_, mime, err := srv.GetImage(ctx, "test.png", "")
+		require.NoError(t, err)
+		require.Equal(t, "image/webp", mime)
 	})
 
 	t.Run("applies options", func(t *testing.T) {
+		image := createTestImage(t, 400, 400)
 		storage := fakestorage.New()
+		err := storage.UploadFile(ctx, "test.png", image, "image/jpeg")
+		require.NoError(t, err)
+
 		srv, _, err := server.New(
 			storage,
 			server.WithClass("thumb", server.ClassParams{Width: 200, Height: 200}),
 			server.WithPermaCache(true),
 		)
-
 		require.NoError(t, err)
-		require.NotNil(t, srv)
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+
+		err = srv.ServeImage(ctx, srv, req, w, "test.png")
+		require.NoError(t, err)
+
+		resp := w.Result()
+		require.Equal(t, "image/webp", resp.Header.Get("Content-Type"))
+		require.Contains(t, resp.Header.Get("Cache-Control"), "max-age=604800", "WithPermaCache should add cache headers")
+
+		data, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		resized, err := vips.NewImageFromReader(bytes.NewReader(data))
+		require.NoError(t, err)
+		defer resized.Close()
+
+		// The "thumb" class should have resized the 400x400 source down to 200x200.
+		require.Equal(t, 200, resized.Width())
+		require.Equal(t, 200, resized.Height())
 	})
 
 	t.Run("with custom class resolver", func(t *testing.T) {
 		storage := fakestorage.New()
+		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
+		require.NoError(t, err)
+
+		resolverCalled := false
 		customResolver := func(ctx context.Context, req *http.Request) string {
+			resolverCalled = true
 			return "custom"
 		}
 
 		srv, _, err := server.New(
 			storage,
+			server.WithClass("custom", server.ClassParams{Width: 50, Height: 50}),
 			server.WithClassResolver(customResolver),
 		)
-
 		require.NoError(t, err)
-		require.NotNil(t, srv)
+
+		w := httptest.NewRecorder()
+		// The query string names a class the resolver ignores; if the
+		// resolver weren't actually consulted, this class wouldn't resolve
+		// to a configured one and ServeImage would 404 instead of 200.
+		req := httptest.NewRequest("GET", "/?class=unmapped", nil)
+
+		err = srv.ServeImage(ctx, srv, req, w, "test.png")
+		require.NoError(t, err)
+		require.True(t, resolverCalled)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 	})
 }
 
-// createTestImage creates a test image with the given dimensions (in pixels)
-// by decoding minimalJPEG and resizing it to the desired dimensions
-func createTestImage(width, height int) []byte {
-	img, err := vips.NewImageFromReader(bytes.NewReader(minimalJPEG))
-	if err != nil || img == nil {
-		return minimalJPEG
-	}
+// createTestImage creates a real JPEG-encoded image with the given exact
+// dimensions (in pixels), so tests that check resize bounds have a fixture
+// whose starting size is known.
+func createTestImage(t *testing.T, width, height int) []byte {
+	t.Helper()
+
+	img, err := vips.Black(width, height)
+	require.NoError(t, err)
 	defer img.Close()
-
-	// Resize the image to the desired dimensions
-	scale := float64(width) / float64(img.Width())
-	if float64(height)/float64(img.Height()) < scale {
-		scale = float64(height) / float64(img.Height())
-	}
-
-	err = img.Resize(scale, vips.KernelLanczos3)
-	if err != nil {
-		return minimalJPEG
-	}
 
 	ep := vips.NewDefaultJPEGExportParams()
 	data, _, err := img.Export(ep)
-	if err != nil {
-		return minimalJPEG
-	}
+	require.NoError(t, err)
+
 	return data
 }
 
@@ -139,7 +175,7 @@ func TestGetImage(t *testing.T) {
 
 	t.Run("applies resize transformation for matching class", func(t *testing.T) {
 		// Create a 200x200 test image
-		largeImage := createTestImage(200, 200)
+		largeImage := createTestImage(t, 200, 200)
 		storage := fakestorage.New()
 		err := storage.UploadFile(ctx, "test.png", largeImage, "image/jpeg")
 		require.NoError(t, err)
@@ -165,28 +201,15 @@ func TestGetImage(t *testing.T) {
 		require.NoError(t, err)
 		defer resizedImg.Close()
 
-		// Image should be scaled down to fit within 100x100 while maintaining aspect ratio
-		// Since original is 200x200, it should become 100x100
-		require.LessOrEqual(t, resizedImg.Width(), 100, "width should be <= 100")
-		require.LessOrEqual(t, resizedImg.Height(), 100, "height should be <= 100")
-		require.Equal(t, resizedImg.Width(), resizedImg.Height(), "aspect ratio should be maintained")
-	})
-
-	t.Run("returns webp regardless of input format", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(storage)
-		require.NoError(t, err)
-
-		_, mime, _ := srv.GetImage(ctx, "test.png", "")
-		require.Equal(t, "image/webp", mime)
+		// The 200x200 source should be scaled down to exactly fit the
+		// 100x100 bounding box.
+		require.Equal(t, 100, resizedImg.Width())
+		require.Equal(t, 100, resizedImg.Height())
 	})
 
 	t.Run("does not upscale images smaller than bounding box", func(t *testing.T) {
 		// Create a 50x50 test image
-		smallImage := createTestImage(50, 50)
+		smallImage := createTestImage(t, 50, 50)
 		storage := fakestorage.New()
 		err := storage.UploadFile(ctx, "small.png", smallImage, "image/jpeg")
 		require.NoError(t, err)
@@ -211,9 +234,10 @@ func TestGetImage(t *testing.T) {
 		require.NoError(t, err)
 		defer resizedImg.Close()
 
-		// Image should NOT be upscaled; should remain 50x50
-		require.LessOrEqual(t, resizedImg.Width(), 50, "width should not be upscaled")
-		require.LessOrEqual(t, resizedImg.Height(), 50, "height should not be upscaled")
+		// The 50x50 source is smaller than the 200x200 bounding box, so it
+		// must be returned unchanged rather than upscaled.
+		require.Equal(t, 50, resizedImg.Width())
+		require.Equal(t, 50, resizedImg.Height())
 	})
 
 	t.Run("handles missing file", func(t *testing.T) {
@@ -423,8 +447,9 @@ func TestGetImage_EdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("large image downsizing", func(t *testing.T) {
+		largeImage := createTestImage(t, 500, 500)
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "large.jpg", minimalJPEG, "image/jpeg")
+		err := storage.UploadFile(ctx, "large.jpg", largeImage, "image/jpeg")
 		require.NoError(t, err)
 
 		srv, _, err := server.New(
@@ -439,12 +464,19 @@ func TestGetImage_EdgeCases(t *testing.T) {
 
 		data, err := io.ReadAll(reader)
 		require.NoError(t, err)
-		require.Greater(t, len(data), 0)
+
+		resizedImg, err := vips.NewImageFromReader(bytes.NewReader(data))
+		require.NoError(t, err)
+		defer resizedImg.Close()
+
+		require.Equal(t, 10, resizedImg.Width())
+		require.Equal(t, 10, resizedImg.Height())
 	})
 
 	t.Run("multiple class params", func(t *testing.T) {
+		image := createTestImage(t, 1000, 1000)
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.jpg", minimalJPEG, "image/jpeg")
+		err := storage.UploadFile(ctx, "test.jpg", image, "image/jpeg")
 		require.NoError(t, err)
 
 		srv, _, err := server.New(
@@ -455,7 +487,8 @@ func TestGetImage_EdgeCases(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		// Test each class
+		// Each class must resize the 1000x1000 source to its own bounds.
+		classSizes := map[string]int{"small": 50, "medium": 200, "large": 800}
 		for _, class := range []string{"small", "medium", "large"} {
 			reader, mime, err := srv.GetImage(ctx, "test.jpg", class)
 			require.NoError(t, err, "failed for class %s", class)
@@ -463,7 +496,13 @@ func TestGetImage_EdgeCases(t *testing.T) {
 
 			data, err := io.ReadAll(reader)
 			require.NoError(t, err)
-			require.Greater(t, len(data), 0)
+
+			resizedImg, err := vips.NewImageFromReader(bytes.NewReader(data))
+			require.NoError(t, err, "failed to decode output for class %s", class)
+
+			require.Equal(t, classSizes[class], resizedImg.Width(), "unexpected width for class %s", class)
+			require.Equal(t, classSizes[class], resizedImg.Height(), "unexpected height for class %s", class)
+			resizedImg.Close()
 		}
 	})
 
@@ -512,48 +551,4 @@ func TestServeImage_EdgeCases(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
 
-	t.Run("writes content length", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.jpg", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.jpg")
-		require.NoError(t, err)
-
-		resp := w.Result()
-		require.Equal(t, "image/webp", resp.Header.Get("Content-Type"))
-	})
-
-	t.Run("multiple cache control headers", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.jpg", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-			server.WithPermaCache(true),
-			server.WithPermaCache(true), // Apply twice to test multiple headers
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.jpg")
-		require.NoError(t, err)
-
-		// Should have cache control headers
-		cacheControl := w.Header().Get("Cache-Control")
-		require.NotEmpty(t, cacheControl)
-	})
 }

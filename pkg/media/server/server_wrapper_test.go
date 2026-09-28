@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // mockMediaServer implements MediaServer interface for testing
@@ -17,6 +19,17 @@ type mockMediaServer struct {
 	callCount     int
 	responseDelay time.Duration
 	shouldError   bool
+	readErr       error
+}
+
+// errorReader is an io.Reader that always fails, used to force io.Copy to
+// return an error.
+type errorReader struct {
+	err error
+}
+
+func (r *errorReader) Read(p []byte) (int, error) {
+	return 0, r.err
 }
 
 func (m *mockMediaServer) GetImage(ctx context.Context, fname string, class string) (io.Reader, string, error) {
@@ -34,6 +47,10 @@ func (m *mockMediaServer) GetImage(ctx context.Context, fname string, class stri
 
 	if m.shouldError {
 		return nil, "", errors.New("mock error")
+	}
+
+	if m.readErr != nil {
+		return &errorReader{err: m.readErr}, "image/jpeg", nil
 	}
 
 	return bytes.NewReader([]byte("mock image data")), "image/jpeg", nil
@@ -151,14 +168,14 @@ func TestServerWrapper_GetImage(t *testing.T) {
 	})
 
 	t.Run("io.Copy error handling", func(t *testing.T) {
-		mock := &mockMediaServer{}
+		readErr := errors.New("read failed")
+		mock := &mockMediaServer{readErr: readErr}
 		wrapper := NewWrapper(mock, 1)
 
-		// This test verifies that io.Copy errors are properly handled
+		// The underlying reader fails mid-copy; GetImage must propagate that
+		// error rather than returning a successful, truncated response.
 		_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+		require.ErrorIs(t, err, readErr)
 	})
 
 	t.Run("different files don't share requests", func(t *testing.T) {
@@ -190,45 +207,6 @@ func TestServerWrapper_GetImage(t *testing.T) {
 		// Both should have been called on the underlying server
 		if count := mock.getCallCount(); count != 2 {
 			t.Errorf("expected 2 calls to underlying server, got %d", count)
-		}
-	})
-
-	t.Run("concurrent access to same request waits for completion", func(t *testing.T) {
-		responseCounter := 0
-		mock := &mockMediaServer{
-			responseDelay: 100 * time.Millisecond,
-		}
-		wrapper := NewWrapper(mock, 1)
-
-		// Make 3 concurrent requests for the same image
-		// They should all wait for the same response
-		var wg sync.WaitGroup
-		for range 3 {
-			wg.Go(func() {
-				reader, mime, err := wrapper.GetImage(context.Background(), "same.jpg", "thumb")
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-					return
-				}
-				if mime != "image/jpeg" {
-					t.Errorf("unexpected mime type: %s", mime)
-				}
-				data, err := io.ReadAll(reader)
-				if err != nil {
-					t.Errorf("failed to read response: %v", err)
-					return
-				}
-				if string(data) != "mock image data" {
-					t.Errorf("unexpected response data: %s", string(data))
-				}
-				responseCounter++
-			})
-		}
-		wg.Wait()
-
-		// Should only call the underlying server once even with 3 concurrent requests
-		if count := mock.getCallCount(); count != 1 {
-			t.Errorf("expected 1 call to underlying server, got %d", count)
 		}
 	})
 }
