@@ -88,3 +88,23 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **A job log is expensive.** `get_job_logs` with a large `tail_lines`
   returned 46k characters to prove one build step ran. Ask for a narrow tail
   first, and widen it only if that isn't enough.
+- **A mutation check per task is not an audit.** Every W2 task passed its
+  mutation check, and the assertion audit at the end still found 35 weak
+  tests, 18 duplicates and 5 skips that could not fail. The commonest weak
+  pattern in package tests is `require.NotNil` on the action a form's `Save`
+  returns; the commonest bad skip depends on the host's time zone or on a
+  race going the unlucky way. The audit now runs for every test task, as each
+  one reports.
+- **Fetch master before escalating a bug.** The owner fixes and decides
+  things on master while a wave runs. Two W2 "privacy leaks" had already been
+  fixed or decided there when they were reported. `git fetch` and
+  `git log <branch>..origin/master` come before any bug report or question,
+  and the wave branch is rebased when master has moved.
+- **A leak the template hides still needs a package test.** `UserHome`
+  loaded direct-only posts for unrelated visitors, but the journal template
+  shows them no posts at all, so no HTTP or browser test could see it. Only
+  the package-level privacy matrix caught it. Keep visibility rules tested at
+  the function that queries, not only at the page.
+- **Rate limits end parallel agents mid-task.** Three W2 agents stopped when
+  the session limit hit; `SendMessage` to each resumed it with its context
+  intact once the limit reset. Resume rather than re-dispatch.
