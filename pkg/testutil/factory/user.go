@@ -31,6 +31,21 @@ func WithVisibility(v core.ProfileVisibility) UserOpt {
 	}
 }
 
+// WithConfirmSeed sets the seed of the user's /confirm_signup/:seed link. The
+// user stays confirmed unless Unconfirmed is also given.
+func WithConfirmSeed(seed string) UserOpt {
+	return func(u *core.User) {
+		u.EmailConfirmSeed = null.StringFrom(seed)
+	}
+}
+
+// Unconfirmed leaves the user's email unconfirmed, as right after signup.
+func Unconfirmed() UserOpt {
+	return func(u *core.User) {
+		u.EmailConfirmedAt = null.Time{}
+	}
+}
+
 // User inserts a confirmed user with a unique email/username pair
 // (e.g. user7@example.test / user7) in the UTC timezone.
 func User(ctx context.Context, exec boil.ContextExecutor, opts ...UserOpt) (*core.User, error) {
