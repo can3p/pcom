@@ -1,0 +1,62 @@
+package app
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/can3p/pcom/pkg/admin"
+	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
+	"github.com/can3p/pcom/pkg/util/ginhelpers/csrf"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
+)
+
+// New builds the gin engine: middleware, templates and every route group.
+func New(d *Deps) *gin.Engine {
+	db := d.DB
+
+	store := pgsession.NewStore(db, []byte(d.Config.SessionSalt))
+	store.Options(sessions.Options{
+		Path: "/",
+		// safari wouldn't allow to save secure cookie
+		// if server works on localhost
+		Secure:   d.Config.InCluster,
+		HttpOnly: true,
+		MaxAge:   24 * 3600 * 30, // make every session one month long
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	router := gin.Default()
+
+	router.MaxMultipartMemory = 8 << 20 // 8 MiB
+
+	if d.Config.InCluster {
+		router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
+			userData := auth.GetUserData(c)
+			user := userData.DBUser
+
+			if nerr := admin.NotifyPageFailure(c, db, d.Sender, err, user); nerr != nil {
+				log.Printf("failed to queue the page failure notification: %v", nerr)
+			}
+		}))
+	} else {
+		log.Println("Custom error reporter skipped")
+	}
+
+	router.SetFuncMap(funcmap(d.Config.StaticAsset))
+	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
+
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
+	r := router.Group("/", csp.Csp, sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
+	controls := r.Group("/controls", auth.EnforceAuth)
+	actions := controls.Group("/action", csrf.CheckCSRF)
+	nonControlsForms := r.Group("/form", csrf.CheckCSRF)
+	controlsForms := controls.Group("/form", csrf.CheckCSRF)
+
+	mountRoutes(d, router, apiGroup, r, controls, actions, nonControlsForms, controlsForms)
+
+	return router
+}

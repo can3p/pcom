@@ -317,17 +317,17 @@ var excludedRoutes = map[string]string{
 var routeRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)
 
 // TestGuards_RouteTableMatchesSource builds the list of guarded routes from
-// cmd/web and checks that guardRoutes covers exactly those.
+// pkg/web/app and checks that guardRoutes covers exactly those.
 func TestGuards_RouteTableMatchesSource(t *testing.T) {
 	t.Parallel()
 
 	prefixes := map[string]map[string]string{
-		"../cmd/web/main.go": {
+		"../pkg/web/app/handlers.go": {
 			"router": "", "r": "", "apiGroup": "/api/v1", "controls": "/controls",
 			"actions": "/controls/action", "nonControlsForms": "/form", "controlsForms": "/controls/form",
 		},
-		"../cmd/web/actions.go": {"r": "/controls/action"},
-		"../cmd/web/api.go":     {"r": "/api/v1"},
+		"../pkg/web/app/actions.go": {"r": "/controls/action"},
+		"../pkg/web/app/api.go":     {"r": "/api/v1"},
 	}
 
 	want := map[string]bool{}
