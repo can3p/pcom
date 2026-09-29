@@ -31,6 +31,8 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/markdown"
+	"github.com/can3p/pcom/pkg/media"
+	mediaerrors "github.com/can3p/pcom/pkg/media/errors"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/local"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
@@ -48,6 +50,7 @@ import (
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq" // postgres db driver
@@ -84,6 +87,8 @@ func main() {
 
 	flag.BoolVar(&forceOpenRegistation, "force-signup", false, "allow new signups even if it's disabled in system settings")
 	flag.BoolVar(&forceRealSender, "force-real-sender", false, "force real sender outside of cluster")
+
+	html := flag.String("html", "client/html", "path to html templates")
 
 	flag.Parse()
 
@@ -159,11 +164,12 @@ func main() {
 			return ginCtx.Param("class")
 		}),
 	)
-	defer mediaServerCleanup()
 
 	if err != nil {
 		panic(err)
 	}
+
+	defer mediaServerCleanup()
 
 	mediaServer = server.NewWrapper(mediaServer, MediaServerConcurrency)
 	mediaServer, err = server.NewCachingServer(mediaServer, mediaStorage, 0)
@@ -209,10 +215,6 @@ func main() {
 		log.Println("Custom error reporter skipped")
 	}
 
-	html := flag.String("html", "client/html", "path to html templates")
-
-	flag.Parse()
-
 	router.SetFuncMap(funcmap(staticAsset))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", *html))
 
@@ -225,6 +227,17 @@ func main() {
 	} else {
 		router.Group("/static").Static("/", "dist")
 	}
+
+	router.GET("user-media/:fname", func(c *gin.Context) {
+		switch c.Param("fname") {
+		case "robots.txt":
+			c.String(http.StatusOK, "OK")
+		case "favicon.ico":
+			c.Redirect(http.StatusMovedPermanently, staticAsset("static/favicon.ico"))
+		default:
+			c.Status(http.StatusNotFound)
+		}
+	})
 
 	router.GET("user-media/:fname/:class", func(c *gin.Context) {
 		fname := c.Param("fname")
@@ -247,6 +260,11 @@ func main() {
 		err := mediaServer.ServeImage(c, mediaServer, c.Request, c.Writer, fname)
 
 		if err != nil {
+			if errors.Is(err, mediaerrors.ErrNotFound) || errors.Is(err, media.ErrNotFound) {
+				c.Status(http.StatusNotFound)
+				return
+			}
+
 			panic(err)
 		}
 	})
@@ -270,6 +288,11 @@ func main() {
 
 	r.GET("/invite/:id", func(c *gin.Context) {
 		invitationID := c.Param("id")
+
+		if _, err := uuid.Parse(invitationID); err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 
 		userData := auth.GetUserData(c)
 
@@ -328,6 +351,8 @@ func main() {
 			"Body":        sbody,
 			"User":        userData,
 			"Attribution": signupAttribution,
+			"StyleNonce":  csp.GetStyleNonce(c),
+			"ScriptNonce": csp.GetScriptNonce(c),
 		})
 	})
 
@@ -368,15 +393,23 @@ func main() {
 			"User":             userData,
 			"RegistrationOpen": registrationOpen,
 			"Attribution":      attribution,
+			"StyleNonce":       csp.GetStyleNonce(c),
+			"ScriptNonce":      csp.GetScriptNonce(c),
 		})
 	})
 
 	r.GET("/confirm_waiting_list/:id", func(c *gin.Context) {
 		id := c.Param("id")
+
+		if _, err := uuid.Parse(id); err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
 			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+			return
 		}
 
 		waitingList, err := core.UserSignupRequests(
@@ -398,7 +431,9 @@ func main() {
 		}
 
 		c.HTML(http.StatusOK, "waiting_list_confirmed.html", map[string]any{
-			"User": userData,
+			"User":        userData,
+			"StyleNonce":  csp.GetStyleNonce(c),
+			"ScriptNonce": csp.GetScriptNonce(c),
 		})
 	})
 
@@ -485,14 +520,14 @@ func main() {
 		c.String(http.StatusOK, css)
 	})
 
-	r.GET("/shared/:id", func(c *gin.Context) {
+	r.GET("/shared/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		shareID := c.Param("id")
 
 		ginhelpers.HTML(c, "shared_post.html", web.SharedPost(c, db, &userData, shareID))
 	})
 
-	r.GET("/posts/:id", func(c *gin.Context) {
+	r.GET("/posts/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 		editPreview := c.Query("edit_preview") == "true"
@@ -500,7 +535,7 @@ func main() {
 		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID, editPreview))
 	})
 
-	r.GET("/posts/:id/md", func(c *gin.Context) {
+	r.GET("/posts/:id/md", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 
@@ -521,7 +556,7 @@ func main() {
 		c.String(http.StatusOK, string(serialized))
 	})
 
-	r.GET("/posts/:id/zip", func(c *gin.Context) {
+	r.GET("/posts/:id/zip", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		user := userData.DBUser
 		postID := c.Param("id")
@@ -552,7 +587,7 @@ func main() {
 		c.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
 	})
 
-	r.GET("/posts/:id/edit", auth.EnforceAuth, func(c *gin.Context) {
+	r.GET("/posts/:id/edit", auth.EnforceAuth, requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")
 
@@ -578,6 +613,11 @@ func main() {
 	})
 
 	r.GET("/rss/private/:key", func(c *gin.Context) {
+		if _, err := uuid.Parse(c.Param("key")); err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+
 		api, err := core.UserAPIKeys(
 			core.UserAPIKeyWhere.APIKey.EQ(c.Param("key")),
 			qm.Load(core.UserAPIKeyRels.User),
@@ -644,10 +684,16 @@ func main() {
 
 	r.GET("/confirm_signup/:id", func(c *gin.Context) {
 		id := c.Param("id")
+
+		if _, err := uuid.Parse(id); err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
 			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+			return
 		}
 
 		user, err := core.Users(
@@ -671,7 +717,9 @@ func main() {
 		}
 
 		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]any{
-			"User": userData,
+			"User":        userData,
+			"StyleNonce":  csp.GetStyleNonce(c),
+			"ScriptNonce": csp.GetScriptNonce(c),
 		})
 	})
 
@@ -682,6 +730,7 @@ func main() {
 
 		if userData.IsLoggedIn {
 			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+			return
 		}
 
 		form := forms.LoginFormNew()
@@ -691,6 +740,11 @@ func main() {
 
 	nonControlsForms.POST("/accept_invite/:id", func(c *gin.Context) {
 		invitationID := c.Param("id")
+
+		if _, err := uuid.Parse(invitationID); err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 
 		invite, err := core.UserInvitations(
 			core.UserInvitationWhere.ID.EQ(invitationID),
@@ -713,6 +767,7 @@ func main() {
 
 		if userData.IsLoggedIn {
 			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+			return
 		}
 
 		systemSettings := core.SystemSettings().OneP(c, db)
@@ -733,6 +788,7 @@ func main() {
 
 		if userData.IsLoggedIn {
 			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+			return
 		}
 
 		// bots are destroying the endpoint
@@ -984,5 +1040,15 @@ func loadStaticManifest() staticAssetFunc {
 		}
 
 		return fmt.Sprintf("%s/%s", prefix, path)
+	}
+}
+
+// requireUUIDParam answers 404 when the path parameter is not a valid UUID,
+// which would otherwise reach a UUID column and fail with a 500.
+func requireUUIDParam(name string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if _, err := uuid.Parse(c.Param(name)); err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+		}
 	}
 }

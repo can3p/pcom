@@ -696,35 +696,34 @@ func TestVisibility_Explore(t *testing.T) {
 }
 
 // TestVisibility_UserMediaSpecialFiles: the media route answers robots.txt itself
-// and sends favicon.ico to the static favicon. The route is
-// /user-media/:fname/:class, so today both need a class segment.
+// and sends favicon.ico to the static favicon, with or without a class segment.
 func TestVisibility_UserMediaSpecialFiles(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	c := app.Client(t)
 
-	resp := requireStatus(t, c.Get("/user-media/robots.txt/thumb"), http.StatusOK)
-	require.Equal(t, "OK", resp.Body)
+	for _, tc := range []struct {
+		path     string
+		status   int
+		body     string
+		location string
+	}{
+		{path: "/user-media/robots.txt/thumb", status: http.StatusOK, body: "OK"},
+		{path: "/user-media/favicon.ico/thumb", status: http.StatusMovedPermanently, location: "/static/static/favicon.ico"},
+		{path: "/user-media/robots.txt", status: http.StatusOK, body: "OK"},
+		{path: "/user-media/favicon.ico", status: http.StatusMovedPermanently, location: "/static/static/favicon.ico"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			resp := requireStatus(t, app.Client(t).Get(tc.path), tc.status)
+			if tc.body != "" {
+				require.Equal(t, tc.body, resp.Body)
+			}
 
-	resp = requireStatus(t, c.Get("/user-media/favicon.ico/thumb"), http.StatusMovedPermanently)
-	require.Equal(t, "/static/static/favicon.ico", resp.Location())
-}
-
-// TestVisibility_UserMediaSpecialFilesAtRoot: robots.txt and favicon.ico are asked
-// for without a class segment, which the route does not match.
-func TestVisibility_UserMediaSpecialFilesAtRoot(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/151")
-	t.Parallel()
-
-	app := e2e.Start(t)
-	c := app.Client(t)
-
-	resp := requireStatus(t, c.Get("/user-media/robots.txt"), http.StatusOK)
-	require.Equal(t, "OK", resp.Body)
-
-	resp = requireStatus(t, c.Get("/user-media/favicon.ico"), http.StatusMovedPermanently)
-	require.Equal(t, "/static/static/favicon.ico", resp.Location())
+			if tc.location != "" {
+				require.Equal(t, tc.location, resp.Location())
+			}
+		})
+	}
 }
 
 func TestVisibility_Static(t *testing.T) {

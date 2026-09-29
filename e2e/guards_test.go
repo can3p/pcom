@@ -17,6 +17,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
 )
@@ -1035,7 +1036,7 @@ func TestGuards_LoggedInConfirmSignupHasNoEffect(t *testing.T) {
 
 	pending, err := factory.User(ctx, app.DB, func(u *core.User) {
 		u.EmailConfirmedAt = null.Time{}
-		u.EmailConfirmSeed = null.StringFrom("seed-" + u.Username)
+		u.EmailConfirmSeed = null.StringFrom(uuid.NewString())
 	})
 	require.NoError(t, err)
 
@@ -1052,7 +1053,6 @@ func TestGuards_LoggedInConfirmSignupHasNoEffect(t *testing.T) {
 }
 
 func TestGuards_LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
@@ -1071,7 +1071,6 @@ func TestGuards_LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
 }
 
 func TestGuards_LoggedInFormLoginHasNoEffect(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
@@ -1086,7 +1085,6 @@ func TestGuards_LoggedInFormLoginHasNoEffect(t *testing.T) {
 }
 
 func TestGuards_LoggedInFormSignupHasNoEffect(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)
@@ -1108,7 +1106,6 @@ func TestGuards_LoggedInFormSignupHasNoEffect(t *testing.T) {
 }
 
 func TestGuards_LoggedInFormSignupWaitingListHasNoEffect(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)

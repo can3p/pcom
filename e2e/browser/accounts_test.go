@@ -107,7 +107,6 @@ func TestAccounts_Logout(t *testing.T) {
 // log in, which only works once the email is confirmed.
 func TestAccounts_SignupWhileOpenAndConfirmEmail(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #139: GET /signup and GET /confirm_signup/:id render header.html from a bare map instead of a page struct built through getBasePage, so ScriptNonce/StyleNonce are empty; the inline bootstrap <script nonce=\"\"> in header.html then mismatches the real CSP header nonce and Chromium blocks it as a CSP violation, which the browser guard reports as a page error")
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	require.NoError(t, factory.SetRegistrationOpen(context.Background(), app.DB, true))
