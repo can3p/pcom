@@ -3,13 +3,13 @@ package forms_test
 import (
 	"context"
 	"net/http"
-	"testing"
-
 	"strings"
+	"testing"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -17,138 +17,98 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoginForm_ValidateEmptyEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = ""
-	form.Input.Password = "somepassword"
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
-func TestLoginForm_ValidateEmptyPassword(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Password = ""
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("password"))
-}
-
-func TestLoginForm_ValidateInvalidCredentials(t *testing.T) {
+func TestLoginForm_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		skip         string
+		setup        func(t *testing.T) (email, password string)
+		wantErr      bool
+		wantErrField string
+	}{
+		{name: "empty email", setup: func(t *testing.T) (string, string) { return "", "somepassword" },
+			wantErr: true, wantErrField: "email"},
+		{name: "empty password", setup: func(t *testing.T) (string, string) { return "valid@example.test", "" },
+			wantErr: true, wantErrField: "password"},
+		{name: "invalid credentials", setup: func(t *testing.T) (string, string) {
+			u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
+			return u.Email, "wrongpassword"
+		}, wantErr: true},
+		{name: "case-insensitive email", skip: "known bug #114: login fails when the email's case doesn't match the stored one",
+			setup: func(t *testing.T) (string, string) {
+				u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
+				return strings.ToUpper(u.Email), "correctpassword"
+			}, wantErr: false},
+		{name: "valid credentials", setup: func(t *testing.T) (string, string) {
+			u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
+			return u.Email, "correctpassword"
+		}, wantErr: false},
+	}
 
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if tt.skip != "" {
+				t.Skip(tt.skip)
+			}
 
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = existingUser.Email
-	form.Input.Password = "wrongpassword"
+			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+			email, password := tt.setup(t)
 
-	err = form.Validate(c, db)
-	require.Error(t, err)
+			form := forms.LoginFormNew().(*forms.LoginForm)
+			form.Input.Email = email
+			form.Input.Password = password
+
+			err := form.Validate(c, db)
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			if tt.wantErrField != "" {
+				require.True(t, form.Errors.HasError(tt.wantErrField))
+			}
+		})
+	}
 }
 
-func TestLoginForm_ValidateCaseInsensitiveEmail(t *testing.T) {
-	t.Skip("known bug #114: login fails when the email's case doesn't match the stored one")
+func TestLoginForm_Save(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		sign         func(returnURL string) string
+		wantRedirect func(returnURL string) string
+	}{
+		{"signed return url redirects there", auth.HashValue, func(u string) string { return util.SiteRoot() + u }},
+		{"bad signature redirects home", func(string) string { return "not-a-valid-signature" }, func(string) string { return links.DefaultAuthorizedHome() }},
+	}
 
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = strings.ToUpper(existingUser.Email)
-	form.Input.Password = "correctpassword"
+			user := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
+			c, w := ginctx.New(t, http.MethodPost, "/login", nil)
 
-	err = form.Validate(c, db)
-	require.NoError(t, err, "login should succeed regardless of the email's case")
-}
+			form := forms.LoginFormNew().(*forms.LoginForm)
+			form.Input.Email = user.Email
+			form.Input.Password = "correctpassword"
+			form.Input.ReturnURL = "/feed"
+			form.Input.Sign = tt.sign(form.Input.ReturnURL)
 
-func TestLoginForm_ValidateValidCredentials(t *testing.T) {
-	t.Parallel()
+			action, err := form.Save(c, db)
+			require.NoError(t, err)
+			action(c, form)
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
-	require.NoError(t, err)
-
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = existingUser.Email
-	form.Input.Password = "correctpassword"
-
-	err = form.Validate(c, db)
-	require.NoError(t, err)
-}
-
-func TestLoginForm_SaveRedirectsToSignedReturnURL(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
-	require.NoError(t, err)
-
-	c, w := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = existingUser.Email
-	form.Input.Password = "correctpassword"
-	form.Input.ReturnURL = "/feed"
-	form.Input.Sign = auth.HashValue(form.Input.ReturnURL)
-
-	action, err := form.Save(c, db)
-	require.NoError(t, err)
-	action(c, form)
-
-	require.Equal(t, util.SiteRoot()+"/feed", w.Header().Get("HX-Redirect"))
-}
-
-func TestLoginForm_SaveRedirectsHomeWithBadSignature(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	existingUser, err := factory.User(ctx, db, factory.WithPassword("correctpassword"))
-	require.NoError(t, err)
-
-	c, w := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	form := forms.LoginFormNew().(*forms.LoginForm)
-	form.Input.Email = existingUser.Email
-	form.Input.Password = "correctpassword"
-	form.Input.ReturnURL = "/feed"
-	form.Input.Sign = "not-a-valid-signature"
-
-	action, err := form.Save(c, db)
-	require.NoError(t, err)
-	action(c, form)
-
-	require.Equal(t, links.DefaultAuthorizedHome(), w.Header().Get("HX-Redirect"))
+			require.Equal(t, tt.wantRedirect(form.Input.ReturnURL), w.Header().Get("HX-Redirect"))
+		})
+	}
 }

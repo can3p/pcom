@@ -5,118 +5,69 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
 
-func TestEmailOKToSignup_ExistingUser(t *testing.T) {
+func TestEmailOKToSignup(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-
-	ofExistingUser, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
 	sender := fakesender.New()
-	_, isOK := validation.EmailOKToSignup(ctx, db, sender, ofExistingUser.Email)
-	require.False(t, isOK)
+
+	tests := []struct {
+		name   string
+		email  func(t *testing.T) string
+		wantOK bool
+	}{
+		{"existing user", func(t *testing.T) string { return testutil.Must(factory.User(ctx, db))(t).Email }, false},
+		{"plus sign", func(t *testing.T) string { return "user+test@example.com" }, false},
+		{"plus sign allowed test email", func(t *testing.T) string { return "dpetroff+test@gmail.com" }, true},
+		{"disposable domain", func(t *testing.T) string { return "test@mailinator.com" }, false},
+		{"valid email", func(t *testing.T) string { return "valid@gmail.com" }, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, isOK := validation.EmailOKToSignup(ctx, db, sender, tt.email(t))
+			require.Equal(t, tt.wantOK, isOK)
+		})
+	}
 }
 
-func TestEmailOKToSignup_PlusSign(t *testing.T) {
+func TestEmailOKToAddToWaitingList(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	sender := fakesender.New()
-	_, isOK := validation.EmailOKToSignup(ctx, db, sender, "user+test@example.com")
-	require.False(t, isOK)
-}
+	tests := []struct {
+		name   string
+		email  func(t *testing.T) string
+		wantOK bool
+	}{
+		{"existing user", func(t *testing.T) string { return testutil.Must(factory.User(ctx, db))(t).Email }, false},
+		{"existing invitation", func(t *testing.T) string {
+			inviter := testutil.Must(factory.User(ctx, db))(t)
+			testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("existing@example.test")))(t)
+			return "existing@example.test"
+		}, false},
+		{"existing signup request", func(t *testing.T) string {
+			return testutil.Must(factory.SignupRequest(ctx, db))(t).Email
+		}, false},
+		{"valid email", func(t *testing.T) string { return "valid@example.test" }, true},
+	}
 
-func TestEmailOKToSignup_PlusSignAllowedTestEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	sender := fakesender.New()
-	_, isOK := validation.EmailOKToSignup(ctx, db, sender, "dpetroff+test@gmail.com")
-	require.True(t, isOK)
-}
-
-func TestEmailOKToSignup_DisposableDomain(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	sender := fakesender.New()
-	_, isOK := validation.EmailOKToSignup(ctx, db, sender, "test@mailinator.com")
-	require.False(t, isOK)
-}
-
-func TestEmailOKToSignup_ValidEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	sender := fakesender.New()
-	_, isOK := validation.EmailOKToSignup(ctx, db, sender, "valid@gmail.com")
-	require.True(t, isOK)
-}
-
-func TestEmailOKToAddToWaitingList_ExistingUser(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	ofExistingUser, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, isOK := validation.EmailOKToAddToWaitingList(ctx, db, ofExistingUser.Email)
-	require.False(t, isOK)
-}
-
-func TestEmailOKToAddToWaitingList_ExistingInvitation(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	ofInviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.Invitation(ctx, db, ofInviter.ID, factory.Sent("existing@example.test"))
-	require.NoError(t, err)
-
-	_, isOK := validation.EmailOKToAddToWaitingList(ctx, db, "existing@example.test")
-	require.False(t, isOK)
-}
-
-func TestEmailOKToAddToWaitingList_ExistingSignupRequest(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	ofExistingRequest, err := factory.SignupRequest(ctx, db)
-	require.NoError(t, err)
-
-	_, isOK := validation.EmailOKToAddToWaitingList(ctx, db, ofExistingRequest.Email)
-	require.False(t, isOK)
-}
-
-func TestEmailOKToAddToWaitingList_ValidEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	_, isOK := validation.EmailOKToAddToWaitingList(ctx, db, "valid@example.test")
-	require.True(t, isOK)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, isOK := validation.EmailOKToAddToWaitingList(ctx, db, tt.email(t))
+			require.Equal(t, tt.wantOK, isOK)
+		})
+	}
 }

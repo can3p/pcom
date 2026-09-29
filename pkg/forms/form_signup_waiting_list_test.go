@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -13,52 +14,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSignupWaitingListForm_ValidateEmptyEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = ""
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
-func TestSignupWaitingListForm_ValidateExistingUser(t *testing.T) {
+func TestSignupWaitingListForm_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
 
-	existingUser, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		email        func(t *testing.T) string
+		wantErrField string
+	}{
+		{"empty email", func(t *testing.T) string { return "" }, "email"},
+		{"existing user", func(t *testing.T) string { return testutil.Must(factory.User(ctx, db))(t).Email }, "email"},
+		{"success", func(t *testing.T) string { return "valid@example.test" }, ""},
+	}
 
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = existingUser.Email
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
+			c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
+			form := forms.SignupWaitingListFormNew(fakesender.New()).(*forms.SignupWaitingListForm)
+			form.Input.Email = tt.email(t)
 
-func TestSignupWaitingListForm_ValidateSuccess(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
-	form.Input.Email = "valid@example.test"
-
-	err := form.Validate(c, db)
-	require.NoError(t, err)
+			err := form.Validate(c, db)
+			if tt.wantErrField == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.True(t, form.Errors.HasError(tt.wantErrField))
+		})
+	}
 }
 
 func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
@@ -77,8 +65,7 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
-	exists, err := factory.SignupRequestExists(ctx, db, form.Input.Email)
-	require.NoError(t, err)
+	exists := testutil.Must(factory.SignupRequestExists(ctx, db, form.Input.Email))(t)
 	require.True(t, exists)
 
 	sent := sender.Sent()

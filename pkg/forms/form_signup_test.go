@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -13,147 +14,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSignupForm_ValidateEmptyEmail(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Username = "newuser"
-	form.Input.Password = "ValidPassword123!"
-	form.Input.Email = ""
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
-func TestSignupForm_ValidateExistingEmail(t *testing.T) {
+func TestSignupForm_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
 
-	existingUser, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		setup        func(t *testing.T) (email, username, password string)
+		wantErrField string
+	}{
+		{"empty email", func(t *testing.T) (string, string, string) {
+			return "", "newuser", "ValidPassword123!"
+		}, "email"},
+		{"existing email", func(t *testing.T) (string, string, string) {
+			u := testutil.Must(factory.User(ctx, db))(t)
+			return u.Email, "newuser", "ValidPassword123!"
+		}, "email"},
+		{"empty username", func(t *testing.T) (string, string, string) {
+			return "valid@example.test", "", "ValidPassword123!"
+		}, "username"},
+		{"existing username", func(t *testing.T) (string, string, string) {
+			u := testutil.Must(factory.User(ctx, db))(t)
+			return "valid@example.test", u.Username, "ValidPassword123!"
+		}, "username"},
+		{"invalid username format", func(t *testing.T) (string, string, string) {
+			return "valid@example.test", "1abc", "ValidPassword123!"
+		}, "username"},
+		{"weak password", func(t *testing.T) (string, string, string) {
+			return "valid@example.test", "newuser", "short"
+		}, "password"},
+		{"empty password", func(t *testing.T) (string, string, string) {
+			return "valid@example.test", "newuser", ""
+		}, "password"},
+		{"success", func(t *testing.T) (string, string, string) {
+			return "valid@example.test", "newuser", "ValidPassword123!"
+		}, ""},
+	}
 
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = existingUser.Email
-	form.Input.Username = "newuser"
-	form.Input.Password = "ValidPassword123!"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
+			c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
+			email, username, password := tt.setup(t)
 
-func TestSignupForm_ValidateEmptyUsername(t *testing.T) {
-	t.Parallel()
+			form := forms.SignupFormNew(fakesender.New()).(*forms.SignupForm)
+			form.Input.Email = email
+			form.Input.Username = username
+			form.Input.Password = password
 
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Username = ""
-	form.Input.Password = "ValidPassword123!"
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("username"))
-}
-
-func TestSignupForm_ValidateExistingUsername(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	existingUser, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Username = existingUser.Username
-	form.Input.Password = "ValidPassword123!"
-
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("username"))
-}
-
-func TestSignupForm_ValidateInvalidUsernameFormat(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Username = "1abc"
-	form.Input.Password = "ValidPassword123!"
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("username"))
-}
-
-func TestSignupForm_ValidateWeakPassword(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Username = "newuser"
-	form.Input.Password = "short"
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("password"))
-}
-
-func TestSignupForm_ValidateEmptyPassword(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Username = "newuser"
-	form.Input.Password = ""
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("password"))
-}
-
-func TestSignupForm_ValidateSuccess(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
-	form.Input.Email = "valid@example.test"
-	form.Input.Username = "newuser"
-	form.Input.Password = "ValidPassword123!"
-
-	err := form.Validate(c, db)
-	require.NoError(t, err)
+			err := form.Validate(c, db)
+			if tt.wantErrField == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.True(t, form.Errors.HasError(tt.wantErrField))
+		})
+	}
 }
 
 // TestSignupForm_SaveSanitizesInvalidAttribution uses an attribution the
@@ -181,8 +101,7 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
-	newUser, err := factory.GetUserByEmail(ctx, db, "newuser@example.test")
-	require.NoError(t, err)
+	newUser := testutil.Must(factory.GetUserByEmail(ctx, db, "newuser@example.test"))(t)
 	require.Equal(t, "newuser", newUser.Username)
 	require.Equal(t, "unknown", newUser.SignupAttribution.String)
 

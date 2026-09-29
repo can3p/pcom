@@ -7,138 +7,91 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
 
-func TestAddFeedForm_ValidateEmptyURL(t *testing.T) {
+func TestAddFeedForm_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		url          string
+		wantErrField string
+	}{
+		{"empty url", "", "url"},
+		{"invalid url", "not-a-valid-url", "url"},
+		{"no protocol", "example.com/feed.xml", "url"},
+		{"valid http url", "http://example.com/feed.xml", ""},
+		{"valid https url", "https://example.com/feed.xml", ""},
+	}
 
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = ""
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("url"))
+			user := testutil.Must(factory.User(ctx, db))(t)
+			c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
+
+			form := forms.NewAddFeedForm(user)
+			form.Input.URL = tt.url
+
+			err := form.Validate(c, db)
+			if tt.wantErrField == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.True(t, form.Errors.HasError(tt.wantErrField))
+		})
+	}
 }
 
-func TestAddFeedForm_ValidateInvalidURL(t *testing.T) {
+func TestAddFeedForm_Save(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+		wantURL string
+	}{
+		// Save doesn't re-run Validate, so a whitespace-only URL reaches
+		// feedops.SubscribeToFeed's own error path.
+		{"blank url fails", "   ", true, ""},
+		{"trims url", "  https://example.com/feed.xml  ", false, "https://example.com/feed.xml"},
+	}
 
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = "not-a-valid-url"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("url"))
-}
+			user := testutil.Must(factory.User(ctx, db))(t)
+			c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-func TestAddFeedForm_ValidateNoProtocol(t *testing.T) {
-	t.Parallel()
+			form := forms.NewAddFeedForm(user)
+			form.Input.URL = tt.url
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
+			action, err := form.Save(c, db)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, action)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = "example.com/feed.xml"
-
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("url"))
-}
-
-func TestAddFeedForm_ValidateValidHTTPURL(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = "http://example.com/feed.xml"
-
-	err = form.Validate(c, db)
-	require.NoError(t, err)
-}
-
-func TestAddFeedForm_ValidateValidHTTPSURL(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = "https://example.com/feed.xml"
-
-	err = form.Validate(c, db)
-	require.NoError(t, err)
-}
-
-func TestAddFeedForm_SaveFailsOnBlankURL(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	// Save doesn't re-run Validate, so calling it directly with a
-	// whitespace-only URL reaches feedops.SubscribeToFeed's own error path.
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = "   "
-
-	_, err = form.Save(c, db)
-	require.Error(t, err)
-}
-
-func TestAddFeedForm_SaveTrimsURL(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.NewAddFeedForm(user)
-	form.Input.URL = "  https://example.com/feed.xml  "
-
-	action, err := form.Save(c, db)
-	require.NoError(t, err)
-	require.NotNil(t, action)
-
-	feeds, err := feedops.GetRssFeeds(ctx, db, user.ID)
-	require.NoError(t, err)
-	require.Len(t, feeds, 1)
-	require.Equal(t, "https://example.com/feed.xml", feeds[0].URL)
+			feeds := testutil.Must(feedops.GetRssFeeds(ctx, db, user.ID))(t)
+			require.Len(t, feeds, 1)
+			require.Equal(t, tt.wantURL, feeds[0].URL)
+		})
+	}
 }
