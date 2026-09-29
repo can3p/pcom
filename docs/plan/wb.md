@@ -30,6 +30,8 @@ as well. Each fix removes the matching `t.Skip`, and that test is the proof.
 | #159 | User styles over the limit are saved | `Validate` returns nil after `AddError`, cheap |
 | #160 | `auth.Login` panics on a database error | return the error; with the auth work |
 | #163 | Delete on a never-saved post stores a draft | `PostForm.Save`, cheap (Q16) |
+| #167 | Only a user's first invitation email is ever sent | key the mail by `invite.ID`, not the inviter; skipped `TestSendInvite_Queue` goes through the real queue |
+| #168 | The same address can be invited more than once | decide reject vs resend; partial unique index on the lowercased pending address, with #114 |
 
 **Future, not part of WB:** #123 (re-enable signups with bot protection;
 signups are off on purpose) and #124 (feed and explore pagination). Both come
@@ -38,7 +40,7 @@ in place first.
 
 ### Known bugs (for de-duplication)
 
-Filed: #108–#117, #119–#124, #147, #148, #151, #152, #154, #156–#160 and #163. Already fixed:
+Filed: #108–#117, #119–#124, #147, #148, #151, #152, #154, #156–#160, #163, #167 and #168. Already fixed:
 the foreign-post delete through `DELETE /api/v1/posts/:id`, in PR #118
 (merged); W2.D3 and W3.E4 test the ownership check as a normal, non-skipped
 test. Drafts served to non-authors at `/posts/:id` (found by W3.E1) are fixed
