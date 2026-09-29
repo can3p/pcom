@@ -108,3 +108,8 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Rate limits end parallel agents mid-task.** Three W2 agents stopped when
   the session limit hit; `SendMessage` to each resumed it with its context
   intact once the limit reset. Resume rather than re-dispatch.
+- **`git checkout` can't restore an untracked file.** During W5's
+  mutation check, restoring a new floors file with `git checkout --` failed,
+  and the fallback copied an unrelated backup of the same name from the shared
+  temp directory over it. Back up an untracked file under a unique name in the
+  session's scratchpad, or break it with an edit you revert with another edit.

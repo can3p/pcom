@@ -358,3 +358,38 @@ almost all in subagents. Skills: wave-run and wave-close once each,
 model-shape by 1 agent, test-failure never. Compared with W3, three times
 the turns for 2.5 times the tasks: the late audit and its rework made up
 about a quarter of them.
+
+## W5 — Coverage ratchet (2026-09-29, branch `test/w5-ratchet`)
+
+Built `make cover-check`: `tools/coverage-check.sh` compares the merged
+coverage `make cover` leaves in `.cover/` and `coverage.out` with the floors
+in `tools/coverage-floors.txt`, and CI runs it right after the tests. The
+Codecov upload runs even when the check fails. Floors are the achieved level
+minus 1%:
+
+| Scope | Achieved | Floor |
+|---|---|---|
+| total, excluding `pkg/model/core` | 81.1% | 80.1% |
+| `pkg/auth` | 92.6% | 91.6% |
+| `pkg/web` | 89.3% | 88.3% |
+| `pkg/userops` | 89.0% | 88.0% |
+| `pkg/postops` | 88.4% | 87.4% |
+| `pkg/forms` | 85.3% | 84.3% |
+
+The total is up from the 17.2% baseline and above the plan's 70–80%
+estimate. The floors use the merged numbers (unit, package and E2E tests
+under one `GOCOVERDIR`), not a package's own `ok` line, which is lower for
+the packages E2E exercises (`pkg/web` 87.9% on its own). A package listed
+with no data fails, so a misspelled path can't pass. The check was proven by
+raising a package floor, raising the total floor and misspelling a path:
+each made it fail.
+
+Left out: browser tests aren't counted, because `make cover` doesn't run
+them; `pkg/postops/rss` (93.3%) has no floor of its own; floors are raised by
+hand, not automatically.
+
+**Cost.** 1 coordinator session (23 turns, peak 70k context, 21k of tool
+results, 3 `cat` flags) and 1 haiku subagent (48 turns, peak 50k, 26k of
+tool results). Skills: wave-run and wave-close once each. The smallest wave
+so far by far: one task, and the coordinator measured the baseline once
+before dispatch so the subagent never re-ran `make cover`.
