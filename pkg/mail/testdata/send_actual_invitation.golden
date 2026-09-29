@@ -1,5 +1,5 @@
 EmailType: user_invitation
-UniqueID: user-1
+UniqueID: invite-1
 From: Your pcom <noreply@pcom.test>
 To: newuser@example.test
 Subject: Welcome to pcom
