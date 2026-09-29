@@ -7,6 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -25,48 +26,37 @@ func TestSerializeBlog_RoundTripAcrossUsers(t *testing.T) {
 	ctx := context.Background()
 	storage := fakestorage.New()
 
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	newOwner, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	author := testutil.Must(factory.User(ctx, db))(t)
+	newOwner := testutil.Must(factory.User(ctx, db))(t)
+	link := testutil.Must(factory.NormalizedURL(ctx, db))(t)
 
-	link, err := factory.NormalizedURL(ctx, db)
-	require.NoError(t, err)
-
-	withLink, err := factory.Post(ctx, db, author.ID,
+	withLink := testutil.Must(factory.Post(ctx, db, author.ID,
 		factory.Published(),
 		factory.Visibility(core.PostVisibilityPublic),
 		factory.WithURL(link.ID),
-	)
-	require.NoError(t, err)
-
-	plain, err := factory.Post(ctx, db, author.ID,
+	))(t)
+	plain := testutil.Must(factory.Post(ctx, db, author.ID,
 		factory.Published(),
 		factory.Visibility(core.PostVisibilityDirectOnly),
-	)
-	require.NoError(t, err)
+	))(t)
 
 	// Posts with a "timestamp without time zone" column round-trip through
 	// Postgres losing their original zone, so compare against a value read
 	// back from the DB rather than the in-memory one factory.Post returned.
-	dbWithLink, err := factory.GetPost(ctx, db, withLink.ID)
-	require.NoError(t, err)
+	dbWithLink := testutil.Must(factory.GetPost(ctx, db, withLink.ID))(t)
 
-	archive, err := postops.SerializeBlog(ctx, db, storage, author.ID)
-	require.NoError(t, err)
+	archive := testutil.Must(postops.SerializeBlog(ctx, db, storage, author.ID))(t)
 
 	posts, images, err := postops.DeserializeArchive(archive)
 	require.NoError(t, err)
 	require.Len(t, posts, 2)
 	require.Empty(t, images)
 
-	stats, err := postops.InjectPostsInDB(ctx, db, storage, newOwner.ID, posts, images)
-	require.NoError(t, err)
+	stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, newOwner.ID, posts, images))(t)
 	require.Equal(t, 2, stats.PostsCreated)
 	require.Equal(t, 0, stats.PostsUpdated)
 
-	imported, err := factory.ListPosts(ctx, db, newOwner.ID)
-	require.NoError(t, err)
+	imported := testutil.Must(factory.ListPosts(ctx, db, newOwner.ID))(t)
 	require.Len(t, imported, 2)
 
 	bySubject := map[string]*core.Post{}
@@ -91,102 +81,87 @@ func TestSerializeBlog_RoundTripAcrossUsers(t *testing.T) {
 	require.False(t, gotPlain.URLID.Valid)
 }
 
-// TestInjectPostsInDB_UpdatesExistingPost pins the self-restore path: the
-// export carries the original post ID, so importing it back for the same
-// author updates the existing row instead of creating a duplicate.
-func TestInjectPostsInDB_UpdatesExistingPost(t *testing.T) {
+// TestInjectPostsInDB exercises the import side on its own: updating an
+// existing post on self-restore, and the image upload/skip decision.
+func TestInjectPostsInDB(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	storage := fakestorage.New()
 
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	t.Run("updates an existing post on self-restore", func(t *testing.T) {
+		t.Parallel()
 
-	post, err := factory.Post(ctx, db, author.ID, factory.Published())
-	require.NoError(t, err)
+		storage := fakestorage.New()
+		author := testutil.Must(factory.User(ctx, db))(t)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
-	archive, err := postops.SerializeBlog(ctx, db, storage, author.ID)
-	require.NoError(t, err)
+		// The export carries the original post ID, so importing it back for
+		// the same author updates the existing row instead of creating a
+		// duplicate.
+		archive := testutil.Must(postops.SerializeBlog(ctx, db, storage, author.ID))(t)
+		posts, images, err := postops.DeserializeArchive(archive)
+		require.NoError(t, err)
+		require.Len(t, posts, 1)
 
-	posts, images, err := postops.DeserializeArchive(archive)
-	require.NoError(t, err)
-	require.Len(t, posts, 1)
+		posts[0].Post.Body = "edited body"
 
-	posts[0].Post.Body = "edited body"
+		stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, author.ID, posts, images))(t)
+		require.Equal(t, 0, stats.PostsCreated)
+		require.Equal(t, 1, stats.PostsUpdated)
 
-	stats, err := postops.InjectPostsInDB(ctx, db, storage, author.ID, posts, images)
-	require.NoError(t, err)
-	require.Equal(t, 0, stats.PostsCreated)
-	require.Equal(t, 1, stats.PostsUpdated)
+		got := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
+		require.Equal(t, "edited body", got.Body)
+	})
 
-	got, err := factory.GetPost(ctx, db, post.ID)
-	require.NoError(t, err)
-	require.Equal(t, "edited body", got.Body)
-}
+	t.Run("uploads new images", func(t *testing.T) {
+		t.Parallel()
 
-func TestInjectPostsInDB_UploadsNewImages(t *testing.T) {
-	t.Parallel()
+		storage := fakestorage.New()
+		owner := testutil.Must(factory.User(ctx, db))(t)
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	storage := fakestorage.New()
-
-	owner, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	pngBytes := []byte("\x89PNG\r\n\x1a\nrest-of-file")
-
-	posts := []*postops.PostWithMeta{
-		{
-			Post: &core.Post{
-				Subject:          null.StringFrom("with image"),
-				Body:             "![alt](original-name.png)",
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+		pngBytes := []byte("\x89PNG\r\n\x1a\nrest-of-file")
+		posts := []*postops.PostWithMeta{
+			{
+				Post: &core.Post{
+					Subject:          null.StringFrom("with image"),
+					Body:             "![alt](original-name.png)",
+					VisibilityRadius: core.PostVisibilityDirectOnly,
+				},
 			},
-		},
-	}
-	images := map[string][]byte{"original-name.png": pngBytes}
+		}
+		images := map[string][]byte{"original-name.png": pngBytes}
 
-	stats, err := postops.InjectPostsInDB(ctx, db, storage, owner.ID, posts, images)
-	require.NoError(t, err)
-	require.Equal(t, 1, stats.ImagesUploaded)
-	require.Equal(t, 0, stats.ImagesSkipped)
+		stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, owner.ID, posts, images))(t)
+		require.Equal(t, 1, stats.ImagesUploaded)
+		require.Equal(t, 0, stats.ImagesSkipped)
 
-	imported, err := factory.ListPosts(ctx, db, owner.ID)
-	require.NoError(t, err)
-	require.Len(t, imported, 1)
-	require.NotContains(t, imported[0].Body, "original-name.png",
-		"the image reference should be rewritten to the freshly uploaded name")
-}
+		imported := testutil.Must(factory.ListPosts(ctx, db, owner.ID))(t)
+		require.Len(t, imported, 1)
+		require.NotContains(t, imported[0].Body, "original-name.png",
+			"the image reference should be rewritten to the freshly uploaded name")
+	})
 
-func TestInjectPostsInDB_SkipsReuploadOfExistingImage(t *testing.T) {
-	t.Parallel()
+	t.Run("skips reupload of an existing image", func(t *testing.T) {
+		t.Parallel()
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	storage := fakestorage.New()
+		storage := fakestorage.New()
+		owner := testutil.Must(factory.User(ctx, db))(t)
+		existing := testutil.Must(factory.MediaUpload(ctx, db, owner.ID))(t)
 
-	owner, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	existing, err := factory.MediaUpload(ctx, db, owner.ID)
-	require.NoError(t, err)
-
-	posts := []*postops.PostWithMeta{
-		{
-			Post: &core.Post{
-				Subject:          null.StringFrom("no new images"),
-				Body:             "plain text, no image references",
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+		posts := []*postops.PostWithMeta{
+			{
+				Post: &core.Post{
+					Subject:          null.StringFrom("no new images"),
+					Body:             "plain text, no image references",
+					VisibilityRadius: core.PostVisibilityDirectOnly,
+				},
 			},
-		},
-	}
-	images := map[string][]byte{existing.UploadedFname: []byte("does-not-matter")}
+		}
+		images := map[string][]byte{existing.UploadedFname: []byte("does-not-matter")}
 
-	stats, err := postops.InjectPostsInDB(ctx, db, storage, owner.ID, posts, images)
-	require.NoError(t, err)
-	require.Equal(t, 0, stats.ImagesUploaded)
-	require.Equal(t, 1, stats.ImagesSkipped)
+		stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, owner.ID, posts, images))(t)
+		require.Equal(t, 0, stats.ImagesUploaded)
+		require.Equal(t, 1, stats.ImagesSkipped)
+	})
 }
