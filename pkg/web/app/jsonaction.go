@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -41,4 +42,10 @@ func reportError(c *gin.Context, s string) {
 
 func reportSuccess(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{})
+}
+
+// userError builds an error whose text is shown to the user as is, so it
+// reads as a sentence rather than as a Go error string.
+func userError(s string) error {
+	return errors.New(s)
 }

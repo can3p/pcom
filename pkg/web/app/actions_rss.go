@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -17,61 +16,39 @@ import (
 func mountRSSActions(d *Deps, r *gin.RouterGroup) {
 	db := d.DB
 
-	r.POST("/remove_rss_subscription", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		var input struct {
-			SubscriptionID string `json:"id"`
-		}
-
-		if err := c.BindJSON(&input); err != nil {
-			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
-			return
-		}
-
+	r.POST("/remove_rss_subscription", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+		SubscriptionID string `json:"id"`
+	}) error {
 		if input.SubscriptionID == "" {
-			reportError(c, "No subscription found")
-			return
+			return userError(("No subscription found"))
 		}
 
 		// in case feedops make more than one query at some point
 		err := transact.Transact(db, func(tx *sql.Tx) error {
-			return feedops.UnsubscribeFromFeed(c, tx, userData.DBUser.ID, input.SubscriptionID)
+			return feedops.UnsubscribeFromFeed(c, tx, dbUser.ID, input.SubscriptionID)
 		})
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
-		reportSuccess(c)
-	})
+		return nil
+	}))
 
-	r.POST("/dissmiss_rss_item", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		var input struct {
-			SubscriptionItemID string `json:"id"`
-		}
-
-		if err := c.BindJSON(&input); err != nil {
-			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
-			return
-		}
-
+	r.POST("/dissmiss_rss_item", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+		SubscriptionItemID string `json:"id"`
+	}) error {
 		if input.SubscriptionItemID == "" {
-			reportError(c, "No item found")
-			return
+			return userError(("No item found"))
 		}
 
 		feedItem, err := core.UserFeedItems(
 			core.UserFeedItemWhere.ID.EQ(input.SubscriptionItemID),
-			core.UserFeedItemWhere.UserID.EQ(userData.DBUser.ID),
+			core.UserFeedItemWhere.UserID.EQ(dbUser.ID),
 		).One(c, db)
 
 		if err != nil {
-			reportError(c, err.Error())
-			return
+			return err
 		}
 
 		// in case feedops make more than one query at some point
@@ -83,10 +60,9 @@ func mountRSSActions(d *Deps, r *gin.RouterGroup) {
 		})
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
-		reportSuccess(c)
-	})
+		return nil
+	}))
 }
