@@ -50,7 +50,7 @@ Related documents:
 | W2 | Package tests against Postgres | W0 | done | `test/w2-db` |
 | W3 | End-to-end HTTP tests: server rules | W0 | done | `test/w3-e2e` |
 | W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | done | `test/w4-local-stack` |
-| W5 | Coverage ratchet | W1–W4 | not started | `test/w5-ratchet` |
+| W5 | Coverage ratchet | W1–W4 | done | `test/w5-ratchet` |
 | W6 | Browser tests (playwright-go): user flows | W0 | done | `test/w6-browser` |
 | WB | Bug-fix wave (#108–#117, #119–#122) | W1–W3 | not started | `fix/wb-survey-bugs` |
 | R1 | Router decomposition (move handlers) | W3, W6, WB | planned | `refactor/r1-router` |
@@ -93,6 +93,11 @@ Baseline, measured on 2026-09-21 on `master` at 091484d: every test passes, and
 `pkg/userops`, `pkg/web`, `pkg/mail`, `pkg/admin`, `pkg/links`, `pkg/pgsession`,
 `pkg/postops/rss`, `pkg/media` (upload), `pkg/media/server/storage/*`,
 `pkg/markdown/mdext/lazyload` and `pkg/util/ginhelpers/*`.
+
+After W1–W4 and W6, measured on 2026-09-29: **81.1%** excluding `pkg/model/core`
+(merged unit, package and E2E coverage; browser tests are not counted). W5's
+floors in `tools/coverage-floors.txt` hold it there: `make cover-check`, run
+in CI.
 
 ---
 
