@@ -5,6 +5,7 @@ import (
 
 	"github.com/badoux/checkmail"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -15,7 +16,7 @@ func Validate(ctx context.Context, db boil.ContextExecutor, email string) error 
 	}
 
 	if core.Users(
-		core.UserWhere.Email.EQ(email),
+		pgsession.EmailIs(email),
 	).ExistsP(ctx, db) {
 		return errors.Errorf("email is already registered in the system")
 	}

@@ -52,13 +52,7 @@ func (f *ChangePasswordForm) Validate(c *gin.Context, db boil.ContextExecutor) e
 		return forms.ErrValidationFailed
 	}
 
-	h := pgsession.HashUserPwd(f.User.Email, f.Input.OldPassword)
-
-	if h == "" {
-		return errors.Errorf("Failed to has user password, cannot proceed")
-	}
-
-	if h != f.User.Pwdhash.String {
+	if ok, _ := pgsession.CheckUserPwd(f.User.Pwdhash.String, f.User.Email, f.Input.OldPassword); !ok {
 		f.AddError("old_password", "old password is not correct")
 		return forms.ErrValidationFailed
 	}
@@ -67,7 +61,7 @@ func (f *ChangePasswordForm) Validate(c *gin.Context, db boil.ContextExecutor) e
 }
 
 func (f *ChangePasswordForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	f.User.Pwdhash = null.StringFrom(pgsession.HashUserPwd(f.User.Email, f.Input.Password))
+	f.User.Pwdhash = null.StringFrom(pgsession.HashPassword(f.Input.Password))
 
 	if _, err := f.User.Update(c, exec, boil.Infer()); err != nil {
 		return nil, errors.Wrapf(err, "failed to save to the db")

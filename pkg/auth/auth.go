@@ -26,10 +26,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 const (
-	userkey = "user"
+	userkey      = "user"
+	csrfTokenKey = "csrf_token"
 )
 
 func Auth(c *gin.Context, db *sqlx.DB) {
@@ -118,43 +120,85 @@ func EnforceReferer(c *gin.Context) {
 }
 
 func CheckCredentials(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
-	h := pgsession.HashUserPwd(email, password)
+	_, _, err := findByCredentials(c.Request.Context(), db, email, password)
 
-	_, err := core.Users(
-		core.UserWhere.Email.EQ(email),
-		core.UserWhere.Pwdhash.EQ(null.StringFrom(h)),
+	return err
+}
+
+// findByCredentials returns the confirmed user that email and password log
+// in as, and whether their stored password hash is a legacy one to replace.
+// Legacy accounts may share an email up to case, so every match is tried
+// and the first whose password matches wins.
+func findByCredentials(ctx context.Context, db boil.ContextExecutor, email string, password string) (*core.User, bool, error) {
+	users, err := core.Users(
+		pgsession.EmailIs(email),
 		core.UserWhere.EmailConfirmedAt.IsNotNull(),
-	).One(c.Request.Context(), db)
-
+		qm.OrderBy(core.UserColumns.CreatedAt+", "+core.UserColumns.ID),
+	).All(ctx, db)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return errors.Errorf("Bad credentials")
-		}
-
-		return err
+		return nil, false, err
 	}
 
-	return nil
+	for _, user := range users {
+		if !user.Pwdhash.Valid {
+			continue
+		}
+
+		if ok, needsRehash := pgsession.CheckUserPwd(user.Pwdhash.String, user.Email, password); ok {
+			return user, needsRehash, nil
+		}
+	}
+
+	return nil, false, errors.Errorf("Bad credentials")
+}
+
+// upgradeLegacyUser replaces a legacy password hash with argon2id and, unless
+// another account shares the email up to case, stores the email normalized.
+func upgradeLegacyUser(ctx context.Context, db boil.ContextExecutor, user *core.User, password string) error {
+	cols := []string{core.UserColumns.Pwdhash}
+	user.Pwdhash = null.StringFrom(pgsession.HashPassword(password))
+
+	if normalized := pgsession.NormalizeEmail(user.Email); normalized != user.Email {
+		shared, err := core.Users(
+			pgsession.EmailIs(normalized),
+			core.UserWhere.ID.NEQ(user.ID),
+		).Exists(ctx, db)
+		if err != nil {
+			return err
+		}
+
+		if !shared {
+			user.Email = normalized
+			cols = append(cols, core.UserColumns.Email)
+		}
+	}
+
+	_, err := user.Update(ctx, db, boil.Whitelist(cols...))
+
+	return err
 }
 
 func Login(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
-	session := sessions.Default(c)
-	h := pgsession.HashUserPwd(email, password)
+	ctx := c.Request.Context()
 
-	user, err := core.Users(
-		core.UserWhere.Email.EQ(email),
-		core.UserWhere.Pwdhash.EQ(null.StringFrom(h)),
-		core.UserWhere.EmailConfirmedAt.IsNotNull(),
-	).One(c.Request.Context(), db)
-
+	user, needsRehash, err := findByCredentials(ctx, db, email, password)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return errors.Errorf("Bad credentials")
-		}
-
-		panic(err)
+		return err
 	}
 
+	if needsRehash {
+		if err := upgradeLegacyUser(ctx, db, user, password); err != nil {
+			return errors.Wrapf(err, "failed to rehash the password")
+		}
+	}
+
+	session := sessions.Default(c)
+
+	if err := pgsession.Regenerate(session); err != nil {
+		return err
+	}
+
+	session.Set(csrfTokenKey, uuid.NewString())
 	session.Set(userkey, user.ID)
 
 	if err := session.Save(); err != nil {
@@ -173,7 +217,12 @@ func Logout(c *gin.Context) {
 	if user == nil {
 		return
 	}
-	session.Delete(userkey)
+
+	if err := pgsession.Regenerate(session); err != nil {
+		slog.Warn("Failed to regenerate session on logout", "err", err)
+		session.Delete(userkey)
+	}
+
 	if err := session.Save(); err != nil {
 		return
 	}
@@ -194,11 +243,11 @@ func GetUserData(c *gin.Context) UserData {
 
 	session := sessions.Default(c)
 
-	storedToken := session.Get("csrf_token")
+	storedToken := session.Get(csrfTokenKey)
 
 	if storedToken == nil {
 		storedToken = uuid.NewString()
-		session.Set("csrf_token", storedToken)
+		session.Set(csrfTokenKey, storedToken)
 
 		if err := session.Save(); err != nil {
 			slog.Warn(errors.Wrapf(err, "Failed to save session").Error())
@@ -260,13 +309,13 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 		return errors.Errorf("Not enough data")
 	}
 
-	email := invite.InvitationEmail.String
+	email := pgsession.NormalizeEmail(invite.InvitationEmail.String)
 
 	u := &core.User{
 		ID:                uuid.NewString(),
 		Email:             email,
 		Username:          username,
-		Pwdhash:           null.StringFrom(pgsession.HashUserPwd(email, password)),
+		Pwdhash:           null.StringFrom(pgsession.HashPassword(password)),
 		EmailConfirmedAt:  null.TimeFrom(time.Now()),
 		SignupAttribution: null.StringFrom("accepted_invite"),
 	}
@@ -302,11 +351,13 @@ func Signup(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, 
 		return nil, errors.Errorf("Not enough data")
 	}
 
+	email = pgsession.NormalizeEmail(email)
+
 	u := &core.User{
 		ID:                uuid.NewString(),
 		Email:             email,
 		Username:          username,
-		Pwdhash:           null.StringFrom(pgsession.HashUserPwd(email, password)),
+		Pwdhash:           null.StringFrom(pgsession.HashPassword(password)),
 		EmailConfirmSeed:  null.StringFrom(uuid.NewString()),
 		SignupAttribution: null.NewString(attribution, attribution != ""),
 	}

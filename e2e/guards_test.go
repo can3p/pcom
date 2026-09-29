@@ -1003,7 +1003,6 @@ func TestGuards_LoginBadCredentials(t *testing.T) {
 // upper-cased, and the correct password, should succeed. Today the lookup is
 // case-sensitive and the attempt is refused as bad credentials.
 func TestGuards_LoginCaseInsensitiveEmail(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/114")
 	t.Parallel()
 
 	app := e2e.Start(t)
@@ -1023,11 +1022,45 @@ func TestGuards_LoginCaseInsensitiveEmail(t *testing.T) {
 	client.Get("/feed").RequireStatus(http.StatusOK)
 }
 
+// TestGuards_LoginRotatesSession pins #122: the session cookie a visitor
+// holds before logging in is replaced at login, and the old one no longer
+// carries any session.
+func TestGuards_LoginRotatesSession(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	user := newUser(t, app)
+
+	sessCookie := func(c *e2e.Client) *http.Cookie {
+		for _, ck := range c.Cookies() {
+			if ck.Name == "sess" {
+				return ck
+			}
+		}
+
+		t.Fatal("no session cookie")
+
+		return nil
+	}
+
+	client := app.Client(t)
+	client.Get("/login").RequireStatus(http.StatusOK)
+	before := sessCookie(client)
+
+	client.LoginAs(user.Email, testPassword)
+	require.NotEqual(t, before.Value, sessCookie(client).Value)
+
+	planted := app.Client(t)
+	req, err := http.NewRequest(http.MethodGet, app.URL+"/feed", nil)
+	require.NoError(t, err)
+	req.AddCookie(before)
+	planted.Do(req).RequireStatus(http.StatusFound)
+}
+
 // The #109 tests: a logged-in user hitting a guest-only route is redirected
 // home and the handler has no side effect.
 
 func TestGuards_LoggedInConfirmSignupHasNoEffect(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/109")
 	t.Parallel()
 
 	app := e2e.Start(t)

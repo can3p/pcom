@@ -2,6 +2,7 @@ package mail_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,10 +173,13 @@ func TestValidate(t *testing.T) {
 		t.Parallel()
 
 		existingUser := newUser(t, ctx, db)
+		testutil.Must(factory.User(ctx, db, factory.WithEmail("Legacy@Example.test")))(t)
 
-		err := mail.Validate(ctx, db, existingUser.Email)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "already registered")
+		for _, email := range []string{existingUser.Email, strings.ToUpper(existingUser.Email), "legacy@example.test"} {
+			err := mail.Validate(ctx, db, email)
+			require.Error(t, err, email)
+			require.Contains(t, err.Error(), "already registered")
+		}
 	})
 
 	t.Run("allows new email", func(t *testing.T) {
