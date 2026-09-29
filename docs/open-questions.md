@@ -26,6 +26,13 @@ Raised by the 2026-09-21 modernization survey.
   generated types anyway (see `docs/plan/r5.md`).
 ## Decided
 
+- **2026-09-28. Generator and migration tools stay out of `go.mod`:**
+  sql-migrate and sqlboiler (later bob) are installed in `tools/Dockerfile`,
+  pinned by `ARG`s. `generate.sh` refuses to run when the generator and the
+  runtime library in `go.mod` differ.
+- **2026-09-28. macOS is the primary development platform.** Local tooling
+  and docs target Docker Desktop on macOS first.
+
 - **2026-09-21. Q2, the API deletes any post:** fixed right away in PR #118,
   outside the wave order.
 - **2026-09-21. Q1, Q3, Q4, Q5 (password hashing, unescaped HTML emails,
