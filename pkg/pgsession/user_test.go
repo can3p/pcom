@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -26,8 +27,7 @@ func TestSetUser_PopulatesContext(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	c, _ := ginctx.New(t, http.MethodGet, "/", nil)
 
