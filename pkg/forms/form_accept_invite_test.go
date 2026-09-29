@@ -13,16 +13,17 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
 // newInvite creates an inviter and returns an invitation addressed to
-// newuser@example.test, for tests that accept it.
+// a unique address (pending invitations are unique per address), for tests that accept it.
 func newInvite(t *testing.T, ctx context.Context, db *sqlx.DB) *core.UserInvitation {
 	t.Helper()
 	inviter := testutil.Must(factory.User(ctx, db))(t)
-	return testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("newuser@example.test")))(t)
+	return testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee-"+uuid.NewString()+"@example.test")))(t)
 }
 
 func TestAcceptInviteForm_Validate(t *testing.T) {

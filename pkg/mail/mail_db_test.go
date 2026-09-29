@@ -62,9 +62,22 @@ func TestSendInvite_Queue(t *testing.T) {
 		require.Contains(t, to[0], "john.doe+prefix@mail.test")
 	})
 
+	t.Run("a second pending invitation to the same address is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		db := testdb.New(t).DB
+		inviter := newUser(t, ctx, db)
+		newInvitation(t, ctx, db, inviter.ID)
+		newInvitation(t, ctx, db, inviter.ID)
+		queue := dbsender.NewSender(db, fakesender.New())
+
+		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "same@example.test"))
+		require.Error(t, mail.SendInvite(ctx, db, queue, inviter, " SAME@example.test "))
+		require.Len(t, queued(t, db), 1)
+	})
+
 	t.Run("every invitation from one user queues its own mail", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("known bug #167: invitation mails are keyed by the inviting user, so only the first is queued")
 
 		db := testdb.New(t).DB
 		inviter := newUser(t, ctx, db)
@@ -76,7 +89,21 @@ func TestSendInvite_Queue(t *testing.T) {
 		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "second@example.test"))
 		to := queued(t, db)
 		require.Len(t, to, 2)
-		require.Contains(t, to[0]+to[1], "second@example.test")
+		require.Contains(t, to[0], "first@example.test")
+		require.Contains(t, to[1], "second@example.test")
+	})
+
+	t.Run("a stored mixed-case pending address blocks a lowercase invite", func(t *testing.T) {
+		t.Parallel()
+
+		db := testdb.New(t).DB
+		inviter := newUser(t, ctx, db)
+		other := newUser(t, ctx, db)
+		newInvitation(t, ctx, db, inviter.ID)
+		testutil.Must(factory.Invitation(ctx, db, other.ID, factory.Sent("Mixed@Example.test")))(t)
+
+		require.True(t, mail.PendingInvitationExists(ctx, db, "mixed@example.test"))
+		require.Error(t, mail.SendInvite(ctx, db, fakesender.New(), inviter, "mixed@example.test"))
 	})
 }
 
@@ -186,5 +213,30 @@ func TestValidate(t *testing.T) {
 		t.Parallel()
 
 		require.NoError(t, mail.Validate(ctx, db, "brand-new-user@example.test"))
+	})
+}
+
+func TestPendingInvitationUniqueIndex(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.New(t).DB
+	inviter := newUser(t, ctx, db)
+
+	t.Run("a second pending invitation to the same normalized address fails", func(t *testing.T) {
+		t.Parallel()
+
+		testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("index-dup@example.test")))(t)
+		_, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent(" Index-Dup@Example.test "))
+		require.Error(t, err)
+	})
+
+	t.Run("the address is free again once the first invitation is used", func(t *testing.T) {
+		t.Parallel()
+
+		used := testutil.Must(factory.User(ctx, db))(t)
+		testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("index-used@example.test"), factory.UsedBy(used.ID)))(t)
+		_, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("index-used@example.test"))
+		require.NoError(t, err)
 	})
 }

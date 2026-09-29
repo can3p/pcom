@@ -3,7 +3,6 @@ package forms
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/gogo/sender"
@@ -11,6 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
@@ -42,9 +42,9 @@ func SignupWaitingListFormNew(sender sender.Sender) forms.Form {
 }
 
 func (f *SignupWaitingListForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	email := strings.TrimSpace(strings.ToLower(f.Input.Email))
+	email := pgsession.NormalizeEmail(f.Input.Email)
 
-	if f.Input.Email == "" {
+	if email == "" {
 		f.AddError("email", "email is required")
 	} else if reason, isOK := validation.EmailOKToAddToWaitingList(c, db, email); !isOK {
 		f.AddError("email", reason)
@@ -56,7 +56,7 @@ func (f *SignupWaitingListForm) Validate(c *gin.Context, db boil.ContextExecutor
 func (f *SignupWaitingListForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
 	request := core.UserSignupRequest{
 		ID:                uuid.NewString(),
-		Email:             f.Input.Email,
+		Email:             pgsession.NormalizeEmail(f.Input.Email),
 		Reason:            null.NewString(f.Input.Reason, f.Input.Reason != ""),
 		SignupAttribution: null.NewString(f.Input.Attribution, f.Input.Attribution != ""),
 	}

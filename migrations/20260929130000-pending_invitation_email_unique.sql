@@ -1,0 +1,12 @@
+-- +migrate Up
+
+-- One pending invitation per address. Invitation emails are stored
+-- normalized (lowercase, trimmed), the expression keeps the index correct for
+-- any row that slips through unnormalized.
+CREATE UNIQUE INDEX user_invitations_pending_email_idx
+ON user_invitations (lower(btrim(invitation_email)))
+WHERE invitation_email IS NOT NULL AND created_user_id IS NULL;
+
+-- +migrate Down
+
+DROP INDEX user_invitations_pending_email_idx;

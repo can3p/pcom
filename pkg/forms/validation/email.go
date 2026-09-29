@@ -9,8 +9,10 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 var EmailRE *regexp.Regexp = regexp.MustCompile(`(?P<name>[a-zA-Z0-9.!#$%&'*+/=?^_ \x60{|}~-]+)@(?P<domain>[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)$`)
@@ -22,15 +24,15 @@ func EmailOKToAddToWaitingList(ctx context.Context, db boil.ContextExecutor, add
 		return "Invalid email", false
 	}
 
-	if core.Users(core.UserWhere.Email.EQ(address)).ExistsP(ctx, db) {
+	if core.Users(pgsession.EmailIs(address)).ExistsP(ctx, db) {
 		return "Email is already used in the system", false
 	}
 
-	if core.UserInvitations(core.UserInvitationWhere.InvitationEmail.EQ(null.StringFrom(address))).ExistsP(ctx, db) {
+	if core.UserInvitations(core.UserInvitationWhere.InvitationEmail.EQ(null.StringFrom(pgsession.NormalizeEmail(address)))).ExistsP(ctx, db) {
 		return "Email has been sent already", false
 	}
 
-	if core.UserSignupRequests(core.UserSignupRequestWhere.Email.EQ(address)).ExistsP(ctx, db) {
+	if core.UserSignupRequests(qm.Where("lower(btrim(email)) = ?", pgsession.NormalizeEmail(address))).ExistsP(ctx, db) {
 		return "Email is already in the waiting list", false
 	}
 
@@ -42,7 +44,7 @@ func EmailOKToSignup(ctx context.Context, db boil.ContextExecutor, sender sender
 		return "Invalid email", false
 	}
 
-	if core.Users(core.UserWhere.Email.EQ(address)).ExistsP(ctx, db) {
+	if core.Users(pgsession.EmailIs(address)).ExistsP(ctx, db) {
 		return "Email is already used in the system", false
 	}
 

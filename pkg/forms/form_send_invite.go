@@ -43,6 +43,8 @@ func (f *SendInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) error
 		f.AddError("email", "email is required")
 	} else if err := mail.Validate(c, db, f.Input.Email); err != nil {
 		f.AddError("email", err.Error())
+	} else if mail.PendingInvitationExists(c, db, f.Input.Email) {
+		f.AddError("email", "an invitation to this email is already pending")
 	}
 
 	return f.Errors.PassedValidation()

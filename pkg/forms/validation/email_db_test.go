@@ -57,6 +57,11 @@ func TestEmailOKToAddToWaitingList(t *testing.T) {
 			testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("existing@example.test")))(t)
 			return "existing@example.test"
 		}, false},
+		{"existing invitation, spelled differently", func(t *testing.T) string {
+			inviter := testutil.Must(factory.User(ctx, db))(t)
+			testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("spelled@example.test")))(t)
+			return " Spelled@Example.test "
+		}, false},
 		{"existing signup request", func(t *testing.T) string {
 			return testutil.Must(factory.SignupRequest(ctx, db))(t).Email
 		}, false},

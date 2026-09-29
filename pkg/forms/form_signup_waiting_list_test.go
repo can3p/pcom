@@ -74,14 +74,10 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 	require.Equal(t, form.Input.Email, sent[0].Mail.To[0].Address)
 }
 
-// TestSignupWaitingListForm_SaveDoesNotNormalizeEmail pins a bug: unlike
-// SignupForm.Save, this Save persists the waiting-list email exactly as
-// submitted. Validate normalizes (trims and lowercases) address only for its
-// own duplicate check and never writes the result back to f.Input.Email, so
-// a second request that differs from an already-saved one only by case or
-// whitespace is not caught as a duplicate.
-func TestSignupWaitingListForm_SaveDoesNotNormalizeEmail(t *testing.T) {
-	t.Skip("known bug #158: SignupWaitingListForm.Save stores the raw email instead of the trimmed/lowercased value Validate checks against, so a request differing only by case or whitespace from an existing one is not rejected as a duplicate")
+// TestSignupWaitingListForm_SaveNormalizesEmail checks that Save stores the
+// trimmed, lowercased address, so a later request differing only by case or
+// whitespace is rejected as a duplicate.
+func TestSignupWaitingListForm_SaveNormalizesEmail(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
@@ -93,6 +89,7 @@ func TestSignupWaitingListForm_SaveDoesNotNormalizeEmail(t *testing.T) {
 
 	_, err := form.Save(ctx, db)
 	require.NoError(t, err)
+	require.True(t, testutil.Must(factory.SignupRequestExists(ctx, db, "dup@example.test"))(t), "the normalized address is what gets stored")
 
 	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
 	dup := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)

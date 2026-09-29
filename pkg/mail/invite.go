@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -19,12 +20,18 @@ import (
 )
 
 func SendInvite(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, senderUser *core.User, to string) error {
+	to = pgsession.NormalizeEmail(to)
+
 	exists := core.Users(
-		core.UserWhere.Email.EQ(to),
+		pgsession.EmailIs(to),
 	).ExistsP(ctx, db)
 
 	if exists {
 		return errors.Errorf("user with email address [%s] already exists", to)
+	}
+
+	if PendingInvitationExists(ctx, db, to) {
+		return errors.Errorf("an invitation to [%s] is already pending", to)
 	}
 
 	invite, err := core.UserInvitations(
@@ -44,7 +51,9 @@ func SendInvite(ctx context.Context, db boil.ContextExecutor, sender sender.Send
 	invite.InvitationEmail = null.StringFrom(to)
 	invite.InvitationSentAt = null.TimeFrom(time.Now())
 
-	invite.UpdateP(ctx, db, boil.Infer())
+	if _, err := invite.Update(ctx, db, boil.Infer()); err != nil {
+		return errors.Errorf("Failed to save the invite: %v", err)
+	}
 
 	return sendActualInvitation(ctx, db, sender, invite, senderUser, to)
 }
@@ -77,11 +86,20 @@ func sendActualInvitation(ctx context.Context, exec boil.ContextExecutor, s send
 	<a href="%s">%s</a>`, link, link),
 	}
 
-	err := s.Send(ctx, exec, user.ID, "user_invitation", mail)
+	err := s.Send(ctx, exec, invite.ID, "user_invitation", mail)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return nil
+}
+
+// PendingInvitationExists reports whether an invitation to the address has
+// been sent and not yet used to create an account.
+func PendingInvitationExists(ctx context.Context, db boil.ContextExecutor, email string) bool {
+	return core.UserInvitations(
+		qm.Where("lower(btrim(invitation_email)) = ?", pgsession.NormalizeEmail(email)),
+		core.UserInvitationWhere.CreatedUserID.IsNull(),
+	).ExistsP(ctx, db)
 }
