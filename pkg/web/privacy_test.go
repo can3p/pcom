@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -117,25 +118,17 @@ func newWorld(t *testing.T) *world {
 		shares:  map[postKey]*core.PostShare{},
 	}
 
-	var err error
+	w.friend = testutil.Must(factory.User(ctx, db))(t)
+	w.fof = testutil.Must(factory.User(ctx, db))(t)
+	w.stranger = testutil.Must(factory.User(ctx, db))(t)
 
-	w.friend, err = factory.User(ctx, db)
-	require.NoError(t, err)
-	w.fof, err = factory.User(ctx, db)
-	require.NoError(t, err)
-	w.stranger, err = factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, w.friend.ID, w.fof.ID)
-	require.NoError(t, err)
+	connect(t, db, ctx, w.friend.ID, w.fof.ID)
 
 	for _, profile := range profileVisibilities {
-		author, err := factory.User(ctx, db, factory.WithVisibility(profile))
-		require.NoError(t, err)
+		author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(profile)))(t)
 		w.authors[profile] = author
 
-		_, _, err = factory.Connect(ctx, db, author.ID, w.friend.ID)
-		require.NoError(t, err)
+		connect(t, db, ctx, author.ID, w.friend.ID)
 
 		for _, vis := range postVisibilities {
 			for _, published := range []bool{false, true} {
@@ -144,12 +137,9 @@ func newWorld(t *testing.T) *world {
 					opts = append(opts, factory.Published())
 				}
 
-				post, err := factory.Post(ctx, db, author.ID, opts...)
-				require.NoError(t, err)
-				_, err = factory.Comment(ctx, db, post.ID, author.ID)
-				require.NoError(t, err)
-				share, err := factory.PostShare(ctx, db, post.ID)
-				require.NoError(t, err)
+				post := testutil.Must(factory.Post(ctx, db, author.ID, opts...))(t)
+				testutil.Must(factory.Comment(ctx, db, post.ID, author.ID))(t)
+				share := testutil.Must(factory.PostShare(ctx, db, post.ID))(t)
 
 				key := postKey{profile: profile, vis: vis, published: published}
 				w.posts[key] = post
@@ -159,6 +149,13 @@ func newWorld(t *testing.T) *world {
 	}
 
 	return w
+}
+
+// connect creates a direct connection between a and b, or fails the test.
+func connect(t *testing.T, db *sqlx.DB, ctx context.Context, aID, bID string) {
+	t.Helper()
+	_, _, err := factory.Connect(ctx, db, aID, bID)
+	require.NoError(t, err)
 }
 
 // userData returns the request context and user data of viewer looking at

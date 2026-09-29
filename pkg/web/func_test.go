@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -70,17 +71,21 @@ func newTestContext(t *testing.T, method, target string) *gin.Context {
 	return c
 }
 
+// connect creates a direct connection between a and b, or fails the test.
+func connect(t *testing.T, db boil.ContextExecutor, ctx context.Context, aID, bID string) {
+	t.Helper()
+	_, _, err := factory.Connect(ctx, db, aID, bID)
+	require.NoError(t, err)
+}
+
 func TestInvite(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	invite, err := factory.Invitation(ctx, db, inviter.ID)
-	require.NoError(t, err)
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
 
 	c := newTestContext(t, http.MethodGet, "/invite/"+invite.ID)
 
@@ -97,45 +102,37 @@ func TestWrite(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	asker, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	recipient := testutil.Must(factory.User(ctx, db))(t)
+	stranger := testutil.Must(factory.User(ctx, db))(t)
+	asker := testutil.Must(factory.User(ctx, db))(t)
+	prompt := testutil.Must(factory.PostPrompt(ctx, db, asker.ID, recipient.ID))(t)
 
-	recipient, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	cases := []struct {
+		name       string
+		user       *core.User
+		target     string
+		wantPrompt bool
+	}{
+		{"no prompt query param", recipient, "/write", false},
+		{"prompt belongs to the recipient", recipient, "/write?prompt=" + prompt.ID, true},
+		{"prompt id does not match the signed-in user", stranger, "/write?prompt=" + prompt.ID, false},
+	}
 
-	prompt, err := factory.PostPrompt(ctx, db, asker.ID, recipient.ID)
-	require.NoError(t, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("no prompt query param", func(t *testing.T) {
-		c := newTestContext(t, http.MethodGet, "/write")
+			c := newTestContext(t, http.MethodGet, tc.target)
+			page := testutil.Must(Write(c, db, userDataFor(tc.user)).Get())(t)
 
-		res := Write(c, db, userDataFor(recipient))
-		page, err := res.Get()
-		require.NoError(t, err)
-		require.Nil(t, page.Prompt)
-	})
-
-	t.Run("prompt belongs to the recipient", func(t *testing.T) {
-		c := newTestContext(t, http.MethodGet, "/write?prompt="+prompt.ID)
-
-		res := Write(c, db, userDataFor(recipient))
-		page, err := res.Get()
-		require.NoError(t, err)
-		require.NotNil(t, page.Prompt)
-		require.Equal(t, prompt.ID, page.Prompt.Prompt.ID)
-	})
-
-	t.Run("prompt id does not match the signed-in user", func(t *testing.T) {
-		stranger, err := factory.User(ctx, db)
-		require.NoError(t, err)
-
-		c := newTestContext(t, http.MethodGet, "/write?prompt="+prompt.ID)
-
-		res := Write(c, db, userDataFor(stranger))
-		page, err := res.Get()
-		require.NoError(t, err)
-		require.Nil(t, page.Prompt)
-	})
+			if tc.wantPrompt {
+				require.NotNil(t, page.Prompt)
+				require.Equal(t, prompt.ID, page.Prompt.Prompt.ID)
+			} else {
+				require.Nil(t, page.Prompt)
+			}
+		})
+	}
 }
 
 func TestEditPost(t *testing.T) {
@@ -144,30 +141,18 @@ func TestEditPost(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	stranger, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	url, err := factory.NormalizedURL(ctx, db)
-	require.NoError(t, err)
-
-	post, err := factory.Post(ctx, db, author.ID, factory.WithURL(url.ID), factory.Visibility(core.PostVisibilitySecondDegree))
-	require.NoError(t, err)
-
-	asker, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	prompt, err := factory.PostPrompt(ctx, db, asker.ID, author.ID, factory.WithPost(post.ID))
-	require.NoError(t, err)
+	author := testutil.Must(factory.User(ctx, db))(t)
+	stranger := testutil.Must(factory.User(ctx, db))(t)
+	url := testutil.Must(factory.NormalizedURL(ctx, db))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.WithURL(url.ID), factory.Visibility(core.PostVisibilitySecondDegree)))(t)
+	asker := testutil.Must(factory.User(ctx, db))(t)
+	prompt := testutil.Must(factory.PostPrompt(ctx, db, asker.ID, author.ID, factory.WithPost(post.ID)))(t)
 
 	t.Run("author can edit", func(t *testing.T) {
-		c := newTestContext(t, http.MethodGet, "/posts/"+post.ID+"/edit")
+		t.Parallel()
 
-		res := EditPost(c, db, userDataFor(author), post.ID)
-		page, err := res.Get()
-		require.NoError(t, err)
+		c := newTestContext(t, http.MethodGet, "/posts/"+post.ID+"/edit")
+		page := testutil.Must(EditPost(c, db, userDataFor(author), post.ID).Get())(t)
 
 		require.Equal(t, post.ID, page.PostID)
 		require.Equal(t, post.Subject.String, page.Input.Subject)
@@ -179,21 +164,26 @@ func TestEditPost(t *testing.T) {
 		require.Equal(t, prompt.ID, page.Prompt.Prompt.ID)
 	})
 
-	t.Run("stranger cannot edit", func(t *testing.T) {
-		c := newTestContext(t, http.MethodGet, "/posts/"+post.ID+"/edit")
+	errCases := []struct {
+		name   string
+		user   *core.User
+		postID string
+		want   error
+	}{
+		{"stranger cannot edit", stranger, post.ID, ginhelpers.ErrForbidden},
+		{"missing post", author, "0190a0a0-0000-7000-8000-000000000000", ginhelpers.ErrNotFound},
+	}
 
-		res := EditPost(c, db, userDataFor(stranger), post.ID)
-		require.True(t, res.IsError())
-		require.ErrorIs(t, res.Error(), ginhelpers.ErrForbidden)
-	})
+	for _, tc := range errCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("missing post", func(t *testing.T) {
-		c := newTestContext(t, http.MethodGet, "/posts/missing/edit")
-
-		res := EditPost(c, db, userDataFor(author), "0190a0a0-0000-7000-8000-000000000000")
-		require.True(t, res.IsError())
-		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
-	})
+			c := newTestContext(t, http.MethodGet, "/posts/"+tc.postID+"/edit")
+			res := EditPost(c, db, userDataFor(tc.user), tc.postID)
+			require.True(t, res.IsError())
+			require.ErrorIs(t, res.Error(), tc.want)
+		})
+	}
 }
 
 func TestControls(t *testing.T) {
@@ -202,83 +192,47 @@ func TestControls(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
+	alice := testutil.Must(factory.User(ctx, db))(t)
+	bob := testutil.Must(factory.User(ctx, db))(t)
+	carol := testutil.Must(factory.User(ctx, db))(t)
 
-	alice, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	bob, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	carol, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, alice.ID)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, bob.ID)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, carol.ID)
-	require.NoError(t, err)
+	connect(t, db, ctx, user.ID, alice.ID)
+	connect(t, db, ctx, user.ID, bob.ID)
+	connect(t, db, ctx, user.ID, carol.ID)
 
 	// drafts: two of the user's own unpublished posts, plus a published
 	// one that must not show up as a draft.
-	draft1, err := factory.Post(ctx, db, user.ID)
-	require.NoError(t, err)
+	draft1 := testutil.Must(factory.Post(ctx, db, user.ID))(t)
+	draft2 := testutil.Must(factory.Post(ctx, db, user.ID))(t)
+	testutil.Must(factory.Post(ctx, db, user.ID, factory.Published()))(t)
 
-	draft2, err := factory.Post(ctx, db, user.ID)
-	require.NoError(t, err)
-
-	_, err = factory.Post(ctx, db, user.ID, factory.Published())
-	require.NoError(t, err)
-
-	// whitelist: a stranger allowed to connect to the user without
-	// mediation.
-	whitelisted, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.Whitelist(ctx, db, user.ID, whitelisted.ID)
-	require.NoError(t, err)
+	// whitelist: a stranger allowed to connect to the user without mediation.
+	whitelisted := testutil.Must(factory.User(ctx, db))(t)
+	testutil.Must(factory.Whitelist(ctx, db, user.ID, whitelisted.ID))(t)
 
 	// mediation requests: alice asks to connect to bob, both of whom are
 	// the user's direct connections, and the user has not decided yet.
-	pendingMediation, err := factory.MediationRequest(ctx, db, alice.ID, bob.ID)
-	require.NoError(t, err)
+	pendingMediation := testutil.Must(factory.MediationRequest(ctx, db, alice.ID, bob.ID))(t)
 
 	// a second mediation request the user has already signed off on: it
 	// must not show up among the pending ones anymore.
-	decidedMediation, err := factory.MediationRequest(ctx, db, alice.ID, carol.ID)
-	require.NoError(t, err)
-
-	_, err = factory.MediatorDecision(ctx, db, decidedMediation.ID, user.ID, core.ConnectionMediationDecisionSigned)
-	require.NoError(t, err)
+	decidedMediation := testutil.Must(factory.MediationRequest(ctx, db, alice.ID, carol.ID))(t)
+	testutil.Must(factory.MediatorDecision(ctx, db, decidedMediation.ID, user.ID, core.ConnectionMediationDecisionSigned))(t)
 
 	// connection requests: a stranger asking to connect to the user,
 	// vouched for by alice.
-	stranger, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	connRequest, err := factory.MediationRequest(ctx, db, stranger.ID, user.ID)
-	require.NoError(t, err)
-
-	_, err = factory.MediatorDecision(ctx, db, connRequest.ID, alice.ID, core.ConnectionMediationDecisionSigned)
-	require.NoError(t, err)
+	stranger := testutil.Must(factory.User(ctx, db))(t)
+	connRequest := testutil.Must(factory.MediationRequest(ctx, db, stranger.ID, user.ID))(t)
+	testutil.Must(factory.MediatorDecision(ctx, db, connRequest.ID, alice.ID, core.ConnectionMediationDecisionSigned))(t)
 
 	// a second request targeting the user where nobody has signed yet:
 	// it must not appear as a connection request.
-	stranger2, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.MediationRequest(ctx, db, stranger2.ID, user.ID)
-	require.NoError(t, err)
+	stranger2 := testutil.Must(factory.User(ctx, db))(t)
+	testutil.Must(factory.MediationRequest(ctx, db, stranger2.ID, user.ID))(t)
 
 	c := newTestContext(t, http.MethodGet, "/controls")
-
-	res := Controls(c, db, userDataFor(user))
-	page, err := res.Get()
-	require.NoError(t, err)
+	page := testutil.Must(Controls(c, db, userDataFor(user)).Get())(t)
 
 	gotDraftIDs := make([]string, len(page.Drafts))
 	for i, d := range page.Drafts {
@@ -310,15 +264,11 @@ func TestSettings(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
+	user := testutil.Must(factory.User(ctx, db))(t)
 	c := newTestContext(t, http.MethodGet, "/controls/settings")
 
 	// baseline: no invites, no api key, no custom style, no feeds.
-	res := Settings(c, db, userDataFor(user))
-	page, err := res.Get()
-	require.NoError(t, err)
+	page := testutil.Must(Settings(c, db, userDataFor(user)).Get())(t)
 
 	require.Equal(t, int64(0), page.AvailableInvites)
 	require.Empty(t, page.UsedInvites)
@@ -327,34 +277,20 @@ func TestSettings(t *testing.T) {
 	defaultStyles := page.UserStyles.Input.Styles
 
 	// invite arithmetic: three slots total, one already sent.
-	_, err = factory.Invitation(ctx, db, user.ID)
-	require.NoError(t, err)
+	testutil.Must(factory.Invitation(ctx, db, user.ID))(t)
+	testutil.Must(factory.Invitation(ctx, db, user.ID))(t)
+	testutil.Must(factory.Invitation(ctx, db, user.ID, factory.Sent("invitee@example.test")))(t)
 
-	_, err = factory.Invitation(ctx, db, user.ID)
-	require.NoError(t, err)
+	apiKey := testutil.Must(factory.APIKey(ctx, db, user.ID))(t)
+	testutil.Must(factory.UserStyle(ctx, db, user.ID, "body { color: red }"))(t)
 
-	_, err = factory.Invitation(ctx, db, user.ID, factory.Sent("invitee@example.test"))
-	require.NoError(t, err)
-
-	apiKey, err := factory.APIKey(ctx, db, user.ID)
-	require.NoError(t, err)
-
-	_, err = factory.UserStyle(ctx, db, user.ID, "body { color: red }")
-	require.NoError(t, err)
-
-	feed, err := factory.RSSFeed(ctx, db)
-	require.NoError(t, err)
-
-	subscription, err := factory.Subscription(ctx, db, user.ID, feed.ID)
-	require.NoError(t, err)
+	feed := testutil.Must(factory.RSSFeed(ctx, db))(t)
+	subscription := testutil.Must(factory.Subscription(ctx, db, user.ID, feed.ID))(t)
 
 	// an unrelated feed the user is not subscribed to must not appear.
-	_, err = factory.RSSFeed(ctx, db)
-	require.NoError(t, err)
+	testutil.Must(factory.RSSFeed(ctx, db))(t)
 
-	res = Settings(c, db, userDataFor(user))
-	page, err = res.Get()
-	require.NoError(t, err)
+	page = testutil.Must(Settings(c, db, userDataFor(user)).Get())(t)
 
 	require.Equal(t, int64(2), page.AvailableInvites, "3 slots minus 1 already sent")
 	require.Len(t, page.UsedInvites, 1)
@@ -377,44 +313,22 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
+	direct := testutil.Must(factory.User(ctx, db))(t)
+	secondDegree := testutil.Must(factory.User(ctx, db))(t)
+	stranger := testutil.Must(factory.User(ctx, db))(t)
 
-	direct, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	connect(t, db, ctx, user.ID, direct.ID)
+	connect(t, db, ctx, direct.ID, secondDegree.ID)
 
-	secondDegree, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	stranger, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, direct.ID)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, direct.ID, secondDegree.ID)
-	require.NoError(t, err)
-
-	directPost, err := factory.Post(ctx, db, direct.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-	require.NoError(t, err)
-
-	publicPost, err := factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	require.NoError(t, err)
-
-	secondDegreeVisiblePost, err := factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilitySecondDegree))
-	require.NoError(t, err)
-
-	hiddenPost, err := factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-	require.NoError(t, err)
-
-	strangerPost, err := factory.Post(ctx, db, stranger.ID, factory.Published())
-	require.NoError(t, err)
+	directPost := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly)))(t)
+	publicPost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic)))(t)
+	secondDegreeVisiblePost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilitySecondDegree)))(t)
+	hiddenPost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly)))(t)
+	strangerPost := testutil.Must(factory.Post(ctx, db, stranger.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
-
-	res := Feed(c, db, userDataFor(user), true)
-	page, err := res.Get()
-	require.NoError(t, err)
+	page := testutil.Must(Feed(c, db, userDataFor(user), true).Get())(t)
 
 	byID := map[string]*FeedItem{}
 	for _, item := range page.Items {
@@ -438,49 +352,30 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	direct, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, direct.ID)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
+	direct := testutil.Must(factory.User(ctx, db))(t)
+	connect(t, db, ctx, user.ID, direct.ID)
 
 	// oldest: an rss item in the user's subscribed feed.
-	feed, err := factory.RSSFeed(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.Subscription(ctx, db, user.ID, feed.ID)
-	require.NoError(t, err)
-
-	rssItem, err := factory.RSSItem(ctx, db, feed.ID)
-	require.NoError(t, err)
-
-	_, err = factory.UserFeedItem(ctx, db, user.ID, rssItem.ID)
-	require.NoError(t, err)
+	feed := testutil.Must(factory.RSSFeed(ctx, db))(t)
+	testutil.Must(factory.Subscription(ctx, db, user.ID, feed.ID))(t)
+	rssItem := testutil.Must(factory.RSSItem(ctx, db, feed.ID))(t)
+	testutil.Must(factory.UserFeedItem(ctx, db, user.ID, rssItem.ID))(t)
 
 	time.Sleep(5 * time.Millisecond)
 
 	// middle: a comment left by someone else on the user's own (draft)
 	// post.
-	ownPost, err := factory.Post(ctx, db, user.ID)
-	require.NoError(t, err)
-
-	comment, err := factory.Comment(ctx, db, ownPost.ID, direct.ID)
-	require.NoError(t, err)
+	ownPost := testutil.Must(factory.Post(ctx, db, user.ID))(t)
+	comment := testutil.Must(factory.Comment(ctx, db, ownPost.ID, direct.ID))(t)
 
 	time.Sleep(5 * time.Millisecond)
 
 	// newest: a published post from a direct connection.
-	post, err := factory.Post(ctx, db, direct.ID, factory.Published())
-	require.NoError(t, err)
+	post := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
-
-	res := Feed(c, db, userDataFor(user), false)
-	page, err := res.Get()
-	require.NoError(t, err)
+	page := testutil.Must(Feed(c, db, userDataFor(user), false).Get())(t)
 	require.Empty(t, page.RSSFeed, "no private feed link without an api key")
 
 	require.Len(t, page.Items, 3)
@@ -491,19 +386,13 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	require.NotNil(t, page.Items[2].FeedItem)
 	require.Equal(t, rssItem.Title, page.Items[2].FeedItem.Title)
 
-	onlyPostsRes := Feed(c, db, userDataFor(user), true)
-	onlyPostsPage, err := onlyPostsRes.Get()
-	require.NoError(t, err)
+	onlyPostsPage := testutil.Must(Feed(c, db, userDataFor(user), true).Get())(t)
 	require.Nil(t, onlyPostsPage.BasePage, "onlyPosts skips the rest of page composition")
 	require.Len(t, onlyPostsPage.Items, 1, "onlyPosts drops rss items and comments")
 	require.Equal(t, post.ID, onlyPostsPage.Items[0].Post.ID)
 
-	apiKey, err := factory.APIKey(ctx, db, user.ID)
-	require.NoError(t, err)
-
-	withKeyRes := Feed(c, db, userDataFor(user), false)
-	withKeyPage, err := withKeyRes.Get()
-	require.NoError(t, err)
+	apiKey := testutil.Must(factory.APIKey(ctx, db, user.ID))(t)
+	withKeyPage := testutil.Must(Feed(c, db, userDataFor(user), false).Get())(t)
 	require.Equal(t, links.Link("private_user_feed", apiKey.APIKey), withKeyPage.RSSFeed)
 }
 
@@ -513,46 +402,27 @@ func TestGetComments(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	direct, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, direct.ID)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
+	direct := testutil.Must(factory.User(ctx, db))(t)
+	connect(t, db, ctx, user.ID, direct.ID)
 
 	// a comment by someone else on the user's own post: always included.
-	ownPost, err := factory.Post(ctx, db, user.ID)
-	require.NoError(t, err)
-
-	ownPostComment, err := factory.Comment(ctx, db, ownPost.ID, direct.ID)
-	require.NoError(t, err)
+	ownPost := testutil.Must(factory.Post(ctx, db, user.ID))(t)
+	ownPostComment := testutil.Must(factory.Comment(ctx, db, ownPost.ID, direct.ID))(t)
 
 	// a direct connection's post the user has participated in: a further
 	// comment from someone else on it is included too.
-	participatedPost, err := factory.Post(ctx, db, direct.ID)
-	require.NoError(t, err)
+	participatedPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
+	testutil.Must(factory.Comment(ctx, db, participatedPost.ID, user.ID))(t)
 
-	_, err = factory.Comment(ctx, db, participatedPost.ID, user.ID)
-	require.NoError(t, err)
-
-	otherCommenter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, _, err = factory.Connect(ctx, db, user.ID, otherCommenter.ID)
-	require.NoError(t, err)
-
-	participatedComment, err := factory.Comment(ctx, db, participatedPost.ID, otherCommenter.ID)
-	require.NoError(t, err)
+	otherCommenter := testutil.Must(factory.User(ctx, db))(t)
+	connect(t, db, ctx, user.ID, otherCommenter.ID)
+	participatedComment := testutil.Must(factory.Comment(ctx, db, participatedPost.ID, otherCommenter.ID))(t)
 
 	// a direct connection's post the user never commented on: excluded,
 	// even though someone else left a comment on it.
-	untouchedPost, err := factory.Post(ctx, db, direct.ID)
-	require.NoError(t, err)
-
-	_, err = factory.Comment(ctx, db, untouchedPost.ID, otherCommenter.ID)
-	require.NoError(t, err)
+	untouchedPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
+	testutil.Must(factory.Comment(ctx, db, untouchedPost.ID, otherCommenter.ID))(t)
 
 	items, err := getComments(ctx, db, user.ID)
 	require.NoError(t, err)
@@ -576,8 +446,7 @@ func TestGetComments_QueryErrorsPropagate(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	for _, tc := range []struct {
 		name      string
@@ -587,8 +456,9 @@ func TestGetComments_QueryErrorsPropagate(t *testing.T) {
 		{"direct user ids lookup fails", 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
+			t.Parallel()
 
+			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
 			_, err := getComments(ctx, exec, user.ID)
 			require.ErrorIs(t, err, errFeedInjectedQuery)
 		})
@@ -601,9 +471,7 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
+	user := testutil.Must(factory.User(ctx, db))(t)
 	c := newTestContext(t, http.MethodGet, "/controls/settings")
 
 	for _, tc := range []struct {
@@ -615,8 +483,9 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 		{"api key lookup fails", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
+			t.Parallel()
 
+			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
 			res := Settings(c, exec, userDataFor(user))
 			require.True(t, res.IsError())
 		})
