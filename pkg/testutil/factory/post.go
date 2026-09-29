@@ -50,6 +50,14 @@ func WithURL(urlID string) PostOpt {
 	}
 }
 
+// PostUpdatedAt backdates the post's UpdatedAt timestamp, for tests that
+// depend on post order.
+func PostUpdatedAt(t time.Time) PostOpt {
+	return func(p *core.Post) {
+		p.UpdatedAt = null.TimeFrom(t)
+	}
+}
+
 // Post inserts a draft, direct_only post owned by authorID.
 func Post(ctx context.Context, exec boil.ContextExecutor, authorID string, opts ...PostOpt) (*core.Post, error) {
 	id, err := newID()

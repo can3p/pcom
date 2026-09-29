@@ -172,7 +172,7 @@ func Controls(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	rawDrafts, err := core.Posts(
 		core.PostWhere.UserID.EQ(userID),
 		core.PostWhere.PublishedAt.IsNull(),
-		qm.OrderBy("? DESC", core.PostColumns.UpdatedAt),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.UpdatedAt)),
 	).All(ctx, db)
 
 	if err != nil {
@@ -410,7 +410,7 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 		rawComments, err := core.PostComments(
 			core.PostCommentWhere.PostID.EQ(post.ID),
 			qm.Load(core.PostCommentRels.User),
-			qm.OrderBy("? ASC", core.PostCommentColumns.CreatedAt)).All(c, db)
+			qm.OrderBy(fmt.Sprintf("%s ASC", core.PostCommentColumns.CreatedAt))).All(c, db)
 
 		if err != nil {
 			return mo.Err[*SinglePostPage](err)
@@ -758,7 +758,7 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 		core.PostPromptWhere.DismissedAt.IsNull(),
 		qm.Load(core.PostPromptRels.Asker),
 		qm.Load(core.PostPromptRels.Post),
-		qm.OrderBy("? DESC", core.PostPromptColumns.ID),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostPromptColumns.CreatedAt)),
 	).All(ctx, db)
 
 	if err != nil {

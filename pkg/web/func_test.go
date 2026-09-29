@@ -491,3 +491,54 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 		})
 	}
 }
+
+func TestOrderByColumns(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	// three timestamps, oldest first
+	ts := []time.Time{base, base.Add(time.Hour), base.Add(2 * time.Hour)}
+
+	// Each row inserts its records in the opposite of the order it expects,
+	// so heap order and the requested order can never coincide.
+	for _, tc := range []struct {
+		name string
+		run  func(t *testing.T) (want, got []string)
+	}{
+		{"Controls drafts: updated_at DESC", func(t *testing.T) ([]string, []string) {
+			user := testutil.Must(factory.User(ctx, db))(t)
+			var ids []string
+			for _, at := range ts { // oldest inserted first
+				ids = append(ids, testutil.Must(factory.Post(ctx, db, user.ID, factory.PostUpdatedAt(at)))(t).ID)
+			}
+			page := testutil.Must(Controls(newTestContext(t, http.MethodGet, "/controls"), db, userDataFor(user)).Get())(t)
+			var got []string
+			for _, d := range page.Drafts {
+				got = append(got, d.PostID)
+			}
+			return []string{ids[2], ids[1], ids[0]}, got
+		}},
+		{"Feed open prompts: created_at DESC", func(t *testing.T) ([]string, []string) {
+			asker := testutil.Must(factory.User(ctx, db))(t)
+			recipient := testutil.Must(factory.User(ctx, db))(t)
+			connect(t, db, ctx, recipient.ID, asker.ID)
+			var ids []string
+			for _, at := range ts { // oldest inserted first
+				ids = append(ids, testutil.Must(factory.PostPrompt(ctx, db, asker.ID, recipient.ID, factory.PromptCreatedAt(at)))(t).ID)
+			}
+			page := testutil.Must(Feed(newTestContext(t, http.MethodGet, "/feed"), db, userDataFor(recipient), false).Get())(t)
+			var got []string
+			for _, p := range page.OpenPrompts {
+				got = append(got, p.Prompt.ID)
+			}
+			return []string{ids[2], ids[1], ids[0]}, got
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			want, got := tc.run(t)
+			require.Equal(t, want, got)
+		})
+	}
+}

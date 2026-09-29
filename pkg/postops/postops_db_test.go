@@ -113,15 +113,11 @@ func TestCanPromptNow(t *testing.T) {
 	})
 
 	t.Run("uses the most recent prompt for the timeout", func(t *testing.T) {
-		// It is skipped because the query orders by a bound placeholder
-		// instead of a column, so it can check an arbitrary prompt instead
-		// of the most recent one.
-		t.Skip("known bug #108: ORDER BY with a bound placeholder sorts nothing, so CanPromptNow may check the wrong prompt")
-
 		asker := testutil.Must(factory.User(ctx, db))(t)
 		recipient := testutil.Must(factory.User(ctx, db))(t)
 
-		// An old prompt, already outside the rate limit window.
+		// An old prompt, already outside the rate limit window. Inserted
+		// first, so an unordered query returns it.
 		testutil.Must(factory.PostPrompt(ctx, db, asker.ID, recipient.ID,
 			factory.PromptCreatedAt(time.Now().Add(-10*time.Minute))))(t)
 

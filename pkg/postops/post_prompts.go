@@ -17,7 +17,7 @@ const promptTimeout = 5 * time.Minute
 func CanPromptNow(ctx context.Context, exec boil.ContextExecutor, askerID string) error {
 	lastPrompt, err := core.PostPrompts(
 		core.PostPromptWhere.AskerID.EQ(askerID),
-		qm.OrderBy("? DESC", core.PostPromptColumns.ID),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostPromptColumns.CreatedAt)),
 		qm.Limit(1),
 	).One(ctx, exec)
 
