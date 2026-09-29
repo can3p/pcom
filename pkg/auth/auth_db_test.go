@@ -7,6 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -26,8 +27,7 @@ func TestSignup_InsertsUnconfirmedUserAndNotifiesAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, u.ID)
 
-	got, err := factory.GetUser(ctx, db, u.ID)
-	require.NoError(t, err)
+	got := testutil.Must(factory.GetUser(ctx, db, u.ID))(t)
 	require.Equal(t, "new-signup@example.test", got.Email)
 	require.Equal(t, "newsignup", got.Username)
 	require.False(t, got.EmailConfirmedAt.Valid, "signup leaves the email unconfirmed until it's verified")
@@ -63,10 +63,9 @@ func TestSignup_DuplicateEmailReturnsError(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	existing, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	existing := testutil.Must(factory.User(ctx, db))(t)
 
-	_, err = auth.Signup(ctx, db, sender, existing.Email, "someoneelse", "s3cr3t-pw", "")
+	_, err := auth.Signup(ctx, db, sender, existing.Email, "someoneelse", "s3cr3t-pw", "")
 	require.Error(t, err, "the email column is unique, so a second signup for it must fail")
 	require.Empty(t, sender.Sent(), "a failed signup must not notify anyone")
 }
@@ -78,11 +77,8 @@ func TestAcceptInvite_CreatesUserAndConnectsToInviter(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee@example.test"))
-	require.NoError(t, err)
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee@example.test")))(t)
 
 	require.NoError(t, auth.AcceptInvite(ctx, db, sender, invite, "invitee", "s3cr3t-pw"))
 
@@ -91,16 +87,13 @@ func TestAcceptInvite_CreatesUserAndConnectsToInviter(t *testing.T) {
 	require.True(t, invite.CreatedUserID.Valid)
 	newUserID := invite.CreatedUserID.String
 
-	gotUser, err := factory.GetUser(ctx, db, newUserID)
-	require.NoError(t, err)
+	gotUser := testutil.Must(factory.GetUser(ctx, db, newUserID))(t)
 	require.Equal(t, "invitee", gotUser.Username)
 	require.Equal(t, "invitee@example.test", gotUser.Email)
 	require.True(t, gotUser.EmailConfirmedAt.Valid, "accepting an invite confirms the email right away")
 	require.Equal(t, "accepted_invite", gotUser.SignupAttribution.String)
 
-	connected, err := factory.ConnectionExists(ctx, db, inviter.ID, newUserID)
-	require.NoError(t, err)
-	require.True(t, connected, "accepting an invite connects the new user to the inviter")
+	require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t), "accepting an invite connects the new user to the inviter")
 
 	require.Len(t, sender.Sent(), 1, "accepting an invite notifies the admin of the new user")
 }
@@ -112,11 +105,8 @@ func TestAcceptInvite_MissingFieldsReturnsError(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee2@example.test"))
-	require.NoError(t, err)
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee2@example.test")))(t)
 
 	require.Error(t, auth.AcceptInvite(ctx, db, sender, invite, "", "s3cr3t-pw"))
 	require.Error(t, auth.AcceptInvite(ctx, db, sender, invite, "invitee2", ""))
@@ -132,16 +122,11 @@ func TestAcceptInvite_DuplicateEmailReturnsError(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+	existing := testutil.Must(factory.User(ctx, db))(t)
+	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent(existing.Email)))(t)
 
-	existing, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	invite, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent(existing.Email))
-	require.NoError(t, err)
-
-	err = auth.AcceptInvite(ctx, db, sender, invite, "someoneelse", "s3cr3t-pw")
+	err := auth.AcceptInvite(ctx, db, sender, invite, "someoneelse", "s3cr3t-pw")
 	require.Error(t, err, "the email column is unique, so accepting into an already-used email must fail")
 	require.False(t, invite.CreatedUserID.Valid)
 	require.Empty(t, sender.Sent())
@@ -153,8 +138,7 @@ func TestCheckCredentials(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db, factory.WithPassword("correct-horse"))
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db, factory.WithPassword("correct-horse")))(t)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
@@ -177,36 +161,39 @@ func TestCheckCredentials_DBErrorIsReturnedAsIs(t *testing.T) {
 	require.NotEqual(t, "Bad credentials", err.Error(), "a real DB error must not be mistaken for wrong credentials")
 }
 
-func TestLogin_SetsSessionOnSuccess(t *testing.T) {
+func TestLogin(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db, factory.WithPassword("s3cr3t-pw"))
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db, factory.WithPassword("s3cr3t-pw")))(t)
 
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+	cases := []struct {
+		name     string
+		password string
+		wantErr  bool
+	}{
+		{name: "sets session on success", password: "s3cr3t-pw"},
+		{name: "bad credentials returns error without setting session", password: "wrong-pw", wantErr: true},
+	}
 
-	require.NoError(t, auth.Login(c, db, user.Email, "s3cr3t-pw"))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.Equal(t, user.ID, sessions.Default(c).Get("user"))
-}
+			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 
-func TestLogin_BadCredentialsReturnsErrorWithoutSettingSession(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user, err := factory.User(ctx, db, factory.WithPassword("s3cr3t-pw"))
-	require.NoError(t, err)
-
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	err = auth.Login(c, db, user.Email, "wrong-pw")
-	require.Error(t, err)
-	require.Nil(t, sessions.Default(c).Get("user"))
+			err := auth.Login(c, db, user.Email, tc.password)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.Nil(t, sessions.Default(c).Get("user"))
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, user.ID, sessions.Default(c).Get("user"))
+			}
+		})
+	}
 }
 
 func TestLogin_DBErrorIsReturnedAsIs(t *testing.T) {
@@ -251,8 +238,7 @@ func TestEnforceAuth_LoggedInUserPassesThrough(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	c, _ := ginctx.New(t, http.MethodGet, "/controls", nil, ginctx.WithUser(t, db, user.ID))
 
@@ -267,8 +253,7 @@ func TestGetUserData_LoggedInUser(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	c, _ := ginctx.New(t, http.MethodGet, "/", nil, ginctx.WithUser(t, db, user.ID))
 
@@ -289,8 +274,7 @@ func TestAuth_LoggedInSessionSetsPgsessionUser(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	c, _ := ginctx.New(t, http.MethodGet, "/", nil)
 	sess := sessions.Default(c)
@@ -345,11 +329,9 @@ func TestAuthAPI_KnownKeySetsUser(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
-	key, err := factory.APIKey(ctx, db, user.ID)
-	require.NoError(t, err)
+	key := testutil.Must(factory.APIKey(ctx, db, user.ID))(t)
 
 	c, w := ginctx.New(t, http.MethodGet, "/api/whatever", nil)
 	c.Request.Header.Set("Authorization", "Bearer "+key.APIKey)

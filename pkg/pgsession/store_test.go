@@ -11,6 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newStore(t *testing.T) pgsession.Store {
+	t.Helper()
+	return pgsession.NewStore(testdb.New(t).DB, []byte("0123456789abcdef0123456789abcdef"))
+}
+
 // TestNewStore_RoundTrip drives the Store interface the way gin-contrib's
 // session middleware does: New a session, set a value, Save it (which sets
 // a cookie), then Get it back with that cookie on a fresh request. This
@@ -19,8 +24,7 @@ import (
 func TestNewStore_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.New(t).DB
-	store := pgsession.NewStore(db, []byte("0123456789abcdef0123456789abcdef"))
+	store := newStore(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 
@@ -52,8 +56,7 @@ func TestNewStore_RoundTrip(t *testing.T) {
 func TestNewStore_GetWithoutCookieReturnsFreshSession(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.New(t).DB
-	store := pgsession.NewStore(db, []byte("0123456789abcdef0123456789abcdef"))
+	store := newStore(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 
@@ -69,9 +72,7 @@ func TestNewStore_GetWithoutCookieReturnsFreshSession(t *testing.T) {
 func TestNewStore_OptionsAppliedToNewSessions(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.New(t).DB
-	store := pgsession.NewStore(db, []byte("0123456789abcdef0123456789abcdef"))
-
+	store := newStore(t)
 	store.Options(gsessions.Options{Path: "/custom", MaxAge: 3600})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
