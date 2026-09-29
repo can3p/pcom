@@ -23,15 +23,13 @@ func TestSettingsUserStyles_Validate(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name         string
-		styles       string
-		wantFieldErr bool
+		name    string
+		styles  string
+		wantErr bool
 	}{
 		{"empty styles", "", false},
 		{"valid styles", ".profile { color: red; }", false},
-		// Validate always returns nil (see the skipped test below), but it
-		// does still record the field error.
-		{"too long styles records field error", strings.Repeat("a", 10_001), true},
+		{"too long styles fails validation", strings.Repeat("a", 10_001), true},
 	}
 
 	for _, tt := range tests {
@@ -45,32 +43,15 @@ func TestSettingsUserStyles_Validate(t *testing.T) {
 			form.Input.Styles = tt.styles
 
 			err := form.Validate(c, db)
-			require.NoError(t, err)
-			require.Equal(t, tt.wantFieldErr, form.Errors.HasError("styles"))
+			if tt.wantErr {
+				require.Error(t, err)
+				require.True(t, form.Errors.HasError("styles"))
+			} else {
+				require.NoError(t, err)
+				require.False(t, form.Errors.HasError("styles"))
+			}
 		})
 	}
-}
-
-// TestSettingsUserStyles_ValidateTooLongStylesFailsValidation pins a bug:
-// SettingsUserStyles.Validate unconditionally returns nil, so a too-long
-// Styles value is recorded as a field error (see the table above) but never
-// actually fails validation, unlike every other form in this package.
-func TestSettingsUserStyles_ValidateTooLongStylesFailsValidation(t *testing.T) {
-	t.Skip("known bug #159: SettingsUserStyles.Validate always returns nil, so a too-long styles value is recorded as a field error but validation never fails")
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
-
-	user := testutil.Must(factory.User(ctx, db))(t)
-
-	form := forms.SettingsUserStylesNew(user)
-	form.Input.Styles = strings.Repeat("a", 10_001)
-
-	err := form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("styles"))
 }
 
 func TestSettingsUserStyles_Save(t *testing.T) {

@@ -39,7 +39,7 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.M
 	bytes, err := io.ReadAll(reader)
 
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	ftype := http.DetectContentType(bytes)
