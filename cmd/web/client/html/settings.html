@@ -71,6 +71,36 @@
         </div>
       </div>
 
+      <div class="card mt-2">
+        <h5 class="card-header">Private Feed</h5>
+        <div class="card-body">
+          <p>A read-only RSS feed of your posts feed. It is separate from your API key, and regenerating it stops the old URL from working.</p>
+          {{ with .FeedURL }}
+            <code>{{ . }}</code>
+            <i data-controller="clipboard"
+               data-clipboard-copy-value="{{ . }}"
+               class="bi bi-clipboard"
+               role="button"
+               ></i>
+            <div class="mt-2">
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      data-controller="action"
+                      data-action="action#run"
+                      data-action-action-value="regenerate_feed_token"
+                      >Regenerate feed URL</button>
+            </div>
+          {{ else }}
+            <button type="button"
+                    class="btn btn-sm btn-primary"
+                    data-controller="action"
+                    data-action="action#run"
+                    data-action-action-value="regenerate_feed_token"
+                    >Generate feed URL</button>
+          {{ end }}
+        </div>
+      </div>
+
     </div>
 
   </div>

@@ -15,6 +15,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/google/uuid"
@@ -42,11 +43,17 @@ func decodeData[T any](t *testing.T, body string) T {
 func TestAPI_BearerToken(t *testing.T) {
 	app := e2e.Start(t)
 
+	// the feed token is read-only and must not open the API either
+	feedUser := newUser(t, app)
+	feedToken, err := repo.RegenerateFeedToken(context.Background(), app.DB, feedUser.ID)
+	require.NoError(t, err)
+
 	cases := []struct {
 		name   string
 		header string
 		want   int
 	}{
+		{"feed_token", "Bearer " + feedToken.Token, http.StatusForbidden},
 		{"missing", "", http.StatusBadRequest},
 		{"bearer_no_key", "Bearer", http.StatusBadRequest},
 		{"unknown_key", fmt.Sprintf("Bearer %s", uuid.NewString()), http.StatusForbidden},
@@ -507,7 +514,7 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 	user, err := factory.User(ctx, app.DB)
 	require.NoError(t, err)
 
-	apiKey, err := factory.APIKey(ctx, app.DB, user.ID)
+	feedToken, err := repo.RegenerateFeedToken(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 
 	direct, err := factory.User(ctx, app.DB)
@@ -524,7 +531,7 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 
 	client := app.Client(t)
 
-	resp := client.Get(fmt.Sprintf("/rss/private/%s", apiKey.APIKey))
+	resp := client.Get(fmt.Sprintf("/rss/private/%s", feedToken.Token))
 	resp.RequireStatus(http.StatusOK)
 
 	require.Contains(t, resp.Body, "<?xml")
@@ -533,15 +540,57 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 	require.NotContains(t, resp.Body, unrelatedPost.Subject.String)
 }
 
-// TestAPI_RSSPrivate_Unknown tests GET /rss/private/:key with an unknown key.
-func TestAPI_RSSPrivate_Unknown(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/115")
-
+// TestAPI_RSSPrivate_Refused: what /rss/private/:token refuses. The API key can
+// write, so it no longer opens a feed: the old URL fails with 410 and an
+// explanation, not a bare 404.
+func TestAPI_RSSPrivate_Refused(t *testing.T) {
 	app := e2e.Start(t)
-	client := app.Client(t)
+	ctx := context.Background()
+	user, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+	apiKey, err := factory.APIKey(ctx, app.DB, user.ID)
+	require.NoError(t, err)
 
-	resp := client.Get("/rss/private/unknown-key-12345")
+	cases := []struct {
+		name string
+		key  string
+		want int
+		text string
+	}{
+		{"malformed", "unknown-key-12345", http.StatusNotFound, ""},
+		{"unknown_uuid", uuid.NewString(), http.StatusNotFound, ""},
+		{"api_key", apiKey.APIKey, http.StatusGone, "no longer works"},
+	}
 
-	// Should return 404, not 500.
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := app.Client(t).Get("/rss/private/" + tc.key)
+
+			require.Equal(t, tc.want, resp.StatusCode)
+			require.Contains(t, resp.Body, tc.text)
+		})
+	}
+}
+
+// TestAPI_RSSPrivate_Regenerate: regenerating the token through the settings
+// action stops the old feed URL and opens the new one.
+func TestAPI_RSSPrivate_Regenerate(t *testing.T) {
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user := newUser(t, app)
+	old, err := repo.RegenerateFeedToken(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+
+	client := loginAs(t, app, user)
+	client.Get("/rss/private/" + old.Token).RequireStatus(http.StatusOK)
+
+	client.PostJSON("/controls/action/regenerate_feed_token", map[string]string{}).RequireStatus(http.StatusOK)
+
+	current, err := repo.FeedTokenForUser(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+	require.NotNil(t, current)
+	require.NotEqual(t, old.Token, current.Token)
+
+	app.Client(t).Get("/rss/private/" + old.Token).RequireStatus(http.StatusNotFound)
+	app.Client(t).Get("/rss/private/" + current.Token).RequireStatus(http.StatusOK)
 }

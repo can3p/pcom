@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -391,9 +392,9 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	require.Len(t, onlyPostsPage.Items, 1, "onlyPosts drops rss items and comments")
 	require.Equal(t, post.ID, onlyPostsPage.Items[0].Post.ID)
 
-	apiKey := testutil.Must(factory.APIKey(ctx, db, user.ID))(t)
+	feedToken := testutil.Must(repo.RegenerateFeedToken(ctx, db, user.ID))(t)
 	withKeyPage := testutil.Must(Feed(c, db, userDataFor(user), false).Get())(t)
-	require.Equal(t, links.Link("private_user_feed", apiKey.APIKey), withKeyPage.RSSFeed)
+	require.Equal(t, links.Link("private_user_feed", feedToken.Token), withKeyPage.RSSFeed)
 }
 
 func TestGetComments(t *testing.T) {

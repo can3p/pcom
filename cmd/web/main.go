@@ -40,6 +40,7 @@ import (
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/postops/rss"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util"
@@ -449,13 +450,13 @@ func main() {
 
 		author, err := core.Users(
 			core.UserWhere.Username.EQ(username),
-		).One(ctx, db)
+		).One(c.Request.Context(), db)
 
 		if err == sql.ErrNoRows {
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		} else if err != nil {
-			_ = c.AbortWithError(http.StatusNotFound, err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		} else if author.ProfileVisibility != core.ProfileVisibilityPublic {
 			c.AbortWithStatus(http.StatusNotFound)
@@ -480,7 +481,8 @@ func main() {
 
 		rss, err := feed.ToRss()
 		if err != nil {
-			log.Fatal(err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 
 		c.String(http.StatusOK, rss)
@@ -558,9 +560,10 @@ func main() {
 
 	r.GET("/posts/:id/zip", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		user := userData.DBUser
 		postID := c.Param("id")
 
+		// anyone who may see the post may export it, so the visibility
+		// check is the one /posts/:id uses. The viewer may be anonymous.
 		post := web.SinglePost(c, db, &userData, postID, false)
 
 		if post.IsError() {
@@ -568,13 +571,15 @@ func main() {
 			return
 		}
 
-		b, err := postops.SerializeBlog(c, db, mediaStorage, user.ID, core.PostWhere.ID.EQ(postID))
+		author := post.MustGet().Post.Author
+
+		b, err := postops.SerializeBlog(c, db, mediaStorage, author.ID, core.PostWhere.ID.EQ(postID))
 
 		if err != nil {
 			panic(err)
 		}
 
-		fname := fmt.Sprintf("export_%s_%s.zip", user.Username, time.Now().Format(time.RFC3339))
+		fname := fmt.Sprintf("export_%s_%s.zip", author.Username, time.Now().Format(time.RFC3339))
 		contentLength := int64(len(b))
 		contentType := "application/zip"
 
@@ -612,23 +617,37 @@ func main() {
 		ginhelpers.HTML(c, "feed.html", web.Explore(c, db, &userData))
 	})
 
-	r.GET("/rss/private/:key", func(c *gin.Context) {
-		if _, err := uuid.Parse(c.Param("key")); err != nil {
+	r.GET("/rss/private/:token", func(c *gin.Context) {
+		token := c.Param("token")
+
+		if _, err := uuid.Parse(token); err != nil {
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
 
-		api, err := core.UserAPIKeys(
-			core.UserAPIKeyWhere.APIKey.EQ(c.Param("key")),
-			qm.Load(core.UserAPIKeyRels.User),
-		).One(c, db)
+		user, err := repo.FeedTokenOwner(c.Request.Context(), db, token)
 
-		if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// feed URLs used to carry the API key, which can also write. Those
+			// URLs are refused with an explanation instead of a bare 404.
+			isKey, keyErr := repo.APIKeyOwnerExists(c.Request.Context(), db, token)
+			if keyErr != nil {
+				_ = c.AbortWithError(http.StatusInternalServerError, keyErr)
+				return
+			}
+
+			if isKey {
+				c.String(http.StatusGone, "This feed URL contained an API key and no longer works. Open your settings to get a new feed URL.")
+				c.Abort()
+				return
+			}
+
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		} else if err != nil {
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-
-		user := api.R.User
 
 		userData := &auth.UserData{
 			DBUser: user,
@@ -657,7 +676,8 @@ func main() {
 
 		rss, err := feed.ToRss()
 		if err != nil {
-			log.Fatal(err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 
 		c.String(http.StatusOK, rss)
@@ -669,6 +689,18 @@ func main() {
 	actions.POST("/logout", auth.Logout)
 
 	setupActions(actions, db, mediaStorage)
+
+	// creates the private feed token or replaces it; the old feed URL stops working
+	actions.POST("/regenerate_feed_token", func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		if _, err := repo.RegenerateFeedToken(c.Request.Context(), db, userData.DBUser.ID); err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
+
+		reportSuccess(c)
+	})
 
 	controls.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
