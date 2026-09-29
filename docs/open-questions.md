@@ -22,6 +22,10 @@ Raised by the 2026-09-21 modernization survey.
   instead? That decouples templates and services from the ORM, at the cost
   of mapping code. Deciding before R5 matters, because bob changes the
   generated types anyway (see `docs/plan/r5.md`).
+- **Q17. Production log format and destination (R7).** JSON to stdout for
+  the platform to collect, or something else? And should request logs carry
+  the user ID, given the privacy rules for direct-only content?
+
 ## Decided
 
 - **2026-09-29. Q7, post zip export (#110):** anyone who can see the post

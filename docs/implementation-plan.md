@@ -16,6 +16,7 @@ The end state:
 - [go-flags](https://github.com/jessevdk/go-flags) configuration and a single binary with subcommands;
 - [bob](https://github.com/stephenafamo/bob) instead of sqlboiler;
 - declared, golden-tested mailers;
+- structured logging through one [zap](https://github.com/uber-go/zap) logger, passed explicitly;
 - a decomposed router with **thin handlers**: every query lives in a
   repository (`pkg/repo`), every business rule and authorization check in a
   service (`pkg/service/<area>`), and handlers and CLI subcommands only
@@ -60,12 +61,13 @@ Related documents:
 | R4 | Mailers | W1 (mail goldens), R2 | planned | `refactor/r4-mailers` |
 | R5 | bob ORM, one repository at a time | RS, R3 | planned | `refactor/r5-bob` |
 | R6 | Dependency hygiene | any time after W5 | planned | `chore/r6-deps` |
+| R7 | Structured logging with zap | RS, R2 | planned | `refactor/r7-logging` |
 
 ```
             ┌── W1 (12 tasks) ──┐
             ├── W2 (9 tasks)  ──┤
-W0 ─────────┼── W3 (4 tasks)  ──┼── W5 ── WB ── R1 ── RS ── R2 ── R4
-(1 session) ├── W4 (5 tasks)  ──┘              │     │
+W0 ─────────┼── W3 (4 tasks)  ──┼── W5 ── WB ── R1 ── RS ── R2 ─┬─ R4
+(1 session) ├── W4 (5 tasks)  ──┘              │     │         └─ R7
             └── W6 (8 tasks) ──────────────────┘     └─ R5 (also after R3)
                                                   R3: after W5   R6: any time
 ```
