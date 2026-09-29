@@ -101,6 +101,8 @@ for its number in t.Skip); remove that skip, keep its assertions, and make it pa
 pinned test, add one that fails before your fix. You may edit e2e/ and e2e/browser only to remove a skip or
 add such a test; never weaken another assertion. If an existing assertion encodes the old, buggy behavior,
 change it and name it under bugs:.
+If you change what a column, hash, key or function returns, grep for every other reader and writer of it
+and name them under needs: unless you adapted them.
 New queries go into pkg/repo or the package that already holds the neighbouring queries, never a handler.
 A migration goes into migrations/ with a timestamp name; say under needs: if models must be regenerated.
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).

@@ -72,6 +72,14 @@ happen is tested in the browser, never over plain HTTP.
    several tests of a file repeat goes into one small helper in that file.
    No comments that restate the test name, and no separate tests for trivial
    variations.
+10. **An ordering test inserts rows in the opposite order to the one it
+    expects.** A query without a working `ORDER BY` returns rows in insertion
+    order, so rows inserted in the expected order pass whether or not the
+    query sorts (#108 hid this way twice).
+11. **A test that compares stored times must fail under UTC too.** Timestamp
+    columns have no time zone (#171), so on a host ahead of UTC every stored
+    time reads back in the future, and a rate-limit or "older than" test can
+    pass for the wrong reason. Run such a test's mutation check with `TZ=UTC`.
 
 ## Libraries
 
