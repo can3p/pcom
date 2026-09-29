@@ -25,7 +25,6 @@ func TestLoginForm_Validate(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		skip         string
 		setup        func(t *testing.T) (email, password string)
 		wantErr      bool
 		wantErrField string
@@ -38,7 +37,7 @@ func TestLoginForm_Validate(t *testing.T) {
 			u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
 			return u.Email, "wrongpassword"
 		}, wantErr: true},
-		{name: "case-insensitive email", skip: "known bug #114: login fails when the email's case doesn't match the stored one",
+		{name: "case-insensitive email",
 			setup: func(t *testing.T) (string, string) {
 				u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
 				return strings.ToUpper(u.Email), "correctpassword"
@@ -52,9 +51,6 @@ func TestLoginForm_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if tt.skip != "" {
-				t.Skip(tt.skip)
-			}
 
 			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 			email, password := tt.setup(t)

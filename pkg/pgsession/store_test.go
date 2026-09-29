@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	gsessions "github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -81,4 +82,64 @@ func TestNewStore_OptionsAppliedToNewSessions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "/custom", sess.Options.Path)
 	require.Equal(t, 3600, sess.Options.MaxAge)
+}
+
+// TestRegenerate pins #122: rotating a session at login issues a new
+// session ID and deletes the old one, so a session ID planted before login
+// is worth nothing afterwards.
+func TestRegenerate(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(gsessions.Sessions("sess", store))
+	r.GET("/visit", func(c *gin.Context) {
+		s := gsessions.Default(c)
+		s.Set("csrf_token", "before")
+		require.NoError(t, s.Save())
+	})
+	r.GET("/login", func(c *gin.Context) {
+		s := gsessions.Default(c)
+		require.NoError(t, pgsession.Regenerate(s))
+		require.Nil(t, s.Get("csrf_token"), "the old values must not carry over")
+		s.Set("user", "user-id-1")
+		require.NoError(t, s.Save())
+	})
+
+	serve := func(path string, cookies []*http.Cookie) []*http.Cookie {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		require.Equal(t, http.StatusOK, w.Code)
+
+		return w.Result().Cookies()
+	}
+
+	before := serve("/visit", nil)
+	require.Len(t, before, 1)
+
+	after := serve("/login", before)
+	require.Len(t, after, 1)
+	require.NotEqual(t, before[0].Value, after[0].Value, "login must issue a new session cookie")
+
+	load := func(cookies []*http.Cookie) map[any]any {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+
+		sess, err := store.New(req, "sess")
+		require.NoError(t, err)
+
+		return sess.Values
+	}
+
+	require.Empty(t, load(before), "the old session must be deleted")
+	require.Equal(t, "user-id-1", load(after)["user"])
 }

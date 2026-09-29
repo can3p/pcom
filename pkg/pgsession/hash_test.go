@@ -1,6 +1,7 @@
 package pgsession_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -73,4 +74,51 @@ func TestHashUserPwd_DistinguishesEmailPasswordBoundary(t *testing.T) {
 	b := pgsession.HashUserPwd("a", "bc")
 
 	require.NotEqual(t, a, b)
+}
+
+// TestHashPassword pins #119: new hashes are salted argon2id in PHC format,
+// so the same password never hashes the same way twice and a leaked hash
+// can't be matched against a precomputed table.
+func TestHashPassword(t *testing.T) {
+	t.Parallel()
+
+	h1 := pgsession.HashPassword("s3cr3t")
+	h2 := pgsession.HashPassword("s3cr3t")
+
+	require.True(t, strings.HasPrefix(h1, "$argon2id$v=19$"), h1)
+	require.NotEqual(t, h1, h2, "every hash gets its own salt")
+}
+
+func TestCheckUserPwd(t *testing.T) {
+	t.Parallel()
+
+	argon := pgsession.HashPassword("s3cr3t")
+
+	cases := []struct {
+		name       string
+		stored     string
+		email      string
+		password   string
+		ok, rehash bool
+	}{
+		{name: "argon2id match", stored: argon, email: "a@example.test", password: "s3cr3t", ok: true},
+		{name: "argon2id ignores email", stored: argon, email: "other@example.test", password: "s3cr3t", ok: true},
+		{name: "argon2id wrong password", stored: argon, email: "a@example.test", password: "wrong"},
+		{name: "argon2id malformed", stored: "$argon2id$v=19$m=1,t=0,p=0$AA$AA", password: "s3cr3t"},
+		{name: "legacy match asks for rehash", stored: pgsession.HashUserPwd("a@example.test", "s3cr3t"), email: "a@example.test", password: "s3cr3t", ok: true, rehash: true},
+		{name: "legacy hashed mixed case, checked with that spelling", stored: pgsession.HashUserPwd("Bob@Example.test", "s3cr3t"), email: "Bob@Example.test", password: "s3cr3t", ok: true, rehash: true},
+		{name: "legacy is checked against the given spelling only", stored: pgsession.HashUserPwd("Bob@Example.test", "s3cr3t"), email: "bob@example.test", password: "s3cr3t"},
+		{name: "legacy wrong password", stored: pgsession.HashUserPwd("a@example.test", "s3cr3t"), email: "a@example.test", password: "wrong"},
+		{name: "empty hash", stored: "", email: "a@example.test", password: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ok, rehash := pgsession.CheckUserPwd(tc.stored, tc.email, tc.password)
+			require.Equal(t, tc.ok, ok)
+			require.Equal(t, tc.rehash, rehash)
+		})
+	}
 }

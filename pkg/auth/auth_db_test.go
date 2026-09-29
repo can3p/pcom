@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/auth"
@@ -196,9 +197,85 @@ func TestLogin(t *testing.T) {
 	}
 }
 
+// TestLogin_EmailCaseAndLegacyHashes pins #114 and #119. The email is
+// matched in any case. A legacy sha256 hash was computed from the email as
+// stored, so it is checked against that spelling, then replaced by argon2id
+// and the email is normalized, unless another account shares the
+// normalized email.
+func TestLogin_EmailCaseAndLegacyHashes(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	type account struct{ email, password, typed, wantEmail string }
+
+	cases := []struct {
+		name     string
+		accounts []account
+	}{
+		{name: "mixed-case invitee types lower case", accounts: []account{
+			{email: "Alice@X.test", password: "pw-a", typed: "alice@x.test", wantEmail: "alice@x.test"},
+		}},
+		{name: "mixed-case invitee types upper case", accounts: []account{
+			{email: "Carol@X.test", password: "pw-c", typed: "CAROL@X.TEST", wantEmail: "carol@x.test"},
+		}},
+		{name: "lowercase signup types upper case", accounts: []account{
+			{email: "dave@x.test", password: "pw-d", typed: " DAVE@x.test", wantEmail: "dave@x.test"},
+		}},
+		{name: "colliding legacy accounts log in with their own password", accounts: []account{
+			{email: "Bob@x.test", password: "pw-1", typed: "bob@x.test", wantEmail: "Bob@x.test"},
+			{email: "BOB@x.test", password: "pw-2", typed: "bob@x.test", wantEmail: "BOB@x.test"},
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ids := make([]string, len(tc.accounts))
+			for i, a := range tc.accounts {
+				ids[i] = testutil.Must(factory.User(ctx, db, factory.WithEmail(a.email), factory.WithPassword(a.password)))(t).ID
+			}
+
+			for i, a := range tc.accounts {
+				c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+				require.NoError(t, auth.Login(c, db, a.typed, a.password))
+				require.Equal(t, ids[i], sessions.Default(c).Get("user"))
+
+				got := testutil.Must(factory.GetUser(ctx, db, ids[i]))(t)
+				require.True(t, strings.HasPrefix(got.Pwdhash.String, "$argon2id$"), "a legacy hash is replaced at login")
+				require.Equal(t, a.wantEmail, got.Email)
+
+				c2, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+				require.NoError(t, auth.Login(c2, db, a.typed, a.password), "the new hash logs in too")
+				require.Equal(t, ids[i], sessions.Default(c2).Get("user"))
+				require.Error(t, auth.Login(c2, db, a.typed, "wrong-pw"))
+			}
+		})
+	}
+}
+
+func TestAcceptInvite_MixedCaseEmailLogsInLowercase(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("Bob@Example.test")))(t)
+
+	require.NoError(t, auth.AcceptInvite(ctx, db, fakesender.New(), invite, "bob", "s3cr3t-pw"))
+
+	got := testutil.Must(factory.GetUser(ctx, db, invite.CreatedUserID.String))(t)
+	require.Equal(t, "bob@example.test", got.Email)
+
+	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+	require.NoError(t, auth.Login(c, db, "bob@example.test", "s3cr3t-pw"))
+}
+
 func TestLogin_DBErrorIsReturnedAsIs(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #160: auth.Login panics on a database error instead of returning it")
 
 	testDB := testdb.New(t)
 	db := testDB.DB
