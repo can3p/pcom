@@ -140,7 +140,6 @@ func (failReader) Read([]byte) (int, error) { return 0, errors.New("connection r
 
 func TestHandleUpload_ReaderError(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #147: HandleUpload panics when reading the upload fails instead of returning the error")
 
 	_, err := media.HandleUpload(context.Background(), nil, fakestorage.New(), new("user123"), nil, failReader{})
 	require.Error(t, err)

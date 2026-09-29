@@ -84,7 +84,6 @@ func TestSignupForm_Validate(t *testing.T) {
 // that fails until #148 is fixed. The mail assertions are not affected by
 // the bug and are expected to pass already.
 func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
-	t.Skip("known bug #148: AttributionRE is unanchored, so \"invalid-with-dashes\" is accepted instead of being sanitized to \"unknown\"")
 	t.Parallel()
 
 	db := testdb.New(t).DB

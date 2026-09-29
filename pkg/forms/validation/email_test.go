@@ -102,7 +102,6 @@ func TestAttributionRE(t *testing.T) {
 
 func TestAttributionRE_RejectsFreeText(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #148: AttributionRE is unanchored, so any value with a lowercase letter passes")
 
 	for _, value := range []string{"Test", "test-attr", "test ", "123test", "Test <b>x</b>"} {
 		require.False(t, validation.AttributionRE.MatchString(value), value)

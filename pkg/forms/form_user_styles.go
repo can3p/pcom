@@ -41,7 +41,7 @@ func (f *SettingsUserStyles) Validate(c *gin.Context, db boil.ContextExecutor) e
 		f.AddError("styles", err.Error())
 	}
 
-	return nil
+	return f.Errors.PassedValidation()
 }
 
 func (f *SettingsUserStyles) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
