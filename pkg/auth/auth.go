@@ -26,7 +26,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 const (
@@ -127,55 +126,29 @@ func CheckCredentials(c *gin.Context, db boil.ContextExecutor, email string, pas
 
 // findByCredentials returns the confirmed user that email and password log
 // in as, and whether their stored password hash is a legacy one to replace.
-// Legacy accounts may share an email up to case, so every match is tried
-// and the first whose password matches wins.
 func findByCredentials(ctx context.Context, db boil.ContextExecutor, email string, password string) (*core.User, bool, error) {
-	users, err := core.Users(
-		pgsession.EmailIs(email),
+	user, err := core.Users(
+		core.UserWhere.Email.EQ(pgsession.NormalizeEmail(email)),
 		core.UserWhere.EmailConfirmedAt.IsNotNull(),
-		qm.OrderBy(core.UserColumns.CreatedAt+", "+core.UserColumns.ID),
-	).All(ctx, db)
+	).One(ctx, db)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, errors.Errorf("Bad credentials")
+	}
+
 	if err != nil {
 		return nil, false, err
 	}
 
-	for _, user := range users {
-		if !user.Pwdhash.Valid {
-			continue
-		}
-
-		if ok, needsRehash := pgsession.CheckUserPwd(user.Pwdhash.String, user.Email, password); ok {
-			return user, needsRehash, nil
-		}
+	if !user.Pwdhash.Valid {
+		return nil, false, errors.Errorf("Bad credentials")
 	}
 
-	return nil, false, errors.Errorf("Bad credentials")
-}
-
-// upgradeLegacyUser replaces a legacy password hash with argon2id and, unless
-// another account shares the email up to case, stores the email normalized.
-func upgradeLegacyUser(ctx context.Context, db boil.ContextExecutor, user *core.User, password string) error {
-	cols := []string{core.UserColumns.Pwdhash}
-	user.Pwdhash = null.StringFrom(pgsession.HashPassword(password))
-
-	if normalized := pgsession.NormalizeEmail(user.Email); normalized != user.Email {
-		shared, err := core.Users(
-			pgsession.EmailIs(normalized),
-			core.UserWhere.ID.NEQ(user.ID),
-		).Exists(ctx, db)
-		if err != nil {
-			return err
-		}
-
-		if !shared {
-			user.Email = normalized
-			cols = append(cols, core.UserColumns.Email)
-		}
+	ok, needsRehash := pgsession.CheckUserPwd(user.Pwdhash.String, user.Email, password)
+	if !ok {
+		return nil, false, errors.Errorf("Bad credentials")
 	}
 
-	_, err := user.Update(ctx, db, boil.Whitelist(cols...))
-
-	return err
+	return user, needsRehash, nil
 }
 
 func Login(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
@@ -187,7 +160,9 @@ func Login(c *gin.Context, db boil.ContextExecutor, email string, password strin
 	}
 
 	if needsRehash {
-		if err := upgradeLegacyUser(ctx, db, user, password); err != nil {
+		user.Pwdhash = null.StringFrom(pgsession.HashPassword(password))
+
+		if _, err := user.Update(ctx, db, boil.Whitelist(core.UserColumns.Pwdhash)); err != nil {
 			return errors.Wrapf(err, "failed to rehash the password")
 		}
 	}
