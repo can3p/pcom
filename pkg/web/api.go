@@ -67,7 +67,7 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 	}
 
 	if input.UpdatedSince > 0 {
-		t := time.Unix(input.UpdatedSince, 0)
+		t := time.Unix(input.UpdatedSince, 0).UTC()
 		q = append(q, core.PostWhere.UpdatedAt.GT(null.TimeFrom(t)))
 	}
 
