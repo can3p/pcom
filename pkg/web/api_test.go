@@ -188,22 +188,7 @@ func TestApiGetPosts_UpdatedSince(t *testing.T) {
 	require.Empty(t, resp.Posts)
 }
 
-// updatedSinceBoundaryBug describes a real bug found while pinning
-// ApiGetPosts's updated_since filter, reported to the coordinator to file:
-// ApiGetPosts builds time.Unix(updated_since, 0), which is a time.Time in
-// the process's local zone, and compares it against the "updated_at" column
-// which is "timestamp" (no time zone). Outside UTC the comparison silently
-// shifts by the host's UTC offset: a post updated a minute after the
-// threshold can be wrongly excluded (reproduced on a host running two hours
-// ahead of UTC).
-const updatedSinceBoundaryBug = "known bug #156: ApiGetPosts's updated_since filter is timezone-dependent: " +
-	"time.Unix(updated_since, 0) is compared against the updated_at column (a timestamp with no time " +
-	"zone) using the process's local zone, so outside UTC the threshold is off by the host's UTC " +
-	"offset and a post updated shortly after the threshold can be wrongly excluded"
-
 func TestApiGetPosts_UpdatedSince_Boundary(t *testing.T) {
-	t.Skip(updatedSinceBoundaryBug)
-
 	// Not t.Parallel(): this test forces the process's local zone so the
 	// bug reproduces deterministically regardless of the host's real zone.
 	origLocal := time.Local
