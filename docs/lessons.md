@@ -74,3 +74,17 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   and assertions that could not fail, found only by the owner. Audit every
   test's assertions (weak, duplicated, or already covered by the other suite)
   before committing a test task.
+- **Check the index before committing.** A subagent told not to use git ran
+  `git mv` anyway, and its staged renames went into an unrelated commit. Run
+  `git diff --cached --stat` before every commit made while subagents are
+  running, or commit with explicit paths (`git commit -- <paths>`).
+- **Generated code must match its runtime library.** Pin the generator to
+  the library version in `go.mod`, and have the generate script refuse on a
+  mismatch, so a dependency bump fails CI instead of quietly shipping
+  mismatched code.
+- **Keep tools out of `go.mod`.** `go tool` directives bring a tool's whole
+  dependency tree into the module graph. Install CLI tools in the tools image
+  instead.
+- **A job log is expensive.** `get_job_logs` with a large `tail_lines`
+  returned 46k characters to prove one build step ran. Ask for a narrow tail
+  first, and widen it only if that isn't enough.
