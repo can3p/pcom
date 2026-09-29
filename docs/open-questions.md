@@ -28,6 +28,10 @@ Raised by the 2026-09-21 modernization survey.
 
 ## Decided
 
+- **2026-09-30. Source-scanning E2E test during refactors:**
+  `TestGuards_RouteTableMatchesSource` reads route files by name, so a
+  refactor that moves routes updates only its `prefixes` map; the route
+  table it asserts stays unchanged (R1, and RS after it).
 - **2026-09-29. Q7, post zip export (#110):** anyone who can see the post
   may export it; the export follows post visibility. Fixed in WB.
 - **2026-09-29. Duplicate invitations (#168):** a second pending invitation
