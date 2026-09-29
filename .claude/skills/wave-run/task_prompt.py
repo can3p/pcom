@@ -201,8 +201,13 @@ def build(wave, task):
         "<FILL: the task's done-when, from the excerpt>"
     header = f"# model: {TIERS.get(tier, '<FILL: tier>')}   ({wave.upper()}.{task}, tier {tier or '?'})"
     if wave.lower() == "wb":
-        ui = (", and `make test-ui RUN=<the un-skipped browser tests>` (assets are built by the coordinator;"
-              " if you change cmd/web/client/js or scss, say so under needs:)") if "browser" in excerpt else ""
+        ui = (", and the un-skipped browser tests with `tools/qrun.sh test-ui go test -tags browser -count=1 -run"
+              " '<tests>' ./e2e/browser/...` (not `make test-ui`: it rebuilds the assets other tasks share). If you"
+              " change cmd/web/client/js or scss, rebuild once with `tools/qrun.sh ui-build yarn --cwd cmd/web build`"
+              " and say so under needs:") if "browser" in excerpt else ""
+        if pkg.startswith('"'):
+            pkg = " ".join(p for p in pkg.strip('"').split() if not p.startswith("./e2e/"))
+            pkg = f'"{pkg}"' if " " in pkg else pkg
         body = BUGFIX_TEMPLATE.format(task=f"WB.{task}", excerpt=excerpt, pkg=pkg, report=REPORT, ui=ui,
                                       owns=owned or "<FILL: owned files>", issues=issue_bodies(excerpt),
                                       done=fields.get("done when") or "no other test changed")
