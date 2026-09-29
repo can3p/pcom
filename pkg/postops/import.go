@@ -268,7 +268,11 @@ func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorag
 			p.ID = id.String()
 		}
 
-		p.Body = markdown.ReplaceImageUrls(p.Body, markdown.ImportReplacer(renameMap, existingMap))
+		body, err := markdown.ReplaceImageUrls(p.Body, markdown.ImportReplacer(renameMap, existingMap))
+		if err != nil {
+			return nil, err
+		}
+		p.Body = body
 		p.UserID = userID
 
 		if postWithMeta.Additional != nil && postWithMeta.Additional.URL != "" {

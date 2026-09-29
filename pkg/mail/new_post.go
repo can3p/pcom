@@ -3,7 +3,7 @@ package mail
 import (
 	"context"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 
@@ -13,6 +13,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
+	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -44,7 +45,7 @@ func NewPost(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, me
 
 	if post.R != nil && post.R.URL != nil {
 		urlText = fmt.Sprintf("\nLinked URL: %s", post.R.URL.URL)
-		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, post.R.URL.URL, post.R.URL.URL)
+		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, html.EscapeString(post.R.URL.URL), html.EscapeString(post.R.URL.URL))
 	}
 
 	mail := &sender.Mail{
@@ -71,18 +72,18 @@ Head to the post to leave a comment! %s`, user.Username, subject, urlText, link)
 	<blockquote>%s</blockquote>%s
 
 	<p>Head to the post to leave a comment! <a href="%s">%s</a></p>`,
-			user.Username,
-			subject,
+			html.EscapeString(user.Username),
+			html.EscapeString(subject),
 			htmlbody,
 			htmlUrlSection,
-			link,
-			link),
+			html.EscapeString(link),
+			html.EscapeString(link)),
 	}
 
 	err := s.Send(ctx, exec, post.ID+connection.ID, "post_notification", mail)
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to queue email")
 	}
 
 	return nil

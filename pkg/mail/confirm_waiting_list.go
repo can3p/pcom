@@ -3,7 +3,7 @@ package mail
 import (
 	"context"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/pkg/errors"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -50,13 +51,13 @@ func sendActualConfirmWaitingList(ctx context.Context, db boil.ContextExecutor, 
 
 	<p>Thank you for your interest pcom! Please follow the link to confirm your email address</p>
 
-	<a href="%s">%s</a>`, link, link),
+	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
 	}
 
 	err := s.Send(ctx, db, waitingList.ID, "waiting_list_confirm", mail)
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to queue email")
 	}
 
 	return nil

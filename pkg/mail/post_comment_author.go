@@ -3,7 +3,7 @@ package mail
 import (
 	"context"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 	"strings"
@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
+	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -24,7 +25,11 @@ func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.
 	}
 
 	link := links.AbsLink("comment", post.ID, comment.ID)
-	body := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
+	body, err := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
+	if err != nil {
+		// ReplaceImageUrls only fails if goldmark cannot render, which no input triggers, so no test covers this.
+		return errors.Wrap(err, "failed to render the comment")
+	}
 	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, links.AbsLink)
 
 	subject := postops.PostSubject(post.Subject)
@@ -34,7 +39,7 @@ func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.
 	var htmlUrlSection string
 	if post.R != nil && post.R.URL != nil {
 		urlText = fmt.Sprintf("\nLinked URL: %s", post.R.URL.URL)
-		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, post.R.URL.URL, post.R.URL.URL)
+		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, html.EscapeString(post.R.URL.URL), html.EscapeString(post.R.URL.URL))
 	}
 
 	mail := &sender.Mail{
@@ -62,13 +67,13 @@ Checkout the comment in the post: %s`, user.Username, subject, urlText, "> "+str
 
 	<blockquote>%s</blockquote>
 
-	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, user.Username, subject, htmlUrlSection, htmlBody, link),
+	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, html.EscapeString(user.Username), html.EscapeString(subject), htmlUrlSection, htmlBody, html.EscapeString(link)),
 	}
 
-	err := s.Send(ctx, exec, comment.ID+user.ID, "comment_notification", mail)
+	err = s.Send(ctx, exec, comment.ID+user.ID, "comment_notification", mail)
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to queue email")
 	}
 
 	return nil

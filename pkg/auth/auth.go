@@ -340,7 +340,9 @@ func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender,
 		return err
 	}
 
-	admin.NotifyNewUser(ctx, db, s, u)
+	if err := admin.NotifyNewUser(ctx, db, s, u); err != nil {
+		return err
+	}
 
 	return newInvite.Insert(ctx, db, boil.Infer())
 }
@@ -366,7 +368,9 @@ func Signup(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, 
 		return nil, err
 	}
 
-	admin.NotifyNewUser(ctx, db, sender, u)
+	if err := admin.NotifyNewUser(ctx, db, sender, u); err != nil {
+		return nil, err
+	}
 
 	return u, nil
 }

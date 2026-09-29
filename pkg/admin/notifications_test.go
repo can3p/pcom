@@ -2,6 +2,7 @@ package admin_test
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 
@@ -31,7 +32,7 @@ func TestNotifyNewUser(t *testing.T) {
 		Username: "alice",
 	}
 
-	admin.NotifyNewUser(ctx, nil, sender, user)
+	require.NoError(t, admin.NotifyNewUser(ctx, nil, sender, user))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -56,7 +57,7 @@ func TestNotifyNewWaitingListMember(t *testing.T) {
 		Email: "signup@example.test",
 	}
 
-	admin.NotifyNewWaitingListMember(ctx, nil, sender, signup)
+	require.NoError(t, admin.NotifyNewWaitingListMember(ctx, nil, sender, signup))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -82,7 +83,7 @@ func TestNotifySignupConfirmed(t *testing.T) {
 		Username: "alice",
 	}
 
-	admin.NotifySignupConfirmed(ctx, nil, sender, user)
+	require.NoError(t, admin.NotifySignupConfirmed(ctx, nil, sender, user))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -103,7 +104,7 @@ func TestNotifyThrowAwayEmailSignupAttempt(t *testing.T) {
 	sender := fakesender.New()
 
 	email := "test@throwaway.example.com"
-	admin.NotifyThrowAwayEmailSignupAttempt(ctx, nil, sender, email)
+	require.NoError(t, admin.NotifyThrowAwayEmailSignupAttempt(ctx, nil, sender, email))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -115,4 +116,61 @@ func TestNotifyThrowAwayEmailSignupAttempt(t *testing.T) {
 	// Golden test for text content
 	golden.Assert(t, "notify_throwaway_email_text", []byte(normalizeUUID(mail.Text)))
 	golden.Assert(t, "notify_throwaway_email_html", []byte(normalizeUUID(mail.Html)))
+}
+
+// notifiers lists every admin notification with all user-controlled fields
+// set to hostile markup (a tag plus quotes).
+func notifiers() map[string]func(s *fakesender.Sender) error {
+	const hostile = `"><b>x</b>`
+
+	ctx := context.Background()
+	user := &core.User{ID: "user-1", Email: hostile, Username: hostile}
+	signup := &core.UserSignupRequest{ID: "signup-1", Email: hostile}
+	signup.Reason.SetValid(hostile)
+
+	return map[string]func(s *fakesender.Sender) error{
+		"NewUser":              func(s *fakesender.Sender) error { return admin.NotifyNewUser(ctx, nil, s, user) },
+		"NewWaitingListMember": func(s *fakesender.Sender) error { return admin.NotifyNewWaitingListMember(ctx, nil, s, signup) },
+		"SignupConfirmed":      func(s *fakesender.Sender) error { return admin.NotifySignupConfirmed(ctx, nil, s, user) },
+		"ThrowAwayEmail":       func(s *fakesender.Sender) error { return admin.NotifyThrowAwayEmailSignupAttempt(ctx, nil, s, hostile) },
+	}
+}
+
+func TestNotifications_EscapeUserContentInHTML(t *testing.T) {
+	t.Parallel()
+
+	for name, notify := range notifiers() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			s := fakesender.New()
+			require.NoError(t, notify(s))
+
+			sent := s.Sent()
+			require.Len(t, sent, 1)
+
+			html := sent[0].Mail.Html
+			require.NotContains(t, html, "<b>x</b>")
+			require.NotContains(t, html, `"><`)
+			require.Contains(t, html, "&lt;b&gt;x&lt;/b&gt;")
+			require.Contains(t, html, "&#34;")
+		})
+	}
+}
+
+func TestNotifications_ReturnSendErrors(t *testing.T) {
+	t.Parallel()
+
+	sendErr := errors.New("database is gone")
+
+	for name, notify := range notifiers() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			s := fakesender.New()
+			s.FailWith(sendErr)
+
+			require.ErrorIs(t, notify(s), sendErr)
+		})
+	}
 }

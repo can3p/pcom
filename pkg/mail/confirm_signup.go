@@ -3,7 +3,7 @@ package mail
 import (
 	"context"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 
@@ -44,13 +44,13 @@ func ConfirmSignup(ctx context.Context, exec boil.ContextExecutor, s sender.Send
 
 	<p>Thank you for your interest in pcom! Please follow the link to confirm your email address</p>
 
-	<a href="%s">%s</a>`, link, link),
+	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
 	}
 
 	err := s.Send(ctx, exec, user.ID, "confirm_signup", mail)
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to queue email")
 	}
 
 	return nil

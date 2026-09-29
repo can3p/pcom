@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
+	"html"
 	"net"
 	"net/http/httputil"
 	"net/mail"
@@ -27,7 +27,7 @@ var (
 	slash     = []byte("/")
 )
 
-func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sender, err any, user *core.User) {
+func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sender, err any, user *core.User) error {
 	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
 
 	userInfo := "Anonymous"
@@ -65,14 +65,10 @@ func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sende
 			<ul>
 			<li>user: %s</li>
 			<li>Request data: <br /><pre>%s</pre></li>
-			</ul>`, userInfo, strings.Join(decodedStack, "\r\n")),
+			</ul>`, html.EscapeString(userInfo), html.EscapeString(strings.Join(decodedStack, "\r\n"))),
 	}
 
-	err = s.Send(c, exec, uuid.NewString(), "panic_notification", mail)
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	return s.Send(c, exec, uuid.NewString(), "panic_notification", mail)
 }
 
 func ClonedCustomRecovery(c *gin.Context, err any) string {

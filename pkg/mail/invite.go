@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 	"time"
@@ -83,13 +83,13 @@ func sendActualInvitation(ctx context.Context, exec boil.ContextExecutor, s send
 
 	<p>Welcome to pcom! Please follow the link to set up your account.</p>
 
-	<a href="%s">%s</a>`, link, link),
+	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
 	}
 
 	err := s.Send(ctx, exec, invite.ID, "user_invitation", mail)
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to queue email")
 	}
 
 	return nil
