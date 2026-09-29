@@ -57,6 +57,8 @@ subagents, whose context is thrown away.
 - Every task with a tier goes to a subagent at that tier or cheaper, as the first line of its prompt says
   (`haiku` for cheap, `sonnet` for mid, `opus` for strong). The coordinator writes code itself only when
   the plan says so (contract-defining work), or after a task has failed twice.
+  One more exception: a verbatim move of top-level blocks is a script, not a task. Cut by line range and
+  prove it by diffing the old and new files' line multisets (R1 step 2).
 - Tasks that own disjoint files go out in **one message** with several `Agent` calls,
   `subagent_type: "general-purpose"`. Never `fork`: a fork drags the coordinator's context along.
 - Parallel tasks that write files in **one package** (W3's `e2e`, W6's `e2e/browser`) each iterate under
@@ -98,7 +100,8 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 
 1. `make cover-q PKG=<task packages>`: the number is right and the tests pass. Lines marked `(cached)` did
    not re-run; after an edit to the code under test they must not be cached.
-2. `git diff --stat`, to confirm only the owned files changed.
+2. `git status --short`, to confirm only the owned files changed and no stray files appeared (`git diff
+   --stat` misses untracked files, such as the `<file>-E` backups BSD `sed -i -E` leaves).
 3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
    through `make test-q`, revert. A test that doesn't fail when you break the code under it covers nothing.
 4. **Audit the assertions**, because one mutation samples one test. For every test task (package, E2E and
