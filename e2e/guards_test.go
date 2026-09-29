@@ -322,12 +322,20 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 	t.Parallel()
 
 	prefixes := map[string]map[string]string{
-		"../pkg/web/app/handlers.go": {
-			"router": "", "r": "", "apiGroup": "/api/v1", "controls": "/controls",
-			"actions": "/controls/action", "nonControlsForms": "/form", "controlsForms": "/controls/form",
-		},
-		"../pkg/web/app/actions.go": {"r": "/controls/action"},
-		"../pkg/web/app/api.go":     {"r": "/api/v1"},
+		"../pkg/web/app/routes_media.go":        {"router": ""},
+		"../pkg/web/app/routes_public.go":       {"r": ""},
+		"../pkg/web/app/routes_rss.go":          {"r": ""},
+		"../pkg/web/app/routes_auth.go":         {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
+		"../pkg/web/app/routes_controls.go":     {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
+		"../pkg/web/app/actions_connections.go": {"r": "/controls/action"},
+		"../pkg/web/app/actions_mediation.go":   {"r": "/controls/action"},
+		"../pkg/web/app/actions_posts.go":       {"r": "/controls/action"},
+		"../pkg/web/app/actions_shares.go":      {"r": "/controls/action"},
+		"../pkg/web/app/actions_prompts.go":     {"r": "/controls/action"},
+		"../pkg/web/app/actions_rss.go":         {"r": "/controls/action"},
+		"../pkg/web/app/actions_settings.go":    {"r": "/controls/action"},
+		"../pkg/web/app/actions_media.go":       {"r": "/controls/action"},
+		"../pkg/web/app/api.go":                 {"r": "/api/v1"},
 	}
 
 	want := map[string]bool{}
