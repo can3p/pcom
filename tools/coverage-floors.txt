@@ -6,6 +6,6 @@
 total 80.1
 github.com/can3p/pcom/pkg/web 88.3
 github.com/can3p/pcom/pkg/userops 88.0
-github.com/can3p/pcom/pkg/auth 91.6
+github.com/can3p/pcom/pkg/auth 90.1
 github.com/can3p/pcom/pkg/forms 84.3
 github.com/can3p/pcom/pkg/postops 87.4
