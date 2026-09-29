@@ -413,6 +413,7 @@ func DecideForwardMediationRequest(ctx context.Context, exec *sqlx.DB, whoUserID
 		core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
 		core.UserConnectionMediationRequestWhere.WhoUserID.IN(directUserIDs),
 		core.UserConnectionMediationRequestWhere.TargetUserID.IN(directUserIDs),
+		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
 	).One(ctx, exec)
 
 	if err == sql.ErrNoRows {
@@ -444,8 +445,9 @@ func DecideConnectionRequest(ctx context.Context, exec *sqlx.DB, targetUserID st
 		request, err := core.UserConnectionMediationRequests(
 			core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
 			core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetUserID),
+			core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
 			qm.For("UPDATE"),
-		).One(ctx, exec)
+		).One(ctx, tx)
 
 		if err == sql.ErrNoRows {
 			return errors.Errorf("No such request")

@@ -225,8 +225,9 @@ func TestSendEmails(t *testing.T) {
 	})
 
 	t.Run("concurrent runs send once", func(t *testing.T) {
-		t.Skip("known bug #113: FOR UPDATE row locks run outside the transaction, so dbsender can double-send")
-
+		// own database: earlier subtests leave pending rows behind, which the
+		// second run would legitimately claim.
+		db := testdb.New(t).DB
 		real := newBlockingSender()
 		m := NewSender(db, real)
 

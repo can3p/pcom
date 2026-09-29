@@ -64,7 +64,7 @@ func (m *dbSender) sendEmails(ctx context.Context) (err error) {
 			core.OutgoingEmailWhere.Status.EQ(core.OutgoingEmailStatusNew),
 			core.OutgoingEmailWhere.TryAt.LT(time.Now()),
 			qm.For("UPDATE SKIP LOCKED"),
-		).All(ctx, m.db)
+		).All(ctx, tx)
 
 		if err != nil {
 			return err
