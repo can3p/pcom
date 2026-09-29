@@ -158,6 +158,7 @@ var UserWhere = struct {
 // UserRels is where relationship names are stored.
 var UserRels = struct {
 	UserAPIKey                                string
+	UserFeedToken                             string
 	UserStyle                                 string
 	MediaUploads                              string
 	PostComments                              string
@@ -178,6 +179,7 @@ var UserRels = struct {
 	WhoWhitelistedConnections                 string
 }{
 	UserAPIKey:           "UserAPIKey",
+	UserFeedToken:        "UserFeedToken",
 	UserStyle:            "UserStyle",
 	MediaUploads:         "MediaUploads",
 	PostComments:         "PostComments",
@@ -201,6 +203,7 @@ var UserRels = struct {
 // userR is where relationships are stored.
 type userR struct {
 	UserAPIKey                                *UserAPIKey                         `boil:"UserAPIKey" json:"UserAPIKey" toml:"UserAPIKey" yaml:"UserAPIKey"`
+	UserFeedToken                             *UserFeedToken                      `boil:"UserFeedToken" json:"UserFeedToken" toml:"UserFeedToken" yaml:"UserFeedToken"`
 	UserStyle                                 *UserStyle                          `boil:"UserStyle" json:"UserStyle" toml:"UserStyle" yaml:"UserStyle"`
 	MediaUploads                              MediaUploadSlice                    `boil:"MediaUploads" json:"MediaUploads" toml:"MediaUploads" yaml:"MediaUploads"`
 	PostComments                              PostCommentSlice                    `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
@@ -240,6 +243,22 @@ func (r *userR) GetUserAPIKey() *UserAPIKey {
 	}
 
 	return r.UserAPIKey
+}
+
+func (o *User) GetUserFeedToken() *UserFeedToken {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetUserFeedToken()
+}
+
+func (r *userR) GetUserFeedToken() *UserFeedToken {
+	if r == nil {
+		return nil
+	}
+
+	return r.UserFeedToken
 }
 
 func (o *User) GetUserStyle() *UserStyle {
@@ -683,6 +702,17 @@ func (o *User) UserAPIKey(mods ...qm.QueryMod) userAPIKeyQuery {
 	return UserAPIKeys(queryMods...)
 }
 
+// UserFeedToken pointed to by the foreign key.
+func (o *User) UserFeedToken(mods ...qm.QueryMod) userFeedTokenQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"user_id\" = ?", o.ID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	return UserFeedTokens(queryMods...)
+}
+
 // UserStyle pointed to by the foreign key.
 func (o *User) UserStyle(mods ...qm.QueryMod) userStyleQuery {
 	queryMods := []qm.QueryMod{
@@ -1031,6 +1061,115 @@ func (userL) LoadUserAPIKey(ctx context.Context, e boil.ContextExecutor, singula
 				local.R.UserAPIKey = foreign
 				if foreign.R == nil {
 					foreign.R = &userAPIKeyR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadUserFeedToken allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-1 relationship.
+func (userL) LoadUserFeedToken(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`user_feed_tokens`),
+		qm.WhereIn(`user_feed_tokens.user_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load UserFeedToken")
+	}
+
+	var resultSlice []*UserFeedToken
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice UserFeedToken")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for user_feed_tokens")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for user_feed_tokens")
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.UserFeedToken = foreign
+		if foreign.R == nil {
+			foreign.R = &userFeedTokenR{}
+		}
+		foreign.R.User = object
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.ID == foreign.UserID {
+				local.R.UserFeedToken = foreign
+				if foreign.R == nil {
+					foreign.R = &userFeedTokenR{}
 				}
 				foreign.R.User = local
 				break
@@ -3004,6 +3143,66 @@ func (o *User) SetUserAPIKey(ctx context.Context, exec boil.ContextExecutor, ins
 
 	if related.R == nil {
 		related.R = &userAPIKeyR{
+			User: o,
+		}
+	} else {
+		related.R.User = o
+	}
+	return nil
+}
+
+// SetUserFeedTokenP of the user to the related item.
+// Sets o.R.UserFeedToken to related.
+// Adds o to related.R.User.
+// Panics on error.
+func (o *User) SetUserFeedTokenP(ctx context.Context, exec boil.ContextExecutor, insert bool, related *UserFeedToken) {
+	if err := o.SetUserFeedToken(ctx, exec, insert, related); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetUserFeedToken of the user to the related item.
+// Sets o.R.UserFeedToken to related.
+// Adds o to related.R.User.
+func (o *User) SetUserFeedToken(ctx context.Context, exec boil.ContextExecutor, insert bool, related *UserFeedToken) error {
+	var err error
+
+	if insert {
+		related.UserID = o.ID
+
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	} else {
+		updateQuery := fmt.Sprintf(
+			"UPDATE \"user_feed_tokens\" SET %s WHERE %s",
+			strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+			strmangle.WhereClause("\"", "\"", 2, userFeedTokenPrimaryKeyColumns),
+		)
+		values := []interface{}{o.ID, related.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, updateQuery)
+			fmt.Fprintln(writer, values)
+		}
+		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+			return errors.Wrap(err, "failed to update foreign table")
+		}
+
+		related.UserID = o.ID
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			UserFeedToken: related,
+		}
+	} else {
+		o.R.UserFeedToken = related
+	}
+
+	if related.R == nil {
+		related.R = &userFeedTokenR{
 			User: o,
 		}
 	} else {

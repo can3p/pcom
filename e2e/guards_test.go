@@ -237,6 +237,7 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/delete_draft", staticPath("/controls/action/delete_draft"),
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.draft.ID} }},
 	{http.MethodPost, "/controls/action/generate_api_key", staticPath("/controls/action/generate_api_key"), noExtra},
+	{http.MethodPost, "/controls/action/regenerate_feed_token", staticPath("/controls/action/regenerate_feed_token"), noExtra},
 	{http.MethodPost, "/controls/action/dismiss_prompt", staticPath("/controls/action/dismiss_prompt"),
 		func(w *guardWorld) map[string]string { return map[string]string{"promptId": w.prompt.ID} }},
 	{http.MethodPost, "/controls/action/remove_rss_subscription", staticPath("/controls/action/remove_rss_subscription"),

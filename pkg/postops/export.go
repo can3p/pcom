@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"time"
 
@@ -81,12 +80,6 @@ func SerializeBlogSlice(ctx context.Context, posts []*core.Post, mediaStorage se
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 
-	defer func() {
-		if err := w.Close(); err != nil {
-			log.Printf("Error closing zip writer: %v", err)
-		}
-	}()
-
 	imagesToDL := []*markdown.EmbeddedLink{}
 
 	for _, p := range posts {
@@ -111,8 +104,10 @@ func SerializeBlogSlice(ctx context.Context, posts []*core.Post, mediaStorage se
 
 	missingImages := []string{}
 
+	written := map[string]bool{}
+
 	for _, img := range imagesToDL {
-		if !isURLMediaUpload(img.URL) {
+		if !isURLMediaUpload(img.URL) || written[img.URL] {
 			continue
 		}
 
@@ -120,6 +115,7 @@ func SerializeBlogSlice(ctx context.Context, posts []*core.Post, mediaStorage se
 
 		if err == media.ErrNotFound {
 			missingImages = append(missingImages, img.URL)
+			written[img.URL] = true
 			continue
 		}
 
@@ -142,6 +138,8 @@ func SerializeBlogSlice(ctx context.Context, posts []*core.Post, mediaStorage se
 		if _, err := f.Write(b); err != nil {
 			return nil, err
 		}
+
+		written[img.URL] = true
 	}
 
 	if len(missingImages) > 0 {

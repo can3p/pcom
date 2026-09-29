@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,8 +24,6 @@ const (
 
 	// unknownID is a well-formed id that no row has.
 	unknownID = "00000000-0000-0000-0000-000000000000"
-
-	issue110 = "known bug: https://github.com/can3p/pcom/issues/110"
 )
 
 func newPost(t *testing.T, app *e2e.App, authorID string, opts ...factory.PostOpt) *core.Post {
@@ -537,86 +536,94 @@ func TestVisibility_PostMarkdown(t *testing.T) {
 	requireStatus(t, anon.Get("/posts/"+unknownID+"/md"), http.StatusNotFound)
 }
 
-func TestVisibility_PostZipAuthor(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t)
-
-	author := newUser(t, app)
-	post := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-	newPost(t, app, author.ID, factory.Published())
-
-	resp := requireStatus(t, loginAs(t, app, author).Get("/posts/"+post.ID+"/zip"), http.StatusOK)
-	require.Equal(t, "application/zip", resp.Header.Get("Content-Type"))
-	require.Contains(t, resp.Header.Get("Content-Disposition"), "attachment")
-	require.Equal(t, []string{post.ID + ".md"}, zipNames(t, resp.Body))
-}
-
-func TestVisibility_PostZipAccessGuards(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t)
-
-	author := newUser(t, app)
-	unrelated := newUser(t, app)
-	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-
-	path := "/posts/" + directOnly.ID + "/zip"
-	requireLoginRedirect(t, app.Client(t).Get(path), path)
-	requireStatus(t, loginAs(t, app, unrelated).Get(path), http.StatusNotFound)
-}
-
-// requireZipEitherAnswer asserts what must hold regardless of how Q7
-// (docs/open-questions.md) resolves whether zip export is author-only: never
-// a 5xx, and either a 200 whose zip holds exactly post's markdown, or a 404
-// or a login redirect to path that shut a non-author out.
-func requireZipEitherAnswer(t *testing.T, resp *e2e.Response, path string, post *core.Post) {
-	t.Helper()
-
-	require.Less(t, resp.StatusCode, 500, resp.Body)
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-		require.Equal(t, []string{post.ID + ".md"}, zipNames(t, resp.Body))
-	case http.StatusFound:
-		requireLoginRedirect(t, resp, path)
-	default:
-		require.Equal(t, http.StatusNotFound, resp.StatusCode, resp.Body)
-	}
-}
-
-// TestVisibility_PostZipAnonymousPublic: whether an anonymous visitor may zip-export a
-// public post is undecided (Q7, docs/open-questions.md); this pins only what
-// holds under either answer.
-func TestVisibility_PostZipAnonymousPublic(t *testing.T) {
-	t.Skip(issue110)
-	t.Parallel()
-
-	app := e2e.Start(t)
-
-	author := newUser(t, app)
-	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	path := "/posts/" + public.ID + "/zip"
-
-	requireZipEitherAnswer(t, app.Client(t).Get(path), path, public)
-}
-
-// TestVisibility_PostZipDirectConnection: whether a direct connection (not the
-// author) may zip-export a private post is undecided (Q7,
-// docs/open-questions.md); this pins only what holds under either answer.
-func TestVisibility_PostZipDirectConnection(t *testing.T) {
-	t.Skip(issue110)
+// TestVisibility_PostZip: whoever may see a post (Q7) may export it, by the
+// same rules as /posts/:id: an anonymous visitor to a post they can't see is
+// sent to log in, any other viewer gets a 404. Every 200 archive holds this
+// post and none of the author's other posts.
+func TestVisibility_PostZip(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 
 	author := newUser(t, app)
 	direct := newUser(t, app)
+	second := newUser(t, app)
+	unrelated := newUser(t, app)
 	connectUsers(t, app, author, direct)
-	post := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-	path := "/posts/" + post.ID + "/zip"
+	connectUsers(t, app, second, direct)
 
-	requireZipEitherAnswer(t, loginAs(t, app, direct).Get(path), path, post)
+	clients := map[viewerKind]*e2e.Client{
+		viewerAnon:      app.Client(t),
+		viewerUnrelated: loginAs(t, app, unrelated),
+		viewerSecond:    loginAs(t, app, second),
+		viewerDirect:    loginAs(t, app, direct),
+		viewerAuthor:    loginAs(t, app, author),
+	}
+
+	posts := map[core.PostVisibility]*core.Post{}
+	for _, v := range []core.PostVisibility{core.PostVisibilityPublic, core.PostVisibilitySecondDegree, core.PostVisibilityDirectOnly} {
+		posts[v] = newPost(t, app, author.ID, factory.Visibility(v), factory.Published())
+	}
+
+	cases := []struct {
+		viewer viewerKind
+		post   core.PostVisibility
+		want   int
+	}{
+		{viewerAuthor, core.PostVisibilityPublic, http.StatusOK},
+		{viewerAuthor, core.PostVisibilitySecondDegree, http.StatusOK},
+		{viewerAuthor, core.PostVisibilityDirectOnly, http.StatusOK},
+		{viewerAnon, core.PostVisibilityPublic, http.StatusOK},
+		{viewerAnon, core.PostVisibilitySecondDegree, http.StatusFound},
+		{viewerAnon, core.PostVisibilityDirectOnly, http.StatusFound},
+		{viewerUnrelated, core.PostVisibilityPublic, http.StatusOK},
+		{viewerUnrelated, core.PostVisibilitySecondDegree, http.StatusNotFound},
+		{viewerUnrelated, core.PostVisibilityDirectOnly, http.StatusNotFound},
+		{viewerDirect, core.PostVisibilityPublic, http.StatusOK},
+		{viewerDirect, core.PostVisibilitySecondDegree, http.StatusOK},
+		{viewerDirect, core.PostVisibilityDirectOnly, http.StatusOK},
+		{viewerSecond, core.PostVisibilityPublic, http.StatusOK},
+		{viewerSecond, core.PostVisibilitySecondDegree, http.StatusOK},
+		{viewerSecond, core.PostVisibilityDirectOnly, http.StatusNotFound},
+	}
+
+	for _, tc := range cases {
+		t.Run(string(tc.viewer)+"/"+string(tc.post), func(t *testing.T) {
+			post := posts[tc.post]
+			path := "/posts/" + post.ID + "/zip"
+			resp := clients[tc.viewer].Get(path)
+
+			switch tc.want {
+			case http.StatusOK:
+				requireStatus(t, resp, http.StatusOK)
+				require.Equal(t, "application/zip", resp.Header.Get("Content-Type"))
+				require.Contains(t, resp.Header.Get("Content-Disposition"), "attachment")
+				require.Equal(t, []string{post.ID + ".md"}, zipNames(t, resp.Body))
+				require.Contains(t, zipFileText(t, resp.Body, post.ID+".md"), post.Body)
+			case http.StatusFound:
+				requireLoginRedirect(t, resp, path)
+			default:
+				requireStatus(t, resp, tc.want)
+			}
+		})
+	}
+}
+
+func zipFileText(t *testing.T, body, name string) string {
+	t.Helper()
+
+	r, err := zip.NewReader(bytes.NewReader([]byte(body)), int64(len(body)))
+	require.NoError(t, err)
+
+	f, err := r.Open(name)
+	require.NoError(t, err)
+
+	defer func() { _ = f.Close() }()
+
+	b, err := io.ReadAll(f)
+	require.NoError(t, err)
+
+	return string(b)
 }
 
 func TestVisibility_PostEdit(t *testing.T) {

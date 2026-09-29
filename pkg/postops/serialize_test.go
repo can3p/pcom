@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"testing"
 	"time"
 
@@ -166,10 +165,8 @@ func TestSerializeBlogSlice_DownloadErrorPropagates(t *testing.T) {
 	require.ErrorIs(t, err, boom)
 }
 
-// Not parallel: it redirects the shared standard logger for the duration
-// of the call.
 func TestSerializeBlogSlice_ClosesArchiveOnce(t *testing.T) {
-	t.Skip("known bug #110: SerializeBlogSlice closes the zip writer twice and logs \"zip: writer closed twice\"")
+	t.Parallel()
 
 	post := &core.Post{
 		ID:               uuid.NewString(),
@@ -177,14 +174,39 @@ func TestSerializeBlogSlice_ClosesArchiveOnce(t *testing.T) {
 		VisibilityRadius: core.PostVisibilityPublic,
 	}
 
-	var buf bytes.Buffer
-	orig := log.Writer()
-	log.SetOutput(&buf)
-	defer log.SetOutput(orig)
-
 	b, err := postops.SerializeBlogSlice(context.Background(), []*core.Post{post}, nil)
 	require.NoError(t, err)
-	require.NotEmpty(t, b)
 
-	require.NotContains(t, buf.String(), "zip: writer closed twice")
+	// a finished archive parses and lists the post
+	require.Equal(t, []string{post.ID + ".md"}, zipFileNames(t, b))
+}
+
+func TestSerializeBlogSlice_SharedImageIsWrittenOnce(t *testing.T) {
+	t.Parallel()
+
+	storage := fakestorage.New()
+	present := "3fa85f64-5717-4562-b3fc-2c963f66afa6.png"
+	missing := "4fa85f64-5717-4562-b3fc-2c963f66afa6.png"
+	require.NoError(t, storage.UploadFile(context.Background(), present, []byte("png"), "image/png"))
+
+	posts := make([]*core.Post, 2)
+	for i := range posts {
+		posts[i] = &core.Post{
+			ID:               uuid.NewString(),
+			Body:             fmt.Sprintf("![a](%s) ![b](%s)", present, missing),
+			VisibilityRadius: core.PostVisibilityPublic,
+		}
+	}
+
+	b, err := postops.SerializeBlogSlice(context.Background(), posts, storage)
+	require.NoError(t, err)
+
+	files := zipFileNames(t, b)
+	seen := map[string]bool{}
+	for _, f := range files {
+		require.False(t, seen[f], "duplicate zip entry %s", f)
+		seen[f] = true
+	}
+	require.Contains(t, files, present)
+	require.Equal(t, missing, string(zipFileContentBytes(t, b, "missing_images.txt")))
 }

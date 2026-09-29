@@ -13,6 +13,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
@@ -234,6 +235,7 @@ type SettingsPage struct {
 	AvailableInvites int64
 	UsedInvites      core.UserInvitationSlice
 	ActiveAPIKey     *core.UserAPIKey
+	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
 	Feeds            []*feedops.RssFeed
@@ -265,6 +267,17 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		return mo.Err[*SettingsPage](err)
 	}
 
+	feedToken, err := repo.FeedTokenForUser(c, db, userData.DBUser.ID)
+
+	if err != nil {
+		return mo.Err[*SettingsPage](err)
+	}
+
+	feedURL := ""
+	if feedToken != nil {
+		feedURL = links.AbsLink("private_user_feed", feedToken.Token)
+	}
+
 	formUserStyles := forms.SettingsUserStylesNew(userData.DBUser)
 
 	userStyles, err := core.UserStyles(
@@ -288,6 +301,7 @@ func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
 		ActiveAPIKey:     apiKey,
+		FeedURL:          feedURL,
 		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
 		UserStyles:       formUserStyles,
 		Feeds:            feeds,
@@ -775,14 +789,14 @@ func Feed(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData, on
 
 	basePage := getBasePage(ctx, title, userData)
 
-	apiKey, err := user.UserAPIKey().One(ctx, db)
+	feedToken, err := repo.FeedTokenForUser(ctx, db, user.ID)
 
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil {
 		return mo.Err[*FeedPage](err)
 	}
 
-	if apiKey != nil {
-		basePage.RSSFeed = links.Link("private_user_feed", apiKey.APIKey)
+	if feedToken != nil {
+		basePage.RSSFeed = links.Link("private_user_feed", feedToken.Token)
 	}
 
 	feedPage := &FeedPage{
