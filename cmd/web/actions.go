@@ -265,12 +265,14 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaStorage server.MediaStor
 
 		if err != nil {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		newApiKey, err := uuid.NewV7()
 
 		if err != nil {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
 		}
 
 		err = transact.Transact(db, func(tx *sql.Tx) error {

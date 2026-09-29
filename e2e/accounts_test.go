@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
@@ -80,11 +81,43 @@ func TestAccounts_InviteLinks(t *testing.T) {
 	t.Run("unknown", func(t *testing.T) {
 		app.Client(t).Get("/invite/00000000-0000-0000-0000-000000000000").RequireStatus(http.StatusNotFound)
 	})
+}
 
-	t.Run("malformed id", func(t *testing.T) {
-		t.Skip("known bug: https://github.com/can3p/pcom/issues/152")
+// TestAccounts_MalformedUUIDPathParam: a path id that is not a UUID is a 404,
+// not a 500 from the database (#152).
+func TestAccounts_MalformedUUIDPathParam(t *testing.T) {
+	t.Parallel()
 
-		app.Client(t).Get("/invite/not-a-uuid").RequireStatus(http.StatusNotFound)
+	app := e2e.Start(t)
+	_, client := newLoggedIn(t, app)
+
+	for _, path := range []string{
+		"/shared/not-a-uuid",
+		"/posts/not-a-uuid",
+		"/posts/not-a-uuid/md",
+		"/posts/not-a-uuid/zip",
+		"/posts/not-a-uuid/edit",
+	} {
+		t.Run(path, func(t *testing.T) {
+			client.Get(path).RequireStatus(http.StatusNotFound)
+		})
+	}
+
+	// guest-only routes redirect a logged-in user, so use anonymous clients
+	for _, path := range []string{
+		"/invite/not-a-uuid",
+		"/confirm_signup/not-a-uuid",
+		"/confirm_waiting_list/not-a-uuid",
+	} {
+		t.Run(path, func(t *testing.T) {
+			app.Client(t).Get(path).RequireStatus(http.StatusNotFound)
+		})
+	}
+
+	t.Run("POST /form/accept_invite/not-a-uuid", func(t *testing.T) {
+		anon := app.Client(t)
+		anon.Get("/login").RequireStatus(http.StatusOK) // picks up the CSRF token
+		anon.PostForm("/form/accept_invite/not-a-uuid", url.Values{}).RequireStatus(http.StatusNotFound)
 	})
 }
 

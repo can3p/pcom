@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/google/uuid"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -48,16 +49,6 @@ type b6PageTest struct {
 //     /users/:username/user_styles (a CSS document, gated by EnforceReferer)
 //   - feeds: /rss/public/:username, /rss/private/:key (XML, not HTML)
 //   - API: /api/v1/posts (JSON, exercised by the E2E HTTP suite)
-//
-// /confirm_signup/:id is left out too: reaching it needs a user with
-// EmailConfirmSeed set, and no factory option sets that field (see needs in
-// the task report). It shares the bare-map CSP bug below, so it would be
-// skipped rather than checked once reachable.
-//
-// /signup, /confirm_waiting_list/:id and /articles/:id are visited but
-// skipped: their handlers render a bare gin.H{}/map[string]any{} template
-// context, which doesn't get a script nonce, so their inline script trips
-// the CSP guard (known bug #139).
 func TestLayout_Pages(t *testing.T) {
 	t.Parallel()
 
@@ -81,22 +72,24 @@ func TestLayout_Pages(t *testing.T) {
 	waitingList, err := factory.SignupRequest(ctx, app.DB)
 	require.NoError(t, err)
 
+	pending, err := factory.User(ctx, app.DB, factory.Unconfirmed(), factory.WithConfirmSeed(uuid.NewString()))
+	require.NoError(t, err)
+
 	authUser := browser.NewUser(t, app)
 	draftPost, err := factory.Post(ctx, app.DB, authUser.ID)
 	require.NoError(t, err)
-
-	const bug139 = "known bug #139: bare-map handlers don't set ScriptNonce, so this page's inline script violates CSP"
 
 	pages := []b6PageTest{
 		// Redirects to /feed when logged in, so the "logged in" run exercises
 		// that redirect and lands on the same page the Feed case checks.
 		{name: "Home", path: "/", anon: true, auth: true},
 		{name: "Login", path: "/login", anon: true},
-		{name: "Signup", path: "/signup", anon: true, skip: bug139},
+		{name: "Signup", path: "/signup", anon: true},
 		{name: "Explore", path: "/explore", anon: true, auth: true},
+		{name: "Confirm signup", path: "/confirm_signup/" + pending.EmailConfirmSeed.String, anon: true},
 		{name: "Invite", path: "/invite/" + invite.ID, anon: true},
-		{name: "Confirm waiting list", path: "/confirm_waiting_list/" + waitingList.ID, anon: true, skip: bug139},
-		{name: "Article", path: "/articles/why", anon: true, auth: true, skip: bug139},
+		{name: "Confirm waiting list", path: "/confirm_waiting_list/" + waitingList.ID, anon: true},
+		{name: "Article", path: "/articles/why", anon: true, auth: true},
 		{name: "User profile", path: "/users/" + publicUser.Username, anon: true, auth: true},
 		{name: "Shared post", path: "/shared/" + share.ID, anon: true},
 		{name: "Public post", path: "/posts/" + publicPost.ID, anon: true, auth: true},

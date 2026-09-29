@@ -489,14 +489,11 @@ func TestAPI_UploadImage(t *testing.T) {
 // TestAPI_UploadImage_UnknownName tests that fetching an unknown fname through
 // /user-media returns 404.
 func TestAPI_UploadImage_UnknownName(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/154")
+	t.Parallel()
 
 	app := e2e.Start(t)
 
-	client := app.Client(t)
-
-	resp := client.Get("/user-media/00000000-0000-0000-0000-000000000000.png/full")
-	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	app.Client(t).Get("/user-media/00000000-0000-0000-0000-000000000000.png/full").RequireStatus(http.StatusNotFound)
 }
 
 // TestAPI_RSSPrivate_Valid tests GET /rss/private/:key with a valid API key.
