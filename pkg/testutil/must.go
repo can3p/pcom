@@ -13,16 +13,20 @@ type TB interface {
 	Fatalf(format string, args ...any)
 }
 
-// Must returns v when err is nil. Otherwise it fails the test immediately,
-// the way t.Fatalf would. It is for one-line fixture setup:
+// Must checks the (value, error) pair a fixture call returns and gives back
+// a function that yields the value, or fails the test the way t.Fatalf would.
+// The pair must be Must's only arguments, because Go spreads a multi-value
+// call into another call only when it is the sole argument, so t comes after:
 //
-//	body := testutil.Must(t, os.ReadFile(path))
-func Must[T any](t TB, v T, err error) T {
-	t.Helper()
+//	user := testutil.Must(factory.User(ctx, db))(t)
+func Must[T any](v T, err error) func(t TB) T {
+	return func(t TB) T {
+		t.Helper()
 
-	if err != nil {
-		t.Fatalf("testutil.Must: unexpected error: %v", err)
+		if err != nil {
+			t.Fatalf("testutil.Must: unexpected error: %v", err)
+		}
+
+		return v
 	}
-
-	return v
 }
