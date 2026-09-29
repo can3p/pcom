@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -13,86 +15,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSendInviteForm_ValidateEmptyEmail(t *testing.T) {
+func TestSendInviteForm_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		email        func(t *testing.T, inviter *core.User) string
+		wantErrField string
+	}{
+		{"empty email", func(t *testing.T, inviter *core.User) string { return "" }, "email"},
+		{"invalid format", func(t *testing.T, inviter *core.User) string { return "not-an-email" }, "email"},
+		{"existing user", func(t *testing.T, inviter *core.User) string {
+			return testutil.Must(factory.User(ctx, db))(t).Email
+		}, "email"},
+		{"success", func(t *testing.T, inviter *core.User) string {
+			testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
+			return "newinvitee@example.test"
+		}, ""},
+	}
 
-	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	form.Input.Email = ""
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
+			inviter := testutil.Must(factory.User(ctx, db))(t)
+			c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
-func TestSendInviteForm_ValidateInvalidFormat(t *testing.T) {
-	t.Parallel()
+			form := forms.SendInviteFormNew(fakesender.New(), inviter).(*forms.SendInviteForm)
+			form.Input.Email = tt.email(t, inviter)
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	form.Input.Email = "not-an-email"
-
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
-func TestSendInviteForm_ValidateExistingUser(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	existingUser, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	form.Input.Email = existingUser.Email
-
-	err = form.Validate(c, db)
-	require.Error(t, err)
-	require.True(t, form.Errors.HasError("email"))
-}
-
-func TestSendInviteForm_ValidateSuccess(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	// Create an unused invitation for the inviter
-	_, err = factory.Invitation(ctx, db, inviter.ID)
-	require.NoError(t, err)
-
-	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
-	form.Input.Email = "newinvitee@example.test"
-
-	err = form.Validate(c, db)
-	require.NoError(t, err)
+			err := form.Validate(c, db)
+			if tt.wantErrField == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.True(t, form.Errors.HasError(tt.wantErrField))
+		})
+	}
 }
 
 func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
@@ -103,12 +66,8 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	sender := fakesender.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
-	inviter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	// Create an unused invitation for the inviter
-	_, err = factory.Invitation(ctx, db, inviter.ID)
-	require.NoError(t, err)
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+	testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
 
 	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
 	form.Input.Email = "newinvitee@example.test"

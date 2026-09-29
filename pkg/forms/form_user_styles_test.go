@@ -8,6 +8,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -15,45 +16,44 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSettingsUserStyles_ValidateEmptyStyles(t *testing.T) {
+func TestSettingsUserStyles_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		styles       string
+		wantFieldErr bool
+	}{
+		{"empty styles", "", false},
+		{"valid styles", ".profile { color: red; }", false},
+		// Validate always returns nil (see the skipped test below), but it
+		// does still record the field error.
+		{"too long styles records field error", strings.Repeat("a", 10_001), true},
+	}
 
-	form := forms.SettingsUserStylesNew(user)
-	form.Input.Styles = ""
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.NoError(t, err)
-}
+			user := testutil.Must(factory.User(ctx, db))(t)
+			c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-func TestSettingsUserStyles_ValidateTooLongStylesRecordsFieldError(t *testing.T) {
-	t.Parallel()
+			form := forms.SettingsUserStylesNew(user)
+			form.Input.Styles = tt.styles
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SettingsUserStylesNew(user)
-	form.Input.Styles = strings.Repeat("a", 10_001)
-
-	// Validate always returns nil (see the skipped test below), but it does
-	// still record the field error.
-	_ = form.Validate(c, db)
-	require.True(t, form.Errors.HasError("styles"))
+			err := form.Validate(c, db)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantFieldErr, form.Errors.HasError("styles"))
+		})
+	}
 }
 
 // TestSettingsUserStyles_ValidateTooLongStylesFailsValidation pins a bug:
 // SettingsUserStyles.Validate unconditionally returns nil, so a too-long
-// Styles value is recorded as a field error (see the test above) but never
+// Styles value is recorded as a field error (see the table above) but never
 // actually fails validation, unlike every other form in this package.
 func TestSettingsUserStyles_ValidateTooLongStylesFailsValidation(t *testing.T) {
 	t.Skip("known bug #159: SettingsUserStyles.Validate always returns nil, so a too-long styles value is recorded as a field error but validation never fails")
@@ -63,54 +63,52 @@ func TestSettingsUserStyles_ValidateTooLongStylesFailsValidation(t *testing.T) {
 	ctx := context.Background()
 	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	form := forms.SettingsUserStylesNew(user)
 	form.Input.Styles = strings.Repeat("a", 10_001)
 
-	err = form.Validate(c, db)
+	err := form.Validate(c, db)
 	require.Error(t, err)
 	require.True(t, form.Errors.HasError("styles"))
 }
 
-func TestSettingsUserStyles_ValidateValidStyles(t *testing.T) {
+func TestSettingsUserStyles_Save(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
+	tests := []struct {
+		name         string
+		withExisting bool
+		styles       string
+	}{
+		{"creates when none exists", false, ".profile { color: blue; }"},
+		{"updates existing", true, ".new { color: green; }"},
+	}
 
-	form := forms.SettingsUserStylesNew(user)
-	form.Input.Styles = ".profile { color: red; }"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err = form.Validate(c, db)
-	require.NoError(t, err)
-}
+			user := testutil.Must(factory.User(ctx, db))(t)
+			if tt.withExisting {
+				testutil.Must(factory.UserStyle(ctx, db, user.ID, ".old { color: red; }"))(t)
+			}
 
-func TestSettingsUserStyles_SaveCreatesUserStyle(t *testing.T) {
-	t.Parallel()
+			c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
+			form := forms.SettingsUserStylesNew(user)
+			form.Input.Styles = tt.styles
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
+			action, err := form.Save(c, db)
+			require.NoError(t, err)
+			require.NotNil(t, action)
 
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	form := forms.SettingsUserStylesNew(user)
-	form.Input.Styles = ".profile { color: blue; }"
-
-	action, err := form.Save(c, db)
-	require.NoError(t, err)
-	require.NotNil(t, action)
-
-	style, err := factory.GetUserStyle(ctx, db, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, ".profile { color: blue; }", style.Styles)
+			style := testutil.Must(factory.GetUserStyle(ctx, db, user.ID))(t)
+			require.Equal(t, tt.styles, style.Styles)
+		})
+	}
 }
 
 func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
@@ -128,29 +126,4 @@ func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
 
 	_, err := form.Save(c, db)
 	require.Error(t, err)
-}
-
-func TestSettingsUserStyles_SaveUpdatesExistingStyle(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
-
-	user, err := factory.User(ctx, db)
-	require.NoError(t, err)
-
-	_, err = factory.UserStyle(ctx, db, user.ID, ".old { color: red; }")
-	require.NoError(t, err)
-
-	form := forms.SettingsUserStylesNew(user)
-	form.Input.Styles = ".new { color: green; }"
-
-	action, err := form.Save(c, db)
-	require.NoError(t, err)
-	require.NotNil(t, action)
-
-	style, err := factory.GetUserStyle(ctx, db, user.ID)
-	require.NoError(t, err)
-	require.Equal(t, ".new { color: green; }", style.Styles)
 }
