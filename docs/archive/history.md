@@ -407,27 +407,29 @@ shared a round, because assets are built once per round.
 
 What changed for users and operators:
 
-- Login finds accounts by lowercased, trimmed email, checks a legacy sha256
-  hash against the email as stored, and replaces it with argon2id; the
-  email is stored normalized unless another account shares it. Login and
-  logout rotate the session. The migration adds an index on
-  `lower(btrim(email))` and rewrites no user emails.
+- Emails are stored lowercased and trimmed in `users`, `user_invitations`
+  and `user_signup_requests`, and CHECK constraints enforce it (the owner
+  checked the production tables by hand first). Login is one exact lookup
+  on the normalized input; a legacy sha256 hash is replaced by argon2id on
+  login. Login and logout rotate the session.
 - The private RSS feed has its own read-only token (`user_feed_tokens`),
-  regenerated from settings; old feed URLs carrying an API key answer
-  410 Gone. `pkg/repo` exists now, holding the feed token queries.
+  regenerated from settings; old feed URLs carrying an API key are plain
+  404s, as the owner didn't want to keep compatibility. `pkg/repo` exists now, holding the feed token queries.
 - Invitation mails are keyed by the invitation, a partial unique index
   allows one pending invitation per address, and the waiting list, signup
   and invitation checks compare addresses case-insensitively.
 - Request handling no longer calls `log.Fatal`; HTML emails escape user
-  content.
+  content. Every route with a UUID path param, the API's included, goes
+  through the `requireUUIDParam` middleware.
 
 What turned out wrong along the way:
 
 - **B's first design locked users out.** Lowercasing `users.email` in a
   migration destroyed the spelling a legacy hash was salted with, so any
   invited user with a capital letter could never log in, and accounts that
-  differed only in case were skipped. Reworked to look up case-insensitively
-  and keep the stored spelling until a successful login.
+  differed only in case were skipped. It was first reworked to look up
+  case-insensitively; once the owner had checked the production tables, it
+  became a plain normalization with database constraints instead.
 - **B broke change password.** Login rehashed to argon2id while the change
   password form still compared sha256 hashes. Caught from B's own report,
   not by a test; the form now uses the same check.
