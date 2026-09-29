@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
 )
@@ -35,7 +36,7 @@ func ValidateUsername(p string) error {
 func ValidateMinMax(label string, p string, minL int, maxL int) error {
 	trimmed := strings.TrimSpace(p)
 
-	if len(trimmed) < minL || len(trimmed) > maxL {
+	if n := utf8.RuneCountInString(trimmed); n < minL || n > maxL {
 		return errors.Errorf("%s should be between %d and %d characters", label, minL, maxL)
 	}
 

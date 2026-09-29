@@ -133,7 +133,6 @@ func TestPostForm_Validate(t *testing.T) {
 		edit    func(*forms.PostForm)
 		wantErr string // field with an error; "" means valid
 		wantIs  error
-		skip    string
 	}{
 		{name: "valid input"},
 		{name: "empty save action defaults to autosave", edit: func(f *forms.PostForm) { f.Input.SaveAction = "" }},
@@ -144,7 +143,6 @@ func TestPostForm_Validate(t *testing.T) {
 		{name: "invalid visibility", edit: func(f *forms.PostForm) { f.Input.Visibility = "bogus" }, wantErr: "visibility"},
 		{
 			name: "invalid save action", edit: func(f *forms.PostForm) { f.Input.SaveAction = "bogus" }, wantErr: "save_action",
-			skip: "known bug #157: PostForm.Validate records an invalid save_action under the visibility error key",
 		},
 		{name: "the author editing their post", edit: func(f *forms.PostForm) { f.Post = post }},
 		// Built without EditPostFormNew, whose ownership check would reject
@@ -153,10 +151,6 @@ func TestPostForm_Validate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if tc.skip != "" {
-				t.Skip(tc.skip)
-			}
-
 			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, ""))(t), forms.PostFormActionAutosave)
 			if tc.edit != nil {
 				tc.edit(form)
@@ -228,7 +222,6 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 
 	t.Run("delete stores nothing", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("known bug #163: delete on a never-saved post stores a new draft")
 
 		author := testutil.Must(factory.User(ctx, db))(t)
 		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, ""))(t), forms.PostFormActionDelete)

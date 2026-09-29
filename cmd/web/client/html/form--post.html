@@ -21,6 +21,7 @@
         hx-target="#form-container"
         hx-trigger="change delay:2s, keyup delay:2s, submit"
         hx-disabled-elt="this"
+        data-controller="postform"
         class="flex-grow-1 d-flex flex-column gap-lg-3 gap-2"
         >
 
@@ -83,7 +84,7 @@
         {{ end }}
       </div>
 
-      <textarea class="form-control form-control-sm flex-grow-1 mh-auto" name="body" placeholder="Your post goes there" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+      <textarea class="form-control form-control-sm flex-grow-1 mh-auto {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="Your post goes there" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
       {{ if (.Errors.HasError "body") }}
       <div class="invalid-feedback">{{ .Errors.body }}</div>
       {{ end }}
@@ -125,8 +126,8 @@
 
     <div class="d-flex gap-2">
       {{ if .IsPublished }}
-        <button type="submit" class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save Post</button>
-        <button type="submit"
+        <button type="submit" disabled data-postform-pending class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save Post</button>
+        <button type="submit" disabled data-postform-pending
                 class="btn btn-outline-primary btn-sm"
                 name="save_action"
                 value="make_draft"
@@ -134,8 +135,8 @@
                 data-confirm-message-value="Do you really want to turn the post into draft? It will disappear from the feeds"
                 >Back to draft</button>
       {{ else }}
-        <button type="submit" class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save as Draft</button>
-        <button type="submit"
+        <button type="submit" disabled data-postform-pending class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save as Draft</button>
+        <button type="submit" disabled data-postform-pending
                 class="btn btn-outline-primary btn-sm"
                 name="save_action"
                 value="publish"
@@ -143,7 +144,7 @@
                 data-confirm-message-value="Do you really want to publish this post?"
                 >Publish</button>
       {{ end }}
-        <button type="submit"
+        <button type="submit" disabled data-postform-pending
                 class="btn btn-danger btn-sm"
                 name="save_action"
                 value="delete"

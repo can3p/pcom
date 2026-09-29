@@ -180,23 +180,14 @@ func TestWriting_DeleteDismissedKeepsPost(t *testing.T) {
 	require.Equal(t, draft.ID, kept.ID)
 }
 
-// Known bug: the post-edit form's "Back to draft" action re-renders the
-// form in place (hx-swap="outerHTML" on the form itself, since the response
-// isn't a redirect or a #last_draft_save retarget). htmx occasionally
-// hasn't finished re-processing the freshly swapped-in form's hx-post /
-// hx-trigger="submit" binding by the time the very next submit fires, so
-// that submit intermittently falls back to a plain, non-htmx browser form
-// post. That native post has no X-CSRFToken header (only added by htmx's
-// ajax path), so csrf.CheckCSRF rejects it with 403 instead of the post
-// being deleted.
-//
-// Repro: publish a draft, edit it again, click "Back to draft" (in-place
-// outerHTML self-swap), then immediately click "Delete" - intermittently
-// the browser navigates to POST /controls/form/edit_post with a 403 body
-// instead of redirecting to /controls with the post removed.
+// "Back to draft" re-renders the edit form in place (hx-swap="outerHTML" on
+// the form itself), and htmx binds the new form only after its settle delay.
+// A click on Delete in that window must not submit the form natively: a
+// native post carries no X-CSRFToken header and gets a bare 403 (#141). The
+// swapped-in buttons stay disabled until the form is bound, so that click
+// does nothing and the user's next, ordinary click deletes the post.
 func TestWriting_DeleteAfterMakeDraftSelfSwap(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #141: after the post-edit form re-renders itself in place (Back to draft), the next submit intermittently posts natively instead of via htmx and gets a 403 from csrf.CheckCSRF instead of deleting the post")
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
@@ -207,6 +198,14 @@ func TestWriting_DeleteAfterMakeDraftSelfSwap(t *testing.T) {
 
 	page := browser.Page(t, app, browser.As(user))
 	page.OnDialog(func(d playwright.Dialog) { _ = d.Accept() })
+
+	// Click Delete right after the swap, before htmx has bound the new form:
+	// the window a quick person could hit. The click must do nothing.
+	require.NoError(t, page.AddInitScript(playwright.Script{Content: playwright.String(`
+		document.addEventListener("htmx:afterSwap", () => {
+			document.querySelector("button[value=delete]")?.click()
+		})
+	`)}))
 
 	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
 	require.NoError(t, err)
@@ -309,7 +308,6 @@ func b2SaveBody(t *testing.T, page playwright.Page, postID, body string) {
 // body, stays on the edit page, and the stored post is unchanged.
 func TestWriting_BodyOverLimitShowsError(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #142: the body textarea never gets is-invalid, so its invalid-feedback message stays hidden")
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
@@ -355,7 +353,6 @@ func TestWriting_BodyAtLimitSaves(t *testing.T) {
 // non-ASCII text under the limit is saved even though it takes more bytes.
 func TestWriting_BodyLimitCountsCharacters(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #143: ValidateMinMax counts bytes, so 15,000 Cyrillic letters (30,000 bytes) are rejected")
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
