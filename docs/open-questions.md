@@ -7,8 +7,6 @@ Raised by the 2026-09-21 modernization survey.
 
 ## Product and behavior
 
-- **Q7. Post zip export (#110).** Should `/posts/:id/zip` be author-only, or
-  should it export the post for anyone who can see it?
 - **Q9. The RSS poller downloads feeds and images inside the DB transaction**
   that holds the feed row lock (`feeder.refreshFeeds`). With a 2-minute image
   budget per item, a transaction can stay open for minutes. Restructure when
@@ -26,6 +24,11 @@ Raised by the 2026-09-21 modernization survey.
   generated types anyway (see `docs/plan/r5.md`).
 ## Decided
 
+- **2026-09-29. Q7, post zip export (#110):** anyone who can see the post
+  may export it; the export follows post visibility. Fixed in WB.
+- **2026-09-29. Duplicate invitations (#168):** a second pending invitation
+  to the same address (compared lowercased) is rejected with a form error,
+  and a partial unique index enforces it. Fixed in WB.
 - **2026-09-28. Generator and migration tools stay out of `go.mod`:**
   sql-migrate and sqlboiler (later bob) are installed in `tools/Dockerfile`,
   pinned by `ARG`s. `generate.sh` refuses to run when the generator and the

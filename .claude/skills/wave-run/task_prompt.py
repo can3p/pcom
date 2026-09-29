@@ -12,6 +12,7 @@ dispatching.
 """
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -59,7 +60,7 @@ TESTCMD = "Test only with `make test-q PKG={pkg}`, `make cover-q PKG={pkg}` and 
 BROWSER_TESTCMD = ("Test only with `make test-ui RUN='<TestName>'` (it builds the assets first); the whole suite once "
                    "at the end with `make test-ui`. On a failure, look at the printed screenshot before anything else.")
 
-# Refactor waves (R*, RS) and the bug-fix wave change production code, so they get their own preamble.
+# Refactor waves (R*, RS) change production code, so they get their own preamble.
 REFACTOR_TEMPLATE = """\
 You are refactoring pcom. Read docs/architecture.md (if it exists) and docs/testing.md; read no other docs.
 Task: {task}.
@@ -82,6 +83,44 @@ Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever g
 `make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
 Done when: tests pass and {done}.
 {report}"""
+
+# The bug-fix wave changes behavior on purpose, one issue at a time; the skipped test is the proof.
+BUGFIX_TEMPLATE = """\
+You are fixing bugs in pcom. Read docs/testing.md; read no other docs.
+Task: {task}.
+
+{excerpt}
+
+You own exactly these files: {owns}. Do not edit any other file; if another file must change, stop and
+report it under needs:. Do not run git. Do not edit go.mod.
+Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
+skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
+Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
+Fix exactly what each issue below describes and nothing else. Each issue is pinned by a skipped test (grep
+for its number in t.Skip); remove that skip, keep its assertions, and make it pass. If an issue has no
+pinned test, add one that fails before your fix. You may edit e2e/ and e2e/browser only to remove a skip or
+add such a test; never weaken another assertion. If an existing assertion encodes the old, buggy behavior,
+change it and name it under bugs:.
+New queries go into pkg/repo or the package that already holds the neighbouring queries, never a handler.
+A migration goes into migrations/ with a timestamp name; say under needs: if models must be regenerated.
+After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
+Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end{ui}.
+Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
+`make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
+Done when: every skip listed for these issues is gone, those tests pass, and {done}.
+{report}
+
+The issues, as filed:
+{issues}"""
+
+
+def issue_bodies(excerpt):
+    out = []
+    for n in dict.fromkeys(re.findall(r"#(\d{3})\b", excerpt)):
+        r = subprocess.run(["gh", "issue", "view", n, "--json", "title,body", "-q", '"#" + "' + n + ' " + .title + "\\n\\n" + .body'],
+                           capture_output=True, text=True)
+        out.append(r.stdout.strip() if r.returncode == 0 else f"#{n}: <FILL: gh issue view failed>")
+    return "\n\n---\n\n".join(out)
 
 
 def cells(line):
@@ -145,9 +184,10 @@ def build(wave, task):
         m = re.search(r"\b(cheap|mid|strong)\b", excerpt)
         tier = m.group(1) if m else ""
     m = re.search(r"\bOwns (.+?)\.(?=\s|\||$)", excerpt, re.S)
-    owned = m.group(1).strip() if m else None
+    owned = m.group(1).strip() if m else fields.get("owns")
     where = owned or next((v for k, v in fields.items() if k.startswith("package")), excerpt)
-    pkgs = re.findall(r"`((?:pkg|cmd|e2e)/[\w/.-]+)`", where)
+    pkgs = [p for p in re.findall(r"`((?:pkg|cmd|e2e)/[\w/.-]+)`", where)
+            if not p.startswith("cmd/web/client") and not re.search(r"\.(?!go$)\w+$", p)]
     dirs = [p.rsplit("/", 1)[0] if p.endswith(".go") else p.rstrip("/") for p in pkgs]
     dirs = [d for d in dict.fromkeys(dirs) if not any(d.startswith(o + "/") for o in dirs)]
     pkg = " ".join(f"./{d}/..." for d in dirs) or "<FILL: ./pkg/x/...>"
@@ -160,7 +200,13 @@ def build(wave, task):
     done = f"the coverage of the task's packages is at least {target}" if target else \
         "<FILL: the task's done-when, from the excerpt>"
     header = f"# model: {TIERS.get(tier, '<FILL: tier>')}   ({wave.upper()}.{task}, tier {tier or '?'})"
-    if wave.lower().startswith("r") or wave.lower() == "wb":
+    if wave.lower() == "wb":
+        ui = (", and `make test-ui RUN=<the un-skipped browser tests>` (assets are built by the coordinator;"
+              " if you change cmd/web/client/js or scss, say so under needs:)") if "browser" in excerpt else ""
+        body = BUGFIX_TEMPLATE.format(task=f"WB.{task}", excerpt=excerpt, pkg=pkg, report=REPORT, ui=ui,
+                                      owns=owned or "<FILL: owned files>", issues=issue_bodies(excerpt),
+                                      done=fields.get("done when") or "no other test changed")
+    elif wave.lower().startswith("r"):
         body = REFACTOR_TEMPLATE.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done,
                                         report=REPORT, owns="<FILL: the task's repo/service/handler files>")
     else:
