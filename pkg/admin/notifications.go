@@ -3,7 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 
@@ -16,7 +16,7 @@ import (
 
 var NotifyAddress string = os.Getenv("ADMIN_ADDRESS")
 
-func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) {
+func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) error {
 	blogURL := links.AbsLink("user", user.Username)
 
 	mail := &sender.Mail{
@@ -47,17 +47,15 @@ func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Send
 		<li>ID: %s</li>
 		<li>Blog: <a href="%s">%s</a></li>
 		<li>Email: %s</li>
-	</ul>`, user.ID, blogURL, blogURL, user.Email),
+	</ul>`, html.EscapeString(user.ID), html.EscapeString(blogURL), html.EscapeString(blogURL), html.EscapeString(user.Email)),
 	}
 
 	err := s.Send(ctx, exec, user.ID, "admin_new_user", mail)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
-func NotifyNewWaitingListMember(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) {
+func NotifyNewWaitingListMember(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) error {
 	r := waitingList.Reason.String
 
 	if r == "" {
@@ -92,17 +90,15 @@ func NotifyNewWaitingListMember(ctx context.Context, exec boil.ContextExecutor, 
 			<li>Email address: %s</li>
 			<li>Reason: %s</li>
 			</ul>`,
-			waitingList.Email, r),
+			html.EscapeString(waitingList.Email), html.EscapeString(r)),
 	}
 
 	err := s.Send(ctx, exec, waitingList.ID, "new_waiting_list_member", mail)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
-func NotifySignupConfirmed(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) {
+func NotifySignupConfirmed(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) error {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -129,17 +125,15 @@ func NotifySignupConfirmed(ctx context.Context, exec boil.ContextExecutor, s sen
 	<ul>
 		<li>ID: %s</li>
 		<li>Email: %s</li>
-	</ul>`, user.ID, user.Email),
+	</ul>`, html.EscapeString(user.ID), html.EscapeString(user.Email)),
 	}
 
 	err := s.Send(ctx, exec, user.ID, "signup_confirmed", mail)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
-func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, email string) {
+func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, email string) error {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -159,12 +153,10 @@ func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, exec boil.ContextExe
 	<p>Hi!</p>
 
 	<p>A user has just tried to use a throwaway email: %s</p>
-	`, email),
+	`, html.EscapeString(email)),
 	}
 
 	err := s.Send(ctx, exec, uuid.NewString(), "throw_away_email_signup", mail)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }

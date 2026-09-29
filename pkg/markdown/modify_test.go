@@ -24,7 +24,7 @@ wwww
 
 ![IMG_2693.jpeg](keepme.jpg)`
 
-	res := ReplaceImageUrls(src, ImportReplacer(
+	res, err := ReplaceImageUrls(src, ImportReplacer(
 		map[string]string{
 			"replaceme.jpg": "replaced11111111111111111111111111111.jpg",
 		},
@@ -33,6 +33,7 @@ wwww
 		},
 	))
 
+	assert.NoError(t, err)
 	assert.Equal(t, expected, res)
 }
 

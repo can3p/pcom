@@ -3,13 +3,14 @@ package mail
 import (
 	"context"
 	"fmt"
-	"log"
+	"html"
 	"net/mail"
 	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -42,13 +43,13 @@ Head to new post page to give an update! %s`, asker.Username, postPrompt.Message
 
 	<p>@%s has asked you to write a post on "%s"</p>
 
-	<p>Head to new post page to give an update! <a href="%s">%s</a></p>`, asker.Username, postPrompt.Message, link, link),
+	<p>Head to new post page to give an update! <a href="%s">%s</a></p>`, html.EscapeString(asker.Username), html.EscapeString(postPrompt.Message), html.EscapeString(link), html.EscapeString(link)),
 	}
 
 	err := s.Send(ctx, exec, postPrompt.ID, "post_prompt", mail)
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "failed to queue email")
 	}
 
 	return nil

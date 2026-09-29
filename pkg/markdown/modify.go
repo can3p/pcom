@@ -42,7 +42,8 @@ func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader
 	})
 
 	if err != nil {
-		log.Fatal("Error encountered while transforming AST:", err)
+		// the walker callback never fails and goldmark transformers cannot return errors
+		log.Printf("markdown: error encountered while transforming AST: %v", err)
 	}
 }
 
@@ -58,7 +59,7 @@ func NewModifier(t parser.ASTTransformer) goldmark.Markdown {
 	return gm
 }
 
-func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
+func ReplaceImageUrls(md string, replace types.Replacer[string]) (string, error) {
 	t := &imgReplaceTransformer{
 		Replacer: replace,
 	}
@@ -70,10 +71,11 @@ func ReplaceImageUrls(md string, replace types.Replacer[string]) string {
 	// Convert parses the source, applies transformers, and renders output to the given io.Writer
 	err := gm.Convert([]byte(md), &buf)
 	if err != nil {
-		log.Fatalf("Encountered Markdown conversion error: %v", err)
+		// goldmark only fails here on a broken writer or renderer, which no input triggers, so no test covers this.
+		return "", fmt.Errorf("markdown conversion error: %w", err)
 	}
 
-	return strings.TrimSpace(buf.String())
+	return strings.TrimSpace(buf.String()), nil
 
 }
 
@@ -132,7 +134,8 @@ func (t *imgReplaceOrLinkifyTransformer) Transform(node *ast.Document, reader te
 	})
 
 	if err != nil {
-		log.Fatal("Error encountered while transforming AST:", err)
+		// the walker callback never fails and goldmark transformers cannot return errors
+		log.Printf("markdown: error encountered while transforming AST: %v", err)
 	}
 
 	// Apply replacements

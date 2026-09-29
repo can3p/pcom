@@ -633,39 +633,3 @@ func TestPostCommentParticipants_WithURL(t *testing.T) {
 
 	golden.Assert(t, "post_comment_participants_with_url", mailsToGolden(sent))
 }
-
-func TestNewPost_HTMLEscaping(t *testing.T) {
-	// This tests the HTML escaping case mentioned in issue #120
-	// The subject should be properly escaped in HTML email
-	t.Skip("known bug #120: HTML characters in subject are not properly escaped in email")
-
-	user := &core.User{
-		ID:       "user-1",
-		Email:    "user@example.test",
-		Username: "alice",
-	}
-	connection := &core.User{
-		ID:       "user-2",
-		Email:    "connection@example.test",
-		Username: "bob",
-	}
-	post := &core.Post{
-		ID:      "post-1",
-		Subject: null.StringFrom(`Test <script>alert('xss')</script>`),
-		Body:    "This is a test post body",
-		UserID:  user.ID,
-	}
-
-	sender := fakesender.New()
-	ctx := context.Background()
-	mediaReplacer := func(in string) (bool, string) { return false, in }
-
-	err := mail.NewPost(ctx, nil, sender, mediaReplacer, user, connection, post)
-	require.NoError(t, err)
-
-	sent := sender.Sent()
-	require.Len(t, sent, 1)
-
-	require.NotContains(t, sent[0].Mail.Html, "<script>")
-	require.Contains(t, sent[0].Mail.Html, "&lt;script&gt;")
-}

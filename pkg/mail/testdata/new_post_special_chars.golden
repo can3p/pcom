@@ -15,7 +15,7 @@ Head to the post to leave a comment! /posts/post-1
 
 	<p>Hi!</p>
 
-	<p>@alice has published a new post "Test <b>bold</b> and "quotes""</p>
+	<p>@alice has published a new post "Test &lt;b&gt;bold&lt;/b&gt; and &#34;quotes&#34;"</p>
 
 	<blockquote><p>This is a test post body</p>
 </blockquote>

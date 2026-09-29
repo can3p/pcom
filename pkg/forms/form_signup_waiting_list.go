@@ -67,7 +67,9 @@ func (f *SignupWaitingListForm) Save(c context.Context, exec boil.ContextExecuto
 		panic(err)
 	}
 
-	admin.NotifyNewWaitingListMember(c, exec, f.Sender, &request)
+	if err := admin.NotifyNewWaitingListMember(c, exec, f.Sender, &request); err != nil {
+		return nil, err
+	}
 
 	return func(c *gin.Context, f forms.Form) {
 		c.HTML(http.StatusOK, "partial--added-to-waitlist.html", map[string]any{})

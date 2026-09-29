@@ -210,7 +210,9 @@ func main() {
 			userData := auth.GetUserData(c)
 			user := userData.DBUser
 
-			admin.NotifyPageFailure(c, db, sender, err, user)
+			if nerr := admin.NotifyPageFailure(c, db, sender, err, user); nerr != nil {
+				log.Printf("failed to queue the page failure notification: %v", nerr)
+			}
 		}))
 	} else {
 		log.Println("Custom error reporter skipped")
@@ -552,7 +554,12 @@ func main() {
 
 		dbPost := post.MustGet().Post.Post
 
-		dbPost.Body = markdown.ReplaceImageUrls(dbPost.Body, links.MediaReplacer)
+		body, err := markdown.ReplaceImageUrls(dbPost.Body, links.MediaReplacer)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err) //nolint:errcheck
+			return
+		}
+		dbPost.Body = body
 
 		serialized := postops.SerializePost(dbPost)
 		c.String(http.StatusOK, string(serialized))
@@ -745,7 +752,9 @@ func main() {
 			user.EmailConfirmedAt = null.TimeFrom(time.Now())
 			user.UpdateP(c, db, boil.Infer())
 
-			admin.NotifySignupConfirmed(c, db, sender, user)
+			if nerr := admin.NotifySignupConfirmed(c, db, sender, user); nerr != nil {
+				log.Printf("failed to queue the signup confirmed notification: %v", nerr)
+			}
 		}
 
 		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]any{
