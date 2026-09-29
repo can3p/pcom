@@ -155,7 +155,7 @@ func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	if err := validation.ValidateEnum(saveAction,
 		[]PostFormAction{PostFormActionSavePost, PostFormActionMakeDraft, PostFormActionPublish, PostFormActionDelete, PostFormActionAutosave},
 		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
-		f.AddError("visibility", err.Error())
+		f.AddError("save_action", err.Error())
 	}
 
 	if err := validation.ValidateEnum(f.Input.Visibility,
@@ -197,11 +197,12 @@ func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.For
 		saveAction = PostFormActionAutosave
 	}
 
-	if f.Post != nil && f.Input.SaveAction == PostFormActionDelete {
-		err := postops.DeletePost(c, exec, f.Post.ID)
-
-		if err != nil {
-			return nil, err
+	if f.Input.SaveAction == PostFormActionDelete {
+		// deleting a post that was never saved stores nothing
+		if f.Post != nil {
+			if err := postops.DeletePost(c, exec, f.Post.ID); err != nil {
+				return nil, err
+			}
 		}
 
 		return forms.FormSaveRedirect(links.Link("controls")), nil
