@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/mail"
+	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -27,6 +28,55 @@ func newInvitation(t *testing.T, ctx context.Context, db *sqlx.DB, userID string
 	t.Helper()
 
 	testutil.Must(factory.Invitation(ctx, db, userID))(t)
+}
+
+// TestSendInvite_Queue goes through the real email queue, which the fake
+// sender doesn't imitate: the queue drops a mail whose (type, unique key)
+// it has already seen.
+func TestSendInvite_Queue(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	queued := func(t *testing.T, db *sqlx.DB) []string {
+		t.Helper()
+		var to []string
+		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("user_invitation")))(t) {
+			to = append(to, string(e.Payload))
+		}
+
+		return to
+	}
+
+	t.Run("a plus address is invited although the plain one is registered", func(t *testing.T) {
+		t.Parallel()
+
+		db := testdb.New(t).DB
+		inviter := newUser(t, ctx, db)
+		newInvitation(t, ctx, db, inviter.ID)
+		testutil.Must(factory.User(ctx, db, factory.WithEmail("john.doe@mail.test")))(t)
+
+		require.NoError(t, mail.SendInvite(ctx, db, dbsender.NewSender(db, fakesender.New()), inviter, "john.doe+prefix@mail.test"))
+		to := queued(t, db)
+		require.Len(t, to, 1)
+		require.Contains(t, to[0], "john.doe+prefix@mail.test")
+	})
+
+	t.Run("every invitation from one user queues its own mail", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("known bug #167: invitation mails are keyed by the inviting user, so only the first is queued")
+
+		db := testdb.New(t).DB
+		inviter := newUser(t, ctx, db)
+		newInvitation(t, ctx, db, inviter.ID)
+		newInvitation(t, ctx, db, inviter.ID)
+		queue := dbsender.NewSender(db, fakesender.New())
+
+		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "first@example.test"))
+		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "second@example.test"))
+		to := queued(t, db)
+		require.Len(t, to, 2)
+		require.Contains(t, to[0]+to[1], "second@example.test")
+	})
 }
 
 func TestSendInvite(t *testing.T) {

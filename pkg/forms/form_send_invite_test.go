@@ -25,21 +25,30 @@ func TestSendInviteForm_Validate(t *testing.T) {
 		name         string
 		email        func(t *testing.T, inviter *core.User) string
 		wantErrField string
+		skip         string
 	}{
-		{"empty email", func(t *testing.T, inviter *core.User) string { return "" }, "email"},
-		{"invalid format", func(t *testing.T, inviter *core.User) string { return "not-an-email" }, "email"},
+		{"empty email", func(t *testing.T, inviter *core.User) string { return "" }, "email", ""},
+		{"invalid format", func(t *testing.T, inviter *core.User) string { return "not-an-email" }, "email", ""},
 		{"existing user", func(t *testing.T, inviter *core.User) string {
 			return testutil.Must(factory.User(ctx, db))(t).Email
-		}, "email"},
+		}, "email", ""},
 		{"success", func(t *testing.T, inviter *core.User) string {
 			testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
 			return "newinvitee@example.test"
-		}, ""},
+		}, "", ""},
+		{"address with a pending invitation", func(t *testing.T, inviter *core.User) string {
+			testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
+			testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("pending@example.test")))(t)
+			return "pending@example.test"
+		}, "email", "known bug #168: the same email address can be invited more than once"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			if tt.skip != "" {
+				t.Skip(tt.skip)
+			}
 
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
