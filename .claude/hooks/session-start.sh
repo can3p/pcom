@@ -10,6 +10,9 @@ fi
 
 log() { echo "session-start: $*" >&2; }
 
+# Set by Claude Code; derived from the script's location when run by hand.
+CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
 # libvips: pkg/media links govips through cgo, so nothing that imports it
 # (cmd/web, e2e) compiles without the headers.
 if ! pkg-config --exists vips 2>/dev/null; then
