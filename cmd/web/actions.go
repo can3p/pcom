@@ -240,7 +240,7 @@ func setupActions(r *gin.RouterGroup, db *sqlx.DB, mediaStorage server.MediaStor
 				core.PostWhere.UserID.EQ(dbUser.ID),
 				core.PostWhere.PublishedAt.IsNull(),
 				qm.For("Update"),
-			).One(c, db)
+			).One(c, tx)
 
 			if err != nil {
 				return err

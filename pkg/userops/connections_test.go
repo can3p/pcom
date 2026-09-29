@@ -2,6 +2,7 @@ package userops_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/model/core"
@@ -498,41 +499,105 @@ func TestDecideConnectionRequest(t *testing.T) {
 }
 
 // https://github.com/can3p/pcom/issues/117
-func TestDecideConnectionRequest_CannotBeDecidedTwice(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/117 - DecideConnectionRequest never checks TargetDecision IS NULL, so approve-then-reject (or the reverse) silently overwrites the first decision while the stale connection_id is left in place")
+func TestDecideRequest_CannotBeDecidedTwice(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	source, target := testutil.Must(factory.User(ctx, db))(t), testutil.Must(factory.User(ctx, db))(t)
-	req := testutil.Must(factory.MediationRequest(ctx, db, source.ID, target.ID))(t)
+	approve := core.ConnectionRequestDecisionApproved
+	dismiss := core.ConnectionRequestDecisionDismissed
 
-	require.NoError(t, userops.DecideConnectionRequest(ctx, db, target.ID, req.ID, core.ConnectionRequestDecisionApproved, ""))
+	cases := []struct {
+		name  string
+		first core.ConnectionRequestDecision
+		// second decision by the target, or a mediator's signature when nil
+		second *core.ConnectionRequestDecision
+	}{
+		{"approve then dismiss", approve, &dismiss},
+		{"dismiss then approve", dismiss, &approve},
+		{"approve then approve", approve, &approve},
+		{"approve then mediator signs", approve, nil},
+		{"dismiss then mediator signs", dismiss, nil},
+	}
 
-	// the request was already decided once: deciding it again must be refused.
-	err := userops.DecideConnectionRequest(ctx, db, target.ID, req.ID, core.ConnectionRequestDecisionDismissed, "")
-	require.Error(t, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			source, mediator, target := secondDegreeTrio(t, ctx, db)
+			require.NoError(t, userops.RequestMediation(ctx, db, source.ID, target.ID, ""))
+			req := testutil.Must(userops.GetMediationRequest(ctx, db, source.ID, target.ID))(t)
+
+			require.NoError(t, userops.DecideConnectionRequest(ctx, db, target.ID, req.ID, tc.first, ""))
+			before := testutil.Must(factory.GetMediationRequest(ctx, db, req.ID))(t)
+
+			var err error
+			if tc.second != nil {
+				err = userops.DecideConnectionRequest(ctx, db, target.ID, req.ID, *tc.second, "")
+			} else {
+				err = userops.DecideForwardMediationRequest(ctx, db, mediator.ID, req.ID, core.ConnectionMediationDecisionSigned, "")
+			}
+			require.ErrorContains(t, err, "No such request")
+
+			after := testutil.Must(factory.GetMediationRequest(ctx, db, req.ID))(t)
+			require.Equal(t, tc.first, after.TargetDecision.Val)
+			require.Equal(t, before.TargetDecidedAt, after.TargetDecidedAt)
+			require.Equal(t, before.ConnectionID, after.ConnectionID)
+			require.Equal(t, tc.first == approve, after.ConnectionID.Valid)
+
+			connected := testutil.Must(factory.ConnectionExists(ctx, db, source.ID, target.ID))(t)
+			require.Equal(t, tc.first == approve, connected)
+			require.Empty(t, testutil.Must(factory.ListMediatorDecisions(ctx, db, req.ID))(t))
+		})
+	}
 }
 
 // https://github.com/can3p/pcom/issues/117
-func TestDecideForwardMediationRequest_CannotSignAfterTargetDecided(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/117 - DecideForwardMediationRequest never checks whether the target already decided, so a mediator can still sign a closed request")
+func TestDecideConnectionRequest_ConcurrentDecisionsAreSerialized(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	source, mediator, target := secondDegreeTrio(t, ctx, db)
-	require.NoError(t, userops.RequestMediation(ctx, db, source.ID, target.ID, ""))
+	// several rounds make the race likely to show up without the guard
+	for range 10 {
+		source, target := testutil.Must(factory.User(ctx, db))(t), testutil.Must(factory.User(ctx, db))(t)
+		req := testutil.Must(factory.MediationRequest(ctx, db, source.ID, target.ID))(t)
 
-	req := testutil.Must(userops.GetMediationRequest(ctx, db, source.ID, target.ID))(t)
+		const runners = 2
+		start := make(chan struct{})
+		errs := make(chan error, runners)
 
-	require.NoError(t, userops.DecideConnectionRequest(ctx, db, target.ID, req.ID, core.ConnectionRequestDecisionApproved, ""))
+		var wg sync.WaitGroup
+		// approve and dismiss race: the duplicate-connection unique index would
+		// mask two approvals, but two different decisions must not both win.
+		for _, decision := range []core.ConnectionRequestDecision{core.ConnectionRequestDecisionApproved, core.ConnectionRequestDecisionDismissed} {
+			wg.Go(func() {
+				<-start
+				errs <- userops.DecideConnectionRequest(ctx, db, target.ID, req.ID, decision, "")
+			})
+		}
 
-	// the target already decided: the mediator's signature must be refused.
-	err := userops.DecideForwardMediationRequest(ctx, db, mediator.ID, req.ID, core.ConnectionMediationDecisionSigned, "")
-	require.Error(t, err)
+		close(start)
+		wg.Wait()
+		close(errs)
+
+		var failures int
+		for err := range errs {
+			if err != nil {
+				failures++
+			}
+		}
+		require.Equal(t, 1, failures, "exactly one of two racing decisions must be refused")
+
+		got := testutil.Must(factory.GetMediationRequest(ctx, db, req.ID))(t)
+		approved := got.TargetDecision.Val == core.ConnectionRequestDecisionApproved
+		require.Equal(t, approved, got.ConnectionID.Valid)
+
+		connected := testutil.Must(factory.ConnectionExists(ctx, db, source.ID, target.ID))(t)
+		require.Equal(t, approved, connected)
+	}
 }
 
 func TestIsConnectionAllowed(t *testing.T) {
