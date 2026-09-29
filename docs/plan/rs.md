@@ -7,6 +7,18 @@ database work: about 50 inline `core.*` queries in the handlers, 150 in
 them. RS puts every query behind a repository and every business rule into a
 service, so a handler only translates HTTP to a service call and back.
 
+**What R1 left** (2026-09-30): the routes are in `pkg/web/app`, one mount
+function per `routes_*.go` and `actions_*.go` file; `routes.go` only calls
+them. 15 JSON actions go through `jsonAction(d, fn)`, whose `fn` returns an
+error whose text the user sees verbatim (`userError` for sentences). Five
+don't fit it and still reply by hand: `generate_api_key` and
+`regenerate_feed_token` (no body), `upload_media` (its own JSON),
+`settings/export` (file stream), `settings/import` (form upload).
+`TestGuards_RouteTableMatchesSource` in `e2e/guards_test.go` finds routes by
+scanning those files by name, with each file's router-variable names: a task
+that adds, renames or deletes a route file updates its `prefixes` map (only
+the map; the coordinator does it, as in R1).
+
 This is also the seam that makes R5 cheap: once all SQL lives in `pkg/repo`,
 the bob migration rewrites one package, not the whole application.
 

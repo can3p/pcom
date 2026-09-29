@@ -138,3 +138,19 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Stop on a classifier outage.** When the safety check returns no verdict,
   retry once, then wait. Work a subagent finished during the outage gets the
   coordinator's own review before it is committed.
+- **A verbatim move is a script, not a task.** When the code to move is a
+  set of top-level blocks, cut them by line range and prove the move by
+  comparing the old and new files' line multisets: only the scaffolding may
+  differ. It is exact and costs a few coordinator turns; agents copying code
+  are neither (R1 step 2).
+- **Before a refactor wave, grep the tests for source reads.** A test that
+  opens `.go` files by path (R1's route-table guard) breaks on every move
+  and looks like a behavior change. Find them first and agree with the
+  owner what may be updated.
+- **A wrapper that rebinds input can change behavior silently.** Routing an
+  action with no request body through `BindJSON` would have added a new
+  error. List which handlers fit the wrapper's exact shape before
+  converting, and leave the rest.
+- **BSD `sed -i -E` leaves `<file>-E` backups.** On macOS it's `sed -i ''
+  -E`. Check `git status` for strays after a subagent, not only
+  `git diff --stat`, which doesn't show untracked files.
