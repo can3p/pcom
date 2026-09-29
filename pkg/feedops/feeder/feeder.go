@@ -81,6 +81,9 @@ func (f *Feeder) refreshFeeds(ctx context.Context) (err error) {
 	}()
 
 	feeds, err := GetFeedsToRefresh(ctx, f.db)
+	if err != nil {
+		return err
+	}
 
 	// transaction per feed to make sure
 	// we don't hammer all the feeds endlessly because of one bad actor

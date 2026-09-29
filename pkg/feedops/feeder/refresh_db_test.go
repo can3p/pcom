@@ -215,7 +215,7 @@ func TestRefreshFeeds(t *testing.T) {
 	})
 
 	t.Run("propagates a GetFeedsToRefresh error", func(t *testing.T) {
-		t.Skip("known bug: https://github.com/can3p/pcom/issues/116 - refreshFeeds discards the error from GetFeedsToRefresh and always returns nil")
+		t.Parallel()
 
 		db := testdb.New(t)
 
