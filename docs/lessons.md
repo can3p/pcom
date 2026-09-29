@@ -113,3 +113,28 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   and the fallback copied an unrelated backup of the same name from the shared
   temp directory over it. Back up an untracked file under a unique name in the
   session's scratchpad, or break it with an edit you revert with another edit.
+- **Ask what else a column feeds before normalizing it.** WB's migration
+  lowercased `users.email`, which a legacy password hash was salted with, and
+  would have locked users out. Before a data migration rewrites a column,
+  grep for everything derived from it: hashes, signatures, cache keys.
+- **An ordering test must insert against the grain.** Without a working
+  `ORDER BY`, Postgres returns rows in insertion order, so a test that
+  inserts in the expected order passes either way. UUID primary keys don't
+  order by time either. Now a ground rule in `docs/testing.md`.
+- **Host time zone can make a test unable to fail.** Timestamp columns have
+  no time zone (#171); on a host ahead of UTC every stored time reads back in
+  the future. Run mutation checks of time-comparing tests with `TZ=UTC`.
+- **A race test that passes three times proves nothing.** #141's test passed
+  with the fix removed. Make the race deterministic by acting inside the
+  exact window (an `htmx:afterSwap` listener), then check it fails.
+- **A fix that changes a shared format must list its readers.** Rehashing
+  on login broke change password, which read the same column. A bug-fix
+  task's report should name every other reader and writer of what it
+  changed; the WB preamble should ask for it.
+- **Subagents' shared-fixture edits break every package at once.** One
+  agent's half-written factory option stopped every other task's build and
+  the coordinator's mutation checks. Factory additions stay coordinator
+  work, or the task that needs one runs alone.
+- **Stop on a classifier outage.** When the safety check returns no verdict,
+  retry once, then wait. Work a subagent finished during the outage gets the
+  coordinator's own review before it is committed.
