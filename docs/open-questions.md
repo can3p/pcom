@@ -24,11 +24,6 @@ Raised by the 2026-09-21 modernization survey.
   instead? That decouples templates and services from the ORM, at the cost
   of mapping code. Deciding before R5 matters, because bob changes the
   generated types anyway (see `docs/plan/r5.md`).
-- **Q16. Delete on a post that was never saved.** `PostForm.Save` with
-  `save_action=delete` and no existing post falls through to the draft
-  path and stores a new draft (found by W2). Should it store nothing and
-  just leave the editor instead? W2's form tests don't pin either answer.
-
 ## Decided
 
 - **2026-09-28. Generator and migration tools stay out of `go.mod`:**
@@ -37,6 +32,9 @@ Raised by the 2026-09-21 modernization survey.
   runtime library in `go.mod` differ.
 - **2026-09-28. macOS is the primary development platform.** Local tooling
   and docs target Docker Desktop on macOS first.
+- **2026-09-28. Q16, delete on a post that was never saved:** nothing is
+  stored. Today a new draft is saved; filed as #163, pinned by a skipped
+  test, scheduled in WB.
 
 - **2026-09-21. Q2, the API deletes any post:** fixed right away in PR #118,
   outside the wave order.
