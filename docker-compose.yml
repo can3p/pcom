@@ -101,10 +101,16 @@ services:
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /src/cmd/web
     # PCOM_WATCH_POLL=<ms> switches watchexec to polling (see above).
+    # The app reads dist/manifest.json at startup and panics without it, while
+    # the assets service starts by deleting dist. So wait for the manifest, and
+    # restart on json changes too: every webpack rebuild rewrites the manifest
+    # with new hashes, and a stale one deleted under the app is replaced.
     command:
       - sh
       - -c
-      - exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md --ignore '**/node_modules/**' --restart -- go run .
+      - >-
+        until [ -f dist/manifest.json ]; do echo 'waiting for dist/manifest.json'; sleep 1; done;
+        exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md,json --ignore '**/node_modules/**' --restart -- go run .
     environment:
       DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
       SESSION_SALT: local-dev-session-salt-change-me
