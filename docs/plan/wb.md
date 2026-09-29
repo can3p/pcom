@@ -1,37 +1,31 @@
 ## WB — Bug-fix wave
 
 After the safety net is in place, and **before** any refactor, so that R1–R5
-stay pure refactors. There is one task per issue, each mid or cheap, and they
-are mostly parallel. #109 and #111 both touch `cmd/web/main.go`, so give them
-to one task. #114 and #119 both change the password hash, so they go together
-as well. Each fix removes the matching `t.Skip`, and that test is the proof.
+stay pure refactors. Each fix removes the matching `t.Skip`, and that test is
+the proof. Prompts come from `task_prompt.py wb <task>`, which pastes the
+row and each issue's text.
 
-| Issue | Summary | Notes |
-|---|---|---|
-| #108 | `ORDER BY ?` placeholder sorts nothing | 4 call sites |
-| #109 | Handlers keep running after redirect | `cmd/web/main.go`, `actions.go` |
-| #110 | Post zip export: anon panic, empty for non-authors, double close | decide: author-only? (Q7) |
-| #111 | `-html` flag unusable; cleanup deferred before err check | superseded by R2 if R2 comes first |
-| #112 | `log.Fatal` in the request path | return errors; touches every mail func |
-| #113 | `FOR UPDATE` outside the transaction | dbsender double-send |
-| #114 + #119 | Email case-sensitivity + argon2id with rehash-on-login | one task (strong): lowercase emails in a migration, verify legacy hashes against both the original and the lowercased email, then rehash to argon2id on login |
-| #115 | RSS endpoints return the wrong status codes | |
-| #116 | Feed poller swallows errors | |
-| #117 | Requests can be decided twice | |
-| #120 | Unescaped user content in HTML emails | quick `html.EscapeString` fix here; R4 makes it structural |
-| #121 | Private RSS URL carries the read/write API key | separate read-only feed token; needs a migration |
-| #122 | Session not rotated on login | small; with the auth work |
-| #151 | `/user-media/robots.txt` and `favicon.ico` 404 without a class segment | `cmd/web/main.go`, cheap; skipped `TestE1UserMediaSpecialFilesAtRoot` |
-| #152 | Malformed UUID in `/invite/:id` returns 500 | check the other UUID path params too; skipped `TestE3_InviteInvalidUUID` |
-| #154 | Unknown `/user-media` name returns 500 | `cmd/web/main.go` panics on not-found; skipped `TestE4_UploadImage_UnknownName` |
-| #156 | API `updated_since` is off by the server's UTC offset | `pkg/web/api.go`; skipped `TestApiGetPosts_UpdatedSince_Boundary` forces a non-UTC zone |
-| #157 | Invalid `save_action` reported under `visibility` | one-line key fix in `form_post_new.go`, cheap |
-| #158 | Waiting list stores the email as typed | same family as #114; store the normalized email |
-| #159 | User styles over the limit are saved | `Validate` returns nil after `AddError`, cheap |
-| #160 | `auth.Login` panics on a database error | return the error; with the auth work |
-| #163 | Delete on a never-saved post stores a draft | `PostForm.Save`, cheap (Q16) |
-| #167 | Only a user's first invitation email is ever sent | key the mail by `invite.ID`, not the inviter; skipped `TestSendInvite_Queue` goes through the real queue |
-| #168 | The same address can be invited more than once | decide reject vs resend; partial unique index on the lowercased pending address, with #114 |
+Tasks are grouped by the files they edit. `cmd/web/main.go` holds the routes,
+the RSS and zip handlers and several `log.Fatal`s, so one task per round owns
+it. Tasks that change `cmd/web/client/js` or `scss` never share a round,
+because assets are built once per round by the coordinator. Only D adds a
+column and regenerates models; B's and B2's migrations change data and
+indexes only.
+
+| Task | Round | Issues | Tier | Owns | Notes |
+|---|---|---|---|---|---|
+| A | 1 | #109, #111, #139, #151, #152, #154 | mid | `cmd/web/main.go`, `cmd/web/actions.go`, `cmd/web/client/html/` for #139, their skipped tests in `e2e/` and `e2e/browser` | #111 is superseded by R2 but cheap now; #152: check the other UUID path params too |
+| B | 1 | #114 + #119, #122, #160 | strong | `pkg/auth`, `pkg/pgsession`, `pkg/forms/form_login.go`, `pkg/mail/valid.go`, one migration, their tests | lowercase emails in a migration; verify legacy hashes against both the original and the lowercased email, then rehash to argon2id on login; rotate the session on login; `Login` returns DB errors |
+| G | 1 | #108 | cheap | `pkg/postops/post_prompts.go`, `pkg/web/func.go`, the other `ORDER BY ?` call sites, their tests | 4 call sites |
+| H | 1 | #116 | cheap | `pkg/feedops/feeder/feeder.go`, its tests | |
+| I | 1 | #156 | cheap | `pkg/web/api.go`, `pkg/web/api_test.go` | the skipped test forces a non-UTC zone |
+| J | 1 | #141, #142, #143, #157, #163 | mid | `pkg/forms/form_post_new.go`, `pkg/forms/validation/fields.go`, `cmd/web/client/html/form--post.html`, the post editor's Stimulus controller, their tests in `pkg/forms` and `e2e/browser/writing_test.go` | browser tests; #163 per Q16: delete on a never-saved post stores nothing |
+| K | 1 | #147, #148, #159 | cheap | `pkg/media/upload.go`, `pkg/forms/validation/email.go`, `pkg/forms/form_user_styles.go`, `pkg/forms/form_signup.go`, their tests | |
+| B2 | 2 (after B) | #158, #167, #168 | mid | `pkg/forms/form_signup_waiting_list.go`, `pkg/forms/form_send_invite.go`, `pkg/mail/invite.go`, one migration, their tests | #167: key the mail by `invite.ID`; #168: reject a second pending invite for the same address, with a partial unique index on the lowercased pending address |
+| D | 2 (after A) | #110, #115, #121 | mid | `cmd/web/main.go`, `pkg/postops/export.go`, `pkg/links`, the settings page showing the private RSS URL, one migration, regenerated models, their tests | #110 per Q7: anyone who can see the post may export it; #121: a separate read-only feed token |
+| F | 2 (after A) | #113, #117 | mid | `pkg/mail/sender/dbsender`, `pkg/userops/connections.go`, `cmd/web/actions.go` call sites, their tests | locks inside the transaction; a decided request can't be decided again |
+| L | 2 (after J) | #140 | cheap | the navbar template and its JS/SCSS, `e2e/browser/navigation_test.go` | CSP style-src-attr on the mobile menu |
+| C | 3 (after B2, D) | #112, #120 | mid | `pkg/mail`, `pkg/admin`, `pkg/markdown/modify.go`, the `log.Fatal`s in `cmd/web/main.go`, their tests | return errors; #120: `html.EscapeString` now, R4 makes it structural |
 
 **Future, not part of WB:** #123 (re-enable signups with bot protection;
 signups are off on purpose) and #124 (feed and explore pagination). Both come
@@ -40,7 +34,7 @@ in place first.
 
 ### Known bugs (for de-duplication)
 
-Filed: #108–#117, #119–#124, #147, #148, #151, #152, #154, #156–#160, #163, #167 and #168. Already fixed:
+Filed: #108–#117, #119–#124, #139–#143, #147, #148, #151, #152, #154, #156–#160, #163, #167 and #168. Already fixed:
 the foreign-post delete through `DELETE /api/v1/posts/:id`, in PR #118
 (merged); W2.D3 and W3.E4 test the ownership check as a normal, non-skipped
 test. Drafts served to non-authors at `/posts/:id` (found by W3.E1) are fixed

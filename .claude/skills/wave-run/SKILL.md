@@ -41,8 +41,11 @@ chosen by wave:
 - **Test waves** (W0–W5): read only `docs/testing.md`; LSP, the `model-shape` and `test-failure` skills;
   quiet `make` targets; the 12-line report.
 - **W6**: the same, but tests run through `make test-ui` and compile with `TAGS=browser`.
-- **R-waves, RS and WB**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
+- **R-waves and RS**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
   their assertions, and the layering rules apply.
+- **WB**: a bug-fix preamble. Each task fixes the issues in its row, removes their `t.Skip`s (in `e2e/` too)
+  and changes no other assertion. The builder pastes each issue's title and body from `gh`, so subagents
+  need no GitHub access.
 
 W4's tooling tasks use the test preamble with its first line and "Test only" line adjusted by hand.
 
