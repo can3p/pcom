@@ -2,11 +2,13 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -15,6 +17,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
 	"github.com/stretchr/testify/require"
+	"github.com/volatiletech/null/v8"
 )
 
 func TestSignup_InsertsUnconfirmedUserAndNotifiesAdmin(t *testing.T) {
@@ -421,4 +424,83 @@ func TestAuthAPI_KnownKeySetsUser(t *testing.T) {
 	got := pgsession.GetUser(c)
 	require.NotNil(t, got)
 	require.Equal(t, user.ID, got.DBUser.ID)
+}
+
+func TestLogin_AccountWithoutPasswordIsSkipped(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	noPassword := func(u *core.User) { u.Pwdhash = null.String{} }
+
+	cases := []struct {
+		name     string
+		withReal bool
+		wantErr  bool
+	}{
+		{name: "real account sharing the email wins", withReal: true},
+		{name: "account without a password alone cannot log in", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			email := strings.ReplaceAll(tc.name, " ", "-") + "@x.test"
+			// created first, so it is tried first
+			testutil.Must(factory.User(ctx, db, factory.WithEmail(strings.ToUpper(email)), noPassword))(t)
+
+			var realID string
+			if tc.withReal {
+				realID = testutil.Must(factory.User(ctx, db, factory.WithEmail(email), factory.WithPassword("real-pw")))(t).ID
+			}
+
+			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+			err := auth.Login(c, db, email, "real-pw")
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, realID, sessions.Default(c).Get("user"))
+		})
+	}
+}
+
+func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	boom := errors.New("smtp down")
+
+	cases := []struct {
+		name string
+		run  func(s *fakesender.Sender) error
+	}{
+		{name: "signup", run: func(s *fakesender.Sender) error {
+			_, err := auth.Signup(ctx, db, s, "fail-signup@x.test", "failsignup", "s3cr3t-pw", "")
+			return err
+		}},
+		{name: "accept invite", run: func(s *fakesender.Sender) error {
+			inviter := testutil.Must(factory.User(ctx, db))(t)
+			invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("fail-invitee@x.test")))(t)
+
+			return auth.AcceptInvite(ctx, db, s, invite, "failinvitee", "s3cr3t-pw")
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := fakesender.New()
+			s.FailWith(boom)
+
+			require.ErrorIs(t, tc.run(s), boom)
+		})
+	}
 }
