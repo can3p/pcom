@@ -211,6 +211,11 @@ func TestSmoke_ActionButton(t *testing.T) {
 `cover-q`, `fix-q` and `lint-q` (see `AGENTS.md`) are for agents, narrow with `PKG=./pkg/links/...` and take build tags with
 `TAGS=browser`. The browser targets are `ui-deps`, `test-ui` and `ui-trace` (above).
 
+CI enforces a coverage ratchet: after `make cover`, `make cover-check` fails if total coverage (excluding
+`pkg/model/core`) or one of the critical packages drops below its floor in `tools/coverage-floors.txt`. Floors
+are the merged numbers minus 1% and only ever rise: after raising coverage, run `make cover` and set the new
+percentage minus 1.
+
 ## Claude Code on the web
 
 Cloud sessions get a fresh container that lacks some of what the tests need. The SessionStart hook

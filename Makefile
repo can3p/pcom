@@ -1,4 +1,4 @@
-.PHONY: shell tunnel lint test test-short cover build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace \
+.PHONY: shell tunnel lint test test-short cover cover-check build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace \
 	dev-up dev dev-logs dev-down migrate migrate-status migrate-down migration generate psql db-reset seed seed-reset \
 	tools-shell migrate-prod
 
@@ -35,6 +35,9 @@ cover:
 	@GOCOVERDIR=$(COVDIR) go test -cover ./... -args -test.gocoverdir=$(COVDIR)
 	@go tool covdata percent -i=$(COVDIR) | perl -pe 's/\t\t\t/\n/g' | grep "coverage:" | grep -v github.com/can3p/pcom/pkg/model/core
 	@go tool covdata textfmt -i=$(COVDIR) -o coverage.out
+
+cover-check:
+	@bash tools/coverage-check.sh
 
 build:
 	go build -v ./...
