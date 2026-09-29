@@ -68,7 +68,7 @@ happen is tested in the browser, never over plain HTTP.
    are rows of one table-driven test with `t.Run`, not one function each. A
    table test opens one database at the top, and each row makes its own
    users with the factory, so rows can run in parallel. Create fixtures in
-   one line with `testutil.Must(t, factory.User(ctx, db))`. Setup that
+   one line with `testutil.Must(factory.User(ctx, db))(t)`. Setup that
    several tests of a file repeat goes into one small helper in that file.
    No comments that restate the test name, and no separate tests for trivial
    variations.
@@ -101,7 +101,7 @@ improvised inline. `pkg/feedops/testutil` is legacy: don't use it in new tests.
 
 ## Fakes and other helpers
 
-- **`testutil.Must(t, v, err)`** (`pkg/testutil`) - returns `v`, or fails the test immediately if `err != nil`; for one-line fixture setup.
+- **`testutil.Must(v, err)(t)`** (`pkg/testutil`) - returns `v`, or fails the test immediately if `err != nil`; for one-line fixture setup such as `testutil.Must(factory.User(ctx, db))(t)`.
 - **`fakesender.New()`** (`pkg/testutil/fakesender`) - a `sender.Sender` that records every `Send` instead of delivering it. `Sent()` returns what was recorded; `FailWith(err)` makes `Send` fail instead (`nil` resumes recording).
 - **`fakestorage.New()`** (`pkg/testutil/fakestorage`) - an in-memory `pkg/media/server.MediaStorage`. `FailUploadWith`, `FailDownloadWith` and `FailExistsWith(err)` inject an error into the matching call.
 - **`ginctx.New(t, method, target, body, opts...)`** (`pkg/testutil/ginctx`) - a `*gin.Context` wired like a real request (cookie session under `"sess"`), plus its `*httptest.ResponseRecorder`. Options: `ginctx.WithUser(t, db, userID)`, `ginctx.WithCSPNonces(style, script)`.

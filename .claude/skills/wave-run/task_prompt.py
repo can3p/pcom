@@ -39,7 +39,7 @@ Code you can't reach goes in your report, not in a placeholder test. A test must
 behavior it names breaks: `NotNil` on a returned action, "no error", or reading back the object you just
 built proves nothing, so assert the stored row, the mail sent, the redirect. Keep tests compact (ground
 rule 9 in docs/testing.md): cases of one shape are rows of a table test, fixtures are one-line
-testutil.Must calls, and repeated setup is one helper per file.
+`testutil.Must(factory.User(ctx, db))(t)` calls, and repeated setup is one helper per file.
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 {testcmd}{nodb}
 Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then

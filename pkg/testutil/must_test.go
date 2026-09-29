@@ -12,7 +12,7 @@ import (
 func TestMust_PassesThroughOnSuccess(t *testing.T) {
 	t.Parallel()
 
-	got := testutil.Must(t, 42, nil)
+	got := testutil.Must(42, nil)(t)
 	require.Equal(t, 42, got)
 }
 
@@ -24,7 +24,7 @@ func TestMust_FailsTestOnError(t *testing.T) {
 
 	go func() {
 		defer close(done)
-		testutil.Must(ft, 0, errors.New("boom"))
+		testutil.Must(0, errors.New("boom"))(ft)
 		ft.reachedAfter = true
 	}()
 	<-done
