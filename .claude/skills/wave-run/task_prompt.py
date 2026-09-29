@@ -6,7 +6,9 @@ Usage: task_prompt.py <wave> <task> [<task> ...]
        task_prompt.py w4 S1
 
 The task's "### <task>" section and its table row (with the table header) are pasted in verbatim, so the
-subagent never opens the wave file. The section holds the spec; the row adds the tier and ownership. The first line of each prompt, starting with "#", is for the coordinator:
+subagent never opens the wave file. The section holds the spec; the row adds the tier and ownership. A wave
+written as bold bullets (`- **Step 1** ...`, as r1.md) gets its intro, the task's bullet and the non-task bullets
+(`**Invariant**`), not the sibling steps. The first line of each prompt, starting with "#", is for the coordinator:
 the Agent tool `model` to use. Anything the script can't infer is left as <FILL: ...>; fill it in before
 dispatching.
 """
@@ -75,14 +77,21 @@ Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the 
 Behavior must not change: the E2E tests (e2e/), the browser tests (e2e/browser) and the seed crawl are not
 edited. A test you move may change its call site but not its assertions. If an assertion has to change,
 stop and report it.
-Layering: handlers bind input, call one service method and render; services hold rules, authorization
-and transactions; every query lives in pkg/repo. Remove your area's entries from the pkg/arch allowlist.
+{layering}
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end.
 Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
 `make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
 Done when: tests pass and {done}.
 {report}"""
+
+LAYERING_RS = """\
+Layering: handlers bind input, call one service method and render; services hold rules, authorization
+and transactions; every query lives in pkg/repo. Remove your area's entries from the pkg/arch allowlist."""
+LAYERING_MOVE = """\
+Layering: move code, don't restructure it. Code keeps its queries and logic verbatim in its new place; don't
+extract services or repositories unless the task says so. Never add a query to a handler, and never grow the
+pkg/arch allowlist if it exists."""
 
 # The bug-fix wave changes behavior on purpose, one issue at a time; the skipped test is the proof.
 BUGFIX_TEMPLATE = """\
@@ -164,6 +173,35 @@ def from_section(lines, task):
     return None
 
 
+def bullets(lines):
+    """Yield (label, lines) for each top-level '- **Label** ...' bullet, continuation lines included."""
+    item = None
+    for line in lines:
+        m = re.match(r"- \*\*(.+?)\*\*", line)
+        if m or (item and (not line.strip() or not line.startswith("  "))):
+            if item:
+                yield item
+            item = (m.group(1).rstrip(":"), [line]) if m else None
+        elif item:
+            item[1].append(line)
+    if item:
+        yield item
+
+
+def from_bullet(lines, task):
+    """For waves written as '- **Step 1** ...' bullets: the wave's intro (everything before the first bullet),
+    the task's bullet, and the bullets that aren't sibling tasks (an **Invariant**, say)."""
+    items = list(bullets(lines))
+    if not any(label == task for label, _ in items):
+        return None
+    sibling = re.compile(re.sub(r"\d+", r"\\d+", re.escape(task)) + "$")
+    first = next(i for i, line in enumerate(lines) if re.match(r"- \*\*", line))
+    intro = "\n".join(lines[:first]).strip()
+    keep = ["\n".join(body).rstrip() for label, body in items if label == task or not sibling.match(label)]
+    own = next("\n".join(body) for label, body in items if label == task)
+    return "\n\n".join([intro, "\n".join(keep)]), own
+
+
 def from_paragraph(text, task):
     paras = [p for p in text.split("\n\n") if f"**{task}**" in p]
     return "\n\n".join(paras) or None
@@ -175,7 +213,10 @@ def build(wave, task):
     lines = text.splitlines()
     row, fields = from_table(lines, task)
     section = from_section(lines, task)
-    excerpt = "\n\n".join(x for x in (section, row) if x) or from_paragraph(text, task)
+    excerpt = "\n\n".join(x for x in (section, row) if x)
+    own = None  # for a bullet task, only its own bullet names its packages, not the wave's intro
+    if not excerpt:
+        excerpt, own = from_bullet(lines, task) or (from_paragraph(text, task), None)
     if excerpt is None:
         sys.exit(f"task {task} not found in {path.relative_to(ROOT)}")
 
@@ -187,7 +228,7 @@ def build(wave, task):
         tier = m.group(1) if m else ""
     m = re.search(r"\bOwns (.+?)\.(?=\s|\||$)", excerpt, re.S)
     owned = m.group(1).strip() if m else fields.get("owns")
-    where = owned or next((v for k, v in fields.items() if k.startswith("package")), excerpt)
+    where = owned or next((v for k, v in fields.items() if k.startswith("package")), own or excerpt)
     pkgs = [p for p in re.findall(r"`((?:pkg|cmd|e2e)/[\w/.-]+)`", where)
             if not p.startswith("cmd/web/client") and not re.search(r"\.(?!go$)\w+$", p)]
     dirs = [p.rsplit("/", 1)[0] if p.endswith(".go") else p.rstrip("/") for p in pkgs]
@@ -214,8 +255,12 @@ def build(wave, task):
                                       owns=owned or "<FILL: owned files>", issues=issue_bodies(excerpt),
                                       done=fields.get("done when") or "no other test changed")
     elif wave.lower().startswith("r"):
+        dirs = [d for d in dirs if not d.startswith("e2e")]  # the preamble runs e2e once at the end
+        pkg = " ".join(f"./{d}/..." for d in dirs) or "<FILL: ./pkg/x/...>"
+        pkg = f'"{pkg}"' if len(dirs) > 1 else pkg
         body = REFACTOR_TEMPLATE.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done,
-                                        report=REPORT, owns="<FILL: the task's repo/service/handler files>")
+                                        report=REPORT, owns=owned or "<FILL: the task's owned files>",
+                                        layering=LAYERING_RS if wave.lower() == "rs" else LAYERING_MOVE)
     else:
         browser = wave.lower() == "w6"
         if browser:
