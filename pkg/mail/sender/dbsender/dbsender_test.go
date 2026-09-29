@@ -10,11 +10,14 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 // panicSender is a sender.Sender that always panics: it stands in for a real
@@ -24,6 +27,30 @@ type panicSender struct{}
 
 func (panicSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, m *sender.Mail) error {
 	panic("boom")
+}
+
+// newOutgoingEmail and trySend and listOutgoing wrap the setup this file
+// repeats, so each test case reads as one line.
+func newOutgoingEmail(t *testing.T, ctx context.Context, db *sqlx.DB) *core.OutgoingEmail {
+	t.Helper()
+
+	return testutil.Must(factory.OutgoingEmail(ctx, db, "welcome"))(t)
+}
+
+// trySend runs trySendEmail in its own committed transaction, the way the
+// poller does, and fails the test immediately on any error.
+func trySend(t *testing.T, ctx context.Context, m *dbSender, db *sqlx.DB, outgoing *core.OutgoingEmail) {
+	t.Helper()
+
+	tx := testutil.Must(db.Begin())(t)
+	require.NoError(t, m.trySendEmail(ctx, tx, outgoing))
+	require.NoError(t, tx.Commit())
+}
+
+func listOutgoing(t *testing.T, ctx context.Context, db *sqlx.DB, mods ...qm.QueryMod) core.OutgoingEmailSlice {
+	t.Helper()
+
+	return testutil.Must(factory.ListOutgoingEmails(ctx, db, mods...))(t)
 }
 
 func TestSend_IdempotentOnEmailTypeAndUniqueID(t *testing.T) {
@@ -43,228 +70,205 @@ func TestSend_IdempotentOnEmailTypeAndUniqueID(t *testing.T) {
 	require.NoError(t, s.Send(ctx, db, "unique-1", "welcome", m))
 	require.NoError(t, s.Send(ctx, db, "unique-1", "welcome", m))
 
-	rows, err := factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("welcome"))
-	require.NoError(t, err)
+	rows := listOutgoing(t, ctx, db, core.OutgoingEmailWhere.EmailType.EQ("welcome"))
 	require.Len(t, rows, 1, "sending the same (email_type, unique_id) twice must not queue a second row")
 
 	// A different unique_id for the same email_type is a distinct email.
 	require.NoError(t, s.Send(ctx, db, "unique-2", "welcome", m))
 
-	rows, err = factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("welcome"))
-	require.NoError(t, err)
+	rows = listOutgoing(t, ctx, db, core.OutgoingEmailWhere.EmailType.EQ("welcome"))
 	require.Len(t, rows, 2)
 }
 
-func TestTrySendEmail_RetrySchedule(t *testing.T) {
+func TestTrySendEmail(t *testing.T) {
 	t.Parallel()
 
-	testDB := testdb.New(t)
-	db := testDB.DB
+	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	real := fakesender.New()
-	m := NewSender(db, real)
+	t.Run("retry schedule", func(t *testing.T) {
+		t.Parallel()
 
-	outgoing, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
-	require.Equal(t, 0, outgoing.AttemptsNumber)
+		real := fakesender.New()
+		m := NewSender(db, real)
 
-	real.FailWith(errors.New("smtp down"))
+		outgoing := newOutgoingEmail(t, ctx, db)
+		require.Equal(t, 0, outgoing.AttemptsNumber)
 
-	// Attempts 1 through attemptsNumber fail and reschedule with the
-	// matching interval, keeping the email in the New status.
-	for i := range attemptsNumber {
-		tx, err := db.Begin()
-		require.NoError(t, err)
+		real.FailWith(errors.New("smtp down"))
 
-		require.NoError(t, m.trySendEmail(ctx, tx, outgoing))
-		require.NoError(t, tx.Commit())
+		// Attempts 1 through attemptsNumber fail and reschedule with the
+		// matching interval, keeping the email in the New status.
+		for i := range attemptsNumber {
+			trySend(t, ctx, m, db, outgoing)
 
-		require.Equal(t, i+1, outgoing.AttemptsNumber, "attempt %d", i+1)
-		require.Equal(t, core.OutgoingEmailStatusNew, outgoing.Status, "attempt %d", i+1)
-		require.WithinDuration(t, time.Now().Add(retryIntervals[i]), outgoing.TryAt, 5*time.Second, "attempt %d", i+1)
-	}
+			require.Equal(t, i+1, outgoing.AttemptsNumber, "attempt %d", i+1)
+			require.Equal(t, core.OutgoingEmailStatusNew, outgoing.Status, "attempt %d", i+1)
+			require.WithinDuration(t, time.Now().Add(retryIntervals[i]), outgoing.TryAt, 5*time.Second, "attempt %d", i+1)
+		}
 
-	// One more failure past attemptsNumber gives up for good.
-	tx, err := db.Begin()
-	require.NoError(t, err)
+		// One more failure past attemptsNumber gives up for good.
+		trySend(t, ctx, m, db, outgoing)
 
-	require.NoError(t, m.trySendEmail(ctx, tx, outgoing))
-	require.NoError(t, tx.Commit())
+		require.Equal(t, core.OutgoingEmailStatusFailed, outgoing.Status)
+		require.Equal(t, attemptsNumber, outgoing.AttemptsNumber)
+		require.Empty(t, real.Sent(), "the real sender never succeeded, so nothing should be recorded as sent")
+	})
 
-	require.Equal(t, core.OutgoingEmailStatusFailed, outgoing.Status)
-	require.Equal(t, attemptsNumber, outgoing.AttemptsNumber)
-	require.Empty(t, real.Sent(), "the real sender never succeeded, so nothing should be recorded as sent")
+	t.Run("marks sent on success", func(t *testing.T) {
+		t.Parallel()
+
+		real := fakesender.New()
+		m := NewSender(db, real)
+
+		outgoing := newOutgoingEmail(t, ctx, db)
+
+		trySend(t, ctx, m, db, outgoing)
+
+		require.Equal(t, core.OutgoingEmailStatusSent, outgoing.Status)
+		require.True(t, outgoing.SentAt.Valid)
+		require.WithinDuration(t, time.Now(), outgoing.SentAt.Time, 5*time.Second)
+
+		sent := real.Sent()
+		require.Len(t, sent, 1)
+		require.Equal(t, outgoing.UniqueID, sent[0].UniqueID)
+		require.Equal(t, "welcome", sent[0].EmailType)
+	})
+
+	t.Run("rejects undecodable payload", func(t *testing.T) {
+		t.Parallel()
+
+		// An email whose payload isn't valid JSON is rejected before anything
+		// touches the database, so this needs neither a real db nor a tx.
+		m := NewSender(nil, fakesender.New())
+		outgoing := &core.OutgoingEmail{
+			ID:      "not-persisted",
+			Payload: []byte("not-json"),
+		}
+
+		require.Error(t, m.trySendEmail(ctx, nil, outgoing))
+	})
 }
 
-func TestTrySendEmail_MarksSentOnSuccess(t *testing.T) {
+// TestSendEmails's subtests share one database but run one at a time: unlike
+// trySendEmail, sendEmails scans the whole outgoing_emails table, so two
+// subtests racing in parallel could pick up each other's rows.
+func TestSendEmails(t *testing.T) {
 	t.Parallel()
 
-	testDB := testdb.New(t)
-	db := testDB.DB
+	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	real := fakesender.New()
-	m := NewSender(db, real)
+	t.Run("processes pending and updates status", func(t *testing.T) {
+		real := fakesender.New()
+		m := NewSender(db, real)
 
-	outgoing, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
+		outgoing := newOutgoingEmail(t, ctx, db)
 
-	tx, err := db.Begin()
-	require.NoError(t, err)
+		require.NoError(t, m.sendEmails(ctx))
 
-	require.NoError(t, m.trySendEmail(ctx, tx, outgoing))
-	require.NoError(t, tx.Commit())
+		rows := listOutgoing(t, ctx, db, core.OutgoingEmailWhere.ID.EQ(outgoing.ID))
+		require.Len(t, rows, 1)
+		require.Equal(t, core.OutgoingEmailStatusSent, rows[0].Status)
+		require.Len(t, real.Sent(), 1)
+	})
 
-	require.Equal(t, core.OutgoingEmailStatusSent, outgoing.Status)
-	require.True(t, outgoing.SentAt.Valid)
-	require.WithinDuration(t, time.Now(), outgoing.SentAt.Time, 5*time.Second)
+	t.Run("no pending emails is a noop", func(t *testing.T) {
+		setup := fakesender.New()
+		setupSender := NewSender(db, setup)
 
-	sent := real.Sent()
-	require.Len(t, sent, 1)
-	require.Equal(t, outgoing.UniqueID, sent[0].UniqueID)
-	require.Equal(t, "welcome", sent[0].EmailType)
-}
+		// Already sent: must not be retried.
+		sentEmail := newOutgoingEmail(t, ctx, db)
+		trySend(t, ctx, setupSender, db, sentEmail)
+		require.Equal(t, core.OutgoingEmailStatusSent, sentEmail.Status)
 
-func TestSendEmails_ProcessesPendingAndUpdatesStatus(t *testing.T) {
-	t.Parallel()
+		// Exhausted its attempts: must not be retried either.
+		failedEmail := newOutgoingEmail(t, ctx, db)
+		setup.FailWith(errors.New("smtp down"))
+		for range attemptsNumber + 1 {
+			trySend(t, ctx, setupSender, db, failedEmail)
+		}
+		require.Equal(t, core.OutgoingEmailStatusFailed, failedEmail.Status)
 
-	testDB := testdb.New(t)
-	db := testDB.DB
-	ctx := context.Background()
+		// A failed attempt reschedules the retry into the future: not due yet.
+		futureEmail := newOutgoingEmail(t, ctx, db)
+		trySend(t, ctx, setupSender, db, futureEmail)
+		require.Equal(t, core.OutgoingEmailStatusNew, futureEmail.Status)
+		require.True(t, futureEmail.TryAt.After(time.Now()), "a failed attempt should reschedule the email into the future")
+		setup.FailWith(nil)
 
-	real := fakesender.New()
-	m := NewSender(db, real)
+		real := fakesender.New()
+		m := NewSender(db, real)
 
-	outgoing, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
+		require.NoError(t, m.sendEmails(ctx))
 
-	require.NoError(t, m.sendEmails(ctx))
+		require.Empty(t, real.Sent(), "sendEmails must not touch sent, failed or not-yet-due rows")
 
-	rows, err := factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.ID.EQ(outgoing.ID))
-	require.NoError(t, err)
-	require.Len(t, rows, 1)
-	require.Equal(t, core.OutgoingEmailStatusSent, rows[0].Status)
+		rows := listOutgoing(t, ctx, db)
+		byID := map[string]*core.OutgoingEmail{}
+		for _, r := range rows {
+			byID[r.ID] = r
+		}
+		require.Equal(t, core.OutgoingEmailStatusSent, byID[sentEmail.ID].Status, "a sent email's status must not change")
+		require.Equal(t, core.OutgoingEmailStatusFailed, byID[failedEmail.ID].Status, "a failed email's status must not change")
+		require.Equal(t, core.OutgoingEmailStatusNew, byID[futureEmail.ID].Status, "a not-yet-due email's status must not change")
+	})
 
-	require.Len(t, real.Sent(), 1)
-}
+	t.Run("recovers from real sender panic", func(t *testing.T) {
+		m := NewSender(db, panicSender{})
 
-func TestSendEmails_NoPendingEmailsIsANoop(t *testing.T) {
-	t.Parallel()
+		newOutgoingEmail(t, ctx, db)
 
-	testDB := testdb.New(t)
-	db := testDB.DB
-	ctx := context.Background()
+		err := m.sendEmails(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "sendEmails panicked")
+	})
 
-	setup := fakesender.New()
-	setupSender := NewSender(db, setup)
+	t.Run("concurrent runs send once", func(t *testing.T) {
+		t.Skip("known bug #113: FOR UPDATE row locks run outside the transaction, so dbsender can double-send")
 
-	// Already sent: must not be retried.
-	sentEmail, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
-	tx, err := db.Begin()
-	require.NoError(t, err)
-	require.NoError(t, setupSender.trySendEmail(ctx, tx, sentEmail))
-	require.NoError(t, tx.Commit())
-	require.Equal(t, core.OutgoingEmailStatusSent, sentEmail.Status)
+		real := newBlockingSender()
+		m := NewSender(db, real)
 
-	// Exhausted its attempts: must not be retried either.
-	failedEmail, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
-	setup.FailWith(errors.New("smtp down"))
-	for range attemptsNumber + 1 {
-		tx, err := db.Begin()
-		require.NoError(t, err)
-		require.NoError(t, setupSender.trySendEmail(ctx, tx, failedEmail))
-		require.NoError(t, tx.Commit())
-	}
-	require.Equal(t, core.OutgoingEmailStatusFailed, failedEmail.Status)
+		newOutgoingEmail(t, ctx, db)
 
-	// A failed attempt reschedules the retry into the future: not due yet.
-	futureEmail, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
-	tx, err = db.Begin()
-	require.NoError(t, err)
-	require.NoError(t, setupSender.trySendEmail(ctx, tx, futureEmail))
-	require.NoError(t, tx.Commit())
-	require.Equal(t, core.OutgoingEmailStatusNew, futureEmail.Status)
-	require.True(t, futureEmail.TryAt.After(time.Now()), "a failed attempt should reschedule the email into the future")
-	setup.FailWith(nil)
+		// Two sendEmails runs race over the same pending row. Correct behavior
+		// is that the SELECT ... FOR UPDATE SKIP LOCKED runs inside the same
+		// transaction that later updates the row, so only one of the two racing
+		// runs can claim it and the real sender is invoked exactly once. The
+		// blockingSender forces both runs to actually reach the real sender
+		// before either completes, so the double send happens deterministically
+		// while the bug exists instead of only when the runs happen to race.
+		const runners = 2
+		start := make(chan struct{})
+		errs := make(chan error, runners)
 
-	real := fakesender.New()
-	m := NewSender(db, real)
+		var wg sync.WaitGroup
+		for range runners {
+			wg.Go(func() {
+				<-start
+				errs <- m.sendEmails(ctx)
+			})
+		}
 
-	require.NoError(t, m.sendEmails(ctx))
+		close(start)
+		wg.Wait()
+		close(errs)
 
-	require.Empty(t, real.Sent(), "sendEmails must not touch sent, failed or not-yet-due rows")
+		for err := range errs {
+			require.NoError(t, err)
+		}
 
-	rows, err := factory.ListOutgoingEmails(ctx, db)
-	require.NoError(t, err)
-	byID := map[string]*core.OutgoingEmail{}
-	for _, r := range rows {
-		byID[r.ID] = r
-	}
-	require.Equal(t, core.OutgoingEmailStatusSent, byID[sentEmail.ID].Status, "a sent email's status must not change")
-	require.Equal(t, core.OutgoingEmailStatusFailed, byID[failedEmail.ID].Status, "a failed email's status must not change")
-	require.Equal(t, core.OutgoingEmailStatusNew, byID[futureEmail.ID].Status, "a not-yet-due email's status must not change")
-}
-
-func TestTrySendEmail_RejectsUndecodablePayload(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	m := NewSender(nil, fakesender.New())
-
-	// An email whose payload isn't valid JSON is rejected before anything
-	// touches the database, so this needs neither a real db nor a tx.
-	outgoing := &core.OutgoingEmail{
-		ID:      "not-persisted",
-		Payload: []byte("not-json"),
-	}
-
-	err := m.trySendEmail(ctx, nil, outgoing)
-	require.Error(t, err)
-}
-
-func TestRunPoller_SendsPendingAndStopsOnContextCancel(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	db := testDB.DB
-	ctx, cancel := context.WithCancel(context.Background())
-
-	real := fakesender.New()
-	m := NewSender(db, real)
-
-	_, err := factory.OutgoingEmail(context.Background(), db, "welcome")
-	require.NoError(t, err)
-
-	done := make(chan struct{})
-	go func() {
-		m.RunPoller(ctx)
-		close(done)
-	}()
-
-	require.Eventually(t, func() bool {
-		return len(real.Sent()) == 1
-	}, pollEvery+5*time.Second, 200*time.Millisecond, "RunPoller should have sent the pending email on its first tick")
-
-	cancel()
-
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("RunPoller did not stop after its context was cancelled")
-	}
+		require.Len(t, real.Sent(), 1, "the locked row must be claimed by exactly one concurrent sendEmails run")
+	})
 }
 
 // blockingSender is a sender.Sender that makes the first of two concurrent
 // Send calls wait for the second one (or a short timeout) before either
-// returns. TestSendEmails_ConcurrentRunsSendOnce uses it to force both
-// racing sendEmails runs to actually reach the real sender for the same row
-// while bug #113 is present, instead of depending on which run happens to
-// finish first: without it, the race is timing-dependent and the test can
-// pass even though the bug is still there.
+// returns. It forces both racing sendEmails runs to actually reach the real
+// sender for the same row while bug #113 is present, instead of depending on
+// which run happens to finish first: without it, the race is
+// timing-dependent and the test can pass even though the bug is still there.
 type blockingSender struct {
 	mu      sync.Mutex
 	sent    []string
@@ -312,64 +316,32 @@ func (s *blockingSender) Sent() []string {
 	return out
 }
 
-func TestSendEmails_ConcurrentRunsSendOnce(t *testing.T) {
-	t.Skip("known bug #113: FOR UPDATE row locks run outside the transaction, so dbsender can double-send")
-
+func TestRunPoller_SendsPendingAndStopsOnContextCancel(t *testing.T) {
 	t.Parallel()
 
-	testDB := testdb.New(t)
-	db := testDB.DB
-	ctx := context.Background()
+	db := testdb.New(t).DB
+	ctx, cancel := context.WithCancel(context.Background())
 
-	real := newBlockingSender()
+	real := fakesender.New()
 	m := NewSender(db, real)
 
-	_, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
+	newOutgoingEmail(t, context.Background(), db)
 
-	// Two sendEmails runs race over the same pending row. Correct behavior
-	// is that the SELECT ... FOR UPDATE SKIP LOCKED runs inside the same
-	// transaction that later updates the row, so only one of the two racing
-	// runs can claim it and the real sender is invoked exactly once. The
-	// blockingSender forces both runs to actually reach the real sender
-	// before either completes, so the double send happens deterministically
-	// while the bug exists instead of only when the runs happen to race.
-	const runners = 2
-	start := make(chan struct{})
-	errs := make(chan error, runners)
+	done := make(chan struct{})
+	go func() {
+		m.RunPoller(ctx)
+		close(done)
+	}()
 
-	var wg sync.WaitGroup
-	for range runners {
-		wg.Go(func() {
-			<-start
-			errs <- m.sendEmails(ctx)
-		})
+	require.Eventually(t, func() bool {
+		return len(real.Sent()) == 1
+	}, pollEvery+5*time.Second, 200*time.Millisecond, "RunPoller should have sent the pending email on its first tick")
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunPoller did not stop after its context was cancelled")
 	}
-
-	close(start)
-	wg.Wait()
-	close(errs)
-
-	for err := range errs {
-		require.NoError(t, err)
-	}
-
-	require.Len(t, real.Sent(), 1, "the locked row must be claimed by exactly one concurrent sendEmails run")
-}
-
-func TestSendEmails_RecoversFromRealSenderPanic(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	db := testDB.DB
-	ctx := context.Background()
-
-	m := NewSender(db, panicSender{})
-
-	_, err := factory.OutgoingEmail(ctx, db, "welcome")
-	require.NoError(t, err)
-
-	err = m.sendEmails(ctx)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "sendEmails panicked")
 }
