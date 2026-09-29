@@ -114,6 +114,10 @@ func TestAccounts_MalformedUUIDPathParam(t *testing.T) {
 		})
 	}
 
+	t.Run("/rss/private/not-a-uuid", func(t *testing.T) {
+		app.Client(t).Get("/rss/private/not-a-uuid").RequireStatus(http.StatusNotFound)
+	})
+
 	t.Run("POST /form/accept_invite/not-a-uuid", func(t *testing.T) {
 		anon := app.Client(t)
 		anon.Get("/login").RequireStatus(http.StatusOK) // picks up the CSRF token

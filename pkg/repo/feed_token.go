@@ -26,12 +26,6 @@ func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string
 	return t.R.User, nil
 }
 
-// APIKeyOwnerExists reports whether key is somebody's API key. It is used to
-// tell a legacy feed URL (built from the API key) from an unknown token.
-func APIKeyOwnerExists(ctx context.Context, exec boil.ContextExecutor, key string) (bool, error) {
-	return core.UserAPIKeys(core.UserAPIKeyWhere.APIKey.EQ(key)).Exists(ctx, exec)
-}
-
 // FeedTokenForUser returns the user's feed token, or nil when they have none.
 func FeedTokenForUser(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserFeedToken, error) {
 	t, err := core.UserFeedTokens(core.UserFeedTokenWhere.UserID.EQ(userID)).One(ctx, exec)
