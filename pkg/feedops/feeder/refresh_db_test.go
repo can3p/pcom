@@ -12,6 +12,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -48,109 +49,93 @@ func (s *fnameCapturingStorage) Fnames() []string {
 	return out
 }
 
-// TestTryFetchFeed_FetchErrorSavesFailure exercises tryFetchFeed's error
-// branch: a fetch failure must be recorded on the feed (via
-// SaveFetchFailure) rather than propagated, so one bad feed doesn't stop the
-// poller from trying the rest.
+// TestTryFetchFeed exercises tryFetchFeed's two outcomes.
 //
 // pkg/feedops imports this package (for DefaultRssReader), so a test here
 // cannot import pkg/feedops or feedops.GetRssFeeds without an import cycle;
 // the feed row is reloaded directly instead.
-func TestTryFetchFeed_FetchErrorSavesFailure(t *testing.T) {
+func TestTryFetchFeed(t *testing.T) {
 	t.Parallel()
 
 	testDB := testdb.New(t)
 	ctx := context.Background()
 
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB)
-	require.NoError(t, err)
+	t.Run("fetch error saves failure, not returned", func(t *testing.T) {
+		t.Parallel()
 
-	ctrl := NewMockController(t)
-	fetcherMock := Mock[fetcher](ctrl)
-	cleanerMock := Mock[cleaner](ctrl)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
 
-	fetchErr := errors.New("boom")
-	WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(nil, fetchErr)
+		ctrl := NewMockController(t)
+		fetcherMock := Mock[fetcher](ctrl)
+		cleanerMock := Mock[cleaner](ctrl)
 
-	f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+		fetchErr := errors.New("boom")
+		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(nil, fetchErr)
 
-	err = f.tryFetchFeed(ctx, testDB.DB, feedRow)
-	require.NoError(t, err, "a fetch error is recorded on the feed, not returned")
+		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
 
-	require.NoError(t, feedRow.Reload(ctx, testDB.DB))
-	require.Equal(t, fetchErr.Error(), feedRow.LastFetchError.String)
-	require.True(t, feedRow.NextFetchAt.Valid)
-}
-
-// TestTryFetchFeed_FetchSuccessSavesFeed exercises tryFetchFeed's happy
-// path: a successful fetch is handed to SaveFeed and the feed's title ends
-// up persisted.
-func TestTryFetchFeed_FetchSuccessSavesFeed(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	ctx := context.Background()
-
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB, factory.WithoutTitle())
-	require.NoError(t, err)
-
-	ctrl := NewMockController(t)
-	fetcherMock := Mock[fetcher](ctrl)
-	cleanerMock := Mock[cleaner](ctrl)
-
-	content := &reader.Feed{Title: "fetched title", Description: "fetched description"}
-	WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(content, nil)
-	WhenSingle(cleanerMock.CleanField(Any[string]())).ThenAnswer(func(args []any) string {
-		return args[0].(string)
+		// A fetch failure must be recorded on the feed (via SaveFetchFailure)
+		// rather than propagated, so one bad feed doesn't stop the poller
+		// from trying the rest.
+		require.NoError(t, f.tryFetchFeed(ctx, testDB.DB, feedRow))
+		require.NoError(t, feedRow.Reload(ctx, testDB.DB))
+		require.Equal(t, fetchErr.Error(), feedRow.LastFetchError.String)
+		require.True(t, feedRow.NextFetchAt.Valid)
 	})
 
-	f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+	t.Run("fetch success saves feed", func(t *testing.T) {
+		t.Parallel()
 
-	err = f.tryFetchFeed(ctx, testDB.DB, feedRow)
-	require.NoError(t, err)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.WithoutTitle()))(t)
 
-	// LockFeed doubles as the package's own reader here: a test in this
-	// (white-box) package cannot import pkg/feedops for its reader without
-	// an import cycle (pkg/feedops imports this package for
-	// DefaultRssReader), and pkg/testutil/factory has no RSSFeed reader.
-	reloaded, err := LockFeed(ctx, testDB.DB, feedRow.ID)
-	require.NoError(t, err)
-	require.Empty(t, reloaded.LastFetchError.String)
-	require.False(t, reloaded.LastFetchedAt.IsZero())
-	require.True(t, reloaded.NextFetchAt.Valid, "a successful fetch schedules the next one")
-	require.True(t, reloaded.NextFetchAt.Time.After(time.Now()), "the next fetch is scheduled in the future")
-	require.Equal(t, "fetched title", reloaded.Title.String, "a feed with no title yet should get the fetched title persisted")
+		ctrl := NewMockController(t)
+		fetcherMock := Mock[fetcher](ctrl)
+		cleanerMock := Mock[cleaner](ctrl)
+
+		content := &reader.Feed{Title: "fetched title", Description: "fetched description"}
+		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(content, nil)
+		WhenSingle(cleanerMock.CleanField(Any[string]())).ThenAnswer(func(args []any) string {
+			return args[0].(string)
+		})
+
+		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+		require.NoError(t, f.tryFetchFeed(ctx, testDB.DB, feedRow))
+
+		// LockFeed doubles as the package's own reader here: a test in this
+		// (white-box) package cannot import pkg/feedops for its reader
+		// without an import cycle, and pkg/testutil/factory has no RSSFeed
+		// reader.
+		reloaded := testutil.Must(LockFeed(ctx, testDB.DB, feedRow.ID))(t)
+		require.Empty(t, reloaded.LastFetchError.String)
+		require.False(t, reloaded.LastFetchedAt.IsZero())
+		require.True(t, reloaded.NextFetchAt.Valid, "a successful fetch schedules the next one")
+		require.True(t, reloaded.NextFetchAt.Time.After(time.Now()), "the next fetch is scheduled in the future")
+		require.Equal(t, "fetched title", reloaded.Title.String, "a feed with no title yet should get the fetched title persisted")
+	})
 }
 
 // TestGetFeedsToRefresh_RespectsNextFetchAt pins the "due" filter directly:
 // a feed scheduled in the future is not returned, one scheduled in the past
-// is.
+// is, and a due feed with no subscribers is filtered out either way.
 func TestGetFeedsToRefresh_RespectsNextFetchAt(t *testing.T) {
 	t.Parallel()
 
 	testDB := testdb.New(t)
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, testDB.DB)
-	require.NoError(t, err)
+	user := testutil.Must(factory.User(ctx, testDB.DB))(t)
 
-	future, err := factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(time.Hour)))
-	require.NoError(t, err)
-	_, err = factory.Subscription(ctx, testDB.DB, user.ID, future.ID)
-	require.NoError(t, err)
+	future := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(time.Hour))))(t)
+	testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, future.ID))(t)
 
-	past, err := factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour)))
-	require.NoError(t, err)
-	_, err = factory.Subscription(ctx, testDB.DB, user.ID, past.ID)
-	require.NoError(t, err)
+	past := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour))))(t)
+	testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, past.ID))(t)
 
 	// Due in the past, but nobody subscribes to it: GetFeedsToRefresh filters
 	// out feeds with no subscribers even when they're otherwise due.
-	pastNoSubscribers, err := factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour)))
-	require.NoError(t, err)
+	pastNoSubscribers := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour))))(t)
 
-	feeds, err := GetFeedsToRefresh(ctx, testDB.DB)
-	require.NoError(t, err)
+	feeds := testutil.Must(GetFeedsToRefresh(ctx, testDB.DB))(t)
 
 	ids := make([]string, len(feeds))
 	for i, f := range feeds {
@@ -162,47 +147,85 @@ func TestGetFeedsToRefresh_RespectsNextFetchAt(t *testing.T) {
 	require.NotContains(t, ids, pastNoSubscribers.ID, "a due feed with no subscribers should not be refreshed")
 }
 
-// TestRefreshFeeds_ProcessesDueFeeds exercises the poller's top-level loop
-// end to end: a feed scheduled in the past is due, gets locked and fetched
-// inside its own transaction, and comes out updated.
-func TestRefreshFeeds_ProcessesDueFeeds(t *testing.T) {
+// TestRefreshFeeds exercises the poller's top-level loop. refreshFeeds scans
+// every due feed in the database it's given, so each subtest needs its own
+// database: sharing one would let one subtest's feeder process another
+// subtest's feed row.
+func TestRefreshFeeds(t *testing.T) {
 	t.Parallel()
 
-	testDB := testdb.New(t)
 	ctx := context.Background()
 
-	user, err := factory.User(ctx, testDB.DB)
-	require.NoError(t, err)
+	t.Run("processes due feeds end to end", func(t *testing.T) {
+		t.Parallel()
 
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour)), factory.WithoutTitle())
-	require.NoError(t, err)
-	_, err = factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID)
-	require.NoError(t, err)
+		testDB := testdb.New(t)
+		user := testutil.Must(factory.User(ctx, testDB.DB))(t)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour)), factory.WithoutTitle()))(t)
+		testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID))(t)
 
-	ctrl := NewMockController(t)
-	fetcherMock := Mock[fetcher](ctrl)
-	cleanerMock := Mock[cleaner](ctrl)
+		ctrl := NewMockController(t)
+		fetcherMock := Mock[fetcher](ctrl)
+		cleanerMock := Mock[cleaner](ctrl)
 
-	content := &reader.Feed{Title: "fetched title", Description: "fetched description"}
-	WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(content, nil)
-	WhenSingle(cleanerMock.CleanField(Any[string]())).ThenAnswer(func(args []any) string {
-		return args[0].(string)
+		content := &reader.Feed{Title: "fetched title", Description: "fetched description"}
+		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(content, nil)
+		WhenSingle(cleanerMock.CleanField(Any[string]())).ThenAnswer(func(args []any) string {
+			return args[0].(string)
+		})
+
+		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+		require.NoError(t, f.refreshFeeds(ctx))
+
+		// feedRow was scheduled an hour in the past to be due; a processed
+		// feed must come out rescheduled into the future, not left at (or
+		// near) that past due time.
+		reloaded := testutil.Must(LockFeed(ctx, testDB.DB, feedRow.ID))(t)
+		require.Empty(t, reloaded.LastFetchError.String)
+		require.False(t, reloaded.LastFetchedAt.IsZero())
+		require.True(t, reloaded.NextFetchAt.Valid)
+		require.True(t, reloaded.NextFetchAt.Time.After(time.Now()), "a processed feed is rescheduled into the future")
+		require.Equal(t, "fetched title", reloaded.Title.String, "a feed with no title yet should get the fetched title persisted")
 	})
 
-	f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+	t.Run("recovers from a panic in per-feed processing", func(t *testing.T) {
+		t.Parallel()
 
-	require.NoError(t, f.refreshFeeds(ctx))
+		testDB := testdb.New(t)
+		user := testutil.Must(factory.User(ctx, testDB.DB))(t)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
+		testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID))(t)
 
-	reloaded, err := LockFeed(ctx, testDB.DB, feedRow.ID)
-	require.NoError(t, err)
-	require.Empty(t, reloaded.LastFetchError.String)
-	require.False(t, reloaded.LastFetchedAt.IsZero())
-	// feedRow was scheduled an hour in the past to be due; a processed feed
-	// must come out rescheduled into the future, not left at (or near) that
-	// past due time.
-	require.True(t, reloaded.NextFetchAt.Valid)
-	require.True(t, reloaded.NextFetchAt.Time.After(time.Now()), "a processed feed is rescheduled into the future")
-	require.Equal(t, "fetched title", reloaded.Title.String, "a feed with no title yet should get the fetched title persisted")
+		ctrl := NewMockController(t)
+		fetcherMock := Mock[fetcher](ctrl)
+		cleanerMock := Mock[cleaner](ctrl)
+
+		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenAnswer(func(args []any) (*reader.Feed, error) {
+			panic("boom")
+		})
+
+		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+
+		// A panic anywhere in the per-feed processing (a bad fetcher, a bug
+		// in a cleaner) must not crash the scheduler; it comes back as an
+		// error instead.
+		err := f.refreshFeeds(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "refreshFeeds panicked")
+	})
+
+	t.Run("propagates a GetFeedsToRefresh error", func(t *testing.T) {
+		t.Skip("known bug: https://github.com/can3p/pcom/issues/116 - refreshFeeds discards the error from GetFeedsToRefresh and always returns nil")
+
+		db := testdb.New(t)
+
+		require.NoError(t, db.DB.Close())
+
+		f := NewFeeder(db.DB, nil, nil, nil)
+
+		err := f.refreshFeeds(ctx)
+		require.Error(t, err)
+	})
 }
 
 // TestRunPoller_StopsOnContextDone pins the poller's shutdown path: it must
@@ -239,174 +262,103 @@ func TestLockFeed_NotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestSaveFeedItem_RefusesItemWithoutURL pins SaveFeedItem's guard against
-// an item with no URL: it has nothing to dedupe on, so it must be rejected
-// rather than silently stored.
-func TestSaveFeedItem_RefusesItemWithoutURL(t *testing.T) {
+// TestSaveFeedItem exercises SaveFeedItem's guard, dedupe, error-fallback and
+// image-upload behaviors.
+func TestSaveFeedItem(t *testing.T) {
 	t.Parallel()
 
 	testDB := testdb.New(t)
 	ctx := context.Background()
 
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB)
-	require.NoError(t, err)
+	t.Run("refuses an item without a URL", func(t *testing.T) {
+		t.Parallel()
 
-	_, err = SaveFeedItem(ctx, testDB.DB, feedRow.ID, &reader.Item{URL: ""}, nil, nil, nil, nil)
-	require.Error(t, err)
-}
-
-// TestSaveFeedItem_DuplicateURLIsNotNew pins the dedupe behavior: saving the
-// same item URL twice upserts onto the same row instead of creating a
-// second one, and only the first call reports it as new.
-func TestSaveFeedItem_DuplicateURLIsNotNew(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	ctx := context.Background()
-
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB)
-	require.NoError(t, err)
-
-	ctrl := NewMockController(t)
-	cleanerMock := Mock[cleaner](ctrl)
-	WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenAnswer(func(args []any) (string, error) {
-		return args[0].(string), nil
+		// It has nothing to dedupe on, so it must be rejected rather than
+		// silently stored.
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
+		_, err := SaveFeedItem(ctx, testDB.DB, feedRow.ID, &reader.Item{URL: ""}, nil, nil, nil, nil)
+		require.Error(t, err)
 	})
 
-	item := &reader.Item{URL: "https://example.com/dup", Title: "t", Summary: "s"}
+	t.Run("duplicate URL is not new", func(t *testing.T) {
+		t.Parallel()
 
-	isNew, err := SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil)
-	require.NoError(t, err)
-	require.True(t, isNew)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
 
-	isNew, err = SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil)
-	require.NoError(t, err)
-	require.False(t, isNew, "the same url upserts onto the existing item instead of creating a new one")
-}
+		ctrl := NewMockController(t)
+		cleanerMock := Mock[cleaner](ctrl)
+		WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenAnswer(func(args []any) (string, error) {
+			return args[0].(string), nil
+		})
 
-// TestSaveFeedItem_HTMLToMarkdownErrorIsRecorded pins the fallback when
-// cleaning a feed item's HTML fails: the item is still stored, with the
-// error recorded as its body instead of losing the item entirely.
-func TestSaveFeedItem_HTMLToMarkdownErrorIsRecorded(t *testing.T) {
-	t.Parallel()
+		item := &reader.Item{URL: "https://example.com/dup", Title: "t", Summary: "s"}
 
-	testDB := testdb.New(t)
-	ctx := context.Background()
+		// Saving the same item URL twice upserts onto the same row instead
+		// of creating a second one, and only the first call reports it as
+		// new.
+		isNew := testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil))(t)
+		require.True(t, isNew)
 
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB)
-	require.NoError(t, err)
-
-	ctrl := NewMockController(t)
-	cleanerMock := Mock[cleaner](ctrl)
-	boom := errors.New("boom")
-	WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenReturn("", boom)
-
-	item := &reader.Item{URL: "https://example.com/broken", Title: "t", Summary: "s"}
-
-	isNew, err := SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil)
-	require.NoError(t, err)
-	require.True(t, isNew)
-
-	items, err := factory.ListRSSItems(ctx, testDB.DB, feedRow.ID)
-	require.NoError(t, err)
-	require.Len(t, items, 1)
-	require.Equal(t, fmt.Sprintf("Summary errors: %s", boom.Error()), items[0].SanitizedDescription, "the cleaning error should be recorded as the item's body")
-}
-
-// TestSaveFeedItem_UploadsReferencedImages exercises the image pipeline:
-// an item whose cleaned body references an image gets that image downloaded
-// through the fetcher and re-hosted through HandleUpload.
-func TestSaveFeedItem_UploadsReferencedImages(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	ctx := context.Background()
-
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB)
-	require.NoError(t, err)
-
-	ctrl := NewMockController(t)
-	fetcherMock := Mock[fetcher](ctrl)
-	cleanerMock := Mock[cleaner](ctrl)
-
-	imgURL := "https://img.example.test/pic.png"
-	WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenReturn(fmt.Sprintf("![alt](%s)", imgURL), nil)
-
-	pngBytes := []byte("\x89PNG\r\n\x1a\nrest-of-file")
-	WhenDouble(fetcherMock.FetchMedia(Any[context.Context](), Any[string]())).ThenAnswer(func(args []any) (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(pngBytes)), nil
+		isNew = testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil))(t)
+		require.False(t, isNew, "the same url upserts onto the existing item instead of creating a new one")
 	})
 
-	storage := &fnameCapturingStorage{MediaStorage: fakestorage.New()}
-	item := &reader.Item{URL: "https://example.com/with-image", Title: "t", Summary: "s"}
+	t.Run("HTMLToMarkdown error is recorded, item still stored", func(t *testing.T) {
+		t.Parallel()
 
-	isNew, err := SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, fetcherMock, storage)
-	require.NoError(t, err)
-	require.True(t, isNew)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
 
-	fnames := storage.Fnames()
-	require.Len(t, fnames, 1, "the image referenced in the body should be uploaded exactly once")
-	fname := fnames[0]
+		ctrl := NewMockController(t)
+		cleanerMock := Mock[cleaner](ctrl)
+		boom := errors.New("boom")
+		WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenReturn("", boom)
 
-	exists, err := storage.ObjectExists(ctx, fname)
-	require.NoError(t, err)
-	require.True(t, exists, "the uploaded image should exist in storage")
+		item := &reader.Item{URL: "https://example.com/broken", Title: "t", Summary: "s"}
 
-	upload, err := factory.GetMediaUploadByFname(ctx, testDB.DB, fname)
-	require.NoError(t, err)
-	require.True(t, upload.RSSFeedID.Valid)
-	require.Equal(t, feedRow.ID, upload.RSSFeedID.String, "the upload should be attributed to the feed it was fetched for")
+		isNew := testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil))(t)
+		require.True(t, isNew)
 
-	items, err := factory.ListRSSItems(ctx, testDB.DB, feedRow.ID)
-	require.NoError(t, err)
-	require.Len(t, items, 1)
-	require.NotContains(t, items[0].SanitizedDescription, imgURL, "the stored body should no longer reference the original image URL")
-}
-
-// TestRefreshFeeds_RecoversFromPanic pins refreshFeeds' safety net: a panic
-// anywhere in the per-feed processing (a bad fetcher, a bug in a cleaner)
-// must not crash the scheduler; it comes back as an error instead.
-func TestRefreshFeeds_RecoversFromPanic(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	ctx := context.Background()
-
-	user, err := factory.User(ctx, testDB.DB)
-	require.NoError(t, err)
-	feedRow, err := factory.RSSFeed(ctx, testDB.DB)
-	require.NoError(t, err)
-	_, err = factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID)
-	require.NoError(t, err)
-
-	ctrl := NewMockController(t)
-	fetcherMock := Mock[fetcher](ctrl)
-	cleanerMock := Mock[cleaner](ctrl)
-
-	WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenAnswer(func(args []any) (*reader.Feed, error) {
-		panic("boom")
+		items := testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t)
+		require.Len(t, items, 1)
+		require.Equal(t, fmt.Sprintf("Summary errors: %s", boom.Error()), items[0].SanitizedDescription, "the cleaning error should be recorded as the item's body")
 	})
 
-	f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+	t.Run("uploads referenced images", func(t *testing.T) {
+		t.Parallel()
 
-	err = f.refreshFeeds(ctx)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "refreshFeeds panicked")
-}
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
 
-// TestRefreshFeeds_PropagatesGetFeedsToRefreshError pins the correct
-// behavior for the poller's top-level loop: a failure to even list the due
-// feeds should be reported, not swallowed.
-func TestRefreshFeeds_PropagatesGetFeedsToRefreshError(t *testing.T) {
-	t.Skip("known bug: https://github.com/can3p/pcom/issues/116 - refreshFeeds discards the error from GetFeedsToRefresh and always returns nil")
+		ctrl := NewMockController(t)
+		fetcherMock := Mock[fetcher](ctrl)
+		cleanerMock := Mock[cleaner](ctrl)
 
-	testDB := testdb.New(t)
-	ctx := context.Background()
+		imgURL := "https://img.example.test/pic.png"
+		WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenReturn(fmt.Sprintf("![alt](%s)", imgURL), nil)
 
-	require.NoError(t, testDB.DB.Close())
+		pngBytes := []byte("\x89PNG\r\n\x1a\nrest-of-file")
+		WhenDouble(fetcherMock.FetchMedia(Any[context.Context](), Any[string]())).ThenAnswer(func(args []any) (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(pngBytes)), nil
+		})
 
-	f := NewFeeder(testDB.DB, nil, nil, nil)
+		storage := &fnameCapturingStorage{MediaStorage: fakestorage.New()}
+		item := &reader.Item{URL: "https://example.com/with-image", Title: "t", Summary: "s"}
 
-	err := f.refreshFeeds(ctx)
-	require.Error(t, err)
+		isNew := testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, fetcherMock, storage))(t)
+		require.True(t, isNew)
+
+		fnames := storage.Fnames()
+		require.Len(t, fnames, 1, "the image referenced in the body should be uploaded exactly once")
+		fname := fnames[0]
+
+		exists := testutil.Must(storage.ObjectExists(ctx, fname))(t)
+		require.True(t, exists, "the uploaded image should exist in storage")
+
+		upload := testutil.Must(factory.GetMediaUploadByFname(ctx, testDB.DB, fname))(t)
+		require.True(t, upload.RSSFeedID.Valid)
+		require.Equal(t, feedRow.ID, upload.RSSFeedID.String, "the upload should be attributed to the feed it was fetched for")
+
+		items := testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t)
+		require.Len(t, items, 1)
+		require.NotContains(t, items[0].SanitizedDescription, imgURL, "the stored body should no longer reference the original image URL")
+	})
 }
