@@ -6,12 +6,40 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
+
+func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
+	t.Helper()
+	_, _, err := factory.Connect(ctx, db, aID, bID)
+	require.NoError(t, err)
+}
+
+func newCommentForm(t *testing.T, sender *fakesender.Sender, u *core.User, postID, replyTo string) *forms.NewCommentForm {
+	t.Helper()
+	form, ok := forms.NewCommentFormNew(sender, u, postID, mediaReplacer).(*forms.NewCommentForm)
+	require.True(t, ok)
+	form.Input.Body = "A perfectly fine comment body"
+	form.Input.PostID = postID
+	form.Input.ReplyTo = replyTo
+
+	return form
+}
+
+// saveComment validates and saves a comment and runs the returned action.
+func saveComment(t *testing.T, ctx context.Context, db *sqlx.DB, form *forms.NewCommentForm) {
+	t.Helper()
+	c, _ := newCtx(t)
+	require.NoError(t, form.Validate(c, db))
+	action := testutil.Must(form.Save(ctx, db))(t)
+	action(c, form)
+}
 
 func TestNewCommentForm_Validate(t *testing.T) {
 	t.Parallel()
@@ -19,286 +47,148 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	direct, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	stranger, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	_, _, err = factory.Connect(ctx, db, author.ID, direct.ID)
-	require.NoError(t, err)
+	author := testutil.Must(factory.User(ctx, db))(t)
+	direct := testutil.Must(factory.User(ctx, db))(t)
+	stranger := testutil.Must(factory.User(ctx, db))(t)
+	connect(t, ctx, db, author.ID, direct.ID)
 
-	post, err := factory.Post(ctx, db, author.ID)
-	require.NoError(t, err)
-	topComment, err := factory.Comment(ctx, db, post.ID, author.ID)
-	require.NoError(t, err)
+	post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+	topComment := testutil.Must(factory.Comment(ctx, db, post.ID, author.ID))(t)
+	otherPost := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+	otherComment := testutil.Must(factory.Comment(ctx, db, otherPost.ID, author.ID))(t)
 
-	newForm := func(t *testing.T, u *core.User) *forms.NewCommentForm {
-		t.Helper()
-		f := forms.NewCommentFormNew(fakesender.New(), u, post.ID, mediaReplacer)
-		cf, ok := f.(*forms.NewCommentForm)
-		require.True(t, ok)
-		cf.Input.Body = "A perfectly fine comment body"
-		cf.Input.PostID = post.ID
+	for _, tc := range []struct {
+		name    string
+		user    *core.User
+		postID  string
+		replyTo string
+		body    string
+		wantErr error // nil: any error when wantAny is set
+		wantAny bool
+	}{
+		{name: "the author can comment", user: author},
+		{name: "a direct connection can comment", user: direct},
+		{name: "a stranger cannot comment", user: stranger, wantErr: ginhelpers.ErrForbidden},
+		{name: "body too short", user: author, body: "hi", wantAny: true},
+		{name: "reply to a comment on the post", user: direct, replyTo: topComment.ID},
+		{name: "reply to a comment on another post", user: direct, replyTo: otherComment.ID, wantErr: ginhelpers.ErrNotFound},
+		{name: "reply to an unknown comment", user: direct, replyTo: missingID, wantErr: ginhelpers.ErrNotFound},
+		{name: "unknown post", user: direct, postID: missingID, wantAny: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-		return cf
+			form := newCommentForm(t, fakesender.New(), tc.user, post.ID, tc.replyTo)
+			if tc.postID != "" {
+				form.Input.PostID = tc.postID
+			}
+			if tc.body != "" {
+				form.Input.Body = tc.body
+			}
+
+			c, _ := newCtx(t)
+			err := form.Validate(c, db)
+
+			switch {
+			case tc.wantErr != nil:
+				require.ErrorIs(t, err, tc.wantErr)
+			case tc.wantAny:
+				require.Error(t, err)
+			default:
+				require.NoError(t, err)
+			}
+			if tc.body != "" {
+				require.True(t, form.Errors.HasError("body"))
+			}
+		})
 	}
-
-	t.Run("the author can comment", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, author)
-		require.NoError(t, form.Validate(c, db))
-	})
-
-	t.Run("a direct connection can comment", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, direct)
-		require.NoError(t, form.Validate(c, db))
-	})
-
-	t.Run("a stranger cannot comment", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, stranger)
-		require.ErrorIs(t, form.Validate(c, db), ginhelpers.ErrForbidden)
-	})
-
-	t.Run("body too short", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, author)
-		form.Input.Body = "hi"
-		require.Error(t, form.Validate(c, db))
-		require.True(t, form.Errors.HasError("body"))
-	})
-
-	t.Run("replying to an existing comment on the post is allowed", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, direct)
-		form.Input.ReplyTo = topComment.ID
-		require.NoError(t, form.Validate(c, db))
-	})
-
-	t.Run("replying to a comment on another post is not found", func(t *testing.T) {
-		t.Parallel()
-
-		otherPost, err := factory.Post(ctx, db, author.ID)
-		require.NoError(t, err)
-		otherComment, err := factory.Comment(ctx, db, otherPost.ID, author.ID)
-		require.NoError(t, err)
-
-		c, _ := newCtx(t)
-		form := newForm(t, direct)
-		form.Input.ReplyTo = otherComment.ID
-		require.ErrorIs(t, form.Validate(c, db), ginhelpers.ErrNotFound)
-	})
-
-	t.Run("replying to an unknown comment is not found", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, direct)
-		form.Input.ReplyTo = missingID
-		require.ErrorIs(t, form.Validate(c, db), ginhelpers.ErrNotFound)
-	})
-
-	t.Run("commenting on an unknown post surfaces the lookup error", func(t *testing.T) {
-		t.Parallel()
-
-		c, _ := newCtx(t)
-		form := newForm(t, direct)
-		form.Input.PostID = missingID
-		require.Error(t, form.Validate(c, db))
-	})
 }
 
-func TestNewCommentForm_Save_TopLevel_NotifiesAuthorOnly(t *testing.T) {
+func TestNewCommentForm_Save(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	commenter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	_, _, err = factory.Connect(ctx, db, author.ID, commenter.ID)
-	require.NoError(t, err)
+	t.Run("a top-level comment starts a thread and notifies the author only", func(t *testing.T) {
+		t.Parallel()
 
-	post, err := factory.Post(ctx, db, author.ID)
-	require.NoError(t, err)
+		author := testutil.Must(factory.User(ctx, db))(t)
+		commenter := testutil.Must(factory.User(ctx, db))(t)
+		connect(t, ctx, db, author.ID, commenter.ID)
+		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
-	sender := fakesender.New()
-	f := forms.NewCommentFormNew(sender, commenter, post.ID, mediaReplacer)
-	form, ok := f.(*forms.NewCommentForm)
-	require.True(t, ok)
-	form.Input.Body = "First comment on the post"
-	form.Input.PostID = post.ID
+		sender := fakesender.New()
+		saveComment(t, ctx, db, newCommentForm(t, sender, commenter, post.ID, ""))
 
-	c, _ := newCtx(t)
-	require.NoError(t, form.Validate(c, db))
+		comments := testutil.Must(factory.ListComments(ctx, db, post.ID))(t)
+		require.Len(t, comments, 1)
+		require.Equal(t, comments[0].ID, comments[0].TopCommentID)
 
-	action, err := form.Save(ctx, db)
-	require.NoError(t, err)
-	action(c, form)
+		sent := sender.Sent()
+		require.Len(t, sent, 1)
+		require.Equal(t, "comment_notification", sent[0].EmailType)
+		require.Equal(t, author.Email, sent[0].Mail.To[0].Address)
+	})
 
-	comments, err := factory.ListComments(ctx, db, post.ID)
-	require.NoError(t, err)
-	require.Len(t, comments, 1)
-	require.Equal(t, comments[0].ID, comments[0].TopCommentID)
+	t.Run("each comment increments the post's counter", func(t *testing.T) {
+		t.Parallel()
 
-	sent := sender.Sent()
-	require.Len(t, sent, 1)
-	require.Equal(t, "comment_notification", sent[0].EmailType)
-	require.Equal(t, author.Email, sent[0].Mail.To[0].Address)
-}
+		author := testutil.Must(factory.User(ctx, db))(t)
+		commenter := testutil.Must(factory.User(ctx, db))(t)
+		connect(t, ctx, db, author.ID, commenter.ID)
+		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
-func TestNewCommentForm_Save_IncrementsPostStat(t *testing.T) {
-	t.Parallel()
+		_, err := factory.GetPostStat(ctx, db, post.ID)
+		require.Error(t, err, "no stat row before the first comment")
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	commenter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	_, _, err = factory.Connect(ctx, db, author.ID, commenter.ID)
-	require.NoError(t, err)
-	post, err := factory.Post(ctx, db, author.ID)
-	require.NoError(t, err)
-
-	saveComment := func(t *testing.T, u *core.User) {
-		t.Helper()
-		f := forms.NewCommentFormNew(fakesender.New(), u, post.ID, mediaReplacer)
-		form, ok := f.(*forms.NewCommentForm)
-		require.True(t, ok)
-		form.Input.Body = "Another comment on the post"
-		form.Input.PostID = post.ID
-
-		c, _ := newCtx(t)
-		require.NoError(t, form.Validate(c, db))
-		action, err := form.Save(ctx, db)
-		require.NoError(t, err)
-		action(c, form)
-	}
-
-	// No stat row exists until the first comment is saved.
-	_, err = factory.GetPostStat(ctx, db, post.ID)
-	require.Error(t, err)
-
-	saveComment(t, commenter)
-	stat, err := factory.GetPostStat(ctx, db, post.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), stat.CommentsNumber)
-
-	saveComment(t, author)
-	stat, err = factory.GetPostStat(ctx, db, post.ID)
-	require.NoError(t, err)
-	require.Equal(t, int64(2), stat.CommentsNumber)
-}
-
-func TestNewCommentForm_Save_ReplyToVanishedComment(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	post, err := factory.Post(ctx, db, author.ID)
-	require.NoError(t, err)
-
-	// Save is exercised directly, without Validate, the way the table asks
-	// for it: a reply-to id that no longer resolves to a comment surfaces
-	// the lookup error instead of panicking or inserting an orphan reply.
-	f := forms.NewCommentFormNew(fakesender.New(), author, post.ID, mediaReplacer)
-	form, ok := f.(*forms.NewCommentForm)
-	require.True(t, ok)
-	form.Input.Body = "A reply to nothing"
-	form.Input.PostID = post.ID
-	form.Input.ReplyTo = missingID
-
-	_, err = form.Save(ctx, db)
-	require.Error(t, err)
-}
-
-func TestNewCommentForm_Save_Reply_ThreadingAndParticipants(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	author, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	firstCommenter, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	replier, err := factory.User(ctx, db)
-	require.NoError(t, err)
-	_, _, err = factory.Connect(ctx, db, author.ID, firstCommenter.ID)
-	require.NoError(t, err)
-	_, _, err = factory.Connect(ctx, db, author.ID, replier.ID)
-	require.NoError(t, err)
-
-	post, err := factory.Post(ctx, db, author.ID)
-	require.NoError(t, err)
-	topComment, err := factory.Comment(ctx, db, post.ID, firstCommenter.ID)
-	require.NoError(t, err)
-
-	sender := fakesender.New()
-	f := forms.NewCommentFormNew(sender, replier, post.ID, mediaReplacer)
-	form, ok := f.(*forms.NewCommentForm)
-	require.True(t, ok)
-	form.Input.Body = "A reply to the first comment"
-	form.Input.PostID = post.ID
-	form.Input.ReplyTo = topComment.ID
-
-	c, _ := newCtx(t)
-	require.NoError(t, form.Validate(c, db))
-
-	action, err := form.Save(ctx, db)
-	require.NoError(t, err)
-	action(c, form)
-
-	comments, err := factory.ListComments(ctx, db, post.ID)
-	require.NoError(t, err)
-	require.Len(t, comments, 2)
-
-	var reply *core.PostComment
-	for _, cmt := range comments {
-		if cmt.ID != topComment.ID {
-			reply = cmt
+		for i, u := range []*core.User{commenter, author} {
+			saveComment(t, ctx, db, newCommentForm(t, fakesender.New(), u, post.ID, ""))
+			stat := testutil.Must(factory.GetPostStat(ctx, db, post.ID))(t)
+			require.Equal(t, int64(i+1), stat.CommentsNumber)
 		}
-	}
-	require.NotNil(t, reply)
-	// The reply inherits the thread's top comment rather than starting a
-	// new thread of its own.
-	require.Equal(t, topComment.ID, reply.TopCommentID)
-	require.Equal(t, topComment.ID, reply.ParentCommentID.String)
+	})
 
-	sent := sender.Sent()
-	require.Len(t, sent, 2)
+	t.Run("a reply to a vanished comment fails without inserting", func(t *testing.T) {
+		t.Parallel()
 
-	var gotAuthorMail, gotParticipantMail bool
-	for _, s := range sent {
-		require.Equal(t, "comment_notification", s.EmailType)
-		switch s.Mail.To[0].Address {
-		case author.Email:
-			gotAuthorMail = true
-		case firstCommenter.Email:
-			gotParticipantMail = true
-		default:
-			t.Fatalf("unexpected recipient %q", s.Mail.To[0].Address)
+		author := testutil.Must(factory.User(ctx, db))(t)
+		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+
+		// Save without Validate, as a race with a deleted comment would.
+		_, err := newCommentForm(t, fakesender.New(), author, post.ID, missingID).Save(ctx, db)
+		require.Error(t, err)
+		require.Empty(t, testutil.Must(factory.ListComments(ctx, db, post.ID))(t))
+	})
+
+	t.Run("a reply joins the thread and notifies the author and participants", func(t *testing.T) {
+		t.Parallel()
+
+		author := testutil.Must(factory.User(ctx, db))(t)
+		firstCommenter := testutil.Must(factory.User(ctx, db))(t)
+		replier := testutil.Must(factory.User(ctx, db))(t)
+		connect(t, ctx, db, author.ID, firstCommenter.ID)
+		connect(t, ctx, db, author.ID, replier.ID)
+		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+		topComment := testutil.Must(factory.Comment(ctx, db, post.ID, firstCommenter.ID))(t)
+
+		sender := fakesender.New()
+		saveComment(t, ctx, db, newCommentForm(t, sender, replier, post.ID, topComment.ID))
+
+		comments := testutil.Must(factory.ListComments(ctx, db, post.ID))(t)
+		require.Len(t, comments, 2)
+		for _, cmt := range comments {
+			if cmt.ID != topComment.ID {
+				require.Equal(t, topComment.ID, cmt.TopCommentID)
+				require.Equal(t, topComment.ID, cmt.ParentCommentID.String)
+			}
 		}
-	}
-	require.True(t, gotAuthorMail, "expected the post author to be notified")
-	require.True(t, gotParticipantMail, "expected the first commenter to be notified as a participant")
+
+		var recipients []string
+		for _, s := range sender.Sent() {
+			require.Equal(t, "comment_notification", s.EmailType)
+			recipients = append(recipients, s.Mail.To[0].Address)
+		}
+		require.ElementsMatch(t, []string{author.Email, firstCommenter.Email}, recipients)
+	})
 }
