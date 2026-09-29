@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mediaerrors "github.com/can3p/pcom/pkg/media/errors"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -109,126 +110,95 @@ func (e *errMockServer) ServeImage(ctx context.Context, getter MediaGetter, req 
 func TestNewCachingServer(t *testing.T) {
 	t.Parallel()
 
-	t.Run("negative cache size uses default", func(t *testing.T) {
-		storage := newMockStorage()
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, -1)
-		require.NoError(t, err)
+	cases := []struct {
+		name         string
+		size         int
+		wantCapacity int
+	}{
+		{"negative cache size uses default", -1, defaultCacheSize},
+		{"zero cache size uses default", 0, defaultCacheSize},
+		{"positive cache size is respected", 50, 50},
+	}
 
-		for i := range defaultCacheSize + 1 {
-			cache.cache.Add(fmt.Sprintf("key-%d", i), true)
-		}
-		require.Equal(t, defaultCacheSize, cache.cache.Len(), "cache should be capped at the default size")
-	})
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cache := testutil.Must(NewCachingServer(&mockServer{}, newMockStorage(), c.size))(t)
 
-	t.Run("zero cache size uses default", func(t *testing.T) {
-		storage := newMockStorage()
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, 0)
-		require.NoError(t, err)
-
-		for i := range defaultCacheSize + 1 {
-			cache.cache.Add(fmt.Sprintf("key-%d", i), true)
-		}
-		require.Equal(t, defaultCacheSize, cache.cache.Len(), "cache should be capped at the default size")
-	})
-
-	t.Run("positive cache size is respected", func(t *testing.T) {
-		storage := newMockStorage()
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, 50)
-		require.NoError(t, err)
-
-		for i := range 51 {
-			cache.cache.Add(fmt.Sprintf("key-%d", i), true)
-		}
-		require.Equal(t, 50, cache.cache.Len(), "cache should evict once it exceeds the configured size")
-	})
+			for i := range c.wantCapacity + 1 {
+				cache.cache.Add(fmt.Sprintf("key-%d", i), true)
+			}
+			require.Equal(t, c.wantCapacity, cache.cache.Len(), "cache should be capped at the configured size")
+		})
+	}
 }
 
 func TestCachingServer_GetImage(t *testing.T) {
 	ctx := context.Background()
 	t.Run("first request fetches from parent and caches, subsequent uses cache", func(t *testing.T) {
 		storage := newMockStorage()
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, 10)
-		if err != nil {
-			t.Fatalf("Failed to create caching server: %v", err)
-		}
+		srv := &mockServer{}
+		cache := testutil.Must(NewCachingServer(srv, storage, 10))(t)
 
 		reader, mime, err := cache.GetImage(ctx, "test.jpg", "thumb")
-		if err != nil {
-			t.Fatalf("Failed to get image: %v", err)
-		}
-		if mime != "image/webp" {
-			t.Errorf("Expected mime type image/webp, got %s", mime)
-		}
-
-		// Read the image
-		data, err := io.ReadAll(reader)
 		require.NoError(t, err)
+		require.Equal(t, "image/webp", mime)
+
+		data := testutil.Must(io.ReadAll(reader))(t)
 		require.Equal(t, "test image", string(data))
 
 		require.Eventually(t, func() bool {
 			return storage.uploadCount() == 1
 		}, 5*time.Second, 10*time.Millisecond, "Expected 1 upload after cache")
 
-		require.Equal(t, 1, server.callCount, "Expected 1 parent server call")
+		require.Equal(t, 1, srv.callCount, "Expected 1 parent server call")
 
 		addCalls := 3
 		for range addCalls {
 			reader2, _, err2 := cache.GetImage(ctx, "test.jpg", "thumb")
 			require.NoError(t, err2)
-			data2, err2 := io.ReadAll(reader2)
-			require.NoError(t, err2)
+			data2 := testutil.Must(io.ReadAll(reader2))(t)
 			require.Equal(t, "test image", string(data2))
 		}
-		require.Equal(t, 1, server.callCount, "Expected parent server call count to remain 1 after subsequent requests")
+		require.Equal(t, 1, srv.callCount, "Expected parent server call count to remain 1 after subsequent requests")
 		require.Equal(t, addCalls, storage.callCount.download, "Expected storage to be hit exactly the number of additional calls")
 	})
 
 	t.Run("error when checking storage existence", func(t *testing.T) {
 		storage := newMockStorage()
 		storage.existsErr = errors.New("existence check failed")
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, 10)
-		require.NoError(t, err)
+		srv := &mockServer{}
+		cache := testutil.Must(NewCachingServer(srv, storage, 10))(t)
 
 		// ObjectExists fails on both checks, but GetImage must still fall
 		// through to the parent server rather than error out.
 		reader, mime, err := cache.GetImage(ctx, "missing.jpg", "thumb")
 		require.NoError(t, err)
 		require.Equal(t, "image/webp", mime)
-		data, err := io.ReadAll(reader)
-		require.NoError(t, err)
+		data := testutil.Must(io.ReadAll(reader))(t)
 		require.Equal(t, "test image", string(data))
-		require.Equal(t, 1, server.callCount, "expected fallback to the parent server")
+		require.Equal(t, 1, srv.callCount, "expected fallback to the parent server")
 	})
 
 	t.Run("parent server error propagates", func(t *testing.T) {
 		storage := newMockStorage()
-		// Create a mock server that returns an error
 		errServer := &errMockServer{err: errors.New("server error")}
-		cache, err := NewCachingServer(errServer, storage, 10)
-		require.NoError(t, err)
+		cache := testutil.Must(NewCachingServer(errServer, storage, 10))(t)
 
-		_, _, err = cache.GetImage(ctx, "test.jpg", "thumb")
+		_, _, err := cache.GetImage(ctx, "test.jpg", "thumb")
 		require.Error(t, err)
 	})
 
 	t.Run("upload failure doesn't break response to client", func(t *testing.T) {
 		storage := newMockStorage()
 		storage.uploadErr = errors.New("upload failed")
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, 10)
-		require.NoError(t, err)
+		srv := &mockServer{}
+		cache := testutil.Must(NewCachingServer(srv, storage, 10))(t)
 
 		reader, mime, err := cache.GetImage(ctx, "test.jpg", "thumb")
 		require.NoError(t, err)
 		require.Equal(t, "image/webp", mime)
 
-		data, err := io.ReadAll(reader)
-		require.NoError(t, err)
+		data := testutil.Must(io.ReadAll(reader))(t)
 		require.Equal(t, "test image", string(data))
 
 		require.Eventually(t, func() bool {
@@ -240,11 +210,8 @@ func TestCachingServer_GetImage(t *testing.T) {
 
 	t.Run("concurrent requests for same image", func(t *testing.T) {
 		storage := newMockStorage()
-		server := &mockServer{}
-		cache, err := NewCachingServer(server, storage, 10)
-		if err != nil {
-			t.Fatalf("Failed to create caching server: %v", err)
-		}
+		srv := &mockServer{}
+		cache := testutil.Must(NewCachingServer(srv, storage, 10))(t)
 
 		var wg sync.WaitGroup
 		for range 5 {
@@ -260,6 +227,6 @@ func TestCachingServer_GetImage(t *testing.T) {
 		wg.Wait()
 
 		// Should only call parent server once
-		require.Equal(t, 1, server.callCount, "Expected 1 parent server call (from concurrent requests)")
+		require.Equal(t, 1, srv.callCount, "Expected 1 parent server call (from concurrent requests)")
 	})
 }

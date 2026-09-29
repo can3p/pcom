@@ -13,91 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 )
 
-func TestNew(t *testing.T) {
-	ctx := context.Background()
+// newServer builds a server.Server over storage, failing the test on error.
+func newServer(t *testing.T, storage server.MediaStorage, opts ...server.Option) *server.Server {
+	t.Helper()
 
-	t.Run("creates server with storage", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
+	srv, _, err := server.New(storage, opts...)
+	require.NoError(t, err)
 
-		srv, _, err := server.New(storage)
-		require.NoError(t, err)
-
-		// The returned server must actually be wired to the storage it was
-		// given: it should be able to fetch and convert the uploaded file.
-		_, mime, err := srv.GetImage(ctx, "test.png", "")
-		require.NoError(t, err)
-		require.Equal(t, "image/webp", mime)
-	})
-
-	t.Run("applies options", func(t *testing.T) {
-		image := createTestImage(t, 400, 400)
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", image, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 200, Height: 200}),
-			server.WithPermaCache(true),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.png")
-		require.NoError(t, err)
-
-		resp := w.Result()
-		require.Equal(t, "image/webp", resp.Header.Get("Content-Type"))
-		require.Contains(t, resp.Header.Get("Cache-Control"), "max-age=604800", "WithPermaCache should add cache headers")
-
-		data, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
-
-		resized, err := vips.NewImageFromReader(bytes.NewReader(data))
-		require.NoError(t, err)
-		defer resized.Close()
-
-		// The "thumb" class should have resized the 400x400 source down to 200x200.
-		require.Equal(t, 200, resized.Width())
-		require.Equal(t, 200, resized.Height())
-	})
-
-	t.Run("with custom class resolver", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		resolverCalled := false
-		customResolver := func(ctx context.Context, req *http.Request) string {
-			resolverCalled = true
-			return "custom"
-		}
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("custom", server.ClassParams{Width: 50, Height: 50}),
-			server.WithClassResolver(customResolver),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		// The query string names a class the resolver ignores; if the
-		// resolver weren't actually consulted, this class wouldn't resolve
-		// to a configured one and ServeImage would 404 instead of 200.
-		req := httptest.NewRequest("GET", "/?class=unmapped", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.png")
-		require.NoError(t, err)
-		require.True(t, resolverCalled)
-		require.Equal(t, http.StatusOK, w.Result().StatusCode)
-	})
+	return srv
 }
 
 // createTestImage creates a real JPEG-encoded image with the given exact
@@ -106,8 +33,7 @@ func TestNew(t *testing.T) {
 func createTestImage(t *testing.T, width, height int) []byte {
 	t.Helper()
 
-	img, err := vips.Black(width, height)
-	require.NoError(t, err)
+	img := testutil.Must(vips.Black(width, height))(t)
 	defer img.Close()
 
 	ep := vips.NewDefaultJPEGExportParams()
@@ -117,8 +43,8 @@ func createTestImage(t *testing.T, width, height int) []byte {
 	return data
 }
 
-// minimalJPEG is a minimal 1x1 pixel JPEG for testing
-// This is a valid JPEG SOI marker + EOI marker with minimal content
+// minimalJPEG is a minimal 1x1 pixel JPEG for testing: a valid JPEG SOI
+// marker + EOI marker with minimal content.
 var minimalJPEG = []byte{
 	0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
 	0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
@@ -150,270 +76,162 @@ var minimalJPEG = []byte{
 	0x00, 0x00, 0x3F, 0x00, 0xFB, 0xD0, 0xFF, 0xD9,
 }
 
-func TestGetImage(t *testing.T) {
+func TestNew(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("downloads and processes image without class params", func(t *testing.T) {
+	t.Run("wires the given storage", func(t *testing.T) {
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
+		require.NoError(t, storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg"))
+		srv := newServer(t, storage)
 
-		srv, _, err := server.New(storage)
-		require.NoError(t, err)
-
-		reader, mime, err := srv.GetImage(ctx, "test.png", "")
-
+		_, mime, err := srv.GetImage(ctx, "test.png", "")
 		require.NoError(t, err)
 		require.Equal(t, "image/webp", mime)
-		require.NotNil(t, reader)
-
-		// Verify we can read the data
-		data, err := io.ReadAll(reader)
-		require.NoError(t, err)
-		require.Greater(t, len(data), 0)
 	})
 
-	t.Run("applies resize transformation for matching class", func(t *testing.T) {
-		// Create a 200x200 test image
-		largeImage := createTestImage(t, 200, 200)
+	t.Run("applies options", func(t *testing.T) {
+		image := createTestImage(t, 400, 400)
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", largeImage, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
-
-		reader, mime, err := srv.GetImage(ctx, "test.png", "thumb")
-
-		require.NoError(t, err)
-		require.Equal(t, "image/webp", mime)
-
-		// Read and decode the WebP response to verify dimensions
-		data, err := io.ReadAll(reader)
-		require.NoError(t, err)
-		require.Greater(t, len(data), 0)
-
-		// Decode the returned WebP to check dimensions
-		resizedImg, err := vips.NewImageFromReader(bytes.NewReader(data))
-		require.NoError(t, err)
-		defer resizedImg.Close()
-
-		// The 200x200 source should be scaled down to exactly fit the
-		// 100x100 bounding box.
-		require.Equal(t, 100, resizedImg.Width())
-		require.Equal(t, 100, resizedImg.Height())
-	})
-
-	t.Run("does not upscale images smaller than bounding box", func(t *testing.T) {
-		// Create a 50x50 test image
-		smallImage := createTestImage(t, 50, 50)
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "small.png", smallImage, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("large", server.ClassParams{Width: 200, Height: 200}),
-		)
-		require.NoError(t, err)
-
-		reader, mime, err := srv.GetImage(ctx, "small.png", "large")
-
-		require.NoError(t, err)
-		require.Equal(t, "image/webp", mime)
-
-		// Read and decode the WebP response to verify dimensions
-		data, err := io.ReadAll(reader)
-		require.NoError(t, err)
-
-		// Decode the returned WebP to check dimensions
-		resizedImg, err := vips.NewImageFromReader(bytes.NewReader(data))
-		require.NoError(t, err)
-		defer resizedImg.Close()
-
-		// The 50x50 source is smaller than the 200x200 bounding box, so it
-		// must be returned unchanged rather than upscaled.
-		require.Equal(t, 50, resizedImg.Width())
-		require.Equal(t, 50, resizedImg.Height())
-	})
-
-	t.Run("handles missing file", func(t *testing.T) {
-		storage := fakestorage.New()
-		srv, _, err := server.New(storage)
-		require.NoError(t, err)
-
-		_, _, err = srv.GetImage(ctx, "nonexistent.png", "")
-		require.Error(t, err)
-	})
-
-	t.Run("handles storage download error", func(t *testing.T) {
-		storage := fakestorage.New()
-		storage.FailDownloadWith(errors.New("storage error"))
-
-		srv, _, err := server.New(storage)
-		require.NoError(t, err)
-
-		_, _, err = srv.GetImage(ctx, "test.png", "")
-		require.Error(t, err)
-	})
-
-	t.Run("handles corrupted image data", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "corrupted.png", []byte("not an image"), "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(storage)
-		require.NoError(t, err)
-
-		_, _, err = srv.GetImage(ctx, "corrupted.png", "")
-		require.Error(t, err)
-	})
-}
-
-func TestServeImage(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("serves image with correct headers", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
+		require.NoError(t, storage.UploadFile(ctx, "test.png", image, "image/jpeg"))
+		srv := newServer(t, storage,
+			server.WithClass("thumb", server.ClassParams{Width: 200, Height: 200}),
+			server.WithPermaCache(true))
 
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		// Use the server as a getter
-		err = srv.ServeImage(ctx, srv, req, w, "test.png")
-		require.NoError(t, err)
+		require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
 		resp := w.Result()
-		defer func() {
-			err := resp.Body.Close()
-			require.NoError(t, err)
-		}()
-
 		require.Equal(t, "image/webp", resp.Header.Get("Content-Type"))
-		data, _ := io.ReadAll(resp.Body)
-		require.Greater(t, len(data), 0)
+		require.Contains(t, resp.Header.Get("Cache-Control"), "max-age=604800", "WithPermaCache should add cache headers")
+
+		data := testutil.Must(io.ReadAll(resp.Body))(t)
+		resized := testutil.Must(vips.NewImageFromReader(bytes.NewReader(data)))(t)
+		defer resized.Close()
+
+		// The "thumb" class should have resized the 400x400 source down to 200x200.
+		require.Equal(t, 200, resized.Width())
+		require.Equal(t, 200, resized.Height())
 	})
 
-	t.Run("returns 404 for unknown class", func(t *testing.T) {
+	t.Run("consults a custom class resolver", func(t *testing.T) {
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=unknown", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.png")
-		require.NoError(t, err)
-
-		resp := w.Result()
-		require.Equal(t, http.StatusNotFound, resp.StatusCode)
-	})
-
-	t.Run("applies cache headers when enabled", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-			server.WithPermaCache(true),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.png")
-		require.NoError(t, err)
-
-		cacheControl := w.Header().Get("Cache-Control")
-		require.Contains(t, cacheControl, "max-age=604800")
-		require.Contains(t, cacheControl, "immutable")
-	})
-
-	t.Run("handles getter error", func(t *testing.T) {
-		storage := fakestorage.New()
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "nonexistent.png")
-		require.Error(t, err)
-	})
-
-	t.Run("uses custom class resolver", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
+		require.NoError(t, storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg"))
 
 		resolverCalled := false
-		customResolver := func(ctx context.Context, req *http.Request) string {
-			resolverCalled = true
-			return "custom"
-		}
-
-		srv, _, err := server.New(
-			storage,
+		srv := newServer(t, storage,
 			server.WithClass("custom", server.ClassParams{Width: 50, Height: 50}),
-			server.WithClassResolver(customResolver),
-		)
-		require.NoError(t, err)
+			server.WithClassResolver(func(ctx context.Context, req *http.Request) string {
+				resolverCalled = true
+				return "custom"
+			}))
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/", nil)
+		// The query string names a class the resolver ignores; if the
+		// resolver weren't actually consulted, this class wouldn't resolve
+		// to a configured one and ServeImage would 404 instead of 200.
+		req := httptest.NewRequest("GET", "/?class=unmapped", nil)
+		require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
-		err = srv.ServeImage(ctx, srv, req, w, "test.png")
-		require.NoError(t, err)
 		require.True(t, resolverCalled)
-	})
-
-	t.Run("respects closer interface on reader", func(t *testing.T) {
-		closeCalled := false
-
-		// Create a mock getter that returns a closeable reader
-		mockGetter := &mockGetter{
-			closeCalled: &closeCalled,
-		}
-
-		storage := fakestorage.New()
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
-
-		err = srv.ServeImage(ctx, mockGetter, req, w, "test.png")
-		require.NoError(t, err)
-		require.True(t, closeCalled, "reader should have been closed")
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
 	})
 }
 
+func TestGetImage_Resize(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		name         string
+		srcW, srcH   int
+		classes      map[string]server.ClassParams
+		requestClass string
+		wantW, wantH int
+	}{
+		{"no class configured returns the source size", 300, 150, nil, "", 300, 150},
+		{"resizes down to fit the bounding box", 200, 200,
+			map[string]server.ClassParams{"thumb": {Width: 100, Height: 100}}, "thumb", 100, 100},
+		{"does not upscale an image smaller than the bounding box", 50, 50,
+			map[string]server.ClassParams{"large": {Width: 200, Height: 200}}, "large", 50, 50},
+		{"downsizes a large image", 500, 500,
+			map[string]server.ClassParams{"small": {Width: 10, Height: 10}}, "small", 10, 10},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			image := createTestImage(t, c.srcW, c.srcH)
+			storage := fakestorage.New()
+			require.NoError(t, storage.UploadFile(ctx, "test.jpg", image, "image/jpeg"))
+
+			var opts []server.Option
+			for name, params := range c.classes {
+				opts = append(opts, server.WithClass(name, params))
+			}
+			srv := newServer(t, storage, opts...)
+
+			reader, mime, err := srv.GetImage(ctx, "test.jpg", c.requestClass)
+			require.NoError(t, err)
+			require.Equal(t, "image/webp", mime)
+
+			data := testutil.Must(io.ReadAll(reader))(t)
+			resized := testutil.Must(vips.NewImageFromReader(bytes.NewReader(data)))(t)
+			defer resized.Close()
+
+			require.Equal(t, c.wantW, resized.Width())
+			require.Equal(t, c.wantH, resized.Height())
+		})
+	}
+}
+
+func TestGetImage_ZeroDimensionClass(t *testing.T) {
+	// A degenerate 0x0 class must not crash GetImage.
+	ctx := context.Background()
+	storage := fakestorage.New()
+	require.NoError(t, storage.UploadFile(ctx, "test.jpg", minimalJPEG, "image/jpeg"))
+	srv := newServer(t, storage, server.WithClass("zero", server.ClassParams{Width: 0, Height: 0}))
+
+	reader, mime, err := srv.GetImage(ctx, "test.jpg", "zero")
+	require.NoError(t, err)
+	require.Equal(t, "image/webp", mime)
+
+	data := testutil.Must(io.ReadAll(reader))(t)
+	require.Greater(t, len(data), 0)
+}
+
+func TestGetImage_Errors(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		name  string
+		setup func(t *testing.T) (storage *fakestorage.Storage, fname string)
+	}{
+		{"missing file", func(t *testing.T) (*fakestorage.Storage, string) {
+			return fakestorage.New(), "nonexistent.png"
+		}},
+		{"storage download error", func(t *testing.T) (*fakestorage.Storage, string) {
+			storage := fakestorage.New()
+			storage.FailDownloadWith(errors.New("storage error"))
+			return storage, "test.png"
+		}},
+		{"corrupted image data", func(t *testing.T) (*fakestorage.Storage, string) {
+			storage := fakestorage.New()
+			require.NoError(t, storage.UploadFile(ctx, "corrupted.png", []byte("not an image"), "image/jpeg"))
+			return storage, "corrupted.png"
+		}},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			storage, fname := c.setup(t)
+			srv := newServer(t, storage)
+
+			_, _, err := srv.GetImage(ctx, fname, "")
+			require.Error(t, err)
+		})
+	}
+}
+
+// mockGetter is a MediaGetter whose returned reader tracks whether it was closed.
 type mockGetter struct {
 	closeCalled *bool
 }
@@ -443,112 +261,95 @@ func (c *closeTrackingReader) Close() error {
 	return nil
 }
 
-func TestGetImage_EdgeCases(t *testing.T) {
+func TestServeImage(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("large image downsizing", func(t *testing.T) {
-		largeImage := createTestImage(t, 500, 500)
+	t.Run("serves image with correct headers", func(t *testing.T) {
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "large.jpg", largeImage, "image/jpeg")
-		require.NoError(t, err)
+		require.NoError(t, storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg"))
+		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
 
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("small", server.ClassParams{Width: 10, Height: 10}),
-		)
-		require.NoError(t, err)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
-		reader, mime, err := srv.GetImage(ctx, "large.jpg", "small")
-		require.NoError(t, err)
-		require.Equal(t, "image/webp", mime)
+		resp := w.Result()
+		defer func() { require.NoError(t, resp.Body.Close()) }()
 
-		data, err := io.ReadAll(reader)
-		require.NoError(t, err)
-
-		resizedImg, err := vips.NewImageFromReader(bytes.NewReader(data))
-		require.NoError(t, err)
-		defer resizedImg.Close()
-
-		require.Equal(t, 10, resizedImg.Width())
-		require.Equal(t, 10, resizedImg.Height())
-	})
-
-	t.Run("multiple class params", func(t *testing.T) {
-		image := createTestImage(t, 1000, 1000)
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.jpg", image, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("small", server.ClassParams{Width: 50, Height: 50}),
-			server.WithClass("medium", server.ClassParams{Width: 200, Height: 200}),
-			server.WithClass("large", server.ClassParams{Width: 800, Height: 800}),
-		)
-		require.NoError(t, err)
-
-		// Each class must resize the 1000x1000 source to its own bounds.
-		classSizes := map[string]int{"small": 50, "medium": 200, "large": 800}
-		for _, class := range []string{"small", "medium", "large"} {
-			reader, mime, err := srv.GetImage(ctx, "test.jpg", class)
-			require.NoError(t, err, "failed for class %s", class)
-			require.Equal(t, "image/webp", mime)
-
-			data, err := io.ReadAll(reader)
-			require.NoError(t, err)
-
-			resizedImg, err := vips.NewImageFromReader(bytes.NewReader(data))
-			require.NoError(t, err, "failed to decode output for class %s", class)
-
-			require.Equal(t, classSizes[class], resizedImg.Width(), "unexpected width for class %s", class)
-			require.Equal(t, classSizes[class], resizedImg.Height(), "unexpected height for class %s", class)
-			resizedImg.Close()
-		}
-	})
-
-	t.Run("class with zero dimensions", func(t *testing.T) {
-		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.jpg", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
-
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("zero", server.ClassParams{Width: 0, Height: 0}),
-		)
-		require.NoError(t, err)
-
-		reader, mime, err := srv.GetImage(ctx, "test.jpg", "zero")
-		require.NoError(t, err)
-		require.Equal(t, "image/webp", mime)
-
-		data, err := io.ReadAll(reader)
+		require.Equal(t, "image/webp", resp.Header.Get("Content-Type"))
+		data, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 		require.Greater(t, len(data), 0)
 	})
-}
 
-func TestServeImage_EdgeCases(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("empty class returns 404", func(t *testing.T) {
+	t.Run("404 when the class doesn't resolve to a configured one", func(t *testing.T) {
 		storage := fakestorage.New()
-		err := storage.UploadFile(ctx, "test.jpg", minimalJPEG, "image/jpeg")
-		require.NoError(t, err)
+		require.NoError(t, storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg"))
+		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
 
-		srv, _, err := server.New(
-			storage,
-			server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}),
-		)
-		require.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=", nil)
-
-		err = srv.ServeImage(ctx, srv, req, w, "test.jpg")
-		require.NoError(t, err)
-
-		resp := w.Result()
-		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		for _, class := range []string{"unknown", ""} {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/?class="+class, nil)
+			require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
+			require.Equal(t, http.StatusNotFound, w.Result().StatusCode)
+		}
 	})
 
+	t.Run("cache headers", func(t *testing.T) {
+		cases := []struct {
+			name         string
+			permaCache   bool
+			wantContains []string
+		}{
+			{"absent by default", false, nil},
+			{"present when WithPermaCache is set", true, []string{"max-age=604800", "immutable"}},
+		}
+
+		for _, c := range cases {
+			t.Run(c.name, func(t *testing.T) {
+				storage := fakestorage.New()
+				require.NoError(t, storage.UploadFile(ctx, "test.png", minimalJPEG, "image/jpeg"))
+
+				opts := []server.Option{server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100})}
+				if c.permaCache {
+					opts = append(opts, server.WithPermaCache(true))
+				}
+				srv := newServer(t, storage, opts...)
+
+				w := httptest.NewRecorder()
+				req := httptest.NewRequest("GET", "/?class=thumb", nil)
+				require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
+
+				cacheControl := w.Header().Get("Cache-Control")
+				if len(c.wantContains) == 0 {
+					require.Empty(t, cacheControl)
+				}
+				for _, want := range c.wantContains {
+					require.Contains(t, cacheControl, want)
+				}
+			})
+		}
+	})
+
+	t.Run("propagates the getter's error", func(t *testing.T) {
+		storage := fakestorage.New()
+		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		require.Error(t, srv.ServeImage(ctx, srv, req, w, "nonexistent.png"))
+	})
+
+	t.Run("closes the reader when it implements io.Closer", func(t *testing.T) {
+		closeCalled := false
+		mockGetter := &mockGetter{closeCalled: &closeCalled}
+
+		storage := fakestorage.New()
+		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		require.NoError(t, srv.ServeImage(ctx, mockGetter, req, w, "test.png"))
+		require.True(t, closeCalled, "reader should have been closed")
+	})
 }

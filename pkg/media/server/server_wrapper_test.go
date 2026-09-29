@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,6 +67,51 @@ func (m *mockMediaServer) getCallCount() int {
 	return m.callCount
 }
 
+func TestServerWrapper_GetImage_Errors(t *testing.T) {
+	readErr := errors.New("read failed")
+
+	cases := []struct {
+		name string
+		mock *mockMediaServer
+		ctx  func() (context.Context, context.CancelFunc)
+		want func(t *testing.T, err error)
+	}{
+		{
+			name: "handles context cancellation",
+			mock: &mockMediaServer{responseDelay: 100 * time.Millisecond},
+			ctx: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 50*time.Millisecond)
+			},
+			want: func(t *testing.T, err error) { require.ErrorIs(t, err, context.DeadlineExceeded) },
+		},
+		{
+			name: "handles server errors",
+			mock: &mockMediaServer{shouldError: true},
+			ctx:  func() (context.Context, context.CancelFunc) { return context.Background(), func() {} },
+			want: func(t *testing.T, err error) { require.Error(t, err) },
+		},
+		{
+			// The underlying reader fails mid-copy; GetImage must propagate
+			// that error rather than returning a successful, truncated response.
+			name: "propagates an io.Copy read error",
+			mock: &mockMediaServer{readErr: readErr},
+			ctx:  func() (context.Context, context.CancelFunc) { return context.Background(), func() {} },
+			want: func(t *testing.T, err error) { require.ErrorIs(t, err, readErr) },
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			wrapper := NewWrapper(c.mock, 1)
+			ctx, cancel := c.ctx()
+			defer cancel()
+
+			_, _, err := wrapper.GetImage(ctx, "test.jpg", "thumbnail")
+			c.want(t, err)
+		})
+	}
+}
+
 func TestServerWrapper_GetImage(t *testing.T) {
 	t.Run("deduplicates concurrent requests", func(t *testing.T) {
 		mock := &mockMediaServer{responseDelay: 100 * time.Millisecond}
@@ -74,29 +120,20 @@ func TestServerWrapper_GetImage(t *testing.T) {
 		var wg sync.WaitGroup
 		for range 5 {
 			wg.Go(func() {
+				// assert, not require: FailNow must not run off the test goroutine.
 				reader, mime, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
+				if !assert.NoError(t, err) {
 					return
 				}
-				if mime != "image/jpeg" {
-					t.Errorf("unexpected mime type: %s", mime)
-				}
+				assert.Equal(t, "image/jpeg", mime)
 				data, err := io.ReadAll(reader)
-				if err != nil {
-					t.Errorf("failed to read response: %v", err)
-					return
-				}
-				if string(data) != "mock image data" {
-					t.Errorf("unexpected response data: %s", string(data))
-				}
+				assert.NoError(t, err)
+				assert.Equal(t, "mock image data", string(data))
 			})
 		}
 		wg.Wait()
 
-		if count := mock.getCallCount(); count != 1 {
-			t.Errorf("expected 1 call to underlying server, got %d", count)
-		}
+		require.Equal(t, 1, mock.getCallCount(), "expected 1 call to underlying server")
 	})
 
 	t.Run("respects concurrency limit", func(t *testing.T) {
@@ -106,76 +143,31 @@ func TestServerWrapper_GetImage(t *testing.T) {
 		start := time.Now()
 		var wg sync.WaitGroup
 		for i := range 6 {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
+			wg.Go(func() {
 				_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "class"+string(rune(i)))
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-			}(i)
+				assert.NoError(t, err)
+			})
 		}
 		wg.Wait()
 
-		// With 6 different requests and concurrency limit of 2,
-		// it should take at least 300ms (3 batches * 100ms)
-		duration := time.Since(start)
-		if duration < 300*time.Millisecond {
-			t.Errorf("requests completed too quickly, expected at least 300ms, got %v", duration)
-		}
+		// With 6 different requests and a concurrency limit of 2, it should
+		// take at least 300ms (3 batches * 100ms).
+		require.GreaterOrEqual(t, time.Since(start), 300*time.Millisecond)
 	})
 
-	t.Run("handles context cancellation", func(t *testing.T) {
-		mock := &mockMediaServer{responseDelay: 100 * time.Millisecond}
-		wrapper := NewWrapper(mock, 1)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		defer cancel()
-
-		_, _, err := wrapper.GetImage(ctx, "test.jpg", "thumbnail")
-		if !errors.Is(err, context.DeadlineExceeded) {
-			t.Errorf("expected deadline exceeded error, got %v", err)
-		}
-	})
-
-	t.Run("handles server errors", func(t *testing.T) {
-		mock := &mockMediaServer{shouldError: true}
-		wrapper := NewWrapper(mock, 1)
-
-		_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
-		if err == nil {
-			t.Error("expected error, got nil")
-		}
-	})
-
-	t.Run("memory cleanup", func(t *testing.T) {
+	t.Run("cleans up the in-flight map after each request", func(t *testing.T) {
 		mock := &mockMediaServer{}
 		wrapper := NewWrapper(mock, 1)
 
-		// Make several requests and verify that in-flight map is cleaned up
 		for range 10 {
 			_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-			}
+			require.NoError(t, err)
 
 			wrapper.mu.Lock()
-			if len(wrapper.inFlight) != 0 {
-				t.Errorf("in-flight map not cleaned up, contains %d entries", len(wrapper.inFlight))
-			}
+			inFlight := len(wrapper.inFlight)
 			wrapper.mu.Unlock()
+			require.Empty(t, inFlight, "in-flight map not cleaned up")
 		}
-	})
-
-	t.Run("io.Copy error handling", func(t *testing.T) {
-		readErr := errors.New("read failed")
-		mock := &mockMediaServer{readErr: readErr}
-		wrapper := NewWrapper(mock, 1)
-
-		// The underlying reader fails mid-copy; GetImage must propagate that
-		// error rather than returning a successful, truncated response.
-		_, _, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
-		require.ErrorIs(t, err, readErr)
 	})
 
 	t.Run("different files don't share requests", func(t *testing.T) {
@@ -183,30 +175,14 @@ func TestServerWrapper_GetImage(t *testing.T) {
 		wrapper := NewWrapper(mock, 10)
 
 		var wg sync.WaitGroup
-		// Request two different files concurrently
-		wg.Add(2)
-
-		go func() {
-			defer wg.Done()
-			_, _, err := wrapper.GetImage(context.Background(), "file1.jpg", "thumb")
-			if err != nil {
-				t.Errorf("unexpected error for file1: %v", err)
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			_, _, err := wrapper.GetImage(context.Background(), "file2.jpg", "thumb")
-			if err != nil {
-				t.Errorf("unexpected error for file2: %v", err)
-			}
-		}()
-
+		for _, fname := range []string{"file1.jpg", "file2.jpg"} {
+			wg.Go(func() {
+				_, _, err := wrapper.GetImage(context.Background(), fname, "thumb")
+				assert.NoError(t, err)
+			})
+		}
 		wg.Wait()
 
-		// Both should have been called on the underlying server
-		if count := mock.getCallCount(); count != 2 {
-			t.Errorf("expected 2 calls to underlying server, got %d", count)
-		}
+		require.Equal(t, 2, mock.getCallCount(), "expected 2 calls to underlying server")
 	})
 }
