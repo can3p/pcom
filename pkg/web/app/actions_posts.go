@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/gin-gonic/gin"
@@ -17,19 +16,9 @@ import (
 func mountPostActions(d *Deps, r *gin.RouterGroup) {
 	db := d.DB
 
-	r.POST("/delete_draft", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-		dbUser := userData.DBUser
-
-		var input struct {
-			PostID string `json:"postId"`
-		}
-
-		if err := c.BindJSON(&input); err != nil {
-			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
-			return
-		}
-
+	r.POST("/delete_draft", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+		PostID string `json:"postId"`
+	}) error {
 		err := transact.Transact(db, func(tx *sql.Tx) error {
 			post, err := core.Posts(
 				core.PostWhere.ID.EQ(input.PostID),
@@ -46,10 +35,9 @@ func mountPostActions(d *Deps, r *gin.RouterGroup) {
 		})
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
-		reportSuccess(c)
-	})
+		return nil
+	}))
 }

@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 
-	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/userops"
@@ -17,60 +16,45 @@ import (
 func mountShareActions(d *Deps, r *gin.RouterGroup) {
 	db := d.DB
 
-	r.POST("/create_share", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		var input struct {
-			PostID string `json:"postId"`
-		}
-
-		if err := c.BindJSON(&input); err != nil {
-			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
-			return
-		}
-
+	r.POST("/create_share", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+		PostID string `json:"postId"`
+	}) error {
 		post, err := core.Posts(
 			core.PostWhere.ID.EQ(input.PostID),
 			qm.Load(core.PostRels.User),
 		).One(c, db)
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
 		// drafts are not visible
 		if post.PublishedAt.IsZero() {
-			reportError(c, "Cannot share a link for draft")
-			return
+			return userError(("Cannot share a link for draft"))
 		}
 
 		author := post.R.User
 
-		connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
+		connectionRadius, err := userops.GetConnectionRadius(c, db, dbUser.ID, author.ID)
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
 		if connectionRadius.IsUnrelated() {
-			reportError(c, "Operation not allowed")
-			return
+			return userError(("Operation not allowed"))
 		}
 
 		capabilities := postops.GetPostCapabilities(connectionRadius)
 
 		if !capabilities.CanShare {
-			reportError(c, "Operation not allowed")
-			return
+			return userError(("Operation not allowed"))
 		}
 
 		shareID, err := uuid.NewV7()
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
 		share := &core.PostShare{
@@ -81,54 +65,40 @@ func mountShareActions(d *Deps, r *gin.RouterGroup) {
 		err = share.Upsert(c, db, false, []string{core.PostShareColumns.PostID}, boil.Infer(), boil.Infer())
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
-		reportSuccess(c)
-	})
+		return nil
+	}))
 
-	r.POST("/delete_share", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		var input struct {
-			PostID string `json:"postId"`
-		}
-
-		if err := c.BindJSON(&input); err != nil {
-			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
-			return
-		}
-
+	r.POST("/delete_share", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+		PostID string `json:"postId"`
+	}) error {
 		post, err := core.Posts(
 			core.PostWhere.ID.EQ(input.PostID),
 			qm.Load(core.PostRels.User),
 		).One(c, db)
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
 		author := post.R.User
 
-		connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
+		connectionRadius, err := userops.GetConnectionRadius(c, db, dbUser.ID, author.ID)
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
 		if connectionRadius.IsUnrelated() {
-			reportError(c, "Operation not allowed")
-			return
+			return userError(("Operation not allowed"))
 		}
 
 		capabilities := postops.GetPostCapabilities(connectionRadius)
 
 		if !capabilities.CanShare {
-			reportError(c, "Operation not allowed")
-			return
+			return userError(("Operation not allowed"))
 		}
 
 		_, err = core.PostShares(
@@ -136,10 +106,9 @@ func mountShareActions(d *Deps, r *gin.RouterGroup) {
 		).DeleteAll(c, db)
 
 		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
+			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
 		}
 
-		reportSuccess(c)
-	})
+		return nil
+	}))
 }
