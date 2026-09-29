@@ -93,11 +93,12 @@ func TestNavigation_BoostedTopNavAndHistory(t *testing.T) {
 }
 
 // At a phone viewport the top navigation starts collapsed; the navbar
-// toggler (the "collapse" Stimulus controller wrapping Bootstrap's Collapse)
-// reveals it, and a link inside still navigates normally.
+// toggler (using the Stimulus toggle controller with CSS classes, not Bootstrap's
+// Collapse which sets inline styles) reveals it without triggering a CSP violation,
+// and a link inside still navigates normally. The browser guard reports any CSP
+// violations as console errors, which cause the test to fail.
 func TestNavigation_MobileMenuAt390(t *testing.T) {
 	t.Parallel()
-	t.Skip("known bug #140: clicking the navbar toggler (data-bs-toggle=\"collapse\") makes Bootstrap's Collapse component set an inline style attribute on #navbarNavDropdown for the show/hide transition; the page's CSP (style-src with a per-request nonce, no 'unsafe-inline') blocks that mutation, which the browser guard reports as a console.error - repro: browser.Page at a 390px viewport, page.Goto(\"/feed\"), click the \"Toggle navigation\" button")
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
@@ -115,6 +116,9 @@ func TestNavigation_MobileMenuAt390(t *testing.T) {
 	require.NoError(t, toggler.Click())
 
 	require.NoError(t, browser.Expect.Locator(feedLink).ToBeVisible())
+	ariaExpanded, err := toggler.GetAttribute("aria-expanded")
+	require.NoError(t, err)
+	require.Equal(t, "true", ariaExpanded)
 
 	settingsLink := b1NavLink(page, "Settings")
 	require.NoError(t, settingsLink.Click())

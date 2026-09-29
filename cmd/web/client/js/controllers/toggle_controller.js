@@ -16,7 +16,9 @@ export default class extends Controller {
       e.preventDefault()
       this.toggle()
     }, false)
-    targetEl.addEventListener("click", () => this.hide(), false)
+    if (targetEl) {
+      targetEl.addEventListener("click", () => this.hide(), false)
+    }
   }
 
   show() {
@@ -33,6 +35,10 @@ export default class extends Controller {
 
     if (this.hideTargetValue) {
       this.element.classList.add("d-none")
+    }
+
+    if (this.element.hasAttribute("aria-expanded")) {
+      this.element.setAttribute("aria-expanded", "true")
     }
   }
 
@@ -59,6 +65,10 @@ export default class extends Controller {
 
     if (this.hideTargetValue) {
       this.element.classList.remove("d-none")
+    }
+
+    if (this.element.hasAttribute("aria-expanded")) {
+      this.element.setAttribute("aria-expanded", "false")
     }
   }
 
