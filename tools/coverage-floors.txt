@@ -1,0 +1,11 @@
+# Coverage floors, checked by `make cover-check` after `make cover`: one per line,
+# <import path or "total"> <percent>. "total" excludes pkg/model/core.
+# A floor is the achieved level minus 1. Floors only ever rise: to raise one, run
+# `make cover` and set the floor to the new merged percentage minus 1.
+
+total 80.1
+github.com/can3p/pcom/pkg/web 88.3
+github.com/can3p/pcom/pkg/userops 88.0
+github.com/can3p/pcom/pkg/auth 91.6
+github.com/can3p/pcom/pkg/forms 84.3
+github.com/can3p/pcom/pkg/postops 87.4

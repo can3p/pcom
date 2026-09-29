@@ -32,10 +32,14 @@ jobs:
       - name: Run tests
         run: make cover
 
+      - name: Check coverage floors
+        run: make cover-check
+
       - name: Upload coverage
         uses: codecov/codecov-action@v7
         with:
           files: coverage.out
+        if: always()
         continue-on-error: true
 
   lint:
