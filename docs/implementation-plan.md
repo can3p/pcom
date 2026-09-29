@@ -52,7 +52,7 @@ Related documents:
 | W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | done | `test/w4-local-stack` |
 | W5 | Coverage ratchet | W1–W4 | done | `test/w5-ratchet` |
 | W6 | Browser tests (playwright-go): user flows | W0 | done | `test/w6-browser` |
-| WB | Bug-fix wave (#108–#122, #139–#168) | W1–W3 | not started | `fix/wb-survey-bugs` |
+| WB | Bug-fix wave (#108–#122, #139–#168) | W1–W3 | done | `fix/wb-survey-bugs` |
 | R1 | Router decomposition (move handlers) | W3, W6, WB | planned | `refactor/r1-router` |
 | RS | Repositories and services, thin handlers | R1 | planned | `refactor/rs-layers` |
 | R2 | go-flags config, single binary, tommy for mail and S3, object storage only | RS, R3 (mailjet BaseURL) | planned | `refactor/r2-config` |
