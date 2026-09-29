@@ -1001,8 +1001,7 @@ func TestGuards_LoginBadCredentials(t *testing.T) {
 }
 
 // TestGuards_LoginCaseInsensitiveEmail: logging in with the account's email
-// upper-cased, and the correct password, should succeed. Today the lookup is
-// case-sensitive and the attempt is refused as bad credentials.
+// upper-cased, and the correct password, succeeds.
 func TestGuards_LoginCaseInsensitiveEmail(t *testing.T) {
 	t.Parallel()
 

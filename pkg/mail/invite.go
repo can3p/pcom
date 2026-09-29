@@ -23,7 +23,7 @@ func SendInvite(ctx context.Context, db boil.ContextExecutor, sender sender.Send
 	to = pgsession.NormalizeEmail(to)
 
 	exists := core.Users(
-		pgsession.EmailIs(to),
+		core.UserWhere.Email.EQ(to),
 	).ExistsP(ctx, db)
 
 	if exists {
@@ -99,7 +99,7 @@ func sendActualInvitation(ctx context.Context, exec boil.ContextExecutor, s send
 // been sent and not yet used to create an account.
 func PendingInvitationExists(ctx context.Context, db boil.ContextExecutor, email string) bool {
 	return core.UserInvitations(
-		qm.Where("lower(btrim(invitation_email)) = ?", pgsession.NormalizeEmail(email)),
+		core.UserInvitationWhere.InvitationEmail.EQ(null.StringFrom(pgsession.NormalizeEmail(email))),
 		core.UserInvitationWhere.CreatedUserID.IsNull(),
 	).ExistsP(ctx, db)
 }

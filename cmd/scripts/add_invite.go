@@ -9,6 +9,7 @@ import (
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // postgres db driver
@@ -33,7 +34,7 @@ func main() { //nolint:typecheck
 	}
 
 	u := core.Users(
-		core.UserWhere.Email.EQ(*email),
+		core.UserWhere.Email.EQ(pgsession.NormalizeEmail(*email)),
 	).OneP(context.Background(), db)
 
 	err := transact.Transact(db, func(tx *sql.Tx) error {

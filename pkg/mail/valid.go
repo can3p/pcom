@@ -16,7 +16,7 @@ func Validate(ctx context.Context, db boil.ContextExecutor, email string) error 
 	}
 
 	if core.Users(
-		pgsession.EmailIs(email),
+		core.UserWhere.Email.EQ(pgsession.NormalizeEmail(email)),
 	).ExistsP(ctx, db) {
 		return errors.Errorf("email is already registered in the system")
 	}

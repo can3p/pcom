@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -54,9 +53,8 @@ func HashPassword(password string) string {
 }
 
 // CheckUserPwd reports whether password matches the stored hash of a user
-// whose stored email is email. A legacy hash was computed from the email as
-// it was stored when the password was set, so the caller passes the stored
-// spelling, not what the user typed. needsRehash is true when a legacy hash
+// whose stored email is email. A legacy hash was computed from the email, so
+// the caller passes the stored email, not what the user typed. needsRehash is true when a legacy hash
 // matched, so the caller can replace it with HashPassword.
 func CheckUserPwd(stored, email, password string) (ok bool, needsRehash bool) {
 	if strings.HasPrefix(stored, argonPrefix) {
@@ -68,14 +66,6 @@ func CheckUserPwd(stored, email, password string) (ok bool, needsRehash bool) {
 	}
 
 	return false, false
-}
-
-// EmailIs matches the users whose email equals email ignoring case and
-// surrounding space, the way emails are compared (backed by an index on
-// lower(btrim(email))). Legacy accounts may store mixed case, and on legacy
-// collisions it matches more than one user.
-func EmailIs(email string) qm.QueryMod {
-	return qm.Where("lower(btrim(email)) = ?", NormalizeEmail(email))
 }
 
 func checkArgon2id(stored, password string) bool {

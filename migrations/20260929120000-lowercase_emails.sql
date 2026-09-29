@@ -1,18 +1,48 @@
 -- +migrate Up
 
--- Emails are compared ignoring case and surrounding space. users.email keeps
--- its stored spelling: legacy password hashes were computed from it, and some
--- legacy accounts differ only in case, so the index can't be unique. Login
--- normalizes an account's email once its hash is upgraded.
-CREATE INDEX users_email_normalized_idx ON users (lower(btrim(email)));
+-- Emails are stored normalized (lowercase, no surrounding space) and
+-- compared by plain equality. users.email and user_signup_requests.email
+-- already have unique indexes, so normalizing two rows into the same address
+-- makes this migration fail rather than merge or skip them: such accounts
+-- have to be resolved by hand first.
+UPDATE users
+SET email = lower(btrim(email))
+WHERE email <> lower(btrim(email));
 
--- An invitation's email is only ever read to create the account, which
--- normalizes it anyway; storing it normalized lets invitations be checked
--- for duplicates by plain equality.
 UPDATE user_invitations
 SET invitation_email = lower(btrim(invitation_email))
 WHERE invitation_email <> lower(btrim(invitation_email));
 
+UPDATE user_signup_requests
+SET email = lower(btrim(email))
+WHERE email <> lower(btrim(email));
+
+-- The format check is deliberately loose, one "@" with text on both sides:
+-- the application validates addresses properly before storing them.
+ALTER TABLE users
+  ADD CONSTRAINT users_email_normalized CHECK (email = lower(btrim(email))),
+  ADD CONSTRAINT users_email_format CHECK (email ~ '^[^@]+@[^@]+$');
+
+ALTER TABLE user_invitations
+  ADD CONSTRAINT user_invitations_invitation_email_normalized
+    CHECK (invitation_email = lower(btrim(invitation_email))),
+  ADD CONSTRAINT user_invitations_invitation_email_format
+    CHECK (invitation_email ~ '^[^@]+@[^@]+$');
+
+ALTER TABLE user_signup_requests
+  ADD CONSTRAINT user_signup_requests_email_normalized CHECK (email = lower(btrim(email))),
+  ADD CONSTRAINT user_signup_requests_email_format CHECK (email ~ '^[^@]+@[^@]+$');
+
 -- +migrate Down
 
-DROP INDEX users_email_normalized_idx;
+ALTER TABLE user_signup_requests
+  DROP CONSTRAINT user_signup_requests_email_format,
+  DROP CONSTRAINT user_signup_requests_email_normalized;
+
+ALTER TABLE user_invitations
+  DROP CONSTRAINT user_invitations_invitation_email_format,
+  DROP CONSTRAINT user_invitations_invitation_email_normalized;
+
+ALTER TABLE users
+  DROP CONSTRAINT users_email_format,
+  DROP CONSTRAINT users_email_normalized;

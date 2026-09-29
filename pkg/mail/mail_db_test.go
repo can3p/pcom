@@ -2,6 +2,7 @@ package mail_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -93,18 +94,6 @@ func TestSendInvite_Queue(t *testing.T) {
 		require.Contains(t, to[1], "second@example.test")
 	})
 
-	t.Run("a stored mixed-case pending address blocks a lowercase invite", func(t *testing.T) {
-		t.Parallel()
-
-		db := testdb.New(t).DB
-		inviter := newUser(t, ctx, db)
-		other := newUser(t, ctx, db)
-		newInvitation(t, ctx, db, inviter.ID)
-		testutil.Must(factory.Invitation(ctx, db, other.ID, factory.Sent("Mixed@Example.test")))(t)
-
-		require.True(t, mail.PendingInvitationExists(ctx, db, "mixed@example.test"))
-		require.Error(t, mail.SendInvite(ctx, db, fakesender.New(), inviter, "mixed@example.test"))
-	})
 }
 
 func TestSendInvite(t *testing.T) {
@@ -200,9 +189,8 @@ func TestValidate(t *testing.T) {
 		t.Parallel()
 
 		existingUser := newUser(t, ctx, db)
-		testutil.Must(factory.User(ctx, db, factory.WithEmail("Legacy@Example.test")))(t)
 
-		for _, email := range []string{existingUser.Email, strings.ToUpper(existingUser.Email), "legacy@example.test"} {
+		for _, email := range []string{existingUser.Email, " " + strings.ToUpper(existingUser.Email) + " "} {
 			err := mail.Validate(ctx, db, email)
 			require.Error(t, err, email)
 			require.Contains(t, err.Error(), "already registered")
@@ -223,11 +211,11 @@ func TestPendingInvitationUniqueIndex(t *testing.T) {
 	db := testdb.New(t).DB
 	inviter := newUser(t, ctx, db)
 
-	t.Run("a second pending invitation to the same normalized address fails", func(t *testing.T) {
+	t.Run("a second pending invitation to the same address fails", func(t *testing.T) {
 		t.Parallel()
 
 		testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("index-dup@example.test")))(t)
-		_, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent(" Index-Dup@Example.test "))
+		_, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("index-dup@example.test"))
 		require.Error(t, err)
 	})
 
@@ -239,4 +227,43 @@ func TestPendingInvitationUniqueIndex(t *testing.T) {
 		_, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent("index-used@example.test"))
 		require.NoError(t, err)
 	})
+}
+
+// TestEmailConstraints: every stored email is normalized (lowercase, no
+// surrounding space) and has one "@" with text on both sides, so lookups can
+// compare by plain equality; users.email is unique.
+func TestEmailConstraints(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.New(t).DB
+	inviter := newUser(t, ctx, db)
+
+	insert := map[string]func(email string) error{
+		"user": func(email string) error {
+			_, err := factory.User(ctx, db, factory.WithEmail(email))
+			return err
+		},
+		"invitation": func(email string) error {
+			_, err := factory.Invitation(ctx, db, inviter.ID, factory.Sent(email))
+			return err
+		},
+		"signup request": func(email string) error {
+			_, err := factory.SignupRequest(ctx, db, func(r *core.UserSignupRequest) { r.Email = email })
+			return err
+		},
+	}
+
+	bad := []string{"Mixed@example.test", " space@example.test", "space@example.test ", "no-at.example.test", "two@at@example.test", "@example.test", "nobody@"}
+
+	for table, insert := range insert {
+		for i, email := range bad {
+			require.Error(t, insert(email), "%s %q", table, email)
+			require.NoError(t, insert(fmt.Sprintf("ok-%d@%s.test", i, strings.ReplaceAll(table, " ", "-"))), table)
+		}
+	}
+
+	testutil.Must(factory.User(ctx, db, factory.WithEmail("taken@example.test")))(t)
+	_, err := factory.User(ctx, db, factory.WithEmail("taken@example.test"))
+	require.Error(t, err, "users.email is unique")
 }

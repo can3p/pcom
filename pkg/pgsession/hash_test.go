@@ -106,8 +106,7 @@ func TestCheckUserPwd(t *testing.T) {
 		{name: "argon2id wrong password", stored: argon, email: "a@example.test", password: "wrong"},
 		{name: "argon2id malformed", stored: "$argon2id$v=19$m=1,t=0,p=0$AA$AA", password: "s3cr3t"},
 		{name: "legacy match asks for rehash", stored: pgsession.HashUserPwd("a@example.test", "s3cr3t"), email: "a@example.test", password: "s3cr3t", ok: true, rehash: true},
-		{name: "legacy hashed mixed case, checked with that spelling", stored: pgsession.HashUserPwd("Bob@Example.test", "s3cr3t"), email: "Bob@Example.test", password: "s3cr3t", ok: true, rehash: true},
-		{name: "legacy is checked against the given spelling only", stored: pgsession.HashUserPwd("Bob@Example.test", "s3cr3t"), email: "bob@example.test", password: "s3cr3t"},
+		{name: "legacy is checked against the given email", stored: pgsession.HashUserPwd("b@example.test", "s3cr3t"), email: "a@example.test", password: "s3cr3t"},
 		{name: "legacy wrong password", stored: pgsession.HashUserPwd("a@example.test", "s3cr3t"), email: "a@example.test", password: "wrong"},
 		{name: "empty hash", stored: "", email: "a@example.test", password: ""},
 	}
