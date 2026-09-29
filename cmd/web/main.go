@@ -289,13 +289,8 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", web.Index(c, db, &userData))
 	})
 
-	r.GET("/invite/:id", func(c *gin.Context) {
+	r.GET("/invite/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		invitationID := c.Param("id")
-
-		if _, err := uuid.Parse(invitationID); err != nil {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
 
 		userData := auth.GetUserData(c)
 
@@ -401,13 +396,9 @@ func main() {
 		})
 	})
 
-	r.GET("/confirm_waiting_list/:id", func(c *gin.Context) {
+	r.GET("/confirm_waiting_list/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		id := c.Param("id")
 
-		if _, err := uuid.Parse(id); err != nil {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
@@ -624,31 +615,12 @@ func main() {
 		ginhelpers.HTML(c, "feed.html", web.Explore(c, db, &userData))
 	})
 
-	r.GET("/rss/private/:token", func(c *gin.Context) {
+	r.GET("/rss/private/:token", requireUUIDParam("token"), func(c *gin.Context) {
 		token := c.Param("token")
-
-		if _, err := uuid.Parse(token); err != nil {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
 
 		user, err := repo.FeedTokenOwner(c.Request.Context(), db, token)
 
 		if errors.Is(err, sql.ErrNoRows) {
-			// feed URLs used to carry the API key, which can also write. Those
-			// URLs are refused with an explanation instead of a bare 404.
-			isKey, keyErr := repo.APIKeyOwnerExists(c.Request.Context(), db, token)
-			if keyErr != nil {
-				_ = c.AbortWithError(http.StatusInternalServerError, keyErr)
-				return
-			}
-
-			if isKey {
-				c.String(http.StatusGone, "This feed URL contained an API key and no longer works. Open your settings to get a new feed URL.")
-				c.Abort()
-				return
-			}
-
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		} else if err != nil {
@@ -721,13 +693,9 @@ func main() {
 		ginhelpers.HTML(c, "settings.html", web.Settings(c, db, &userData))
 	})
 
-	r.GET("/confirm_signup/:id", func(c *gin.Context) {
+	r.GET("/confirm_signup/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		id := c.Param("id")
 
-		if _, err := uuid.Parse(id); err != nil {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
 		userData := auth.GetUserData(c)
 
 		if userData.IsLoggedIn {
@@ -779,13 +747,8 @@ func main() {
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
-	nonControlsForms.POST("/accept_invite/:id", func(c *gin.Context) {
+	nonControlsForms.POST("/accept_invite/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		invitationID := c.Param("id")
-
-		if _, err := uuid.Parse(invitationID); err != nil {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
 
 		invite, err := core.UserInvitations(
 			core.UserInvitationWhere.ID.EQ(invitationID),

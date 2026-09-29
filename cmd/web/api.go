@@ -24,13 +24,13 @@ func setupApi(r *gin.RouterGroup, db *sqlx.DB, sender sender.Sender, mediaStorag
 		ginhelpers.API(c, web.ApiNewPost(c, db, sender, userData.DBUser, links.MediaReplacer))
 	})
 
-	r.POST("/posts/:id", func(c *gin.Context) {
+	r.POST("/posts/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
 		ginhelpers.API(c, web.ApiEditPost(c, db, sender, userData.DBUser, links.MediaReplacer, c.Param("id")))
 	})
 
-	r.DELETE("/posts/:id", func(c *gin.Context) {
+	r.DELETE("/posts/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetAPIUserData(c)
 
 		ginhelpers.API(c, web.ApiDeletePost(c, db, userData.DBUser, c.Param("id")))

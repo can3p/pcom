@@ -388,6 +388,25 @@ func TestAPI_DeletePost_Own(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
+// TestAPI_MalformedPostID: a post id that is not a UUID is a 404 for edit and delete.
+func TestAPI_MalformedPostID(t *testing.T) {
+	app := e2e.Start(t)
+	user, err := factory.User(context.Background(), app.DB)
+	require.NoError(t, err)
+	apiKey, err := factory.APIKey(context.Background(), app.DB, user.ID)
+	require.NoError(t, err)
+
+	for _, method := range []string{http.MethodPost, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			req, err := http.NewRequest(method, app.URL+"/api/v1/posts/not-a-uuid", nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+apiKey.APIKey)
+
+			app.Client(t).Do(req).RequireStatus(http.StatusNotFound)
+		})
+	}
+}
+
 // TestAPI_DeletePost_Foreign tests DELETE /api/v1/posts/:id for someone else's
 // post (must return 404, not leak that the post exists). Fixed in #118.
 func TestAPI_DeletePost_Foreign(t *testing.T) {
@@ -541,8 +560,7 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 }
 
 // TestAPI_RSSPrivate_Refused: what /rss/private/:token refuses. The API key can
-// write, so it no longer opens a feed: the old URL fails with 410 and an
-// explanation, not a bare 404.
+// write, so it does not open a feed: like any unknown token it is a 404.
 func TestAPI_RSSPrivate_Refused(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
@@ -559,7 +577,7 @@ func TestAPI_RSSPrivate_Refused(t *testing.T) {
 	}{
 		{"malformed", "unknown-key-12345", http.StatusNotFound, ""},
 		{"unknown_uuid", uuid.NewString(), http.StatusNotFound, ""},
-		{"api_key", apiKey.APIKey, http.StatusGone, "no longer works"},
+		{"api_key", apiKey.APIKey, http.StatusNotFound, ""},
 	}
 
 	for _, tc := range cases {
