@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -30,4 +31,14 @@ func jsonAction[T any](d *Deps, fn func(c *gin.Context, u *core.User, in T) erro
 
 		reportSuccess(c)
 	}
+}
+
+func reportError(c *gin.Context, s string) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"explanation": s,
+	})
+}
+
+func reportSuccess(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{})
 }
