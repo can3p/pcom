@@ -19,7 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// publicPostsLimit caps the posts on the index page.
+// publicPostsLimit caps the posts on the index page and in /rss/public.
 const publicPostsLimit = 50
 
 // mountPublicRoutes registers the pages anyone may read.

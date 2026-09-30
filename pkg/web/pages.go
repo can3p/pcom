@@ -9,6 +9,9 @@ import (
 	"github.com/samber/lo"
 )
 
+// ProjectName is the site name shown in page and feed titles.
+const ProjectName = "pcom"
+
 type BasePage struct {
 	ProjectName string
 	Name        string
@@ -22,7 +25,7 @@ func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage
 	return &BasePage{
 		Name:        name,
 		User:        userData,
-		ProjectName: "pcom",
+		ProjectName: ProjectName,
 		StyleNonce:  csp.GetStyleNonce(c),
 		ScriptNonce: csp.GetScriptNonce(c),
 	}
