@@ -10,6 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -53,11 +54,12 @@ func TestSendInvite_Queue(t *testing.T) {
 		t.Parallel()
 
 		db := testdb.New(t).DB
+		store := repo.New(db)
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		testutil.Must(factory.User(ctx, db, factory.WithEmail("john.doe@mail.test")))(t)
 
-		require.NoError(t, mail.SendInvite(ctx, db, dbsender.NewSender(db, fakesender.New()), inviter, "john.doe+prefix@mail.test"))
+		require.NoError(t, mail.SendInvite(ctx, db, dbsender.NewSender(store, fakesender.New()), inviter, "john.doe+prefix@mail.test"))
 		to := queued(t, db)
 		require.Len(t, to, 1)
 		require.Contains(t, to[0], "john.doe+prefix@mail.test")
@@ -67,10 +69,11 @@ func TestSendInvite_Queue(t *testing.T) {
 		t.Parallel()
 
 		db := testdb.New(t).DB
+		store := repo.New(db)
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		newInvitation(t, ctx, db, inviter.ID)
-		queue := dbsender.NewSender(db, fakesender.New())
+		queue := dbsender.NewSender(store, fakesender.New())
 
 		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "same@example.test"))
 		require.Error(t, mail.SendInvite(ctx, db, queue, inviter, " SAME@example.test "))
@@ -81,10 +84,11 @@ func TestSendInvite_Queue(t *testing.T) {
 		t.Parallel()
 
 		db := testdb.New(t).DB
+		store := repo.New(db)
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		newInvitation(t, ctx, db, inviter.ID)
-		queue := dbsender.NewSender(db, fakesender.New())
+		queue := dbsender.NewSender(store, fakesender.New())
 
 		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "first@example.test"))
 		require.NoError(t, mail.SendInvite(ctx, db, queue, inviter, "second@example.test"))

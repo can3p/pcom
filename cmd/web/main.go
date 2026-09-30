@@ -20,6 +20,7 @@ import (
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/local"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
@@ -88,7 +89,7 @@ func main() {
 		sender = console.NewSender()
 	}
 
-	dbSender := dbsender.NewSender(db, sender)
+	dbSender := dbsender.NewSender(repo.New(db), sender)
 	sender = dbSender
 
 	go dbSender.RunPoller(ctx)
