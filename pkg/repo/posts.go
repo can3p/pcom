@@ -182,11 +182,6 @@ func (s *Store) UploadsByName(ctx context.Context, userID string, names []string
 	).All(ctx, s.exec)
 }
 
-// InsertUpload records an uploaded file.
-func (s *Store) InsertUpload(ctx context.Context, upload *core.MediaUpload) error {
-	return upload.Insert(ctx, s.exec, boil.Infer())
-}
-
 // PostToRead returns a post, draft or published, with its author, stats and
 // linked URL loaded (post.R.User, post.R.PostStat, post.R.URL).
 func (s *Store) PostToRead(ctx context.Context, id string) (*core.Post, error) {
