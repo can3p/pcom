@@ -1,31 +1,19 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
 	"os"
 
-	"time"
-
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func ConfirmWaitingList(ctx context.Context, db boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) error {
-	waitingList.VerificationSentAt = null.TimeFrom(time.Now())
-
-	waitingList.UpdateP(ctx, db, boil.Infer())
-
-	return sendActualConfirmWaitingList(ctx, db, s, waitingList)
-}
-
-func sendActualConfirmWaitingList(ctx context.Context, db boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) error {
+// ConfirmWaitingList is the mail with the link that confirms a waiting list
+// entry's email address.
+func ConfirmWaitingList(waitingList *core.UserSignupRequest) *Envelope {
 	link := links.AbsLink("confirm_waiting_list", waitingList.ID)
 	to := waitingList.Email
 
@@ -54,11 +42,5 @@ func sendActualConfirmWaitingList(ctx context.Context, db boil.ContextExecutor, 
 	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
 	}
 
-	err := s.Send(ctx, db, waitingList.ID, "waiting_list_confirm", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Envelope{UniqueID: waitingList.ID, Type: "waiting_list_confirm", Mail: mail}
 }

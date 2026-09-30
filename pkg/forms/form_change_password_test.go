@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -52,7 +51,7 @@ func TestChangePasswordForm_Validate(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db, opts...))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/change_password", nil)
 
-			form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
+			form := forms.ChangePasswordFormNew(accountsFor(db, nil), user).(*forms.ChangePasswordForm)
 			form.Input.OldPassword = tt.oldPassword
 			form.Input.Password = tt.newPassword
 
@@ -80,7 +79,7 @@ func TestChangePasswordForm_SaveUpdatesPassword(t *testing.T) {
 	// so the old hash is captured before Save overwrites it in place.
 	oldPwdhash := user.Pwdhash
 
-	form := forms.ChangePasswordFormNew(user).(*forms.ChangePasswordForm)
+	form := forms.ChangePasswordFormNew(accountsFor(db, nil), user).(*forms.ChangePasswordForm)
 	form.Input.OldPassword = "oldpassword"
 	form.Input.Password = "newpassword123!"
 
@@ -92,6 +91,6 @@ func TestChangePasswordForm_SaveUpdatesPassword(t *testing.T) {
 	require.NotEqual(t, oldPwdhash, updatedUser.Pwdhash)
 	require.True(t, strings.HasPrefix(updatedUser.Pwdhash.String, "$argon2id$"), "a new password is stored as argon2id")
 
-	require.NoError(t, auth.CheckCredentials(c, db, user.Email, "newpassword123!"))
-	require.Error(t, auth.CheckCredentials(c, db, user.Email, "oldpassword"))
+	require.NoError(t, accountsFor(db, nil).CheckCredentials(c, user.Email, "newpassword123!"))
+	require.Error(t, accountsFor(db, nil).CheckCredentials(c, user.Email, "oldpassword"))
 }

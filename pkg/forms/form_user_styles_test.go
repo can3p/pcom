@@ -39,7 +39,7 @@ func TestSettingsUserStyles_Validate(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
 
-			form := forms.SettingsUserStylesNew(user)
+			form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 			form.Input.Styles = tt.styles
 
 			err := form.Validate(c, db)
@@ -79,7 +79,7 @@ func TestSettingsUserStyles_Save(t *testing.T) {
 			}
 
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/styles", nil)
-			form := forms.SettingsUserStylesNew(user)
+			form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 			form.Input.Styles = tt.styles
 
 			action, err := form.Save(c, db)
@@ -102,7 +102,7 @@ func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
 	// key, reaching Save's own Upsert error path.
 	user := &core.User{ID: uuid.NewString()}
 
-	form := forms.SettingsUserStylesNew(user)
+	form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 	form.Input.Styles = ".profile { color: blue; }"
 
 	_, err := form.Save(c, db)

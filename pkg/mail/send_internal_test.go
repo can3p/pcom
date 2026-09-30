@@ -50,7 +50,8 @@ func TestSendActualConfirmWaitingList(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	err := sendActualConfirmWaitingList(ctx, nil, sender, waitingList)
+	e := ConfirmWaitingList(waitingList)
+	err := sender.Send(ctx, nil, e.UniqueID, e.Type, e.Mail)
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -75,7 +76,8 @@ func TestSendActualInvitation(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	err := sendActualInvitation(ctx, nil, sender, invite, user, "newuser@example.test")
+	e := Invitation(invite, "newuser@example.test")
+	err := sender.Send(ctx, nil, e.UniqueID, e.Type, e.Mail)
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -84,21 +86,16 @@ func TestSendActualInvitation(t *testing.T) {
 	golden.Assert(t, "send_actual_invitation", mailsToGoldenInternal(sent))
 }
 
-func TestValidate_InvalidFormat(t *testing.T) {
+func TestValidateFormat_InvalidFormat(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-
-	err := Validate(ctx, nil, "not-a-valid-email")
+	err := ValidateFormat("not-a-valid-email")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Invalid email format")
 }
 
-func TestValidate_ValidFormat(t *testing.T) {
+func TestValidateFormat_ValidFormat(t *testing.T) {
 	t.Parallel()
 
-	// With nil db, this will panic on the ExistsP call, so we test just the format validation
-	// by passing an invalid format that gets caught before the DB query
-	// The actual db check would be tested in package tests with a real database
-	t.Skip("full validation requires database; format check is validated by TestValidate_InvalidFormat")
+	require.NoError(t, ValidateFormat("brand-new-user@example.test"))
 }

@@ -43,7 +43,7 @@ func New(d *Deps) *gin.Engine {
 			userData := auth.GetUserData(c)
 			user := userData.DBUser
 
-			if nerr := admin.NotifyPageFailure(c, db, d.Sender, err, user); nerr != nil {
+			if nerr := d.Services.Accounts.SendAdminMail(c, admin.PageFailure(c, err, user)); nerr != nil {
 				log.Printf("failed to queue the page failure notification: %v", nerr)
 			}
 		}))
@@ -54,8 +54,8 @@ func New(d *Deps) *gin.Engine {
 	router.SetFuncMap(funcmap(d.Config.StaticAsset))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
-	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, db) })
-	r := router.Group("/", csp.Csp, sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, db) })
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) })
+	r := router.Group("/", csp.Csp, sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) })
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrf.CheckCSRF)
 	nonControlsForms := r.Group("/form", csrf.CheckCSRF)

@@ -5,14 +5,23 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
+
+// accountsFor is the accounts service the forms under test call, over db.
+func accountsFor(db *sqlx.DB, s sender.Sender) *accounts.Service {
+	return accounts.New(repo.New(db), s, nil)
+}
 
 func TestSignupForm_Validate(t *testing.T) {
 	t.Parallel()
@@ -60,7 +69,7 @@ func TestSignupForm_Validate(t *testing.T) {
 			c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
 			email, username, password := tt.setup(t)
 
-			form := forms.SignupFormNew(fakesender.New()).(*forms.SignupForm)
+			form := forms.SignupFormNew(accountsFor(db, fakesender.New())).(*forms.SignupForm)
 			form.Input.Email = email
 			form.Input.Username = username
 			form.Input.Password = password
@@ -90,7 +99,7 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
+	form := forms.SignupFormNew(accountsFor(db, sender)).(*forms.SignupForm)
 	form.Input.Email = "newuser@example.test"
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
@@ -118,7 +127,7 @@ func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	form := forms.SignupFormNew(sender).(*forms.SignupForm)
+	form := forms.SignupFormNew(accountsFor(db, sender)).(*forms.SignupForm)
 	form.Input.Email = "  Valid@EXAMPLE.TEST  "
 	form.Input.Username = "  NewUser  "
 	form.Input.Password = "ValidPassword123!"
@@ -132,7 +141,7 @@ func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	// signup using the already-trimmed/lowercased values must be rejected as
 	// a duplicate of the one Save just persisted.
 	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-	dup := forms.SignupFormNew(sender).(*forms.SignupForm)
+	dup := forms.SignupFormNew(accountsFor(db, sender)).(*forms.SignupForm)
 	dup.Input.Email = "valid@example.test"
 	dup.Input.Username = "newuser"
 	dup.Input.Password = "ValidPassword123!"

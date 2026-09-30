@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/sender"
+	pcommail "github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 var (
@@ -27,7 +27,8 @@ var (
 	slash     = []byte("/")
 )
 
-func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sender, err any, user *core.User) error {
+// PageFailure tells the admin that a page panicked.
+func PageFailure(c *gin.Context, err any, user *core.User) *pcommail.Envelope {
 	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
 
 	userInfo := "Anonymous"
@@ -68,7 +69,7 @@ func NotifyPageFailure(c *gin.Context, exec boil.ContextExecutor, s sender.Sende
 			</ul>`, html.EscapeString(userInfo), html.EscapeString(strings.Join(decodedStack, "\r\n"))),
 	}
 
-	return s.Send(c, exec, uuid.NewString(), "panic_notification", mail)
+	return &pcommail.Envelope{UniqueID: uuid.NewString(), Type: "panic_notification", Mail: mail}
 }
 
 func ClonedCustomRecovery(c *gin.Context, err any) string {

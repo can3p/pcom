@@ -7,10 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/testutil"
-	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
-	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
 )
@@ -89,35 +86,6 @@ func TestMailers_ReturnSendErrors(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			s := fakesender.New()
-			s.FailWith(sendErr)
-
-			require.ErrorIs(t, send(s), sendErr)
-		})
-	}
-}
-
-func TestSignupMailers_ReturnSendErrors(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := testdb.New(t).DB
-
-	tests := map[string]func(s *fakesender.Sender) error{
-		"ConfirmSignup": func(s *fakesender.Sender) error {
-			user := &core.User{ID: "user-1", Email: "u@example.test", EmailConfirmSeed: null.StringFrom("seed")}
-			return mail.ConfirmSignup(ctx, nil, s, user)
-		},
-		"ConfirmWaitingList": func(s *fakesender.Sender) error {
-			return mail.ConfirmWaitingList(ctx, db, s, testutil.Must(factory.SignupRequest(ctx, db))(t))
-		},
-	}
-
-	for name, send := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			sendErr := errors.New("database is gone")
 			s := fakesender.New()
 			s.FailWith(sendErr)
 

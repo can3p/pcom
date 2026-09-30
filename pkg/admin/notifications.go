@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -9,14 +8,15 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
+	pcommail "github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 var NotifyAddress string = os.Getenv("ADMIN_ADDRESS")
 
-func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) error {
+// NewUser tells the admin about a new account.
+func NewUser(user *core.User) *pcommail.Envelope {
 	blogURL := links.AbsLink("user", user.Username)
 
 	mail := &sender.Mail{
@@ -50,12 +50,11 @@ func NotifyNewUser(ctx context.Context, exec boil.ContextExecutor, s sender.Send
 	</ul>`, html.EscapeString(user.ID), html.EscapeString(blogURL), html.EscapeString(blogURL), html.EscapeString(user.Email)),
 	}
 
-	err := s.Send(ctx, exec, user.ID, "admin_new_user", mail)
-
-	return err
+	return &pcommail.Envelope{UniqueID: user.ID, Type: "admin_new_user", Mail: mail}
 }
 
-func NotifyNewWaitingListMember(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, waitingList *core.UserSignupRequest) error {
+// NewWaitingListMember tells the admin about a new waiting list entry.
+func NewWaitingListMember(waitingList *core.UserSignupRequest) *pcommail.Envelope {
 	r := waitingList.Reason.String
 
 	if r == "" {
@@ -93,12 +92,11 @@ func NotifyNewWaitingListMember(ctx context.Context, exec boil.ContextExecutor, 
 			html.EscapeString(waitingList.Email), html.EscapeString(r)),
 	}
 
-	err := s.Send(ctx, exec, waitingList.ID, "new_waiting_list_member", mail)
-
-	return err
+	return &pcommail.Envelope{UniqueID: waitingList.ID, Type: "new_waiting_list_member", Mail: mail}
 }
 
-func NotifySignupConfirmed(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) error {
+// SignupConfirmed tells the admin that an account confirmed its email.
+func SignupConfirmed(user *core.User) *pcommail.Envelope {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -128,12 +126,12 @@ func NotifySignupConfirmed(ctx context.Context, exec boil.ContextExecutor, s sen
 	</ul>`, html.EscapeString(user.ID), html.EscapeString(user.Email)),
 	}
 
-	err := s.Send(ctx, exec, user.ID, "signup_confirmed", mail)
-
-	return err
+	return &pcommail.Envelope{UniqueID: user.ID, Type: "signup_confirmed", Mail: mail}
 }
 
-func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, email string) error {
+// ThrowAwayEmailSignupAttempt tells the admin that somebody tried to sign up
+// with a throwaway email domain.
+func ThrowAwayEmailSignupAttempt(email string) *pcommail.Envelope {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: os.Getenv("SENDER_ADDRESS"),
@@ -156,7 +154,5 @@ func NotifyThrowAwayEmailSignupAttempt(ctx context.Context, exec boil.ContextExe
 	`, html.EscapeString(email)),
 	}
 
-	err := s.Send(ctx, exec, uuid.NewString(), "throw_away_email_signup", mail)
-
-	return err
+	return &pcommail.Envelope{UniqueID: uuid.NewString(), Type: "throw_away_email_signup", Mail: mail}
 }

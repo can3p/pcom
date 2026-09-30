@@ -8,9 +8,9 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/values"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -21,10 +21,11 @@ type SettingsGeneralFormInput struct {
 
 type SettingsGeneralForm struct {
 	*forms.FormBase[SettingsGeneralFormInput]
-	User *core.User
+	Accounts *accounts.Service
+	User     *core.User
 }
 
-func SettingsGeneralFormNew(u *core.User) *SettingsGeneralForm {
+func SettingsGeneralFormNew(accounts *accounts.Service, u *core.User) *SettingsGeneralForm {
 	form := &SettingsGeneralForm{
 		FormBase: &forms.FormBase[SettingsGeneralFormInput]{
 			Name:                "settings_general",
@@ -36,7 +37,8 @@ func SettingsGeneralFormNew(u *core.User) *SettingsGeneralForm {
 				"ProfileVisibility": values.ProfileVisibilityValues,
 			},
 		},
-		User: u,
+		Accounts: accounts,
+		User:     u,
 	}
 
 	return form
@@ -69,15 +71,8 @@ func (f *SettingsGeneralForm) Validate(c *gin.Context, db boil.ContextExecutor) 
 }
 
 func (f *SettingsGeneralForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	f.User.Timezone = f.Input.Timezone
-	f.User.ProfileVisibility = core.ProfileVisibility(f.Input.ProfileVisibility)
-
-	if _, err := f.User.Update(c, exec, boil.Whitelist(
-		core.UserColumns.Timezone,
-		core.UserColumns.ProfileVisibility,
-		core.UserColumns.UpdatedAt,
-	)); err != nil {
-		return nil, errors.Wrapf(err, "failed to save to the db")
+	if err := f.Accounts.SaveGeneralSettings(c, f.User, f.Input.Timezone, core.ProfileVisibility(f.Input.ProfileVisibility)); err != nil {
+		return nil, err
 	}
 
 	return f.FormBase.Save(c, exec)

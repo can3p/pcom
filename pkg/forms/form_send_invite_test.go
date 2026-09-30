@@ -48,7 +48,7 @@ func TestSendInviteForm_Validate(t *testing.T) {
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
-			form := forms.SendInviteFormNew(fakesender.New(), inviter).(*forms.SendInviteForm)
+			form := forms.SendInviteFormNew(accountsFor(db, fakesender.New()), inviter).(*forms.SendInviteForm)
 			form.Input.Email = tt.email(t, inviter)
 
 			err := form.Validate(c, db)
@@ -73,7 +73,7 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	inviter := testutil.Must(factory.User(ctx, db))(t)
 	testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
 
-	form := forms.SendInviteFormNew(sender, inviter).(*forms.SendInviteForm)
+	form := forms.SendInviteFormNew(accountsFor(db, sender), inviter).(*forms.SendInviteForm)
 	form.Input.Email = "newinvitee@example.test"
 
 	action, err := form.Save(c, db)

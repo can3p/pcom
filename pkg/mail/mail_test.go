@@ -89,6 +89,20 @@ func mailsToGolden(sent []fakesender.Recorded) []byte {
 	return buf.Bytes()
 }
 
+// send queues an envelope the way a service does, through the sender with no database.
+func send(ctx context.Context, s *fakesender.Sender, e *mail.Envelope) error {
+	return s.Send(ctx, nil, e.UniqueID, e.Type, e.Mail)
+}
+
+func sendConfirmSignup(ctx context.Context, s *fakesender.Sender, user *core.User) error {
+	e, err := mail.ConfirmSignup(user)
+	if err != nil {
+		return err
+	}
+
+	return send(ctx, s, e)
+}
+
 func TestConfirmSignup(t *testing.T) {
 	t.Parallel()
 
@@ -101,7 +115,7 @@ func TestConfirmSignup(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	err := mail.ConfirmSignup(ctx, nil, sender, user)
+	err := sendConfirmSignup(ctx, sender, user)
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -122,7 +136,7 @@ func TestConfirmSignup_NoSeed(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	err := mail.ConfirmSignup(ctx, nil, sender, user)
+	err := sendConfirmSignup(ctx, sender, user)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "empty confirmation seed")
 

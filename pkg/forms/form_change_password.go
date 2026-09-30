@@ -7,9 +7,8 @@ import (
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -20,17 +19,19 @@ type ChangePasswordFormInput struct {
 
 type ChangePasswordForm struct {
 	*forms.FormBase[ChangePasswordFormInput]
-	User *core.User
+	Accounts *accounts.Service
+	User     *core.User
 }
 
-func ChangePasswordFormNew(u *core.User) forms.Form {
+func ChangePasswordFormNew(accounts *accounts.Service, u *core.User) forms.Form {
 	var form forms.Form = &ChangePasswordForm{
 		FormBase: &forms.FormBase[ChangePasswordFormInput]{
 			Name:         "change_password",
 			FormTemplate: "form--settings-change-password.html",
 			Input:        &ChangePasswordFormInput{},
 		},
-		User: u,
+		Accounts: accounts,
+		User:     u,
 	}
 
 	return form
@@ -61,10 +62,8 @@ func (f *ChangePasswordForm) Validate(c *gin.Context, db boil.ContextExecutor) e
 }
 
 func (f *ChangePasswordForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	f.User.Pwdhash = null.StringFrom(pgsession.HashPassword(f.Input.Password))
-
-	if _, err := f.User.Update(c, exec, boil.Infer()); err != nil {
-		return nil, errors.Wrapf(err, "failed to save to the db")
+	if err := f.Accounts.ChangePassword(c, f.User, f.Input.OldPassword, f.Input.Password); err != nil {
+		return nil, err
 	}
 
 	return f.FormBase.Save(c, exec)

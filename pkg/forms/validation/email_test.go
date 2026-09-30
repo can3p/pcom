@@ -1,11 +1,9 @@
 package validation_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/stretchr/testify/require"
 )
 
@@ -105,50 +103,5 @@ func TestAttributionRE_RejectsFreeText(t *testing.T) {
 
 	for _, value := range []string{"Test", "test-attr", "test ", "123test", "Test <b>x</b>"} {
 		require.False(t, validation.AttributionRE.MatchString(value), value)
-	}
-}
-
-func TestEmailOKToSignup_InvalidFormat(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	sender := fakesender.New()
-
-	testCases := []string{
-		"invalid",
-		"@example.com",
-		"user@",
-		"",
-	}
-
-	for _, email := range testCases {
-		t.Run(email, func(t *testing.T) {
-			// Invalid email format check happens before any DB access
-			msg, ok := validation.EmailOKToSignup(ctx, nil, sender, email)
-			require.False(t, ok, "email: %s", email)
-			require.Equal(t, "Invalid email", msg)
-		})
-	}
-}
-
-func TestEmailOKToAddToWaitingList_InvalidFormat(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-
-	testCases := []string{
-		"invalid",
-		"@example.com",
-		"user@",
-		"",
-	}
-
-	for _, email := range testCases {
-		t.Run(email, func(t *testing.T) {
-			// Invalid email format check happens before any DB access
-			msg, ok := validation.EmailOKToAddToWaitingList(ctx, nil, email)
-			require.False(t, ok, "email: %s", email)
-			require.Equal(t, "Invalid email", msg)
-		})
 	}
 }

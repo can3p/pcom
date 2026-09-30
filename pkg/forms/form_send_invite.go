@@ -4,9 +4,8 @@ import (
 	"context"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -17,11 +16,11 @@ type SendInviteFormInput struct {
 
 type SendInviteForm struct {
 	*forms.FormBase[SendInviteFormInput]
-	Sender sender.Sender
-	User   *core.User
+	Accounts *accounts.Service
+	User     *core.User
 }
 
-func SendInviteFormNew(sender sender.Sender, u *core.User) forms.Form {
+func SendInviteFormNew(accounts *accounts.Service, u *core.User) forms.Form {
 	var form forms.Form = &SendInviteForm{
 		FormBase: &forms.FormBase[SendInviteFormInput]{
 			Name:         "send_invite",
@@ -31,8 +30,8 @@ func SendInviteFormNew(sender sender.Sender, u *core.User) forms.Form {
 				"User": u,
 			},
 		},
-		Sender: sender,
-		User:   u,
+		Accounts: accounts,
+		User:     u,
 	}
 
 	return form
@@ -41,17 +40,15 @@ func SendInviteFormNew(sender sender.Sender, u *core.User) forms.Form {
 func (f *SendInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	if f.Input.Email == "" {
 		f.AddError("email", "email is required")
-	} else if err := mail.Validate(c, db, f.Input.Email); err != nil {
-		f.AddError("email", err.Error())
-	} else if mail.PendingInvitationExists(c, db, f.Input.Email) {
-		f.AddError("email", "an invitation to this email is already pending")
+	} else if err := fieldError(f, "email", f.Accounts.CheckInviteEmail(c, f.Input.Email)); err != nil {
+		return err
 	}
 
 	return f.Errors.PassedValidation()
 }
 
 func (f *SendInviteForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	if err := mail.SendInvite(c, exec, f.Sender, f.User, f.Input.Email); err != nil {
+	if err := f.Accounts.SendInvite(c, f.User, f.Input.Email); err != nil {
 		return nil, err
 	}
 
