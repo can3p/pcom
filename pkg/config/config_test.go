@@ -64,6 +64,12 @@ var required = map[string]string{
 	"SENDER_ADDRESS":    "pcom@pcom.test",
 	"MJ_APIKEY_PUBLIC":  "mj-public",
 	"MJ_APIKEY_PRIVATE": "mj-private-value",
+
+	"USER_MEDIA_ENDPOINT": "http://tommy:9000",
+	"USER_MEDIA_BUCKET":   "pcom-media",
+	"USER_MEDIA_REGION":   "eu-west-1",
+	"USER_MEDIA_KEY":      "media-key",
+	"USER_MEDIA_SECRET":   "media-secret",
 }
 
 // parseServe parses `serve` with exactly env set: every other variable the
@@ -125,11 +131,11 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"MJ_APIKEY_PUBLIC", "other-public", func(s *config.Serve) any { return s.Mail.Mailjet.ApiKeyPublic }, nil, "other-public"},
 		{"MJ_APIKEY_PRIVATE", "other-private", func(s *config.Serve) any { return s.Mail.Mailjet.ApiKeyPrivate.Reveal() }, nil, "other-private"},
 		{"MJ_API_BASE", "http://tommy:8822", func(s *config.Serve) any { return s.Mail.Mailjet.BaseURL }, "", "http://tommy:8822"},
-		{"USER_MEDIA_ENDPOINT", "http://tommy:9000", func(s *config.Serve) any { return s.Media.Endpoint }, "", "http://tommy:9000"},
-		{"USER_MEDIA_BUCKET", "pcom-media", func(s *config.Serve) any { return s.Media.Bucket }, "", "pcom-media"},
-		{"USER_MEDIA_REGION", "eu-west-1", func(s *config.Serve) any { return s.Media.Region }, "", "eu-west-1"},
-		{"USER_MEDIA_KEY", "media-key", func(s *config.Serve) any { return s.Media.Key }, "", "media-key"},
-		{"USER_MEDIA_SECRET", "media-secret", func(s *config.Serve) any { return s.Media.Secret.Reveal() }, "", "media-secret"},
+		{"USER_MEDIA_ENDPOINT", "http://tommy:9000", func(s *config.Serve) any { return s.Media.Endpoint }, nil, "http://tommy:9000"},
+		{"USER_MEDIA_BUCKET", "pcom-media", func(s *config.Serve) any { return s.Media.Bucket }, nil, "pcom-media"},
+		{"USER_MEDIA_REGION", "eu-west-1", func(s *config.Serve) any { return s.Media.Region }, nil, "eu-west-1"},
+		{"USER_MEDIA_KEY", "media-key", func(s *config.Serve) any { return s.Media.Key }, nil, "media-key"},
+		{"USER_MEDIA_SECRET", "media-secret", func(s *config.Serve) any { return s.Media.Secret.Reveal() }, nil, "media-secret"},
 		{"USER_MEDIA_PATH_STYLE", "true", func(s *config.Serve) any { return s.Media.PathStyle.On() }, false, true},
 		{"USER_MEDIA_CDN", "https://media.test", func(s *config.Serve) any { return s.Media.CDN }, "", "https://media.test"},
 	}

@@ -85,7 +85,7 @@ services:
   # working against the published ports. The services set the in-network
   # values as real environment variables; godotenv never overrides them, so
   # cmd/web/.env (host-mode values) can stay in place. Mail and object storage
-  # are left at the app's defaults (not tommy yet).
+  # go to tommy.
   #
   # File watching: watchexec uses inotify. On macOS, Docker Desktop's file
   # sharing (VirtioFS) forwards change events for bind mounts, so edits made on
@@ -120,6 +120,12 @@ services:
       MJ_APIKEY_PUBLIC: dev
       MJ_APIKEY_PRIVATE: dev
       MJ_API_BASE: http://tommy:8822
+      USER_MEDIA_ENDPOINT: http://tommy:9000
+      USER_MEDIA_BUCKET: pcom-media
+      USER_MEDIA_REGION: us-east-1
+      USER_MEDIA_KEY: dev
+      USER_MEDIA_SECRET: dev
+      USER_MEDIA_PATH_STYLE: "true"
       SECURE_COOKIES: "false"
       HSTS: "false"
       STATIC_CACHE: "false"

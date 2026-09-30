@@ -5,10 +5,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -20,32 +18,26 @@ type s3Server struct {
 	bucket string
 }
 
-var RequiredEnv = []string{"USER_MEDIA_ENDPOINT", "USER_MEDIA_BUCKET", "USER_MEDIA_KEY", "USER_MEDIA_REGION", "USER_MEDIA_SECRET"}
+// Options is the bucket to store user media in.
+type Options struct {
+	Endpoint, Bucket, Region, Key, Secret string
+	// PathStyle addresses objects as endpoint/bucket/key, which tommy needs.
+	PathStyle bool
+}
 
-func NewS3Server() (*s3Server, error) {
-	endpoint := os.Getenv("USER_MEDIA_ENDPOINT")
-	bucket := os.Getenv("USER_MEDIA_BUCKET")
-	key := os.Getenv("USER_MEDIA_KEY")
-	region := os.Getenv("USER_MEDIA_REGION")
-	secret := os.Getenv("USER_MEDIA_SECRET")
-
-	creds := awscreds.NewStaticCredentialsProvider(key, secret, "")
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion(region),
-		config.WithCredentialsProvider(creds),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String(endpoint)
+// New builds the client from o alone: it never reads AWS_* variables or
+// ~/.aws.
+func New(o Options) (*s3Server, error) {
+	client := s3.New(s3.Options{
+		Region:       o.Region,
+		Credentials:  awscreds.NewStaticCredentialsProvider(o.Key, o.Secret, ""),
+		BaseEndpoint: aws.String(o.Endpoint),
+		UsePathStyle: o.PathStyle,
 	})
 
 	return &s3Server{
-		s3:     s3Client,
-		bucket: bucket,
+		s3:     client,
+		bucket: o.Bucket,
 	}, nil
 }
 
@@ -87,8 +79,10 @@ func (s3s *s3Server) ObjectExists(ctx context.Context, fname string) (bool, erro
 		Key:    aws.String(fname),
 	})
 	if err != nil {
-		var apiErr *types.NoSuchKey
-		if errors.As(err, &apiErr) {
+		// HEAD has no body to name the error, so a missing key is NotFound
+		var notFound *types.NotFound
+		var noSuchKey *types.NoSuchKey
+		if errors.As(err, &notFound) || errors.As(err, &noSuchKey) {
 			return false, nil
 		}
 		return false, err

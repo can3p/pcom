@@ -299,7 +299,6 @@ var envAllowlist = map[string]string{
 	"pkg/mail/post_comment_participants.go":                "R2.A",
 	"pkg/mail/post_prompt.go":                              "R2.A",
 	"pkg/mail/post_prompt_answer.go":                       "R2.A",
-	"pkg/media/server/storage/s3/server.go":                "R2.S",
 	"pkg/util/cluster.go":                                  "R2.F",
 	"pkg/util/ginhelpers/csp/csp.go":                       "R2.B",
 	"pkg/util/siteroot.go":                                 "R2.A",
