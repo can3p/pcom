@@ -12,12 +12,14 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -187,6 +189,16 @@ func TestEditPost(t *testing.T) {
 	}
 }
 
+// controlsPage runs what the /controls route does: the service gathers the
+// data, the page builder shapes it.
+func controlsPage(t *testing.T, db *sqlx.DB, user *core.User) *ControlsPage {
+	t.Helper()
+
+	view := testutil.Must(connections.New(repo.New(db)).Controls(context.Background(), user))(t)
+
+	return Controls(newTestContext(t, http.MethodGet, "/controls"), userDataFor(user), view)
+}
+
 func TestControls(t *testing.T) {
 	t.Parallel()
 
@@ -232,8 +244,7 @@ func TestControls(t *testing.T) {
 	stranger2 := testutil.Must(factory.User(ctx, db))(t)
 	testutil.Must(factory.MediationRequest(ctx, db, stranger2.ID, user.ID))(t)
 
-	c := newTestContext(t, http.MethodGet, "/controls")
-	page := testutil.Must(Controls(c, db, userDataFor(user)).Get())(t)
+	page := controlsPage(t, db, user)
 
 	gotDraftIDs := make([]string, len(page.Drafts))
 	for i, d := range page.Drafts {
@@ -514,7 +525,7 @@ func TestOrderByColumns(t *testing.T) {
 			for _, at := range ts { // oldest inserted first
 				ids = append(ids, testutil.Must(factory.Post(ctx, db, user.ID, factory.PostUpdatedAt(at)))(t).ID)
 			}
-			page := testutil.Must(Controls(newTestContext(t, http.MethodGet, "/controls"), db, userDataFor(user)).Get())(t)
+			page := controlsPage(t, db, user)
 			var got []string
 			for _, d := range page.Drafts {
 				got = append(got, d.PostID)

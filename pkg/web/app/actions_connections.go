@@ -4,63 +4,51 @@ import (
 	"fmt"
 
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-gonic/gin"
 )
 
+// failedAction shows a service error the way the connection actions always
+// did: the reason behind a prefix that names the action.
+func failedAction(prefix string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	return userError(fmt.Sprintf("%s: %s", prefix, actionMessage(err)))
+}
+
 // mountConnectionActions registers the connection actions.
 func mountConnectionActions(d *Deps, r *gin.RouterGroup) {
-	db := d.DB
+	conns := d.Services.Connections
 
-	r.POST("/remove_from_whitelist", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+	r.POST("/remove_from_whitelist", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
 		UserID string `json:"userId"`
 	}) error {
-		if err := userops.DropConnectionGrant(c, db, dbUser.ID, input.UserID); err != nil {
-			return userError(fmt.Sprintf("Failed operation: %s", err.Error()))
-		}
-
-		return nil
+		return failedAction("Failed operation", conns.RemoveFromWhitelist(c, u, in.UserID))
 	}))
 
-	r.POST("/create_connection", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+	r.POST("/create_connection", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
 		TargetUserID string `json:"userId"`
 	}) error {
-		if err := userops.EstablishConnection(c, db, dbUser.ID, input.TargetUserID); err != nil {
-			return userError(fmt.Sprintf("Failed operation: %s", err.Error()))
-		}
-
-		return nil
+		return failedAction("Failed operation", conns.Connect(c, u, in.TargetUserID))
 	}))
 
-	r.POST("/drop_connection", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+	r.POST("/drop_connection", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
 		TargetUserID string `json:"userId"`
 	}) error {
-		if err := userops.DropConnection(c, db, dbUser.ID, input.TargetUserID); err != nil {
-			return userError(fmt.Sprintf("Failed operation: %s", err.Error()))
-		}
-
-		return nil
+		return failedAction("Failed operation", conns.Drop(c, u, in.TargetUserID))
 	}))
 
-	r.POST("/reject_connection", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+	type decision struct {
 		RequestID string `json:"requestId"`
 		Note      string `json:"note"`
-	}) error {
-		if err := userops.DecideConnectionRequest(c, db, dbUser.ID, input.RequestID, core.ConnectionRequestDecisionDismissed, input.Note); err != nil {
-			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
-		}
+	}
 
-		return nil
+	r.POST("/reject_connection", jsonAction(d, func(c *gin.Context, u *core.User, in decision) error {
+		return failedAction("Operation Failed", conns.DecideRequest(c, u, in.RequestID, core.ConnectionRequestDecisionDismissed, in.Note))
 	}))
 
-	r.POST("/accept_connection", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
-		RequestID string `json:"requestId"`
-		Note      string `json:"note"`
-	}) error {
-		if err := userops.DecideConnectionRequest(c, db, dbUser.ID, input.RequestID, core.ConnectionRequestDecisionApproved, input.Note); err != nil {
-			return userError(fmt.Sprintf("Operation Failed: %s", err.Error()))
-		}
-
-		return nil
+	r.POST("/accept_connection", jsonAction(d, func(c *gin.Context, u *core.User, in decision) error {
+		return failedAction("Operation Failed", conns.DecideRequest(c, u, in.RequestID, core.ConnectionRequestDecisionApproved, in.Note))
 	}))
 }
