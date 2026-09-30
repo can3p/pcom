@@ -259,6 +259,13 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 		"SHOW_ERRORS":         "true",
 		"REPORT_PANICS":       "false",
 		"LOG_LEVEL":           "debug",
+
+		"USER_MEDIA_ENDPOINT":   tm.S3URL,
+		"USER_MEDIA_BUCKET":     tommy.Bucket,
+		"USER_MEDIA_REGION":     "us-east-1",
+		"USER_MEDIA_KEY":        "test",
+		"USER_MEDIA_SECRET":     "test",
+		"USER_MEDIA_PATH_STYLE": "true",
 	}
 	if dir := coverDir(); dir != "" {
 		env["GOCOVERDIR"] = dir

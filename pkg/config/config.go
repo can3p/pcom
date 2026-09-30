@@ -72,11 +72,11 @@ type Mail struct {
 // Media is the S3-compatible bucket that stores user media. Embed it with
 // `namespace:"user-media" env-namespace:"USER_MEDIA"`.
 type Media struct {
-	Endpoint  string          `long:"endpoint" env:"ENDPOINT" description:"S3 endpoint URL"`
-	Bucket    string          `long:"bucket" env:"BUCKET" description:"Bucket name"`
-	Region    string          `long:"region" env:"REGION" description:"Bucket region"`
-	Key       string          `long:"key" env:"KEY" description:"Access key ID"`
-	Secret    settings.Secret `long:"secret" env:"SECRET" description:"Secret access key"`
+	Endpoint  string          `long:"endpoint" env:"ENDPOINT" description:"S3 endpoint URL" required:"true"`
+	Bucket    string          `long:"bucket" env:"BUCKET" description:"Bucket name" required:"true"`
+	Region    string          `long:"region" env:"REGION" description:"Bucket region" required:"true"`
+	Key       string          `long:"key" env:"KEY" description:"Access key ID" required:"true"`
+	Secret    settings.Secret `long:"secret" env:"SECRET" description:"Secret access key" required:"true"`
 	PathStyle Switch          `long:"path-style" env:"PATH_STYLE" description:"Path-style addressing (endpoint/bucket/key), as tommy needs" optional:"true" optional-value:"true" default:"false"`
 	CDN       string          `long:"cdn" env:"CDN" description:"Origin that serves user media, such as https://media.example; served by the app if empty"`
 }

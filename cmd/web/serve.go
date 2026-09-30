@@ -13,7 +13,6 @@ import (
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/media/server/storage/local"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/feeds"
@@ -97,14 +96,16 @@ func (c *serveCmd) Execute([]string) error {
 	return app.New(deps).Run(fmt.Sprintf(":%d", cfg.Web.Port))
 }
 
-// newMediaStorage is the S3 bucket when one is configured, and the local
-// user_media directory otherwise (until R2.S drops local storage).
+// newMediaStorage is the S3 bucket user media lives in.
 func newMediaStorage(cfg config.Media) (server.MediaStorage, error) {
-	if cfg.Endpoint != "" {
-		return s3.NewS3Server()
-	}
-
-	return local.NewLocalServer("user_media")
+	return s3.New(s3.Options{
+		Endpoint:  cfg.Endpoint,
+		Bucket:    cfg.Bucket,
+		Region:    cfg.Region,
+		Key:       cfg.Key,
+		Secret:    cfg.Secret.Reveal(),
+		PathStyle: cfg.PathStyle.On(),
+	})
 }
 
 // newMediaServer serves user media in the thumb and full classes; the caller
