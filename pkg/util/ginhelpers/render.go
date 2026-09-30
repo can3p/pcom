@@ -1,19 +1,46 @@
 package ginhelpers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/util"
-	"github.com/friendsofgo/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/mo"
 )
 
-var ErrNotFound = errors.Errorf("not found")
-var ErrNeedsLogin = errors.Errorf("needs login")
-var ErrForbidden = errors.Errorf("forbidden")
-var ErrBadRequest = errors.Errorf("invalid input")
+// The page errors are the service errors, so a page builder and a service
+// can return either. New code returns the service ones.
+var (
+	ErrNotFound   = service.ErrNotFound
+	ErrNeedsLogin = service.ErrNeedsLogin
+	ErrForbidden  = service.ErrForbidden
+	ErrBadRequest = errors.New("invalid input")
+)
+
+// Status is the HTTP status for an error a page or an API call failed with.
+// It is the one mapping from service errors to statuses; ErrNeedsLogin is
+// not a status, and HTML handles it before asking.
+func Status(err error) int {
+	var invalid *service.ValidationError
+
+	switch {
+	case errors.Is(err, service.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, service.ErrForbidden):
+		return http.StatusForbidden
+	case errors.Is(err, service.ErrNeedsLogin):
+		return http.StatusUnauthorized
+	case errors.Is(err, service.ErrConflict):
+		return http.StatusConflict
+	case errors.Is(err, ErrBadRequest), errors.As(err, &invalid):
+		return http.StatusBadRequest
+	}
+
+	return http.StatusInternalServerError
+}
 
 func HTML[T any](c *gin.Context, templateName string, result mo.Result[T]) {
 	if result.IsOk() {
@@ -21,27 +48,26 @@ func HTML[T any](c *gin.Context, templateName string, result mo.Result[T]) {
 		return
 	}
 
-	httpCode := http.StatusInternalServerError
+	HTMLError(c, result.Error())
+}
 
-	switch result.Error() {
-	case ErrNotFound:
-		httpCode = http.StatusNotFound
-	case ErrForbidden:
-		httpCode = http.StatusForbidden
-	case ErrBadRequest:
-		httpCode = http.StatusBadRequest
-	case ErrNeedsLogin:
+// HTMLError answers a page request that failed with err: a redirect to the
+// login page for ErrNeedsLogin, otherwise Status(err).
+func HTMLError(c *gin.Context, err error) {
+	if errors.Is(err, service.ErrNeedsLogin) {
 		auth.RedirectToLogin(c)
 		c.Abort()
 		return
 	}
+
+	httpCode := Status(err)
 
 	if util.InCluster() {
 		c.Status(httpCode)
 		return
 	}
 
-	c.String(httpCode, result.Error().Error())
+	c.String(httpCode, err.Error())
 }
 
 func API[T any](c *gin.Context, result mo.Result[T]) {
@@ -52,16 +78,7 @@ func API[T any](c *gin.Context, result mo.Result[T]) {
 		return
 	}
 
-	httpCode := http.StatusInternalServerError
-
-	switch result.Error() {
-	case ErrNotFound:
-		httpCode = http.StatusNotFound
-	case ErrForbidden:
-		httpCode = http.StatusForbidden
-	case ErrBadRequest:
-		httpCode = http.StatusBadRequest
-	}
+	httpCode := Status(result.Error())
 
 	if util.InCluster() {
 		c.Status(httpCode)

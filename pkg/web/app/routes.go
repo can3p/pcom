@@ -17,7 +17,10 @@ func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, no
 	mountPublicRoutes(d, r)
 	mountAuthRoutes(d, r, actions, nonControlsForms)
 	mountRSSRoutes(d, r)
-	mountControlsRoutes(d, r, controls, controlsForms)
+	mountConnectionRoutes(d, controls, controlsForms)
+	mountPostRoutes(d, r, controlsForms)
+	mountSettingsRoutes(d, r, controls, controlsForms)
+	mountFeedRoutes(d, controlsForms)
 	mountConnectionActions(d, actions)
 	mountMediationActions(d, actions)
 	mountPostActions(d, actions)
@@ -25,6 +28,7 @@ func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, no
 	mountPromptActions(d, actions)
 	mountRSSActions(d, actions)
 	mountSettingsActions(d, actions)
+	mountExportActions(d, actions)
 	mountMediaActions(d, actions)
 }
 

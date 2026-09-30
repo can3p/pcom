@@ -1,34 +1,27 @@
 package app
 
 import (
-	"bytes"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
-	"github.com/mileusna/useragent"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 // mountPublicRoutes registers the pages anyone may read.
 func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	db := d.DB
-	mediaStorage := d.MediaStorage
 
 	r.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -88,45 +81,15 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
 	})
 
-	r.GET("/users/:username/user_styles", auth.EnforceReferer, func(c *gin.Context) {
-		username := c.Param("username")
-
-		user, err := core.Users(
-			core.UserWhere.Username.EQ(username),
-			qm.Load(core.UserRels.UserStyle),
-		).One(c, db)
-
-		if err != nil && err != sql.ErrNoRows {
-			panic(err)
-		}
-
-		if user == nil || user.R.UserStyle == nil || strings.TrimSpace(user.R.UserStyle.Styles) == "" {
-			c.Header("Content-Type", "text/css; charset=utf-8")
-			c.String(http.StatusOK, "")
+	r.GET("/shared/:id", requireUUIDParam("id"), func(c *gin.Context) {
+		shared, err := d.Services.Shares.Get(c, c.Param("id"))
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		headerUA := c.Request.Header.Get("User-Agent")
-		ua := useragent.Parse(headerUA)
-		addScope := !ua.IsFirefox()
-
-		css := strings.TrimSpace(user.R.UserStyle.Styles)
-
-		// no scope sucks, we need to parse and and change all the selectors
-		// not doing that for now since we trust our users. We trust them, right?
-		if addScope {
-			css = fmt.Sprintf("@scope (.user-styles-applied) {\n\n%s\n\n}\n", css)
-		}
-
-		c.Header("Content-Type", "text/css; charset=utf-8")
-		c.String(http.StatusOK, css)
-	})
-
-	r.GET("/shared/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		shareID := c.Param("id")
-
-		ginhelpers.HTML(c, "shared_post.html", web.SharedPost(c, db, &userData, shareID))
+		c.HTML(http.StatusOK, "shared_post.html", web.SharedPost(c, &userData, shared))
 	})
 
 	r.GET("/posts/:id", requireUUIDParam("id"), func(c *gin.Context) {
@@ -163,43 +126,15 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 		c.String(http.StatusOK, string(serialized))
 	})
 
-	r.GET("/posts/:id/zip", requireUUIDParam("id"), func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-		postID := c.Param("id")
-
-		// anyone who may see the post may export it, so the visibility
-		// check is the one /posts/:id uses. The viewer may be anonymous.
-		post := web.SinglePost(c, db, &userData, postID, false)
-
-		if post.IsError() {
-			ginhelpers.HTML(c, "single_post.html", post)
-			return
-		}
-
-		author := post.MustGet().Post.Author
-
-		b, err := postops.SerializeBlog(c, db, mediaStorage, author.ID, core.PostWhere.ID.EQ(postID))
-
-		if err != nil {
-			panic(err)
-		}
-
-		fname := fmt.Sprintf("export_%s_%s.zip", author.Username, time.Now().Format(time.RFC3339))
-		contentLength := int64(len(b))
-		contentType := "application/zip"
-
-		reader := bytes.NewReader(b)
-
-		extraHeaders := map[string]string{
-			"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fname),
-		}
-
-		c.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
-	})
-
 	r.GET("/explore", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
 		ginhelpers.HTML(c, "feed.html", web.Explore(c, db, &userData))
+	})
+
+	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData, false))
 	})
 }

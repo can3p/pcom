@@ -9,322 +9,19 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/feedops"
-	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/shares"
 	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
-	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
-
-type BasePage struct {
-	ProjectName string
-	Name        string
-	User        *auth.UserData
-	StyleNonce  *string
-	ScriptNonce *string
-	RSSFeed     string
-}
-
-func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage {
-	return &BasePage{
-		Name:        name,
-		User:        userData,
-		ProjectName: "pcom",
-		StyleNonce:  csp.GetStyleNonce(c),
-		ScriptNonce: csp.GetScriptNonce(c),
-	}
-}
-
-func Index(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) *BasePage {
-	return getBasePage(c, "Social network for private groups", userData)
-}
-
-type MediationRequest struct {
-	Requester *core.User
-	Target    *core.User
-	Request   *core.UserConnectionMediationRequest
-}
-
-type MediationResult struct {
-	Mediation *core.UserConnectionMediator
-	Mediator  *core.User
-}
-
-type ConnectionRequest struct {
-	Requester  *core.User
-	Request    *core.UserConnectionMediationRequest
-	Mediations []*MediationResult
-}
-
-type Draft struct {
-	PostID        string
-	Subject       string
-	LastUpdatedAt time.Time
-}
-
-type ControlsPage struct {
-	*BasePage
-	DirectConnections       core.UserSlice
-	SecondDegreeConnections core.UserSlice
-	WhitelistedConnections  core.UserSlice
-	MediationRequests       []*MediationRequest
-	ConnectionRequests      []*ConnectionRequest
-	Drafts                  []*Draft
-}
-
-func Controls(ctx *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*ControlsPage] {
-	userID := userData.DBUser.ID
-	directUserIDs, secondDegreeUserIDs, _, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, userID)
-
-	if err != nil {
-		return mo.Err[*ControlsPage](err)
-	}
-
-	directUsers := core.Users(core.UserWhere.ID.IN(directUserIDs)).AllP(ctx, db)
-	secondDegreeUsers := core.Users(core.UserWhere.ID.IN(secondDegreeUserIDs)).AllP(ctx, db)
-
-	whitelistedConnections := lo.Map(
-		core.WhitelistedConnections(
-			core.WhitelistedConnectionWhere.WhoID.EQ(userID),
-			core.WhitelistedConnectionWhere.ConnectionID.IsNull(),
-			qm.Load(core.WhitelistedConnectionRels.AllowsWho),
-		).AllP(ctx, db),
-		func(conn *core.WhitelistedConnection, idx int) *core.User {
-			return conn.R.AllowsWho
-		})
-
-	connectionRequestsFromMediation, err := core.UserConnectionMediationRequests(
-		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(userID),
-		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
-		qm.Load(core.UserConnectionMediationRequestRels.WhoUser),
-		qm.Load(qm.Rels(
-			core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
-			core.UserConnectionMediatorRels.User,
-		)),
-		qm.Load(core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
-			core.UserConnectionMediatorWhere.Decision.EQ(core.ConnectionMediationDecisionSigned),
-		),
-	).All(ctx, db)
-
-	if err != nil {
-		return mo.Err[*ControlsPage](err)
-	}
-
-	connectionRequests := []*ConnectionRequest{}
-
-	for _, req := range connectionRequestsFromMediation {
-		if len(req.R.MediationUserConnectionMediators) == 0 {
-			continue
-		}
-
-		connectionRequests = append(connectionRequests, &ConnectionRequest{
-			Requester: req.R.WhoUser,
-			Request:   req,
-			Mediations: lo.Map(req.R.MediationUserConnectionMediators, func(m *core.UserConnectionMediator, idx int) *MediationResult {
-				return &MediationResult{
-					Mediator:  m.R.User,
-					Mediation: m,
-				}
-			}),
-		})
-	}
-
-	mediationRequestsDB, err := core.UserConnectionMediationRequests(
-		core.UserConnectionMediationRequestWhere.WhoUserID.IN(directUserIDs),
-		core.UserConnectionMediationRequestWhere.TargetUserID.IN(directUserIDs),
-		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
-		qm.Load(
-			core.UserConnectionMediationRequestRels.WhoUser,
-		),
-		qm.Load(
-			core.UserConnectionMediationRequestRels.TargetUser,
-		),
-		qm.Load(
-			core.UserConnectionMediationRequestRels.MediationUserConnectionMediators,
-			core.UserConnectionMediatorWhere.UserID.EQ(userID),
-		),
-	).All(ctx, db)
-
-	if err != nil {
-		return mo.Err[*ControlsPage](err)
-	}
-
-	mediationRequestsDB = lo.Filter(mediationRequestsDB, func(req *core.UserConnectionMediationRequest, idx int) bool {
-		return len(req.R.MediationUserConnectionMediators) == 0
-	})
-
-	mediationRequests := lo.Map(mediationRequestsDB, func(req *core.UserConnectionMediationRequest, idx int) *MediationRequest {
-		return &MediationRequest{
-			Requester: req.R.WhoUser,
-			Target:    req.R.TargetUser,
-			Request:   req,
-		}
-	})
-
-	rawDrafts, err := core.Posts(
-		core.PostWhere.UserID.EQ(userID),
-		core.PostWhere.PublishedAt.IsNull(),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.UpdatedAt)),
-	).All(ctx, db)
-
-	if err != nil {
-		return mo.Err[*ControlsPage](err)
-	}
-
-	drafts := lo.Map(rawDrafts, func(d *core.Post, idx int) *Draft {
-		return &Draft{
-			PostID:        d.ID,
-			Subject:       d.Subject.String,
-			LastUpdatedAt: d.UpdatedAt.Time,
-		}
-	})
-
-	controlsPage := &ControlsPage{
-		BasePage:                getBasePage(ctx, "Controls", userData),
-		DirectConnections:       directUsers,
-		SecondDegreeConnections: secondDegreeUsers,
-		WhitelistedConnections:  whitelistedConnections,
-		ConnectionRequests:      connectionRequests,
-		MediationRequests:       mediationRequests,
-		Drafts:                  drafts,
-	}
-
-	return mo.Ok(controlsPage)
-}
-
-type WritePage struct {
-	*BasePage
-	Prompt *postops.PostPrompt
-}
-
-func Write(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*WritePage] {
-	dbUser := userData.DBUser
-	var prompt *postops.PostPrompt
-	var err error
-
-	if promptID := c.Query("prompt"); promptID != "" {
-		prompt, err = postops.GetPostPrompt(c, db,
-			core.PostPromptWhere.RecipientID.EQ(dbUser.ID),
-			core.PostPromptWhere.ID.EQ(promptID),
-		)
-
-		if err != nil {
-			return mo.Err[*WritePage](err)
-		}
-	}
-
-	writePage := &WritePage{
-		BasePage: getBasePage(c, "New Post", userData),
-		Prompt:   prompt,
-	}
-
-	return mo.Ok(writePage)
-}
-
-type SettingsPage struct {
-	*BasePage
-	AvailableInvites int64
-	UsedInvites      core.UserInvitationSlice
-	ActiveAPIKey     *core.UserAPIKey
-	FeedURL          string // private RSS feed URL, empty until a feed token exists
-	GeneralSettings  *forms.SettingsGeneralForm
-	UserStyles       *forms.SettingsUserStyles
-	Feeds            []*feedops.RssFeed
-}
-
-func Settings(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*SettingsPage] {
-	totalInvites, err := core.UserInvitations(
-		core.UserInvitationWhere.UserID.EQ(userData.DBUser.ID),
-	).Count(c, db)
-
-	if err != nil {
-		return mo.Err[*SettingsPage](err)
-	}
-
-	usedInvites, err := core.UserInvitations(
-		core.UserInvitationWhere.UserID.EQ(userData.DBUser.ID),
-		core.UserInvitationWhere.InvitationEmail.IsNotNull(),
-	).All(c, db)
-
-	if err != nil {
-		return mo.Err[*SettingsPage](err)
-	}
-
-	apiKey, err := core.UserAPIKeys(
-		core.UserAPIKeyWhere.UserID.EQ(userData.DBUser.ID),
-	).One(c, db)
-
-	if err != nil && err != sql.ErrNoRows {
-		return mo.Err[*SettingsPage](err)
-	}
-
-	feedToken, err := repo.FeedTokenForUser(c, db, userData.DBUser.ID)
-
-	if err != nil {
-		return mo.Err[*SettingsPage](err)
-	}
-
-	feedURL := ""
-	if feedToken != nil {
-		feedURL = links.AbsLink("private_user_feed", feedToken.Token)
-	}
-
-	formUserStyles := forms.SettingsUserStylesNew(userData.DBUser)
-
-	userStyles, err := core.UserStyles(
-		core.UserStyleWhere.UserID.EQ(userData.DBUser.ID),
-	).One(c, db)
-
-	if err != nil && err != sql.ErrNoRows {
-		return mo.Err[*SettingsPage](err)
-	} else if userStyles != nil {
-		formUserStyles.Input.Styles = userStyles.Styles
-	}
-
-	feeds, err := feedops.GetRssFeeds(c, db, userData.DBUser.ID)
-
-	if err != nil {
-		return mo.Err[*SettingsPage](err)
-	}
-
-	settingsPage := &SettingsPage{
-		BasePage:         getBasePage(c, "Settings", userData),
-		AvailableInvites: totalInvites - int64(len(usedInvites)),
-		UsedInvites:      usedInvites,
-		ActiveAPIKey:     apiKey,
-		FeedURL:          feedURL,
-		GeneralSettings:  forms.SettingsGeneralFormNew(userData.DBUser),
-		UserStyles:       formUserStyles,
-		Feeds:            feeds,
-	}
-
-	return mo.Ok(settingsPage)
-}
-
-type InvitePage struct {
-	*BasePage
-	Invite  *core.UserInvitation
-	Inviter *core.User
-}
-
-func Invite(c *gin.Context, db boil.ContextExecutor, invite *core.UserInvitation, userData *auth.UserData) *InvitePage {
-	invitePage := &InvitePage{
-		BasePage: getBasePage(c, "Accept Invitation", userData),
-		Invite:   invite,
-		Inviter:  invite.User().OneP(c, db),
-	}
-
-	return invitePage
-}
 
 type SharedPostPage struct {
 	*BasePage
@@ -333,40 +30,16 @@ type SharedPostPage struct {
 	PostSubject string
 }
 
-func SharedPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, shareID string) mo.Result[*SharedPostPage] {
-	share, err := core.PostShares(
-		core.PostShareWhere.ID.EQ(shareID),
-		qm.Load(qm.Rels(
-			core.PostShareRels.Post,
-			core.PostRels.User,
-		)),
-	).One(c, db)
+// SharedPost is the page a share link shows.
+func SharedPost(c *gin.Context, userData *auth.UserData, shared *shares.Shared) *SharedPostPage {
+	subject := postops.PostSubject(shared.Post.Subject)
 
-	if err == sql.ErrNoRows {
-		return mo.Err[*SharedPostPage](ginhelpers.ErrNotFound)
-	} else if err != nil {
-		return mo.Err[*SharedPostPage](err)
-	}
-
-	post := share.R.Post
-
-	// drafts are not visible
-	if post.PublishedAt.IsZero() {
-		return mo.Err[*SharedPostPage](ginhelpers.ErrNotFound)
-	}
-
-	author := post.R.User
-
-	subject := postops.PostSubject(post.Subject)
-
-	sharedPost := &SharedPostPage{
+	return &SharedPostPage{
 		BasePage:    getBasePage(c, subject, userData),
-		Post:        post,
+		Post:        shared.Post,
 		PostSubject: subject,
-		Author:      author,
+		Author:      shared.Author,
 	}
-
-	return mo.Ok(sharedPost)
 }
 
 type SinglePostPage struct {
@@ -446,73 +119,6 @@ func SinglePost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData
 	}
 
 	return mo.Ok(singlePostPage)
-}
-
-type EditPostPage struct {
-	*BasePage
-	PostID        string
-	Input         forms.PostFormInput
-	LastUpdatedAt time.Time
-	IsPublished   bool
-	Prompt        *postops.PostPrompt
-}
-
-func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
-	post, err := core.Posts(
-		core.PostWhere.ID.EQ(postID),
-		qm.Load(core.PostRels.User),
-		qm.Load(core.PostRels.PostStat),
-		qm.Load(core.PostRels.URL),
-	).One(c, db)
-
-	if err == sql.ErrNoRows {
-		return mo.Err[*EditPostPage](ginhelpers.ErrNotFound)
-	} else if err != nil {
-		return mo.Err[*EditPostPage](err)
-	}
-
-	author := post.R.User
-	title := "Edit Post"
-
-	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
-
-	if err != nil {
-		return mo.Err[*EditPostPage](err)
-	}
-
-	capabilities := postops.GetPostCapabilities(connectionRadius)
-
-	if !capabilities.CanEdit {
-		return mo.Err[*EditPostPage](ginhelpers.ErrForbidden)
-	}
-
-	prompt, err := postops.GetPostPrompt(c, db, core.PostPromptWhere.PostID.EQ(null.StringFrom(post.ID)))
-
-	if err != nil {
-		return mo.Err[*EditPostPage](err)
-	}
-
-	var url string
-
-	if post.R.URL != nil {
-		url = post.R.URL.URL
-	}
-
-	editPostPage := &EditPostPage{
-		BasePage: getBasePage(c, title, userData),
-		PostID:   post.ID,
-		Input: forms.PostFormInput{
-			Subject:    post.Subject.String,
-			Body:       post.Body,
-			Visibility: post.VisibilityRadius,
-			URL:        url,
-		},
-		LastUpdatedAt: post.UpdatedAt.Time,
-		IsPublished:   post.PublishedAt.Valid,
-		Prompt:        prompt,
-	}
-
-	return mo.Ok(editPostPage)
 }
 
 type UserHomePage struct {
@@ -920,20 +526,4 @@ func getComments(ctx context.Context, db boil.ContextExecutor, userID string) ([
 			},
 		}
 	}), nil
-}
-
-type LoginPage struct {
-	*BasePage
-	ReturnURL string
-	Sign      string
-}
-
-func Login(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, returnUrl string, sign string) *LoginPage {
-	invitePage := &LoginPage{
-		BasePage:  getBasePage(c, "Login", userData),
-		ReturnURL: returnUrl,
-		Sign:      sign,
-	}
-
-	return invitePage
 }
