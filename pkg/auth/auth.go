@@ -6,15 +6,15 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
+	"github.com/can3p/gogo/apperr"
+	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -77,11 +77,13 @@ func AuthAPI(c *gin.Context, accounts *accounts.Service) {
 	c.Next()
 }
 
+// EnforceAuth sends a visitor who is not logged in to the login page through
+// the redirect the router configures with ginhelpers.Options.RedirectToLogin.
 func EnforceAuth(c *gin.Context) {
 	userData := GetUserData(c)
 
 	if !userData.IsLoggedIn {
-		RedirectToLogin(c)
+		ginhelpers.HTMLError(c, apperr.ErrNeedsLogin)
 		c.Abort()
 		return
 	}
@@ -89,28 +91,35 @@ func EnforceAuth(c *gin.Context) {
 	c.Next()
 }
 
-func HashValue(v string) string {
-	sessionSalt := os.Getenv("SESSION_SALT")
-	data := []byte(sessionSalt + ":" + v)
+// HashValue signs v with the session salt.
+func HashValue(salt, v string) string {
+	data := []byte(salt + ":" + v)
 	hash := sha256.Sum256(data)
 
 	return fmt.Sprintf("%x", hash)
 }
 
-func RedirectToLogin(c *gin.Context) {
-	path := c.Request.URL.Path
-	// we need to sign return url
-	c.Redirect(http.StatusFound, links.Link("login", "return_url", path, "sign", HashValue(path)))
+// RedirectToLogin answers with a redirect to the login page, which carries
+// the current path and its signature.
+func RedirectToLogin(salt string) func(*gin.Context) {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		// we need to sign return url
+		c.Redirect(http.StatusFound, links.Link("login", "return_url", path, "sign", HashValue(salt, path)))
+	}
 }
 
-func EnforceReferer(c *gin.Context) {
-	referer := c.Request.Header.Get("referer")
-	if referer == "" || !strings.HasPrefix(referer, util.SiteRoot()) {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
-	}
+// EnforceReferer only lets through requests that come from a page of the site.
+func EnforceReferer(siteRoot string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		referer := c.Request.Header.Get("referer")
+		if referer == "" || !strings.HasPrefix(referer, siteRoot) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 
-	c.Next()
+		c.Next()
+	}
 }
 
 // Login checks the credentials and starts the session of the user they

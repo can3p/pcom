@@ -4,6 +4,8 @@
 package registry
 
 import (
+	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -20,6 +22,10 @@ import (
 type Deps struct {
 	Sender       repo.MailQueue
 	MediaStorage server.MediaStorage
+	// Site, SenderAddress and AdminAddress are what mail and its links are built from.
+	Site          links.Site
+	SenderAddress string
+	AdminAddress  string
 }
 
 // Services is one field per area service.
@@ -35,6 +41,7 @@ type Services struct {
 
 func New(db *sqlx.DB, deps Deps) *Services {
 	store := repo.New(db)
+	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 
 	feedSvc := feeds.New(store, deps.MediaStorage)
 
@@ -44,7 +51,7 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Shares:      shares.New(store),
 		Reading:     reading.New(store),
 		Media:       media.New(store, deps.MediaStorage),
-		Posts:       posts.New(store, deps.Sender, deps.MediaStorage),
-		Accounts:    accounts.New(store, deps.Sender, feedSvc),
+		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident)),
 	}
 }

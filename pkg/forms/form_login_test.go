@@ -13,7 +13,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/util"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,7 +54,7 @@ func TestLoginForm_Validate(t *testing.T) {
 			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 			email, password := tt.setup(t)
 
-			form := forms.LoginFormNew(accountsFor(db, nil)).(*forms.LoginForm)
+			form := forms.LoginFormNew(accountsFor(db, nil), testSalt, testSiteRoot).(*forms.LoginForm)
 			form.Input.Email = email
 			form.Input.Password = password
 
@@ -72,6 +71,11 @@ func TestLoginForm_Validate(t *testing.T) {
 	}
 }
 
+const (
+	testSalt     = "test-salt"
+	testSiteRoot = "https://site.test"
+)
+
 func TestLoginForm_Save(t *testing.T) {
 	t.Parallel()
 
@@ -83,7 +87,7 @@ func TestLoginForm_Save(t *testing.T) {
 		sign         func(returnURL string) string
 		wantRedirect func(returnURL string) string
 	}{
-		{"signed return url redirects there", auth.HashValue, func(u string) string { return util.SiteRoot() + u }},
+		{"signed return url redirects there", func(u string) string { return auth.HashValue(testSalt, u) }, func(u string) string { return testSiteRoot + u }},
 		{"bad signature redirects home", func(string) string { return "not-a-valid-signature" }, func(string) string { return links.DefaultAuthorizedHome() }},
 	}
 
@@ -94,7 +98,7 @@ func TestLoginForm_Save(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
 			c, w := ginctx.New(t, http.MethodPost, "/login", nil)
 
-			form := forms.LoginFormNew(accountsFor(db, nil)).(*forms.LoginForm)
+			form := forms.LoginFormNew(accountsFor(db, nil), testSalt, testSiteRoot).(*forms.LoginForm)
 			form.Input.Email = user.Email
 			form.Input.Password = "correctpassword"
 			form.Input.ReturnURL = "/feed"

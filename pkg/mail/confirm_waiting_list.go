@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -13,13 +12,13 @@ import (
 
 // ConfirmWaitingList is the mail with the link that confirms a waiting list
 // entry's email address.
-func ConfirmWaitingList(waitingList *core.UserSignupRequest) *Envelope {
-	link := links.AbsLink("confirm_waiting_list", waitingList.ID)
+func ConfirmWaitingList(site links.Site, from string, waitingList *core.UserSignupRequest) *Envelope {
+	link := site.Abs("confirm_waiting_list", waitingList.ID)
 	to := waitingList.Email
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

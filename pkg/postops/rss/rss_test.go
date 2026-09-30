@@ -1,6 +1,7 @@
 package rss_test
 
 import (
+	"github.com/can3p/pcom/pkg/links"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func TestToFeed_PublicPostIsRendered(t *testing.T) {
 	author := &core.User{Username: "alice"}
 	post := mkPost("post-1", "Some *markdown* body", core.PostVisibilityPublic, author)
 
-	feed := rss.ToFeed("My Blog", "https://example.com", author, []*postops.Post{post})
+	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", author, []*postops.Post{post})
 
 	require.Equal(t, "My Blog", feed.Title)
 	require.Equal(t, "https://example.com", feed.Link.Href)
@@ -59,7 +60,7 @@ func TestToFeed_NonPublicPostHidesBody(t *testing.T) {
 			t.Parallel()
 
 			post := mkPost("post-2", "Secret content that must not leak", vis, author)
-			feed := rss.ToFeed("My Blog", "https://example.com", author, []*postops.Post{post})
+			feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", author, []*postops.Post{post})
 
 			require.Len(t, feed.Items, 1)
 			require.Equal(t, "Post is not public, follow the link to read the text", feed.Items[0].Description)
@@ -73,7 +74,7 @@ func TestToFeed_AnonymousAuthorFallsBack(t *testing.T) {
 
 	post := mkPost("post-3", "body", core.PostVisibilityPublic, nil)
 
-	feed := rss.ToFeed("My Blog", "https://example.com", nil, []*postops.Post{post})
+	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", nil, []*postops.Post{post})
 
 	require.Len(t, feed.Items, 1)
 	require.Equal(t, "Anonymous User", feed.Items[0].Author.Name)
@@ -95,7 +96,7 @@ func TestToFeed_PreservesOrderAndSubjectFallback(t *testing.T) {
 	}
 	withSubject := mkPost("post-b", "b", core.PostVisibilityPublic, author)
 
-	feed := rss.ToFeed("My Blog", "https://example.com", author, []*postops.Post{noSubject, withSubject})
+	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", author, []*postops.Post{noSubject, withSubject})
 
 	require.Len(t, feed.Items, 2)
 	require.Equal(t, "No Subject", feed.Items[0].Title)
@@ -107,6 +108,6 @@ func TestToFeed_PreservesOrderAndSubjectFallback(t *testing.T) {
 func TestToFeed_NoPosts(t *testing.T) {
 	t.Parallel()
 
-	feed := rss.ToFeed("Empty Blog", "https://example.com", nil, nil)
+	feed := rss.ToFeed(links.Site{}, "Empty Blog", "https://example.com", nil, nil)
 	require.Empty(t, feed.Items)
 }

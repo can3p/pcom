@@ -116,75 +116,36 @@ func TestLink_DefaultAuthorizedHome_Name(t *testing.T) {
 	require.Equal(t, "/feed", got)
 }
 
-func TestAbsLink_Simple_WithSiteRoot(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
+func TestSite_Abs(t *testing.T) {
+	t.Parallel()
 
-	got := links.AbsLink("feed")
-	require.Equal(t, "https://example.com/feed", got)
-}
+	const root = "https://example.com"
+	const cdn = "https://cdn.example.com"
 
-func TestAbsLink_Simple_WithoutSiteRoot(t *testing.T) {
-	t.Setenv("SITE_ROOT", "")
+	tests := []struct {
+		name string
+		site links.Site
+		link string
+		args []string
+		want string
+	}{
+		{"simple with site root", links.Site{Root: root}, "feed", nil, root + "/feed"},
+		{"simple without site root", links.Site{}, "feed", nil, "/feed"},
+		{"uploaded media with cdn", links.Site{Root: root, MediaCDN: cdn}, "uploaded_media", []string{"image.jpg"}, cdn + "/image.jpg"},
+		{"uploaded media without cdn", links.Site{Root: root}, "uploaded_media", []string{"image.jpg"}, root + "/user-media/image.jpg"},
+		{"uploaded media single file", links.Site{Root: root}, "uploaded_media", []string{"file-uuid-123.png"}, root + "/user-media/file-uuid-123.png"},
+		{"uploaded media uuid file", links.Site{Root: root}, "uploaded_media", []string{"3fa85f64-5717-4562-b3fc-2c963f66afa6.jpg"}, root + "/user-media/3fa85f64-5717-4562-b3fc-2c963f66afa6.jpg"},
+		{"cdn is only for uploaded media", links.Site{Root: root, MediaCDN: cdn}, "feed", nil, root + "/feed"},
+		{"post with arguments", links.Site{Root: root}, "post", []string{"123"}, root + "/posts/123"},
+		{"user with arguments", links.Site{Root: root}, "user", []string{"alice"}, root + "/users/alice"},
+		{"with query string", links.Site{Root: root}, "feed", []string{"sort", "recent"}, root + "/feed?sort=recent"},
+	}
 
-	got := links.AbsLink("feed")
-	require.Equal(t, "/feed", got)
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-func TestAbsLink_UploadedMedia_WithCDN_InCluster(t *testing.T) {
-	t.Setenv("USER_MEDIA_CDN", "https://cdn.example.com")
-	t.Setenv("FLY_APP_NAME", "myapp")
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("uploaded_media", "image.jpg")
-	require.Equal(t, "https://cdn.example.com/image.jpg", got)
-}
-
-func TestAbsLink_UploadedMedia_WithCDN_NotInCluster(t *testing.T) {
-	t.Setenv("USER_MEDIA_CDN", "https://cdn.example.com")
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("uploaded_media", "image.jpg")
-	require.Equal(t, "https://example.com/user-media/image.jpg", got)
-}
-
-func TestAbsLink_UploadedMedia_WithoutCDN(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("uploaded_media", "image.jpg")
-	require.Equal(t, "https://example.com/user-media/image.jpg", got)
-}
-
-func TestAbsLink_UploadedMedia_SingleFile(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("uploaded_media", "file-uuid-123.png")
-	require.Equal(t, "https://example.com/user-media/file-uuid-123.png", got)
-}
-
-func TestAbsLink_UploadedMedia_UUIDFile(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("uploaded_media", "3fa85f64-5717-4562-b3fc-2c963f66afa6.jpg")
-	require.Equal(t, "https://example.com/user-media/3fa85f64-5717-4562-b3fc-2c963f66afa6.jpg", got)
-}
-
-func TestAbsLink_Post_WithArguments(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("post", "123")
-	require.Equal(t, "https://example.com/posts/123", got)
-}
-
-func TestAbsLink_User_WithArguments(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("user", "alice")
-	require.Equal(t, "https://example.com/users/alice", got)
-}
-
-func TestAbsLink_WithQueryString(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
-	got := links.AbsLink("feed", "sort", "recent")
-	require.Equal(t, "https://example.com/feed?sort=recent", got)
+			require.Equal(t, tt.want, tt.site.Abs(tt.link, tt.args...))
+		})
+	}
 }

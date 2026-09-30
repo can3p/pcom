@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -132,7 +131,7 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.Us
 	}
 
 	// notify post author about discussion
-	out, err := mail.PostCommentAuthor(links.MediaReplacer, actor, post.R.User, post, comment)
+	out, err := mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.R.User, post, comment)
 	if err := s.queueE(ctx, tx, out, err); err != nil {
 		return err
 	}
@@ -150,7 +149,7 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.Us
 	slog.Debug("comment in the post", "participants", len(participants))
 
 	for _, cmt := range participants {
-		out, err := mail.PostCommentParticipants(links.MediaReplacer, actor, cmt.R.User, post, comment)
+		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.R.User, post, comment)
 		if err := s.queueE(ctx, tx, out, err); err != nil {
 			return err
 		}

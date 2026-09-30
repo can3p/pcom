@@ -28,7 +28,7 @@ var (
 )
 
 // PageFailure tells the admin that a page panicked.
-func PageFailure(c *gin.Context, err any, user *core.User) *pcommail.Envelope {
+func PageFailure(from, adminAddress string, c *gin.Context, err any, user *core.User) *pcommail.Envelope {
 	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
 
 	userInfo := "Anonymous"
@@ -39,12 +39,12 @@ func PageFailure(c *gin.Context, err any, user *core.User) *pcommail.Envelope {
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
 			{
-				Address: NotifyAddress,
+				Address: adminAddress,
 			},
 		},
 		Subject: "Panic on the page",

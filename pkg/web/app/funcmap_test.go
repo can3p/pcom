@@ -7,29 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/stretchr/testify/require"
 )
 
 // templatesGlob is the binary's template directory, seen from this package.
 const templatesGlob = "../../../cmd/web/client/html/*.html"
-
-// unsetEnv makes sure the named environment variable is not set for the
-// duration of the test, restoring whatever value (or absence) it had
-// before.
-func unsetEnv(t *testing.T, name string) {
-	t.Helper()
-
-	old, ok := os.LookupEnv(name)
-	require.NoError(t, os.Unsetenv(name))
-
-	t.Cleanup(func() {
-		if ok {
-			_ = os.Setenv(name, old)
-		} else {
-			_ = os.Unsetenv(name)
-		}
-	})
-}
 
 // TestFuncmapParsesAllTemplates is the most valuable single test here: it
 // parses every real template with the funcmap this binary registers, using
@@ -40,7 +23,7 @@ func TestFuncmapParsesAllTemplates(t *testing.T) {
 		return "/static/" + n
 	}
 
-	tmpl := template.Must(template.New("").Funcs(funcmap(stub)).ParseGlob(templatesGlob))
+	tmpl := template.Must(template.New("").Funcs(funcmap(stub, links.Site{})).ParseGlob(templatesGlob))
 
 	require.NotNil(t, tmpl)
 
@@ -57,7 +40,7 @@ func TestFuncmapParsesAllTemplates(t *testing.T) {
 func TestFuncmapToMap(t *testing.T) {
 	t.Parallel()
 
-	fm := funcmap(func(n string) string { return n })
+	fm := funcmap(func(n string) string { return n }, links.Site{})
 	toMap := fm["toMap"].(func(args ...any) map[string]any)
 
 	t.Run("even args", func(t *testing.T) {
@@ -80,7 +63,7 @@ func TestFuncmapToMap(t *testing.T) {
 func TestFuncmapMarkdownFuncsRegistered(t *testing.T) {
 	t.Parallel()
 
-	fm := funcmap(func(n string) string { return n })
+	fm := funcmap(func(n string) string { return n }, links.Site{})
 
 	names := []string{
 		"markdown_single_post",
@@ -95,7 +78,7 @@ func TestFuncmapMarkdownFuncsRegistered(t *testing.T) {
 		require.True(t, ok, "funcmap should register %s with the expected signature", name)
 
 		// plain text has no links or media, so this exercises the function
-		// without needing SITE_ROOT or any other env var.
+		// without needing a site root.
 		out := fn("hello world")
 		require.Contains(t, string(out), "hello world")
 	}
@@ -114,9 +97,6 @@ func writeFakeManifest(t *testing.T, dir string, files map[string]string) {
 }
 
 func TestLoadStaticManifest(t *testing.T) {
-	unsetEnv(t, "FLY_APP_NAME")
-	unsetEnv(t, "STATIC_CDN")
-
 	dir := t.TempDir()
 	writeFakeManifest(t, dir, map[string]string{
 		"app.js": "app.abc123.js",
@@ -124,12 +104,12 @@ func TestLoadStaticManifest(t *testing.T) {
 
 	t.Chdir(dir)
 
-	asset := LoadStaticManifest()
+	asset := LoadStaticManifest("")
 
 	require.Equal(t, "/static/app.abc123.js", asset("app.js"))
 }
 
-func TestLoadStaticManifest_CDNOnlyInCluster(t *testing.T) {
+func TestLoadStaticManifest_CDN(t *testing.T) {
 	dir := t.TempDir()
 	writeFakeManifest(t, dir, map[string]string{
 		"app.js": "app.abc123.js",
@@ -137,26 +117,18 @@ func TestLoadStaticManifest_CDNOnlyInCluster(t *testing.T) {
 
 	t.Chdir(dir)
 
-	t.Setenv("STATIC_CDN", "https://cdn.example.com")
-
-	t.Run("not in cluster: CDN prefix ignored", func(t *testing.T) {
-		unsetEnv(t, "FLY_APP_NAME")
-
-		asset := LoadStaticManifest()
-		require.Equal(t, "/static/app.abc123.js", asset("app.js"))
+	t.Run("CDN set: prefix used", func(t *testing.T) {
+		asset := LoadStaticManifest("https://cdn.example.com")
+		require.Equal(t, "https://cdn.example.com/app.abc123.js", asset("app.js"))
 	})
 
-	t.Run("in cluster: CDN prefix used", func(t *testing.T) {
-		t.Setenv("FLY_APP_NAME", "some-app")
-
-		asset := LoadStaticManifest()
-		require.Equal(t, "https://cdn.example.com/app.abc123.js", asset("app.js"))
+	t.Run("CDN empty: served from /static", func(t *testing.T) {
+		asset := LoadStaticManifest("")
+		require.Equal(t, "/static/app.abc123.js", asset("app.js"))
 	})
 }
 
 func TestLoadStaticManifest_UnknownAssetPanics(t *testing.T) {
-	unsetEnv(t, "FLY_APP_NAME")
-
 	dir := t.TempDir()
 	writeFakeManifest(t, dir, map[string]string{
 		"app.js": "app.abc123.js",
@@ -164,7 +136,7 @@ func TestLoadStaticManifest_UnknownAssetPanics(t *testing.T) {
 
 	t.Chdir(dir)
 
-	asset := LoadStaticManifest()
+	asset := LoadStaticManifest("")
 
 	require.PanicsWithValue(t, "asset [missing.js] is not defined", func() {
 		asset("missing.js")

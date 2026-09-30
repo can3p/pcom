@@ -138,7 +138,7 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, m
 			return err
 		}
 
-		return s.queue(ctx, tx, mail.PostPrompt(actor, recipient, prompt))
+		return s.queue(ctx, tx, mail.PostPrompt(s.ident.Site, s.ident.From, actor, recipient, prompt))
 	})
 }
 

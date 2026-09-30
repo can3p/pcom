@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -13,12 +12,12 @@ import (
 
 // Invitation is the mail that carries an invitation link to the address it
 // was sent to.
-func Invitation(invite *core.UserInvitation, to string) *Envelope {
-	link := links.AbsLink("invite", invite.ID)
+func Invitation(site links.Site, from string, invite *core.UserInvitation, to string) *Envelope {
+	link := site.Abs("invite", invite.ID)
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

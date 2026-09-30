@@ -17,10 +17,15 @@ import (
 
 var staticRoute = "/static"
 
-func funcmap(staticAsset StaticAssetFunc) template.FuncMap {
+// siteOf is the site the app serves, for absolute links.
+func siteOf(d *Deps) links.Site {
+	return links.Site{Root: d.Config.SiteRoot, MediaCDN: d.Config.MediaCDN}
+}
+
+func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 	markdown := func(view types.HTMLView) func(s string, add ...string) template.HTML {
 		return func(s string, add ...string) template.HTML {
-			return markdown.ToEnrichedTemplate(s, view, links.MediaReplacer, func(in string, add2 ...string) string {
+			return markdown.ToEnrichedTemplate(s, view, site.MediaReplacer, func(in string, add2 ...string) string {
 				// ugly hack to handle cut links
 				if in == "single_post_special" {
 					args := []string{}
@@ -40,7 +45,7 @@ func funcmap(staticAsset StaticAssetFunc) template.FuncMap {
 
 		"link": links.Link,
 
-		"abslink": links.AbsLink,
+		"abslink": site.Abs,
 
 		"renderHumanTime": func(t time.Time, user *core.User) template.HTML {
 			return date.RenderTimeHTML(t, user, time.Now())
@@ -82,7 +87,7 @@ func funcmap(staticAsset StaticAssetFunc) template.FuncMap {
 type StaticAssetFunc func(n string) string
 
 // LoadStaticManifest reads dist/manifest.json, relative to the process cwd.
-func LoadStaticManifest() StaticAssetFunc {
+func LoadStaticManifest(staticCDN string) StaticAssetFunc {
 	manifest, err := os.ReadFile("dist/manifest.json")
 
 	if err != nil {
@@ -106,8 +111,8 @@ func LoadStaticManifest() StaticAssetFunc {
 
 		prefix := staticRoute
 
-		if pr, ok := os.LookupEnv("STATIC_CDN"); ok && util.InCluster() {
-			prefix = pr
+		if staticCDN != "" {
+			prefix = staticCDN
 		}
 
 		return fmt.Sprintf("%s/%s", prefix, path)

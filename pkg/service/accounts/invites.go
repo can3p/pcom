@@ -79,7 +79,7 @@ func (s *Service) SendInvite(ctx context.Context, actor *core.User, to string) e
 			return fmt.Errorf("failed to save the invite: %w", err)
 		}
 
-		return s.send(ctx, tx, mail.Invitation(invite, to))
+		return s.send(ctx, tx, mail.Invitation(s.ident.Site, s.ident.From, invite, to))
 	})
 }
 
@@ -115,7 +115,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 			return err
 		}
 
-		if err := s.send(ctx, tx, admin.NewUser(u)); err != nil {
+		if err := s.send(ctx, tx, admin.NewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
 			return err
 		}
 

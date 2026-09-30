@@ -75,7 +75,7 @@ func (c *serveCmd) Execute([]string) error {
 			HTMLDir:               cfg.Web.HTMLDir,
 			ForceOpenRegistration: cfg.Web.ForceSignup.On(),
 			SessionSalt:           cfg.Web.SessionSalt.Reveal(),
-			StaticAsset:           app.LoadStaticManifest(),
+			StaticAsset:           app.LoadStaticManifest(cfg.Web.StaticCDN),
 			SiteRoot:              cfg.Web.SiteRoot,
 			StaticCDN:             cfg.Web.StaticCDN,
 			MediaCDN:              cfg.Media.CDN,

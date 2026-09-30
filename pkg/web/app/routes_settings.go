@@ -17,7 +17,7 @@ import (
 func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 	accounts := d.Services.Accounts
 
-	r.GET("/users/:username/user_styles", auth.EnforceReferer, func(c *gin.Context) {
+	r.GET("/users/:username/user_styles", auth.EnforceReferer(d.Config.SiteRoot), func(c *gin.Context) {
 		css, err := accounts.UserStyles(c, c.Param("username"))
 		if err != nil {
 			panic(err)

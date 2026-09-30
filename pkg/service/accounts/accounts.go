@@ -11,7 +11,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -25,12 +24,27 @@ type Service struct {
 	store  *repo.Store
 	sender repo.MailQueue
 	feeds  *feeds.Service
+	ident  mail.Identity
 }
 
 // New builds the service. sender may be nil for a command line script that
 // sends no mail; feeds may be nil when the settings page is not used.
-func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service) *Service {
-	return &Service{store: store, sender: snd, feeds: subscriptions}
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// WithIdentity tells the service the site its links point to and the
+// addresses its mail uses. Without it links are relative and mail has no sender.
+func WithIdentity(ident mail.Identity) Option {
+	return func(s *Service) { s.ident = ident }
+}
+
+func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
+	s := &Service{store: store, sender: snd, feeds: subscriptions}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // send queues a mail on the store, so inside Tx it goes out only if the
@@ -170,7 +184,7 @@ func (s *Service) Settings(ctx context.Context, actor *core.User) (*SettingsView
 	}
 
 	if feedToken != nil {
-		view.FeedURL = links.AbsLink("private_user_feed", feedToken.Token)
+		view.FeedURL = s.ident.Site.Abs("private_user_feed", feedToken.Token)
 	}
 
 	style, err := s.store.UserStyleForUser(ctx, actor.ID)

@@ -9,7 +9,7 @@ import (
 // the whole idea there is to keep only an identifier in the markdown
 // source text and give us flexibility to serve the image from
 // any source like cdn without touching saved text
-func MediaReplacer(inURL string) (bool, string) {
+func (s Site) MediaReplacer(inURL string) (bool, string) {
 	parts := strings.Split(inURL, ".")
 
 	if len(parts) != 2 {
@@ -21,5 +21,5 @@ func MediaReplacer(inURL string) (bool, string) {
 	}
 
 	// all the checks are postponed till the actual call
-	return true, AbsLink("uploaded_media", inURL)
+	return true, s.Abs("uploaded_media", inURL)
 }

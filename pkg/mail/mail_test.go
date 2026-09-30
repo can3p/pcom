@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -16,9 +16,7 @@ import (
 	"github.com/volatiletech/null/v8"
 )
 
-func init() {
-	_ = os.Setenv("SENDER_ADDRESS", "noreply@pcom.test")
-}
+const testFrom = "noreply@pcom.test"
 
 // setPostURL sets the URL relation on a post using reflection.
 // This is necessary because the R field is unexported in sqlboiler models,
@@ -95,7 +93,7 @@ func send(ctx context.Context, s *fakesender.Sender, e *mail.Envelope) error {
 }
 
 func sendConfirmSignup(ctx context.Context, s *fakesender.Sender, user *core.User) error {
-	e, err := mail.ConfirmSignup(user)
+	e, err := mail.ConfirmSignup(links.Site{}, testFrom, user)
 	if err != nil {
 		return err
 	}
@@ -168,7 +166,7 @@ func TestNewPost(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliver(ctx, sender)(mail.NewPost(mediaReplacer, user, connection, post))
+	err := deliver(ctx, sender)(mail.NewPost(links.Site{}, testFrom, mediaReplacer, user, connection, post))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -197,7 +195,7 @@ func TestNewPost_NotToMyself(t *testing.T) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
 	// Passing the same user as both author and connection should skip sending
-	err := deliver(ctx, sender)(mail.NewPost(mediaReplacer, user, user, post))
+	err := deliver(ctx, sender)(mail.NewPost(links.Site{}, testFrom, mediaReplacer, user, user, post))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -234,7 +232,7 @@ func TestPostCommentAuthor(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(mediaReplacer, commenter, author, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -269,7 +267,7 @@ func TestPostCommentAuthor_NotToMyself(t *testing.T) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
 	// Passing the same user as both commenter and author should skip sending
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(mediaReplacer, user, user, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, user, user, post, comment))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -306,7 +304,7 @@ func TestPostCommentParticipants(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(mediaReplacer, commenter, participant, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -341,7 +339,7 @@ func TestPostCommentParticipants_NotToMyself(t *testing.T) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
 	// Passing the same user as both commenter and participant should skip sending
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(mediaReplacer, user, user, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, user, user, post, comment))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -371,7 +369,7 @@ func TestPostPrompt(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	err := deliver(ctx, sender)(mail.PostPrompt(asker, recipient, prompt))
+	err := deliver(ctx, sender)(mail.PostPrompt(links.Site{}, testFrom, asker, recipient, prompt))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -399,7 +397,7 @@ func TestPostPrompt_NotToMyself(t *testing.T) {
 	ctx := context.Background()
 
 	// Passing the same user as both asker and recipient should skip sending
-	err := deliver(ctx, sender)(mail.PostPrompt(user, user, prompt))
+	err := deliver(ctx, sender)(mail.PostPrompt(links.Site{}, testFrom, user, user, prompt))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -436,7 +434,7 @@ func TestPostPromptAnswer(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	err := deliver(ctx, sender)(mail.PostPromptAnswer(asker, responder, post, prompt))
+	err := deliver(ctx, sender)(mail.PostPromptAnswer(links.Site{}, testFrom, asker, responder, post, prompt))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -469,7 +467,7 @@ func TestNewPost_NoSubject(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliver(ctx, sender)(mail.NewPost(mediaReplacer, user, connection, post))
+	err := deliver(ctx, sender)(mail.NewPost(links.Site{}, testFrom, mediaReplacer, user, connection, post))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -508,7 +506,7 @@ func TestNewPost_WithLinkedURL(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliver(ctx, sender)(mail.NewPost(mediaReplacer, user, connection, post))
+	err := deliver(ctx, sender)(mail.NewPost(links.Site{}, testFrom, mediaReplacer, user, connection, post))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -541,7 +539,7 @@ func TestNewPost_SubjectWithSpecialChars(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliver(ctx, sender)(mail.NewPost(mediaReplacer, user, connection, post))
+	err := deliver(ctx, sender)(mail.NewPost(links.Site{}, testFrom, mediaReplacer, user, connection, post))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -574,7 +572,7 @@ func TestNewPost_EmptyBody(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliver(ctx, sender)(mail.NewPost(mediaReplacer, user, connection, post))
+	err := deliver(ctx, sender)(mail.NewPost(links.Site{}, testFrom, mediaReplacer, user, connection, post))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -618,7 +616,7 @@ func TestPostCommentAuthor_WithURL(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(mediaReplacer, commenter, author, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -662,7 +660,7 @@ func TestPostCommentParticipants_WithURL(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(mediaReplacer, commenter, participant, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment))
 	require.NoError(t, err)
 
 	sent := sender.Sent()

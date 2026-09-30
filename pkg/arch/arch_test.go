@@ -283,21 +283,7 @@ var envExempt = []string{"cmd/web", "e2e", "pkg/testutil"}
 // envAllowlist is every file that still reads the environment itself, with
 // the R2 task that moves it onto pkg/config. R2 is done when this is empty.
 var envAllowlist = map[string]string{
-	"pkg/admin/notifications.go":            "R2.A",
-	"pkg/admin/panics.go":                   "R2.A",
-	"pkg/auth/auth.go":                      "R2.A",
-	"pkg/links/link.go":                     "R2.A",
-	"pkg/mail/confirm_signup.go":            "R2.A",
-	"pkg/mail/confirm_waiting_list.go":      "R2.A",
-	"pkg/mail/invite.go":                    "R2.A",
-	"pkg/mail/new_post.go":                  "R2.A",
-	"pkg/mail/post_comment_author.go":       "R2.A",
-	"pkg/mail/post_comment_participants.go": "R2.A",
-	"pkg/mail/post_prompt.go":               "R2.A",
-	"pkg/mail/post_prompt_answer.go":        "R2.A",
-	"pkg/util/cluster.go":                   "R2.F",
-	"pkg/util/siteroot.go":                  "R2.A",
-	"pkg/web/app/funcmap.go":                "R2.A",
+	"pkg/util/cluster.go": "R2.F",
 }
 
 // TestSettingsComeFromConfig keeps every setting in pkg/config, parsed by

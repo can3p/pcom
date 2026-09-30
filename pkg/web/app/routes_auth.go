@@ -69,7 +69,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 		returnUrl := c.Query("return_url")
 		sign := c.Query("sign")
 
-		if auth.HashValue(returnUrl) != sign {
+		if auth.HashValue(d.Config.SessionSalt, returnUrl) != sign {
 			returnUrl = ""
 			sign = ""
 		}
@@ -128,7 +128,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 	actions.POST("/logout", auth.Logout)
 
 	nonControlsForms.POST("/login", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
-		gogoForms.DefaultHandler(c, forms.LoginFormNew(accounts))
+		gogoForms.DefaultHandler(c, forms.LoginFormNew(accounts, d.Config.SessionSalt, d.Config.SiteRoot))
 
 		return nil
 	}))

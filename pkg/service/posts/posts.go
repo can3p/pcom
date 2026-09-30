@@ -18,10 +18,30 @@ type Service struct {
 	store   *repo.Store
 	sender  repo.MailQueue
 	storage server.MediaStorage
+	ident   mail.Identity
 }
 
-func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage) *Service {
-	return &Service{store: store, sender: snd, storage: storage}
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// WithIdentity tells the service the site its mail links point to and the
+// address the mail comes from.
+func WithIdentity(ident mail.Identity) Option {
+	return func(s *Service) { s.ident = ident }
+}
+
+func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage, opts ...Option) *Service {
+	s := &Service{store: store, sender: snd, storage: storage}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
+}
+
+// PostURL is the public address of a post.
+func (s *Service) PostURL(postID string) string {
+	return s.ident.Site.Abs("post", postID)
 }
 
 // queue puts a formatted mail in the outbox of the transaction tx. A nil mail

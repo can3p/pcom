@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -37,19 +38,19 @@ func mailers() map[string]func(s *fakesender.Sender) error {
 
 	return map[string]func(s *fakesender.Sender) error{
 		"NewPost": func(s *fakesender.Sender) error {
-			return deliver(ctx, s)(mail.NewPost(replacer, alice, bob, post))
+			return deliver(ctx, s)(mail.NewPost(links.Site{}, testFrom, replacer, alice, bob, post))
 		},
 		"PostCommentAuthor": func(s *fakesender.Sender) error {
-			return deliverE(ctx, s)(mail.PostCommentAuthor(replacer, alice, bob, post, comment))
+			return deliverE(ctx, s)(mail.PostCommentAuthor(links.Site{}, testFrom, replacer, alice, bob, post, comment))
 		},
 		"PostCommentParticipants": func(s *fakesender.Sender) error {
-			return deliverE(ctx, s)(mail.PostCommentParticipants(replacer, alice, bob, post, comment))
+			return deliverE(ctx, s)(mail.PostCommentParticipants(links.Site{}, testFrom, replacer, alice, bob, post, comment))
 		},
 		"PostPrompt": func(s *fakesender.Sender) error {
-			return deliver(ctx, s)(mail.PostPrompt(alice, bob, prompt))
+			return deliver(ctx, s)(mail.PostPrompt(links.Site{}, testFrom, alice, bob, prompt))
 		},
 		"PostPromptAnswer": func(s *fakesender.Sender) error {
-			return deliver(ctx, s)(mail.PostPromptAnswer(bob, alice, post, prompt))
+			return deliver(ctx, s)(mail.PostPromptAnswer(links.Site{}, testFrom, bob, alice, post, prompt))
 		},
 	}
 }
