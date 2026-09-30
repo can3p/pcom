@@ -154,3 +154,25 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **BSD `sed -i -E` leaves `<file>-E` backups.** On macOS it's `sed -i ''
   -E`. Check `git status` for strays after a subagent, not only
   `git diff --stat`, which doesn't show untracked files.
+- **Agent worktrees start from `origin/master`.** Push the wave branch, or
+  make a worktree agent's first command `git merge --ff-only <wave branch>`
+  and check that a step 0 file exists (RS).
+- **Split shared files before parallel work, not after.** RS step 0 split
+  the mixed handler and page files by area and gave each task its own
+  `<table>_<area>.go` repository files; the six merges then conflicted only
+  in the registry and the allowlist, which scripts resolved.
+- **Audit every task, even when its mutation check passes.** In RS the
+  mutation checks passed and the audits still found deleted tests, changed
+  texts and lost panics in five of seven tasks.
+- **Don't mutate a worktree an audit is reading.** Run the mutation check
+  before or after the audit, never during it: an audit that reads the
+  mutated file reports a regression that doesn't exist.
+- **Resolve conflicts in code by hand.** A resolver that unions lines works
+  for import blocks and struct fields; for function bodies it drops
+  repeated lines like `}`.
+- **A refactor must keep failure paths, not only results.** Where the old
+  code panicked (500 plus the admin mail), the new code must still panic;
+  returning an error that a form shows as text is a behavior change.
+- **Moving code between packages changes what per-package coverage sees.**
+  Measure with `-coverpkg` over the module, or a refactor that moves
+  queries out of their tests' package looks like lost coverage (RS).
