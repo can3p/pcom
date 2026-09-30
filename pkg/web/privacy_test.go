@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/shares"
+
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -448,15 +451,14 @@ func TestPrivacyMatrix(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 
-				c, userData := w.userData(t, v, key.profile)
-				res := web.SharedPost(c, w.db, userData, share.ID)
+				c, _ := w.userData(t, v, key.profile)
+				page, err := shares.New(repo.Using(w.db)).Get(c, share.ID)
 
 				if !key.published {
-					require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+					require.ErrorIs(t, err, ginhelpers.ErrNotFound)
 					return
 				}
 
-				page, err := res.Get()
 				require.NoError(t, err)
 				require.Equal(t, w.posts[key].ID, page.Post.ID)
 				require.Equal(t, w.authors[key.profile].ID, page.Author.ID)
@@ -467,9 +469,9 @@ func TestPrivacyMatrix(t *testing.T) {
 	t.Run("SharedPost/unknown share", func(t *testing.T) {
 		t.Parallel()
 
-		c, userData := w.userData(t, asAnonymous, core.ProfileVisibilityPublic)
-		res := web.SharedPost(c, w.db, userData, uuid.NewString())
-		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+		c, _ := w.userData(t, asAnonymous, core.ProfileVisibilityPublic)
+		_, err := shares.New(repo.Using(w.db)).Get(c, uuid.NewString())
+		require.ErrorIs(t, err, ginhelpers.ErrNotFound)
 	})
 }
 
@@ -556,8 +558,9 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 		{"Explore/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
 			return web.Explore(c, exec, u).Error()
 		}},
-		{"SharedPost/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			return web.SharedPost(c, exec, u, share.ID).Error()
+		{"SharedPost/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
+			_, err := shares.New(repo.Using(exec)).Get(c, share.ID)
+			return err
 		}},
 	}
 

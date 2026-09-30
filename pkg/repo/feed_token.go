@@ -12,13 +12,28 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
+// The free functions predate Store; e2e/ calls them, so they stay until RS
+// may edit e2e/.
+
+func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string) (*core.User, error) {
+	return Using(exec).FeedTokenOwner(ctx, token)
+}
+
+func FeedTokenForUser(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserFeedToken, error) {
+	return Using(exec).FeedTokenForUser(ctx, userID)
+}
+
+func RegenerateFeedToken(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserFeedToken, error) {
+	return Using(exec).RegenerateFeedToken(ctx, userID)
+}
+
 // FeedTokenOwner returns the user a private RSS feed token belongs to, or
 // sql.ErrNoRows when the token is unknown.
-func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string) (*core.User, error) {
+func (s *Store) FeedTokenOwner(ctx context.Context, token string) (*core.User, error) {
 	t, err := core.UserFeedTokens(
 		core.UserFeedTokenWhere.Token.EQ(token),
 		qm.Load(core.UserFeedTokenRels.User),
-	).One(ctx, exec)
+	).One(ctx, s.exec)
 	if err != nil {
 		return nil, err
 	}
@@ -27,8 +42,8 @@ func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string
 }
 
 // FeedTokenForUser returns the user's feed token, or nil when they have none.
-func FeedTokenForUser(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserFeedToken, error) {
-	t, err := core.UserFeedTokens(core.UserFeedTokenWhere.UserID.EQ(userID)).One(ctx, exec)
+func (s *Store) FeedTokenForUser(ctx context.Context, userID string) (*core.UserFeedToken, error) {
+	t, err := core.UserFeedTokens(core.UserFeedTokenWhere.UserID.EQ(userID)).One(ctx, s.exec)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -38,7 +53,7 @@ func FeedTokenForUser(ctx context.Context, exec boil.ContextExecutor, userID str
 
 // RegenerateFeedToken creates the user's feed token or replaces the existing
 // one, which stops working at once.
-func RegenerateFeedToken(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserFeedToken, error) {
+func (s *Store) RegenerateFeedToken(ctx context.Context, userID string) (*core.UserFeedToken, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -51,7 +66,7 @@ func RegenerateFeedToken(ctx context.Context, exec boil.ContextExecutor, userID 
 
 	record := &core.UserFeedToken{ID: id.String(), UserID: userID, Token: token.String()}
 
-	err = record.Upsert(ctx, exec, true, []string{core.UserFeedTokenColumns.UserID},
+	err = record.Upsert(ctx, s.exec, true, []string{core.UserFeedTokenColumns.UserID},
 		boil.Whitelist(core.UserFeedTokenColumns.Token, core.UserFeedTokenColumns.UpdatedAt), boil.Infer())
 	if err != nil {
 		return nil, err

@@ -7,16 +7,15 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/gin-gonic/gin"
 )
 
 // jsonAction is the shape of a JSON action: bind the body into T, run fn for
 // the logged-in user and answer with reportSuccess. A body that doesn't bind
-// is reported as "Bad input: ...", and an error from fn is reported with its
-// message as is, so fn words the error the way the user should see it.
-func jsonAction[T any](d *Deps, fn func(c *gin.Context, u *core.User, in T) error) gin.HandlerFunc {
-	_ = d // RS hands the services to fn through d
-
+// is reported as "Bad input: ...", and an error from fn as actionMessage
+// words it. fn is usually one service call.
+func jsonAction[T any](_ *Deps, fn func(c *gin.Context, u *core.User, in T) error) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var in T
 
@@ -26,12 +25,33 @@ func jsonAction[T any](d *Deps, fn func(c *gin.Context, u *core.User, in T) erro
 		}
 
 		if err := fn(c, auth.GetUserData(c).DBUser, in); err != nil {
-			reportError(c, err.Error())
+			reportError(c, actionMessage(err))
 			return
 		}
 
 		reportSuccess(c)
 	}
+}
+
+// actionMessage is the text a JSON action shows for err. Every failed action
+// answers 400, whatever the error, so the text is all that differs. A
+// ValidationError or a userError is shown as is, and so is any other error,
+// as the actions did before the services existed.
+func actionMessage(err error) string {
+	var invalid *service.ValidationError
+
+	switch {
+	case errors.As(err, &invalid):
+		return invalid.Message
+	case errors.Is(err, service.ErrForbidden):
+		return "Operation not allowed"
+	case errors.Is(err, service.ErrNotFound):
+		return "Not found"
+	case errors.Is(err, service.ErrNeedsLogin):
+		return "Please log in"
+	}
+
+	return err.Error()
 }
 
 func reportError(c *gin.Context, s string) {

@@ -5,12 +5,15 @@ package app
 import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/jmoiron/sqlx"
 )
 
 // Deps is everything the handlers need. RS replaces DB with the services.
 type Deps struct {
-	DB           *sqlx.DB
+	DB *sqlx.DB
+	// Services is built from DB by New when it is nil.
+	Services     *registry.Services
 	Sender       sender.Sender
 	MediaStorage server.MediaStorage
 	MediaServer  server.MediaServer

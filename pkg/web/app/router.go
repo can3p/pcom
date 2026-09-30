@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csrf"
 	"github.com/gin-contrib/sessions"
@@ -17,6 +18,10 @@ import (
 // New builds the gin engine: middleware, templates and every route group.
 func New(d *Deps) *gin.Engine {
 	db := d.DB
+
+	if d.Services == nil {
+		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage})
+	}
 
 	store := pgsession.NewStore(db, []byte(d.Config.SessionSalt))
 	store.Options(sessions.Options{
