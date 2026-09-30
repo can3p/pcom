@@ -114,7 +114,6 @@ var allowlist = map[string]string{
 	"pkg/mail/sender/dbsender/dbsender.go":                 "L6",
 	"pkg/media/upload.go":                                  "L6",
 	"pkg/service/feeds/legacy_media.go":                    "L6",
-	"pkg/web/app/actions_media.go":                         "L6",
 	"pkg/userops/graph.go":                                 "step 2",
 }
 

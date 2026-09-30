@@ -5,29 +5,34 @@ import (
 	"net/http"
 
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
 
 // mountMediaActions registers the media upload action.
 func mountMediaActions(d *Deps, r *gin.RouterGroup) {
-	db := d.DB
-	mediaStorage := d.MediaStorage
-
 	r.POST("/upload_media", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		res := web.ApiUploadImage(c, db, userData.DBUser, mediaStorage)
-
-		if res.IsError() {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", res.Error()))
+		file, err := c.FormFile("file")
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
 			return
 		}
 
-		resp := res.MustGet()
+		f, err := file.Open()
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
+
+		fname, err := d.Services.Media.Upload(c, userData.DBUser, f)
+		if err != nil {
+			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"uploaded_url": resp.ImageID,
+			"uploaded_url": fname,
 		})
 	})
 }

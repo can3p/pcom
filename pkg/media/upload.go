@@ -31,6 +31,19 @@ func ValidateImageType(contentType string) (string, error) {
 	return ext, nil
 }
 
+// DetectAndValidateImageTypeAndExt reads bytes, detects their MIME type, and validates
+// that it's a supported image format. Returns the file extension and the full MIME type.
+func DetectAndValidateImageTypeAndExt(bytes []byte) (string, string, error) {
+	ftype := http.DetectContentType(bytes)
+	ext, err := ValidateImageType(ftype)
+	if err != nil {
+		return "", "", err
+	}
+	return ext, ftype, nil
+}
+
+// HandleUpload is a legacy utility used by code that hasn't been refactored yet.
+// New code should use the media service instead.
 func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.MediaStorage, userID *string, rssFeedID *string, reader io.Reader) (string, error) {
 	if (userID == nil && rssFeedID == nil) || (userID != nil && rssFeedID != nil) {
 		return "", errors.Errorf("exactly one of userID or rssFeedID must be provided")
@@ -72,7 +85,7 @@ func HandleUpload(ctx context.Context, exec boil.ContextExecutor, media server.M
 	}
 
 	// we do actions inside and outside db in one go
-	// operation should be defened with transaction, but file storage
+	// operation should be deferred with transaction, but file storage
 	// part can still get corrupted
 	if err := mediaUpload.Insert(ctx, exec, boil.Infer()); err != nil {
 		return "", err

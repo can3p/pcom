@@ -2,20 +2,17 @@ package dbsender
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/can3p/gogo/sender"
-	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 const pollEvery = 10 * time.Second
@@ -25,13 +22,13 @@ var retryIntervals = []time.Duration{10 * time.Second, 60 * time.Second, 30 * ti
 
 type dbSender struct {
 	realSender sender.Sender
-	db         *sqlx.DB
+	store      *repo.Store
 }
 
-func NewSender(db *sqlx.DB, realSender sender.Sender) *dbSender {
+func NewSender(db *repo.Store, realSender sender.Sender) *dbSender {
 	return &dbSender{
 		realSender: realSender,
-		db:         db,
+		store:      db,
 	}
 }
 
@@ -59,12 +56,8 @@ func (m *dbSender) sendEmails(ctx context.Context) (err error) {
 		}
 	}()
 
-	return transact.Transact(m.db, func(tx *sql.Tx) error {
-		pending, err := core.OutgoingEmails(
-			core.OutgoingEmailWhere.Status.EQ(core.OutgoingEmailStatusNew),
-			core.OutgoingEmailWhere.TryAt.LT(time.Now()),
-			qm.For("UPDATE SKIP LOCKED"),
-		).All(ctx, tx)
+	return m.store.Tx(ctx, func(tx *repo.Store) error {
+		pending, err := tx.GetPendingEmails(ctx)
 
 		if err != nil {
 			return err
@@ -85,7 +78,7 @@ func (m *dbSender) sendEmails(ctx context.Context) (err error) {
 	})
 }
 
-func (m *dbSender) trySendEmail(ctx context.Context, db *sql.Tx, outgoing *core.OutgoingEmail) error {
+func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *core.OutgoingEmail) error {
 	var payload sender.Mail
 
 	if err := outgoing.Payload.Unmarshal(&payload); err != nil {
@@ -93,7 +86,7 @@ func (m *dbSender) trySendEmail(ctx context.Context, db *sql.Tx, outgoing *core.
 	}
 
 	slog.Debug("Trying to send an email for real", "id", outgoing.ID, "to", payload.To)
-	sendErr := m.realSender.Send(ctx, db, outgoing.UniqueID, outgoing.EmailType, &payload)
+	sendErr := m.realSender.Send(ctx, tx.Exec(), outgoing.UniqueID, outgoing.EmailType, &payload)
 
 	if sendErr == nil {
 		outgoing.Status = core.OutgoingEmailStatusSent
@@ -107,9 +100,7 @@ func (m *dbSender) trySendEmail(ctx context.Context, db *sql.Tx, outgoing *core.
 		}
 	}
 
-	_, err := outgoing.Update(ctx, db, boil.Infer())
-
-	return err
+	return tx.UpdateOutgoingEmail(ctx, outgoing)
 }
 
 // Send schedules an email for sending. Email with duplicate (emailType, uniqueID) tuple will be skipped
@@ -140,5 +131,6 @@ func (m *dbSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID
 	slog.Debug("Scheduling email", "uniqueID", uniqueID, "email_type", emailType, "to", mail.To)
 
 	// this action is really dumb in a sense that we only attempt to put an email into the queue and bail if it's already there
-	return outgoing.Upsert(ctx, exec, false, []string{core.OutgoingEmailColumns.EmailType, core.OutgoingEmailColumns.UniqueID}, boil.Infer(), boil.Infer())
+	// We use repo.Using to wrap the legacy code, as this is the executor path from services
+	return repo.Using(exec).CreateOrUpdateOutgoingEmail(ctx, &outgoing)
 }
