@@ -11,6 +11,7 @@ the one for the area you touch:
 | A model's fields, relationships, query helpers | skill `model-shape` |
 | A failing test or build | skill `test-failure` |
 | Running a modernization wave / finishing one | skills `wave-run` / `wave-close` |
+| Layers: handlers, services, repositories, service errors, the arch test | `docs/architecture.md` |
 | Markdown rendering, view types, custom renderers | `pkg/markdown/AGENTS.md` |
 | RSS feed fetching and image budgets | `pkg/feedops/AGENTS.md` |
 | Writing tests: libraries, test DB, factories, mocks, E2E and browser tests, ground rules | `docs/testing.md` |
