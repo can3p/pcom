@@ -28,6 +28,15 @@ Raised by the 2026-09-21 modernization survey.
 
 ## Decided
 
+- **2026-09-30. R2 production switches:** `FLY_APP_NAME` is replaced by one
+  setting per behavior (`SECURE_COOKIES`, `HSTS`, `STATIC_CACHE`,
+  `MEDIA_PERMA_CACHE`, `REPORT_PANICS`, `SHOW_ERRORS`, `LOG_LEVEL`) with
+  production-safe defaults; development, compose and tests turn them off.
+  `seed` keeps refusing to run when `FLY_APP_NAME` is set.
+- **2026-09-30. Migrations at deploy (R2 D2):** no `migrate` subcommand. The
+  production image carries the `sql-migrate` binary (same pinned version as
+  `tools/Dockerfile`), `dbconfig.yml` and `migrations/`, and fly's
+  `release_command` runs it. `go.mod` keeps no migration library.
 - **2026-09-30. Source-scanning E2E test during refactors:**
   `TestGuards_RouteTableMatchesSource` reads route files by name, so a
   refactor that moves routes updates only its `prefixes` map; the route
