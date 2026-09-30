@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -10,11 +9,11 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func PostPrompt(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, asker *core.User, recipient *core.User, postPrompt *core.PostPrompt) error {
+// PostPrompt formats the notification about a prompt for its recipient. It
+// returns nil when there is nobody to notify.
+func PostPrompt(asker *core.User, recipient *core.User, postPrompt *core.PostPrompt) *Outgoing {
 	// we're not sending email notifications to ourselves
 	if asker.ID == recipient.ID {
 		return nil
@@ -46,11 +45,5 @@ Head to new post page to give an update! %s`, asker.Username, postPrompt.Message
 	<p>Head to new post page to give an update! <a href="%s">%s</a></p>`, html.EscapeString(asker.Username), html.EscapeString(postPrompt.Message), html.EscapeString(link), html.EscapeString(link)),
 	}
 
-	err := s.Send(ctx, exec, postPrompt.ID, "post_prompt", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Outgoing{UniqueID: postPrompt.ID, Type: "post_prompt", Mail: mail}
 }

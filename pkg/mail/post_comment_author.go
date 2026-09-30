@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -15,20 +14,21 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func PostCommentAuthor(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, mediaReplacer types.Replacer[string], user *core.User, author *core.User, post *core.Post, comment *core.PostComment) error {
+// PostCommentAuthor formats the notification for the author of a post about
+// a new comment. It returns nil when there is nobody to notify.
+func PostCommentAuthor(mediaReplacer types.Replacer[string], user *core.User, author *core.User, post *core.Post, comment *core.PostComment) (*Outgoing, error) {
 	// we're not sending email notifications to ourselves
 	if user.ID == author.ID {
-		return nil
+		return nil, nil
 	}
 
 	link := links.AbsLink("comment", post.ID, comment.ID)
 	body, err := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
 	if err != nil {
 		// ReplaceImageUrls only fails if goldmark cannot render, which no input triggers, so no test covers this.
-		return errors.Wrap(err, "failed to render the comment")
+		return nil, errors.Wrap(err, "failed to render the comment")
 	}
 	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, links.AbsLink)
 
@@ -70,11 +70,5 @@ Checkout the comment in the post: %s`, user.Username, subject, urlText, "> "+str
 	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, html.EscapeString(user.Username), html.EscapeString(subject), htmlUrlSection, htmlBody, html.EscapeString(link)),
 	}
 
-	err = s.Send(ctx, exec, comment.ID+user.ID, "comment_notification", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Outgoing{UniqueID: comment.ID + user.ID, Type: "comment_notification", Mail: mail}, nil
 }

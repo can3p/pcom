@@ -11,9 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/posts"
+	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -22,6 +25,7 @@ import (
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,6 +78,12 @@ func multipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Cont
 	return c
 }
 
+// postsService is the posts service over db and a sender that records
+// instead of sending.
+func postsService(db *sqlx.DB, s sender.Sender) *posts.Service {
+	return registry.New(db, registry.Deps{Sender: s}).Posts
+}
+
 func formatUnix(u int64) string {
 	return strconv.FormatInt(u, 10)
 }
@@ -90,7 +100,7 @@ func TestApiDeletePost(t *testing.T) {
 		author := testutil.Must(factory.User(ctx, testDB.DB))(t)
 
 		c := requestContext(http.MethodDelete)("/api/v1/posts/unknown")
-		res := web.ApiDeletePost(c, testDB.DB, author, "0190a0a0-0000-7000-8000-000000000000")
+		res := web.ApiDeletePost(c, postsService(testDB.DB, nil), author, "0190a0a0-0000-7000-8000-000000000000")
 		require.True(t, res.IsError())
 		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 	})
@@ -102,7 +112,7 @@ func TestApiDeletePost(t *testing.T) {
 		post := testutil.Must(factory.Post(ctx, testDB.DB, author.ID))(t)
 
 		c := requestContext(http.MethodDelete)("/api/v1/posts/" + post.ID)
-		res := web.ApiDeletePost(c, testDB.DB, author, post.ID)
+		res := web.ApiDeletePost(c, postsService(testDB.DB, nil), author, post.ID)
 		require.NoError(t, res.Error())
 
 		_, err := factory.GetPost(ctx, testDB.DB, post.ID)
@@ -124,7 +134,7 @@ func TestApiGetPosts_LimitClamping(t *testing.T) {
 
 	// limit <= 0 is clamped up to 1, not treated as "no limit": with two
 	// posts available, a request that didn't clamp would return both.
-	res := web.ApiGetPosts(newCtx("/api/v1/posts?limit=0"), testDB.DB, user.ID)
+	res := web.ApiGetPosts(newCtx("/api/v1/posts?limit=0"), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 1)
@@ -144,7 +154,7 @@ func TestApiGetPosts_Cursor(t *testing.T) {
 
 	newCtx := requestContext(http.MethodGet)
 
-	res := web.ApiGetPosts(newCtx("/api/v1/posts?limit=2"), testDB.DB, user.ID)
+	res := web.ApiGetPosts(newCtx("/api/v1/posts?limit=2"), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 2)
@@ -152,7 +162,7 @@ func TestApiGetPosts_Cursor(t *testing.T) {
 	require.Equal(t, p2.ID, resp.Posts[1].ID)
 	require.Equal(t, p2.ID, resp.Cursor)
 
-	res = web.ApiGetPosts(newCtx("/api/v1/posts?limit=2&cursor="+resp.Cursor), testDB.DB, user.ID)
+	res = web.ApiGetPosts(newCtx("/api/v1/posts?limit=2&cursor="+resp.Cursor), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp = res.MustGet()
 	require.Len(t, resp.Posts, 1)
@@ -175,14 +185,14 @@ func TestApiGetPosts_UpdatedSince(t *testing.T) {
 	// future excludes it. These stay clear of the known boundary bug
 	// below (a few hours either way don't flip either outcome).
 	longAgo := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
-	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(longAgo)), testDB.DB, user.ID)
+	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(longAgo)), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 1)
 	require.Equal(t, post.ID, resp.Posts[0].ID)
 
 	farFuture := time.Now().Add(24 * time.Hour).Unix()
-	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(farFuture)), testDB.DB, user.ID)
+	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(farFuture)), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp = res.MustGet()
 	require.Empty(t, resp.Posts)
@@ -205,14 +215,14 @@ func TestApiGetPosts_UpdatedSince_Boundary(t *testing.T) {
 	newCtx := requestContext(http.MethodGet)
 
 	before := saved.UpdatedAt.Time.Add(-time.Minute).Unix()
-	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(before)), testDB.DB, user.ID)
+	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(before)), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 1)
 	require.Equal(t, post.ID, resp.Posts[0].ID)
 
 	after := saved.UpdatedAt.Time.Add(time.Minute).Unix()
-	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(after)), testDB.DB, user.ID)
+	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(after)), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp = res.MustGet()
 	require.Empty(t, resp.Posts)
@@ -249,7 +259,7 @@ func TestApiNewPost(t *testing.T) {
 				IsPublished: tc.isPublished,
 			})
 
-			res := web.ApiNewPost(c, testDB.DB, sender, author, links.MediaReplacer)
+			res := web.ApiNewPost(c, postsService(testDB.DB, sender), author)
 			require.True(t, res.IsOk())
 			resp := res.MustGet()
 			require.NotEmpty(t, resp.ID)
@@ -293,7 +303,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 		IsPublished: true,
 	})
 
-	res := web.ApiEditPost(c, testDB.DB, sender, author, links.MediaReplacer, post.ID)
+	res := web.ApiEditPost(c, postsService(testDB.DB, sender), author, post.ID)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Equal(t, post.ID, resp.ID)
@@ -315,7 +325,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 		IsPublished: false,
 	})
 
-	res = web.ApiEditPost(c, testDB.DB, sender, author, links.MediaReplacer, post.ID)
+	res = web.ApiEditPost(c, postsService(testDB.DB, sender), author, post.ID)
 	require.True(t, res.IsOk())
 
 	got = testutil.Must(factory.GetPost(ctx, testDB.DB, post.ID))(t)
@@ -337,7 +347,7 @@ func TestApiEditPost_UnknownPost(t *testing.T) {
 		MdBody:  "y",
 	})
 
-	res := web.ApiEditPost(c, testDB.DB, sender, author, links.MediaReplacer, "0190a0a0-0000-7000-8000-000000000000")
+	res := web.ApiEditPost(c, postsService(testDB.DB, sender), author, "0190a0a0-0000-7000-8000-000000000000")
 	require.True(t, res.IsError())
 	require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 }

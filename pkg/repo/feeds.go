@@ -174,25 +174,6 @@ func (s *Store) FeedSubscriptions(ctx context.Context, feedID string) (core.User
 	return core.UserFeedSubscriptions(core.UserFeedSubscriptionWhere.FeedID.EQ(feedID)).All(ctx, s.exec)
 }
 
-// StoreFeedItemURL returns the row of a URL, creating it if it is new. The URL
-// is normalized by the caller.
-func (s *Store) StoreFeedItemURL(ctx context.Context, normalizedURL string) (*core.NormalizedURL, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return nil, err
-	}
-
-	row := &core.NormalizedURL{ID: id.String(), URL: normalizedURL}
-
-	// we need to pass true to get the existing id back
-	err = row.Upsert(ctx, s.exec, true, []string{core.NormalizedURLColumns.URL}, boil.Infer(), boil.Infer())
-	if err != nil {
-		return nil, err
-	}
-
-	return row, nil
-}
-
 // FeedItemExists reports whether a feed has an item for a URL.
 func (s *Store) FeedItemExists(ctx context.Context, feedID, urlID string) (bool, error) {
 	return core.RSSItems(

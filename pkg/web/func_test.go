@@ -13,7 +13,9 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/connections"
+	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/reading"
+	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -60,6 +62,11 @@ func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, arg
 		return e.ContextExecutor.QueryRowContext(ctx, "select 1/0")
 	}
 	return e.ContextExecutor.QueryRowContext(ctx, query, args...)
+}
+
+// postsService is the posts service over db.
+func postsService(db *sqlx.DB) *posts.Service {
+	return registry.New(db, registry.Deps{}).Posts
 }
 
 // userDataFor wraps u as a logged-in *auth.UserData, the way auth.Auth
@@ -139,7 +146,7 @@ func TestWrite(t *testing.T) {
 			t.Parallel()
 
 			c := newTestContext(t, http.MethodGet, tc.target)
-			page := testutil.Must(Write(c, db, userDataFor(tc.user)).Get())(t)
+			page := testutil.Must(Write(c, postsService(db), userDataFor(tc.user)).Get())(t)
 
 			if tc.wantPrompt {
 				require.NotNil(t, page.Prompt)
@@ -168,7 +175,7 @@ func TestEditPost(t *testing.T) {
 		t.Parallel()
 
 		c := newTestContext(t, http.MethodGet, "/posts/"+post.ID+"/edit")
-		page := testutil.Must(EditPost(c, db, userDataFor(author), post.ID).Get())(t)
+		page := testutil.Must(EditPost(c, postsService(db), userDataFor(author), post.ID).Get())(t)
 
 		require.Equal(t, post.ID, page.PostID)
 		require.Equal(t, post.Subject.String, page.Input.Subject)
@@ -195,7 +202,7 @@ func TestEditPost(t *testing.T) {
 			t.Parallel()
 
 			c := newTestContext(t, http.MethodGet, "/posts/"+tc.postID+"/edit")
-			res := EditPost(c, db, userDataFor(tc.user), tc.postID)
+			res := EditPost(c, postsService(db), userDataFor(tc.user), tc.postID)
 			require.True(t, res.IsError())
 			require.ErrorIs(t, res.Error(), tc.want)
 		})

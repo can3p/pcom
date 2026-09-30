@@ -1,28 +1,17 @@
 package web
 
 import (
-	"database/sql"
-	"time"
-
-	"github.com/can3p/gogo/sender"
-	"github.com/can3p/gogo/util/transact"
-	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/types"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
+	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
-const GetPostsLimitMax = 100
+// GetPostsLimitMax is the most posts one API call returns.
+const GetPostsLimitMax = posts.ListMax
 
 type ApiPost struct {
 	ID          string              `json:"id"`
@@ -40,62 +29,37 @@ type ApiGetPostsResponse struct {
 	Cursor string     `json:"cursor"`
 }
 
-func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPostsResponse] {
-	var input struct {
+type ApiNewPostResponse struct {
+	ID        string `json:"id"`
+	PublicURL string `json:"public_url"`
+}
+
+type ApiUploadImageResponse struct {
+	ImageID string `json:"image_id"`
+}
+
+func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[*ApiGetPostsResponse] {
+	var form struct {
 		UpdatedSince int64  `form:"updated_since"`
 		Cursor       string `form:"cursor"`
 		Limit        int    `form:"limit"`
 	}
 
-	if err := c.ShouldBind(&input); err != nil {
+	if err := c.ShouldBind(&form); err != nil {
 		return mo.Err[*ApiGetPostsResponse](err)
 	}
 
-	switch {
-	case input.Limit <= 0:
-		input.Limit = 1
-	case input.Limit > GetPostsLimitMax:
-		input.Limit = GetPostsLimitMax
-	}
-
-	q := []qm.QueryMod{
-		core.PostWhere.UserID.EQ(userID),
-		qm.OrderBy("id desc"),
-		// +1 here is to understand whether it makes sense to fill cursor value,
-		// we're discarding the last record otherwise
-		qm.Limit(input.Limit + 1),
-	}
-
-	if input.UpdatedSince > 0 {
-		t := time.Unix(input.UpdatedSince, 0).UTC()
-		q = append(q, core.PostWhere.UpdatedAt.GT(null.TimeFrom(t)))
-	}
-
-	if input.Cursor != "" {
-		q = append(q, core.PostWhere.ID.LT(input.Cursor))
-	}
-
-	posts, err := core.Posts(q...).All(c, db)
-
+	listing, err := svc.List(c, actor, posts.ListInput{UpdatedSince: form.UpdatedSince, Cursor: form.Cursor, Limit: form.Limit})
 	if err != nil {
 		return mo.Err[*ApiGetPostsResponse](err)
 	}
 
-	if len(posts) == 0 {
+	if len(listing.Posts) == 0 {
 		return mo.Ok(&ApiGetPostsResponse{})
 	}
 
-	var newCursor string
-
-	postLen := len(posts)
-
-	if len(posts) > input.Limit {
-		postLen--
-		newCursor = posts[input.Limit-1].ID
-	}
-
 	return mo.Ok(&ApiGetPostsResponse{
-		Posts: lo.Map(posts[0:postLen], func(p *core.Post, idx int) *ApiPost {
+		Posts: lo.Map(listing.Posts, func(p *core.Post, idx int) *ApiPost {
 			var publishedAt int64
 
 			if p.PublishedAt.Valid {
@@ -113,162 +77,89 @@ func ApiGetPosts(c *gin.Context, db *sqlx.DB, userID string) mo.Result[*ApiGetPo
 				PublicURL:   links.AbsLink("post", p.ID),
 			}
 		}),
-		Cursor: newCursor,
+		Cursor: listing.Cursor,
 	})
 }
 
-type ApiNewPostResponse struct {
-	ID        string `json:"id"`
-	PublicURL string `json:"public_url"`
-}
-
-func ApiNewPost(c *gin.Context, db *sqlx.DB, sender sender.Sender, dbUser *core.User, mediaReplacer types.Replacer[string]) mo.Result[*ApiNewPostResponse] {
+func ApiNewPost(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[*ApiNewPostResponse] {
 	var input ApiPost
 
 	if err := c.BindJSON(&input); err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
 	}
 
-	// everything you see there is one big hack
-	// to avoid duplicating business logic
-	action := forms.PostFormActionSavePost
+	action := posts.ActionSavePost
 
 	if input.IsPublished {
-		action = forms.PostFormActionPublish
+		action = posts.ActionPublish
 	}
 
-	form, err := forms.NewPostFormNew(c, db, sender, dbUser, mediaReplacer, "")
+	saved, err := svc.Save(c, actor, posts.SaveInput{
+		Subject:    input.Subject,
+		Body:       input.MdBody,
+		Visibility: input.Visibility,
+		Action:     action,
+	})
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
 	}
 
-	form.Input = &forms.PostFormInput{
-		Subject:    input.Subject,
-		Body:       input.MdBody,
-		Visibility: input.Visibility,
-		SaveAction: action,
-	}
-
-	if err := form.Validate(c, db); err != nil {
-		return mo.Err[*ApiNewPostResponse](err)
-	}
-
-	if err := transact.Transact(db, func(tx *sql.Tx) error {
-		var err error
-		_, err = form.Save(c, tx)
-
-		return err
-	}); err != nil {
-		return mo.Err[*ApiNewPostResponse](err)
-	}
-
-	tdata := form.TemplateData()
-	postID := tdata["PostID"].(string)
 	return mo.Ok(&ApiNewPostResponse{
-		// and this only means that forms were not made with apis in mind
-		ID:        postID,
-		PublicURL: links.AbsLink("post", postID),
+		ID:        saved.Post.ID,
+		PublicURL: links.AbsLink("post", saved.Post.ID),
 	})
 }
 
-func ApiEditPost(c *gin.Context, db *sqlx.DB, sender sender.Sender, dbUser *core.User, mediaReplacer types.Replacer[string], postID string) mo.Result[*ApiNewPostResponse] {
+func ApiEditPost(c *gin.Context, svc *posts.Service, actor *core.User, postID string) mo.Result[*ApiNewPostResponse] {
 	var input ApiPost
 
 	if err := c.BindJSON(&input); err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
 	}
 
-	// everything you see there is one big hack
-	// to avoid duplicating business logic
-	action := forms.PostFormActionMakeDraft
+	action := posts.ActionMakeDraft
 
 	if input.IsPublished {
-		action = forms.PostFormActionPublish
+		action = posts.ActionPublish
 	}
 
-	form, err := forms.EditPostFormNew(c, db, sender, dbUser, mediaReplacer, postID)
-
+	_, err := svc.Save(c, actor, posts.SaveInput{
+		PostID:     postID,
+		Subject:    input.Subject,
+		Body:       input.MdBody,
+		Visibility: input.Visibility,
+		Action:     action,
+	})
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
 	}
 
-	form.Input = &forms.PostFormInput{
-		Subject:    input.Subject,
-		Body:       input.MdBody,
-		Visibility: input.Visibility,
-		SaveAction: action,
-	}
-
-	if err := form.Validate(c, db); err != nil {
-		return mo.Err[*ApiNewPostResponse](err)
-	}
-
-	if err := transact.Transact(db, func(tx *sql.Tx) error {
-		var err error
-		_, err = form.Save(c, tx)
-
-		return err
-	}); err != nil {
-		return mo.Err[*ApiNewPostResponse](err)
-	}
-
 	return mo.Ok(&ApiNewPostResponse{
-		// and this only means that forms were not made with apis in mind
 		ID:        postID,
 		PublicURL: links.AbsLink("post", postID),
 	})
 }
 
-func ApiDeletePost(c *gin.Context, db *sqlx.DB, dbUser *core.User, postID string) mo.Result[any] {
-	err := transact.Transact(db, func(tx *sql.Tx) error {
-		// only the author is allowed to delete a post, anybody else
-		// should not even learn that the post exists
-		post, err := core.Posts(
-			core.PostWhere.ID.EQ(postID),
-			core.PostWhere.UserID.EQ(dbUser.ID),
-			qm.For("UPDATE"),
-		).One(c, tx)
-
-		if err == sql.ErrNoRows {
-			return ginhelpers.ErrNotFound
-		} else if err != nil {
-			return err
-		}
-
-		return postops.DeletePost(c, tx, post.ID)
-	})
-
-	if err != nil {
+func ApiDeletePost(c *gin.Context, svc *posts.Service, actor *core.User, postID string) mo.Result[any] {
+	if err := svc.Delete(c, actor, postID); err != nil {
 		return mo.Err[any](err)
 	}
 
 	return mo.Ok[any](nil)
 }
 
-type ApiUploadImageResponse struct {
-	ImageID string `json:"image_id"`
-}
-
-func ApiUploadImage(c *gin.Context, db *sqlx.DB, dbUser *core.User, mediaStorage server.MediaStorage) mo.Result[*ApiUploadImageResponse] {
+func ApiUploadImageWith(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[*ApiUploadImageResponse] {
 	file, err := c.FormFile("file")
-
 	if err != nil {
 		return mo.Err[*ApiUploadImageResponse](err)
 	}
 
 	f, err := file.Open()
-
 	if err != nil {
 		return mo.Err[*ApiUploadImageResponse](err)
 	}
 
-	var fname string
-
-	err = transact.Transact(db, func(tx *sql.Tx) error {
-		fname, err = media.HandleUpload(c, db, mediaStorage, &dbUser.ID, nil, f)
-		return err
-	})
-
+	fname, err := svc.UploadImage(c, actor, f)
 	if err != nil {
 		return mo.Err[*ApiUploadImageResponse](err)
 	}

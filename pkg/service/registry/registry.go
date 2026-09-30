@@ -10,6 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/media"
+	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
 	"github.com/jmoiron/sqlx"
@@ -28,6 +29,7 @@ type Services struct {
 	Shares      *shares.Service
 	Reading     *reading.Service
 	Media       *media.Service
+	Posts       *posts.Service
 }
 
 func New(db *sqlx.DB, deps Deps) *Services {
@@ -39,5 +41,6 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Shares:      shares.New(store),
 		Reading:     reading.New(store),
 		Media:       media.New(store, deps.MediaStorage),
+		Posts:       posts.New(store, deps.Sender, deps.MediaStorage),
 	}
 }

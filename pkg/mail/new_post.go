@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -13,11 +12,19 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
-	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func NewPost(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, mediaReplacer types.Replacer[string], user *core.User, connection *core.User, post *core.Post) error {
+// Outgoing is a mail ready to be queued: the unique id and the type that
+// sender.Send takes along with the message.
+type Outgoing struct {
+	UniqueID string
+	Type     string
+	Mail     *sender.Mail
+}
+
+// NewPost formats the notification about a new post for one connection of its
+// author. It returns nil when there is nobody to notify.
+func NewPost(mediaReplacer types.Replacer[string], user *core.User, connection *core.User, post *core.Post) *Outgoing {
 	// we're not sending email notifications to ourselves
 	if user.ID == connection.ID {
 		return nil
@@ -80,11 +87,5 @@ Head to the post to leave a comment! %s`, user.Username, subject, urlText, link)
 			html.EscapeString(link)),
 	}
 
-	err := s.Send(ctx, exec, post.ID+connection.ID, "post_notification", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Outgoing{UniqueID: post.ID + connection.ID, Type: "post_notification", Mail: mail}
 }

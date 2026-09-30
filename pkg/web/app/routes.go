@@ -13,7 +13,7 @@ var articlesRE = regexp.MustCompile("^[a-z0-9]+(_[a-z0-9]+)*$")
 // mountRoutes registers every route on the groups New creates; each area's routes are in its own file.
 func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, nonControlsForms, controlsForms *gin.RouterGroup) {
 	mountMediaRoutes(d, router)
-	setupApi(apiGroup, d.DB, d.Sender, d.MediaStorage)
+	setupApi(apiGroup, d)
 	mountPublicRoutes(d, r)
 	mountAuthRoutes(d, r, actions, nonControlsForms)
 	mountRSSRoutes(d, r)
