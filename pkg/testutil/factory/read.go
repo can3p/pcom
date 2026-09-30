@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -119,10 +120,7 @@ func GetPostPrompt(ctx context.Context, exec boil.ContextExecutor, id string) (*
 
 // WhitelistExists reports whether whoID allows allowsWhoID to connect.
 func WhitelistExists(ctx context.Context, exec boil.ContextExecutor, whoID, allowsWhoID string) (bool, error) {
-	return core.WhitelistedConnections(
-		core.WhitelistedConnectionWhere.WhoID.EQ(whoID),
-		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(allowsWhoID),
-	).Exists(ctx, exec)
+	return repo.Using(exec).GrantExists(ctx, whoID, allowsWhoID)
 }
 
 // ShareExists reports whether postID has a share link.

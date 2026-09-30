@@ -7,6 +7,8 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -51,7 +53,7 @@ func TestWhitelistConnection_Validate(t *testing.T) {
 			user1 := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
-			form := forms.WhitelistConnectionNew(user1).(*forms.WhitelistConnection)
+			form := forms.WhitelistConnectionNew(user1, connections.New(repo.New(db))).(*forms.WhitelistConnection)
 			form.Input.Username = tt.username(t, user1)
 
 			err := form.Validate(c, db)
@@ -96,7 +98,7 @@ func TestWhitelistConnection_Save(t *testing.T) {
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/whitelist", nil)
 
 			username, targetID := tt.setup(t)
-			form := forms.WhitelistConnectionNew(user1).(*forms.WhitelistConnection)
+			form := forms.WhitelistConnectionNew(user1, connections.New(repo.New(db))).(*forms.WhitelistConnection)
 			form.Input.Username = username
 
 			action, err := form.Save(c, db)

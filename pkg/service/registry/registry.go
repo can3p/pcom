@@ -7,6 +7,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/shares"
 	"github.com/jmoiron/sqlx"
 )
@@ -19,13 +20,15 @@ type Deps struct {
 
 // Services is one field per area service.
 type Services struct {
-	Shares *shares.Service
+	Connections *connections.Service
+	Shares      *shares.Service
 }
 
 func New(db *sqlx.DB, _ Deps) *Services {
 	store := repo.New(db)
 
 	return &Services{
-		Shares: shares.New(store),
+		Connections: connections.New(store),
+		Shares:      shares.New(store),
 	}
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -91,9 +91,9 @@ func User(ctx context.Context, exec boil.ContextExecutor, opts ...UserOpt) (*cor
 }
 
 // Connect makes aID and bID direct connections, inserting both directed
-// rows the way userops.CreateConnection does.
+// rows the way repo.CreateConnection does.
 func Connect(ctx context.Context, exec boil.ContextExecutor, aID, bID string) (*core.UserConnection, *core.UserConnection, error) {
-	return userops.CreateConnection(ctx, exec, aID, bID)
+	return repo.Using(exec).CreateConnection(ctx, aID, bID)
 }
 
 // Whitelist lets allowsWhoID connect to whoID without mediation.
