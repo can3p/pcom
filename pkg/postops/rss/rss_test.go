@@ -19,7 +19,8 @@ func mkPost(id string, body string, vis core.PostVisibility, author *core.User) 
 			Subject:          null.StringFrom("A subject"),
 			Body:             body,
 			VisibilityRadius: vis,
-			CreatedAt:        null.TimeFrom(time.Date(2025, time.March, 4, 10, 0, 0, 0, time.UTC)),
+			CreatedAt:        null.TimeFrom(time.Date(2025, time.March, 1, 10, 0, 0, 0, time.UTC)),
+			PublishedAt:      null.TimeFrom(time.Date(2025, time.March, 4, 10, 0, 0, 0, time.UTC)),
 		},
 		Author: author,
 	}
@@ -31,7 +32,7 @@ func TestToFeed_PublicPostIsRendered(t *testing.T) {
 	author := &core.User{Username: "alice"}
 	post := mkPost("post-1", "Some *markdown* body", core.PostVisibilityPublic, author)
 
-	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", author, []*postops.Post{post})
+	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{post})
 
 	require.Equal(t, "My Blog", feed.Title)
 	require.Equal(t, "https://example.com", feed.Link.Href)
@@ -43,6 +44,8 @@ func TestToFeed_PublicPostIsRendered(t *testing.T) {
 	require.Contains(t, item.Description, "Some")
 	require.NotContains(t, item.Description, "not public")
 	require.Contains(t, item.Link.Href, "post-1")
+	// a draft published later carries its publication date, not its creation date
+	require.Equal(t, time.Date(2025, time.March, 4, 10, 0, 0, 0, time.UTC), item.Created)
 }
 
 func TestToFeed_NonPublicPostHidesBody(t *testing.T) {
@@ -60,7 +63,7 @@ func TestToFeed_NonPublicPostHidesBody(t *testing.T) {
 			t.Parallel()
 
 			post := mkPost("post-2", "Secret content that must not leak", vis, author)
-			feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", author, []*postops.Post{post})
+			feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{post})
 
 			require.Len(t, feed.Items, 1)
 			require.Equal(t, "Post is not public, follow the link to read the text", feed.Items[0].Description)
@@ -74,7 +77,7 @@ func TestToFeed_AnonymousAuthorFallsBack(t *testing.T) {
 
 	post := mkPost("post-3", "body", core.PostVisibilityPublic, nil)
 
-	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", nil, []*postops.Post{post})
+	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{post})
 
 	require.Len(t, feed.Items, 1)
 	require.Equal(t, "Anonymous User", feed.Items[0].Author.Name)
@@ -90,13 +93,13 @@ func TestToFeed_PreservesOrderAndSubjectFallback(t *testing.T) {
 			ID:               "post-a",
 			Body:             "a",
 			VisibilityRadius: core.PostVisibilityPublic,
-			CreatedAt:        null.TimeFrom(time.Now()),
+			PublishedAt:      null.TimeFrom(time.Now()),
 		},
 		Author: author,
 	}
 	withSubject := mkPost("post-b", "b", core.PostVisibilityPublic, author)
 
-	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", author, []*postops.Post{noSubject, withSubject})
+	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{noSubject, withSubject})
 
 	require.Len(t, feed.Items, 2)
 	require.Equal(t, "No Subject", feed.Items[0].Title)
@@ -108,7 +111,7 @@ func TestToFeed_PreservesOrderAndSubjectFallback(t *testing.T) {
 func TestToFeed_NoPosts(t *testing.T) {
 	t.Parallel()
 
-	feed := rss.ToFeed(links.Site{}, "Empty Blog", "https://example.com", nil, nil)
+	feed := rss.ToFeed(links.Site{}, "Empty Blog", "https://example.com", nil)
 	require.Empty(t, feed.Items)
 }
 
@@ -132,7 +135,7 @@ func TestToFeed_SiteRootAndMediaCDN(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			item := rss.ToFeed(tc.site, "My Blog", "https://example.com", author, []*postops.Post{post}).Items[0]
+			item := rss.ToFeed(tc.site, "My Blog", "https://example.com", []*postops.Post{post}).Items[0]
 
 			require.Equal(t, "https://pcom.test"+links.Link("post", "post-1"), item.Link.Href)
 			require.Contains(t, item.Description, tc.wantMedia)
