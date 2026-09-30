@@ -57,7 +57,7 @@ Related documents:
 | R1 | Router decomposition (move handlers) | W3, W6, WB | done | `refactor/r1-router` |
 | RS | Repositories and services, thin handlers | R1 | done | `refactor/rs-layers` |
 | R2 | go-flags config, single binary, tommy for mail and S3, object storage only | RS, R3 (mailjet BaseURL) | planned | `refactor/r2-config` |
-| R3 | gogo convergence | W5 | planned | `refactor/r3-gogo` |
+| R3 | gogo convergence (gogo v0.1.0) | W5, gogo v0.1.0 released | ready: gogo side done, pcom tasks G1–G3 | `refactor/r3-gogo` |
 | R4 | Mailers | W1 (mail goldens), R2 | planned | `refactor/r4-mailers` |
 | R5 | bob ORM, one repository at a time | RS, R3 | planned | `refactor/r5-bob` |
 | R6 | Dependency hygiene | any time after W5 | planned | `chore/r6-deps` |

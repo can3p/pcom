@@ -5,9 +5,10 @@ generic plumbing into [github.com/can3p/gogo](https://github.com/can3p/gogo),
 so that every gogo-based project shares one copy. **Extract only after the
 code has tests** (W1/W2), and move the tests along with the code.
 
-pcom depends on `github.com/can3p/gogo v0.0.1`. From
-it, pcom only uses `forms`, `sender` (+console, mailjet), `links.ArgBuilder`
-and `util/transact`.
+pcom depends on `github.com/can3p/gogo v0.0.2`. From
+it, pcom uses `forms`, `sender` (+console, mailjet), `links.ArgBuilder`,
+`util/transact` and `testcontainers/postgres`; from R3 on also `apperr`,
+`util/ginhelpers` and `util/ginhelpers/csrf`, and from R2 on `settings`.
 
 ## 1. Done
 
@@ -22,38 +23,25 @@ and `util/transact`.
 
   W0.T0.1 switches pcom to it and deletes pcom's copy.
 
-## 2. Already in gogo; pcom keeps its own copy (switch in R3)
+## 2. gogo v0.1.0: convergence (R3)
 
-| pcom | gogo | Difference |
-|---|---|---|
-| `pkg/util/ginhelpers/render.go` | `util/ginhelpers/render.go` | gogo's `HTML` takes a `Redirector` instead of importing `auth`. Otherwise the same. |
-| `pkg/util/ginhelpers/csrf/csrf.go` | `util/ginhelpers/csrf/csrf.go` | gogo takes a `getUserCSRFToken` func. Otherwise the same. |
-| `pkg/util/cluster.go` | `util/cluster.go` | gogo has `SetCluster(test)` + `IsFlyCluster`. R2 removes the concept from pcom entirely, in favor of explicit settings. |
-| `testcontainers/postgres` | `testcontainers/postgres` | gogo's is now ahead (section 1). Switch in W0, not R3. |
+Made on gogo's `feat/r3-convergence` branch, for release as `v0.1.0`; R3
+switches pcom to it (`docs/plan/r3.md` lists the API). In short:
 
-## 3. Small gogo changes the modernization needs
-
-- **`sender/mailjet`: a configurable API base URL.** Add `BaseURL` to
-  `config.Config` (`long:"api-base" env:"API_BASE"`) and pass it to
-  `mailjet.NewMailjetClient(public, private, baseURL)`, which the SDK already
-  accepts. With that, the same sender talks to
-  [tommy](https://github.com/can3p/tommy) in development and tests, and to
-  Mailjet in production. It's a prerequisite for R2, which drops the console
-  sender.
-- **go-flags configuration helpers:**
-  - `CheckRequired`, which treats an empty environment variable as missing;
-    go-flags alone considers it set;
-  - a `Secret` string type that redacts itself when printed;
-  - `ExplainMissing`, which rewrites "required flag `--database-url`" into a
-    message that also names `DATABASE_URL`.
-
-  Every gogo app needs these, and pcom needs them for R2.
-- **An ORM-agnostic executor.** `sender.Sender.Send` and `forms.Form` take a
-  sqlboiler `boil.ContextExecutor`, and `forms.DefaultHandler` takes
-  `*sqlx.DB`. Before pcom moves to bob (R5), gogo needs an executor interface
-  that doesn't tie consumers to sqlboiler.
-- gogo pins old versions (gin 1.10, goldmark 1.7). Bump them with the first
-  extraction.
+- pcom's `render.go` moved to gogo's `util/ginhelpers`, configured per
+  router instead of by `util.InCluster`, and pcom's service errors to
+  `apperr`. The CSRF check was already the same.
+- `util.InCluster` is deleted from gogo. R2 removes pcom's copy.
+- `sender/mailjet` has the configurable API base URL (`BaseURL`,
+  `--api-base`/`API_BASE`), which R2 needs for tommy.
+- The go-flags helpers are `settings.Parse` (an empty required setting is
+  missing; the error names flag and variable) and `settings.Secret`. R2
+  uses them.
+- **The executor is gone rather than abstracted.** `sender.Sender` is
+  `Send(ctx, mail)` and `forms` take none: a form calls services, services
+  own transactions, and queueing mail in a transaction is pcom's
+  `repo.MailQueue`. So bob (R5) never meets gogo.
+- gin 1.12, goldmark 1.8; gogo no longer depends on sqlboiler.
 
 ## 4. New candidates from pcom
 
