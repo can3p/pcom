@@ -109,7 +109,8 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 2. `git status --short`, to confirm only the owned files changed and no stray files appeared (`git diff
    --stat` misses untracked files, such as the `<file>-E` backups BSD `sed -i -E` leaves).
 3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
-   through `make test-q`, revert. Never while an audit agent is reading the same worktree: it will
+   through `make test-q`, revert from a copy you made first (`cp` aside and back; never `git checkout`, which
+   erases a subagent's uncommitted work in its worktree). Never while an audit agent is reading the same worktree: it will
    report your mutation as a regression. A test that doesn't fail when you break the code under it covers nothing.
 4. **Audit the assertions**, because one mutation samples one test. For every test task (package, E2E and
    browser), have a read-only `Explore` agent (strong tier) classify every test as weak (passes whether or
