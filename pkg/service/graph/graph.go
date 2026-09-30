@@ -10,7 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/repo"
 )
 
-// ErrUserNotSignedIn keeps the wording userops gave it; it can reach users.
+// ErrUserNotSignedIn keeps its old wording; it can reach users.
 var ErrUserNotSignedIn = errors.New("One of the users is not signed in") //nolint:staticcheck
 
 type Radius int

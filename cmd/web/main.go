@@ -15,12 +15,12 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/console"
 	"github.com/can3p/gogo/sender/mailjet"
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/local"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
@@ -96,7 +96,7 @@ func main() {
 
 	mediaStorage = newMediaStorage(shouldUseS3)
 
-	feeder := feedops.DefaultRssReader(db, mediaStorage)
+	feeder := feeds.New(repo.New(db), mediaStorage)
 
 	go feeder.RunPoller(ctx)
 

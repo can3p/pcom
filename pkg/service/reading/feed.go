@@ -6,20 +6,19 @@ import (
 	"slices"
 	"time"
 
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/graph"
-	"github.com/can3p/pcom/pkg/userops"
 	"github.com/samber/lo"
 )
 
 // FeedItem is one entry of the feed: a post, an RSS item or a comment.
 type FeedItem struct {
 	Post     *postops.Post
-	FeedItem *feedops.RssFeedItem
+	FeedItem *feeds.RssFeedItem
 	Comment  *postops.Comment
 }
 
@@ -121,7 +120,7 @@ type PrivateFeed struct {
 // PrivateFeed resolves a private RSS feed token. Anybody who has the token
 // may read the feed, so there is no actor.
 func (s *Service) PrivateFeed(ctx context.Context, token string) (*PrivateFeed, error) {
-	owner, err := s.store.FeedOwner(ctx, token)
+	owner, err := s.store.FeedTokenOwner(ctx, token)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.ErrNotFound
 	} else if err != nil {
@@ -169,11 +168,11 @@ func (s *Service) feedPosts(ctx context.Context, actor *core.User, direct, secon
 	viaUserMap := lo.KeyBy(viaUsers, func(u *core.User) string { return u.ID })
 
 	return lo.Map(posts, func(p *core.Post, _ int) *FeedItem {
-		radius := userops.ConnectionRadiusSecondDegree
+		radius := graph.RadiusSecondDegree
 		var viaUsers []*core.User
 
 		if _, ok := directMap[p.UserID]; ok {
-			radius = userops.ConnectionRadiusDirect
+			radius = graph.RadiusDirect
 		} else {
 			viaUsers = lo.Map(via[p.UserID], func(id string, _ int) *core.User { return viaUserMap[id] })
 		}
@@ -196,7 +195,7 @@ func (s *Service) rssItems(ctx context.Context, userID string) ([]*FeedItem, err
 			publishedAt = item.R.RSSItem.PublishedAt
 		}
 
-		return &FeedItem{FeedItem: &feedops.RssFeedItem{
+		return &FeedItem{FeedItem: &feeds.RssFeedItem{
 			ID:          item.ID,
 			URL:         item.R.URL.URL,
 			Title:       item.R.RSSItem.Title,

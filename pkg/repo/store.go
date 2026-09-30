@@ -61,3 +61,12 @@ func notFound(err error) error {
 
 	return err
 }
+
+// orNil turns "no rows" into a nil result without an error.
+func orNil[T any](v *T, err error) (*T, error) {
+	if err = notFound(err); errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+
+	return v, err
+}

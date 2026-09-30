@@ -5,8 +5,9 @@ import (
 	"context"
 	"io"
 
+	mediasvc "github.com/can3p/pcom/pkg/service/media"
+
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
@@ -188,41 +189,7 @@ func (s *Service) UploadImage(ctx context.Context, actor *core.User, r io.Reader
 }
 
 // storeImage records an image upload of a user and puts the file in the
-// storage. The database row comes first, as media.HandleUpload does it.
+// storage.
 func (s *Service) storeImage(ctx context.Context, store *repo.Store, userID string, r io.Reader) (string, error) {
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return "", err
-	}
-
-	ftype := postops.DetectContentType(b)
-
-	ext, err := media.ValidateImageType(ftype)
-	if err != nil {
-		return "", err
-	}
-
-	id, err := uuid.NewV7()
-	if err != nil {
-		return "", err
-	}
-
-	fname := id.String() + ext
-
-	upload := &core.MediaUpload{
-		ID:            id.String(),
-		UploadedFname: fname,
-		ContentType:   ftype,
-	}
-	upload.UserID.SetValid(userID)
-
-	if err := store.InsertUpload(ctx, upload); err != nil {
-		return "", err
-	}
-
-	if err := s.storage.UploadFile(ctx, fname, b, ftype); err != nil {
-		return "", err
-	}
-
-	return fname, nil
+	return mediasvc.StoreUpload(ctx, store, s.storage, &userID, nil, r)
 }

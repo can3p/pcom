@@ -26,7 +26,7 @@ func next() int64 {
 }
 
 // newID mints a time-ordered UUID for a new row's primary key, the same way
-// pcom's own write paths do (see e.g. userops.CreateConnection).
+// pcom's own write paths do (see e.g. repo.CreateConnection).
 func newID() (string, error) {
 	id, err := uuid.NewV7()
 	if err != nil {

@@ -87,8 +87,3 @@ func (s *Store) DeleteConnectionsBetween(ctx context.Context, userID, otherID st
 
 	return nil
 }
-
-// ConnectionUsers returns the users with the given ids.
-func (s *Store) ConnectionUsers(ctx context.Context, ids []string) (core.UserSlice, error) {
-	return core.Users(core.UserWhere.ID.IN(ids)).All(ctx, s.exec)
-}

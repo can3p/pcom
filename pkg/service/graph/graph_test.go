@@ -1,13 +1,14 @@
-package userops_test
+package graph_test
 
 import (
 	"context"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/userops"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -52,7 +53,7 @@ func TestGetDirectAndSecondDegreeUserIDs(t *testing.T) {
 	connect(t, ctx, db, j.ID, k.ID)
 
 	t.Run("triangle: direct connections are excluded from second degree", func(t *testing.T) {
-		direct, second, via, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, a.ID)
+		direct, second, via, err := graph.DirectAndSecondDegree(ctx, repo.Using(db), a.ID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{b.ID, c.ID}, direct)
 		require.Empty(t, second)
@@ -60,7 +61,7 @@ func TestGetDirectAndSecondDegreeUserIDs(t *testing.T) {
 	})
 
 	t.Run("chain: second degree reaches one hop further", func(t *testing.T) {
-		direct, second, via, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, d.ID)
+		direct, second, via, err := graph.DirectAndSecondDegree(ctx, repo.Using(db), d.ID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{e.ID}, direct)
 		require.Equal(t, []string{f.ID}, second)
@@ -68,7 +69,7 @@ func TestGetDirectAndSecondDegreeUserIDs(t *testing.T) {
 	})
 
 	t.Run("isolated user has neither direct nor second degree connections", func(t *testing.T) {
-		direct, second, via, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, g.ID)
+		direct, second, via, err := graph.DirectAndSecondDegree(ctx, repo.Using(db), g.ID)
 		require.NoError(t, err)
 		require.Empty(t, direct)
 		require.Empty(t, second)
@@ -76,7 +77,7 @@ func TestGetDirectAndSecondDegreeUserIDs(t *testing.T) {
 	})
 
 	t.Run("common friend is reported once per mediator", func(t *testing.T) {
-		direct, second, via, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, h.ID)
+		direct, second, via, err := graph.DirectAndSecondDegree(ctx, repo.Using(db), h.ID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{i.ID, j.ID}, direct)
 		require.ElementsMatch(t, []string{k.ID}, lo.Uniq(second), "k is the only second-degree connection")
@@ -102,21 +103,21 @@ func TestGetConnectionRadius(t *testing.T) {
 		name    string
 		from    string
 		to      string
-		want    userops.ConnectionRadius
+		want    graph.Radius
 		wantErr error
 	}{
-		{name: "same user", from: a.ID, to: a.ID, want: userops.ConnectionRadiusSameUser},
-		{name: "direct connection", from: a.ID, to: b.ID, want: userops.ConnectionRadiusDirect},
-		{name: "second degree connection", from: a.ID, to: c.ID, want: userops.ConnectionRadiusSecondDegree},
-		{name: "unrelated user", from: a.ID, to: unrelated.ID, want: userops.ConnectionRadiusUnrelated},
-		{name: "empty from id", from: "", to: a.ID, want: userops.ConnectionRadiusUnknown, wantErr: userops.ErrUserNotSignedIn},
-		{name: "empty to id", from: a.ID, to: "", want: userops.ConnectionRadiusUnknown, wantErr: userops.ErrUserNotSignedIn},
-		{name: "both ids empty", from: "", to: "", want: userops.ConnectionRadiusUnknown, wantErr: userops.ErrUserNotSignedIn},
+		{name: "same user", from: a.ID, to: a.ID, want: graph.RadiusSameUser},
+		{name: "direct connection", from: a.ID, to: b.ID, want: graph.RadiusDirect},
+		{name: "second degree connection", from: a.ID, to: c.ID, want: graph.RadiusSecondDegree},
+		{name: "unrelated user", from: a.ID, to: unrelated.ID, want: graph.RadiusUnrelated},
+		{name: "empty from id", from: "", to: a.ID, want: graph.RadiusUnknown, wantErr: graph.ErrUserNotSignedIn},
+		{name: "empty to id", from: a.ID, to: "", want: graph.RadiusUnknown, wantErr: graph.ErrUserNotSignedIn},
+		{name: "both ids empty", from: "", to: "", want: graph.RadiusUnknown, wantErr: graph.ErrUserNotSignedIn},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := userops.GetConnectionRadius(ctx, db, tc.from, tc.to)
+			got, err := graph.RadiusBetween(ctx, repo.Using(db), tc.from, tc.to)
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
 			} else {
@@ -142,9 +143,9 @@ func TestMalformedUserID_GraphWrappersSurfaceAsError(t *testing.T) {
 		name string
 		err  func() error
 	}{
-		{"GetConnectionRadius", func() error { _, err := userops.GetConnectionRadius(ctx, db, malformed, user.ID); return err }},
+		{"GetConnectionRadius", func() error { _, err := graph.RadiusBetween(ctx, repo.Using(db), malformed, user.ID); return err }},
 		{"GetDirectAndSecondDegreeUserIDs", func() error {
-			_, _, _, err := userops.GetDirectAndSecondDegreeUserIDs(ctx, db, malformed)
+			_, _, _, err := graph.DirectAndSecondDegree(ctx, repo.Using(db), malformed)
 			return err
 		}},
 	}

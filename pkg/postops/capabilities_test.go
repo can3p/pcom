@@ -7,7 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
 )
@@ -17,12 +17,12 @@ import (
 func TestCanSeePost(t *testing.T) {
 	t.Parallel()
 
-	radii := []userops.ConnectionRadius{
-		userops.ConnectionRadiusSameUser,
-		userops.ConnectionRadiusDirect,
-		userops.ConnectionRadiusSecondDegree,
-		userops.ConnectionRadiusUnrelated,
-		userops.ConnectionRadiusUnknown,
+	radii := []graph.Radius{
+		graph.RadiusSameUser,
+		graph.RadiusDirect,
+		graph.RadiusSecondDegree,
+		graph.RadiusUnrelated,
+		graph.RadiusUnknown,
 	}
 
 	visibilities := []core.PostVisibility{
@@ -32,28 +32,28 @@ func TestCanSeePost(t *testing.T) {
 	}
 
 	// want[radius][visibility]
-	want := map[userops.ConnectionRadius]map[core.PostVisibility]bool{
-		userops.ConnectionRadiusSameUser: {
+	want := map[graph.Radius]map[core.PostVisibility]bool{
+		graph.RadiusSameUser: {
 			core.PostVisibilityDirectOnly:   true,
 			core.PostVisibilitySecondDegree: true,
 			core.PostVisibilityPublic:       true,
 		},
-		userops.ConnectionRadiusDirect: {
+		graph.RadiusDirect: {
 			core.PostVisibilityDirectOnly:   true,
 			core.PostVisibilitySecondDegree: true,
 			core.PostVisibilityPublic:       true,
 		},
-		userops.ConnectionRadiusSecondDegree: {
+		graph.RadiusSecondDegree: {
 			core.PostVisibilityDirectOnly:   false,
 			core.PostVisibilitySecondDegree: true,
 			core.PostVisibilityPublic:       true,
 		},
-		userops.ConnectionRadiusUnrelated: {
+		graph.RadiusUnrelated: {
 			core.PostVisibilityDirectOnly:   false,
 			core.PostVisibilitySecondDegree: false,
 			core.PostVisibilityPublic:       true,
 		},
-		userops.ConnectionRadiusUnknown: {
+		graph.RadiusUnknown: {
 			core.PostVisibilityDirectOnly:   false,
 			core.PostVisibilitySecondDegree: false,
 			core.PostVisibilityPublic:       true,
@@ -71,7 +71,7 @@ func TestCanSeePost(t *testing.T) {
 
 				// a draft is the author's only, whatever its visibility
 				draft := &core.Post{VisibilityRadius: vis}
-				require.Equal(t, radius == userops.ConnectionRadiusSameUser, postops.CanSeePost(draft, radius))
+				require.Equal(t, radius == graph.RadiusSameUser, postops.CanSeePost(draft, radius))
 			})
 		}
 	}
@@ -83,11 +83,11 @@ func TestGetPostCapabilities(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		radius userops.ConnectionRadius
+		radius graph.Radius
 		want   *postops.PostCapabilities
 	}{
 		{
-			radius: userops.ConnectionRadiusSameUser,
+			radius: graph.RadiusSameUser,
 			want: &postops.PostCapabilities{
 				CanViewComments:  true,
 				CanLeaveComments: true,
@@ -96,7 +96,7 @@ func TestGetPostCapabilities(t *testing.T) {
 			},
 		},
 		{
-			radius: userops.ConnectionRadiusDirect,
+			radius: graph.RadiusDirect,
 			want: &postops.PostCapabilities{
 				CanViewComments:  true,
 				CanLeaveComments: true,
@@ -105,15 +105,15 @@ func TestGetPostCapabilities(t *testing.T) {
 			},
 		},
 		{
-			radius: userops.ConnectionRadiusSecondDegree,
+			radius: graph.RadiusSecondDegree,
 			want:   &postops.PostCapabilities{},
 		},
 		{
-			radius: userops.ConnectionRadiusUnrelated,
+			radius: graph.RadiusUnrelated,
 			want:   &postops.PostCapabilities{},
 		},
 		{
-			radius: userops.ConnectionRadiusUnknown,
+			radius: graph.RadiusUnknown,
 			want:   &postops.PostCapabilities{},
 		},
 	}

@@ -42,26 +42,15 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		fname := fmt.Sprintf("client/articles/%s.md", articleName)
-
-		if _, err := os.Stat(fname); errors.Is(err, fs.ErrNotExist) {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		} else if err != nil {
-			panic(err)
-		}
-
-		body, err := os.ReadFile((fname))
-
+		title, signupAttribution, sbody, err := loadArticle(articleName)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				c.AbortWithStatus(http.StatusNotFound)
+				return
+			}
+
 			panic(err)
 		}
-
-		lines := util.SplitLines(string(body))
-
-		title := lines[0]
-		signupAttribution := lines[1]
-		sbody := strings.TrimSpace(strings.Join(lines[2:], "\n"))
 
 		userData := auth.GetUserData(c)
 		c.HTML(http.StatusOK, "article.html", gin.H{
@@ -157,4 +146,17 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 
 		c.HTML(http.StatusOK, "feed.html", web.Feed(c, &userData, feed))
 	})
+}
+
+// loadArticle reads a static article: its title, the signup attribution and
+// the markdown body. It returns fs.ErrNotExist for an unknown article.
+func loadArticle(name string) (title, attribution, body string, err error) {
+	raw, err := os.ReadFile(fmt.Sprintf("client/articles/%s.md", name))
+	if err != nil {
+		return "", "", "", err
+	}
+
+	lines := util.SplitLines(string(raw))
+
+	return lines[0], lines[1], strings.TrimSpace(strings.Join(lines[2:], "\n")), nil
 }

@@ -2,10 +2,10 @@ package web
 
 import (
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +17,7 @@ type SettingsPage struct {
 	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
-	Feeds            []*feedops.RssFeed
+	Feeds            []*feeds.RssFeed
 }
 
 func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, view *accounts.SettingsView) *SettingsPage {

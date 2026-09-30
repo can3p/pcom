@@ -6,7 +6,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
 )
@@ -157,7 +157,7 @@ func TestConstructComments(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := postops.ConstructComments(tc.comments, userops.ConnectionRadiusDirect)
+			got := postops.ConstructComments(tc.comments, graph.RadiusDirect)
 
 			if len(tc.want) == 0 {
 				require.Empty(t, got)
@@ -177,13 +177,13 @@ func TestConstructComments_Capabilities(t *testing.T) {
 		mkComment("c1", "", t0, "alice"),
 	}
 
-	sameUser := postops.ConstructComments(comments, userops.ConnectionRadiusSameUser)
+	sameUser := postops.ConstructComments(comments, graph.RadiusSameUser)
 	require.True(t, sameUser[0].Capabilities.CanRespond)
 
-	direct := postops.ConstructComments(comments, userops.ConnectionRadiusDirect)
+	direct := postops.ConstructComments(comments, graph.RadiusDirect)
 	require.True(t, direct[0].Capabilities.CanRespond)
 
-	unrelated := postops.ConstructComments(comments, userops.ConnectionRadiusUnrelated)
+	unrelated := postops.ConstructComments(comments, graph.RadiusUnrelated)
 	require.False(t, unrelated[0].Capabilities.CanRespond)
 }
 
@@ -195,6 +195,6 @@ func TestConstructComments_AuthorIsCarriedThrough(t *testing.T) {
 		mkComment("c1", "", t0, "alice"),
 	}
 
-	got := postops.ConstructComments(comments, userops.ConnectionRadiusDirect)
+	got := postops.ConstructComments(comments, graph.RadiusDirect)
 	require.Equal(t, "alice", got[0].Author.Username)
 }

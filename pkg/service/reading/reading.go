@@ -1,7 +1,7 @@
 // Package reading decides who may read what: a single post with its comments,
 // a user's journal, the explore page, the feed and the RSS feeds built from
 // them. Every visibility rule of pcom is applied here, on top of the pure
-// checks in postops and userops.
+// checks in postops.
 package reading
 
 import (
@@ -13,7 +13,6 @@ import (
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
-	"github.com/can3p/pcom/pkg/userops"
 )
 
 type Service struct {
@@ -81,7 +80,7 @@ func (s *Service) Post(ctx context.Context, actor *core.User, postID string, edi
 // Journal is a user's profile page as the actor may see it.
 type Journal struct {
 	Author            *core.User
-	ConnectionRadius  userops.ConnectionRadius
+	ConnectionRadius  graph.Radius
 	ConnectionAllowed bool
 	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             []*postops.Post
@@ -99,7 +98,7 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 		return nil, err
 	}
 
-	if userops.CannotSeeProfileLite(author, actor) {
+	if CannotSeeProfileLite(author, actor) {
 		return nil, service.ErrNotFound
 	}
 
@@ -108,16 +107,16 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 		return nil, err
 	}
 
-	if !userops.CanSeeProfile(author, actor, radius) {
+	if !CanSeeProfile(author, actor, radius) {
 		return nil, service.ErrNotFound
 	}
 
 	var visibilities []core.PostVisibility
 
 	switch radius {
-	case userops.ConnectionRadiusDirect, userops.ConnectionRadiusSameUser:
+	case graph.RadiusDirect, graph.RadiusSameUser:
 		// direct connections and the author see every post
-	case userops.ConnectionRadiusSecondDegree:
+	case graph.RadiusSecondDegree:
 		visibilities = []core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}
 	default:
 		// anonymous and unrelated visitors, and any radius added later, get
@@ -140,12 +139,12 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 		return out, nil
 	}
 
-	out.ConnectionAllowed, err = s.store.ConnectionAllowed(ctx, actor.ID, author.ID)
+	out.ConnectionAllowed, err = s.store.OpenGrantExists(ctx, author.ID, actor.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	if radius == userops.ConnectionRadiusSecondDegree {
+	if radius == graph.RadiusSecondDegree {
 		out.MediationRequest, err = s.store.MediationRequestBetween(ctx, actor.ID, author.ID)
 		if errors.Is(err, repo.ErrNotFound) {
 			out.MediationRequest = nil
@@ -194,7 +193,7 @@ func (s *Service) Explore(ctx context.Context, actor *core.User) ([]*postops.Pos
 
 	posts := make([]*postops.Post, 0, len(rawPosts))
 	for _, p := range rawPosts {
-		posts = append(posts, postops.ConstructPost(actor, p, userops.ConnectionRadiusUnknown, nil, false))
+		posts = append(posts, postops.ConstructPost(actor, p, graph.RadiusUnknown, nil, false))
 	}
 
 	return posts, nil
@@ -202,7 +201,7 @@ func (s *Service) Explore(ctx context.Context, actor *core.User) ([]*postops.Pos
 
 // radius is how far the author is from the actor; RadiusUnknown for an
 // anonymous actor.
-func (s *Service) radius(ctx context.Context, actor *core.User, authorID string) (userops.ConnectionRadius, error) {
+func (s *Service) radius(ctx context.Context, actor *core.User, authorID string) (graph.Radius, error) {
 	var actorID string
 	if actor != nil {
 		actorID = actor.ID

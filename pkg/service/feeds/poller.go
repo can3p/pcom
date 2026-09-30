@@ -8,6 +8,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/can3p/pcom/pkg/service/media"
+
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -248,7 +250,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 			defer func() { _ = readerIO.Close() }()
 
 			// XXX: using download context for upload to maintain timeout consistency
-			return s.uploadFeedImage(downloadCtx, tx, feedID, readerIO)
+			return media.StoreUpload(downloadCtx, tx, s.mediaStorage, nil, &feedID, readerIO)
 		}
 
 		replacer := reader.CreateImageReplacer(markdownContent, uploadFunc)

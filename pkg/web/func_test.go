@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/connections"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/registry"
@@ -106,9 +106,7 @@ func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 // settingsPage builds the settings page the way its route does: the service
 // gathers what it shows, the page builder shapes it.
 func settingsPage(c *gin.Context, exec boil.ContextExecutor, user *core.User) (*SettingsPage, error) {
-	svc := accounts.New(repo.Using(exec), nil, func(ctx context.Context, userID string) ([]*feedops.RssFeed, error) {
-		return feedops.GetRssFeeds(ctx, exec, userID)
-	})
+	svc := accounts.New(repo.Using(exec), nil, feeds.New(repo.Using(exec), nil))
 
 	view, err := svc.Settings(c, user)
 	if err != nil {

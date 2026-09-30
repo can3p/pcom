@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -393,7 +394,7 @@ func TestApiUploadImage(t *testing.T) {
 			storage := fakestorage.New()
 			c := multipartFileContext(t, tc.fieldName, tc.data)
 
-			res := web.ApiUploadImage(c, testDB.DB, user, storage)
+			res := web.ApiUploadImageWith(c, posts.New(repo.New(testDB.DB), nil, storage), user)
 
 			if !tc.wantOk {
 				require.True(t, res.IsError())

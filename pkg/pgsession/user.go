@@ -37,7 +37,13 @@ func SetUser(c *gin.Context, db *sqlx.DB, userID string) error {
 		return err
 	}
 
-	c.Set(userContextKey.String(), &User{u})
+	SetLoadedUser(c, u)
 
 	return nil
+}
+
+// SetLoadedUser makes an already loaded user the request's user, as SetUser
+// does after loading one.
+func SetLoadedUser(c *gin.Context, u *core.User) {
+	c.Set(userContextKey.String(), &User{u})
 }

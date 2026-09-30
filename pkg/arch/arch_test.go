@@ -66,16 +66,7 @@ var callTargets = []string{
 // allowlist is every file that breaks the rules today, with the RS task that
 // fixes it. A task deletes its entries; RS is done when this is empty. The
 // test fails on an entry that no longer breaks a rule, so the list only shrinks.
-var allowlist = map[string]string{
-	"pkg/web/pages.go":                  "L1",
-	"pkg/userops/connections.go":        "L2",
-	"pkg/web/app/routes_posts.go":       "L3",
-	"pkg/feedops/feedops.go":            "L5",
-	"pkg/media/upload.go":               "L6",
-	"pkg/service/feeds/legacy_media.go": "L6",
-	"pkg/web/upload_legacy.go":          "L6",
-	"pkg/userops/graph.go":              "step 2",
-}
+var allowlist = map[string]string{}
 
 func TestLayering(t *testing.T) {
 	t.Parallel()

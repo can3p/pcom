@@ -2,6 +2,8 @@ package factory
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
@@ -9,14 +11,24 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
+// noRows maps the repository's ErrNotFound back to sql.ErrNoRows, which the
+// helpers here have always returned.
+func noRows[T any](v *T, err error) (*T, error) {
+	if errors.Is(err, repo.ErrNotFound) {
+		return nil, sql.ErrNoRows
+	}
+
+	return v, err
+}
+
 // GetUser looks up a user by id.
 func GetUser(ctx context.Context, exec boil.ContextExecutor, id string) (*core.User, error) {
-	return core.FindUser(ctx, exec, id)
+	return noRows(repo.Using(exec).UserByID(ctx, id))
 }
 
 // GetUserByEmail looks up a user by email, for tests of code that creates one.
 func GetUserByEmail(ctx context.Context, exec boil.ContextExecutor, email string) (*core.User, error) {
-	return core.Users(core.UserWhere.Email.EQ(email)).One(ctx, exec)
+	return noRows(repo.Using(exec).UserByEmail(ctx, email, false))
 }
 
 // GetUserStyle returns userID's custom styles, or sql.ErrNoRows if there are none.
@@ -54,7 +66,7 @@ func GetPostStat(ctx context.Context, exec boil.ContextExecutor, postID string) 
 	return core.PostStats(core.PostStatWhere.PostID.EQ(postID)).One(ctx, exec)
 }
 
-// GetMediaUploadByFname looks up the upload row that HandleUpload created for fname.
+// GetMediaUploadByFname looks up the upload row that StoreUpload created for fname.
 func GetMediaUploadByFname(ctx context.Context, exec boil.ContextExecutor, fname string) (*core.MediaUpload, error) {
 	return core.MediaUploads(core.MediaUploadWhere.UploadedFname.EQ(fname)).One(ctx, exec)
 }
@@ -87,7 +99,7 @@ func GetMediationRequest(ctx context.Context, exec boil.ContextExecutor, id stri
 
 // GetSignupRequest looks up a waiting-list request by id.
 func GetSignupRequest(ctx context.Context, exec boil.ContextExecutor, id string) (*core.UserSignupRequest, error) {
-	return core.FindUserSignupRequest(ctx, exec, id)
+	return noRows(repo.Using(exec).SignupRequestByID(ctx, id))
 }
 
 // ListMediatorDecisions returns the mediators' decisions on mediation request requestID.
@@ -97,7 +109,7 @@ func ListMediatorDecisions(ctx context.Context, exec boil.ContextExecutor, reque
 
 // GetPostShare looks up a post share by id.
 func GetPostShare(ctx context.Context, exec boil.ContextExecutor, id string) (*core.PostShare, error) {
-	return core.FindPostShare(ctx, exec, id)
+	return noRows(repo.Using(exec).ShareByID(ctx, id))
 }
 
 // SubscriptionExists reports whether userID subscribes to feedID.
@@ -130,7 +142,7 @@ func ShareExists(ctx context.Context, exec boil.ContextExecutor, postID string) 
 
 // SignupRequestExists reports whether a waiting-list request exists for email.
 func SignupRequestExists(ctx context.Context, exec boil.ContextExecutor, email string) (bool, error) {
-	return core.UserSignupRequests(core.UserSignupRequestWhere.Email.EQ(email)).Exists(ctx, exec)
+	return repo.Using(exec).SignupRequestEmailExists(ctx, email)
 }
 
 // ListAPIKeys returns userID's API keys.

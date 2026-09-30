@@ -1,10 +1,11 @@
-package userops_test
+package reading_test
 
 import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service/graph"
+	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +22,7 @@ func TestCanSeeProfile(t *testing.T) {
 		name        string
 		profile     *core.User
 		visitor     *core.User
-		connRadius  userops.ConnectionRadius
+		connRadius  graph.Radius
 		expectSee   bool
 		description string
 	}{
@@ -30,7 +31,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "PublicProfile_NoVisitor",
 			profile:     alice,
 			visitor:     nil,
-			connRadius:  userops.ConnectionRadiusUnrelated,
+			connRadius:  graph.RadiusUnrelated,
 			expectSee:   true,
 			description: "Public profiles visible to anyone including anonymous",
 		},
@@ -38,7 +39,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "PublicProfile_RegisteredVisitor",
 			profile:     alice,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusUnrelated,
+			connRadius:  graph.RadiusUnrelated,
 			expectSee:   true,
 			description: "Public profiles visible to registered users",
 		},
@@ -46,7 +47,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "PublicProfile_SameUserRadius",
 			profile:     alice,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusSameUser,
+			connRadius:  graph.RadiusSameUser,
 			expectSee:   true,
 			description: "Public profiles always visible regardless of radius",
 		},
@@ -56,7 +57,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "RegisteredUsersProfile_NoVisitor",
 			profile:     bob,
 			visitor:     nil,
-			connRadius:  userops.ConnectionRadiusUnrelated,
+			connRadius:  graph.RadiusUnrelated,
 			expectSee:   false,
 			description: "RegisteredUsers profiles hidden from anonymous users",
 		},
@@ -64,7 +65,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "RegisteredUsersProfile_HasVisitor_Unrelated",
 			profile:     bob,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusUnrelated,
+			connRadius:  graph.RadiusUnrelated,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to any registered user",
 		},
@@ -72,7 +73,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "RegisteredUsersProfile_HasVisitor_Direct",
 			profile:     bob,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusDirect,
+			connRadius:  graph.RadiusDirect,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to connected users",
 		},
@@ -80,7 +81,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "RegisteredUsersProfile_HasVisitor_SecondDegree",
 			profile:     bob,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusSecondDegree,
+			connRadius:  graph.RadiusSecondDegree,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to second-degree connections",
 		},
@@ -88,7 +89,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "RegisteredUsersProfile_HasVisitor_SameUser",
 			profile:     bob,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusSameUser,
+			connRadius:  graph.RadiusSameUser,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to self",
 		},
@@ -96,7 +97,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "RegisteredUsersProfile_HasVisitor_Unknown",
 			profile:     bob,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusUnknown,
+			connRadius:  graph.RadiusUnknown,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible even when radius unknown",
 		},
@@ -106,7 +107,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "ConnectionsProfile_NoVisitor",
 			profile:     charlie,
 			visitor:     nil,
-			connRadius:  userops.ConnectionRadiusUnrelated,
+			connRadius:  graph.RadiusUnrelated,
 			expectSee:   false,
 			description: "Connections profiles hidden from anonymous users",
 		},
@@ -114,7 +115,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "ConnectionsProfile_HasVisitor_Unrelated",
 			profile:     charlie,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusUnrelated,
+			connRadius:  graph.RadiusUnrelated,
 			expectSee:   false,
 			description: "Connections profiles hidden from unrelated users",
 		},
@@ -122,7 +123,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "ConnectionsProfile_HasVisitor_Unknown",
 			profile:     charlie,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusUnknown,
+			connRadius:  graph.RadiusUnknown,
 			expectSee:   false,
 			description: "Connections profiles hidden when radius unknown",
 		},
@@ -130,7 +131,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "ConnectionsProfile_HasVisitor_Direct",
 			profile:     charlie,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusDirect,
+			connRadius:  graph.RadiusDirect,
 			expectSee:   true,
 			description: "Connections profiles visible to direct connections",
 		},
@@ -138,7 +139,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "ConnectionsProfile_HasVisitor_SecondDegree",
 			profile:     charlie,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusSecondDegree,
+			connRadius:  graph.RadiusSecondDegree,
 			expectSee:   true,
 			description: "Connections profiles visible to second-degree connections",
 		},
@@ -146,7 +147,7 @@ func TestCanSeeProfile(t *testing.T) {
 			name:        "ConnectionsProfile_HasVisitor_SameUser",
 			profile:     charlie,
 			visitor:     &core.User{},
-			connRadius:  userops.ConnectionRadiusSameUser,
+			connRadius:  graph.RadiusSameUser,
 			expectSee:   true,
 			description: "Users can see their own Connections profile",
 		},
@@ -155,7 +156,7 @@ func TestCanSeeProfile(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := userops.CanSeeProfile(tc.profile, tc.visitor, tc.connRadius)
+			got := reading.CanSeeProfile(tc.profile, tc.visitor, tc.connRadius)
 			require.Equal(t, tc.expectSee, got, tc.description)
 		})
 	}
@@ -225,7 +226,7 @@ func TestCannotSeeProfileLite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			profile := &core.User{ProfileVisibility: tc.profileVisibility}
-			got := userops.CannotSeeProfileLite(profile, tc.visitor)
+			got := reading.CannotSeeProfileLite(profile, tc.visitor)
 			require.Equal(t, tc.expectCannotSee, got, tc.description)
 		})
 	}
@@ -237,32 +238,32 @@ func TestConnectionRadius_IsSameUser(t *testing.T) {
 
 	testCases := []struct {
 		name       string
-		radius     userops.ConnectionRadius
+		radius     graph.Radius
 		expectTrue bool
 	}{
 		{
 			name:       "SameUser",
-			radius:     userops.ConnectionRadiusSameUser,
+			radius:     graph.RadiusSameUser,
 			expectTrue: true,
 		},
 		{
 			name:       "Direct",
-			radius:     userops.ConnectionRadiusDirect,
+			radius:     graph.RadiusDirect,
 			expectTrue: false,
 		},
 		{
 			name:       "SecondDegree",
-			radius:     userops.ConnectionRadiusSecondDegree,
+			radius:     graph.RadiusSecondDegree,
 			expectTrue: false,
 		},
 		{
 			name:       "Unrelated",
-			radius:     userops.ConnectionRadiusUnrelated,
+			radius:     graph.RadiusUnrelated,
 			expectTrue: false,
 		},
 		{
 			name:       "Unknown",
-			radius:     userops.ConnectionRadiusUnknown,
+			radius:     graph.RadiusUnknown,
 			expectTrue: false,
 		},
 	}
@@ -282,32 +283,32 @@ func TestConnectionRadius_IsDirect(t *testing.T) {
 
 	testCases := []struct {
 		name       string
-		radius     userops.ConnectionRadius
+		radius     graph.Radius
 		expectTrue bool
 	}{
 		{
 			name:       "SameUser",
-			radius:     userops.ConnectionRadiusSameUser,
+			radius:     graph.RadiusSameUser,
 			expectTrue: false,
 		},
 		{
 			name:       "Direct",
-			radius:     userops.ConnectionRadiusDirect,
+			radius:     graph.RadiusDirect,
 			expectTrue: true,
 		},
 		{
 			name:       "SecondDegree",
-			radius:     userops.ConnectionRadiusSecondDegree,
+			radius:     graph.RadiusSecondDegree,
 			expectTrue: false,
 		},
 		{
 			name:       "Unrelated",
-			radius:     userops.ConnectionRadiusUnrelated,
+			radius:     graph.RadiusUnrelated,
 			expectTrue: false,
 		},
 		{
 			name:       "Unknown",
-			radius:     userops.ConnectionRadiusUnknown,
+			radius:     graph.RadiusUnknown,
 			expectTrue: false,
 		},
 	}
@@ -327,32 +328,32 @@ func TestConnectionRadius_IsSecondDegree(t *testing.T) {
 
 	testCases := []struct {
 		name       string
-		radius     userops.ConnectionRadius
+		radius     graph.Radius
 		expectTrue bool
 	}{
 		{
 			name:       "SameUser",
-			radius:     userops.ConnectionRadiusSameUser,
+			radius:     graph.RadiusSameUser,
 			expectTrue: false,
 		},
 		{
 			name:       "Direct",
-			radius:     userops.ConnectionRadiusDirect,
+			radius:     graph.RadiusDirect,
 			expectTrue: false,
 		},
 		{
 			name:       "SecondDegree",
-			radius:     userops.ConnectionRadiusSecondDegree,
+			radius:     graph.RadiusSecondDegree,
 			expectTrue: true,
 		},
 		{
 			name:       "Unrelated",
-			radius:     userops.ConnectionRadiusUnrelated,
+			radius:     graph.RadiusUnrelated,
 			expectTrue: false,
 		},
 		{
 			name:       "Unknown",
-			radius:     userops.ConnectionRadiusUnknown,
+			radius:     graph.RadiusUnknown,
 			expectTrue: false,
 		},
 	}
@@ -372,32 +373,32 @@ func TestConnectionRadius_IsUnrelated(t *testing.T) {
 
 	testCases := []struct {
 		name       string
-		radius     userops.ConnectionRadius
+		radius     graph.Radius
 		expectTrue bool
 	}{
 		{
 			name:       "SameUser",
-			radius:     userops.ConnectionRadiusSameUser,
+			radius:     graph.RadiusSameUser,
 			expectTrue: false,
 		},
 		{
 			name:       "Direct",
-			radius:     userops.ConnectionRadiusDirect,
+			radius:     graph.RadiusDirect,
 			expectTrue: false,
 		},
 		{
 			name:       "SecondDegree",
-			radius:     userops.ConnectionRadiusSecondDegree,
+			radius:     graph.RadiusSecondDegree,
 			expectTrue: false,
 		},
 		{
 			name:       "Unrelated",
-			radius:     userops.ConnectionRadiusUnrelated,
+			radius:     graph.RadiusUnrelated,
 			expectTrue: true,
 		},
 		{
 			name:       "Unknown",
-			radius:     userops.ConnectionRadiusUnknown,
+			radius:     graph.RadiusUnknown,
 			expectTrue: false,
 		},
 	}

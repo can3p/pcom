@@ -22,14 +22,13 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 
 		// anyone who may see the post may export it, so the visibility
 		// check is the one /posts/:id uses. The viewer may be anonymous.
-		post := web.SinglePost(c, db, &userData, postID, false)
-
-		if post.IsError() {
-			ginhelpers.HTML(c, "single_post.html", post)
+		post, err := d.Services.Reading.Post(c, userData.DBUser, postID, false)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		author := post.MustGet().Post.Author
+		author := post.Post.Author
 
 		b, err := posts.ExportPost(c, author.ID, postID)
 

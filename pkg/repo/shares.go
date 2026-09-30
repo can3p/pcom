@@ -38,3 +38,9 @@ func (s *Store) DeleteShares(ctx context.Context, postID string) error {
 	_, err := core.PostShares(core.PostShareWhere.PostID.EQ(postID)).DeleteAll(ctx, s.exec)
 	return err
 }
+
+// ShareOfPost returns a post's share link, or nil when it has none.
+func (s *Store) ShareOfPost(ctx context.Context, postID string) (*core.PostShare, error) {
+	share, err := core.PostShares(core.PostShareWhere.PostID.EQ(postID)).One(ctx, s.exec)
+	return orNil(share, err)
+}

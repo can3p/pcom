@@ -16,7 +16,12 @@ import (
 // may edit e2e/.
 
 func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string) (*core.User, error) {
-	return Using(exec).FeedTokenOwner(ctx, token)
+	u, err := Using(exec).FeedTokenOwner(ctx, token)
+	if errors.Is(err, ErrNotFound) {
+		return nil, sql.ErrNoRows
+	}
+
+	return u, err
 }
 
 func FeedTokenForUser(ctx context.Context, exec boil.ContextExecutor, userID string) (*core.UserFeedToken, error) {
@@ -28,14 +33,14 @@ func RegenerateFeedToken(ctx context.Context, exec boil.ContextExecutor, userID 
 }
 
 // FeedTokenOwner returns the user a private RSS feed token belongs to, or
-// sql.ErrNoRows when the token is unknown.
+// ErrNotFound when the token is unknown.
 func (s *Store) FeedTokenOwner(ctx context.Context, token string) (*core.User, error) {
 	t, err := core.UserFeedTokens(
 		core.UserFeedTokenWhere.Token.EQ(token),
 		qm.Load(core.UserFeedTokenRels.User),
 	).One(ctx, s.exec)
 	if err != nil {
-		return nil, err
+		return nil, notFound(err)
 	}
 
 	return t.R.User, nil
