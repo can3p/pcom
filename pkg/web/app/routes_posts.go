@@ -13,7 +13,6 @@ import (
 
 // mountPostRoutes registers the pages and forms that write posts, comments and prompts, and the post export.
 func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
-	db := d.DB
 	posts := d.Services.Posts
 
 	r.GET("/posts/:id/zip", requireUUIDParam("id"), func(c *gin.Context) {
@@ -78,7 +77,7 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 			}
 		}
 
-		gogoForms.DefaultHandler(c, db, form)
+		gogoForms.DefaultHandler(c, form)
 	})
 
 	controlsForms.POST("/new_comment", func(c *gin.Context) {
@@ -86,7 +85,7 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 
 		form := forms.NewCommentFormNew(posts, dbUser, c.PostForm("post_id"))
 
-		gogoForms.DefaultHandler(c, db, form)
+		gogoForms.DefaultHandler(c, form)
 	})
 
 	controlsForms.POST("/prompt_post", func(c *gin.Context) {
@@ -98,6 +97,6 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 			panic(err)
 		}
 
-		gogoForms.DefaultHandler(c, db, forms.PostPromptFormNew(posts, dbUser, directConnections))
+		gogoForms.DefaultHandler(c, forms.PostPromptFormNew(posts, dbUser, directConnections))
 	})
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type ChangePasswordFormInput struct {
@@ -37,7 +36,7 @@ func ChangePasswordFormNew(accounts *accounts.Service, u *core.User) forms.Form 
 	return form
 }
 
-func (f *ChangePasswordForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *ChangePasswordForm) Validate(c *gin.Context) error {
 	if f.Input.Password == "" {
 		f.AddError("password", "password is required")
 		return forms.ErrValidationFailed
@@ -61,10 +60,10 @@ func (f *ChangePasswordForm) Validate(c *gin.Context, db boil.ContextExecutor) e
 	return nil
 }
 
-func (f *ChangePasswordForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *ChangePasswordForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Accounts.ChangePassword(c, f.User, f.Input.OldPassword, f.Input.Password); err != nil {
 		return nil, err
 	}
 
-	return f.FormBase.Save(c, exec)
+	return f.FormBase.Save(c)
 }

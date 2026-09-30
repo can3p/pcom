@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type AddFeedFormInput struct {
@@ -34,7 +33,7 @@ func NewAddFeedForm(feeds *feeds.Service, u *core.User) *AddFeedForm {
 	}
 }
 
-func (f *AddFeedForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *AddFeedForm) Validate(c *gin.Context) error {
 	if err := validation.ValidateURL(f.Input.URL); err != nil {
 		f.AddError("url", err.Error())
 	}
@@ -46,7 +45,7 @@ func (f *AddFeedForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	return f.Errors.PassedValidation()
 }
 
-func (f *AddFeedForm) Save(c context.Context, _ boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *AddFeedForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	url := strings.TrimSpace(f.Input.URL)
 
 	if err := f.feeds.Subscribe(c, f.User, url); err != nil {

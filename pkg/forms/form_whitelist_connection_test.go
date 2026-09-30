@@ -56,7 +56,7 @@ func TestWhitelistConnection_Validate(t *testing.T) {
 			form := forms.WhitelistConnectionNew(user1, connections.New(repo.New(db))).(*forms.WhitelistConnection)
 			form.Input.Username = tt.username(t, user1)
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -101,7 +101,7 @@ func TestWhitelistConnection_Save(t *testing.T) {
 			form := forms.WhitelistConnectionNew(user1, connections.New(repo.New(db))).(*forms.WhitelistConnection)
 			form.Input.Username = username
 
-			action, err := form.Save(c, db)
+			action, err := form.Save(c)
 			if tt.wantErr {
 				require.Error(t, err)
 				return

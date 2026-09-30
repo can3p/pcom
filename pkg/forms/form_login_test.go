@@ -59,7 +59,7 @@ func TestLoginForm_Validate(t *testing.T) {
 			form.Input.Email = email
 			form.Input.Password = password
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if !tt.wantErr {
 				require.NoError(t, err)
 				return
@@ -100,7 +100,7 @@ func TestLoginForm_Save(t *testing.T) {
 			form.Input.ReturnURL = "/feed"
 			form.Input.Sign = tt.sign(form.Input.ReturnURL)
 
-			action, err := form.Save(c, db)
+			action, err := form.Save(c)
 			require.NoError(t, err)
 			action(c, form)
 

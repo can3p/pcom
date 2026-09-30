@@ -9,7 +9,6 @@ import (
 
 // mountFeedRoutes registers the RSS subscription form.
 func mountFeedRoutes(d *Deps, controlsForms *gin.RouterGroup) {
-	db := d.DB
 
 	controlsForms.POST("/add_user_feed", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -17,6 +16,6 @@ func mountFeedRoutes(d *Deps, controlsForms *gin.RouterGroup) {
 
 		form := forms.NewAddFeedForm(d.Services.Feeds, dbUser)
 
-		gogoForms.DefaultHandler(c, db, form)
+		gogoForms.DefaultHandler(c, form)
 	})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type PostPromptFormInput struct {
@@ -45,7 +44,7 @@ func PostPromptFormNew(svc *posts.Service, u *core.User, directConnections []*co
 	return form
 }
 
-func (f *PostPromptForm) Validate(c *gin.Context, _ boil.ContextExecutor) error {
+func (f *PostPromptForm) Validate(c *gin.Context) error {
 	if err := validation.ValidateMinMax("message", f.Input.Message, 3, 1400); err != nil {
 		return err
 	}
@@ -66,12 +65,12 @@ func (f *PostPromptForm) recipient() (*core.User, bool) {
 	})
 }
 
-func (f *PostPromptForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *PostPromptForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	recipient, _ := f.recipient()
 
 	if err := f.Posts.SendPrompt(c, f.User, recipient, f.Input.Message); err != nil {
 		return nil, err
 	}
 
-	return f.FormBase.Save(c, exec)
+	return f.FormBase.Save(c)
 }

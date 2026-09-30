@@ -11,7 +11,6 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type SettingsGeneralFormInput struct {
@@ -44,7 +43,7 @@ func SettingsGeneralFormNew(accounts *accounts.Service, u *core.User) *SettingsG
 	return form
 }
 
-func (f *SettingsGeneralForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *SettingsGeneralForm) Validate(c *gin.Context) error {
 	if f.Input.Timezone == "" {
 		f.AddError("timezone", "timezone is required")
 		return forms.ErrValidationFailed
@@ -70,10 +69,10 @@ func (f *SettingsGeneralForm) Validate(c *gin.Context, db boil.ContextExecutor) 
 	return nil
 }
 
-func (f *SettingsGeneralForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *SettingsGeneralForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Accounts.SaveGeneralSettings(c, f.User, f.Input.Timezone, core.ProfileVisibility(f.Input.ProfileVisibility)); err != nil {
 		return nil, err
 	}
 
-	return f.FormBase.Save(c, exec)
+	return f.FormBase.Save(c)
 }

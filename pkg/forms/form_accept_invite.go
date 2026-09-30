@@ -12,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type AcceptInviteFormInput struct {
@@ -43,7 +42,7 @@ func AcceptInviteFormNew(accounts *accounts.Service, invite *core.UserInvitation
 	return form
 }
 
-func (f *AcceptInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *AcceptInviteForm) Validate(c *gin.Context) error {
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
 	if f.Input.Password == "" {
@@ -70,7 +69,7 @@ func (f *AcceptInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) err
 	return f.Errors.PassedValidation()
 }
 
-func (f *AcceptInviteForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *AcceptInviteForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
 	user, err := f.Accounts.AcceptInvite(c, f.Invite, username, f.Input.Password)

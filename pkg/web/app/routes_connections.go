@@ -13,7 +13,6 @@ import (
 
 // mountConnectionRoutes registers the controls page (connections, requests and mediation) and the whitelist form.
 func mountConnectionRoutes(d *Deps, controls, controlsForms *gin.RouterGroup) {
-	db := d.DB
 	conns := d.Services.Connections
 
 	controls.GET("/", func(c *gin.Context) {
@@ -34,7 +33,7 @@ func mountConnectionRoutes(d *Deps, controls, controlsForms *gin.RouterGroup) {
 
 		form := forms.WhitelistConnectionNew(dbUser, conns)
 
-		gogoForms.DefaultHandler(c, db, form)
+		gogoForms.DefaultHandler(c, form)
 	})
 
 }

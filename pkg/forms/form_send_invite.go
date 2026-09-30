@@ -7,7 +7,6 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type SendInviteFormInput struct {
@@ -37,7 +36,7 @@ func SendInviteFormNew(accounts *accounts.Service, u *core.User) forms.Form {
 	return form
 }
 
-func (f *SendInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *SendInviteForm) Validate(c *gin.Context) error {
 	if f.Input.Email == "" {
 		f.AddError("email", "email is required")
 	} else if err := fieldError(f, "email", f.Accounts.CheckInviteEmail(c, f.Input.Email)); err != nil {
@@ -47,7 +46,7 @@ func (f *SendInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) error
 	return f.Errors.PassedValidation()
 }
 
-func (f *SendInviteForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *SendInviteForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Accounts.SendInvite(c, f.User, f.Input.Email); err != nil {
 		return nil, err
 	}

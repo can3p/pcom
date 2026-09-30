@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -19,7 +18,7 @@ import (
 )
 
 // accountsFor is the accounts service the forms under test call, over db.
-func accountsFor(db *sqlx.DB, s sender.Sender) *accounts.Service {
+func accountsFor(db *sqlx.DB, s repo.MailQueue) *accounts.Service {
 	return accounts.New(repo.New(db), s, nil)
 }
 
@@ -74,7 +73,7 @@ func TestSignupForm_Validate(t *testing.T) {
 			form.Input.Username = username
 			form.Input.Password = password
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -105,7 +104,7 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	form.Input.Password = "ValidPassword123!"
 	form.Input.Attribution = "invalid-with-dashes"
 
-	action, err := form.Save(ctx, db)
+	action, err := form.Save(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
@@ -132,7 +131,7 @@ func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	form.Input.Username = "  NewUser  "
 	form.Input.Password = "ValidPassword123!"
 
-	action, err := form.Save(ctx, db)
+	action, err := form.Save(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
@@ -146,7 +145,7 @@ func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	dup.Input.Username = "newuser"
 	dup.Input.Password = "ValidPassword123!"
 
-	err = dup.Validate(c, db)
+	err = dup.Validate(c)
 	require.Error(t, err)
 	require.True(t, dup.Errors.HasError("email"))
 	require.True(t, dup.Errors.HasError("username"))

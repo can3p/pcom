@@ -15,7 +15,6 @@ import (
 
 // mountSettingsRoutes registers the settings page, its forms, invitations and the user styles.
 func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
-	db := d.DB
 	accounts := d.Services.Accounts
 
 	r.GET("/users/:username/user_styles", auth.EnforceReferer, func(c *gin.Context) {
@@ -56,7 +55,7 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 	// logged in user and handed to gogo.
 	form := func(newForm func(c *gin.Context) gogoForms.Form) gin.HandlerFunc {
 		return func(c *gin.Context) {
-			gogoForms.DefaultHandler(c, db, newForm(c))
+			gogoForms.DefaultHandler(c, newForm(c))
 		}
 	}
 

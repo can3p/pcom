@@ -44,7 +44,7 @@ func TestSettingsGeneralForm_Validate(t *testing.T) {
 			form.Input.Timezone = tt.timezone
 			form.Input.ProfileVisibility = tt.visibility
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -68,7 +68,7 @@ func TestSettingsGeneralForm_SaveUpdatesSettings(t *testing.T) {
 	form.Input.Timezone = "America/Los_Angeles"
 	form.Input.ProfileVisibility = string(core.ProfileVisibilityRegisteredUsers)
 
-	action, err := form.Save(c, db)
+	action, err := form.Save(c)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 

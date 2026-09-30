@@ -8,7 +8,6 @@ import (
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type SignupWaitingListFormInput struct {
@@ -35,7 +34,7 @@ func SignupWaitingListFormNew(accounts *accounts.Service) forms.Form {
 	return form
 }
 
-func (f *SignupWaitingListForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *SignupWaitingListForm) Validate(c *gin.Context) error {
 	email := pgsession.NormalizeEmail(f.Input.Email)
 
 	if email == "" {
@@ -47,7 +46,7 @@ func (f *SignupWaitingListForm) Validate(c *gin.Context, db boil.ContextExecutor
 	return f.Errors.PassedValidation()
 }
 
-func (f *SignupWaitingListForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *SignupWaitingListForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Accounts.JoinWaitingList(c, f.Input.Email, f.Input.Reason, f.Input.Attribution); err != nil {
 		return nil, panicOnFatal(err)
 	}

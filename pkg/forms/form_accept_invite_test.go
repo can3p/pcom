@@ -60,7 +60,7 @@ func TestAcceptInviteForm_Validate(t *testing.T) {
 			form.Input.Username = tt.username(t)
 			form.Input.Password = tt.password
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -85,7 +85,7 @@ func TestAcceptInviteForm_SaveLogsInUser(t *testing.T) {
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
-	_, err := form.Save(c, db)
+	_, err := form.Save(c)
 	require.NoError(t, err)
 
 	require.True(t, invite.CreatedUserID.Valid)
@@ -111,7 +111,7 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
-	_, err := form.Save(c, db)
+	_, err := form.Save(c)
 	require.NoError(t, err)
 	require.True(t, invite.CreatedUserID.Valid)
 
@@ -121,6 +121,6 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 	sendInvite.Input.Email = "invitee-of-invitee@example.test"
 
 	sendC, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
-	_, err = sendInvite.Save(sendC, db)
+	_, err = sendInvite.Save(sendC)
 	require.NoError(t, err, "the new user should have received a fresh, unused invite")
 }
