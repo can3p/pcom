@@ -1,7 +1,10 @@
 {
     "permissions": {
         "deny": [
-            "Read(./pkg/model/core/**)"
+            "Read(./pkg/model/core/**)",
+            "Bash(fly *)",
+            "Bash(make tunnel)",
+            "Bash(make migrate-prod)"
         ],
         "allow": [
             "Bash(make check-q)",
