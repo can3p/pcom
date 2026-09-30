@@ -176,3 +176,23 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Moving code between packages changes what per-package coverage sees.**
   Measure with `-coverpkg` over the module, or a refactor that moves
   queries out of their tests' package looks like lost coverage (RS).
+- **Don't trust a cached e2e pass.** The e2e harness runs the server as a
+  separate binary, which go test's cache can't see; until the harness
+  stat'ed the sources (R3), `make test-q PKG=./e2e/...` reported a cached
+  "ok" after production edits. Any test that execs a binary built from the
+  repo needs the same treatment.
+- **A mutation that passes may be testing an empty fixture.** Delivering
+  the wrong mail passed a "delivered equals queued" check because the
+  factory's payload is `{}`; mutate a field the fixture actually sets.
+- **A breaking library bump is sequential work.** Every task needs the new
+  go.mod and the tree compiles only after the last one, so order the tasks
+  by import graph, run them on the wave branch one at a time, and give each
+  the package list that can compile at its point.
+- **Pin a library PR by commit to keep going.** go.mod on the PR's
+  pseudo-version lets the wave run while the library release waits; before
+  closing, move to the tag and check that the tag's tree equals the pinned
+  commit.
+- **Remove a coupling rather than abstract it when nothing needs it.**
+  gogo's executor parameter only served one app's mail queue; after RS the
+  app's forms ignored it. Deleting it beat designing an ORM-agnostic
+  interface.
