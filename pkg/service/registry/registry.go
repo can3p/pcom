@@ -4,10 +4,7 @@
 package registry
 
 import (
-	"context"
-
 	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -40,15 +37,15 @@ type Services struct {
 func New(db *sqlx.DB, deps Deps) *Services {
 	store := repo.New(db)
 
+	feedSvc := feeds.New(store, deps.MediaStorage)
+
 	return &Services{
 		Connections: connections.New(store),
-		Feeds:       feeds.New(store, deps.MediaStorage),
+		Feeds:       feedSvc,
 		Shares:      shares.New(store),
 		Reading:     reading.New(store),
 		Media:       media.New(store, deps.MediaStorage),
 		Posts:       posts.New(store, deps.Sender, deps.MediaStorage),
-		Accounts: accounts.New(store, deps.Sender, func(ctx context.Context, userID string) ([]*feedops.RssFeed, error) {
-			return feedops.GetRssFeeds(ctx, db, userID)
-		}),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc),
 	}
 }

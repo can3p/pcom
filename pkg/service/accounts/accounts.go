@@ -12,30 +12,26 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/google/uuid"
 )
-
-// FeedLister returns the feeds a user subscribes to. The settings page shows
-// them, but they belong to the feeds area; the composition root supplies it.
-type FeedLister func(ctx context.Context, userID string) ([]*feedops.RssFeed, error)
 
 type Service struct {
 	store  *repo.Store
 	sender sender.Sender
-	feeds  FeedLister
+	feeds  *feeds.Service
 }
 
 // New builds the service. sender may be nil for a command line script that
 // sends no mail; feeds may be nil when the settings page is not used.
-func New(store *repo.Store, snd sender.Sender, feeds FeedLister) *Service {
-	return &Service{store: store, sender: snd, feeds: feeds}
+func New(store *repo.Store, snd sender.Sender, subscriptions *feeds.Service) *Service {
+	return &Service{store: store, sender: snd, feeds: subscriptions}
 }
 
 // send queues a mail on the store, so inside Tx it goes out only if the
@@ -139,7 +135,7 @@ type SettingsView struct {
 	APIKey           *core.UserAPIKey
 	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	UserStyles       string
-	Feeds            []*feedops.RssFeed
+	Feeds            []*feeds.RssFeed
 }
 
 // Settings gathers the actor's settings page.
@@ -186,7 +182,7 @@ func (s *Service) Settings(ctx context.Context, actor *core.User) (*SettingsView
 	}
 
 	if s.feeds != nil {
-		if view.Feeds, err = s.feeds(ctx, actor.ID); err != nil {
+		if view.Feeds, err = s.feeds.Subscriptions(ctx, actor); err != nil {
 			return nil, err
 		}
 	}

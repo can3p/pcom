@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 
 	_ "github.com/lib/pq" // postgres db driver
 
@@ -12,7 +13,7 @@ import (
 )
 
 func main() { //nolint:typecheck
-	store, closeDB, err := repo.ConnectScript()
+	store, closeDB, err := repo.ConnectPostgres(os.Getenv("DATABASE_URL") + "?sslmode=disable")
 	if err != nil {
 		panic(err)
 	}

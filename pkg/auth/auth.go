@@ -26,14 +26,8 @@ const (
 	csrfTokenKey = "csrf_token"
 )
 
-// sessionUserKey is where pgsession keeps the request's user, which
-// pgsession.GetUser reads. pgsession offers no setter that takes a loaded
-// user, so the key is repeated here; TestAuth_LoggedInSessionSetsPgsessionUser
-// fails if the two drift apart.
-const sessionUserKey = "user context key user"
-
 func setUser(c *gin.Context, u *core.User) {
-	c.Set(sessionUserKey, &pgsession.User{DBUser: u})
+	pgsession.SetLoadedUser(c, u)
 }
 
 func Auth(c *gin.Context, accounts *accounts.Service) {

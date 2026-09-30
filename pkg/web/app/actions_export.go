@@ -43,27 +43,7 @@ func mountExportActions(d *Deps, r *gin.RouterGroup) {
 	r.POST("/settings/import", func(c *gin.Context) {
 		user := auth.GetUserData(c).User.DBUser
 
-		fh, err := c.FormFile("file")
-
-		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
-		}
-
-		f, err := fh.Open()
-
-		if err != nil {
-			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
-			return
-		}
-
-		defer func() {
-			if err := f.Close(); err != nil {
-				log.Printf("Error closing file: %v", err)
-			}
-		}()
-
-		b, err := io.ReadAll(f)
+		b, err := readUpload(c, "file")
 
 		if err != nil {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
@@ -85,4 +65,25 @@ func mountExportActions(d *Deps, r *gin.RouterGroup) {
 
 		c.String(http.StatusOK, string(b))
 	})
+}
+
+// readUpload returns the content of the uploaded form file.
+func readUpload(c *gin.Context, field string) ([]byte, error) {
+	fh, err := c.FormFile(field)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}()
+
+	return io.ReadAll(f)
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/volatiletech/null/v8"
 )
 
@@ -30,7 +30,7 @@ func (c *Comment) String() string {
 
 // CanSeePost reports whether a visitor at the given radius from the author may
 // read the post. A draft is visible to its author only, whatever its visibility.
-func CanSeePost(p *core.Post, radius userops.ConnectionRadius) bool {
+func CanSeePost(p *core.Post, radius graph.Radius) bool {
 	if !p.PublishedAt.Valid && !radius.IsSameUser() {
 		return false
 	}
@@ -56,7 +56,7 @@ type PostCapabilities struct {
 	CanShare         bool
 }
 
-func GetPostCapabilities(radius userops.ConnectionRadius) *PostCapabilities {
+func GetPostCapabilities(radius graph.Radius) *PostCapabilities {
 	return &PostCapabilities{
 		// it can be different in the future, e.g. if the author disables
 		// new comments at some point
@@ -79,7 +79,7 @@ type Post struct {
 	Capabilities   *PostCapabilities
 	CommentsNumber int64
 	Comments       []*Comment
-	Radius         userops.ConnectionRadius
+	Radius         graph.Radius
 	EditPreview    bool
 }
 
@@ -91,7 +91,7 @@ func (p *Post) PostSubject() string {
 	return PostSubject(p.Subject)
 }
 
-func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRadius, via []*core.User, editPreview bool) *Post {
+func ConstructPost(user *core.User, post *core.Post, radius graph.Radius, via []*core.User, editPreview bool) *Post {
 	var commentsNum int64
 
 	if (radius.IsDirect() || radius.IsSameUser()) && post.R.PostStat != nil {
@@ -115,7 +115,7 @@ func ConstructPost(user *core.User, post *core.Post, radius userops.ConnectionRa
 	}
 }
 
-func ConstructComments(comments core.PostCommentSlice, radius userops.ConnectionRadius) []*Comment {
+func ConstructComments(comments core.PostCommentSlice, radius graph.Radius) []*Comment {
 	if len(comments) == 0 {
 		return nil
 	}

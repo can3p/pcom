@@ -111,7 +111,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 			return err
 		}
 
-		if err := tx.CreateConnectionPair(ctx, invite.UserID, u.ID); err != nil {
+		if _, _, err := tx.CreateConnection(ctx, invite.UserID, u.ID); err != nil {
 			return err
 		}
 

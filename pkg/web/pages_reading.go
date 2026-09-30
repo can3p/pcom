@@ -5,9 +5,9 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
-	"github.com/can3p/pcom/pkg/userops"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -51,7 +51,7 @@ func PostPage(c *gin.Context, userData *auth.UserData, post *reading.Post) *Sing
 type UserHomePage struct {
 	*BasePage
 	Author            *core.User
-	ConnectionRadius  userops.ConnectionRadius
+	ConnectionRadius  graph.Radius
 	ConnectionAllowed bool
 	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             []*postops.Post

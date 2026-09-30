@@ -49,10 +49,23 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   templates don't change (open question Q13).
 - **Page builders** in `pkg/web` (`pages_<area>.go`) take service results,
   not a database: `web.SharedPost(c, userData, shared)`.
-- **Legacy code during RS.** A function not yet converted can be called from
-  a service with `repo.Using(exec)` on the legacy side (see the wrappers in
-  `pkg/userops/connections.go`), never by passing `s.store.Exec()` into it
-  from a service: that is database work the arch test flags.
+- **Legacy code.** RS is done: the arch test's allowlist is empty and stays
+  so. Code that still takes an executor gets `store.Exec()` only in tests
+  and factories (`repo.Using(exec)` on their side).
+- **Panics stay panics.** Where the old code panicked (a confirmation mail
+  that cannot be queued, the waiting list write), the accounts service returns
+  `accounts.FatalError` and the transport panics, so the recovery middleware
+  still answers 500 and mails the admin.
+- **Prompts.** `SendPrompt` checks in its transaction that the recipient is a
+  direct connection (`graph.RadiusBetween`) and answers with the form's
+  wording; the form's own check only shapes the choice list.
+- **Uploads.** `media.StoreUpload` (`pkg/service/media`) stores an image owned
+  by exactly one of a user or an RSS feed on the caller's `tx`; posts (import)
+  and feeds (feed images) call it, so no service writes `media_uploads` itself.
+- **Exemptions.** `pkg/pgsession` and the `dbsender` mail queue own their
+  tables and are exempt from the layering (see `pkg/arch`).
+- **One query, one method.** Repository files are per aggregate; a lookup
+  another area needs is called, not copied (`UsersByIDs`, `OpenGrantExists`).
 
 ## Tests
 

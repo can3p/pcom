@@ -76,6 +76,9 @@ func TestPostPromptForm_Save(t *testing.T) {
 
 	asker := testutil.Must(factory.User(ctx, db))(t)
 	recipient := testutil.Must(factory.User(ctx, db))(t)
+	// the service checks the connection itself, so it has to exist
+	_, _, err := factory.Connect(ctx, db, asker.ID, recipient.ID)
+	require.NoError(t, err)
 
 	sender := fakesender.New()
 	form := newPromptForm(t, db, sender, asker, []*core.User{recipient}, "Tell us about your week!", recipient.Username)

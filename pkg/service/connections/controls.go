@@ -60,12 +60,12 @@ func (s *Service) Controls(ctx context.Context, actor *core.User) (*Controls, er
 		return nil, err
 	}
 
-	directUsers, err := s.store.ConnectionUsers(ctx, directIDs)
+	directUsers, err := s.store.UsersByIDs(ctx, directIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	secondDegreeUsers, err := s.store.ConnectionUsers(ctx, secondDegreeIDs)
+	secondDegreeUsers, err := s.store.UsersByIDs(ctx, secondDegreeIDs)
 	if err != nil {
 		return nil, err
 	}

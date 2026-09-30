@@ -68,7 +68,7 @@ func (s *Service) DirectConnections(ctx context.Context, actor *core.User) ([]*c
 		return nil, err
 	}
 
-	return s.store.UsersByIDsForMail(ctx, ids)
+	return s.store.UsersByIDs(ctx, ids)
 }
 
 // CanPrompt reports whether the actor may send a prompt right now: prompts
@@ -97,8 +97,8 @@ func canPrompt(ctx context.Context, store *repo.Store, actor *core.User) error {
 }
 
 // SendPrompt asks a user to write a post on a subject, and tells them by
-// mail. The recipient is one of the actor's DirectConnections: the caller
-// picked them from that list, the service does not look again.
+// mail. The recipient must be a direct connection of the actor; anyone else
+// is refused with the wording the prompt form always used.
 func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, message string) error {
 	if err := requireActor(actor); err != nil {
 		return err
@@ -109,6 +109,15 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, m
 	}
 
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
+		radius, err := graph.RadiusBetween(ctx, tx, actor.ID, recipient.ID)
+		if err != nil {
+			return err
+		}
+
+		if radius != graph.RadiusDirect {
+			return service.Invalid("", fmt.Sprintf("'%s' is not your direct connection", recipient.Username))
+		}
+
 		if err := canPrompt(ctx, tx, actor); err != nil {
 			return err
 		}

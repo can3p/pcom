@@ -2,27 +2,13 @@ package repo
 
 import (
 	"context"
-	"os"
+	"fmt"
 
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
-
-// ConnectScript opens the database named by DATABASE_URL for a command line
-// script (the caller imports the postgres driver) and returns a Store over
-// it, and the function that closes it.
-func ConnectScript() (*Store, func() error, error) {
-	db, err := sqlx.Connect("postgres", os.Getenv("DATABASE_URL")+"?sslmode=disable")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return New(db), db.Close, nil
-}
 
 // UserByID returns the user, or ErrNotFound.
 func (s *Store) UserByID(ctx context.Context, id string) (*core.User, error) {
@@ -79,20 +65,22 @@ func (s *Store) SaveUser(ctx context.Context, u *core.User, columns ...string) e
 	return err
 }
 
-// CreateConnectionPair connects two users. Connections are stored in both
-// directions, so it inserts both rows.
-func (s *Store) CreateConnectionPair(ctx context.Context, user1ID, user2ID string) error {
-	for _, pair := range [][2]string{{user1ID, user2ID}, {user2ID, user1ID}} {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
+// UserByUsername returns the user with that username.
+func (s *Store) UserByUsername(ctx context.Context, username string) (*core.User, error) {
+	user, err := core.Users(core.UserWhere.Username.EQ(username)).One(ctx, s.exec)
+	return user, notFound(err)
+}
 
-		conn := &core.UserConnection{ID: id.String(), User1ID: pair[0], User2ID: pair[1]}
-		if err := conn.Insert(ctx, s.exec, boil.Infer()); err != nil {
-			return err
-		}
-	}
+// UsersByIDs returns the users with those IDs, in no particular order.
+func (s *Store) UsersByIDs(ctx context.Context, ids []string) (core.UserSlice, error) {
+	return core.Users(core.UserWhere.ID.IN(ids)).All(ctx, s.exec)
+}
 
-	return nil
+// UsersByIDsNewestFirst returns the users with those IDs, the most recently
+// signed up first.
+func (s *Store) UsersByIDsNewestFirst(ctx context.Context, ids []string) (core.UserSlice, error) {
+	return core.Users(
+		core.UserWhere.ID.IN(ids),
+		qm.OrderBy(fmt.Sprintf("%s DESC", core.UserColumns.CreatedAt)),
+	).All(ctx, s.exec)
 }

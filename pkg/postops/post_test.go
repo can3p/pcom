@@ -6,7 +6,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
 )
@@ -53,12 +53,12 @@ func TestConstructPost(t *testing.T) {
 		dbPost.R.User = author
 		dbPost.R.PostStat = &core.PostStat{CommentsNumber: 3}
 
-		p := postops.ConstructPost(author, dbPost, userops.ConnectionRadiusDirect, []*core.User{viaUser}, false)
+		p := postops.ConstructPost(author, dbPost, graph.RadiusDirect, []*core.User{viaUser}, false)
 
 		require.Equal(t, author, p.Author)
 		require.Equal(t, []*core.User{viaUser}, p.Via)
 		require.EqualValues(t, 3, p.CommentsNumber)
-		require.Equal(t, userops.ConnectionRadiusDirect, p.Radius)
+		require.Equal(t, graph.RadiusDirect, p.Radius)
 		require.False(t, p.EditPreview)
 		require.True(t, p.Capabilities.CanViewComments)
 	})
@@ -71,7 +71,7 @@ func TestConstructPost(t *testing.T) {
 		dbPost.R.User = author
 		dbPost.R.PostStat = &core.PostStat{CommentsNumber: 9}
 
-		p := postops.ConstructPost(author, dbPost, userops.ConnectionRadiusUnrelated, nil, true)
+		p := postops.ConstructPost(author, dbPost, graph.RadiusUnrelated, nil, true)
 
 		require.EqualValues(t, 0, p.CommentsNumber)
 		require.True(t, p.EditPreview)
@@ -86,7 +86,7 @@ func TestConstructPost(t *testing.T) {
 		dbPost.R.User = author
 		dbPost.R.URL = &core.NormalizedURL{ID: "url-1", URL: "https://example.com"}
 
-		p := postops.ConstructPost(author, dbPost, userops.ConnectionRadiusSameUser, nil, false)
+		p := postops.ConstructPost(author, dbPost, graph.RadiusSameUser, nil, false)
 
 		require.NotNil(t, p.LinkedURL)
 		require.Equal(t, "https://example.com", p.LinkedURL.URL)

@@ -266,7 +266,7 @@ func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *co
 		return err
 	}
 
-	connections, err := tx.UsersByIDsForMail(ctx, directIDs)
+	connections, err := tx.UsersByIDs(ctx, directIDs)
 	if err != nil {
 		return err
 	}
