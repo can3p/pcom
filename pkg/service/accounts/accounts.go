@@ -11,7 +11,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -24,13 +23,13 @@ import (
 
 type Service struct {
 	store  *repo.Store
-	sender sender.Sender
+	sender repo.MailQueue
 	feeds  *feeds.Service
 }
 
 // New builds the service. sender may be nil for a command line script that
 // sends no mail; feeds may be nil when the settings page is not used.
-func New(store *repo.Store, snd sender.Sender, subscriptions *feeds.Service) *Service {
+func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service) *Service {
 	return &Service{store: store, sender: snd, feeds: subscriptions}
 }
 

@@ -15,6 +15,8 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/console"
 	"github.com/can3p/gogo/sender/mailjet"
+	mjconfig "github.com/can3p/gogo/sender/mailjet/config"
+	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/local"
@@ -61,7 +63,7 @@ func main() {
 
 	enforceEnvVars(requiredVars)
 	if shouldUseRealSender {
-		enforceEnvVars(mailjet.RequiredEnv)
+		enforceEnvVars([]string{"MJ_APIKEY_PUBLIC", "MJ_APIKEY_PRIVATE"})
 		enforceEnvVars([]string{"SENDER_ADDRESS"})
 	}
 
@@ -80,17 +82,19 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var sender sender.Sender
+	var realSender sender.Sender
 	var mediaStorage server.MediaStorage
 
 	if shouldUseRealSender {
-		sender = mailjet.NewSender()
+		realSender = mailjet.NewSenderFromConfig(&mjconfig.Config{
+			ApiKeyPublic:  os.Getenv("MJ_APIKEY_PUBLIC"),
+			ApiKeyPrivate: settings.Secret(os.Getenv("MJ_APIKEY_PRIVATE")),
+		})
 	} else {
-		sender = console.NewSender()
+		realSender = console.NewSender()
 	}
 
-	dbSender := dbsender.NewSender(repo.New(db), sender)
-	sender = dbSender
+	dbSender := dbsender.NewSender(repo.New(db), realSender)
 
 	go dbSender.RunPoller(ctx)
 
@@ -112,7 +116,7 @@ func main() {
 
 	deps := &app.Deps{
 		DB:           db,
-		Sender:       sender,
+		Sender:       dbSender,
 		MediaStorage: mediaStorage,
 		MediaServer:  mediaServer,
 		Config: app.Config{

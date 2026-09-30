@@ -26,9 +26,8 @@ const module = "github.com/can3p/pcom"
 
 // exempt packages may use the database directly: the repositories, the
 // generated models, test fixtures and harnesses, the session store and the
-// mail queue (infrastructure that owns its table; dbsender implements gogo's
-// sender.Sender, whose Send takes an executor until R3/R5), the seed command
-// and the composition root.
+// mail queue (infrastructure that owns its table), the seed command and the
+// composition root.
 var exempt = []string{
 	"pkg/model/core",
 	"pkg/repo",

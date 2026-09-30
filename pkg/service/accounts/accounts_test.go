@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
@@ -21,17 +20,17 @@ import (
 )
 
 // svcWith is the accounts service over db that sends through snd.
-func svcWith(db *sqlx.DB, snd sender.Sender) *accounts.Service {
+func svcWith(db *sqlx.DB, snd repo.MailQueue) *accounts.Service {
 	return accounts.New(repo.New(db), snd, nil)
 }
 
-func acceptInvite(ctx context.Context, db *sqlx.DB, s sender.Sender, invite *core.UserInvitation, username, password string) error {
+func acceptInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, invite *core.UserInvitation, username, password string) error {
 	_, err := svcWith(db, s).AcceptInvite(ctx, invite, username, password)
 
 	return err
 }
 
-func sendInvite(ctx context.Context, db *sqlx.DB, s sender.Sender, inviter *core.User, to string) error {
+func sendInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, inviter *core.User, to string) error {
 	return svcWith(db, s).SendInvite(ctx, inviter, to)
 }
 
@@ -264,7 +263,7 @@ func TestSendInvite_Queue(t *testing.T) {
 		newInvitation(t, ctx, db, inviter.ID)
 		testutil.Must(factory.User(ctx, db, factory.WithEmail("john.doe@mail.test")))(t)
 
-		require.NoError(t, sendInvite(ctx, db, dbsender.NewSender(repo.New(db), fakesender.New()), inviter, "john.doe+prefix@mail.test"))
+		require.NoError(t, sendInvite(ctx, db, dbsender.NewSender(repo.New(db), fakesender.New().Delivery()), inviter, "john.doe+prefix@mail.test"))
 		to := queued(t, db)
 		require.Len(t, to, 1)
 		require.Contains(t, to[0], "john.doe+prefix@mail.test")
@@ -277,7 +276,7 @@ func TestSendInvite_Queue(t *testing.T) {
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		newInvitation(t, ctx, db, inviter.ID)
-		queue := dbsender.NewSender(repo.New(db), fakesender.New())
+		queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
 
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "same@example.test"))
 		require.Error(t, sendInvite(ctx, db, queue, inviter, " SAME@example.test "))
@@ -291,7 +290,7 @@ func TestSendInvite_Queue(t *testing.T) {
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		newInvitation(t, ctx, db, inviter.ID)
-		queue := dbsender.NewSender(repo.New(db), fakesender.New())
+		queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
 
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "first@example.test"))
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "second@example.test"))

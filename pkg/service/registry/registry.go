@@ -4,7 +4,6 @@
 package registry
 
 import (
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -19,7 +18,7 @@ import (
 
 // Deps is what services are built from besides the database.
 type Deps struct {
-	Sender       sender.Sender
+	Sender       repo.MailQueue
 	MediaStorage server.MediaStorage
 }
 

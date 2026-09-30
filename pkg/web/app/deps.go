@@ -3,8 +3,8 @@
 package app
 
 import (
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/jmoiron/sqlx"
 )
@@ -14,7 +14,7 @@ type Deps struct {
 	DB *sqlx.DB
 	// Services is built from DB by New when it is nil.
 	Services     *registry.Services
-	Sender       sender.Sender
+	Sender       repo.MailQueue
 	MediaStorage server.MediaStorage
 	MediaServer  server.MediaServer
 	Config       Config

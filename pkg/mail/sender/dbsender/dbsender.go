@@ -25,6 +25,9 @@ type dbSender struct {
 	store      *repo.Store
 }
 
+// compile-time check that dbSender is the mail queue.
+var _ repo.MailQueue = (*dbSender)(nil)
+
 func NewSender(db *repo.Store, realSender sender.Sender) *dbSender {
 	return &dbSender{
 		realSender: realSender,
@@ -86,7 +89,7 @@ func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *c
 	}
 
 	slog.Debug("Trying to send an email for real", "id", outgoing.ID, "to", payload.To)
-	sendErr := m.realSender.Send(ctx, tx.Exec(), outgoing.UniqueID, outgoing.EmailType, &payload)
+	sendErr := m.realSender.Send(ctx, &payload)
 
 	if sendErr == nil {
 		outgoing.Status = core.OutgoingEmailStatusSent

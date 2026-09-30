@@ -10,10 +10,16 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
-// SendMail hands a mail to the sender on the store's executor. With the
-// queueing sender that is an insert, so a service that sends inside Tx sends
-// only if the transaction commits.
-func (s *Store) SendMail(ctx context.Context, snd sender.Sender, uniqueID, emailType string, mail *sender.Mail) error {
+// MailQueue stores a mail on the caller's executor, so the mail goes out only
+// if the transaction commits. It is not a delivery channel: delivery is gogo's
+// sender.Sender, which the queue's poller calls later.
+type MailQueue interface {
+	Send(ctx context.Context, exec boil.ContextExecutor, uniqueID, emailType string, mail *sender.Mail) error
+}
+
+// SendMail hands a mail to the queue on the store's executor, so a service
+// that sends inside Tx sends only if the transaction commits.
+func (s *Store) SendMail(ctx context.Context, snd MailQueue, uniqueID, emailType string, mail *sender.Mail) error {
 	return snd.Send(ctx, s.exec, uniqueID, emailType, mail)
 }
 
