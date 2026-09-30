@@ -5,10 +5,10 @@ generic plumbing into [github.com/can3p/gogo](https://github.com/can3p/gogo),
 so that every gogo-based project shares one copy. **Extract only after the
 code has tests** (W1/W2), and move the tests along with the code.
 
-pcom depends on `github.com/can3p/gogo v0.0.2`. From
+pcom depends on `github.com/can3p/gogo v0.1.0`. From
 it, pcom uses `forms`, `sender` (+console, mailjet), `links.ArgBuilder`,
-`util/transact` and `testcontainers/postgres`; from R3 on also `apperr`,
-`util/ginhelpers` and `util/ginhelpers/csrf`, and from R2 on `settings`.
+`util/transact`, `testcontainers/postgres`, `apperr`, `util/ginhelpers` and
+`util/ginhelpers/csrf`; from R2 on also `settings`.
 
 ## 1. Done
 
@@ -23,10 +23,9 @@ it, pcom uses `forms`, `sender` (+console, mailjet), `links.ArgBuilder`,
 
   W0.T0.1 switches pcom to it and deletes pcom's copy.
 
-## 2. gogo v0.1.0: convergence (R3)
+## 2. Done: gogo v0.1.0, convergence (R3)
 
-Made on gogo's `feat/r3-convergence` branch, for release as `v0.1.0`; R3
-switches pcom to it (`docs/plan/r3.md` lists the API). In short:
+Released as `v0.1.0` (can3p/gogo#6); R3 switched pcom to it. In short:
 
 - pcom's `render.go` moved to gogo's `util/ginhelpers`, configured per
   router instead of by `util.InCluster`, and pcom's service errors to
