@@ -6,7 +6,6 @@ package posts
 import (
 	"context"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -17,11 +16,11 @@ import (
 
 type Service struct {
 	store   *repo.Store
-	sender  sender.Sender
+	sender  repo.MailQueue
 	storage server.MediaStorage
 }
 
-func New(store *repo.Store, snd sender.Sender, storage server.MediaStorage) *Service {
+func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage) *Service {
 	return &Service{store: store, sender: snd, storage: storage}
 }
 

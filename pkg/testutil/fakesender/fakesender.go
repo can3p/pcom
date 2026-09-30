@@ -1,4 +1,4 @@
-// Package fakesender is a fake of github.com/can3p/gogo/sender.Sender for
+// Package fakesender is a fake of github.com/can3p/pcom/pkg/repo.MailQueue for
 // unit and package tests: it records every mail instead of delivering it.
 // From R2 on, real delivery in E2E and development paths is exercised
 // through tommy instead; this fake stays the right tool for tests that only
@@ -10,11 +10,12 @@ import (
 	"sync"
 
 	"github.com/can3p/gogo/sender"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-// compile-time check that Sender implements gogo/sender.Sender.
-var _ sender.Sender = (*Sender)(nil)
+// compile-time check that Sender implements repo.MailQueue.
+var _ repo.MailQueue = (*Sender)(nil)
 
 // Recorded is one call to Send.
 type Recorded struct {
@@ -46,7 +47,7 @@ func (s *Sender) FailWith(err error) {
 	s.err = err
 }
 
-// Send implements gogo/sender.Sender. exec is accepted, to match the
+// Send implements repo.MailQueue. exec is accepted, to match the
 // interface, but is not used: this fake never touches the database.
 func (s *Sender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *sender.Mail) error {
 	s.mu.Lock()
@@ -74,4 +75,17 @@ func (s *Sender) Sent() []Recorded {
 	copy(out, s.sent)
 
 	return out
+}
+
+// Delivery returns s as gogo's sender.Sender, the real sender behind a mail
+// queue. It records into s like Send, with an empty UniqueID and EmailType:
+// those stay in the queue and never reach delivery.
+func (s *Sender) Delivery() sender.Sender {
+	return delivery{s}
+}
+
+type delivery struct{ s *Sender }
+
+func (d delivery) Send(ctx context.Context, mail *sender.Mail) error {
+	return d.s.Send(ctx, nil, "", "", mail)
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
@@ -25,7 +24,7 @@ import (
 // crashing the poller.
 type panicSender struct{}
 
-func (panicSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, m *sender.Mail) error {
+func (panicSender) Send(ctx context.Context, m *sender.Mail) error {
 	panic("boom")
 }
 
@@ -60,7 +59,7 @@ func TestSend_IdempotentOnEmailTypeAndUniqueID(t *testing.T) {
 	store := repo.New(db)
 	ctx := context.Background()
 
-	s := NewSender(store, fakesender.New())
+	s := NewSender(store, fakesender.New().Delivery())
 
 	m := &sender.Mail{
 		From:    mail.Address{Address: "from@example.test"},
@@ -92,7 +91,7 @@ func TestTrySendEmail(t *testing.T) {
 		t.Parallel()
 
 		real := fakesender.New()
-		m := NewSender(store, real)
+		m := NewSender(store, real.Delivery())
 
 		outgoing := newOutgoingEmail(t, ctx, store)
 		require.Equal(t, 0, outgoing.AttemptsNumber)
@@ -121,7 +120,7 @@ func TestTrySendEmail(t *testing.T) {
 		t.Parallel()
 
 		real := fakesender.New()
-		m := NewSender(store, real)
+		m := NewSender(store, real.Delivery())
 
 		outgoing := newOutgoingEmail(t, ctx, store)
 
@@ -133,8 +132,9 @@ func TestTrySendEmail(t *testing.T) {
 
 		sent := real.Sent()
 		require.Len(t, sent, 1)
-		require.Equal(t, outgoing.UniqueID, sent[0].UniqueID)
-		require.Equal(t, "welcome", sent[0].EmailType)
+		var queued sender.Mail
+		require.NoError(t, outgoing.Payload.Unmarshal(&queued))
+		require.Equal(t, &queued, sent[0].Mail, "the queued payload is what gets delivered")
 	})
 
 	t.Run("rejects undecodable payload", func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestTrySendEmail(t *testing.T) {
 
 		// An email whose payload isn't valid JSON is rejected before anything
 		// touches the database.
-		m := NewSender(store, fakesender.New())
+		m := NewSender(store, fakesender.New().Delivery())
 		outgoing := &core.OutgoingEmail{
 			ID:      "not-persisted",
 			Payload: []byte("not-json"),
@@ -164,7 +164,7 @@ func TestSendEmails(t *testing.T) {
 
 	t.Run("processes pending and updates status", func(t *testing.T) {
 		real := fakesender.New()
-		m := NewSender(store, real)
+		m := NewSender(store, real.Delivery())
 
 		outgoing := newOutgoingEmail(t, ctx, store)
 
@@ -178,7 +178,7 @@ func TestSendEmails(t *testing.T) {
 
 	t.Run("no pending emails is a noop", func(t *testing.T) {
 		setup := fakesender.New()
-		setupSender := NewSender(store, setup)
+		setupSender := NewSender(store, setup.Delivery())
 
 		// Already sent: must not be retried.
 		sentEmail := newOutgoingEmail(t, ctx, store)
@@ -201,7 +201,7 @@ func TestSendEmails(t *testing.T) {
 		setup.FailWith(nil)
 
 		real := fakesender.New()
-		m := NewSender(store, real)
+		m := NewSender(store, real.Delivery())
 
 		require.NoError(t, m.sendEmails(ctx))
 
@@ -286,7 +286,7 @@ func newBlockingSender() *blockingSender {
 	return &blockingSender{release: make(chan struct{})}
 }
 
-func (s *blockingSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, m *sender.Mail) error {
+func (s *blockingSender) Send(ctx context.Context, m *sender.Mail) error {
 	s.mu.Lock()
 	s.arrived++
 	n := s.arrived
@@ -305,7 +305,7 @@ func (s *blockingSender) Send(ctx context.Context, exec boil.ContextExecutor, un
 	}
 
 	s.mu.Lock()
-	s.sent = append(s.sent, uniqueID)
+	s.sent = append(s.sent, m.Subject)
 	s.mu.Unlock()
 
 	return nil
@@ -329,7 +329,7 @@ func TestRunPoller_SendsPendingAndStopsOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	real := fakesender.New()
-	m := NewSender(store, real)
+	m := NewSender(store, real.Delivery())
 
 	newOutgoingEmail(t, context.Background(), store)
 
