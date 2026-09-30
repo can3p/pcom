@@ -81,8 +81,8 @@ github.com/bytedance/sonic/loader v0.5.1 h1:Ygpfa9zwRCCKSlrp5bBP/b/Xzc3VxsAW+5NI
 github.com/bytedance/sonic/loader v0.5.1/go.mod h1:AR4NYCk5DdzZizZ5djGqQ92eEhCCcdf5x77udYiSJRo=
 github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0 h1:lulLjlUr8lN4yK8zEi0TQ8T8J0F9MEhEZZJzN4gGg6g=
 github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0/go.mod h1:fPyW2zSasYUwzd0PGsOPjPrDzb7jPg+ZIE53alPqXDI=
-github.com/can3p/gogo v0.0.3-0.20260930165957-afb56faae4f0 h1:dzihjQ712e5NhROj6XT3Gc5zzpKJwtVV1UA2szADjrY=
-github.com/can3p/gogo v0.0.3-0.20260930165957-afb56faae4f0/go.mod h1:WvJsuR8T+dDpGxl14aQ6Q2QGdqiztynqv62QcrUviJA=
+github.com/can3p/gogo v0.1.0 h1:LPQkS+h6vE1uPtjHrxDaPw7bf5W0TdGoIuTi5BxpnP4=
+github.com/can3p/gogo v0.1.0/go.mod h1:WvJsuR8T+dDpGxl14aQ6Q2QGdqiztynqv62QcrUviJA=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
