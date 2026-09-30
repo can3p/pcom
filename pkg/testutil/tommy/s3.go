@@ -34,6 +34,33 @@ func (tm *Tommy) S3Object(t testing.TB, key string) ObjectInfo {
 	return ObjectInfo{Key: got.Key, Size: got.Size, ContentType: got.Headers.ContentType}
 }
 
+// S3Objects lists the objects in Bucket whose keys start with prefix (all of
+// them for an empty prefix).
+func (tm *Tommy) S3Objects(t testing.TB, prefix string) []ObjectInfo {
+	t.Helper()
+
+	var got struct {
+		Objects []struct {
+			Key     string `json:"key"`
+			Size    int64  `json:"size"`
+			Headers struct {
+				ContentType string `json:"content_type"`
+			} `json:"headers"`
+		} `json:"objects"`
+		IsTruncated bool `json:"is_truncated"`
+	}
+
+	getJSON(t, tm.APIURL+"/s3/buckets/"+Bucket+"/objects?prefix="+url.QueryEscape(prefix), &got)
+	require.False(t, got.IsTruncated, "tommy: more than 1000 objects under %q", prefix)
+
+	objects := make([]ObjectInfo, 0, len(got.Objects))
+	for _, o := range got.Objects {
+		objects = append(objects, ObjectInfo{Key: o.Key, Size: o.Size, ContentType: o.Headers.ContentType})
+	}
+
+	return objects
+}
+
 // S3Event is one recorded S3 request.
 type S3Event struct {
 	Key string

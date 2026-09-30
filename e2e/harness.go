@@ -162,6 +162,77 @@ type App struct {
 	// DB is the app's database, for creating fixtures with the factories and
 	// asserting on rows.
 	DB *sqlx.DB
+
+	tommy *tommy.Tommy
+}
+
+// AdminAddress is the ADMIN_ADDRESS the binary runs with: admin
+// notifications are sent to it.
+const AdminAddress = "admin@pcom.test"
+
+// Mails waits for mail the app delivered to the address to that match
+// accepts (nil accepts any) and returns it, newest first; see tommy.Mails.
+// Every app shares one tommy, so match picks this test's mail when to is
+// shared, such as AdminAddress, or empty (any recipient).
+func (a *App) Mails(t testing.TB, to string, match func(tommy.Mail) bool) []tommy.Mail {
+	t.Helper()
+	return a.tommy.Mails(t, to, match)
+}
+
+// NoMails fails the test if, once delivery settled, mail to the address to
+// that match accepts was delivered; see tommy.NoMails.
+func (a *App) NoMails(t testing.TB, to string, match func(tommy.Mail) bool) {
+	t.Helper()
+	a.tommy.NoMails(t, to, match)
+}
+
+// SettledMails returns, once delivery settled, the delivered mail to the
+// address to that match accepts, possibly none; see tommy.SettledMails.
+func (a *App) SettledMails(t testing.TB, to string, match func(tommy.Mail) bool) []tommy.Mail {
+	t.Helper()
+	return a.tommy.SettledMails(t, to, match)
+}
+
+// S3Object returns the user media object stored under key; it fails the test
+// if there is none.
+func (a *App) S3Object(t testing.TB, key string) tommy.ObjectInfo {
+	t.Helper()
+	return a.tommy.S3Object(t, key)
+}
+
+// S3Objects lists the user media objects whose keys start with prefix.
+func (a *App) S3Objects(t testing.TB, prefix string) []tommy.ObjectInfo {
+	t.Helper()
+	return a.tommy.S3Objects(t, prefix)
+}
+
+// ResizedVariant waits up to 5s for the caching media server to store the
+// class variant of the upload fname, and returns it. The variant is found by
+// listing the bucket: the object other than the upload whose key holds fname
+// and class. The media server stores it after serving the image, so a test
+// requests /user-media/<fname>/<class> first.
+func (a *App) ResizedVariant(t testing.TB, fname, class string) tommy.ObjectInfo {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for {
+		var keys []string
+
+		for _, o := range a.tommy.S3Objects(t, "") {
+			if o.Key != fname && strings.Contains(o.Key, fname) && strings.Contains(o.Key, class) {
+				return o
+			}
+
+			keys = append(keys, o.Key)
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("e2e: no %s variant of %s stored; objects: %v", class, fname, keys)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // Option configures Start.
@@ -215,7 +286,7 @@ func Start(t testing.TB, opts ...Option) *App {
 	for attempt := 1; ; attempt++ {
 		url, err := startBinary(t, work, db.URL, cfg.env)
 		if err == nil {
-			return &App{URL: url, DB: db.DB}
+			return &App{URL: url, DB: db.DB, tommy: tommy.Shared(t)}
 		}
 
 		if !errors.Is(err, errPortTaken) || attempt == 3 {
@@ -247,7 +318,7 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 		"SITE_ROOT":           url,
 		"GIN_MODE":            "release",
 		"SENDER_ADDRESS":      "pcom@pcom.test",
-		"ADMIN_ADDRESS":       "admin@pcom.test",
+		"ADMIN_ADDRESS":       AdminAddress,
 		"MJ_APIKEY_PUBLIC":    "test",
 		"MJ_APIKEY_PRIVATE":   "test",
 		"MJ_API_BASE":         tm.MailjetURL,

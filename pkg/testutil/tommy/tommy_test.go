@@ -2,11 +2,11 @@ package tommy_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/mail"
-	"net/url"
 	"os"
+	"path"
+	"strings"
 	"testing"
 
 	"github.com/can3p/gogo/sender"
@@ -39,18 +39,40 @@ func TestMailjetSenderDeliversToTommy(t *testing.T) {
 		Text:    "hello",
 	}))
 
-	resp, err := http.Get(tm.APIURL + "/mail/messages?to=" + url.QueryEscape("tommy-smoke@pcom.test"))
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	var got []struct {
-		Message struct {
-			Subject string `json:"subject"`
-			Text    string `json:"text"`
-		} `json:"message"`
-	}
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+	got := tm.Mails(t, "tommy-smoke@pcom.test", nil)
 	require.Len(t, got, 1)
-	require.Equal(t, "smoke", got[0].Message.Subject)
-	require.Equal(t, "hello", got[0].Message.Text)
+	require.Equal(t, "pcom@pcom.test", got[0].From)
+	require.Equal(t, "smoke", got[0].Subject)
+	require.Equal(t, "hello", got[0].Text)
+
+	// the API's to filter is a substring match; the helpers keep the exact recipient
+	tm.NoMails(t, "smoke@pcom.test", nil)
+	require.Empty(t, tm.SettledMails(t, "tommy-smoke@pcom.test", func(m tommy.Mail) bool { return m.Subject != "smoke" }))
+}
+
+// TestS3Objects lists objects by prefix and reads one back, with the content
+// type the client stored.
+func TestS3Objects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a container")
+	}
+
+	tm := tommy.Shared(t)
+
+	for _, key := range []string{"s3objects/a.png", "s3objects/b.webp", "other/c.png"} {
+		req, err := http.NewRequest(http.MethodPut, tm.S3URL+"/"+tommy.Bucket+"/"+key, strings.NewReader("abc"))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "image/"+strings.TrimPrefix(path.Ext(key), "."))
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	}
+
+	require.ElementsMatch(t, []tommy.ObjectInfo{
+		{Key: "s3objects/a.png", Size: 3, ContentType: "image/png"},
+		{Key: "s3objects/b.webp", Size: 3, ContentType: "image/webp"},
+	}, tm.S3Objects(t, "s3objects/"))
+	require.Equal(t, tommy.ObjectInfo{Key: "other/c.png", Size: 3, ContentType: "image/png"}, tm.S3Object(t, "other/c.png"))
 }

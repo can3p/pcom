@@ -61,14 +61,14 @@ func run(m *testing.M) int {
 	}
 	defer func() { _ = pw.Stop() }()
 
-	opts := playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(os.Getenv("HEADED") == "")}
+	opts := playwright.BrowserTypeLaunchOptions{Headless: new(os.Getenv("HEADED") == "")}
 	if ms, err := strconv.ParseFloat(os.Getenv("SLOWMO"), 64); err == nil {
-		opts.SlowMo = playwright.Float(ms)
+		opts.SlowMo = new(ms)
 	}
 	// CHROMIUM_PATH runs a Chromium that is already installed instead of the
 	// one `make ui-deps` downloads, for sandboxes that can't reach Playwright's CDN.
 	if path := os.Getenv("CHROMIUM_PATH"); path != "" {
-		opts.ExecutablePath = playwright.String(path)
+		opts.ExecutablePath = new(path)
 	}
 
 	chromium, err = pw.Chromium.Launch(opts)
@@ -142,7 +142,7 @@ func Page(t testing.TB, app *e2e.App, opts ...PageOption) playwright.Page {
 		o(&cfg)
 	}
 
-	cfg.context.BaseURL = playwright.String(app.URL)
+	cfg.context.BaseURL = new(app.URL)
 
 	ctx, err := chromium.NewContext(cfg.context)
 	if err != nil {
@@ -153,13 +153,13 @@ func Page(t testing.TB, app *e2e.App, opts ...PageOption) playwright.Page {
 		login(t, app, ctx, cfg.user)
 	}
 
-	if err := ctx.AddInitScript(playwright.Script{Content: playwright.String(cspReporter)}); err != nil {
+	if err := ctx.AddInitScript(playwright.Script{Content: new(cspReporter)}); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := ctx.Tracing().Start(playwright.TracingStartOptions{
-		Screenshots: playwright.Bool(true),
-		Snapshots:   playwright.Bool(true),
+		Screenshots: new(true),
+		Snapshots:   new(true),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func login(t testing.TB, app *e2e.App, ctx playwright.BrowserContext, user *core
 
 	var cookies []playwright.OptionalCookie
 	for _, c := range client.Cookies() {
-		cookies = append(cookies, playwright.OptionalCookie{Name: c.Name, Value: c.Value, URL: playwright.String(app.URL)})
+		cookies = append(cookies, playwright.OptionalCookie{Name: c.Name, Value: c.Value, URL: new(app.URL)})
 	}
 
 	if err := ctx.AddCookies(cookies); err != nil {
@@ -290,7 +290,7 @@ func saveArtifacts(t testing.TB, ctx playwright.BrowserContext, page playwright.
 	base := filepath.Join(dir, unsafeName.ReplaceAllString(t.Name(), "_"))
 	trace, shot := base+".trace.zip", base+".png"
 
-	if _, err := page.Screenshot(playwright.PageScreenshotOptions{Path: playwright.String(shot), FullPage: playwright.Bool(true)}); err != nil {
+	if _, err := page.Screenshot(playwright.PageScreenshotOptions{Path: new(shot), FullPage: new(true)}); err != nil {
 		shot = "none (" + err.Error() + ")"
 	}
 

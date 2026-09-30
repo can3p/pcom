@@ -492,6 +492,9 @@ func TestAPI_UploadImage(t *testing.T) {
 
 	fname := uploadImage(t, app, client, apiKey.APIKey)
 
+	// the upload is stored as is, under its fname
+	require.Equal(t, "image/png", app.S3Object(t, fname).ContentType)
+
 	cases := []struct {
 		class     string
 		maxWidth  int
@@ -509,6 +512,11 @@ func TestAPI_UploadImage(t *testing.T) {
 		require.NoError(t, err, "class %s", tc.class)
 		require.LessOrEqual(t, cfg.Width, tc.maxWidth, "class %s", tc.class)
 		require.LessOrEqual(t, cfg.Height, tc.maxHeight, "class %s", tc.class)
+	}
+
+	// fetching a class stores its resized variant next to the upload
+	for _, tc := range cases {
+		require.Equal(t, "image/webp", app.ResizedVariant(t, fname, tc.class).ContentType, "class %s", tc.class)
 	}
 }
 

@@ -167,7 +167,7 @@ func b6CheckNoOverflow(t *testing.T, page playwright.Page) {
 	})`)
 	require.NoError(t, err)
 
-	dims, ok := result.(map[string]interface{})
+	dims, ok := result.(map[string]any)
 	require.True(t, ok, "expected an object result, got %T", result)
 
 	scrollWidth := b6ToInt(t, dims["scrollWidth"])
@@ -195,11 +195,11 @@ func b6CheckImagesLoaded(t *testing.T, page playwright.Page) {
 	`)
 	require.NoError(t, err)
 
-	images, ok := result.([]interface{})
+	images, ok := result.([]any)
 	require.True(t, ok, "expected images to be an array, got %T", result)
 
 	for _, raw := range images {
-		img, ok := raw.(map[string]interface{})
+		img, ok := raw.(map[string]any)
 		require.True(t, ok, "expected an image entry to be an object, got %T", raw)
 
 		index := b6ToInt(t, img["index"])
@@ -230,7 +230,7 @@ func b6CheckImagesLoaded(t *testing.T, page playwright.Page) {
 	}
 }
 
-func b6ToInt(t *testing.T, v interface{}) int {
+func b6ToInt(t *testing.T, v any) int {
 	t.Helper()
 
 	switch n := v.(type) {

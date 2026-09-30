@@ -17,6 +17,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
@@ -105,6 +106,26 @@ type dbSnapshot struct {
 	LoggedInAs string
 }
 
+// isWorldMail matches the mail a route could send in this world: mail
+// linking to this app, mail to the world's users or to the addresses the
+// routes take, and admin notices naming one of those.
+func (w *guardWorld) isWorldMail(m tommy.Mail) bool {
+	if strings.Contains(m.Text, w.app.URL) || strings.Contains(m.HTML, w.app.URL) {
+		return true
+	}
+
+	for _, addr := range []string{
+		w.owner.Email, w.friend.Email, w.stranger.Email, w.requester.Email,
+		"invitee@example.test", "newcomer@example.com", "waiter@example.com",
+	} {
+		if m.SentTo(addr) || m.SentTo(e2e.AdminAddress) && strings.Contains(m.Text, addr) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	t.Helper()
 
@@ -137,9 +158,9 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	slices.Sort(s.Posts)
 	slices.Sort(s.Comments)
 
-	emails, err := factory.ListOutgoingEmails(ctx, db)
-	require.NoError(t, err)
-	s.Emails = len(emails)
+	s.Emails = len(w.app.SettledMails(t, "", w.isWorldMail))
+
+	var err error
 
 	s.Connected, err = factory.ConnectionExists(ctx, db, w.owner.ID, w.friend.ID)
 	require.NoError(t, err)
@@ -1092,9 +1113,7 @@ func TestGuards_LoggedInConfirmSignupHasNoEffect(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, got.EmailConfirmedAt.Valid)
 
-	emails, err := factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ("signup_confirmed"))
-	require.NoError(t, err)
-	require.Empty(t, emails)
+	app.NoMails(t, e2e.AdminAddress, signupConfirmedNotice(pending.ID))
 }
 
 func TestGuards_LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
@@ -1142,12 +1161,19 @@ func TestGuards_LoggedInFormSignupHasNoEffect(t *testing.T) {
 	}).RequireStatus(http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 
-	emails, err := factory.ListOutgoingEmails(ctx, app.DB)
-	require.NoError(t, err)
-	require.Empty(t, emails)
+	app.NoMails(t, "", mentions(app, "newcomer@example.com"))
 
 	require.Equal(t, user.Username, currentUsername(t, client))
 	app.Client(t).Get("/users/newcomer").RequireStatus(http.StatusNotFound)
+}
+
+// mentions matches the mail a signup or waiting list request from addr could
+// send: to addr itself, an admin notice naming it, or mail linking to app.
+func mentions(app *e2e.App, addr string) func(tommy.Mail) bool {
+	return func(m tommy.Mail) bool {
+		return m.SentTo(addr) || strings.Contains(m.Text, addr) ||
+			strings.Contains(m.Text, app.URL) || strings.Contains(m.HTML, app.URL)
+	}
 }
 
 func TestGuards_LoggedInFormSignupWaitingListHasNoEffect(t *testing.T) {
@@ -1162,9 +1188,7 @@ func TestGuards_LoggedInFormSignupWaitingListHasNoEffect(t *testing.T) {
 	}).RequireStatus(http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 
-	emails, err := factory.ListOutgoingEmails(ctx, app.DB)
-	require.NoError(t, err)
-	require.Empty(t, emails)
+	app.NoMails(t, "", mentions(app, "waiter@example.com"))
 
 	exists, err := factory.SignupRequestExists(ctx, app.DB, "waiter@example.com")
 	require.NoError(t, err)

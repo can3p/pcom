@@ -5,13 +5,13 @@ package browser_test
 import (
 	"context"
 	"regexp"
+	"strings"
 	"testing"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -20,20 +20,18 @@ import (
 // in the plain-text body of the confirm_signup mail.
 var b7ConfirmLinkRE = regexp.MustCompile(`https?://\S+/confirm_signup/\S+`)
 
-// b7ConfirmLink reads the queued confirm_signup email back from the
-// outgoing mail queue and pulls the confirmation link out of its body.
-func b7ConfirmLink(t testing.TB, app *e2e.App) string {
+// b7ConfirmLink waits for the confirmation mail this app delivered to email
+// and pulls the confirmation link out of its plain-text body.
+func b7ConfirmLink(t testing.TB, app *e2e.App, email string) string {
 	t.Helper()
 
-	emails, err := factory.ListOutgoingEmails(context.Background(), app.DB, core.OutgoingEmailWhere.EmailType.EQ("confirm_signup"))
-	require.NoError(t, err)
-	require.Len(t, emails, 1)
+	mails := app.Mails(t, email, func(m tommy.Mail) bool {
+		return m.Subject == "Welcome to pcom" && strings.Contains(m.Text, app.URL+"/confirm_signup/")
+	})
+	require.Len(t, mails, 1)
 
-	var payload sender.Mail
-	require.NoError(t, emails[0].Payload.Unmarshal(&payload))
-
-	link := b7ConfirmLinkRE.FindString(payload.Text)
-	require.NotEmpty(t, link, "confirm_signup mail body: %s", payload.Text)
+	link := b7ConfirmLinkRE.FindString(mails[0].Text)
+	require.NotEmpty(t, link, "confirm_signup mail body: %s", mails[0].Text)
 
 	return link
 }
@@ -99,7 +97,7 @@ func TestAccounts_Logout(t *testing.T) {
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log out"}).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`^`+regexp.QuoteMeta(app.URL)+`/$`)))
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Login", Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Login", Exact: new(true)})).ToBeVisible())
 }
 
 // Signing up while registration is open queues a confirmation email;
@@ -128,7 +126,7 @@ func TestAccounts_SignupWhileOpenAndConfirmEmail(t *testing.T) {
 
 	require.NoError(t, browser.Expect.Locator(page.Locator("body")).ToContainText("check your mailbox"))
 
-	link := b7ConfirmLink(t, app)
+	link := b7ConfirmLink(t, app, email)
 
 	_, err = page.Goto(link)
 	require.NoError(t, err)
@@ -174,5 +172,5 @@ func TestAccounts_AcceptInvitationConnectsToInviter(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username, playwright.LocatorAssertionsToContainTextOptions{}))
 
 	// connected to the inviter, listed under the new account's direct connections
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("link", playwright.PageGetByRoleOptions{Name: inviter.Username, Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("link", playwright.PageGetByRoleOptions{Name: inviter.Username, Exact: new(true)})).ToBeVisible())
 }
