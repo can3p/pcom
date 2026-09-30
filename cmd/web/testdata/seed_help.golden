@@ -1,0 +1,16 @@
+Usage:
+  web [OPTIONS] seed [seed-OPTIONS]
+
+Seed users, posts and comments; refuses to run where FLY_APP_NAME is set.
+
+Help Options:
+  -h, --help              Show this help message
+
+[seed command options]
+          --site-root=    Public root URL of the site, used in seeded links
+                          [$SITE_ROOT]
+          --reset         Truncate every table except migrations and
+                          system_settings first
+
+    Database:
+          --database-url= Postgres connection URL [$DATABASE_URL]

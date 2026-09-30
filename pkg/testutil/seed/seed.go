@@ -1,11 +1,11 @@
 // Package seed fills a development database with a small, named world that
 // exercises every feature of pcom. Run it with
 //
-//	go run ./cmd/seed [--reset]
+//	go run ./cmd/web seed [--reset]
 //
-// (cmd/seed is a thin wrapper around Run.) It reads DATABASE_URL (and SITE_ROOT, default http://localhost:8080) from
-// .env or the environment, like the app. It refuses to run when FLY_APP_NAME
-// is set. Without --reset it exits if users already exist; --reset truncates
+// (the seed command is a thin wrapper around Run.) It takes DATABASE_URL (and
+// SITE_ROOT, default http://localhost:8080) from the settings. It refuses to
+// run when Options.Production is set (FLY_APP_NAME is set). Without --reset it exits if users already exist; --reset truncates
 // every table except migrations and system_settings first.
 //
 // Every account logs in with the password "password":
@@ -29,7 +29,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/can3p/pcom/pkg/model/core"
@@ -55,9 +54,10 @@ func Usernames() []string {
 
 // Options configures Run.
 type Options struct {
-	Reset    bool
-	Getenv   func(string) string
-	SiteRoot string
+	Reset bool
+	// Production refuses to seed: the database looks like a live site.
+	Production bool
+	SiteRoot   string
 }
 
 type seededUser struct {
@@ -70,11 +70,7 @@ type seededUser struct {
 // Run seeds the database behind db and prints a summary to out. Everything
 // happens in one transaction, so a failure changes nothing.
 func Run(ctx context.Context, db *sql.DB, out io.Writer, opts Options) (err error) {
-	getenv := opts.Getenv
-	if getenv == nil {
-		getenv = os.Getenv
-	}
-	if getenv("FLY_APP_NAME") != "" {
+	if opts.Production {
 		return errors.New("refusing to seed: FLY_APP_NAME is set, this looks like production")
 	}
 

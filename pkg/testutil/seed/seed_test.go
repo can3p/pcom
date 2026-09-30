@@ -17,7 +17,7 @@ import (
 )
 
 func options(reset bool) Options {
-	return Options{Reset: reset, Getenv: func(string) string { return "" }, SiteRoot: "http://site.test"}
+	return Options{Reset: reset, SiteRoot: "http://site.test"}
 }
 
 func count(t *testing.T, db *sqlx.DB, query string, args ...any) int {
@@ -152,13 +152,7 @@ func TestSeed_RefusesOnFly(t *testing.T) {
 
 	db := testdb.New(t).DB
 	o := options(true)
-	o.Getenv = func(k string) string {
-		if k == "FLY_APP_NAME" {
-			return "pcom-prod"
-		}
-
-		return ""
-	}
+	o.Production = true
 
 	var out bytes.Buffer
 

@@ -1,0 +1,10 @@
+Usage:
+  web [OPTIONS] debug feed [url]
+
+Fetch the feed at <url> and print every item raw, sanitized and as markdown.
+
+Help Options:
+  -h, --help      Show this help message
+
+[feed command arguments]
+  url:            Feed URL

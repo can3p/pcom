@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/testutil/golden"
@@ -13,10 +14,13 @@ import (
 // `web <command> --help` is the configuration reference, so a renamed or
 // dropped setting shows up here.
 func TestHelp(t *testing.T) {
-	for _, args := range [][]string{{"--help"}, {"serve", "--help"}} {
-		name := "help"
-		if len(args) > 1 {
-			name = args[0] + "_help"
+	for _, args := range [][]string{
+		{"--help"}, {"serve", "--help"}, {"seed", "--help"}, {"admin", "--help"}, {"admin", "invite", "--help"},
+		{"admin", "registration", "--help"}, {"debug", "--help"}, {"debug", "feed", "--help"},
+	} {
+		name := strings.Join(args[:len(args)-1], "_") + "_help"
+		if len(args) == 1 {
+			name = "help"
 		}
 
 		t.Run(name, func(t *testing.T) {

@@ -1,0 +1,14 @@
+Usage:
+  web [OPTIONS] admin registration [registration-OPTIONS]
+
+Flip the system setting that lets new users sign up.
+
+Help Options:
+  -h, --help              Show this help message
+
+[registration command options]
+          --open          Open registration
+          --close         Close registration
+
+    Database:
+          --database-url= Postgres connection URL [$DATABASE_URL]
