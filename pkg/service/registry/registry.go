@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/connections"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/shares"
 	"github.com/jmoiron/sqlx"
 )
@@ -21,14 +22,16 @@ type Deps struct {
 // Services is one field per area service.
 type Services struct {
 	Connections *connections.Service
+	Feeds       *feeds.Service
 	Shares      *shares.Service
 }
 
-func New(db *sqlx.DB, _ Deps) *Services {
+func New(db *sqlx.DB, deps Deps) *Services {
 	store := repo.New(db)
 
 	return &Services{
 		Connections: connections.New(store),
+		Feeds:       feeds.New(store, deps.MediaStorage),
 		Shares:      shares.New(store),
 	}
 }

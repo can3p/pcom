@@ -1,4 +1,4 @@
-package feeder
+package feeds
 
 import (
 	"bytes"
@@ -6,19 +6,31 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	feedutil "github.com/can3p/pcom/pkg/feedops/testutil"
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	. "github.com/ovechkin-dm/mockio/v2/mock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
+
+// readItems is the user's reading list, read through the service.
+func readItems(ctx context.Context, db boil.ContextExecutor, user *core.User) ([]*RssFeedItem, error) {
+	return newService(repo.Using(db), nil, nil, nil).Items(ctx, user)
+}
 
 // fnameCapturingStorage wraps a server.MediaStorage and records the
 // filename of every upload, so a test can look an upload back up through
@@ -50,10 +62,6 @@ func (s *fnameCapturingStorage) Fnames() []string {
 }
 
 // TestTryFetchFeed exercises tryFetchFeed's two outcomes.
-//
-// pkg/feedops imports this package (for DefaultRssReader), so a test here
-// cannot import pkg/feedops or feedops.GetRssFeeds without an import cycle;
-// the feed row is reloaded directly instead.
 func TestTryFetchFeed(t *testing.T) {
 	t.Parallel()
 
@@ -72,12 +80,12 @@ func TestTryFetchFeed(t *testing.T) {
 		fetchErr := errors.New("boom")
 		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(nil, fetchErr)
 
-		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
 
 		// A fetch failure must be recorded on the feed (via SaveFetchFailure)
 		// rather than propagated, so one bad feed doesn't stop the poller
 		// from trying the rest.
-		require.NoError(t, f.tryFetchFeed(ctx, testDB.DB, feedRow))
+		require.NoError(t, f.tryFetchFeed(ctx, repo.Using(testDB.DB), feedRow))
 		require.NoError(t, feedRow.Reload(ctx, testDB.DB))
 		require.Equal(t, fetchErr.Error(), feedRow.LastFetchError.String)
 		require.True(t, feedRow.NextFetchAt.Valid)
@@ -98,14 +106,12 @@ func TestTryFetchFeed(t *testing.T) {
 			return args[0].(string)
 		})
 
-		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
-		require.NoError(t, f.tryFetchFeed(ctx, testDB.DB, feedRow))
+		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
+		require.NoError(t, f.tryFetchFeed(ctx, repo.Using(testDB.DB), feedRow))
 
-		// LockFeed doubles as the package's own reader here: a test in this
-		// (white-box) package cannot import pkg/feedops for its reader
-		// without an import cycle, and pkg/testutil/factory has no RSSFeed
-		// reader.
-		reloaded := testutil.Must(LockFeed(ctx, testDB.DB, feedRow.ID))(t)
+		// LockFeed doubles as the feed reader here: pkg/testutil/factory has
+		// no RSSFeed reader.
+		reloaded := testutil.Must(repo.Using(testDB.DB).LockFeed(ctx, feedRow.ID))(t)
 		require.Empty(t, reloaded.LastFetchError.String)
 		require.False(t, reloaded.LastFetchedAt.IsZero())
 		require.True(t, reloaded.NextFetchAt.Valid, "a successful fetch schedules the next one")
@@ -135,7 +141,7 @@ func TestGetFeedsToRefresh_RespectsNextFetchAt(t *testing.T) {
 	// out feeds with no subscribers even when they're otherwise due.
 	pastNoSubscribers := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour))))(t)
 
-	feeds := testutil.Must(GetFeedsToRefresh(ctx, testDB.DB))(t)
+	feeds := testutil.Must(repo.Using(testDB.DB).FeedsToRefresh(ctx))(t)
 
 	ids := make([]string, len(feeds))
 	for i, f := range feeds {
@@ -174,13 +180,13 @@ func TestRefreshFeeds(t *testing.T) {
 			return args[0].(string)
 		})
 
-		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
 		require.NoError(t, f.refreshFeeds(ctx))
 
 		// feedRow was scheduled an hour in the past to be due; a processed
 		// feed must come out rescheduled into the future, not left at (or
 		// near) that past due time.
-		reloaded := testutil.Must(LockFeed(ctx, testDB.DB, feedRow.ID))(t)
+		reloaded := testutil.Must(repo.Using(testDB.DB).LockFeed(ctx, feedRow.ID))(t)
 		require.Empty(t, reloaded.LastFetchError.String)
 		require.False(t, reloaded.LastFetchedAt.IsZero())
 		require.True(t, reloaded.NextFetchAt.Valid)
@@ -204,7 +210,7 @@ func TestRefreshFeeds(t *testing.T) {
 			panic("boom")
 		})
 
-		f := NewFeeder(testDB.DB, fetcherMock, cleanerMock, nil)
+		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
 
 		// A panic anywhere in the per-feed processing (a bad fetcher, a bug
 		// in a cleaner) must not crash the scheduler; it comes back as an
@@ -221,7 +227,7 @@ func TestRefreshFeeds(t *testing.T) {
 
 		require.NoError(t, db.DB.Close())
 
-		f := NewFeeder(db.DB, nil, nil, nil)
+		f := newService(repo.New(db.DB), nil, nil, nil)
 
 		err := f.refreshFeeds(ctx)
 		require.Error(t, err)
@@ -233,7 +239,7 @@ func TestRefreshFeeds(t *testing.T) {
 func TestRunPoller_StopsOnContextDone(t *testing.T) {
 	t.Parallel()
 
-	f := NewFeeder(nil, nil, nil, nil)
+	f := newService(nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -258,7 +264,7 @@ func TestLockFeed_NotFound(t *testing.T) {
 
 	testDB := testdb.New(t)
 
-	_, err := LockFeed(context.Background(), testDB.DB, "00000000-0000-0000-0000-000000000000")
+	_, err := repo.Using(testDB.DB).LockFeed(context.Background(), "00000000-0000-0000-0000-000000000000")
 	require.Error(t, err)
 }
 
@@ -276,7 +282,7 @@ func TestSaveFeedItem(t *testing.T) {
 		// It has nothing to dedupe on, so it must be rejected rather than
 		// silently stored.
 		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
-		_, err := SaveFeedItem(ctx, testDB.DB, feedRow.ID, &reader.Item{URL: ""}, nil, nil, nil, nil)
+		_, err := newService(repo.Using(testDB.DB), nil, nil, nil).saveFeedItem(ctx, repo.Using(testDB.DB), feedRow.ID, &reader.Item{URL: ""}, nil)
 		require.Error(t, err)
 	})
 
@@ -296,10 +302,10 @@ func TestSaveFeedItem(t *testing.T) {
 		// Saving the same item URL twice upserts onto the same row instead
 		// of creating a second one, and only the first call reports it as
 		// new.
-		isNew := testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil))(t)
+		isNew := testutil.Must(newService(repo.Using(testDB.DB), nil, cleanerMock, nil).saveFeedItem(ctx, repo.Using(testDB.DB), feedRow.ID, item, nil))(t)
 		require.True(t, isNew)
 
-		isNew = testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil))(t)
+		isNew = testutil.Must(newService(repo.Using(testDB.DB), nil, cleanerMock, nil).saveFeedItem(ctx, repo.Using(testDB.DB), feedRow.ID, item, nil))(t)
 		require.False(t, isNew, "the same url upserts onto the existing item instead of creating a new one")
 	})
 
@@ -315,7 +321,7 @@ func TestSaveFeedItem(t *testing.T) {
 
 		item := &reader.Item{URL: "https://example.com/broken", Title: "t", Summary: "s"}
 
-		isNew := testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, nil, nil))(t)
+		isNew := testutil.Must(newService(repo.Using(testDB.DB), nil, cleanerMock, nil).saveFeedItem(ctx, repo.Using(testDB.DB), feedRow.ID, item, nil))(t)
 		require.True(t, isNew)
 
 		items := testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t)
@@ -343,7 +349,7 @@ func TestSaveFeedItem(t *testing.T) {
 		storage := &fnameCapturingStorage{MediaStorage: fakestorage.New()}
 		item := &reader.Item{URL: "https://example.com/with-image", Title: "t", Summary: "s"}
 
-		isNew := testutil.Must(SaveFeedItem(ctx, testDB.DB, feedRow.ID, item, nil, cleanerMock, fetcherMock, storage))(t)
+		isNew := testutil.Must(newService(repo.Using(testDB.DB), fetcherMock, cleanerMock, storage).saveFeedItem(ctx, repo.Using(testDB.DB), feedRow.ID, item, nil))(t)
 		require.True(t, isNew)
 
 		fnames := storage.Fnames()
@@ -361,4 +367,190 @@ func TestSaveFeedItem(t *testing.T) {
 		require.Len(t, items, 1)
 		require.NotContains(t, items[0].SanitizedDescription, imgURL, "the stored body should no longer reference the original image URL")
 	})
+}
+
+func TestSaveFetchFailure(t *testing.T) {
+	testDB := testdb.New(t)
+
+	ctx := context.Background()
+
+	feed, err := feedutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed", "Test Feed")
+	require.NoError(t, err)
+
+	testError := assert.AnError
+
+	err = saveFetchFailure(ctx, repo.Using(testDB.DB), feed, testError)
+	require.NoError(t, err)
+
+	updatedFeed, err := feedutil.GetRSSFeed(ctx, testDB.DB, feed.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, testError.Error(), updatedFeed.LastFetchError.String)
+	assert.Equal(t, 0, updatedFeed.LastItemsCount)
+	assert.False(t, updatedFeed.NextFetchAt.IsZero())
+	assert.False(t, updatedFeed.LastFetchedAt.IsZero())
+}
+
+func TestLockFeed(t *testing.T) {
+	testDB := testdb.New(t)
+
+	ctx := context.Background()
+
+	feed, err := feedutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed", "Test Feed")
+	require.NoError(t, err)
+
+	lockedFeed, err := repo.Using(testDB.DB).LockFeed(ctx, feed.ID)
+	require.NoError(t, err)
+	assert.Equal(t, feed.ID, lockedFeed.ID)
+	assert.Equal(t, feed.URL, lockedFeed.URL)
+}
+
+func createFeedItems(num int, startTime time.Time) []*reader.Item {
+	result := make([]*reader.Item, num)
+	for idx := range num {
+		n := strconv.Itoa(num - 1 - idx)
+		result[idx] = &reader.Item{
+			URL:         "https://example.com/post" + n,
+			Title:       "Test Post " + n,
+			Summary:     "Summary of test post " + n,
+			PublishedAt: new(startTime.Add(-time.Duration(idx) * time.Hour)),
+		}
+	}
+
+	return result
+}
+
+func TestSaveFeed(t *testing.T) {
+	testDB := testdb.New(t)
+
+	ctrl := NewMockController(t)
+
+	ctx := context.Background()
+
+	user, err := feedutil.CreateUser(ctx, testDB.DB, "test@example.com")
+	require.NoError(t, err)
+
+	pastTime := time.Now().Add(-1 * time.Hour)
+
+	feed1, err := feedutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed1", "Feed 1")
+	require.NoError(t, err)
+	feed1.NextFetchAt = null.TimeFrom(pastTime)
+	_, err = feed1.Update(ctx, testDB.DB, boil.Infer())
+	require.NoError(t, err)
+
+	_, err = feedutil.CreateUserFeedSubscription(ctx, testDB.DB, user.ID, feed1.ID)
+	require.NoError(t, err)
+
+	feedContent := &reader.Feed{
+		Title:       "test feed",
+		Description: "test feed description",
+		Items:       createFeedItems(2, time.Now()),
+	}
+
+	fetcher := Mock[fetcher](ctrl)
+	cleaner := Mock[cleaner](ctrl)
+
+	WhenDouble(cleaner.HTMLToMarkdown(Any[string]())).ThenAnswer(func(args []any) (string, error) {
+		return args[0].(string), nil
+	})
+
+	err = newService(repo.Using(testDB.DB), fetcher, cleaner, nil).saveFeed(ctx, repo.Using(testDB.DB), feed1, feedContent)
+	require.NoError(t, err)
+
+	fetchedFeeds, err := readItems(ctx, testDB.DB, user)
+	require.NoError(t, err)
+	require.Len(t, fetchedFeeds, 2)
+
+	// Verify the order (newest first)
+	require.Equal(t, "https://example.com/post1", fetchedFeeds[0].URL)
+	require.Equal(t, "https://example.com/post0", fetchedFeeds[1].URL)
+
+	// feed items are actually sorted by AddedAt field
+	require.True(t, fetchedFeeds[0].AddedAt.After(fetchedFeeds[1].AddedAt))
+}
+
+func TestSaveFeedInitialAndFollowUp(t *testing.T) {
+	testDB := testdb.New(t)
+
+	ctrl := NewMockController(t)
+
+	ctx := context.Background()
+
+	user, err := feedutil.CreateUser(ctx, testDB.DB, "test@example.com")
+	require.NoError(t, err)
+
+	pastTime := time.Now().Add(-1 * time.Hour)
+
+	feed1, err := feedutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed1", "Feed 1")
+	require.NoError(t, err)
+	feed1.LastFetchError = null.StringFrom("error fetching")
+	feed1.NextFetchAt = null.TimeFrom(pastTime)
+	_, err = feed1.Update(ctx, testDB.DB, boil.Infer())
+	require.NoError(t, err)
+
+	_, err = feedutil.CreateUserFeedSubscription(ctx, testDB.DB, user.ID, feed1.ID)
+	require.NoError(t, err)
+
+	n := time.Now()
+
+	feedContent := &reader.Feed{
+		Title:       "test feed",
+		Description: "test feed description",
+		Items:       createFeedItems(10, n),
+	}
+
+	fetcher := Mock[fetcher](ctrl)
+	cleaner := Mock[cleaner](ctrl)
+
+	WhenDouble(cleaner.HTMLToMarkdown(Any[string]())).ThenAnswer(func(args []any) (string, error) {
+		return args[0].(string), nil
+	})
+
+	err = newService(repo.Using(testDB.DB), fetcher, cleaner, nil).saveFeed(ctx, repo.Using(testDB.DB), feed1, feedContent)
+	require.NoError(t, err)
+
+	err = feed1.Reload(ctx, testDB.DB)
+	require.NoError(t, err)
+
+	assert.Empty(t, feed1.LastFetchError.String, "successful fetch should erase any previous error")
+
+	fetchedFeeds, err := readItems(ctx, testDB.DB, user)
+	require.NoError(t, err)
+	require.Len(t, fetchedFeeds, 5)
+
+	// Verify the order (newest first)
+	require.Equal(t, "https://example.com/post9", fetchedFeeds[0].URL)
+	require.Equal(t, "https://example.com/post8", fetchedFeeds[1].URL)
+	require.Equal(t, "https://example.com/post7", fetchedFeeds[2].URL)
+	require.Equal(t, "https://example.com/post6", fetchedFeeds[3].URL)
+	require.Equal(t, "https://example.com/post5", fetchedFeeds[4].URL)
+
+	newItems := []*reader.Item{
+		{
+			Title:   "fresh item",
+			URL:     "https://example.com/post100",
+			Summary: "post 100",
+		},
+	}
+
+	newItems = append(newItems, feedContent.Items...)
+	feedContent = &reader.Feed{
+		Title:       "test feed",
+		Description: "test feed description",
+		Items:       newItems,
+	}
+
+	err = newService(repo.Using(testDB.DB), fetcher, cleaner, nil).saveFeed(ctx, repo.Using(testDB.DB), feed1, feedContent)
+	require.NoError(t, err)
+
+	fetchedFeeds, err = readItems(ctx, testDB.DB, user)
+	require.NoError(t, err)
+	require.Len(t, fetchedFeeds, 6)
+	require.Equal(t, "https://example.com/post100", fetchedFeeds[0].URL)
+	require.Equal(t, "https://example.com/post9", fetchedFeeds[1].URL)
+	require.Equal(t, "https://example.com/post8", fetchedFeeds[2].URL)
+	require.Equal(t, "https://example.com/post7", fetchedFeeds[3].URL)
+	require.Equal(t, "https://example.com/post6", fetchedFeeds[4].URL)
+	require.Equal(t, "https://example.com/post5", fetchedFeeds[5].URL)
+
 }
