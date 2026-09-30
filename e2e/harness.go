@@ -207,12 +207,35 @@ func Start(t testing.TB, opts ...Option) *App {
 
 	db := testdb.New(t)
 	work := workDir(t, cfg.realAssets)
+	// freePort releases the port before the binary binds it, so another
+	// process can take it in between; the binary then exits at startup, and
+	// Start tries again on a new port.
+	for attempt := 1; ; attempt++ {
+		url, err := startBinary(t, work, db.URL, cfg.env)
+		if err == nil {
+			return &App{URL: url, DB: db.DB}
+		}
+
+		if !errors.Is(err, errPortTaken) || attempt == 3 {
+			t.Fatalf("e2e: %v", err)
+		}
+	}
+}
+
+// errPortTaken: the binary exited at startup because its port was in use.
+var errPortTaken = errors.New("the port was taken before the web binary bound it")
+
+// startBinary starts the web binary on a free port and waits until it serves
+// GET /. It returns the binary's root URL.
+func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (string, error) {
+	t.Helper()
+
 	port := freePort(t)
 	url := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	env := map[string]string{
 		"PORT":         fmt.Sprint(port),
-		"DATABASE_URL": db.URL,
+		"DATABASE_URL": dbURL,
 		"SESSION_SALT": "test",
 		"SITE_ROOT":    url,
 		"GIN_MODE":     "release",
@@ -220,7 +243,7 @@ func Start(t testing.TB, opts ...Option) *App {
 	if dir := coverDir(); dir != "" {
 		env["GOCOVERDIR"] = dir
 	}
-	maps.Copy(env, cfg.env)
+	maps.Copy(env, extraEnv)
 
 	cmd := exec.Command(binPath)
 	cmd.Dir = work
@@ -231,7 +254,7 @@ func Start(t testing.TB, opts ...Option) *App {
 	cmd.Stderr = out
 
 	if err := cmd.Start(); err != nil {
-		t.Fatalf("e2e: starting the web binary: %v", err)
+		return "", fmt.Errorf("starting the web binary: %w", err)
 	}
 
 	exited := make(chan struct{})
@@ -239,6 +262,11 @@ func Start(t testing.TB, opts ...Option) *App {
 		_ = cmd.Wait()
 		close(exited)
 	}()
+
+	if err := waitReady(url, exited, out); err != nil {
+		stop(cmd, exited)
+		return "", err
+	}
 
 	t.Cleanup(func() {
 		stop(cmd, exited)
@@ -248,9 +276,7 @@ func Start(t testing.TB, opts ...Option) *App {
 		}
 	})
 
-	waitReady(t, url, exited, out)
-
-	return &App{URL: url, DB: db.DB}
+	return url, nil
 }
 
 // coverDir is where the binary writes coverage data: the test's own
@@ -393,9 +419,7 @@ func freePort(t testing.TB) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func waitReady(t testing.TB, url string, exited <-chan struct{}, out *syncBuffer) {
-	t.Helper()
-
+func waitReady(url string, exited <-chan struct{}, out *syncBuffer) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -405,15 +429,19 @@ func waitReady(t testing.TB, url string, exited <-chan struct{}, out *syncBuffer
 		if err == nil {
 			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
-				return
+				return nil
 			}
 		}
 
 		select {
 		case <-exited:
-			t.Fatalf("e2e: the web binary exited during startup:\n%s", out.String())
+			if strings.Contains(out.String(), "address already in use") {
+				return errPortTaken
+			}
+
+			return fmt.Errorf("the web binary exited during startup:\n%s", out.String())
 		case <-ctx.Done():
-			t.Fatalf("e2e: the web binary did not serve GET / with 200 within 30s (last error: %v):\n%s", err, out.String())
+			return fmt.Errorf("the web binary did not serve GET / with 200 within 30s (last error: %v):\n%s", err, out.String())
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
