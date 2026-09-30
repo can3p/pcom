@@ -196,3 +196,19 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   gogo's executor parameter only served one app's mail queue; after RS the
   app's forms ignored it. Deleting it beat designing an ORM-agnostic
   interface.
+- **Revert a mutation from a backup, never with git, in a subagent's
+  worktree.** Its work is uncommitted, so `git checkout <file>` erases it.
+  Copy the file aside before breaking it and copy it back.
+- **"Every setting tested" means tested where it takes effect.** A table
+  that parses each variable catches renames, not a setting that is parsed
+  and ignored or wired into the wrong field. Test each setting's on and off
+  at its point of use, and the composition root's mapping one setting at a
+  time.
+- **A negative assertion on asynchronous work needs a barrier, not a
+  sleep.** "No mail arrived" after a fixed wait passes whenever the mail is
+  merely late. Wait for the producer to finish (the queue drained), then
+  assert, and use addresses no parallel test shares.
+- **A contract task must leave the tree runnable.** When a contract removes
+  a fallback (the console sender), the replacement's plumbing (the tommy
+  container, harness env) belongs in the same task, even if the plan put it
+  later.
