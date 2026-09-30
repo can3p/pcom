@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/links"
 	pcommail "github.com/can3p/pcom/pkg/mail"
@@ -49,6 +50,7 @@ func TestNotifyNewUser(t *testing.T) {
 	require.Len(t, sent, 1)
 
 	mail := sent[0].Mail
+	requireAddresses(t, mail)
 	require.Equal(t, "admin_new_user", sent[0].EmailType)
 	require.Equal(t, "New User on pcom", mail.Subject)
 
@@ -74,6 +76,7 @@ func TestNotifyNewWaitingListMember(t *testing.T) {
 	require.Len(t, sent, 1)
 
 	mail := sent[0].Mail
+	requireAddresses(t, mail)
 	require.Equal(t, "new_waiting_list_member", sent[0].EmailType)
 	require.Equal(t, "New waiting list member on pcom", mail.Subject)
 
@@ -100,6 +103,7 @@ func TestNotifySignupConfirmed(t *testing.T) {
 	require.Len(t, sent, 1)
 
 	mail := sent[0].Mail
+	requireAddresses(t, mail)
 	require.Equal(t, "signup_confirmed", sent[0].EmailType)
 	require.Equal(t, "New User confirmed email on pcom", mail.Subject)
 
@@ -121,6 +125,7 @@ func TestNotifyThrowAwayEmailSignupAttempt(t *testing.T) {
 	require.Len(t, sent, 1)
 
 	mail := sent[0].Mail
+	requireAddresses(t, mail)
 	require.Equal(t, "throw_away_email_signup", sent[0].EmailType)
 	require.Equal(t, "An attempt to use a throwaway email domain on pcom", mail.Subject)
 
@@ -168,6 +173,7 @@ func TestNotifications_EscapeUserContentInHTML(t *testing.T) {
 			sent := s.Sent()
 			require.Len(t, sent, 1)
 
+			requireAddresses(t, sent[0].Mail)
 			html := sent[0].Mail.Html
 			require.NotContains(t, html, "<b>x</b>")
 			require.NotContains(t, html, `"><`)
@@ -175,4 +181,13 @@ func TestNotifications_EscapeUserContentInHTML(t *testing.T) {
 			require.Contains(t, html, "&#34;")
 		})
 	}
+}
+
+// Every notification goes from the sender address to the admin address.
+func requireAddresses(t *testing.T, m *sender.Mail) {
+	t.Helper()
+
+	require.Equal(t, testFrom, m.From.Address)
+	require.Len(t, m.To, 1)
+	require.Equal(t, testAdmin, m.To[0].Address)
 }

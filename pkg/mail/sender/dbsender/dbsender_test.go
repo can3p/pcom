@@ -351,3 +351,22 @@ func TestRunPoller_SendsPendingAndStopsOnContextCancel(t *testing.T) {
 		t.Fatal("RunPoller did not stop after its context was cancelled")
 	}
 }
+
+// The interval is honoured: with a long one nothing is sent before it elapses.
+func TestRunPoller_LongIntervalSendsNothingEarly(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	store := repo.New(db)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	real := fakesender.New()
+	m := NewSender(store, real.Delivery())
+
+	newOutgoingEmail(t, context.Background(), store)
+
+	go m.RunPoller(ctx, time.Hour)
+
+	require.Never(t, func() bool { return len(real.Sent()) > 0 }, 500*time.Millisecond, 50*time.Millisecond)
+}
