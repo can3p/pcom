@@ -1,0 +1,10 @@
+Usage:
+  web [OPTIONS] debug <feed>
+
+Tools for looking at how pcom sees the outside world.
+
+Help Options:
+  -h, --help      Show this help message
+
+Available commands:
+  feed  Show how a feed is read

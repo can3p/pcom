@@ -1,0 +1,14 @@
+Usage:
+  web [OPTIONS] admin invite [invite-OPTIONS]
+
+Give an account more invites to hand out.
+
+Help Options:
+  -h, --help              Show this help message
+
+[invite command options]
+          --email=        Email of the account that receives the invites
+          --num=          Number of invites to add
+
+    Database:
+          --database-url= Postgres connection URL [$DATABASE_URL]

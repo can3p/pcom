@@ -36,7 +36,6 @@ func TestSeed_EveryPageRenders(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, seed.Run(ctx, app.DB.DB, &strings.Builder{}, seed.Options{
-		Getenv: func(string) string { return "" },
 	}))
 
 	ids := map[string]string{}

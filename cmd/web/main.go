@@ -37,6 +37,9 @@ func newParser() *flags.Parser {
 	p := config.NewParser()
 
 	mustAdd(p.AddCommand("serve", "Run the web server", "Serve the site, send queued mail and poll RSS feeds.", &serveCmd{}))
+	mustAdd(p.AddCommand("seed", "Fill a development database", "Seed users, posts and comments; refuses to run where FLY_APP_NAME is set.", &seedCmd{}))
+	addAdminCommands(p)
+	addDebugCommands(p)
 
 	return p
 }
