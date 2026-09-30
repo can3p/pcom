@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/postops/rss"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/gin-gonic/gin"
@@ -13,6 +12,8 @@ import (
 
 // mountRSSRoutes registers the public and private RSS feeds.
 func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
+	site := siteOf(d)
+
 	reading := d.Services.Reading
 
 	r.GET("/rss/public/:username", func(c *gin.Context) {
@@ -25,8 +26,9 @@ func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 		}
 
 		writeRSS(c, rss.ToFeed(
+			site,
 			"New posts from @"+username,
-			links.AbsLink("user", username),
+			site.Abs("user", username),
 			journal.Author,
 			journal.Posts,
 		))
@@ -40,8 +42,9 @@ func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 		}
 
 		writeRSS(c, rss.ToFeed(
+			site,
 			"User feed @"+feed.Owner.Username,
-			links.AbsLink("feed", feed.Owner.Username),
+			site.Abs("feed", feed.Owner.Username),
 			feed.Owner,
 			feed.Posts,
 		))

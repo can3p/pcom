@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -14,14 +13,14 @@ import (
 
 // PostPromptAnswer formats the notification for the asker of a prompt that
 // the recipient answered with a post.
-func PostPromptAnswer(asker, recipient *core.User, post *core.Post, postPrompt *core.PostPrompt) *Outgoing {
-	link := links.AbsLink("post", postPrompt.PostID.String)
+func PostPromptAnswer(site links.Site, from string, asker, recipient *core.User, post *core.Post, postPrompt *core.PostPrompt) *Outgoing {
+	link := site.Abs("post", postPrompt.PostID.String)
 
 	subject := postops.PostSubject(post.Subject)
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

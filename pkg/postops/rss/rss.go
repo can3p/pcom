@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/feeds"
 )
 
-func ToFeed(title string, link string, author *core.User, posts []*postops.Post) *feeds.Feed {
+func ToFeed(site links.Site, title string, link string, author *core.User, posts []*postops.Post) *feeds.Feed {
 	feed := &feeds.Feed{
 		Title: title,
 		Link:  &feeds.Link{Href: link},
@@ -21,8 +21,8 @@ func ToFeed(title string, link string, author *core.User, posts []*postops.Post)
 		content := "Post is not public, follow the link to read the text"
 
 		if post.VisibilityRadius == core.PostVisibilityPublic {
-			content = string(markdown.ToEnrichedTemplate(post.Body, types.ViewRSS, links.MediaReplacer, func(in string, add2 ...string) string {
-				return links.AbsLink(in, add2...)
+			content = string(markdown.ToEnrichedTemplate(post.Body, types.ViewRSS, site.MediaReplacer, func(in string, add2 ...string) string {
+				return site.Abs(in, add2...)
 			}))
 		}
 
@@ -41,7 +41,7 @@ func ToFeed(title string, link string, author *core.User, posts []*postops.Post)
 					return by
 				}(),
 			},
-			Link:        &feeds.Link{Href: links.AbsLink("post", post.ID)},
+			Link:        &feeds.Link{Href: site.Abs("post", post.ID)},
 			Description: content,
 			Created:     post.CreatedAt.Time,
 		})

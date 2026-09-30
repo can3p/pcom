@@ -1,10 +1,7 @@
 package links
 
 import (
-	"os"
-
 	"github.com/can3p/gogo/links"
-	"github.com/can3p/pcom/pkg/util"
 )
 
 func DefaultAuthorizedHome() string {
@@ -109,12 +106,19 @@ func Link(name string, args ...string) string {
 	return l
 }
 
-func AbsLink(name string, args ...string) string {
-	if name == "uploaded_media" {
-		if pr, ok := os.LookupEnv("USER_MEDIA_CDN"); ok && util.InCluster() {
-			return pr + "/" + args[0]
-		}
+// Site is the public face of the installation: the root URL absolute links
+// start with and the optional CDN that serves uploaded media.
+type Site struct {
+	Root     string
+	MediaCDN string
+}
+
+// Abs is Link with the site root in front. Uploaded media is served from
+// the media CDN when one is set.
+func (s Site) Abs(name string, args ...string) string {
+	if name == "uploaded_media" && s.MediaCDN != "" {
+		return s.MediaCDN + "/" + args[0]
 	}
 
-	return util.SiteRoot() + Link(name, args...)
+	return s.Root + Link(name, args...)
 }

@@ -74,7 +74,7 @@ func New(t testing.TB, method, target string, body io.Reader, opts ...Option) (*
 	sessions.Sessions(sessionName, store)(c)
 
 	// the same options router.go installs, with errors shown as in dev
-	ginhelpers.Configure(ginhelpers.Options{RedirectToLogin: auth.RedirectToLogin, ShowErrors: true})(c)
+	ginhelpers.Configure(ginhelpers.Options{RedirectToLogin: auth.RedirectToLogin("test-salt"), ShowErrors: true})(c)
 
 	for _, opt := range opts {
 		opt(c)

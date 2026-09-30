@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -22,17 +21,17 @@ type Envelope struct {
 
 // ConfirmSignup is the mail with the link that confirms a new account's
 // email address.
-func ConfirmSignup(user *core.User) (*Envelope, error) {
+func ConfirmSignup(site links.Site, from string, user *core.User) (*Envelope, error) {
 	if user.EmailConfirmSeed.String == "" {
 		return nil, errors.Errorf("cannot send confirm email for user with empty confirmation seed, user id = %s", user.ID)
 	}
 
-	link := links.AbsLink("confirm_signup", user.EmailConfirmSeed.String)
+	link := site.Abs("confirm_signup", user.EmailConfirmSeed.String)
 	to := user.Email
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

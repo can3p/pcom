@@ -112,7 +112,7 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 
 		dbPost := post.Post.Post
 
-		body, err := markdown.ReplaceImageUrls(dbPost.Body, links.MediaReplacer)
+		body, err := markdown.ReplaceImageUrls(dbPost.Body, siteOf(d).MediaReplacer)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err) //nolint:errcheck
 			return

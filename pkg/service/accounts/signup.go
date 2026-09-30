@@ -46,7 +46,7 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 
 	if parsedEmail.Disposable {
 		go func() {
-			if err := s.send(ctx, s.store, admin.ThrowAwayEmailSignupAttempt(address)); err != nil {
+			if err := s.send(ctx, s.store, admin.ThrowAwayEmailSignupAttempt(s.ident.From, s.ident.AdminAddress, address)); err != nil {
 				log.Printf("failed to queue the throwaway email notification: %v", err)
 			}
 		}()
@@ -120,7 +120,7 @@ func (s *Service) Register(ctx context.Context, email, username, password, attri
 			return err
 		}
 
-		confirm, err := mail.ConfirmSignup(u)
+		confirm, err := mail.ConfirmSignup(s.ident.Site, s.ident.From, u)
 		if err != nil {
 			return err
 		}
@@ -152,7 +152,7 @@ func (s *Service) signup(ctx context.Context, tx *repo.Store, email, username, p
 		return nil, err
 	}
 
-	if err := s.send(ctx, tx, admin.NewUser(u)); err != nil {
+	if err := s.send(ctx, tx, admin.NewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
 		return nil, err
 	}
 
@@ -184,7 +184,7 @@ func (s *Service) ConfirmSignup(ctx context.Context, seed string) error {
 	}
 
 	if confirmed {
-		s.notifyAdmin(ctx, "signup confirmed", admin.SignupConfirmed(user))
+		s.notifyAdmin(ctx, "signup confirmed", admin.SignupConfirmed(s.ident.Site, s.ident.From, s.ident.AdminAddress, user))
 	}
 
 	return nil
@@ -211,11 +211,11 @@ func (s *Service) JoinWaitingList(ctx context.Context, email, reason, attributio
 			return fatal(err)
 		}
 
-		if err := s.send(ctx, tx, mail.ConfirmWaitingList(request)); err != nil {
+		if err := s.send(ctx, tx, mail.ConfirmWaitingList(s.ident.Site, s.ident.From, request)); err != nil {
 			return fatal(err)
 		}
 
-		return s.send(ctx, tx, admin.NewWaitingListMember(request))
+		return s.send(ctx, tx, admin.NewWaitingListMember(s.ident.Site, s.ident.From, s.ident.AdminAddress, request))
 	})
 }
 

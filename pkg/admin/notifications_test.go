@@ -6,11 +6,17 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/admin"
+	"github.com/can3p/pcom/pkg/links"
 	pcommail "github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/golden"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	testFrom  = "noreply@pcom.test"
+	testAdmin = "admin@pcom.test"
 )
 
 // send queues the way a service would: through the sender, with no database.
@@ -37,7 +43,7 @@ func TestNotifyNewUser(t *testing.T) {
 		Username: "alice",
 	}
 
-	require.NoError(t, send(ctx, sender, admin.NewUser(user)))
+	require.NoError(t, send(ctx, sender, admin.NewUser(links.Site{}, testFrom, testAdmin, user)))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -62,7 +68,7 @@ func TestNotifyNewWaitingListMember(t *testing.T) {
 		Email: "signup@example.test",
 	}
 
-	require.NoError(t, send(ctx, sender, admin.NewWaitingListMember(signup)))
+	require.NoError(t, send(ctx, sender, admin.NewWaitingListMember(links.Site{}, testFrom, testAdmin, signup)))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -88,7 +94,7 @@ func TestNotifySignupConfirmed(t *testing.T) {
 		Username: "alice",
 	}
 
-	require.NoError(t, send(ctx, sender, admin.SignupConfirmed(user)))
+	require.NoError(t, send(ctx, sender, admin.SignupConfirmed(links.Site{}, testFrom, testAdmin, user)))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -109,7 +115,7 @@ func TestNotifyThrowAwayEmailSignupAttempt(t *testing.T) {
 	sender := fakesender.New()
 
 	email := "test@throwaway.example.com"
-	require.NoError(t, send(ctx, sender, admin.ThrowAwayEmailSignupAttempt(email)))
+	require.NoError(t, send(ctx, sender, admin.ThrowAwayEmailSignupAttempt(testFrom, testAdmin, email)))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
@@ -134,10 +140,18 @@ func notifiers() map[string]func(s *fakesender.Sender) error {
 	signup.Reason.SetValid(hostile)
 
 	return map[string]func(s *fakesender.Sender) error{
-		"NewUser":              func(s *fakesender.Sender) error { return send(ctx, s, admin.NewUser(user)) },
-		"NewWaitingListMember": func(s *fakesender.Sender) error { return send(ctx, s, admin.NewWaitingListMember(signup)) },
-		"SignupConfirmed":      func(s *fakesender.Sender) error { return send(ctx, s, admin.SignupConfirmed(user)) },
-		"ThrowAwayEmail":       func(s *fakesender.Sender) error { return send(ctx, s, admin.ThrowAwayEmailSignupAttempt(hostile)) },
+		"NewUser": func(s *fakesender.Sender) error {
+			return send(ctx, s, admin.NewUser(links.Site{}, testFrom, testAdmin, user))
+		},
+		"NewWaitingListMember": func(s *fakesender.Sender) error {
+			return send(ctx, s, admin.NewWaitingListMember(links.Site{}, testFrom, testAdmin, signup))
+		},
+		"SignupConfirmed": func(s *fakesender.Sender) error {
+			return send(ctx, s, admin.SignupConfirmed(links.Site{}, testFrom, testAdmin, user))
+		},
+		"ThrowAwayEmail": func(s *fakesender.Sender) error {
+			return send(ctx, s, admin.ThrowAwayEmailSignupAttempt(testFrom, testAdmin, hostile))
+		},
 	}
 }
 

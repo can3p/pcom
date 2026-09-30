@@ -4,20 +4,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/golden"
 	"github.com/stretchr/testify/require"
 )
 
-func init() {
-	if os.Getenv("SENDER_ADDRESS") == "" {
-		_ = os.Setenv("SENDER_ADDRESS", "noreply@pcom.test")
-	}
-}
+const testFrom = "noreply@pcom.test"
 
 // mailsToGolden serializes fakesender recordings to a human-readable format for golden testing
 func mailsToGoldenInternal(sent []fakesender.Recorded) []byte {
@@ -50,7 +46,7 @@ func TestSendActualConfirmWaitingList(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	e := ConfirmWaitingList(waitingList)
+	e := ConfirmWaitingList(links.Site{}, testFrom, waitingList)
 	err := sender.Send(ctx, nil, e.UniqueID, e.Type, e.Mail)
 	require.NoError(t, err)
 
@@ -76,7 +72,7 @@ func TestSendActualInvitation(t *testing.T) {
 	sender := fakesender.New()
 	ctx := context.Background()
 
-	e := Invitation(invite, "newuser@example.test")
+	e := Invitation(links.Site{}, testFrom, invite, "newuser@example.test")
 	err := sender.Send(ctx, nil, e.UniqueID, e.Type, e.Mail)
 	require.NoError(t, err)
 

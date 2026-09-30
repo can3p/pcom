@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -256,7 +255,7 @@ func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *co
 			return err
 		}
 
-		if err := s.queue(ctx, tx, mail.PostPromptAnswer(prompt.Author, actor, post, dbPrompt)); err != nil {
+		if err := s.queue(ctx, tx, mail.PostPromptAnswer(s.ident.Site, s.ident.From, prompt.Author, actor, post, dbPrompt)); err != nil {
 			return err
 		}
 	}
@@ -272,7 +271,7 @@ func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *co
 	}
 
 	for _, conn := range connections {
-		if err := s.queue(ctx, tx, mail.NewPost(links.MediaReplacer, actor, conn, post)); err != nil {
+		if err := s.queue(ctx, tx, mail.NewPost(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, conn, post)); err != nil {
 			return err
 		}
 	}

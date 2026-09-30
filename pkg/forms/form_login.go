@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,9 +22,12 @@ type LoginFormInput struct {
 type LoginForm struct {
 	*forms.FormBase[LoginFormInput]
 	Accounts *accounts.Service
+	// Salt signs return urls; SiteRoot is what a verified one is appended to.
+	Salt     string
+	SiteRoot string
 }
 
-func LoginFormNew(accounts *accounts.Service) forms.Form {
+func LoginFormNew(accounts *accounts.Service, salt, siteRoot string) forms.Form {
 	var form forms.Form = &LoginForm{
 		FormBase: &forms.FormBase[LoginFormInput]{
 			Name:         "login",
@@ -33,6 +35,8 @@ func LoginFormNew(accounts *accounts.Service) forms.Form {
 			Input:        &LoginFormInput{},
 		},
 		Accounts: accounts,
+		Salt:     salt,
+		SiteRoot: siteRoot,
 	}
 
 	return form
@@ -57,8 +61,8 @@ func (f *LoginForm) Save(c context.Context) (forms.FormSaveAction, error) {
 		return nil, err
 	}
 
-	if f.Input.ReturnURL != "" && auth.HashValue(f.Input.ReturnURL) == f.Input.Sign {
-		return forms.FormSaveRedirect(util.SiteRoot() + f.Input.ReturnURL), nil
+	if f.Input.ReturnURL != "" && auth.HashValue(f.Salt, f.Input.ReturnURL) == f.Input.Sign {
+		return forms.FormSaveRedirect(f.SiteRoot + f.Input.ReturnURL), nil
 	}
 
 	return forms.FormSaveRedirect(links.DefaultAuthorizedHome()), nil

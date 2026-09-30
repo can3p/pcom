@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 	"strings"
 
 	"github.com/can3p/gogo/sender"
@@ -18,19 +17,19 @@ import (
 
 // PostCommentAuthor formats the notification for the author of a post about
 // a new comment. It returns nil when there is nobody to notify.
-func PostCommentAuthor(mediaReplacer types.Replacer[string], user *core.User, author *core.User, post *core.Post, comment *core.PostComment) (*Outgoing, error) {
+func PostCommentAuthor(site links.Site, from string, mediaReplacer types.Replacer[string], user *core.User, author *core.User, post *core.Post, comment *core.PostComment) (*Outgoing, error) {
 	// we're not sending email notifications to ourselves
 	if user.ID == author.ID {
 		return nil, nil
 	}
 
-	link := links.AbsLink("comment", post.ID, comment.ID)
+	link := site.Abs("comment", post.ID, comment.ID)
 	body, err := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
 	if err != nil {
 		// ReplaceImageUrls only fails if goldmark cannot render, which no input triggers, so no test covers this.
 		return nil, errors.Wrap(err, "failed to render the comment")
 	}
-	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, links.AbsLink)
+	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, site.Abs)
 
 	subject := postops.PostSubject(post.Subject)
 
@@ -44,7 +43,7 @@ func PostCommentAuthor(mediaReplacer types.Replacer[string], user *core.User, au
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

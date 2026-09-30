@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -24,13 +23,13 @@ type Outgoing struct {
 
 // NewPost formats the notification about a new post for one connection of its
 // author. It returns nil when there is nobody to notify.
-func NewPost(mediaReplacer types.Replacer[string], user *core.User, connection *core.User, post *core.Post) *Outgoing {
+func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string], user *core.User, connection *core.User, post *core.Post) *Outgoing {
 	// we're not sending email notifications to ourselves
 	if user.ID == connection.ID {
 		return nil
 	}
 
-	link := links.AbsLink("post", post.ID)
+	link := site.Abs("post", post.ID)
 	// there reason to omit body in the text version is that we should redo the logic with cut, gallery etc
 	// and I have no desire to spend time on that
 	htmlbody := markdown.ToEnrichedTemplate(post.Body, types.ViewEmail, mediaReplacer, func(in string, add2 ...string) string {
@@ -38,10 +37,10 @@ func NewPost(mediaReplacer types.Replacer[string], user *core.User, connection *
 			args := []string{post.ID}
 			args = append(args, add2...)
 
-			return links.AbsLink("post", args...)
+			return site.Abs("post", args...)
 		}
 
-		return links.AbsLink(in, add2...)
+		return site.Abs(in, add2...)
 	})
 
 	subject := postops.PostSubject(post.Subject)
@@ -57,7 +56,7 @@ func NewPost(mediaReplacer types.Replacer[string], user *core.User, connection *
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{

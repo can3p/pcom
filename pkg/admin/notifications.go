@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
-	"os"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
@@ -13,20 +12,18 @@ import (
 	"github.com/google/uuid"
 )
 
-var NotifyAddress string = os.Getenv("ADMIN_ADDRESS")
-
 // NewUser tells the admin about a new account.
-func NewUser(user *core.User) *pcommail.Envelope {
-	blogURL := links.AbsLink("user", user.Username)
+func NewUser(site links.Site, from, adminAddress string, user *core.User) *pcommail.Envelope {
+	blogURL := site.Abs("user", user.Username)
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
 			{
-				Address: NotifyAddress,
+				Address: adminAddress,
 			},
 		},
 		Subject: "New User on pcom",
@@ -54,7 +51,7 @@ func NewUser(user *core.User) *pcommail.Envelope {
 }
 
 // NewWaitingListMember tells the admin about a new waiting list entry.
-func NewWaitingListMember(waitingList *core.UserSignupRequest) *pcommail.Envelope {
+func NewWaitingListMember(site links.Site, from, adminAddress string, waitingList *core.UserSignupRequest) *pcommail.Envelope {
 	r := waitingList.Reason.String
 
 	if r == "" {
@@ -63,12 +60,12 @@ func NewWaitingListMember(waitingList *core.UserSignupRequest) *pcommail.Envelop
 
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
 			{
-				Address: NotifyAddress,
+				Address: adminAddress,
 			},
 		},
 		Subject: "New waiting list member on pcom",
@@ -96,15 +93,15 @@ func NewWaitingListMember(waitingList *core.UserSignupRequest) *pcommail.Envelop
 }
 
 // SignupConfirmed tells the admin that an account confirmed its email.
-func SignupConfirmed(user *core.User) *pcommail.Envelope {
+func SignupConfirmed(site links.Site, from, adminAddress string, user *core.User) *pcommail.Envelope {
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
 			{
-				Address: NotifyAddress,
+				Address: adminAddress,
 			},
 		},
 		Subject: "New User confirmed email on pcom",
@@ -131,15 +128,15 @@ func SignupConfirmed(user *core.User) *pcommail.Envelope {
 
 // ThrowAwayEmailSignupAttempt tells the admin that somebody tried to sign up
 // with a throwaway email domain.
-func ThrowAwayEmailSignupAttempt(email string) *pcommail.Envelope {
+func ThrowAwayEmailSignupAttempt(from, adminAddress string, email string) *pcommail.Envelope {
 	mail := &sender.Mail{
 		From: mail.Address{
-			Address: os.Getenv("SENDER_ADDRESS"),
+			Address: from,
 			Name:    "Your pcom",
 		},
 		To: []mail.Address{
 			{
-				Address: NotifyAddress,
+				Address: adminAddress,
 			},
 		},
 		Subject: "An attempt to use a throwaway email domain on pcom",

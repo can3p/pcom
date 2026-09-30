@@ -12,25 +12,21 @@ import (
 )
 
 func TestHashValue(t *testing.T) {
-	t.Setenv("SESSION_SALT", "salt-one")
-
-	h1 := auth.HashValue("/some/path")
-	h2 := auth.HashValue("/some/path")
+	h1 := auth.HashValue("salt-one", "/some/path")
+	h2 := auth.HashValue("salt-one", "/some/path")
 	require.Equal(t, h1, h2, "hashing the same value twice must be deterministic")
 	require.Len(t, h1, 64, "sha256 hex digest is 64 chars")
 
-	require.NotEqual(t, h1, auth.HashValue("/some/other/path"), "different inputs must hash differently")
+	require.NotEqual(t, h1, auth.HashValue("salt-one", "/some/other/path"), "different inputs must hash differently")
 
-	t.Setenv("SESSION_SALT", "salt-two")
-	require.NotEqual(t, h1, auth.HashValue("/some/path"), "different salt must change the hash")
+	require.NotEqual(t, h1, auth.HashValue("salt-two", "/some/path"), "different salt must change the hash")
 }
 
 func TestRedirectToLogin(t *testing.T) {
-	t.Setenv("SESSION_SALT", "test-salt")
 
 	c, w := ginctx.New(t, http.MethodGet, "/feed", nil)
 
-	auth.RedirectToLogin(c)
+	auth.RedirectToLogin("test-salt")(c)
 
 	require.Equal(t, http.StatusFound, w.Code)
 
@@ -40,12 +36,10 @@ func TestRedirectToLogin(t *testing.T) {
 
 	q := loc.Query()
 	require.Equal(t, "/feed", q.Get("return_url"))
-	require.Equal(t, auth.HashValue("/feed"), q.Get("sign"))
+	require.Equal(t, auth.HashValue("test-salt", "/feed"), q.Get("sign"))
 }
 
 func TestEnforceReferer(t *testing.T) {
-	t.Setenv("SITE_ROOT", "https://example.com")
-
 	tests := []struct {
 		name       string
 		referer    string
@@ -78,7 +72,7 @@ func TestEnforceReferer(t *testing.T) {
 				c.Request.Header.Set("referer", tt.referer)
 			}
 
-			auth.EnforceReferer(c)
+			auth.EnforceReferer("https://example.com")(c)
 
 			require.Equal(t, tt.wantAbort, c.IsAborted())
 			if tt.wantAbort {
@@ -89,7 +83,6 @@ func TestEnforceReferer(t *testing.T) {
 }
 
 func TestEnforceAuth_RedirectsAnonymousUser(t *testing.T) {
-	t.Setenv("SESSION_SALT", "test-salt")
 
 	c, w := ginctx.New(t, http.MethodGet, "/controls", nil)
 

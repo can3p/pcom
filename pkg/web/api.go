@@ -1,7 +1,6 @@
 package web
 
 import (
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -74,7 +73,7 @@ func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result
 				IsPublished: p.PublishedAt.Valid,
 				PublishedAt: publishedAt,
 				UpdatedAt:   p.UpdatedAt.Time.Unix(),
-				PublicURL:   links.AbsLink("post", p.ID),
+				PublicURL:   svc.PostURL(p.ID),
 			}
 		}),
 		Cursor: listing.Cursor,
@@ -106,7 +105,7 @@ func ApiNewPost(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[
 
 	return mo.Ok(&ApiNewPostResponse{
 		ID:        saved.Post.ID,
-		PublicURL: links.AbsLink("post", saved.Post.ID),
+		PublicURL: svc.PostURL(saved.Post.ID),
 	})
 }
 
@@ -136,7 +135,7 @@ func ApiEditPost(c *gin.Context, svc *posts.Service, actor *core.User, postID st
 
 	return mo.Ok(&ApiNewPostResponse{
 		ID:        postID,
-		PublicURL: links.AbsLink("post", postID),
+		PublicURL: svc.PostURL(postID),
 	})
 }
 

@@ -81,8 +81,10 @@ func multipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Cont
 // postsService is the posts service over db and a sender that records
 // instead of sending.
 func postsService(db *sqlx.DB, s repo.MailQueue) *posts.Service {
-	return registry.New(db, registry.Deps{Sender: s}).Posts
+	return registry.New(db, registry.Deps{Sender: s, Site: testSite}).Posts
 }
+
+var testSite = links.Site{Root: "https://site.test"}
 
 func formatUnix(u int64) string {
 	return strconv.FormatInt(u, 10)
@@ -269,7 +271,7 @@ func TestApiNewPost(t *testing.T) {
 			require.Equal(t, "some **body**", post.Body)
 
 			if tc.isPublished {
-				require.Equal(t, links.AbsLink("post", resp.ID), resp.PublicURL)
+				require.Equal(t, testSite.Abs("post", resp.ID), resp.PublicURL)
 				require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
 
 				sent := sender.Sent()

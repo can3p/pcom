@@ -21,7 +21,7 @@ func New(d *Deps) *gin.Engine {
 	db := d.DB
 
 	if d.Services == nil {
-		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage})
+		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress})
 	}
 
 	store := pgsession.NewStore(db, []byte(d.Config.SessionSalt))
@@ -38,7 +38,7 @@ func New(d *Deps) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(ginhelpers.Configure(ginhelpers.Options{
-		RedirectToLogin: auth.RedirectToLogin,
+		RedirectToLogin: auth.RedirectToLogin(d.Config.SessionSalt),
 		ShowErrors:      d.Config.ShowErrors,
 	}))
 
@@ -49,7 +49,7 @@ func New(d *Deps) *gin.Engine {
 			userData := auth.GetUserData(c)
 			user := userData.DBUser
 
-			if nerr := d.Services.Accounts.SendAdminMail(c, admin.PageFailure(c, err, user)); nerr != nil {
+			if nerr := d.Services.Accounts.SendAdminMail(c, admin.PageFailure(d.Config.SenderAddress, d.Config.AdminAddress, c, err, user)); nerr != nil {
 				log.Printf("failed to queue the page failure notification: %v", nerr)
 			}
 		}))
@@ -57,7 +57,7 @@ func New(d *Deps) *gin.Engine {
 		log.Println("Custom error reporter skipped")
 	}
 
-	router.SetFuncMap(funcmap(d.Config.StaticAsset))
+	router.SetFuncMap(funcmap(d.Config.StaticAsset, siteOf(d)))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
 	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })
