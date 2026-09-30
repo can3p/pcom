@@ -226,7 +226,7 @@ def build(wave, task):
     if not tier:
         m = re.search(r"\b(cheap|mid|strong)\b", excerpt)
         tier = m.group(1) if m else ""
-    m = re.search(r"\bOwns (.+?)\.(?=\s|\||$)", excerpt, re.S)
+    m = re.search(r"\bOwns (?!\|)(.+?)\.(?=\s|\||$)", excerpt, re.S)  # a sentence, not the table header
     owned = m.group(1).strip() if m else fields.get("owns")
     where = owned or next((v for k, v in fields.items() if k.startswith("package")), own or excerpt)
     pkgs = [p for p in re.findall(r"`((?:pkg|cmd|e2e)/[\w/.-]+)`", where)
@@ -241,7 +241,7 @@ def build(wave, task):
         m = re.search(r"target (\d+%)", excerpt)
         target = m.group(1) if m else None
     done = f"the coverage of the task's packages is at least {target}" if target else \
-        "<FILL: the task's done-when, from the excerpt>"
+        fields.get("done when") or "<FILL: the task's done-when, from the excerpt>"
     header = f"# model: {TIERS.get(tier, '<FILL: tier>')}   ({wave.upper()}.{task}, tier {tier or '?'})"
     if wave.lower() == "wb":
         ui = (", and the un-skipped browser tests with `tools/qrun.sh test-ui go test -tags browser -count=1 -run"
