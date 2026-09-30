@@ -66,6 +66,7 @@ func TestLink_WithArguments(t *testing.T) {
 		{"confirm_signup", []string{"token-456"}, "/confirm_signup/token-456"},
 		{"action", []string{"publish"}, "/controls/action/publish"},
 		{"uploaded_media", []string{"image.jpg"}, "/user-media/image.jpg"},
+		{"public_feed", nil, "/rss/public"},
 		{"public_blog_feed", []string{"user-1"}, "/rss/public/user-1"},
 		{"private_user_feed", []string{"user-2"}, "/rss/private/user-2"},
 	}

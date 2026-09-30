@@ -101,17 +101,31 @@ func zipNames(t *testing.T, body string) []string {
 	return names
 }
 
+// TestVisibility_Index: the anonymous index lists published public posts of public
+// profiles only (Q15); a logged in user is sent to the feed.
 func TestVisibility_Index(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	user := newUser(t, app)
+
+	pubAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
+	regAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers))
+	connAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityConnections))
+
+	pubPost := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	regPost := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	connPost := newPost(t, app, connAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	draft := newPost(t, app, pubAuthor.ID, factory.Visibility(core.PostVisibilityPublic))
 
 	resp := requireStatus(t, app.Client(t).Get("/"), http.StatusOK)
-	require.Empty(t, resp.Location())
-	require.Equal(t, 1, resp.Doc().Find(`a[href="/signup?attribution=index_page"]`).Length())
+	text := resp.Doc().Text()
+	require.Contains(t, text, pubPost.Subject.String)
+	require.NotContains(t, text, regPost.Subject.String)
+	require.NotContains(t, text, connPost.Subject.String)
+	require.NotContains(t, text, draft.Subject.String)
+	require.Equal(t, 1, resp.Doc().Find(`link[rel="alternate"][href="/rss/public"]`).Length())
 
-	resp = requireStatus(t, loginAs(t, app, user).Get("/"), http.StatusFound)
+	resp = requireStatus(t, loginAs(t, app, pubAuthor).Get("/"), http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 }
 
@@ -121,20 +135,20 @@ func TestVisibility_Articles(t *testing.T) {
 	app := e2e.Start(t)
 	c := app.Client(t)
 
-	raw, err := os.ReadFile("../cmd/web/client/articles/why.md")
+	raw, err := os.ReadFile("../cmd/web/client/articles/privacy_policy.md")
 	require.NoError(t, err)
 	title, _, _ := strings.Cut(string(raw), "\n")
 
-	resp := requireStatus(t, c.Get("/articles/why"), http.StatusOK)
+	resp := requireStatus(t, c.Get("/articles/privacy_policy"), http.StatusOK)
 	require.Contains(t, resp.Doc().Text(), strings.TrimSpace(title))
 
 	requireStatus(t, c.Get("/articles/terms_of_service"), http.StatusOK)
 
 	for _, path := range []string{
 		"/articles/does_not_exist",
-		"/articles/Why",
+		"/articles/Privacy_Policy",
 		"/articles/bad-name",
-		"/articles/_why",
+		"/articles/_privacy_policy",
 		"/articles/..%2Fhtml%2Findex",
 	} {
 		requireStatus(t, c.Get(path), http.StatusNotFound)
@@ -669,8 +683,8 @@ func TestVisibility_SharedPost(t *testing.T) {
 	})
 }
 
-// TestVisibility_Explore: explore lists published public posts of public profiles to
-// everyone, and of registered_users profiles to logged-in users only.
+// TestVisibility_Explore: explore lists published public posts of public and
+// registered_users profiles to logged-in users; an anonymous visitor is sent to /.
 func TestVisibility_Explore(t *testing.T) {
 	t.Parallel()
 
@@ -687,12 +701,8 @@ func TestVisibility_Explore(t *testing.T) {
 	secondDegree := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilitySecondDegree))
 	draft := newPost(t, app, pubAuthor.ID, factory.Visibility(core.PostVisibilityPublic))
 
-	anonText := requireStatus(t, app.Client(t).Get("/explore"), http.StatusOK).Doc().Text()
-	require.Contains(t, anonText, pubPost.Subject.String)
-	require.NotContains(t, anonText, regPost.Subject.String)
-	require.NotContains(t, anonText, connPost.Subject.String)
-	require.NotContains(t, anonText, secondDegree.Subject.String)
-	require.NotContains(t, anonText, draft.Subject.String)
+	resp := requireStatus(t, app.Client(t).Get("/explore"), http.StatusFound)
+	require.Equal(t, "/", resp.Location())
 
 	userText := requireStatus(t, loginAs(t, app, viewer).Get("/explore"), http.StatusOK).Doc().Text()
 	require.Contains(t, userText, pubPost.Subject.String)
@@ -756,7 +766,7 @@ func TestVisibility_SecurityHeaders(t *testing.T) {
 
 	c := app.Client(t)
 
-	for _, path := range []string{"/", "/posts/" + post.ID, "/users/" + author.Username, "/explore", "/login"} {
+	for _, path := range []string{"/", "/posts/" + post.ID, "/users/" + author.Username, "/login"} {
 		resp := requireStatus(t, c.Get(path), http.StatusOK)
 
 		csp := resp.Header.Get("Content-Security-Policy")

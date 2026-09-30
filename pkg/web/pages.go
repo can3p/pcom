@@ -2,8 +2,11 @@ package web
 
 import (
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 )
 
 type BasePage struct {
@@ -25,6 +28,16 @@ func getBasePage(c *gin.Context, name string, userData *auth.UserData) *BasePage
 	}
 }
 
-func Index(c *gin.Context, userData *auth.UserData) *BasePage {
-	return getBasePage(c, "Social network for private groups", userData)
+// Index is / for an anonymous visitor: the public posts, read-only, and the
+// site-wide RSS feed.
+func Index(c *gin.Context, userData *auth.UserData, posts []*postops.Post) *FeedPage {
+	base := getBasePage(c, "Social network for private groups", userData)
+	base.RSSFeed = links.Link("public_feed")
+
+	return &FeedPage{
+		BasePage: base,
+		Items: lo.Map(posts, func(p *postops.Post, _ int) *FeedItem {
+			return &FeedItem{Post: p}
+		}),
+	}
 }
