@@ -186,7 +186,7 @@ func (s *Service) Explore(ctx context.Context, actor *core.User) ([]*postops.Pos
 		profiles = append(profiles, core.ProfileVisibilityRegisteredUsers)
 	}
 
-	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic, profiles)
+	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic, profiles, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +194,26 @@ func (s *Service) Explore(ctx context.Context, actor *core.User) ([]*postops.Pos
 	posts := make([]*postops.Post, 0, len(rawPosts))
 	for _, p := range rawPosts {
 		posts = append(posts, postops.ConstructPost(actor, p, graph.RadiusUnknown, nil, false))
+	}
+
+	return posts, nil
+}
+
+// PublicPosts is the public feed (Q15): at most limit published public posts
+// by authors whose profile is public, newest publication first. A public post
+// of a profile open to registered users or connections only stays readable
+// at its own page but is not listed here. Posts are built for nobody: no
+// actor, no comments, no actions.
+func (s *Service) PublicPosts(ctx context.Context, limit int) ([]*postops.Post, error) {
+	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic,
+		[]core.ProfileVisibility{core.ProfileVisibilityPublic}, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	posts := make([]*postops.Post, 0, len(rawPosts))
+	for _, p := range rawPosts {
+		posts = append(posts, postops.ConstructPost(nil, p, graph.RadiusUnknown, nil, false))
 	}
 
 	return posts, nil

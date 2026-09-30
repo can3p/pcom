@@ -239,9 +239,10 @@ func (s *Store) PublishedPostsOfUsers(ctx context.Context, allOf, someOf []strin
 
 // PublishedPostsByProfile returns, newest first, the published posts with
 // the given visibility whose authors have one of the profile visibilities
-// given. Author, stats and linked URL are loaded.
-func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility core.PostVisibility, profiles []core.ProfileVisibility) (core.PostSlice, error) {
-	return core.Posts(
+// given, at most limit of them (0 means no limit). Author, stats and linked
+// URL are loaded.
+func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility core.PostVisibility, profiles []core.ProfileVisibility, limit int) (core.PostSlice, error) {
+	mods := []qm.QueryMod{
 		core.PostWhere.PublishedAt.IsNotNull(),
 		core.PostWhere.VisibilityRadius.EQ(visibility),
 		qm.Load(core.PostRels.User),
@@ -250,7 +251,13 @@ func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility core.Pos
 		qm.LeftOuterJoin("users on users.ID = posts.user_id"),
 		core.UserWhere.ProfileVisibility.IN(profiles),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
-	).All(ctx, s.exec)
+	}
+
+	if limit > 0 {
+		mods = append(mods, qm.Limit(limit))
+	}
+
+	return core.Posts(mods...).All(ctx, s.exec)
 }
 
 // PostsOfOrAmong returns the posts, drafts included, written by userID, and
