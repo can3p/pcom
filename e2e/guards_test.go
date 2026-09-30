@@ -30,6 +30,10 @@ type guardWorld struct {
 
 	owner, friend, stranger, requester *core.User
 
+	// the addresses the send_invite, signup and signup_waiting_list routes
+	// take, unique to the world: every test shares one tommy
+	inviteeEmail, newcomerEmail, waiterEmail string
+
 	draft, published   *core.Post
 	comment            *core.PostComment
 	request            *core.UserConnectionMediationRequest
@@ -46,7 +50,12 @@ func newGuardWorld(t *testing.T, app *e2e.App) *guardWorld {
 
 	ctx := context.Background()
 	db := app.DB
-	w := &guardWorld{app: app}
+	w := &guardWorld{
+		app:           app,
+		inviteeEmail:  uniqueEmail("invitee"),
+		newcomerEmail: uniqueEmail("newcomer"),
+		waiterEmail:   uniqueEmail("waiter"),
+	}
 
 	var err error
 
@@ -97,6 +106,7 @@ type dbSnapshot struct {
 	Posts      []string
 	Comments   []string
 	Emails     int
+	Queued     int
 	Connected  bool
 	Request    string
 	Mediators  int
@@ -108,22 +118,30 @@ type dbSnapshot struct {
 
 // isWorldMail matches the mail a route could send in this world: mail
 // linking to this app, mail to the world's users or to the addresses the
-// routes take, and admin notices naming one of those.
+// routes take, and admin notices naming one of those. Mail from an earlier
+// app on the same port also links to it, but it is counted before and after
+// alike.
 func (w *guardWorld) isWorldMail(m tommy.Mail) bool {
-	if strings.Contains(m.Text, w.app.URL) || strings.Contains(m.HTML, w.app.URL) {
+	link := w.app.URL + "/"
+	if strings.Contains(m.Text, link) || strings.Contains(m.HTML, link) {
 		return true
 	}
 
 	for _, addr := range []string{
 		w.owner.Email, w.friend.Email, w.stranger.Email, w.requester.Email,
-		"invitee@example.test", "newcomer@example.com", "waiter@example.com",
+		w.inviteeEmail, w.newcomerEmail, w.waiterEmail,
 	} {
-		if m.SentTo(addr) || m.SentTo(e2e.AdminAddress) && strings.Contains(m.Text, addr) {
+		if m.SentTo(addr) || strings.Contains(m.Text, addr) || strings.Contains(m.HTML, addr) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// uniqueEmail is an address no other test uses.
+func uniqueEmail(name string) string {
+	return name + "-" + uuid.NewString() + "@example.test"
 }
 
 func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
@@ -158,7 +176,8 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	slices.Sort(s.Posts)
 	slices.Sort(s.Comments)
 
-	s.Emails = len(w.app.SettledMails(t, "", w.isWorldMail))
+	s.Emails = len(w.app.SentMails(t, "", w.isWorldMail))
+	s.Queued = w.app.QueuedMails(t)
 
 	var err error
 
@@ -277,7 +296,7 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/form/whitelist_connection", staticPath("/controls/form/whitelist_connection"),
 		func(w *guardWorld) map[string]string { return map[string]string{"uname": w.stranger.Username} }},
 	{http.MethodPost, "/controls/form/send_invite", staticPath("/controls/form/send_invite"),
-		func(*guardWorld) map[string]string { return map[string]string{"email": "invitee@example.test"} }},
+		func(w *guardWorld) map[string]string { return map[string]string{"email": w.inviteeEmail} }},
 	{http.MethodPost, "/controls/form/edit_post", staticPath("/controls/form/edit_post"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{
@@ -316,12 +335,12 @@ var guardRoutes = []guardRoute{
 			return map[string]string{"username": "invitedguest", "password": "invited-password-1"}
 		}},
 	{http.MethodPost, "/form/signup", staticPath("/form/signup"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"email": "newcomer@example.com", "username": "newcomer", "password": "newcomer-password-1"}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"email": w.newcomerEmail, "username": "newcomer", "password": "newcomer-password-1"}
 		}},
 	{http.MethodPost, "/form/signup_waiting_list", staticPath("/form/signup_waiting_list"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"email": "waiter@example.com", "reason": "curious"}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"email": w.waiterEmail, "reason": "curious"}
 		}},
 }
 
@@ -1155,24 +1174,24 @@ func TestGuards_LoggedInFormSignupHasNoEffect(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, factory.SetRegistrationOpen(ctx, app.DB, true))
 	user, client := newLoggedIn(t, app)
+	email := uniqueEmail("newcomer")
 
 	resp := client.PostForm("/form/signup", url.Values{
-		"email": {"newcomer@example.com"}, "username": {"newcomer"}, "password": {"newcomer-password-1"},
+		"email": {email}, "username": {"newcomer"}, "password": {"newcomer-password-1"},
 	}).RequireStatus(http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 
-	app.NoMails(t, "", mentions(app, "newcomer@example.com"))
+	app.NoMails(t, "", mentions(email))
 
 	require.Equal(t, user.Username, currentUsername(t, client))
 	app.Client(t).Get("/users/newcomer").RequireStatus(http.StatusNotFound)
 }
 
-// mentions matches the mail a signup or waiting list request from addr could
-// send: to addr itself, an admin notice naming it, or mail linking to app.
-func mentions(app *e2e.App, addr string) func(tommy.Mail) bool {
+// mentions matches the mail a signup or waiting list request from the
+// unique address addr could send: to addr itself, or an admin notice naming it.
+func mentions(addr string) func(tommy.Mail) bool {
 	return func(m tommy.Mail) bool {
-		return m.SentTo(addr) || strings.Contains(m.Text, addr) ||
-			strings.Contains(m.Text, app.URL) || strings.Contains(m.HTML, app.URL)
+		return m.SentTo(addr) || strings.Contains(m.Text, addr) || strings.Contains(m.HTML, addr)
 	}
 }
 
@@ -1182,15 +1201,16 @@ func TestGuards_LoggedInFormSignupWaitingListHasNoEffect(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 	_, client := newLoggedIn(t, app)
+	email := uniqueEmail("waiter")
 
 	resp := client.PostForm("/form/signup_waiting_list", url.Values{
-		"email": {"waiter@example.com"}, "reason": {"curious"},
+		"email": {email}, "reason": {"curious"},
 	}).RequireStatus(http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 
-	app.NoMails(t, "", mentions(app, "waiter@example.com"))
+	app.NoMails(t, "", mentions(email))
 
-	exists, err := factory.SignupRequestExists(ctx, app.DB, "waiter@example.com")
+	exists, err := factory.SignupRequestExists(ctx, app.DB, email)
 	require.NoError(t, err)
 	require.False(t, exists)
 }

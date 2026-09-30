@@ -192,16 +192,12 @@ func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 
 	require.NoError(t, browser.Expect.Locator(page.GetByText(body)).ToBeVisible())
 
-	// a notification of this comment, to one of this test's users
+	// a notification of a comment on this post, to anyone
 	isNotification := func(m tommy.Mail) bool {
-		return strings.HasPrefix(m.Subject, "New comment in") && strings.Contains(m.Text, body) &&
-			(m.SentTo(author.Email) || m.SentTo(participant.Email) || m.SentTo(commenter.Email))
+		return strings.HasPrefix(m.Subject, "New comment in") && strings.Contains(m.Text, app.URL+"/posts/"+post.ID)
 	}
 
-	app.Mails(t, author.Email, isNotification)
-	app.Mails(t, participant.Email, isNotification)
-
-	emails := app.SettledMails(t, "", isNotification)
+	emails := app.SentMails(t, "", isNotification)
 	require.Len(t, emails, 2)
 
 	var to []string

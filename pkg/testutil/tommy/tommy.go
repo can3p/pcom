@@ -9,6 +9,7 @@ package tommy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +23,29 @@ const (
 	Image = "can3p/tommy:0.3.0"
 	// Bucket exists in the container from the start.
 	Bucket = "pcom-media"
+	// Capacity is how many events tommy keeps per plugin before dropping the
+	// oldest. One container serves a whole test binary, and every media GET
+	// is an S3 event, so the default of 500 could drop a test's mail.
+	Capacity = 100000
 )
+
+// config replaces the image's /etc/tommy/tommy.toml: tommy's defaults, the
+// ports the tests map, and Capacity, which is settable only in this file.
+var config = fmt.Sprintf(`[ui]
+port = 8811
+
+[api]
+port = 8811
+
+[ingress]
+port = 8822
+
+[storage]
+capacity = %d
+
+[plugins.s3.providers.http]
+port = 9000
+`, Capacity)
 
 // Tommy is a running container.
 type Tommy struct {
@@ -73,6 +96,11 @@ func start(ctx context.Context) (*Tommy, error) {
 
 	c, err := testcontainers.Run(ctx, Image,
 		testcontainers.WithExposedPorts("8811/tcp", "8822/tcp", "9000/tcp"),
+		testcontainers.WithFiles(testcontainers.ContainerFile{
+			Reader:            strings.NewReader(config),
+			ContainerFilePath: "/etc/tommy/tommy.toml",
+			FileMode:          0o644,
+		}),
 		testcontainers.WithEnv(map[string]string{
 			"TOMMY_S3_BUCKETS":      Bucket,
 			"TOMMY_NO_UPDATE_CHECK": "1",

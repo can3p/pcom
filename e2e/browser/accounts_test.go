@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
+	"github.com/google/uuid"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -109,7 +110,8 @@ func TestAccounts_SignupWhileOpenAndConfirmEmail(t *testing.T) {
 	app := e2e.Start(t, e2e.WithRealAssets())
 	require.NoError(t, factory.SetRegistrationOpen(context.Background(), app.DB, true))
 
-	const email = "b7signup@example.test"
+	// unique, since every test binary run shares one tommy
+	email := "b7signup-" + uuid.NewString() + "@example.test"
 	const username = "b7signupuser"
 
 	page := browser.Page(t, app)

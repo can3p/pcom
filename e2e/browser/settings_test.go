@@ -20,6 +20,7 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
+	"github.com/google/uuid"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -194,7 +195,8 @@ func TestSettings_CopyAPIKey(t *testing.T) {
 func TestSettings_SendInviteQueuesEmail(t *testing.T) {
 	t.Parallel()
 
-	const inviteeEmail = "b5-invitee@example.test"
+	// unique, since every test binary run shares one tommy
+	inviteeEmail := "b5-invitee-" + uuid.NewString() + "@example.test"
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)

@@ -170,27 +170,74 @@ type App struct {
 // notifications are sent to it.
 const AdminAddress = "admin@pcom.test"
 
-// Mails waits for mail the app delivered to the address to that match
-// accepts (nil accepts any) and returns it, newest first; see tommy.Mails.
-// Every app shares one tommy, so match picks this test's mail when to is
-// shared, such as AdminAddress, or empty (any recipient).
+// WaitMailSent waits up to 5s until the app has sent all the mail it
+// queued, so that what tommy holds is final: a count or an absence checked
+// after it holds. It and QueuedMails are the only places e2e knows the mail
+// goes through the outgoing_emails queue (R4 may replace the queue); tests
+// assert on delivered mail.
+func (a *App) WaitMailSent(t testing.TB) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for {
+		var unsent int
+		if err := a.DB.Get(&unsent, `SELECT count(*) FROM outgoing_emails WHERE status = 'new'`); err != nil {
+			t.Fatalf("e2e: counting unsent mail: %v", err)
+		}
+
+		if unsent == 0 {
+			return
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("e2e: %d mails still unsent after 5s", unsent)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// QueuedMails is how many mails the app has queued in all, sent or not; see
+// WaitMailSent.
+func (a *App) QueuedMails(t testing.TB) int {
+	t.Helper()
+
+	var n int
+	if err := a.DB.Get(&n, `SELECT count(*) FROM outgoing_emails`); err != nil {
+		t.Fatalf("e2e: counting queued mail: %v", err)
+	}
+
+	return n
+}
+
+// Mails waits for the app to send its mail and returns what was delivered to
+// the address to that match accepts (nil accepts any), newest first; it
+// fails the test if there is none. Every app shares one tommy, which is
+// never cleared, so match picks this test's mail when to is shared, such as
+// AdminAddress, or empty (any recipient).
 func (a *App) Mails(t testing.TB, to string, match func(tommy.Mail) bool) []tommy.Mail {
 	t.Helper()
+	a.WaitMailSent(t)
+
 	return a.tommy.Mails(t, to, match)
 }
 
-// NoMails fails the test if, once delivery settled, mail to the address to
-// that match accepts was delivered; see tommy.NoMails.
+// NoMails waits for the app to send its mail and fails the test if any of it
+// went to the address to and match accepts.
 func (a *App) NoMails(t testing.TB, to string, match func(tommy.Mail) bool) {
 	t.Helper()
+	a.WaitMailSent(t)
 	a.tommy.NoMails(t, to, match)
 }
 
-// SettledMails returns, once delivery settled, the delivered mail to the
-// address to that match accepts, possibly none; see tommy.SettledMails.
-func (a *App) SettledMails(t testing.TB, to string, match func(tommy.Mail) bool) []tommy.Mail {
+// SentMails waits for the app to send its mail and returns what was
+// delivered to the address to that match accepts, possibly nothing.
+func (a *App) SentMails(t testing.TB, to string, match func(tommy.Mail) bool) []tommy.Mail {
 	t.Helper()
-	return a.tommy.SettledMails(t, to, match)
+	a.WaitMailSent(t)
+
+	return a.tommy.ListMails(t, to, match)
 }
 
 // S3Object returns the user media object stored under key; it fails the test
@@ -206,33 +253,12 @@ func (a *App) S3Objects(t testing.TB, prefix string) []tommy.ObjectInfo {
 	return a.tommy.S3Objects(t, prefix)
 }
 
-// ResizedVariant waits up to 5s for the caching media server to store the
-// class variant of the upload fname, and returns it. The variant is found by
-// listing the bucket: the object other than the upload whose key holds fname
-// and class. The media server stores it after serving the image, so a test
-// requests /user-media/<fname>/<class> first.
+// ResizedVariant waits for the caching media server to store the class
+// variant of the upload fname, under class/fname, and returns it. The server
+// stores it in the background after serving /user-media/<fname>/<class>.
 func (a *App) ResizedVariant(t testing.TB, fname, class string) tommy.ObjectInfo {
 	t.Helper()
-
-	deadline := time.Now().Add(5 * time.Second)
-
-	for {
-		var keys []string
-
-		for _, o := range a.tommy.S3Objects(t, "") {
-			if o.Key != fname && strings.Contains(o.Key, fname) && strings.Contains(o.Key, class) {
-				return o
-			}
-
-			keys = append(keys, o.Key)
-		}
-
-		if time.Now().After(deadline) {
-			t.Fatalf("e2e: no %s variant of %s stored; objects: %v", class, fname, keys)
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
+	return a.tommy.WaitS3Object(t, class+"/"+fname)
 }
 
 // Option configures Start.
