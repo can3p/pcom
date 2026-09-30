@@ -117,7 +117,7 @@ model:
 #   make generate                   regenerate pkg/model/core from the migrations (throwaway DB)
 #   make psql [ARGS="-c '...'"]     psql on the compose database
 #   make db-reset                   drop, recreate and migrate the dev database
-#   make seed / seed-reset          go run ./cmd/seed [--reset]
+#   make seed / seed-reset          go run ./cmd/web seed [--reset]
 #   make tools-shell [CMD='...']    bash in the tools container
 COMPOSE ?= docker compose
 export HOST_UID := $(shell id -u)
@@ -163,10 +163,10 @@ db-reset:
 	$(MAKE) migrate
 
 seed:
-	$(TOOLS) go run ./cmd/seed
+	$(TOOLS) go run ./cmd/web seed
 
 seed-reset:
-	$(TOOLS) go run ./cmd/seed --reset
+	$(TOOLS) go run ./cmd/web seed --reset
 
 tools-shell:
 	$(TOOLS) bash $(if $(CMD),-c '$(CMD)')

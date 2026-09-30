@@ -9,6 +9,9 @@ processes = []
   allowed_public_ports = []
   auto_rollback = true
 
+[deploy]
+  release_command = "sql-migrate up -env=production -config=/dbconfig.yml"
+
 [[services]]
   http_checks = []
   internal_port = 8080
