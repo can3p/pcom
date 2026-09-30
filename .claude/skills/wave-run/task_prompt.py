@@ -143,9 +143,10 @@ undecided, stop and report it under needs:.
 Layering: handlers bind input, call one service method and render; services hold rules and authorization;
 every query lives in pkg/repo. Never grow the pkg/arch allowlist.
 Tests prove what the feature is for, not incidental markup: what a user does in a page is a browser test
-(e2e/browser), a server rule is an E2E or service test. An existing assertion may change only where the
-task changes that behavior; name each one under bugs:. Keep tests compact (ground rule 9 in
-docs/testing.md).
+(e2e/browser), a server rule is an E2E or service test. A rule a service test already owns is not
+repeated in E2E: a route test proves the wiring with one case the rule admits and one it rejects. An
+existing assertion may change only where the task changes that behavior; name each one under bugs:. Keep
+tests compact (ground rule 9 in docs/testing.md).
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end{ui}.
 Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
