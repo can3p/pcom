@@ -1,48 +1,47 @@
 package main
 
 import (
-	"os"
+	"errors"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/testutil/golden"
+	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
 )
 
-// unsetEnv makes sure the named environment variable is not set for the
-// duration of the test, restoring whatever value (or absence) it had
-// before.
-func unsetEnv(t *testing.T, name string) {
-	t.Helper()
-
-	old, ok := os.LookupEnv(name)
-	require.NoError(t, os.Unsetenv(name))
-
-	t.Cleanup(func() {
-		if ok {
-			_ = os.Setenv(name, old)
-		} else {
-			_ = os.Unsetenv(name)
+// TestHelp pins every command's options, flags and environment variables:
+// `web <command> --help` is the configuration reference, so a renamed or
+// dropped setting shows up here.
+func TestHelp(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {"serve", "--help"}} {
+		name := "help"
+		if len(args) > 1 {
+			name = args[0] + "_help"
 		}
-	})
+
+		t.Run(name, func(t *testing.T) {
+			err := run(args)
+
+			var flagsErr *flags.Error
+			require.True(t, errors.As(err, &flagsErr) && flagsErr.Type == flags.ErrHelp, "want help, got %v", err)
+			golden.Assert(t, name, []byte(flagsErr.Message))
+		})
+	}
 }
 
-func TestEnforceEnvVars(t *testing.T) {
-	unsetEnv(t, "PCOM_TEST_REQUIRED_VAR")
+// TestServe_MissingSettingsFailBeforeStarting checks that serve names every
+// missing required setting at startup, before it opens the database.
+func TestServe_MissingSettingsFailBeforeStarting(t *testing.T) {
+	for _, env := range []string{"DATABASE_URL", "SITE_ROOT", "SESSION_SALT", "SENDER_ADDRESS", "MJ_APIKEY_PUBLIC", "MJ_APIKEY_PRIVATE"} {
+		t.Setenv(env, "")
+	}
 
-	require.Panics(t, func() {
-		enforceEnvVars([]string{"PCOM_TEST_REQUIRED_VAR"})
-	})
+	err := run([]string{"serve"})
 
-	t.Setenv("PCOM_TEST_REQUIRED_VAR", "set")
+	var flagsErr *flags.Error
+	require.True(t, errors.As(err, &flagsErr) && flagsErr.Type == flags.ErrRequired, "want a missing-settings error, got %v", err)
 
-	require.NotPanics(t, func() {
-		enforceEnvVars([]string{"PCOM_TEST_REQUIRED_VAR"})
-	})
-}
-
-func TestEnforceEnvVars_NoVarsRequired(t *testing.T) {
-	t.Parallel()
-
-	require.NotPanics(t, func() {
-		enforceEnvVars(nil)
-	})
+	for _, want := range []string{"$DATABASE_URL", "$SITE_ROOT", "$SESSION_SALT", "$SENDER_ADDRESS", "$MJ_APIKEY_PUBLIC", "$MJ_APIKEY_PRIVATE"} {
+		require.Contains(t, flagsErr.Message, want)
+	}
 }

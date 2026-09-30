@@ -335,13 +335,13 @@ func TestRunPoller_SendsPendingAndStopsOnContextCancel(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		m.RunPoller(ctx)
+		m.RunPoller(ctx, 100*time.Millisecond)
 		close(done)
 	}()
 
 	require.Eventually(t, func() bool {
 		return len(real.Sent()) == 1
-	}, pollEvery+5*time.Second, 200*time.Millisecond, "RunPoller should have sent the pending email on its first tick")
+	}, 2*time.Second, 50*time.Millisecond, "RunPoller should have sent the pending email on its first tick, after the interval it was given")
 
 	cancel()
 

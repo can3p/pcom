@@ -63,3 +63,12 @@ Roughly ordered by payoff:
 | JSON action helper | written in pcom's R1 | `jsonAction[T]`: bind, call, `{explanation}` on error. Pairs with gogo's `API` renderer. |
 | RSS fetcher | `pkg/feedops/reader` | Size and time-limited fetch with MIME validation. Maybe; it's pcom-specific today. |
 | DB-backed mail queue | `pkg/mail/sender/dbsender` | **Don't extract as is.** R4 considers replacing it with a general job queue with a transactional outbox. Extract that instead, if it happens. |
+
+## Found in R2
+
+- `pkg/config.Switch`: a boolean go-flags setting that can default to true
+  (`--x`, `--x=false`, `X=false`; empty is an error). Belongs next to
+  `settings.Secret` as `settings.Switch`.
+- `pkg/testutil/tommy`: one tommy container per test binary (Mailjet API, S3
+  bucket, read-back API URLs). Belongs next to `testcontainers/postgres` as
+  `testcontainers/tommy`.

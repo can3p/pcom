@@ -15,7 +15,6 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-const pollEvery = 10 * time.Second
 const attemptsNumber = 3
 
 var retryIntervals = []time.Duration{10 * time.Second, 60 * time.Second, 30 * time.Minute}
@@ -35,8 +34,9 @@ func NewSender(db *repo.Store, realSender sender.Sender) *dbSender {
 	}
 }
 
-func (m *dbSender) RunPoller(ctx context.Context) {
-	ticker := time.NewTicker(pollEvery)
+// RunPoller sends the queued mail every interval until ctx is done.
+func (m *dbSender) RunPoller(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
 
 	for {
 		select {

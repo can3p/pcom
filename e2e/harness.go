@@ -31,6 +31,7 @@ import (
 
 	"github.com/can3p/gogo/testcontainers/postgres"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -76,6 +77,7 @@ func Run(m *testing.M) int {
 	code := m.Run()
 
 	_ = postgres.Cleanup()
+	_ = tommy.Cleanup()
 
 	return code
 }
@@ -233,19 +235,37 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 	port := freePort(t)
 	url := fmt.Sprintf("http://127.0.0.1:%d", port)
 
+	tm := tommy.Shared(t)
+
+	// The binary is configured only through the environment variables of
+	// `web serve --help`, as in production; development values where
+	// production defaults don't fit plain-HTTP localhost.
 	env := map[string]string{
-		"PORT":         fmt.Sprint(port),
-		"DATABASE_URL": dbURL,
-		"SESSION_SALT": "test",
-		"SITE_ROOT":    url,
-		"GIN_MODE":     "release",
+		"PORT":                fmt.Sprint(port),
+		"DATABASE_URL":        dbURL,
+		"SESSION_SALT":        "test",
+		"SITE_ROOT":           url,
+		"GIN_MODE":            "release",
+		"SENDER_ADDRESS":      "pcom@pcom.test",
+		"ADMIN_ADDRESS":       "admin@pcom.test",
+		"MJ_APIKEY_PUBLIC":    "test",
+		"MJ_APIKEY_PRIVATE":   "test",
+		"MJ_API_BASE":         tm.MailjetURL,
+		"EMAIL_POLL_INTERVAL": "200ms",
+		"SECURE_COOKIES":      "false",
+		"HSTS":                "false",
+		"STATIC_CACHE":        "false",
+		"MEDIA_PERMA_CACHE":   "false",
+		"SHOW_ERRORS":         "true",
+		"REPORT_PANICS":       "false",
+		"LOG_LEVEL":           "debug",
 	}
 	if dir := coverDir(); dir != "" {
 		env["GOCOVERDIR"] = dir
 	}
 	maps.Copy(env, extraEnv)
 
-	cmd := exec.Command(binPath)
+	cmd := exec.Command(binPath, "serve")
 	cmd.Dir = work
 	cmd.Env = processEnv(env)
 
