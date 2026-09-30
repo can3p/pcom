@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
+	"github.com/samber/mo"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -191,6 +193,36 @@ func (w *world) userData(t *testing.T, viewer viewer, profile core.ProfileVisibi
 	return c, &userData
 }
 
+// postPage, userHome and explore build the pages the way their routes do:
+// the reading service decides what the visitor sees, the page builder
+// renders it.
+func postPage(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, postID string) mo.Result[*web.SinglePostPage] {
+	post, err := reading.New(repo.Using(exec)).Post(c, u.DBUser, postID, false)
+	if err != nil {
+		return mo.Err[*web.SinglePostPage](err)
+	}
+
+	return mo.Ok(web.PostPage(c, u, post))
+}
+
+func userHome(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, username string) mo.Result[*web.UserHomePage] {
+	journal, err := reading.New(repo.Using(exec)).Journal(c, u.DBUser, username)
+	if err != nil {
+		return mo.Err[*web.UserHomePage](err)
+	}
+
+	return mo.Ok(web.UserHome(c, u, journal))
+}
+
+func explore(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) mo.Result[*web.FeedPage] {
+	posts, err := reading.New(repo.Using(exec)).Explore(c, u.DBUser)
+	if err != nil {
+		return mo.Err[*web.FeedPage](err)
+	}
+
+	return mo.Ok(web.Explore(c, u, posts))
+}
+
 func TestPrivacyMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -267,7 +299,7 @@ func TestPrivacyMatrix(t *testing.T) {
 				post := w.posts[key]
 				c, userData := w.userData(t, row.viewer, profile)
 
-				res := web.SinglePost(c, w.db, userData, post.ID, false)
+				res := postPage(c, w.db, userData, post.ID)
 
 				switch row.want {
 				case needsLogin:
@@ -305,7 +337,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 		for _, v := range []viewer{asAnonymous, asStranger} {
 			c, userData := w.userData(t, v, core.ProfileVisibilityPublic)
-			res := web.SinglePost(c, w.db, userData, uuid.NewString(), false)
+			res := postPage(c, w.db, userData, uuid.NewString())
 			require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound, v)
 		}
 	})
@@ -355,7 +387,7 @@ func TestPrivacyMatrix(t *testing.T) {
 			author := w.authors[row.profile]
 			c, userData := w.userData(t, row.viewer, row.profile)
 
-			res := web.UserHome(c, w.db, userData, author.Username)
+			res := userHome(c, w.db, userData, author.Username)
 
 			if row.want == notFound {
 				require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
@@ -392,7 +424,7 @@ func TestPrivacyMatrix(t *testing.T) {
 		t.Parallel()
 
 		c, userData := w.userData(t, asStranger, core.ProfileVisibilityPublic)
-		res := web.UserHome(c, w.db, userData, "no-such-user")
+		res := userHome(c, w.db, userData, "no-such-user")
 		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
 	})
 
@@ -417,7 +449,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 			c, userData := w.userData(t, row.viewer, core.ProfileVisibilityPublic)
 
-			page, err := web.Explore(c, w.db, userData).Get()
+			page, err := explore(c, w.db, userData).Get()
 			require.NoError(t, err)
 
 			wantIDs := []string{}
@@ -537,6 +569,7 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 	publicAuthor := w.authors[core.ProfileVisibilityPublic]
 	post := w.posts[postKey{profile: core.ProfileVisibilityPublic, vis: core.PostVisibilityPublic, published: true}]
 	share := w.shares[postKey{profile: core.ProfileVisibilityPublic, vis: core.PostVisibilityPublic, published: true}]
+	feedToken := testutil.Must(repo.RegenerateFeedToken(context.Background(), w.db, w.friend.ID))(t)
 
 	cases := []struct {
 		name   string
@@ -544,22 +577,35 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 		call   func(c *gin.Context, exec boil.ContextExecutor, userData *auth.UserData) error
 	}{
 		{"SinglePost/author", asAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			return web.SinglePost(c, exec, u, post.ID, false).Error()
+			return postPage(c, exec, u, post.ID).Error()
 		}},
 		{"SinglePost/second", asSecondDegree, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			return web.SinglePost(c, exec, u, post.ID, false).Error()
+			return postPage(c, exec, u, post.ID).Error()
 		}},
 		{"UserHome/author", asAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			return web.UserHome(c, exec, u, publicAuthor.Username).Error()
+			return userHome(c, exec, u, publicAuthor.Username).Error()
 		}},
 		{"UserHome/second", asSecondDegree, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			return web.UserHome(c, exec, u, publicAuthor.Username).Error()
+			return userHome(c, exec, u, publicAuthor.Username).Error()
 		}},
 		{"Explore/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			return web.Explore(c, exec, u).Error()
+			return explore(c, exec, u).Error()
 		}},
 		{"SharedPost/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
 			_, err := shares.New(repo.Using(exec)).Get(c, share.ID)
+			return err
+		}},
+		{"Feed/direct", asDirect, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+			_, err := reading.New(repo.Using(exec)).Feed(c, u.DBUser, false)
+			return err
+		}},
+		// a failure after the author is found is an error, not a missing feed
+		{"PublicFeed/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
+			_, err := reading.New(repo.Using(exec)).PublicFeed(c, publicAuthor.Username)
+			return err
+		}},
+		{"PrivateFeed/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
+			_, err := reading.New(repo.Using(exec)).PrivateFeed(c, feedToken.Token)
 			return err
 		}},
 	}

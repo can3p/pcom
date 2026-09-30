@@ -13,6 +13,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/connections"
+	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -21,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -79,6 +81,17 @@ func connect(t *testing.T, db boil.ContextExecutor, ctx context.Context, aID, bI
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)
+}
+
+// feedPage builds the feed page the way /feed does: the reading service's
+// feed, rendered by Feed.
+func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postsOnly bool) mo.Result[*FeedPage] {
+	feed, err := reading.New(repo.Using(db)).Feed(c, userData.DBUser, postsOnly)
+	if err != nil {
+		return mo.Err[*FeedPage](err)
+	}
+
+	return mo.Ok(Feed(c, userData, feed))
 }
 
 func TestInvite(t *testing.T) {
@@ -340,7 +353,7 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 	strangerPost := testutil.Must(factory.Post(ctx, db, stranger.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
-	page := testutil.Must(Feed(c, db, userDataFor(user), true).Get())(t)
+	page := testutil.Must(feedPage(c, db, userDataFor(user), true).Get())(t)
 
 	byID := map[string]*FeedItem{}
 	for _, item := range page.Items {
@@ -387,7 +400,7 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	post := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
-	page := testutil.Must(Feed(c, db, userDataFor(user), false).Get())(t)
+	page := testutil.Must(feedPage(c, db, userDataFor(user), false).Get())(t)
 	require.Empty(t, page.RSSFeed, "no private feed link without an api key")
 
 	require.Len(t, page.Items, 3)
@@ -398,83 +411,14 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	require.NotNil(t, page.Items[2].FeedItem)
 	require.Equal(t, rssItem.Title, page.Items[2].FeedItem.Title)
 
-	onlyPostsPage := testutil.Must(Feed(c, db, userDataFor(user), true).Get())(t)
+	onlyPostsPage := testutil.Must(feedPage(c, db, userDataFor(user), true).Get())(t)
 	require.Nil(t, onlyPostsPage.BasePage, "onlyPosts skips the rest of page composition")
 	require.Len(t, onlyPostsPage.Items, 1, "onlyPosts drops rss items and comments")
 	require.Equal(t, post.ID, onlyPostsPage.Items[0].Post.ID)
 
 	feedToken := testutil.Must(repo.RegenerateFeedToken(ctx, db, user.ID))(t)
-	withKeyPage := testutil.Must(Feed(c, db, userDataFor(user), false).Get())(t)
+	withKeyPage := testutil.Must(feedPage(c, db, userDataFor(user), false).Get())(t)
 	require.Equal(t, links.Link("private_user_feed", feedToken.Token), withKeyPage.RSSFeed)
-}
-
-func TestGetComments(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user := testutil.Must(factory.User(ctx, db))(t)
-	direct := testutil.Must(factory.User(ctx, db))(t)
-	connect(t, db, ctx, user.ID, direct.ID)
-
-	// a comment by someone else on the user's own post: always included.
-	ownPost := testutil.Must(factory.Post(ctx, db, user.ID))(t)
-	ownPostComment := testutil.Must(factory.Comment(ctx, db, ownPost.ID, direct.ID))(t)
-
-	// a direct connection's post the user has participated in: a further
-	// comment from someone else on it is included too.
-	participatedPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
-	testutil.Must(factory.Comment(ctx, db, participatedPost.ID, user.ID))(t)
-
-	otherCommenter := testutil.Must(factory.User(ctx, db))(t)
-	connect(t, db, ctx, user.ID, otherCommenter.ID)
-	participatedComment := testutil.Must(factory.Comment(ctx, db, participatedPost.ID, otherCommenter.ID))(t)
-
-	// a direct connection's post the user never commented on: excluded,
-	// even though someone else left a comment on it.
-	untouchedPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
-	testutil.Must(factory.Comment(ctx, db, untouchedPost.ID, otherCommenter.ID))(t)
-
-	items, err := getComments(ctx, db, user.ID)
-	require.NoError(t, err)
-
-	gotIDs := make([]string, len(items))
-	for i, item := range items {
-		require.NotNil(t, item.Comment)
-		gotIDs[i] = item.Comment.ID
-	}
-
-	assert.ElementsMatch(t, []string{ownPostComment.ID, participatedComment.ID}, gotIDs)
-
-	for _, item := range items {
-		require.NotEqual(t, user.ID, item.Comment.UserID, "the user's own comments are never echoed back")
-	}
-}
-
-func TestGetComments_QueryErrorsPropagate(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user := testutil.Must(factory.User(ctx, db))(t)
-
-	for _, tc := range []struct {
-		name      string
-		failAfter int
-	}{
-		{"own comments lookup fails", 0},
-		{"direct user ids lookup fails", 1},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
-			_, err := getComments(ctx, exec, user.ID)
-			require.ErrorIs(t, err, errFeedInjectedQuery)
-		})
-	}
 }
 
 func TestSettings_QueryErrorsPropagate(t *testing.T) {
@@ -540,7 +484,7 @@ func TestOrderByColumns(t *testing.T) {
 			for _, at := range ts { // oldest inserted first
 				ids = append(ids, testutil.Must(factory.PostPrompt(ctx, db, asker.ID, recipient.ID, factory.PromptCreatedAt(at)))(t).ID)
 			}
-			page := testutil.Must(Feed(newTestContext(t, http.MethodGet, "/feed"), db, userDataFor(recipient), false).Get())(t)
+			page := testutil.Must(feedPage(newTestContext(t, http.MethodGet, "/feed"), db, userDataFor(recipient), false).Get())(t)
 			var got []string
 			for _, p := range page.OpenPrompts {
 				got = append(got, p.Prompt.ID)
