@@ -6,15 +6,9 @@ import (
 
 	"github.com/can3p/pcom/pkg/postops/rss"
 	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/feeds"
-)
-
-const (
-	// publicFeedLimit is how many posts the site-wide public feed carries.
-	publicFeedLimit = 50
-	// projectName is the site name shown in feed titles (as in web.BasePage).
-	projectName = "pcom"
 )
 
 // mountRSSRoutes registers the public and private RSS feeds.
@@ -24,13 +18,13 @@ func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 	reading := d.Services.Reading
 
 	r.GET("/rss/public", func(c *gin.Context) {
-		posts, err := reading.PublicPosts(c.Request.Context(), publicFeedLimit)
+		posts, err := reading.PublicPosts(c.Request.Context(), publicPostsLimit)
 		if err != nil {
 			rssError(c, err)
 			return
 		}
 
-		writeRSS(c, rss.ToFeed(site, "Public posts on "+projectName, site.Root+"/", posts))
+		writeRSS(c, rss.ToFeed(site, "Public posts on "+web.ProjectName, site.Root+"/", posts))
 	})
 
 	r.GET("/rss/public/:username", func(c *gin.Context) {
