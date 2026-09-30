@@ -35,8 +35,7 @@ func TestSeed_EveryPageRenders(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
-	require.NoError(t, seed.Run(ctx, app.DB.DB, &strings.Builder{}, seed.Options{
-	}))
+	require.NoError(t, seed.Run(ctx, app.DB.DB, &strings.Builder{}, seed.Options{}))
 
 	ids := map[string]string{}
 
