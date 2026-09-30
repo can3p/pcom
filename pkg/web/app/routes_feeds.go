@@ -15,7 +15,7 @@ func mountFeedRoutes(d *Deps, controlsForms *gin.RouterGroup) {
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
-		form := forms.NewAddFeedForm(dbUser)
+		form := forms.NewAddFeedForm(d.Services.Feeds, dbUser)
 
 		gogoForms.DefaultHandler(c, db, form)
 	})

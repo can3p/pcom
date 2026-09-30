@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -18,6 +19,7 @@ func TestAddFeedForm_Validate(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
+	svc := feeds.New(repo.New(db), nil)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -39,7 +41,7 @@ func TestAddFeedForm_Validate(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-			form := forms.NewAddFeedForm(user)
+			form := forms.NewAddFeedForm(svc, user)
 			form.Input.URL = tt.url
 
 			err := form.Validate(c, db)
@@ -57,6 +59,7 @@ func TestAddFeedForm_Save(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
+	svc := feeds.New(repo.New(db), nil)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -66,7 +69,7 @@ func TestAddFeedForm_Save(t *testing.T) {
 		wantURL string
 	}{
 		// Save doesn't re-run Validate, so a whitespace-only URL reaches
-		// feedops.SubscribeToFeed's own error path.
+		// feeds.Subscribe's own error path.
 		{"blank url fails", "   ", true, ""},
 		{"trims url", "  https://example.com/feed.xml  ", false, "https://example.com/feed.xml"},
 	}
@@ -78,7 +81,7 @@ func TestAddFeedForm_Save(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/feeds", nil)
 
-			form := forms.NewAddFeedForm(user)
+			form := forms.NewAddFeedForm(svc, user)
 			form.Input.URL = tt.url
 
 			action, err := form.Save(c, db)
@@ -89,9 +92,9 @@ func TestAddFeedForm_Save(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, action)
 
-			feeds := testutil.Must(feedops.GetRssFeeds(ctx, db, user.ID))(t)
-			require.Len(t, feeds, 1)
-			require.Equal(t, tt.wantURL, feeds[0].URL)
+			subs := testutil.Must(svc.Subscriptions(ctx, user))(t)
+			require.Len(t, subs, 1)
+			require.Equal(t, tt.wantURL, subs[0].URL)
 		})
 	}
 }

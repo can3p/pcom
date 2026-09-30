@@ -1,27 +1,20 @@
-package feeder
+package feeds
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"log/slog"
 	"runtime/debug"
 	"time"
 
-	"github.com/can3p/gogo/util/transact"
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/util"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
-	"github.com/samber/lo"
 	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 const (
@@ -40,29 +33,14 @@ type cleaner interface {
 	HTMLToMarkdown(in string) (string, error)
 }
 
-type Feeder struct {
-	db           *sqlx.DB
-	fetcher      fetcher
-	cleaner      cleaner
-	mediaStorage server.MediaStorage
-}
-
-func NewFeeder(db *sqlx.DB, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage) *Feeder {
-	return &Feeder{
-		db:           db,
-		fetcher:      fetcher,
-		cleaner:      cleaner,
-		mediaStorage: mediaStorage,
-	}
-}
-
-func (f *Feeder) RunPoller(ctx context.Context) {
+// RunPoller refreshes due feeds until ctx is done.
+func (s *Service) RunPoller(ctx context.Context) {
 	ticker := time.NewTicker(pollEvery)
 
 	for {
 		select {
 		case <-ticker.C:
-			if err := f.refreshFeeds(ctx); err != nil {
+			if err := s.refreshFeeds(ctx); err != nil {
 				slog.Warn("Failed to refreshFeeds", "err", err.Error())
 			}
 		case <-ctx.Done():
@@ -71,7 +49,7 @@ func (f *Feeder) RunPoller(ctx context.Context) {
 	}
 }
 
-func (f *Feeder) refreshFeeds(ctx context.Context) (err error) {
+func (s *Service) refreshFeeds(ctx context.Context) (err error) {
 	// we don't want any code including the real sender to crash
 	// the scheduler
 	defer func() {
@@ -80,24 +58,23 @@ func (f *Feeder) refreshFeeds(ctx context.Context) (err error) {
 		}
 	}()
 
-	feeds, err := GetFeedsToRefresh(ctx, f.db)
+	feeds, err := s.store.FeedsToRefresh(ctx)
 	if err != nil {
 		return err
 	}
 
 	// transaction per feed to make sure
-	// we don't hammer all the feeds endlessly because of one bad actor
+	// we don't hammer all the feeds endlessly because of one bad actor.
+	// The feed row stays locked while it is fetched (open question Q9).
 	for _, ff := range feeds {
-		err := transact.Transact(f.db, func(tx *sql.Tx) error {
-			feed, err := LockFeed(ctx, tx, ff.ID)
-
+		err := s.store.Tx(ctx, func(tx *repo.Store) error {
+			feed, err := tx.LockFeed(ctx, ff.ID)
 			if err != nil {
 				return err
 			}
 
-			return f.tryFetchFeed(ctx, tx, feed)
+			return s.tryFetchFeed(ctx, tx, feed)
 		})
-
 		if err != nil {
 			slog.Warn("failed to fetch the feed", "feed_id", ff.ID, "err", err)
 			continue
@@ -107,87 +84,42 @@ func (f *Feeder) refreshFeeds(ctx context.Context) (err error) {
 	return nil
 }
 
-func (f *Feeder) tryFetchFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed) (err error) {
-	rssFeed, fetchErr := f.fetcher.Fetch(ctx, feed.URL)
-
+func (s *Service) tryFetchFeed(ctx context.Context, tx *repo.Store, feed *core.RSSFeed) error {
+	rssFeed, fetchErr := s.fetcher.Fetch(ctx, feed.URL)
 	if fetchErr != nil {
-		err := SaveFetchFailure(ctx, exec, feed, fetchErr)
-
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return saveFetchFailure(ctx, tx, feed, fetchErr)
 	}
 
-	return SaveFeed(ctx, exec, feed, rssFeed, f.cleaner, f.fetcher, f.mediaStorage)
+	return s.saveFeed(ctx, tx, feed, rssFeed)
 }
 
-func GetFeedsToRefresh(ctx context.Context, exec boil.ContextExecutor) ([]*core.RSSFeed, error) {
-	feeds, err := core.RSSFeeds(
-		core.RSSFeedWhere.NextFetchAt.LT(null.TimeFrom(time.Now())),
-		qm.Load(core.RSSFeedRels.FeedUserFeedSubscriptions, qm.Limit(1)),
-		qm.Or2(core.RSSFeedWhere.NextFetchAt.IsNull()),
-	).All(ctx, exec)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// we're only interested in refreshing feeds with at least one subscription
-	feeds = lo.Filter(feeds, func(f *core.RSSFeed, index int) bool {
-		return len(f.R.FeedUserFeedSubscriptions) > 0
-	})
-
-	return feeds, nil
-}
-
-func LockFeed(ctx context.Context, exec boil.ContextExecutor, feedID string) (*core.RSSFeed, error) {
-	feed, err := core.RSSFeeds(
-		core.RSSFeedWhere.ID.EQ(feedID),
-		qm.For("UPDATE SKIP LOCKED"),
-	).One(ctx, exec)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return feed, nil
-}
-
-func SaveFetchFailure(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, fetchErr error) error {
+func saveFetchFailure(ctx context.Context, tx *repo.Store, feed *core.RSSFeed, fetchErr error) error {
 	feed.LastFetchError = null.StringFrom(fetchErr.Error())
 	feed.LastItemsCount = 0
 	feed.NextFetchAt = null.TimeFrom(time.Now().Add(reader.ErrorFetchInterval))
 	feed.LastFetchedAt = null.TimeFrom(time.Now())
 
-	_, err := feed.Update(ctx, exec, boil.Infer())
-
-	return err
+	return tx.SaveFeed(ctx, feed)
 }
 
-func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed, rssFeed *reader.Feed, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) error {
-	var err error
-
+func (s *Service) saveFeed(ctx context.Context, tx *repo.Store, feed *core.RSSFeed, rssFeed *reader.Feed) error {
 	if feed.Title.IsZero() {
-		cleaned := cleaner.CleanField(rssFeed.Title)
+		cleaned := s.cleaner.CleanField(rssFeed.Title)
 		feed.Title = null.NewString(cleaned, cleaned != "")
 	}
 
 	if feed.Description.IsZero() {
-		cleaned := cleaner.CleanField(rssFeed.Description)
+		cleaned := s.cleaner.CleanField(rssFeed.Description)
 		feed.Description = null.NewString(cleaned, cleaned != "")
 	}
 
 	// Check if this is an initial fetch by seeing if any items exist for this feed
-	isInitialFetch := false
-	existingCount, err := core.RSSItems(
-		core.RSSItemWhere.FeedID.EQ(feed.ID),
-	).Count(ctx, exec)
+	existingCount, err := tx.FeedItemCount(ctx, feed.ID)
 	if err != nil {
 		return err
 	}
-	isInitialFetch = existingCount == 0
+
+	isInitialFetch := existingCount == 0
 
 	totalItemsToFetch := len(rssFeed.Items)
 	if isInitialFetch && totalItemsToFetch > maxInitialFetchItems {
@@ -196,9 +128,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	}
 
 	// Get subscribers once for all items
-	subscribers, err := core.UserFeedSubscriptions(
-		core.UserFeedSubscriptionWhere.FeedID.EQ(feed.ID),
-	).All(ctx, exec)
+	subscribers, err := tx.FeedSubscriptions(ctx, feed.ID)
 	if err != nil {
 		return err
 	}
@@ -214,15 +144,12 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 				continue
 			}
 
-			url, err := postops.StoreURL(ctx, exec, item.URL)
+			url, err := storeURL(ctx, tx, item.URL)
 			if err != nil {
 				return err
 			}
 
-			exists, err := core.RSSItems(
-				core.RSSItemWhere.FeedID.EQ(feed.ID),
-				core.RSSItemWhere.URLID.EQ(url.ID),
-			).Exists(ctx, exec)
+			exists, err := tx.FeedItemExists(ctx, feed.ID, url.ID)
 			if err != nil {
 				return err
 			}
@@ -239,9 +166,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	// This means iterating from firstKnownItemIdx-1 down to 0
 	newItems := 0
 	for idx := firstKnownItemIdx - 1; idx >= 0; idx-- {
-		item := rssFeed.Items[idx]
-		isNew, err := SaveFeedItem(ctx, exec, feed.ID, item, subscribers, cleaner, fetcher, mediaStorage)
-
+		isNew, err := s.saveFeedItem(ctx, tx, feed.ID, rssFeed.Items[idx], subscribers)
 		if err != nil {
 			return err
 		}
@@ -252,8 +177,7 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	}
 
 	// Update average items per day using exponential moving average
-	feed.AvgItemsPerDay, err = calculateNewAverage(ctx, exec, feed.ID, avgWindowDays)
-
+	feed.AvgItemsPerDay, err = calculateNewAverage(ctx, tx, feed.ID, avgWindowDays)
 	if err != nil {
 		return err
 	}
@@ -281,18 +205,15 @@ func SaveFeed(ctx context.Context, exec boil.ContextExecutor, feed *core.RSSFeed
 	feed.LastFetchedAt = null.TimeFrom(time.Now())
 	feed.LastFetchError = null.String{}
 
-	_, err = feed.Update(ctx, exec, boil.Infer())
-
-	return err
+	return tx.SaveFeed(ctx, feed)
 }
 
-func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string, rssFeedItem *reader.Item, subscribers core.UserFeedSubscriptionSlice, cleaner cleaner, fetcher fetcher, mediaStorage server.MediaStorage) (bool, error) {
+func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID string, rssFeedItem *reader.Item, subscribers core.UserFeedSubscriptionSlice) (bool, error) {
 	if rssFeedItem.URL == "" {
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
 
-	url, err := postops.StoreURL(ctx, exec, rssFeedItem.URL)
-
+	url, err := storeURL(ctx, tx, rssFeedItem.URL)
 	if err != nil {
 		return false, err
 	}
@@ -302,9 +223,10 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 	if err != nil {
 		return false, err
 	}
+
 	feedItemID := itemID.String()
 
-	markdownContent, err := cleaner.HTMLToMarkdown(rssFeedItem.Summary)
+	markdownContent, err := s.cleaner.HTMLToMarkdown(rssFeedItem.Summary)
 
 	if err != nil {
 		markdownContent = fmt.Sprintf("Summary errors: %s", err.Error())
@@ -320,14 +242,14 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		// inflate the function logic there.
 
 		uploadFunc := func(imageURL string) (string, error) {
-			readerIO, err := fetcher.FetchMedia(downloadCtx, imageURL)
+			readerIO, err := s.fetcher.FetchMedia(downloadCtx, imageURL)
 			if err != nil {
 				return "", err
 			}
 			defer func() { _ = readerIO.Close() }()
 
 			// XXX: using download context for upload to maintain timeout consistency
-			return media.HandleUpload(downloadCtx, exec, mediaStorage, nil, &feedID, readerIO)
+			return s.uploadFeedImage(downloadCtx, tx, feedID, readerIO)
 		}
 
 		replacer := reader.CreateImageReplacer(markdownContent, uploadFunc)
@@ -349,44 +271,24 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 		FeedID:               feedID,
 		URLID:                url.ID,
 		GUID:                 rssFeedItem.URL,
-		Title:                cleaner.CleanField(rssFeedItem.Title),
+		Title:                s.cleaner.CleanField(rssFeedItem.Title),
 		Description:          rssFeedItem.Summary,
 		PublishedAt:          publishedAt,
 		SanitizedDescription: markdownContent,
 	}
 
-	// Try to insert, if URL exists, get existing ID
-	// we need to pass true to get existing id back
-	err = feedItem.Upsert(ctx, exec, true, []string{core.RSSItemColumns.FeedID, core.RSSItemColumns.URLID}, boil.Whitelist(core.RSSItemColumns.FeedID), boil.Infer())
+	created, err := tx.UpsertFeedItem(ctx, feedItem)
 	if err != nil {
 		return false, err
 	}
 
-	// since we're generating a unique id every time
-	// and upsert returns sets the model id to the existing value on update
-	// we can use this fact to understand what happened
-	wasUpdate := feedItemID != feedItem.ID
-
-	// update means we've already seen this item
-	if wasUpdate {
+	// not created means we've already seen this item
+	if !created {
 		return false, nil
 	}
 
-	// Create user feed items with generated UUIDs (chronological ordering)
-	for _, s := range subscribers {
-		userItemID, err := uuid.NewV7()
-		if err != nil {
-			return false, err
-		}
-
-		userItem := core.UserFeedItem{
-			ID:        userItemID.String(),
-			UserID:    s.UserID,
-			RSSItemID: feedItem.ID,
-			URLID:     url.ID,
-		}
-
-		if err := userItem.Insert(ctx, exec, boil.Infer()); err != nil {
+	for _, sub := range subscribers {
+		if err := tx.InsertUserFeedItem(ctx, sub.UserID, feedItem.ID, url.ID); err != nil {
 			return false, err
 		}
 	}
@@ -395,11 +297,8 @@ func SaveFeedItem(ctx context.Context, exec boil.ContextExecutor, feedID string,
 	return true, nil
 }
 
-func calculateNewAverage(ctx context.Context, exec boil.ContextExecutor, feedID string, avgWindowDays int) (float64, error) {
-	count, err := core.RSSItems(
-		core.RSSItemWhere.FeedID.EQ(feedID),
-	).Count(ctx, exec)
-
+func calculateNewAverage(ctx context.Context, tx *repo.Store, feedID string, avgWindowDays int) (float64, error) {
+	count, err := tx.FeedItemCount(ctx, feedID)
 	if err != nil {
 		return 0, err
 	}
@@ -409,4 +308,13 @@ func calculateNewAverage(ctx context.Context, exec boil.ContextExecutor, feedID 
 	}
 
 	return float64(count) / float64(avgWindowDays), nil
+}
+
+func storeURL(ctx context.Context, tx *repo.Store, rawURL string) (*core.NormalizedURL, error) {
+	normalized, err := util.NormalizeURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.StoreFeedItemURL(ctx, normalized)
 }
