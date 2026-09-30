@@ -10,7 +10,6 @@ import (
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type SignupFormInput struct {
@@ -38,7 +37,7 @@ func SignupFormNew(accounts *accounts.Service) forms.Form {
 	return form
 }
 
-func (f *SignupForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *SignupForm) Validate(c *gin.Context) error {
 	email := strings.TrimSpace(strings.ToLower(f.Input.Email))
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
@@ -72,7 +71,7 @@ func (f *SignupForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	return f.Errors.PassedValidation()
 }
 
-func (f *SignupForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *SignupForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	email := strings.TrimSpace(strings.ToLower(f.Input.Email))
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 	attribution := strings.TrimSpace(f.Input.Attribution)

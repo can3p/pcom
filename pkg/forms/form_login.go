@@ -11,7 +11,6 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type LoginFormInput struct {
@@ -39,7 +38,7 @@ func LoginFormNew(accounts *accounts.Service) forms.Form {
 	return form
 }
 
-func (f *LoginForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *LoginForm) Validate(c *gin.Context) error {
 	if f.Input.Email == "" {
 		f.AddError("email", "email is required")
 		return forms.ErrValidationFailed
@@ -53,7 +52,7 @@ func (f *LoginForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 	return f.Accounts.CheckCredentials(c, f.Input.Email, f.Input.Password)
 }
 
-func (f *LoginForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *LoginForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := auth.Login(c.(*gin.Context), f.Accounts, f.Input.Email, f.Input.Password); err != nil {
 		return nil, err
 	}

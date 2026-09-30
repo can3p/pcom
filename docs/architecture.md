@@ -41,9 +41,9 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   `Deps.Services` from `Deps.DB` when it is nil. A new service adds one field
   to `registry.Services` and one line to `registry.New`. Handlers reach it
   as `d.Services.<Area>`.
-- **Forms.** gogo's `forms.DefaultHandler` still hands `Save` an executor.
-  `Save` ignores it and calls a service; `Validate` keeps the field checks.
-  Form constructors take the service they need.
+- **Forms.** gogo's forms take no executor. `Save` calls a service (at most
+  one that writes, as `DefaultHandler` opens no transaction); `Validate`
+  keeps the field checks. Form constructors take the service they need.
 - **Model types cross the boundary for now.** Repositories and services
   return the generated `core` structs, or small structs built from them, so
   templates don't change (open question Q13).

@@ -55,7 +55,7 @@ func TestChangePasswordForm_Validate(t *testing.T) {
 			form.Input.OldPassword = tt.oldPassword
 			form.Input.Password = tt.newPassword
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -83,7 +83,7 @@ func TestChangePasswordForm_SaveUpdatesPassword(t *testing.T) {
 	form.Input.OldPassword = "oldpassword"
 	form.Input.Password = "newpassword123!"
 
-	action, err := form.Save(c, db)
+	action, err := form.Save(c)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 

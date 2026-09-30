@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -81,7 +80,7 @@ func multipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Cont
 
 // postsService is the posts service over db and a sender that records
 // instead of sending.
-func postsService(db *sqlx.DB, s sender.Sender) *posts.Service {
+func postsService(db *sqlx.DB, s repo.MailQueue) *posts.Service {
 	return registry.New(db, registry.Deps{Sender: s}).Posts
 }
 

@@ -44,7 +44,7 @@ func TestAddFeedForm_Validate(t *testing.T) {
 			form := forms.NewAddFeedForm(svc, user)
 			form.Input.URL = tt.url
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -84,7 +84,7 @@ func TestAddFeedForm_Save(t *testing.T) {
 			form := forms.NewAddFeedForm(svc, user)
 			form.Input.URL = tt.url
 
-			action, err := form.Save(c, db)
+			action, err := form.Save(c)
 			if tt.wantErr {
 				require.Error(t, err)
 				return

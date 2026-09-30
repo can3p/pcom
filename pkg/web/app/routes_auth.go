@@ -28,7 +28,6 @@ func pageError(c *gin.Context, err error) {
 
 // mountAuthRoutes registers login, signup, invitations and logout.
 func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
-	db := d.DB
 	accounts := d.Services.Accounts
 	forceOpenRegistation := d.Config.ForceOpenRegistration
 
@@ -129,7 +128,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 	actions.POST("/logout", auth.Logout)
 
 	nonControlsForms.POST("/login", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
-		gogoForms.DefaultHandler(c, db, forms.LoginFormNew(accounts))
+		gogoForms.DefaultHandler(c, forms.LoginFormNew(accounts))
 
 		return nil
 	}))
@@ -141,7 +140,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			return
 		}
 
-		gogoForms.DefaultHandler(c, db, forms.AcceptInviteFormNew(accounts, invite))
+		gogoForms.DefaultHandler(c, forms.AcceptInviteFormNew(accounts, invite))
 	})
 
 	nonControlsForms.POST("/signup", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
@@ -155,7 +154,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			return nil
 		}
 
-		gogoForms.DefaultHandler(c, db, forms.SignupFormNew(accounts))
+		gogoForms.DefaultHandler(c, forms.SignupFormNew(accounts))
 
 		return nil
 	}))
@@ -178,7 +177,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			return nil
 		}
 
-		gogoForms.DefaultHandler(c, db, forms.SignupWaitingListFormNew(accounts))
+		gogoForms.DefaultHandler(c, forms.SignupWaitingListFormNew(accounts))
 
 		return nil
 	}))

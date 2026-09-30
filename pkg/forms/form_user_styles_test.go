@@ -42,7 +42,7 @@ func TestSettingsUserStyles_Validate(t *testing.T) {
 			form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 			form.Input.Styles = tt.styles
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.True(t, form.Errors.HasError("styles"))
@@ -82,7 +82,7 @@ func TestSettingsUserStyles_Save(t *testing.T) {
 			form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 			form.Input.Styles = tt.styles
 
-			action, err := form.Save(c, db)
+			action, err := form.Save(c)
 			require.NoError(t, err)
 			require.NotNil(t, action)
 
@@ -105,6 +105,6 @@ func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
 	form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 	form.Input.Styles = ".profile { color: blue; }"
 
-	_, err := form.Save(c, db)
+	_, err := form.Save(c)
 	require.Error(t, err)
 }

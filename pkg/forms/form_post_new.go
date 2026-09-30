@@ -12,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type PostFormInput struct {
@@ -130,7 +129,7 @@ func (f *PostForm) saveInput() posts.SaveInput {
 	return in
 }
 
-func (f *PostForm) Validate(c *gin.Context, _ boil.ContextExecutor) error {
+func (f *PostForm) Validate(c *gin.Context) error {
 	for field, message := range posts.ValidateSave(f.saveInput()) {
 		f.AddError(field, message)
 	}
@@ -147,7 +146,7 @@ func (f *PostForm) Validate(c *gin.Context, _ boil.ContextExecutor) error {
 	return f.Errors.PassedValidation()
 }
 
-func (f *PostForm) Save(c context.Context, _ boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	saved, err := f.Posts.Save(c, f.User, f.saveInput())
 	if err != nil {
 		return nil, err

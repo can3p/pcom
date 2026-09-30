@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type SettingsUserStylesInput struct {
@@ -38,7 +37,7 @@ func SettingsUserStylesNew(accounts *accounts.Service, u *core.User) *SettingsUs
 	return form
 }
 
-func (f *SettingsUserStyles) Validate(c *gin.Context, db boil.ContextExecutor) error {
+func (f *SettingsUserStyles) Validate(c *gin.Context) error {
 	if err := validation.ValidateMinMax("styles", f.Input.Styles, 0, 10_000); err != nil {
 		f.AddError("styles", err.Error())
 	}
@@ -46,7 +45,7 @@ func (f *SettingsUserStyles) Validate(c *gin.Context, db boil.ContextExecutor) e
 	return f.Errors.PassedValidation()
 }
 
-func (f *SettingsUserStyles) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *SettingsUserStyles) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Accounts.SaveUserStyles(c, f.User, f.Input.Styles); err != nil {
 		return nil, err
 	}

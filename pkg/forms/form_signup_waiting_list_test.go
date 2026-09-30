@@ -38,7 +38,7 @@ func TestSignupWaitingListForm_Validate(t *testing.T) {
 			form := forms.SignupWaitingListFormNew(accountsFor(db, fakesender.New())).(*forms.SignupWaitingListForm)
 			form.Input.Email = tt.email(t)
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -61,7 +61,7 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 	form.Input.Reason = "I'm interested"
 	form.Input.Attribution = "twitter"
 
-	action, err := form.Save(ctx, db)
+	action, err := form.Save(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
@@ -87,7 +87,7 @@ func TestSignupWaitingListForm_SaveNormalizesEmail(t *testing.T) {
 	form := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	form.Input.Email = "  Dup@EXAMPLE.TEST  "
 
-	_, err := form.Save(ctx, db)
+	_, err := form.Save(ctx)
 	require.NoError(t, err)
 	require.True(t, testutil.Must(factory.SignupRequestExists(ctx, db, "dup@example.test"))(t), "the normalized address is what gets stored")
 
@@ -95,7 +95,7 @@ func TestSignupWaitingListForm_SaveNormalizesEmail(t *testing.T) {
 	dup := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	dup.Input.Email = "dup@example.test"
 
-	err = dup.Validate(c, db)
+	err = dup.Validate(c)
 	require.Error(t, err, "a request for the same address, normalized, should be rejected as a duplicate")
 	require.True(t, dup.Errors.HasError("email"))
 }

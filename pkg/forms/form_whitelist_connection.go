@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type WhitelistConnectionInput struct {
@@ -40,7 +39,7 @@ func WhitelistConnectionNew(u *core.User, conns *connections.Service) forms.Form
 	return form
 }
 
-func (f *WhitelistConnection) Validate(c *gin.Context, _ boil.ContextExecutor) error {
+func (f *WhitelistConnection) Validate(c *gin.Context) error {
 	var invalid *service.ValidationError
 
 	if err := f.Connections.CheckWhitelist(c, f.User, f.Input.Username); errors.As(err, &invalid) {
@@ -52,7 +51,7 @@ func (f *WhitelistConnection) Validate(c *gin.Context, _ boil.ContextExecutor) e
 	return f.Errors.PassedValidation()
 }
 
-func (f *WhitelistConnection) Save(c context.Context, _ boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *WhitelistConnection) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Connections.Whitelist(c, f.User, f.Input.Username); err != nil {
 		return nil, err
 	}

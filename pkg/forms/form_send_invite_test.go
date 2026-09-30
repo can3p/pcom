@@ -51,7 +51,7 @@ func TestSendInviteForm_Validate(t *testing.T) {
 			form := forms.SendInviteFormNew(accountsFor(db, fakesender.New()), inviter).(*forms.SendInviteForm)
 			form.Input.Email = tt.email(t, inviter)
 
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			if tt.wantErrField == "" {
 				require.NoError(t, err)
 				return
@@ -76,7 +76,7 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	form := forms.SendInviteFormNew(accountsFor(db, sender), inviter).(*forms.SendInviteForm)
 	form.Input.Email = "newinvitee@example.test"
 
-	action, err := form.Save(c, db)
+	action, err := form.Save(c)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 

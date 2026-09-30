@@ -58,7 +58,7 @@ func TestPostPromptForm_Validate(t *testing.T) {
 			t.Parallel()
 
 			c, _ := newCtx(t)
-			err := newPromptForm(t, db, fakesender.New(), tc.asker, tc.direct, tc.message, tc.recipient.Username).Validate(c, db)
+			err := newPromptForm(t, db, fakesender.New(), tc.asker, tc.direct, tc.message, tc.recipient.Username).Validate(c)
 			if tc.ok {
 				require.NoError(t, err)
 			} else {
@@ -84,8 +84,8 @@ func TestPostPromptForm_Save(t *testing.T) {
 	form := newPromptForm(t, db, sender, asker, []*core.User{recipient}, "Tell us about your week!", recipient.Username)
 
 	c, _ := newCtx(t)
-	require.NoError(t, form.Validate(c, db))
-	action := testutil.Must(form.Save(ctx, db))(t)
+	require.NoError(t, form.Validate(c))
+	action := testutil.Must(form.Save(ctx))(t)
 	action(c, form)
 
 	sent := sender.Sent()

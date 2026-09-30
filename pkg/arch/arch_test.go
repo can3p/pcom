@@ -54,12 +54,10 @@ var ormPackages = []string{
 var coreQuery = regexp.MustCompile(regexp.QuoteMeta(module+"/pkg/model/core.") + `[a-z]\w*Query\b`)
 
 // callTargets may be handed a database handle from anywhere: they are the
-// composition root's building blocks, or libraries whose signature needs one
-// until R3/R5 (gogo's forms take an executor for Save).
+// composition root's building blocks.
 var callTargets = []string{
 	module + "/pkg/pgsession",
 	module + "/pkg/service/registry",
-	"github.com/can3p/gogo/forms",
 }
 
 // allowlist is every file that breaks the rules today, with the RS task that
@@ -173,10 +171,6 @@ func violations(t *testing.T) map[string][]string {
 
 func forbiddenImport(rel, path string) string {
 	switch {
-	case path == "github.com/volatiletech/sqlboiler/v4/boil":
-		if rel != "pkg/forms" {
-			return "only repositories and forms' Save signature use boil"
-		}
 	case isORM(path):
 		return "only repositories query the database"
 	case path == module+"/pkg/repo":

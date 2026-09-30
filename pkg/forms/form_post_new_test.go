@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -32,7 +32,7 @@ const missingID = "00000000-0000-0000-0000-000000000000"
 
 // postsService is the service the forms call, over db and a sender that
 // records instead of sending.
-func postsService(db *sqlx.DB, s sender.Sender) *posts.Service {
+func postsService(db *sqlx.DB, s repo.MailQueue) *posts.Service {
 	return registry.New(db, registry.Deps{Sender: s}).Posts
 }
 
@@ -73,7 +73,7 @@ func fillPost(form *forms.PostForm, action forms.PostFormAction) *forms.PostForm
 func savePost(t *testing.T, ctx context.Context, db *sqlx.DB, form *forms.PostForm) *httptest.ResponseRecorder {
 	t.Helper()
 	c, w := newCtx(t)
-	action := testutil.Must(form.Save(ctx, db))(t)
+	action := testutil.Must(form.Save(ctx))(t)
 	action(c, form)
 
 	return w
@@ -164,7 +164,7 @@ func TestPostForm_Validate(t *testing.T) {
 			}
 
 			c, _ := newCtx(t)
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 			switch {
 			case tc.wantIs != nil:
 				require.ErrorIs(t, err, tc.wantIs)

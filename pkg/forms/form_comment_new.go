@@ -7,7 +7,6 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type NewCommentFormInput struct {
@@ -41,7 +40,7 @@ func NewCommentFormNew(svc *posts.Service, u *core.User, postID string) forms.Fo
 	return form
 }
 
-func (f *NewCommentForm) Validate(c *gin.Context, _ boil.ContextExecutor) error {
+func (f *NewCommentForm) Validate(c *gin.Context) error {
 	if err := posts.ValidateCommentBody(f.Input.Body); err != nil {
 		f.AddError("body", err.Error())
 	}
@@ -53,7 +52,7 @@ func (f *NewCommentForm) Validate(c *gin.Context, _ boil.ContextExecutor) error 
 	return f.Errors.PassedValidation()
 }
 
-func (f *NewCommentForm) Save(c context.Context, _ boil.ContextExecutor) (forms.FormSaveAction, error) {
+func (f *NewCommentForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	err := f.Posts.AddComment(c, f.User, posts.CommentInput{
 		Body:    f.Input.Body,
 		PostID:  f.Input.PostID,

@@ -36,8 +36,8 @@ func newCommentForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *cor
 func saveComment(t *testing.T, ctx context.Context, db *sqlx.DB, form *forms.NewCommentForm) {
 	t.Helper()
 	c, _ := newCtx(t)
-	require.NoError(t, form.Validate(c, db))
-	action := testutil.Must(form.Save(ctx, db))(t)
+	require.NoError(t, form.Validate(c))
+	action := testutil.Must(form.Save(ctx))(t)
 	action(c, form)
 }
 
@@ -87,7 +87,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 			}
 
 			c, _ := newCtx(t)
-			err := form.Validate(c, db)
+			err := form.Validate(c)
 
 			switch {
 			case tc.wantErr != nil:
@@ -156,7 +156,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
 		// Save without Validate, as a race with a deleted comment would.
-		_, err := newCommentForm(t, db, fakesender.New(), author, post.ID, missingID).Save(ctx, db)
+		_, err := newCommentForm(t, db, fakesender.New(), author, post.ID, missingID).Save(ctx)
 		require.Error(t, err)
 		require.Empty(t, testutil.Must(factory.ListComments(ctx, db, post.ID))(t))
 	})
