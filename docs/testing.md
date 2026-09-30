@@ -126,10 +126,17 @@ Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
 `e2e.Start(t, opts...)` returns `*App{URL, DB}`. `app.Client(t)` gives a cookie-carrying `*Client` with `Get`,
 `PostForm`, `PostJSON`, `LoginAs(email, password)` and `Do(req)` for anything else; each returns a `*Response`
 with `RequireStatus(code)`, `Doc()` (goquery) and `Location()`; `Header` and `Body` are plain fields. A feed a test creates must point at an `httptest.Server` the test owns,
-never a real remote URL. Mail is asserted through the outgoing queue for now:
-`factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ(...))`. This is temporary:
-the app can't deliver to tommy until R2 makes the Mailjet base URL configurable, and R2 then moves every
-E2E and browser mail assertion to delivered mail in tommy (`app.Mails`).
+never a real remote URL.
+
+Mail and user media go to one tommy container per test binary (`pkg/testutil/tommy`), which the harness
+starts and points the binary at. Assert what was delivered, never the `outgoing_emails` queue:
+`app.Mails(t, to, match)` waits for mail to that exact recipient (match may be nil), `app.NoMails(t, to,
+match)` asserts none arrived, and `app.SentMails` returns the final set for counting; the last two first wait
+until the app has sent everything it queued (`app.WaitMailSent`), so an absence or a count is final. The
+container is shared and never cleared: use addresses unique to the test and match on text only your app
+produces (`app.URL+"/..."`). `app.S3Object(t, key)`, `app.S3Objects(t,
+prefix)` and `app.ResizedVariant(t, fname, class)` read the bucket; `tommy.S3Events` gives the raw request
+headers (e.g. `X-Amz-Acl`). Package tests that need neither keep `fakesender` and `fakestorage`.
 
 ## Browser tests: e2e/browser
 
