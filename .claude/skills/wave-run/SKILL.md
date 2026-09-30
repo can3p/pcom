@@ -61,6 +61,12 @@ subagents, whose context is thrown away.
   prove it by diffing the old and new files' line multisets (R1 step 2).
 - Tasks that own disjoint files go out in **one message** with several `Agent` calls,
   `subagent_type: "general-purpose"`. Never `fork`: a fork drags the coordinator's context along.
+- Tasks whose tests build the whole tree (E2E, the arch test) run with `isolation: "worktree"`, so one
+  agent's half-written files don't break another's build. Worktrees start from `origin/master`, not the
+  wave branch: push the branch first, or make the agent's first command `git merge --ff-only <wave
+  branch>` (the only git command it may run). Merge each finished worktree by committing there and
+  cherry-picking onto the wave branch; resolve shared files (a registry, an allowlist) by script, and
+  conflicts in code by hand (RS).
 - Parallel tasks that write files in **one package** (W3's `e2e`, W6's `e2e/browser`) each iterate under
   their own build tag (`//go:build browser && b3`, run with `-tags browser,b3`) and switch to the shared
   tag before reporting, so one agent's half-written file doesn't break the others' compile. Shared build
@@ -103,7 +109,8 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 2. `git status --short`, to confirm only the owned files changed and no stray files appeared (`git diff
    --stat` misses untracked files, such as the `<file>-E` backups BSD `sed -i -E` leaves).
 3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
-   through `make test-q`, revert. A test that doesn't fail when you break the code under it covers nothing.
+   through `make test-q`, revert. Never while an audit agent is reading the same worktree: it will
+   report your mutation as a regression. A test that doesn't fail when you break the code under it covers nothing.
 4. **Audit the assertions**, because one mutation samples one test. For every test task (package, E2E and
    browser), have a read-only `Explore` agent (strong tier) classify every test as weak (passes whether or
    not the behavior works: only a status on a page that always answers 200, "body exists", `NotNil` on a
