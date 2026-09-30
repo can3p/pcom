@@ -6,11 +6,11 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
@@ -68,11 +68,11 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	}{
 		{name: "the author can comment", user: author},
 		{name: "a direct connection can comment", user: direct},
-		{name: "a stranger cannot comment", user: stranger, wantErr: ginhelpers.ErrForbidden},
+		{name: "a stranger cannot comment", user: stranger, wantErr: service.ErrForbidden},
 		{name: "body too short", user: author, body: "hi", wantAny: true},
 		{name: "reply to a comment on the post", user: direct, replyTo: topComment.ID},
-		{name: "reply to a comment on another post", user: direct, replyTo: otherComment.ID, wantErr: ginhelpers.ErrNotFound},
-		{name: "reply to an unknown comment", user: direct, replyTo: missingID, wantErr: ginhelpers.ErrNotFound},
+		{name: "reply to a comment on another post", user: direct, replyTo: otherComment.ID, wantErr: service.ErrNotFound},
+		{name: "reply to an unknown comment", user: direct, replyTo: missingID, wantErr: service.ErrNotFound},
 		{name: "unknown post", user: direct, postID: missingID, wantAny: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

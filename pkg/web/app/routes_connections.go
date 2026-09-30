@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	gogoForms "github.com/can3p/gogo/forms"
+	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )

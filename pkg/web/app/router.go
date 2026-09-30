@@ -5,12 +5,13 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/can3p/gogo/util/ginhelpers"
+	"github.com/can3p/gogo/util/ginhelpers/csrf"
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
-	"github.com/can3p/pcom/pkg/util/ginhelpers/csrf"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -36,6 +37,11 @@ func New(d *Deps) *gin.Engine {
 
 	router := gin.Default()
 
+	router.Use(ginhelpers.Configure(ginhelpers.Options{
+		RedirectToLogin: auth.RedirectToLogin,
+		ShowErrors:      !d.Config.InCluster,
+	}))
+
 	router.MaxMultipartMemory = 8 << 20 // 8 MiB
 
 	if d.Config.InCluster {
@@ -54,12 +60,13 @@ func New(d *Deps) *gin.Engine {
 	router.SetFuncMap(funcmap(d.Config.StaticAsset))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
+	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })
 	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) })
 	r := router.Group("/", csp.Csp, sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) })
 	controls := r.Group("/controls", auth.EnforceAuth)
-	actions := controls.Group("/action", csrf.CheckCSRF)
-	nonControlsForms := r.Group("/form", csrf.CheckCSRF)
-	controlsForms := controls.Group("/form", csrf.CheckCSRF)
+	actions := controls.Group("/action", csrfCheck)
+	nonControlsForms := r.Group("/form", csrfCheck)
+	controlsForms := controls.Group("/form", csrfCheck)
 
 	mountRoutes(d, router, apiGroup, r, controls, actions, nonControlsForms, controlsForms)
 

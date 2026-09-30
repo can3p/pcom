@@ -4,9 +4,10 @@ import (
 	"net/http"
 
 	gogoForms "github.com/can3p/gogo/forms"
+	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
@@ -68,7 +69,7 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 			form, err = forms.EditPostFormNew(c, posts, dbUser, postID)
 
 			if err != nil {
-				if err == ginhelpers.ErrNotFound {
+				if err == service.ErrNotFound {
 					c.Status(http.StatusNotFound)
 					return
 				}

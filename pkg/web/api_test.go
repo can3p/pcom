@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -22,7 +23,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -102,7 +102,7 @@ func TestApiDeletePost(t *testing.T) {
 		c := requestContext(http.MethodDelete)("/api/v1/posts/unknown")
 		res := web.ApiDeletePost(c, postsService(testDB.DB, nil), author, "0190a0a0-0000-7000-8000-000000000000")
 		require.True(t, res.IsError())
-		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+		require.ErrorIs(t, res.Error(), service.ErrNotFound)
 	})
 
 	t.Run("author can delete own post", func(t *testing.T) {
@@ -349,7 +349,7 @@ func TestApiEditPost_UnknownPost(t *testing.T) {
 
 	res := web.ApiEditPost(c, postsService(testDB.DB, sender), author, "0190a0a0-0000-7000-8000-000000000000")
 	require.True(t, res.IsError())
-	require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+	require.ErrorIs(t, res.Error(), service.ErrNotFound)
 }
 
 // pngBytes is a minimal, valid one-pixel PNG file, enough for

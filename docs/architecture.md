@@ -23,12 +23,15 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   `Tx` inside a transaction joins it. Repositories never call `Tx`.
 - **Mail** is sent with `tx.SendMail(ctx, sender, ...)` inside the
   transaction, so it is queued only if the change commits. Services get the
-  `sender.Sender` in their constructor.
-- **Errors** (`pkg/service`): `ErrNotFound` (also for "exists, but you may
-  not see it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and
+  queue, `repo.MailQueue`, in their constructor; it delivers through gogo's
+  `sender.Sender`.
+- **Errors** (`pkg/service`, which re-exports gogo's `apperr`; code uses the
+  `service` names): `ErrNotFound` (also for "exists, but you may not see
+  it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and
   `service.Invalid(field, message)` for input the user must fix; its message
   is shown verbatim, so write it as a sentence. Unexpected errors pass
-  through unchanged. Responses:
+  through unchanged. Responses, through gogo's `ginhelpers`, which
+  `router.go` configures (login redirect; error text outside production):
   - pages: `ginhelpers.HTMLError(c, err)` (redirects to login on
     `ErrNeedsLogin`, otherwise `ginhelpers.Status(err)`: 404, 403, 409, 400);
   - API: `ginhelpers.API`, same statuses;

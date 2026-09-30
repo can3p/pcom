@@ -1,8 +1,8 @@
 package app
 
 import (
+	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
