@@ -1,0 +1,64 @@
+# Architecture: layers
+
+pcom has three layers. `pkg/arch/arch_test.go` enforces them, and its
+allowlist names every file that doesn't follow them yet. Shares
+(`pkg/service/shares`, `pkg/repo/shares.go`, `pkg/web/app/actions_shares.go`,
+`/shared/:id` in `routes_public.go`) is the worked example: copy it.
+
+| Layer | Package | Does | Never does |
+|---|---|---|---|
+| Transport | `pkg/web/app` (HTML, actions, API), page builders in `pkg/web`, CLI commands | Bind and shape-check input, take the current user from the context, call **one** service method (a page may assemble several reads), render, redirect or set htmx headers, map service errors to responses | SQL or ORM calls, transactions, authorization beyond "is logged in", importing `pkg/repo` |
+| Service | `pkg/service/<area>` | Business rules, authorization, visibility, transactions, sending mail in the same transaction as the change. Methods take `ctx`, the acting user (`*core.User`, nil for anonymous) and the input, and return a result or a service error | Importing gin or `net/http`; building queries |
+| Repository | `pkg/repo` | Every query and write, as methods on `*repo.Store`, named for what they fetch (`PostByID`, `ShareByID`). `sql.ErrNoRows` becomes `repo.ErrNotFound` | Business rules or permission checks: the service computes the filter and passes it in |
+
+Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
+`pkg/forms/validation`'s pure checks, `pkg/util`, mail formatting in
+`pkg/mail`). `pkg/pgsession` owns its table and is exempt.
+
+## Rules
+
+- **Store and transactions.** `repo.New(db)` in the composition root;
+  services hold the `*repo.Store`. A service opens a transaction with
+  `s.store.Tx(ctx, func(tx *repo.Store) error { ... })` and passes `tx` on.
+  `Tx` inside a transaction joins it. Repositories never call `Tx`.
+- **Mail** is sent with `tx.SendMail(ctx, sender, ...)` inside the
+  transaction, so it is queued only if the change commits. Services get the
+  `sender.Sender` in their constructor.
+- **Errors** (`pkg/service`): `ErrNotFound` (also for "exists, but you may
+  not see it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and
+  `service.Invalid(field, message)` for input the user must fix; its message
+  is shown verbatim, so write it as a sentence. Unexpected errors pass
+  through unchanged. Responses:
+  - pages: `ginhelpers.HTMLError(c, err)` (redirects to login on
+    `ErrNeedsLogin`, otherwise `ginhelpers.Status(err)`: 404, 403, 409, 400);
+  - API: `ginhelpers.API`, same statuses;
+  - JSON actions: `jsonAction` answers 400 for every error with
+    `actionMessage(err)` as the text, as the actions always did.
+- **Connection graph.** `pkg/service/graph` (`RadiusBetween`,
+  `DirectUserIDs`, `DirectAndSecondDegree`) is the one place that answers
+  how two users are connected. Services call it with their store or `tx`.
+- **Wiring.** `pkg/service/registry` builds every service; `app.New` fills
+  `Deps.Services` from `Deps.DB` when it is nil. A new service adds one field
+  to `registry.Services` and one line to `registry.New`. Handlers reach it
+  as `d.Services.<Area>`.
+- **Forms.** gogo's `forms.DefaultHandler` still hands `Save` an executor.
+  `Save` ignores it and calls a service; `Validate` keeps the field checks.
+  Form constructors take the service they need.
+- **Model types cross the boundary for now.** Repositories and services
+  return the generated `core` structs, or small structs built from them, so
+  templates don't change (open question Q13).
+- **Page builders** in `pkg/web` (`pages_<area>.go`) take service results,
+  not a database: `web.SharedPost(c, userData, shared)`.
+- **Legacy code during RS.** A function not yet converted can be called from
+  a service with `repo.Using(exec)` on the legacy side (see the wrappers in
+  `pkg/userops/connections.go`), never by passing `s.store.Exec()` into it
+  from a service: that is database work the arch test flags.
+
+## Tests
+
+- Services are tested against `testdb.New(t)` with the factories: no
+  interfaces or mocks for the store.
+- Repositories are tested through their services, except queries with
+  logic of their own (the graph, pagination) and `Store` itself.
+- A moved test keeps its assertions. If an assertion must change, the
+  behavior changed.
