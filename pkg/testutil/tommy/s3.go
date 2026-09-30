@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -21,6 +22,36 @@ type ObjectInfo struct {
 func (tm *Tommy) S3Object(t testing.TB, key string) ObjectInfo {
 	t.Helper()
 
+	o, ok := tm.lookupS3Object(t, key)
+	require.True(t, ok, "tommy: no object %s in %s", key, Bucket)
+
+	return o
+}
+
+// WaitS3Object waits up to 5s for an object to be stored under key, for
+// objects the app writes in the background, and returns it; it fails the
+// test if none appears.
+func (tm *Tommy) WaitS3Object(t testing.TB, key string) ObjectInfo {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for {
+		if o, ok := tm.lookupS3Object(t, key); ok {
+			return o
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("tommy: no object %s in %s within 5s", key, Bucket)
+		}
+
+		time.Sleep(pollEvery)
+	}
+}
+
+func (tm *Tommy) lookupS3Object(t testing.TB, key string) (ObjectInfo, bool) {
+	t.Helper()
+
 	var got struct {
 		Key     string `json:"key"`
 		Size    int64  `json:"size"`
@@ -29,9 +60,11 @@ func (tm *Tommy) S3Object(t testing.TB, key string) ObjectInfo {
 		} `json:"headers"`
 	}
 
-	getJSON(t, tm.APIURL+"/s3/buckets/"+Bucket+"/objects/"+url.PathEscape(key), &got)
+	if !fetchJSON(t, tm.APIURL+"/s3/buckets/"+Bucket+"/objects/"+url.PathEscape(key), &got) {
+		return ObjectInfo{}, false
+	}
 
-	return ObjectInfo{Key: got.Key, Size: got.Size, ContentType: got.Headers.ContentType}
+	return ObjectInfo{Key: got.Key, Size: got.Size, ContentType: got.Headers.ContentType}, true
 }
 
 // S3Objects lists the objects in Bucket whose keys start with prefix (all of
@@ -93,14 +126,32 @@ func (tm *Tommy) S3Events(t testing.TB, eventType string) []S3Event {
 	return events
 }
 
+// client reads tommy's API; the timeout keeps a stuck container from hanging
+// the test binary.
+var client = &http.Client{Timeout: 10 * time.Second}
+
 func getJSON(t testing.TB, u string, into any) {
 	t.Helper()
 
-	resp, err := http.Get(u)
+	require.True(t, fetchJSON(t, u, into), "GET %s: not found", u)
+}
+
+// fetchJSON decodes the response to GET u into into and reports true, or
+// reports false on 404; any other status fails the test.
+func fetchJSON(t testing.TB, u string, into any) bool {
+	t.Helper()
+
+	resp, err := client.Get(u)
 	require.NoError(t, err)
 
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return false
+	}
+
 	require.Equal(t, http.StatusOK, resp.StatusCode, "GET %s", u)
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(into))
+
+	return true
 }

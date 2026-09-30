@@ -1,7 +1,10 @@
 package tommy_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/mail"
 	"os"
@@ -47,7 +50,52 @@ func TestMailjetSenderDeliversToTommy(t *testing.T) {
 
 	// the API's to filter is a substring match; the helpers keep the exact recipient
 	tm.NoMails(t, "smoke@pcom.test", nil)
-	require.Empty(t, tm.SettledMails(t, "tommy-smoke@pcom.test", func(m tommy.Mail) bool { return m.Subject != "smoke" }))
+	require.Empty(t, tm.ListMails(t, "tommy-smoke@pcom.test", func(m tommy.Mail) bool { return m.Subject != "smoke" }))
+}
+
+// TestCapacityKeepsMoreThanTheDefault: the container runs with our config
+// file, so it keeps more than tommy's default 500 events per plugin.
+func TestCapacityKeepsMoreThanTheDefault(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a container")
+	}
+
+	tm := tommy.Shared(t)
+
+	const to, total, batch = "tommy-capacity@pcom.test", 501, 50
+
+	type address struct {
+		Email string `json:"Email"`
+	}
+
+	type message struct {
+		From     address   `json:"From"`
+		To       []address `json:"To"`
+		Subject  string    `json:"Subject"`
+		TextPart string    `json:"TextPart"`
+	}
+
+	for sent := 0; sent < total; sent += batch {
+		var msgs []message
+		for i := sent; i < min(sent+batch, total); i++ {
+			msgs = append(msgs, message{From: address{"pcom@pcom.test"}, To: []address{{to}}, Subject: fmt.Sprint(i), TextPart: "x"})
+		}
+
+		body, err := json.Marshal(map[string][]message{"Messages": msgs})
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, tm.MailjetURL+"/v3.1/send", bytes.NewReader(body))
+		require.NoError(t, err)
+		req.SetBasicAuth("any", "any")
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		_ = resp.Body.Close()
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	}
+
+	require.Equal(t, total, len(tm.ListMails(t, to, nil)))
 }
 
 // TestS3Objects lists objects by prefix and reads one back, with the content
@@ -75,4 +123,5 @@ func TestS3Objects(t *testing.T) {
 		{Key: "s3objects/b.webp", Size: 3, ContentType: "image/webp"},
 	}, tm.S3Objects(t, "s3objects/"))
 	require.Equal(t, tommy.ObjectInfo{Key: "other/c.png", Size: 3, ContentType: "image/png"}, tm.S3Object(t, "other/c.png"))
+	require.Equal(t, "other/c.png", tm.WaitS3Object(t, "other/c.png").Key)
 }
