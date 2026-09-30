@@ -15,7 +15,7 @@ func mountMediaRoutes(d *Deps, router *gin.Engine) {
 	staticAsset := d.Config.StaticAsset
 
 	//cache static forever
-	if d.Config.InCluster {
+	if d.Config.StaticCache {
 		router.Group("/static", func(c *gin.Context) {
 			c.Header("Cache-Control", "public, max-age=604800, immutable, stale-while-revalidate=86400")
 			c.Next()

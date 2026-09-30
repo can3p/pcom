@@ -29,7 +29,7 @@ func New(d *Deps) *gin.Engine {
 		Path: "/",
 		// safari wouldn't allow to save secure cookie
 		// if server works on localhost
-		Secure:   d.Config.InCluster,
+		Secure:   d.Config.SecureCookies,
 		HttpOnly: true,
 		MaxAge:   24 * 3600 * 30, // make every session one month long
 		SameSite: http.SameSiteLaxMode,
@@ -39,12 +39,12 @@ func New(d *Deps) *gin.Engine {
 
 	router.Use(ginhelpers.Configure(ginhelpers.Options{
 		RedirectToLogin: auth.RedirectToLogin,
-		ShowErrors:      !d.Config.InCluster,
+		ShowErrors:      d.Config.ShowErrors,
 	}))
 
 	router.MaxMultipartMemory = 8 << 20 // 8 MiB
 
-	if d.Config.InCluster {
+	if d.Config.ReportPanics {
 		router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
 			userData := auth.GetUserData(c)
 			user := userData.DBUser
@@ -62,7 +62,7 @@ func New(d *Deps) *gin.Engine {
 
 	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })
 	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) })
-	r := router.Group("/", csp.Csp, sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) })
+	r := router.Group("/", csp.New(csp.Options{HSTS: d.Config.HSTS, StaticCDN: d.Config.StaticCDN, MediaCDN: d.Config.MediaCDN}), sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) })
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrfCheck)
 	nonControlsForms := r.Group("/form", csrfCheck)

@@ -13,16 +13,16 @@ import (
 )
 
 // Production hides the text of a failed page, development shows it.
-func TestRouter_ErrorTextOnlyOutsideCluster(t *testing.T) {
+func TestRouter_ErrorTextOnlyWhenShowErrors(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name      string
-		inCluster bool
-		wantBody  string
+		name       string
+		showErrors bool
+		wantBody   string
 	}{
-		{name: "development shows the error", inCluster: false, wantBody: "not found"},
-		{name: "production hides the error", inCluster: true, wantBody: ""},
+		{name: "development shows the error", showErrors: true, wantBody: "not found"},
+		{name: "production hides the error", showErrors: false, wantBody: ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -35,7 +35,7 @@ func TestRouter_ErrorTextOnlyOutsideCluster(t *testing.T) {
 					HTMLDir:     "../../../cmd/web/client/html",
 					SessionSalt: "test-salt",
 					StaticAsset: func(n string) string { return "/static/" + n },
-					InCluster:   tc.inCluster,
+					ShowErrors:  tc.showErrors,
 				},
 			})
 

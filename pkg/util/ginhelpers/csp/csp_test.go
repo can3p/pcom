@@ -2,7 +2,7 @@ package csp_test
 
 import (
 	"net/http"
-	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -10,21 +10,6 @@ import (
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/stretchr/testify/require"
 )
-
-// withoutFlyAppName makes sure FLY_APP_NAME is unset for the duration of the
-// test, restoring whatever value (or absence) it had before.
-func withoutFlyAppName(t *testing.T) {
-	t.Helper()
-
-	orig, had := os.LookupEnv("FLY_APP_NAME")
-	require.NoError(t, os.Unsetenv("FLY_APP_NAME"))
-
-	t.Cleanup(func() {
-		if had {
-			_ = os.Setenv("FLY_APP_NAME", orig)
-		}
-	})
-}
 
 func TestGetNonces_NilBeforeCsp(t *testing.T) {
 	t.Parallel()
@@ -36,11 +21,9 @@ func TestGetNonces_NilBeforeCsp(t *testing.T) {
 }
 
 func TestCsp_SetsHeaderShapeAndContextNonces(t *testing.T) {
-	withoutFlyAppName(t)
-
 	c, w := ginctx.New(t, http.MethodGet, "/", nil)
 
-	csp.Csp(c)
+	csp.New(csp.Options{})(c)
 
 	header := w.Header().Get("Content-Security-Policy")
 	require.NotEmpty(t, header)
@@ -62,24 +45,41 @@ func TestCsp_SetsHeaderShapeAndContextNonces(t *testing.T) {
 	require.Contains(t, header, "'nonce-"+*scriptNonce+"'")
 }
 
-func TestCsp_InCluster_SetsHSTS(t *testing.T) {
-	t.Setenv("FLY_APP_NAME", "pcom-test")
+func TestCsp_Options(t *testing.T) {
+	t.Parallel()
 
-	c, w := ginctx.New(t, http.MethodGet, "/", nil)
+	for _, tc := range []struct {
+		name string
+		opts csp.Options
+		hsts bool
+		cdn  []string
+	}{
+		{name: "HSTS on", opts: csp.Options{HSTS: true}, hsts: true},
+		{name: "HSTS off", opts: csp.Options{}},
+		{name: "CDNs set", opts: csp.Options{StaticCDN: "https://static.example", MediaCDN: "https://media.example"}, cdn: []string{"https://static.example", "https://media.example"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	csp.Csp(c)
+			c, w := ginctx.New(t, http.MethodGet, "/", nil)
+			csp.New(tc.opts)(c)
 
-	require.Equal(t, "max-age=31536000; includeSubDomains", w.Header().Get("Strict-Transport-Security"))
+			require.Equal(t, tc.hsts, w.Header().Get("Strict-Transport-Security") == "max-age=31536000; includeSubDomains")
+
+			header := w.Header().Get("Content-Security-Policy")
+			for _, cdn := range []string{"https://static.example", "https://media.example"} {
+				require.Equal(t, slices.Contains(tc.cdn, cdn), strings.Contains(header, cdn), cdn)
+			}
+		})
+	}
 }
 
 func TestCsp_FreshNoncesPerRequest(t *testing.T) {
-	withoutFlyAppName(t)
-
 	c1, w1 := ginctx.New(t, http.MethodGet, "/", nil)
-	csp.Csp(c1)
+	csp.New(csp.Options{})(c1)
 
 	c2, w2 := ginctx.New(t, http.MethodGet, "/", nil)
-	csp.Csp(c2)
+	csp.New(csp.Options{})(c2)
 
 	style1, script1 := csp.GetStyleNonce(c1), csp.GetScriptNonce(c1)
 	style2, script2 := csp.GetStyleNonce(c2), csp.GetScriptNonce(c2)

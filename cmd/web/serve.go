@@ -16,7 +16,6 @@ import (
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/feeds"
-	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 )
@@ -75,7 +74,6 @@ func (c *serveCmd) Execute([]string) error {
 		Config: app.Config{
 			HTMLDir:               cfg.Web.HTMLDir,
 			ForceOpenRegistration: cfg.Web.ForceSignup.On(),
-			InCluster:             util.InCluster(),
 			SessionSalt:           cfg.Web.SessionSalt.Reveal(),
 			StaticAsset:           app.LoadStaticManifest(),
 			SiteRoot:              cfg.Web.SiteRoot,
