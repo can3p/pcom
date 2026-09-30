@@ -10,11 +10,28 @@ import (
 	"github.com/gorilla/feeds"
 )
 
+const (
+	// publicFeedLimit is how many posts the site-wide public feed carries.
+	publicFeedLimit = 50
+	// projectName is the site name shown in feed titles (as in web.BasePage).
+	projectName = "pcom"
+)
+
 // mountRSSRoutes registers the public and private RSS feeds.
 func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 	site := siteOf(d)
 
 	reading := d.Services.Reading
+
+	r.GET("/rss/public", func(c *gin.Context) {
+		posts, err := reading.PublicPosts(c.Request.Context(), publicFeedLimit)
+		if err != nil {
+			rssError(c, err)
+			return
+		}
+
+		writeRSS(c, rss.ToFeed(site, "Public posts on "+projectName, site.Root+"/", posts))
+	})
 
 	r.GET("/rss/public/:username", func(c *gin.Context) {
 		username := c.Param("username")
@@ -29,7 +46,6 @@ func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 			site,
 			"New posts from @"+username,
 			site.Abs("user", username),
-			journal.Author,
 			journal.Posts,
 		))
 	})
@@ -45,7 +61,6 @@ func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 			site,
 			"User feed @"+feed.Owner.Username,
 			site.Abs("feed", feed.Owner.Username),
-			feed.Owner,
 			feed.Posts,
 		))
 	})

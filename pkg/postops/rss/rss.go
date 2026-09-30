@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/feeds"
 )
 
-func ToFeed(site links.Site, title string, link string, author *core.User, posts []*postops.Post) *feeds.Feed {
+func ToFeed(site links.Site, title string, link string, posts []*postops.Post) *feeds.Feed {
 	feed := &feeds.Feed{
 		Title: title,
 		Link:  &feeds.Link{Href: link},
@@ -43,7 +43,7 @@ func ToFeed(site links.Site, title string, link string, author *core.User, posts
 			},
 			Link:        &feeds.Link{Href: site.Abs("post", post.ID)},
 			Description: content,
-			Created:     post.CreatedAt.Time,
+			Created:     post.PublishedAt.Time.UTC(),
 		})
 	}
 
