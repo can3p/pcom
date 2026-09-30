@@ -4,11 +4,12 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -131,27 +132,17 @@ func TestAccounts_ConfirmSignup(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
-	adminMails := func(t *testing.T) int {
-		t.Helper()
-
-		emails, err := factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ("signup_confirmed"))
-		require.NoError(t, err)
-
-		return len(emails)
-	}
-
 	t.Run("unconfirmed", func(t *testing.T) {
 		seed := "550e8400-e29b-41d4-a716-446655440000"
 		user, err := factory.User(ctx, app.DB, factory.WithConfirmSeed(seed), factory.Unconfirmed())
 		require.NoError(t, err)
 
-		before := adminMails(t)
 		app.Client(t).Get("/confirm_signup/" + seed).RequireStatus(http.StatusOK)
 
 		user, err = factory.GetUser(ctx, app.DB, user.ID)
 		require.NoError(t, err)
 		require.True(t, user.EmailConfirmedAt.Valid)
-		require.Equal(t, before+1, adminMails(t))
+		require.Len(t, app.Mails(t, e2e.AdminAddress, signupConfirmedNotice(user.ID)), 1)
 	})
 
 	t.Run("already confirmed", func(t *testing.T) {
@@ -161,18 +152,25 @@ func TestAccounts_ConfirmSignup(t *testing.T) {
 		user, err = factory.GetUser(ctx, app.DB, user.ID) // the stored, microsecond precision time
 		require.NoError(t, err)
 
-		before := adminMails(t)
 		app.Client(t).Get("/confirm_signup/" + seed).RequireStatus(http.StatusOK)
 
 		after, err := factory.GetUser(ctx, app.DB, user.ID)
 		require.NoError(t, err)
 		require.True(t, user.EmailConfirmedAt.Time.Equal(after.EmailConfirmedAt.Time), "the confirmation time must not move")
-		require.Equal(t, before, adminMails(t), "no second admin notification")
+		app.NoMails(t, e2e.AdminAddress, signupConfirmedNotice(user.ID)) // no second admin notification
 	})
 
 	t.Run("unknown", func(t *testing.T) {
 		app.Client(t).Get("/confirm_signup/00000000-0000-0000-0000-000000000000").RequireStatus(http.StatusNotFound)
 	})
+}
+
+// signupConfirmedNotice matches the admin notification that the user with
+// userID confirmed their email.
+func signupConfirmedNotice(userID string) func(tommy.Mail) bool {
+	return func(m tommy.Mail) bool {
+		return m.Subject == "New User confirmed email on pcom" && strings.Contains(m.Text, userID)
+	}
 }
 
 // TestAccounts_ConfirmWaitingList checks that /confirm_waiting_list/:id records the

@@ -39,12 +39,12 @@ func TestSmoke_LoginAndBoostedNavigation(t *testing.T) {
 	_, err = page.Evaluate(`window.smokeMarker = "kept"`)
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: user.Username, Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: user.Username, Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveTitle(regexp.MustCompile(`Journal$`)))
 	require.NoError(t, browser.Expect.Locator(rss).ToHaveCount(1))
 
-	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/?$`)))
 	require.NoError(t, browser.Expect.Page(page).ToHaveTitle(regexp.MustCompile(`Controls$`)))
@@ -93,10 +93,10 @@ func TestSmoke_ServerErrorShowsToast(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, page.Route("**/controls**", func(r playwright.Route) {
-		_ = r.Fulfill(playwright.RouteFulfillOptions{Status: playwright.Int(500), Body: "boom"})
+		_ = r.Fulfill(playwright.RouteFulfillOptions{Status: new(500), Body: "boom"})
 	}))
 
-	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("alert")).ToContainText("Server error"))
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))

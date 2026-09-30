@@ -4,15 +4,15 @@ package browser_test
 
 import (
 	"context"
-	"encoding/json"
 	"regexp"
+	"strings"
 	"testing"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -32,18 +32,6 @@ func b3ConnectedPair(t testing.TB, app *e2e.App) (*core.User, *core.User) {
 	require.NoError(t, err)
 
 	return a, b
-}
-
-// b3MailTo unmarshals an outgoing email's payload and returns the address it
-// was sent to.
-func b3MailTo(t testing.TB, row *core.OutgoingEmail) string {
-	t.Helper()
-
-	var m sender.Mail
-	require.NoError(t, json.Unmarshal(row.Payload, &m))
-	require.Len(t, m.To, 1)
-
-	return m.To[0].Address
 }
 
 // A commenter who is a direct connection of the author leaves a top-level
@@ -204,13 +192,22 @@ func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 
 	require.NoError(t, browser.Expect.Locator(page.GetByText(body)).ToBeVisible())
 
-	emails, err := factory.ListOutgoingEmails(ctx, app.DB, core.OutgoingEmailWhere.EmailType.EQ("comment_notification"))
-	require.NoError(t, err)
+	// a notification of this comment, to one of this test's users
+	isNotification := func(m tommy.Mail) bool {
+		return strings.HasPrefix(m.Subject, "New comment in") && strings.Contains(m.Text, body) &&
+			(m.SentTo(author.Email) || m.SentTo(participant.Email) || m.SentTo(commenter.Email))
+	}
+
+	app.Mails(t, author.Email, isNotification)
+	app.Mails(t, participant.Email, isNotification)
+
+	emails := app.SettledMails(t, "", isNotification)
 	require.Len(t, emails, 2)
 
 	var to []string
 	for _, e := range emails {
-		to = append(to, b3MailTo(t, e))
+		require.Len(t, e.To, 1)
+		to = append(to, e.To[0])
 	}
 
 	require.ElementsMatch(t, []string{author.Email, participant.Email}, to)

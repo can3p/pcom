@@ -61,9 +61,9 @@ func TestActions_ConnectionStory(t *testing.T) {
 	_, err = pageB.Goto("/controls")
 	require.NoError(t, err)
 
-	require.NoError(t, browser.Expect.Locator(pageB.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pageB.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: new(true)})).ToBeVisible())
 	require.NoError(t, pageB.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Sign"}).Click())
-	require.NoError(t, browser.Expect.Locator(pageB.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: playwright.Bool(true)})).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(pageB.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: new(true)})).ToHaveCount(0))
 
 	// C accepts the connection request.
 	pageC := browser.Page(t, app, browser.As(c))
@@ -72,9 +72,9 @@ func TestActions_ConnectionStory(t *testing.T) {
 	_, err = pageC.Goto("/controls")
 	require.NoError(t, err)
 
-	require.NoError(t, browser.Expect.Locator(pageC.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pageC.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: new(true)})).ToBeVisible())
 	require.NoError(t, pageC.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Accept"}).Click())
-	require.NoError(t, browser.Expect.Locator(pageC.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: playwright.Bool(true)})).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(pageC.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: new(true)})).ToHaveCount(0))
 
 	exists, err := factory.ConnectionExists(ctx, app.DB, a.ID, c.ID)
 	require.NoError(t, err)
@@ -203,9 +203,9 @@ func TestActions_MediationDismiss(t *testing.T) {
 	_, err = pageY.Goto("/controls")
 	require.NoError(t, err)
 
-	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: new(true)})).ToBeVisible())
 	require.NoError(t, pageY.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Dismiss"}).Click())
-	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: playwright.Bool(true)})).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: new(true)})).ToHaveCount(0))
 }
 
 // The target of a connection request can reject it even after a mediator
@@ -238,18 +238,18 @@ func TestActions_ConnectionRequestReject(t *testing.T) {
 
 	_, err = pageY.Goto("/controls")
 	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: new(true)})).ToBeVisible())
 	require.NoError(t, pageY.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Sign"}).Click())
-	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: playwright.Bool(true)})).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(pageY.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Mediation Requests", Exact: new(true)})).ToHaveCount(0))
 
 	pageZ := browser.Page(t, app, browser.As(z))
 	acceptDialogs(pageZ)
 
 	_, err = pageZ.Goto("/controls")
 	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(pageZ.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: playwright.Bool(true)})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pageZ.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: new(true)})).ToBeVisible())
 	require.NoError(t, pageZ.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Reject"}).Click())
-	require.NoError(t, browser.Expect.Locator(pageZ.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: playwright.Bool(true)})).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(pageZ.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Connection Requests", Exact: new(true)})).ToHaveCount(0))
 
 	exists, err := factory.ConnectionExists(ctx, app.DB, x.ID, z.ID)
 	require.NoError(t, err)

@@ -12,13 +12,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -27,8 +28,8 @@ import (
 // through a file input.
 func b5PNGBytes() []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	for y := 0; y < 4; y++ {
-		for x := 0; x < 4; x++ {
+	for y := range 4 {
+		for x := range 4 {
 			img.Set(x, y, color.RGBA{R: 200, G: 30, B: 30, A: 255})
 		}
 	}
@@ -210,8 +211,9 @@ func TestSettings_SendInviteQueuesEmail(t *testing.T) {
 
 	require.NoError(t, browser.Expect.Locator(page.GetByText(inviteeEmail)).ToBeVisible())
 
-	emails, err := factory.ListOutgoingEmails(context.Background(), app.DB, core.OutgoingEmailWhere.EmailType.EQ("user_invitation"))
-	require.NoError(t, err)
+	emails := app.Mails(t, inviteeEmail, func(m tommy.Mail) bool {
+		return m.Subject == "Welcome to pcom" && strings.Contains(m.Text, app.URL+"/invite/")
+	})
 	require.Len(t, emails, 1)
 }
 
@@ -347,4 +349,16 @@ func TestSettings_UploadedImageRendersFromUserMedia(t *testing.T) {
 
 	_, err = page.WaitForFunction(`sel => { const el = document.querySelector(sel); return !!el && el.naturalWidth > 0 }`, ".us-comments-section img.standalone-img")
 	require.NoError(t, err)
+
+	// the upload is in the bucket as sent, and rendering it stored the
+	// resized variant of the class the page asked for
+	src, err := img.GetAttribute("src")
+	require.NoError(t, err)
+
+	m := regexp.MustCompile(`/user-media/([^/?#]+)/([^/?#]+)`).FindStringSubmatch(src)
+	require.NotNil(t, m, "img src %s", src)
+
+	fname, class := m[1], m[2]
+	require.Equal(t, "image/png", app.S3Object(t, fname).ContentType)
+	require.Equal(t, "image/webp", app.ResizedVariant(t, fname, class).ContentType)
 }

@@ -91,7 +91,7 @@ func TestWriting_PublishAndMakeDraftThroughEditor(t *testing.T) {
 	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)}).Click())
 
 	postURLRe := regexp.MustCompile(`/posts/` + regexp.QuoteMeta(draft.ID) + `$`)
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
@@ -104,7 +104,7 @@ func TestWriting_PublishAndMakeDraftThroughEditor(t *testing.T) {
 	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Back to draft", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Back to draft", Exact: new(true)}).Click())
 
 	heading := page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: regexp.MustCompile(`Edit Post`)})
 	require.NoError(t, browser.Expect.Locator(heading).ToContainText("Draft"))
@@ -132,7 +132,7 @@ func TestWriting_DeleteThroughEditor(t *testing.T) {
 	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/?$`)))
 
@@ -164,7 +164,7 @@ func TestWriting_DeleteDismissedKeepsPost(t *testing.T) {
 	_, err = page.Goto(editURL)
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete", Exact: new(true)}).Click())
 
 	select {
 	case msg := <-asked:
@@ -201,7 +201,7 @@ func TestWriting_DeleteAfterMakeDraftSelfSwap(t *testing.T) {
 
 	// Click Delete right after the swap, before htmx has bound the new form:
 	// the window a quick person could hit. The click must do nothing.
-	require.NoError(t, page.AddInitScript(playwright.Script{Content: playwright.String(`
+	require.NoError(t, page.AddInitScript(playwright.Script{Content: new(`
 		document.addEventListener("htmx:afterSwap", () => {
 			document.querySelector("button[value=delete]")?.click()
 		})
@@ -210,12 +210,12 @@ func TestWriting_DeleteAfterMakeDraftSelfSwap(t *testing.T) {
 	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Back to draft", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Back to draft", Exact: new(true)}).Click())
 
 	heading := page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: regexp.MustCompile(`Edit Post`)})
 	require.NoError(t, browser.Expect.Locator(heading).ToContainText("Draft"))
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/?$`)))
 
@@ -277,7 +277,7 @@ func TestWriting_EditExistingPost(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(post.Body))
 
 	require.NoError(t, subject.Fill("Updated subject"))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: new(true)}).Click())
 
 	postURLRe := regexp.MustCompile(`/posts/` + regexp.QuoteMeta(post.ID) + `$`)
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
@@ -301,7 +301,7 @@ func b2SaveBody(t *testing.T, page playwright.Page, postID, body string) {
 	require.NoError(t, err)
 
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill(body))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: new(true)}).Click())
 }
 
 // A body over the limit is rejected: the editor shows the error under the
@@ -443,7 +443,7 @@ func TestWriting_PostVisibility(t *testing.T) {
 
 	direct := page.GetByLabel("Show to direct connections only")
 	secondDegree := page.GetByLabel("Show to their connections as well")
-	public := page.GetByLabel("Public", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	public := page.GetByLabel("Public", playwright.PageGetByLabelOptions{Exact: new(true)})
 
 	_, err := page.Goto("/write")
 	require.NoError(t, err)
@@ -454,7 +454,7 @@ func TestWriting_PostVisibility(t *testing.T) {
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill(subject))
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("Who can read this?"))
 	require.NoError(t, direct.Check())
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)}).Click())
 
 	postURLRe := regexp.MustCompile(`/posts/([^/]+)$`)
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
@@ -476,7 +476,7 @@ func TestWriting_PostVisibility(t *testing.T) {
 			_, err := page.Goto("/posts/" + postID + "/edit")
 			require.NoError(t, err)
 			require.NoError(t, step.choose.Check())
-			require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: playwright.Bool(true)}).Click())
+			require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Post", Exact: new(true)}).Click())
 			require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
 		}
 
@@ -546,11 +546,11 @@ func TestWriting_RenderedPostFeatures(t *testing.T) {
 		"![standalone alt](" + b2PixelPNG + ")\n"
 
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill(body))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/[^/]+$`)))
 
-	heading := page.GetByRole("heading", playwright.PageGetByRoleOptions{Level: playwright.Int(2), Name: "Heading Test"})
+	heading := page.GetByRole("heading", playwright.PageGetByRoleOptions{Level: new(2), Name: "Heading Test"})
 	require.NoError(t, browser.Expect.Locator(heading).ToBeVisible())
 
 	require.NoError(t, browser.Expect.Locator(page.Locator("pre.chroma")).ToHaveCount(1))

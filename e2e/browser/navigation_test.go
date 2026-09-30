@@ -19,7 +19,7 @@ import (
 // b1NavLink locates a link by its accessible name inside the page's <nav>
 // landmark, the way a user would find it in the top navigation.
 func b1NavLink(page playwright.Page, name string) playwright.Locator {
-	return page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: name, Exact: playwright.Bool(true)})
+	return page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: name, Exact: new(true)})
 }
 
 // b1ExpectTitleSuffix waits for the page title to end with suffix, the way a
@@ -240,10 +240,10 @@ func TestNavigation_ServerErrorTogglesToastAndDismiss(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, page.Route("**/controls**", func(r playwright.Route) {
-		_ = r.Fulfill(playwright.RouteFulfillOptions{Status: playwright.Int(500), Body: "boom"})
+		_ = r.Fulfill(playwright.RouteFulfillOptions{Status: new(500), Body: "boom"})
 	}))
 
-	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: new(true)}).Click())
 
 	toast := page.GetByRole("alert")
 	require.NoError(t, browser.Expect.Locator(toast).ToContainText("Server error"))
@@ -276,7 +276,7 @@ func TestNavigation_DroppedConnectionShowsNetworkErrorToast(t *testing.T) {
 		_ = r.Abort("failed")
 	}))
 
-	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: playwright.Bool(true)}).Click())
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Controls", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("alert")).ToContainText("Network error"))
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
