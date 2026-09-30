@@ -64,11 +64,7 @@ var callTargets = []string{
 // fixes it. A task deletes its entries; RS is done when this is empty. The
 // test fails on an entry that no longer breaks a rule, so the list only shrinks.
 var allowlist = map[string]string{
-	"pkg/web/app/routes_public.go":                         "L1",
-	"pkg/web/app/routes_rss.go":                            "L1",
 	"pkg/web/pages.go":                                     "L1",
-	"pkg/web/pages_reading.go":                             "L1",
-	"pkg/userops/graph.go":                                 "step 2",
 	"pkg/userops/connections.go":                           "L2",
 	"cmd/scripts/test_comment_email/test_comment_email.go": "L3",
 	"pkg/forms/form_comment_new.go":                        "L3",
@@ -115,10 +111,11 @@ var allowlist = map[string]string{
 	"pkg/web/app/routes_settings.go":                       "L4",
 	"pkg/web/pages_accounts.go":                            "L4",
 	"pkg/feedops/feedops.go":                               "L5",
-	"pkg/service/feeds/legacy_media.go":                    "L6",
 	"pkg/mail/sender/dbsender/dbsender.go":                 "L6",
 	"pkg/media/upload.go":                                  "L6",
+	"pkg/service/feeds/legacy_media.go":                    "L6",
 	"pkg/web/app/actions_media.go":                         "L6",
+	"pkg/userops/graph.go":                                 "step 2",
 }
 
 func TestLayering(t *testing.T) {

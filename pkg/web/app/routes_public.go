@@ -21,7 +21,7 @@ import (
 
 // mountPublicRoutes registers the pages anyone may read.
 func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
-	db := d.DB
+	reading := d.Services.Reading
 
 	r.GET("/", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -31,7 +31,7 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "index.html", web.Index(c, db, &userData))
+		c.HTML(http.StatusOK, "index.html", web.Index(c, &userData))
 	})
 
 	r.GET("/articles/:id", func(c *gin.Context) {
@@ -76,9 +76,14 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 
 	r.GET("/users/:username", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		username := c.Param("username")
 
-		ginhelpers.HTML(c, "user_home.html", web.UserHome(c, db, &userData, username))
+		journal, err := reading.Journal(c, userData.DBUser, c.Param("username"))
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "user_home.html", web.UserHome(c, &userData, journal))
 	})
 
 	r.GET("/shared/:id", requireUUIDParam("id"), func(c *gin.Context) {
@@ -94,26 +99,29 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 
 	r.GET("/posts/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		postID := c.Param("id")
 		editPreview := c.Query("edit_preview") == "true"
 
-		ginhelpers.HTML(c, "single_post.html", web.SinglePost(c, db, &userData, postID, editPreview))
+		post, err := reading.Post(c, userData.DBUser, c.Param("id"), editPreview)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "single_post.html", web.PostPage(c, &userData, post))
 	})
 
 	r.GET("/posts/:id/md", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		postID := c.Param("id")
 
-		post := web.SinglePost(c, db, &userData, postID, false)
-
-		if post.IsError() {
-			ginhelpers.HTML(c, "single_post.html", post)
+		post, err := reading.Post(c, userData.DBUser, c.Param("id"), false)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
 			return
 		}
 
 		c.Header("Content-Type", "text/plain")
 
-		dbPost := post.MustGet().Post.Post
+		dbPost := post.Post.Post
 
 		body, err := markdown.ReplaceImageUrls(dbPost.Body, links.MediaReplacer)
 		if err != nil {
@@ -129,12 +137,24 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	r.GET("/explore", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "feed.html", web.Explore(c, db, &userData))
+		posts, err := reading.Explore(c, userData.DBUser)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "feed.html", web.Explore(c, &userData, posts))
 	})
 
 	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "feed.html", web.Feed(c, db, &userData, false))
+		feed, err := reading.Feed(c, userData.DBUser, false)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "feed.html", web.Feed(c, &userData, feed))
 	})
 }
