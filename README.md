@@ -22,6 +22,12 @@ make dev-up && make migrate && make seed
 make dev        # app and asset watcher in containers, http://localhost:8080
 ```
 
+Every setting is an environment variable (or flag) listed by `go run ./cmd/web serve --help`; other commands have their own `--help`. Defaults are production values, so `cmd/web/.env` (copied from `.env.example`) and compose turn off what doesn't fit plain-HTTP localhost.
+
+Local development uses [tommy](https://github.com/can3p/tommy) for mail and S3:
+- Mail: sent to tommy's Mailjet provider, view at http://localhost:8811/ui/
+- Uploads: stored in tommy's S3 bucket `pcom-media`, browsable at http://localhost:8811/ui/
+
 ### Tests
 
 ```
@@ -31,7 +37,8 @@ make lint    # golangci-lint
 ```
 
 Docker must be running: tests that touch the database start a Postgres
-container via `pkg/testutil/testdb`.
+container via `pkg/testutil/testdb`. Tests that verify mail and media use
+`pkg/testutil/tommy` to read from the tommy container.
 
 ### Browser tests
 
@@ -82,9 +89,11 @@ screenshot and a trace under `.ui-artifacts/` and prints their paths.
    flyctl secrets set ENABLE_PPROF=true # optional, serves pprof on :8081 (see `make pprof_tunnel`)
    ```
 
-   The app switches to production behavior (mailjet sender, S3 storage,
-   secure cookies, HSTS) when `FLY_APP_NAME` is set, which fly does
-   automatically.
+   Production behavior (secure cookies, HSTS, long static caching, panic
+   reports) is the default; `web serve --help` lists every setting.
+   Migrations run on every deploy: fly's `release_command` runs
+   `sql-migrate up` in the new image before it takes traffic
+   (`make migrate-prod` remains as a manual fallback).
 7. Do first deploy `fly deploy`, make sure you can reach the app via <appname>.fly.dev
 8. Create a cert for your custom domain `fly certs add pcom.com`
 9. After it screams at you, add required A and AAAA records
@@ -121,6 +130,16 @@ On Linux the tunnel must listen on an address the container can reach
   fly scale count 0
   fly scale count 1 --region ams
   ```
+
+### Admin commands
+
+Use the `web admin` subcommand to manage registrations and invitations:
+
+```
+web admin invite --email <email> --num <count>    # generate invites for email
+web admin registration --open                      # allow open registration
+web admin registration --close                     # close registration
+```
 
 ## Modernization
 

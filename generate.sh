@@ -29,6 +29,15 @@ if [ "$lib" != "$gen" ]; then
   exit 1
 fi
 
+# Check sql-migrate version in tools/Dockerfile vs Dockerfile
+tools_migrate=$(grep "SQL_MIGRATE_VERSION=" tools/Dockerfile | head -1 | sed 's/.*SQL_MIGRATE_VERSION=//' | sed 's/[[:space:]]*$//')
+dockerfile_migrate=$(grep "SQL_MIGRATE_VERSION=" Dockerfile | head -1 | sed 's/.*SQL_MIGRATE_VERSION=//' | sed 's/[[:space:]]*$//')
+if [ "$tools_migrate" != "$dockerfile_migrate" ]; then
+  echo "generate.sh: sql-migrate version mismatch: tools/Dockerfile has $tools_migrate, Dockerfile has $dockerfile_migrate." >&2
+  echo "Keep SQL_MIGRATE_VERSION equal in both files." >&2
+  exit 1
+fi
+
 # sqlboiler's psql driver takes no DSN, so this is the one place that splits
 # DATABASE_URL (postgres://user[:password]@host[:port]/dbname[?params]).
 re='^postgres(ql)?://([^:@/]+)(:([^@]*))?@([^:/?]+)(:([0-9]+))?/([^?]+)'

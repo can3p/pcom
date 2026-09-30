@@ -15,7 +15,6 @@ for (split /\n/, $output) {
 
     if ($varname eq "DATABASE_URL") {
       $var =~ s/pcomdb.flycast/localhost/;
-      $var =~ s/\?sslmode=disable//;
       $var =~ s/5432/5433/;
     }
     print "$var\n";
