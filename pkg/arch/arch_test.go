@@ -296,7 +296,6 @@ var envAllowlist = map[string]string{
 	"pkg/mail/post_prompt.go":               "R2.A",
 	"pkg/mail/post_prompt_answer.go":        "R2.A",
 	"pkg/util/cluster.go":                   "R2.F",
-	"pkg/util/ginhelpers/csp/csp.go":        "R2.B",
 	"pkg/util/siteroot.go":                  "R2.A",
 	"pkg/web/app/funcmap.go":                "R2.A",
 }

@@ -26,9 +26,6 @@ type Config struct {
 	HTMLDir string
 	// ForceOpenRegistration allows signups even when system settings close them.
 	ForceOpenRegistration bool
-	// InCluster turns on production behavior: the page failure reporter,
-	// long-lived static caching and secure session cookies.
-	InCluster bool
 	// SessionSalt signs the session cookies.
 	SessionSalt string
 	// StaticAsset resolves a frontend asset name to its URL; see LoadStaticManifest.
