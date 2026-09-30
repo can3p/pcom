@@ -69,6 +69,7 @@ var allowlist = map[string]string{
 	"pkg/web/pages.go":                                     "L1",
 	"pkg/web/pages_reading.go":                             "L1",
 	"pkg/forms/form_whitelist_connection.go":               "L2",
+	"pkg/userops/graph.go":                                 "step 2",
 	"pkg/userops/connections.go":                           "L2",
 	"pkg/web/app/actions_connections.go":                   "L2",
 	"pkg/web/app/actions_mediation.go":                     "L2",
