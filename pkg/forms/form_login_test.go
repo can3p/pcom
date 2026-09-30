@@ -55,7 +55,7 @@ func TestLoginForm_Validate(t *testing.T) {
 			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
 			email, password := tt.setup(t)
 
-			form := forms.LoginFormNew().(*forms.LoginForm)
+			form := forms.LoginFormNew(accountsFor(db, nil)).(*forms.LoginForm)
 			form.Input.Email = email
 			form.Input.Password = password
 
@@ -94,7 +94,7 @@ func TestLoginForm_Save(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
 			c, w := ginctx.New(t, http.MethodPost, "/login", nil)
 
-			form := forms.LoginFormNew().(*forms.LoginForm)
+			form := forms.LoginFormNew(accountsFor(db, nil)).(*forms.LoginForm)
 			form.Input.Email = user.Email
 			form.Input.Password = "correctpassword"
 			form.Input.ReturnURL = "/feed"

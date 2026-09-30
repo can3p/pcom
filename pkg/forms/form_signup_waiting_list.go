@@ -5,15 +5,9 @@ import (
 	"net/http"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/admin"
-	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -25,17 +19,17 @@ type SignupWaitingListFormInput struct {
 
 type SignupWaitingListForm struct {
 	*forms.FormBase[SignupWaitingListFormInput]
-	Sender sender.Sender
+	Accounts *accounts.Service
 }
 
-func SignupWaitingListFormNew(sender sender.Sender) forms.Form {
+func SignupWaitingListFormNew(accounts *accounts.Service) forms.Form {
 	var form forms.Form = &SignupWaitingListForm{
 		FormBase: &forms.FormBase[SignupWaitingListFormInput]{
 			Name:         "signup_waitlist",
 			FormTemplate: "form--signup-waitlist.html",
 			Input:        &SignupWaitingListFormInput{},
 		},
-		Sender: sender,
+		Accounts: accounts,
 	}
 
 	return form
@@ -46,29 +40,16 @@ func (f *SignupWaitingListForm) Validate(c *gin.Context, db boil.ContextExecutor
 
 	if email == "" {
 		f.AddError("email", "email is required")
-	} else if reason, isOK := validation.EmailOKToAddToWaitingList(c, db, email); !isOK {
-		f.AddError("email", reason)
+	} else if err := fieldError(f, "email", f.Accounts.CheckWaitingListEmail(c, email)); err != nil {
+		return err
 	}
 
 	return f.Errors.PassedValidation()
 }
 
 func (f *SignupWaitingListForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	request := core.UserSignupRequest{
-		ID:                uuid.NewString(),
-		Email:             pgsession.NormalizeEmail(f.Input.Email),
-		Reason:            null.NewString(f.Input.Reason, f.Input.Reason != ""),
-		SignupAttribution: null.NewString(f.Input.Attribution, f.Input.Attribution != ""),
-	}
-
-	request.UpsertP(c, exec, false, []string{core.UserSignupRequestColumns.Email}, boil.Infer(), boil.Infer())
-
-	if err := mail.ConfirmWaitingList(c, exec, f.Sender, &request); err != nil {
-		panic(err)
-	}
-
-	if err := admin.NotifyNewWaitingListMember(c, exec, f.Sender, &request); err != nil {
-		return nil, err
+	if err := f.Accounts.JoinWaitingList(c, f.Input.Email, f.Input.Reason, f.Input.Attribution); err != nil {
+		return nil, panicOnFatal(err)
 	}
 
 	return func(c *gin.Context, f forms.Form) {

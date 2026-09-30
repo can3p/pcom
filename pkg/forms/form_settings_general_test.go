@@ -40,7 +40,7 @@ func TestSettingsGeneralForm_Validate(t *testing.T) {
 			user := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/settings/general", nil)
 
-			form := forms.SettingsGeneralFormNew(user)
+			form := forms.SettingsGeneralFormNew(accountsFor(db, nil), user)
 			form.Input.Timezone = tt.timezone
 			form.Input.ProfileVisibility = tt.visibility
 
@@ -64,7 +64,7 @@ func TestSettingsGeneralForm_SaveUpdatesSettings(t *testing.T) {
 
 	user := testutil.Must(factory.User(ctx, db))(t)
 
-	form := forms.SettingsGeneralFormNew(user)
+	form := forms.SettingsGeneralFormNew(accountsFor(db, nil), user)
 	form.Input.Timezone = "America/Los_Angeles"
 	form.Input.ProfileVisibility = string(core.ProfileVisibilityRegisteredUsers)
 

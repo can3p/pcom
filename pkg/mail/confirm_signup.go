@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -11,12 +10,21 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func ConfirmSignup(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, user *core.User) error {
+// Envelope is a mail with the id and type the outgoing queue files it under.
+// The functions of this package build messages; the services send them.
+type Envelope struct {
+	UniqueID string
+	Type     string
+	Mail     *sender.Mail
+}
+
+// ConfirmSignup is the mail with the link that confirms a new account's
+// email address.
+func ConfirmSignup(user *core.User) (*Envelope, error) {
 	if user.EmailConfirmSeed.String == "" {
-		return errors.Errorf("cannot send confirm email for user with empty confirmation seed, user id = %s", user.ID)
+		return nil, errors.Errorf("cannot send confirm email for user with empty confirmation seed, user id = %s", user.ID)
 	}
 
 	link := links.AbsLink("confirm_signup", user.EmailConfirmSeed.String)
@@ -47,11 +55,5 @@ func ConfirmSignup(ctx context.Context, exec boil.ContextExecutor, s sender.Send
 	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
 	}
 
-	err := s.Send(ctx, exec, user.ID, "confirm_signup", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Envelope{UniqueID: user.ID, Type: "confirm_signup", Mail: mail}, nil
 }

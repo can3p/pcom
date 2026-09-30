@@ -2,10 +2,13 @@ package forms
 
 import (
 	"context"
+	"errors"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -20,15 +23,17 @@ type LoginFormInput struct {
 
 type LoginForm struct {
 	*forms.FormBase[LoginFormInput]
+	Accounts *accounts.Service
 }
 
-func LoginFormNew() forms.Form {
+func LoginFormNew(accounts *accounts.Service) forms.Form {
 	var form forms.Form = &LoginForm{
 		FormBase: &forms.FormBase[LoginFormInput]{
 			Name:         "login",
 			FormTemplate: "form--login.html",
 			Input:        &LoginFormInput{},
 		},
+		Accounts: accounts,
 	}
 
 	return form
@@ -45,11 +50,11 @@ func (f *LoginForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
 		return forms.ErrValidationFailed
 	}
 
-	return auth.CheckCredentials(c, db, f.Input.Email, f.Input.Password)
+	return f.Accounts.CheckCredentials(c, f.Input.Email, f.Input.Password)
 }
 
 func (f *LoginForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	if err := auth.Login(c.(*gin.Context), exec, f.Input.Email, f.Input.Password); err != nil {
+	if err := auth.Login(c.(*gin.Context), f.Accounts, f.Input.Email, f.Input.Password); err != nil {
 		return nil, err
 	}
 
@@ -58,4 +63,32 @@ func (f *LoginForm) Save(c context.Context, exec boil.ContextExecutor) (forms.Fo
 	}
 
 	return forms.FormSaveRedirect(links.DefaultAuthorizedHome()), nil
+}
+
+// fieldError shows a service's ValidationError as an error of the form field
+// and returns any other error, which is not the user's to fix.
+func fieldError(f interface{ AddError(field, message string) }, field string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var invalid *service.ValidationError
+	if errors.As(err, &invalid) {
+		f.AddError(field, invalid.Message)
+
+		return nil
+	}
+
+	// anything else is a failing database, which is a bug, not the user's to fix
+	panic(err)
+}
+
+// panicOnFatal panics on the failures the forms always panicked on (see accounts.FatalError).
+func panicOnFatal(err error) error {
+	var fatal *accounts.FatalError
+	if errors.As(err, &fatal) {
+		panic(err)
+	}
+
+	return err
 }

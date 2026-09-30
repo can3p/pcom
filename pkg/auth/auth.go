@@ -1,31 +1,24 @@
 package auth
 
 import (
-	"context"
 	"crypto/sha256"
-	"database/sql"
 	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 const (
@@ -33,7 +26,17 @@ const (
 	csrfTokenKey = "csrf_token"
 )
 
-func Auth(c *gin.Context, db *sqlx.DB) {
+// sessionUserKey is where pgsession keeps the request's user, which
+// pgsession.GetUser reads. pgsession offers no setter that takes a loaded
+// user, so the key is repeated here; TestAuth_LoggedInSessionSetsPgsessionUser
+// fails if the two drift apart.
+const sessionUserKey = "user context key user"
+
+func setUser(c *gin.Context, u *core.User) {
+	c.Set(sessionUserKey, &pgsession.User{DBUser: u})
+}
+
+func Auth(c *gin.Context, accounts *accounts.Service) {
 	session := sessions.Default(c)
 	user := session.Get(userkey)
 
@@ -43,14 +46,16 @@ func Auth(c *gin.Context, db *sqlx.DB) {
 		return
 	}
 
-	if err := pgsession.SetUser(c, db, user.(string)); err != nil {
+	if u, err := accounts.UserByID(c.Request.Context(), user.(string)); err != nil {
 		log.Printf("Failed to save user to pgsession, auth won't work as expected: %s", err)
+	} else {
+		setUser(c, u)
 	}
 
 	c.Next()
 }
 
-func AuthAPI(c *gin.Context, db *sqlx.DB) {
+func AuthAPI(c *gin.Context, accounts *accounts.Service) {
 	apiToken := c.GetHeader("Authorization")
 
 	parts := strings.Split(apiToken, " ")
@@ -60,11 +65,9 @@ func AuthAPI(c *gin.Context, db *sqlx.DB) {
 		return
 	}
 
-	userToken, err := core.UserAPIKeys(
-		core.UserAPIKeyWhere.APIKey.EQ(parts[1]),
-	).One(c, db)
+	user, err := accounts.UserByAPIKey(c.Request.Context(), parts[1])
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, service.ErrNotFound) {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
@@ -75,9 +78,7 @@ func AuthAPI(c *gin.Context, db *sqlx.DB) {
 		return
 	}
 
-	if err := pgsession.SetUser(c, db, userToken.UserID); err != nil {
-		log.Printf("Failed to save user to pgsession, auth won't work as expected: %s", err)
-	}
+	setUser(c, user)
 
 	c.Next()
 }
@@ -118,55 +119,20 @@ func EnforceReferer(c *gin.Context) {
 	c.Next()
 }
 
-func CheckCredentials(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
-	_, _, err := findByCredentials(c.Request.Context(), db, email, password)
-
-	return err
-}
-
-// findByCredentials returns the confirmed user that email and password log
-// in as, and whether their stored password hash is a legacy one to replace.
-func findByCredentials(ctx context.Context, db boil.ContextExecutor, email string, password string) (*core.User, bool, error) {
-	user, err := core.Users(
-		core.UserWhere.Email.EQ(pgsession.NormalizeEmail(email)),
-		core.UserWhere.EmailConfirmedAt.IsNotNull(),
-	).One(ctx, db)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, false, errors.Errorf("Bad credentials")
-	}
-
-	if err != nil {
-		return nil, false, err
-	}
-
-	if !user.Pwdhash.Valid {
-		return nil, false, errors.Errorf("Bad credentials")
-	}
-
-	ok, needsRehash := pgsession.CheckUserPwd(user.Pwdhash.String, user.Email, password)
-	if !ok {
-		return nil, false, errors.Errorf("Bad credentials")
-	}
-
-	return user, needsRehash, nil
-}
-
-func Login(c *gin.Context, db boil.ContextExecutor, email string, password string) error {
-	ctx := c.Request.Context()
-
-	user, needsRehash, err := findByCredentials(ctx, db, email, password)
+// Login checks the credentials and starts the session of the user they
+// belong to.
+func Login(c *gin.Context, accounts *accounts.Service, email string, password string) error {
+	user, err := accounts.Authenticate(c.Request.Context(), email, password)
 	if err != nil {
 		return err
 	}
 
-	if needsRehash {
-		user.Pwdhash = null.StringFrom(pgsession.HashPassword(password))
+	return StartSession(c, user)
+}
 
-		if _, err := user.Update(ctx, db, boil.Whitelist(core.UserColumns.Pwdhash)); err != nil {
-			return errors.Wrapf(err, "failed to rehash the password")
-		}
-	}
-
+// StartSession logs user in: the session gets a new ID, a CSRF token and the
+// user.
+func StartSession(c *gin.Context, user *core.User) error {
 	session := sessions.Default(c)
 
 	if err := pgsession.Regenerate(session); err != nil {
@@ -277,75 +243,4 @@ func GetFlashes(c *gin.Context, vars ...string) []any {
 	}
 
 	return flashes
-}
-
-func AcceptInvite(ctx context.Context, db boil.ContextExecutor, s sender.Sender, invite *core.UserInvitation, username string, password string) error {
-	if password == "" || username == "" {
-		return errors.Errorf("Not enough data")
-	}
-
-	email := pgsession.NormalizeEmail(invite.InvitationEmail.String)
-
-	u := &core.User{
-		ID:                uuid.NewString(),
-		Email:             email,
-		Username:          username,
-		Pwdhash:           null.StringFrom(pgsession.HashPassword(password)),
-		EmailConfirmedAt:  null.TimeFrom(time.Now()),
-		SignupAttribution: null.StringFrom("accepted_invite"),
-	}
-
-	if err := u.Insert(ctx, db, boil.Infer()); err != nil {
-		return err
-	}
-
-	invite.CreatedUserID = null.StringFrom(u.ID)
-
-	if _, err := invite.Update(ctx, db, boil.Infer()); err != nil {
-		return err
-	}
-
-	// give every new user one new invite to make things (slowly) spread
-	newInvite := &core.UserInvitation{
-		ID:     uuid.NewString(),
-		UserID: u.ID,
-	}
-
-	if _, _, err := userops.CreateConnection(ctx, db, invite.UserID, u.ID); err != nil {
-		return err
-	}
-
-	if err := admin.NotifyNewUser(ctx, db, s, u); err != nil {
-		return err
-	}
-
-	return newInvite.Insert(ctx, db, boil.Infer())
-}
-
-// Signup assumes the transaction is already began
-func Signup(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, email string, username, password string, attribution string) (*core.User, error) {
-	if password == "" || email == "" || username == "" {
-		return nil, errors.Errorf("Not enough data")
-	}
-
-	email = pgsession.NormalizeEmail(email)
-
-	u := &core.User{
-		ID:                uuid.NewString(),
-		Email:             email,
-		Username:          username,
-		Pwdhash:           null.StringFrom(pgsession.HashPassword(password)),
-		EmailConfirmSeed:  null.StringFrom(uuid.NewString()),
-		SignupAttribution: null.NewString(attribution, attribution != ""),
-	}
-
-	if err := u.Insert(ctx, db, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	if err := admin.NotifyNewUser(ctx, db, sender, u); err != nil {
-		return nil, err
-	}
-
-	return u, nil
 }

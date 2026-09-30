@@ -6,9 +6,9 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -18,10 +18,11 @@ type SettingsUserStylesInput struct {
 
 type SettingsUserStyles struct {
 	*forms.FormBase[SettingsUserStylesInput]
-	User *core.User
+	Accounts *accounts.Service
+	User     *core.User
 }
 
-func SettingsUserStylesNew(u *core.User) *SettingsUserStyles {
+func SettingsUserStylesNew(accounts *accounts.Service, u *core.User) *SettingsUserStyles {
 	form := &SettingsUserStyles{
 		FormBase: &forms.FormBase[SettingsUserStylesInput]{
 			Name:                "settings_user_styles",
@@ -30,7 +31,8 @@ func SettingsUserStylesNew(u *core.User) *SettingsUserStyles {
 			Input:               &SettingsUserStylesInput{},
 			ExtraTemplateData:   map[string]any{},
 		},
-		User: u,
+		Accounts: accounts,
+		User:     u,
 	}
 
 	return form
@@ -45,23 +47,7 @@ func (f *SettingsUserStyles) Validate(c *gin.Context, db boil.ContextExecutor) e
 }
 
 func (f *SettingsUserStyles) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	styleID, err := uuid.NewV7()
-
-	if err != nil {
-		return nil, err
-	}
-
-	userStyle := core.UserStyle{
-		ID:     styleID.String(),
-		UserID: f.User.ID,
-		Styles: f.Input.Styles,
-	}
-
-	if err := userStyle.Upsert(
-		c, exec, true, []string{core.UserStyleColumns.UserID},
-		boil.Whitelist(core.UserStyleColumns.UpdatedAt, core.UserStyleColumns.Styles),
-		boil.Infer(),
-	); err != nil {
+	if err := f.Accounts.SaveUserStyles(c, f.User, f.Input.Styles); err != nil {
 		return nil, err
 	}
 

@@ -1,63 +1,72 @@
 package app
 
 import (
-	"database/sql"
-	"log"
+	"errors"
 	"net/http"
-	"time"
 
 	gogoForms "github.com/can3p/gogo/forms"
-	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
+
+// pageError answers a page whose service call failed: an unknown link is a 404,
+// anything else is a bug, so it panics and the recovery middleware answers 500
+// and mails the admin.
+func pageError(c *gin.Context, err error) {
+	if errors.Is(err, service.ErrNotFound) {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	panic(err)
+}
 
 // mountAuthRoutes registers login, signup, invitations and logout.
 func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 	db := d.DB
-	sender := d.Sender
+	accounts := d.Services.Accounts
 	forceOpenRegistation := d.Config.ForceOpenRegistration
 
-	r.GET("/invite/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		invitationID := c.Param("id")
+	registrationOpen := func(c *gin.Context) (bool, error) {
+		open, err := accounts.RegistrationOpen(c)
 
-		userData := auth.GetUserData(c)
+		return open || forceOpenRegistation, err
+	}
 
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
+	// signedOutPage runs page for a visitor who is not logged in; a logged in
+	// one is sent home.
+	signedOutPage := func(page func(c *gin.Context, userData auth.UserData) error) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			userData := auth.GetUserData(c)
+
+			if userData.IsLoggedIn {
+				c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
+				return
+			}
+
+			if err := page(c, userData); err != nil {
+				pageError(c, err)
+			}
+		}
+	}
+
+	r.GET("/invite/:id", requireUUIDParam("id"), signedOutPage(func(c *gin.Context, userData auth.UserData) error {
+		invite, err := accounts.Invitation(c, c.Param("id"))
+		if err != nil {
+			return err
 		}
 
-		invite, err := core.UserInvitations(
-			core.UserInvitationWhere.ID.EQ(invitationID),
-			core.UserInvitationWhere.CreatedUserID.IsNull(),
-		).One(c, db)
+		c.HTML(http.StatusOK, "invite.html", web.Invite(c, invite, &userData))
 
-		if err == sql.ErrNoRows {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		} else if err != nil {
-			panic(err)
-		}
+		return nil
+	}))
 
-		c.HTML(http.StatusOK, "invite.html", web.Invite(c, db, invite, &userData))
-	})
-
-	r.GET("/login", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
-		}
-
+	r.GET("/login", signedOutPage(func(c *gin.Context, userData auth.UserData) error {
 		returnUrl := c.Query("return_url")
 		sign := c.Query("sign")
 
@@ -66,58 +75,32 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			sign = ""
 		}
 
-		c.HTML(http.StatusOK, "login.html", web.Login(c, db, &userData, returnUrl, sign))
-	})
+		c.HTML(http.StatusOK, "login.html", web.Login(c, &userData, returnUrl, sign))
 
-	r.GET("/signup", func(c *gin.Context) {
-		attribution := c.Query("attribution")
-		userData := auth.GetUserData(c)
+		return nil
+	}))
 
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
+	r.GET("/signup", signedOutPage(func(c *gin.Context, userData auth.UserData) error {
+		open, err := registrationOpen(c)
+		if err != nil {
+			return err
 		}
-
-		systemSettings := core.SystemSettings().OneP(c, db)
-
-		registrationOpen := systemSettings.RegistrationOpen || forceOpenRegistation
 
 		c.HTML(http.StatusOK, "signup.html", gin.H{
 			"Name":             "Signup to Webhks",
 			"User":             userData,
-			"RegistrationOpen": registrationOpen,
-			"Attribution":      attribution,
+			"RegistrationOpen": open,
+			"Attribution":      c.Query("attribution"),
 			"StyleNonce":       csp.GetStyleNonce(c),
 			"ScriptNonce":      csp.GetScriptNonce(c),
 		})
-	})
 
-	r.GET("/confirm_waiting_list/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		id := c.Param("id")
+		return nil
+	}))
 
-		userData := auth.GetUserData(c)
-
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
-		}
-
-		waitingList, err := core.UserSignupRequests(
-			core.UserSignupRequestWhere.ID.EQ(id),
-		).One(c, db)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.AbortWithStatus(http.StatusNotFound)
-				return
-			}
-
-			panic(err)
-		}
-
-		if !waitingList.EmailConfirmedAt.Valid {
-			waitingList.EmailConfirmedAt = null.TimeFrom(time.Now())
-			waitingList.UpdateP(c, db, boil.Infer())
+	r.GET("/confirm_waiting_list/:id", requireUUIDParam("id"), signedOutPage(func(c *gin.Context, userData auth.UserData) error {
+		if err := accounts.ConfirmWaitingList(c, c.Param("id")); err != nil {
+			return err
 		}
 
 		c.HTML(http.StatusOK, "waiting_list_confirmed.html", map[string]any{
@@ -125,38 +108,13 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			"StyleNonce":  csp.GetStyleNonce(c),
 			"ScriptNonce": csp.GetScriptNonce(c),
 		})
-	})
 
-	r.GET("/confirm_signup/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		id := c.Param("id")
+		return nil
+	}))
 
-		userData := auth.GetUserData(c)
-
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
-		}
-
-		user, err := core.Users(
-			core.UserWhere.EmailConfirmSeed.EQ(null.StringFrom(id)),
-		).One(c, db)
-
-		if err != nil {
-			if err == sql.ErrNoRows {
-				c.AbortWithStatus(http.StatusNotFound)
-				return
-			}
-
-			panic(err)
-		}
-
-		if !user.EmailConfirmedAt.Valid {
-			user.EmailConfirmedAt = null.TimeFrom(time.Now())
-			user.UpdateP(c, db, boil.Infer())
-
-			if nerr := admin.NotifySignupConfirmed(c, db, sender, user); nerr != nil {
-				log.Printf("failed to queue the signup confirmed notification: %v", nerr)
-			}
+	r.GET("/confirm_signup/:id", requireUUIDParam("id"), signedOutPage(func(c *gin.Context, userData auth.UserData) error {
+		if err := accounts.ConfirmSignup(c, c.Param("id")); err != nil {
+			return err
 		}
 
 		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]any{
@@ -164,88 +122,64 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			"StyleNonce":  csp.GetStyleNonce(c),
 			"ScriptNonce": csp.GetScriptNonce(c),
 		})
-	})
+
+		return nil
+	}))
 
 	actions.POST("/logout", auth.Logout)
 
-	nonControlsForms.POST("/login", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
+	nonControlsForms.POST("/login", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
+		gogoForms.DefaultHandler(c, db, forms.LoginFormNew(accounts))
 
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
-		}
-
-		form := forms.LoginFormNew()
-
-		gogoForms.DefaultHandler(c, db, form)
-	})
+		return nil
+	}))
 
 	nonControlsForms.POST("/accept_invite/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		invitationID := c.Param("id")
-
-		invite, err := core.UserInvitations(
-			core.UserInvitationWhere.ID.EQ(invitationID),
-			core.UserInvitationWhere.CreatedUserID.IsNull(),
-		).One(c, db)
-
-		if err == sql.ErrNoRows {
-			c.AbortWithStatus(http.StatusNotFound)
+		invite, err := accounts.Invitation(c, c.Param("id"))
+		if err != nil {
+			pageError(c, err)
 			return
-		} else if err != nil {
-			panic(err)
 		}
 
-		form := forms.AcceptInviteFormNew(sender, invite)
-		gogoForms.DefaultHandler(c, db, form)
+		gogoForms.DefaultHandler(c, db, forms.AcceptInviteFormNew(accounts, invite))
 	})
 
-	nonControlsForms.POST("/signup", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
+	nonControlsForms.POST("/signup", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
+		open, err := registrationOpen(c)
+		if err != nil {
+			return err
 		}
 
-		systemSettings := core.SystemSettings().OneP(c, db)
-
-		registrationOpen := systemSettings.RegistrationOpen || forceOpenRegistation
-
-		if !registrationOpen {
+		if !open {
 			c.Status(http.StatusForbidden)
-			return
-		}
-		form := forms.SignupFormNew(sender)
-
-		gogoForms.DefaultHandler(c, db, form)
-	})
-
-	nonControlsForms.POST("/signup_waiting_list", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-
-		if userData.IsLoggedIn {
-			c.Redirect(http.StatusFound, links.DefaultAuthorizedHome())
-			return
+			return nil
 		}
 
+		gogoForms.DefaultHandler(c, db, forms.SignupFormNew(accounts))
+
+		return nil
+	}))
+
+	nonControlsForms.POST("/signup_waiting_list", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
 		// bots are destroying the endpoint
-		if true {
+		const waitingListClosed = true
+		if waitingListClosed {
 			c.AbortWithStatus(http.StatusNotFound)
-			return
+			return nil
 		}
 
-		systemSettings := core.SystemSettings().OneP(c, db)
+		open, err := registrationOpen(c)
+		if err != nil {
+			return err
+		}
 
-		registrationOpen := systemSettings.RegistrationOpen || forceOpenRegistation
-
-		if registrationOpen {
+		if open {
 			c.Status(http.StatusForbidden)
-			return
+			return nil
 		}
 
-		form := forms.SignupWaitingListFormNew(sender)
+		gogoForms.DefaultHandler(c, db, forms.SignupWaitingListFormNew(accounts))
 
-		gogoForms.DefaultHandler(c, db, form)
-	})
+		return nil
+	}))
 }

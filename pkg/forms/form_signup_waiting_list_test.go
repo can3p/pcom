@@ -35,7 +35,7 @@ func TestSignupWaitingListForm_Validate(t *testing.T) {
 			t.Parallel()
 
 			c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-			form := forms.SignupWaitingListFormNew(fakesender.New()).(*forms.SignupWaitingListForm)
+			form := forms.SignupWaitingListFormNew(accountsFor(db, fakesender.New())).(*forms.SignupWaitingListForm)
 			form.Input.Email = tt.email(t)
 
 			err := form.Validate(c, db)
@@ -56,7 +56,7 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
+	form := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	form.Input.Email = "newrequest@example.test"
 	form.Input.Reason = "I'm interested"
 	form.Input.Attribution = "twitter"
@@ -84,7 +84,7 @@ func TestSignupWaitingListForm_SaveNormalizesEmail(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	form := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
+	form := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	form.Input.Email = "  Dup@EXAMPLE.TEST  "
 
 	_, err := form.Save(ctx, db)
@@ -92,7 +92,7 @@ func TestSignupWaitingListForm_SaveNormalizesEmail(t *testing.T) {
 	require.True(t, testutil.Must(factory.SignupRequestExists(ctx, db, "dup@example.test"))(t), "the normalized address is what gets stored")
 
 	c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-	dup := forms.SignupWaitingListFormNew(sender).(*forms.SignupWaitingListForm)
+	dup := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	dup.Input.Email = "dup@example.test"
 
 	err = dup.Validate(c, db)

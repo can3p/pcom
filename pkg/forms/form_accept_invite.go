@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -22,11 +22,11 @@ type AcceptInviteFormInput struct {
 
 type AcceptInviteForm struct {
 	*forms.FormBase[AcceptInviteFormInput]
-	Sender sender.Sender
-	Invite *core.UserInvitation
+	Accounts *accounts.Service
+	Invite   *core.UserInvitation
 }
 
-func AcceptInviteFormNew(sender sender.Sender, invite *core.UserInvitation) forms.Form {
+func AcceptInviteFormNew(accounts *accounts.Service, invite *core.UserInvitation) forms.Form {
 	var form forms.Form = &AcceptInviteForm{
 		FormBase: &forms.FormBase[AcceptInviteFormInput]{
 			Name:         "accept_invite",
@@ -36,8 +36,8 @@ func AcceptInviteFormNew(sender sender.Sender, invite *core.UserInvitation) form
 				"Invite": invite,
 			},
 		},
-		Sender: sender,
-		Invite: invite,
+		Accounts: accounts,
+		Invite:   invite,
 	}
 
 	return form
@@ -57,7 +57,7 @@ func (f *AcceptInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) err
 	} else if err := validation.ValidateUsername(username); err != nil {
 		f.AddError("username", err.Error())
 	} else {
-		exists, err := core.Users(core.UserWhere.Username.EQ(username)).Exists(c, db)
+		exists, err := f.Accounts.UsernameTaken(c, username)
 
 		if err != nil {
 			log.Printf("Failed to check username [%s] for duplication: %s", username, err.Error())
@@ -73,11 +73,12 @@ func (f *AcceptInviteForm) Validate(c *gin.Context, db boil.ContextExecutor) err
 func (f *AcceptInviteForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
-	if err := auth.AcceptInvite(c, exec, f.Sender, f.Invite, username, f.Input.Password); err != nil {
+	user, err := f.Accounts.AcceptInvite(c, f.Invite, username, f.Input.Password)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := auth.Login(c.(*gin.Context), exec, f.Invite.InvitationEmail.String, f.Input.Password); err != nil {
+	if err := auth.StartSession(c.(*gin.Context), user); err != nil {
 		return nil, err
 	}
 

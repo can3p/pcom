@@ -56,7 +56,7 @@ func TestAcceptInviteForm_Validate(t *testing.T) {
 			invite := newInvite(t, ctx, db)
 			c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-			form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
+			form := forms.AcceptInviteFormNew(accountsFor(db, sender), invite).(*forms.AcceptInviteForm)
 			form.Input.Username = tt.username(t)
 			form.Input.Password = tt.password
 
@@ -81,7 +81,7 @@ func TestAcceptInviteForm_SaveLogsInUser(t *testing.T) {
 
 	invite := newInvite(t, ctx, db)
 
-	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(accountsFor(db, sender), invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
@@ -107,7 +107,7 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 
 	invite := newInvite(t, ctx, db)
 
-	form := forms.AcceptInviteFormNew(sender, invite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(accountsFor(db, sender), invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
 	form.Input.Password = "ValidPassword123!"
 
@@ -117,7 +117,7 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 
 	newUser := testutil.Must(factory.GetUser(ctx, db, invite.CreatedUserID.String))(t)
 
-	sendInvite := forms.SendInviteFormNew(sender, newUser).(*forms.SendInviteForm)
+	sendInvite := forms.SendInviteFormNew(accountsFor(db, sender), newUser).(*forms.SendInviteForm)
 	sendInvite.Input.Email = "invitee-of-invitee@example.test"
 
 	sendC, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)

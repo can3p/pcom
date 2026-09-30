@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/feedops"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/reading"
@@ -101,6 +103,21 @@ func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 	return mo.Ok(Feed(c, userData, feed))
 }
 
+// settingsPage builds the settings page the way its route does: the service
+// gathers what it shows, the page builder shapes it.
+func settingsPage(c *gin.Context, exec boil.ContextExecutor, user *core.User) (*SettingsPage, error) {
+	svc := accounts.New(repo.Using(exec), nil, func(ctx context.Context, userID string) ([]*feedops.RssFeed, error) {
+		return feedops.GetRssFeeds(ctx, exec, userID)
+	})
+
+	view, err := svc.Settings(c, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return Settings(c, svc, userDataFor(user), view), nil
+}
+
 func TestInvite(t *testing.T) {
 	t.Parallel()
 
@@ -112,7 +129,7 @@ func TestInvite(t *testing.T) {
 
 	c := newTestContext(t, http.MethodGet, "/invite/"+invite.ID)
 
-	page := Invite(c, db, invite, userDataFor(nil))
+	page := Invite(c, testutil.Must(accounts.New(repo.New(db), nil, nil).Invitation(ctx, invite.ID))(t), userDataFor(nil))
 
 	require.Equal(t, "Accept Invitation", page.Name)
 	require.Equal(t, invite.ID, page.Invite.ID)
@@ -300,7 +317,7 @@ func TestSettings(t *testing.T) {
 	c := newTestContext(t, http.MethodGet, "/controls/settings")
 
 	// baseline: no invites, no api key, no custom style, no feeds.
-	page := testutil.Must(Settings(c, db, userDataFor(user)).Get())(t)
+	page := testutil.Must(settingsPage(c, db, user))(t)
 
 	require.Equal(t, int64(0), page.AvailableInvites)
 	require.Empty(t, page.UsedInvites)
@@ -322,7 +339,7 @@ func TestSettings(t *testing.T) {
 	// an unrelated feed the user is not subscribed to must not appear.
 	testutil.Must(factory.RSSFeed(ctx, db))(t)
 
-	page = testutil.Must(Settings(c, db, userDataFor(user)).Get())(t)
+	page = testutil.Must(settingsPage(c, db, user))(t)
 
 	require.Equal(t, int64(2), page.AvailableInvites, "3 slots minus 1 already sent")
 	require.Len(t, page.UsedInvites, 1)
@@ -449,8 +466,8 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 			t.Parallel()
 
 			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
-			res := Settings(c, exec, userDataFor(user))
-			require.True(t, res.IsError())
+			_, err := settingsPage(c, exec, user)
+			require.Error(t, err)
 		})
 	}
 }

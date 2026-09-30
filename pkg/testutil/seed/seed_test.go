@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -54,7 +55,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 
 	for _, name := range []string{"alice", "bob", "carol", "dave", "eve"} {
 		c, _ := ginctx.New(t, http.MethodGet, "/", nil)
-		require.NoError(t, auth.CheckCredentials(c, db, name+"@example.test", "password"), name)
+		require.NoError(t, accounts.New(repo.New(db), nil, nil).CheckCredentials(c, name+"@example.test", "password"), name)
 	}
 
 	alice, bob, carol, dave, eve := userID(t, db, "alice"), userID(t, db, "bob"), userID(t, db, "carol"), userID(t, db, "dave"), userID(t, db, "eve")

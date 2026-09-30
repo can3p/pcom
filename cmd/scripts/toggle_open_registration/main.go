@@ -2,22 +2,23 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"log"
-	"os"
 
-	"github.com/can3p/gogo/util/transact"
-	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // postgres db driver
-	"github.com/volatiletech/sqlboiler/v4/boil"
+
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 )
 
 func main() { //nolint:typecheck
-	db := sqlx.MustConnect("postgres", os.Getenv("DATABASE_URL")+"?sslmode=disable")
+	store, closeDB, err := repo.ConnectScript()
+	if err != nil {
+		panic(err)
+	}
+
 	defer func() {
-		if err := db.Close(); err != nil {
+		if err := closeDB(); err != nil {
 			log.Printf("Error closing database: %v", err)
 		}
 	}()
@@ -26,22 +27,7 @@ func main() { //nolint:typecheck
 
 	flag.Parse()
 
-	ctx := context.Background()
-
-	err := transact.Transact(db, func(tx *sql.Tx) error {
-		settings, err := core.SystemSettings().One(ctx, tx)
-
-		if err != nil {
-			return err
-		}
-
-		settings.RegistrationOpen = *enable
-		_, err = settings.Update(ctx, tx, boil.Whitelist(core.SystemSettingColumns.RegistrationOpen))
-
-		return err
-	})
-
-	if err != nil {
+	if err := accounts.New(store, nil, nil).SetRegistrationOpen(context.Background(), *enable); err != nil {
 		panic(err)
 	}
 }
