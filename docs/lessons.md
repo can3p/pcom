@@ -212,3 +212,18 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   a fallback (the console sender), the replacement's plumbing (the tommy
   container, harness env) belongs in the same task, even if the plan put it
   later.
+- **In a feature wave, say which suite owns a rule.** F1's E2E index and
+  feed tests re-seeded the whole visibility matrix the service test already
+  owned. The service test owns the rule; a route test proves the wiring with
+  one case the rule admits and one it rejects.
+- **"Reuse X" needs X's file in the owned list.** Told to render the feed's
+  post item but not given `feed.html`, a subagent copied the markup rather
+  than extract a partial. If a task should share code, own the file it lives
+  in.
+- **Parallel tasks in one package invent the same constant.** F1's index
+  and RSS tasks each defined a 50-post limit and one hardcoded the project
+  name. Name shared constants, and their owner, in the plan; otherwise the
+  coordinator reconciles them at merge.
+- **Put a wave file's task table before its task sections.**
+  `task_prompt.py` pastes a `###` section up to the next heading, so the last
+  section also carried the table and closing notes into its prompt.
