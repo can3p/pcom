@@ -3,10 +3,19 @@
 # A floor is the achieved level minus 1. Floors only ever rise: to raise one, run
 # `make cover` and set the floor to the new merged percentage minus 1.
 
-total 80.1
-github.com/can3p/pcom/pkg/web 88.3
-github.com/can3p/pcom/pkg/web/app 68.6
-github.com/can3p/pcom/pkg/userops 88.0
-github.com/can3p/pcom/pkg/auth 90.1
-github.com/can3p/pcom/pkg/forms 84.3
-github.com/can3p/pcom/pkg/postops 87.4
+total 84.7
+github.com/can3p/pcom/pkg/web 89.5
+github.com/can3p/pcom/pkg/web/app 74.4
+github.com/can3p/pcom/pkg/auth 90.8
+github.com/can3p/pcom/pkg/forms 87.6
+github.com/can3p/pcom/pkg/postops 90.9
+github.com/can3p/pcom/pkg/repo 88.0
+github.com/can3p/pcom/pkg/service/accounts 87.9
+github.com/can3p/pcom/pkg/service/connections 78.2
+github.com/can3p/pcom/pkg/service/feeds 85.0
+github.com/can3p/pcom/pkg/service/graph 99.0
+github.com/can3p/pcom/pkg/service/media 91.0
+github.com/can3p/pcom/pkg/service/posts 79.7
+github.com/can3p/pcom/pkg/service/reading 99.0
+github.com/can3p/pcom/pkg/service/registry 99.0
+github.com/can3p/pcom/pkg/service/shares 95.7

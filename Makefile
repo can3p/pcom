@@ -32,7 +32,9 @@ COVDIR := $(CURDIR)/.cover
 cover:
 	@rm -rf $(COVDIR)
 	@mkdir -p $(COVDIR)
-	@GOCOVERDIR=$(COVDIR) go test -cover ./... -args -test.gocoverdir=$(COVDIR)
+	@# -coverpkg: a test covers every pcom package it runs, not only its own, so
+	@# code a service test reaches in pkg/repo counts (RS moved queries there).
+	@GOCOVERDIR=$(COVDIR) go test -cover -coverpkg=$$(go list ./... | grep -v /pkg/model/core | paste -sd, -) ./... -args -test.gocoverdir=$(COVDIR)
 	@go tool covdata percent -i=$(COVDIR) | perl -pe 's/\t\t\t/\n/g' | grep "coverage:" | grep -v github.com/can3p/pcom/pkg/model/core
 	@go tool covdata textfmt -i=$(COVDIR) -o coverage.out
 
