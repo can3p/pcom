@@ -127,6 +127,31 @@ func buildBinary(dir string) (string, error) {
 	return bin, nil
 }
 
+// trackSourcesOnce stats every file of the repository. The server is a
+// separate binary, so go test's cache doesn't see its sources, templates or
+// migrations; it does see files a test stats, so this makes a change to any of
+// them re-run the suite instead of replaying a cached pass. It runs from Start,
+// because go test records file accesses only once m.Run has begun.
+var trackSourcesOnce = sync.OnceValue(func() error {
+	return filepath.WalkDir(repoRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			if path != repoRoot && (strings.HasPrefix(d.Name(), ".") || d.Name() == "node_modules") {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		_, err = os.Stat(path)
+
+		return err
+	})
+})
+
 // App is one running instance of the web binary with its own database.
 type App struct {
 	// URL is the server's root, such as http://127.0.0.1:41234, without a
@@ -169,6 +194,10 @@ func Start(t testing.TB, opts ...Option) *App {
 		}
 
 		t.Fatal("e2e: the web binary was not built; call e2e.Main from TestMain")
+	}
+
+	if err := trackSourcesOnce(); err != nil {
+		t.Fatalf("e2e: %v", err)
 	}
 
 	cfg := config{env: map[string]string{}}
