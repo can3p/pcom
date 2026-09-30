@@ -21,9 +21,9 @@ func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
 	require.NoError(t, err)
 }
 
-func newCommentForm(t *testing.T, sender *fakesender.Sender, u *core.User, postID, replyTo string) *forms.NewCommentForm {
+func newCommentForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *core.User, postID, replyTo string) *forms.NewCommentForm {
 	t.Helper()
-	form, ok := forms.NewCommentFormNew(sender, u, postID, mediaReplacer).(*forms.NewCommentForm)
+	form, ok := forms.NewCommentFormNew(postsService(db, sender), u, postID).(*forms.NewCommentForm)
 	require.True(t, ok)
 	form.Input.Body = "A perfectly fine comment body"
 	form.Input.PostID = postID
@@ -78,7 +78,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			form := newCommentForm(t, fakesender.New(), tc.user, post.ID, tc.replyTo)
+			form := newCommentForm(t, db, fakesender.New(), tc.user, post.ID, tc.replyTo)
 			if tc.postID != "" {
 				form.Input.PostID = tc.postID
 			}
@@ -119,7 +119,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
 		sender := fakesender.New()
-		saveComment(t, ctx, db, newCommentForm(t, sender, commenter, post.ID, ""))
+		saveComment(t, ctx, db, newCommentForm(t, db, sender, commenter, post.ID, ""))
 
 		comments := testutil.Must(factory.ListComments(ctx, db, post.ID))(t)
 		require.Len(t, comments, 1)
@@ -143,7 +143,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		require.Error(t, err, "no stat row before the first comment")
 
 		for i, u := range []*core.User{commenter, author} {
-			saveComment(t, ctx, db, newCommentForm(t, fakesender.New(), u, post.ID, ""))
+			saveComment(t, ctx, db, newCommentForm(t, db, fakesender.New(), u, post.ID, ""))
 			stat := testutil.Must(factory.GetPostStat(ctx, db, post.ID))(t)
 			require.Equal(t, int64(i+1), stat.CommentsNumber)
 		}
@@ -156,7 +156,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
 		// Save without Validate, as a race with a deleted comment would.
-		_, err := newCommentForm(t, fakesender.New(), author, post.ID, missingID).Save(ctx, db)
+		_, err := newCommentForm(t, db, fakesender.New(), author, post.ID, missingID).Save(ctx, db)
 		require.Error(t, err)
 		require.Empty(t, testutil.Must(factory.ListComments(ctx, db, post.ID))(t))
 	})
@@ -173,7 +173,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		topComment := testutil.Must(factory.Comment(ctx, db, post.ID, firstCommenter.ID))(t)
 
 		sender := fakesender.New()
-		saveComment(t, ctx, db, newCommentForm(t, sender, replier, post.ID, topComment.ID))
+		saveComment(t, ctx, db, newCommentForm(t, db, sender, replier, post.ID, topComment.ID))
 
 		comments := testutil.Must(factory.ListComments(ctx, db, post.ID))(t)
 		require.Len(t, comments, 2)

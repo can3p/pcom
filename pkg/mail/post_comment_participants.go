@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -15,20 +14,22 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func PostCommentParticipants(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, mediaReplacer types.Replacer[string], commentAuthor *core.User, participant *core.User, post *core.Post, comment *core.PostComment) error {
+// PostCommentParticipants formats the notification about a new comment for a
+// user who commented on the post earlier. It returns nil when there is nobody
+// to notify.
+func PostCommentParticipants(mediaReplacer types.Replacer[string], commentAuthor *core.User, participant *core.User, post *core.Post, comment *core.PostComment) (*Outgoing, error) {
 	// we're not sending email notifications to ourselves
 	if commentAuthor.ID == participant.ID {
-		return nil
+		return nil, nil
 	}
 
 	link := links.AbsLink("comment", post.ID, comment.ID)
 	body, err := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
 	if err != nil {
 		// ReplaceImageUrls only fails if goldmark cannot render, which no input triggers, so no test covers this.
-		return errors.Wrap(err, "failed to render the comment")
+		return nil, errors.Wrap(err, "failed to render the comment")
 	}
 	htmlBody := markdown.ToEnrichedTemplate(comment.Body, types.ViewEmail, mediaReplacer, links.AbsLink)
 
@@ -70,11 +71,5 @@ Checkout the comment in the post: %s`, commentAuthor.Username, subject, urlText,
 	<p>Checkout the comment in the <a href="%s">post</a>.</p>`, html.EscapeString(commentAuthor.Username), html.EscapeString(subject), htmlUrlSection, htmlBody, html.EscapeString(link)),
 	}
 
-	err = s.Send(ctx, exec, comment.ID+participant.ID, "comment_notification", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Outgoing{UniqueID: comment.ID + participant.ID, Type: "comment_notification", Mail: mail}, nil
 }

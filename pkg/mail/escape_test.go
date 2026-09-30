@@ -40,19 +40,19 @@ func mailers() map[string]func(s *fakesender.Sender) error {
 
 	return map[string]func(s *fakesender.Sender) error{
 		"NewPost": func(s *fakesender.Sender) error {
-			return mail.NewPost(ctx, nil, s, replacer, alice, bob, post)
+			return deliver(ctx, s)(mail.NewPost(replacer, alice, bob, post))
 		},
 		"PostCommentAuthor": func(s *fakesender.Sender) error {
-			return mail.PostCommentAuthor(ctx, nil, s, replacer, alice, bob, post, comment)
+			return deliverE(ctx, s)(mail.PostCommentAuthor(replacer, alice, bob, post, comment))
 		},
 		"PostCommentParticipants": func(s *fakesender.Sender) error {
-			return mail.PostCommentParticipants(ctx, nil, s, replacer, alice, bob, post, comment)
+			return deliverE(ctx, s)(mail.PostCommentParticipants(replacer, alice, bob, post, comment))
 		},
 		"PostPrompt": func(s *fakesender.Sender) error {
-			return mail.PostPrompt(ctx, nil, s, alice, bob, prompt)
+			return deliver(ctx, s)(mail.PostPrompt(alice, bob, prompt))
 		},
 		"PostPromptAnswer": func(s *fakesender.Sender) error {
-			return mail.PostPromptAnswer(ctx, nil, s, bob, alice, post, prompt)
+			return deliver(ctx, s)(mail.PostPromptAnswer(bob, alice, post, prompt))
 		},
 	}
 }

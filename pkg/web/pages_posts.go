@@ -1,20 +1,14 @@
 package web
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/userops"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
+	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/mo"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 type WritePage struct {
@@ -22,28 +16,24 @@ type WritePage struct {
 	Prompt *postops.PostPrompt
 }
 
-func Write(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*WritePage] {
-	dbUser := userData.DBUser
+// Write is the new post page. The prompt query parameter names the prompt the
+// post answers; a prompt addressed to somebody else is ignored.
+func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Result[*WritePage] {
 	var prompt *postops.PostPrompt
-	var err error
 
 	if promptID := c.Query("prompt"); promptID != "" {
-		prompt, err = postops.GetPostPrompt(c, db,
-			core.PostPromptWhere.RecipientID.EQ(dbUser.ID),
-			core.PostPromptWhere.ID.EQ(promptID),
-		)
+		var err error
 
+		prompt, err = svc.PromptFor(c, userData.DBUser, promptID)
 		if err != nil {
 			return mo.Err[*WritePage](err)
 		}
 	}
 
-	writePage := &WritePage{
+	return mo.Ok(&WritePage{
 		BasePage: getBasePage(c, "New Post", userData),
 		Prompt:   prompt,
-	}
-
-	return mo.Ok(writePage)
+	})
 }
 
 type EditPostPage struct {
@@ -55,40 +45,14 @@ type EditPostPage struct {
 	Prompt        *postops.PostPrompt
 }
 
-func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
-	post, err := core.Posts(
-		core.PostWhere.ID.EQ(postID),
-		qm.Load(core.PostRels.User),
-		qm.Load(core.PostRels.PostStat),
-		qm.Load(core.PostRels.URL),
-	).One(c, db)
-
-	if err == sql.ErrNoRows {
-		return mo.Err[*EditPostPage](ginhelpers.ErrNotFound)
-	} else if err != nil {
-		return mo.Err[*EditPostPage](err)
-	}
-
-	author := post.R.User
-	title := "Edit Post"
-
-	connectionRadius, err := userops.GetConnectionRadius(c, db, userData.DBUser.ID, author.ID)
-
+// EditPost is the edit page of a post the viewer may edit.
+func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postID string) mo.Result[*EditPostPage] {
+	view, err := svc.ForEdit(c, userData.DBUser, postID)
 	if err != nil {
 		return mo.Err[*EditPostPage](err)
 	}
 
-	capabilities := postops.GetPostCapabilities(connectionRadius)
-
-	if !capabilities.CanEdit {
-		return mo.Err[*EditPostPage](ginhelpers.ErrForbidden)
-	}
-
-	prompt, err := postops.GetPostPrompt(c, db, core.PostPromptWhere.PostID.EQ(null.StringFrom(post.ID)))
-
-	if err != nil {
-		return mo.Err[*EditPostPage](err)
-	}
+	post := view.Post
 
 	var url string
 
@@ -96,8 +60,8 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		url = post.R.URL.URL
 	}
 
-	editPostPage := &EditPostPage{
-		BasePage: getBasePage(c, title, userData),
+	return mo.Ok(&EditPostPage{
+		BasePage: getBasePage(c, "Edit Post", userData),
 		PostID:   post.ID,
 		Input: forms.PostFormInput{
 			Subject:    post.Subject.String,
@@ -107,8 +71,6 @@ func EditPost(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, 
 		},
 		LastUpdatedAt: post.UpdatedAt.Time,
 		IsPublished:   post.PublishedAt.Valid,
-		Prompt:        prompt,
-	}
-
-	return mo.Ok(editPostPage)
+		Prompt:        view.Prompt,
+	})
 }

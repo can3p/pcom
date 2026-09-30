@@ -1,7 +1,6 @@
 package mail
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/mail"
@@ -11,11 +10,11 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func PostPromptAnswer(ctx context.Context, exec boil.ContextExecutor, s sender.Sender, asker, recipient *core.User, post *core.Post, postPrompt *core.PostPrompt) error {
+// PostPromptAnswer formats the notification for the asker of a prompt that
+// the recipient answered with a post.
+func PostPromptAnswer(asker, recipient *core.User, post *core.Post, postPrompt *core.PostPrompt) *Outgoing {
 	link := links.AbsLink("post", postPrompt.PostID.String)
 
 	subject := postops.PostSubject(post.Subject)
@@ -44,11 +43,5 @@ Check out their post! %s`, recipient.Username, postPrompt.Message, subject, link
 	<p>Head to new post page to give an update! <a href="%s">%s</a></p>`, html.EscapeString(recipient.Username), html.EscapeString(postPrompt.Message), html.EscapeString(subject), html.EscapeString(link), html.EscapeString(link)),
 	}
 
-	err := s.Send(ctx, exec, post.ID, "post_prompt_answer", mail)
-
-	if err != nil {
-		return errors.Wrap(err, "failed to queue email")
-	}
-
-	return nil
+	return &Outgoing{UniqueID: post.ID, Type: "post_prompt_answer", Mail: mail}
 }

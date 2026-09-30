@@ -1,4 +1,4 @@
-package postops_test
+package posts_test
 
 import (
 	"context"
@@ -45,14 +45,14 @@ func TestSerializeBlog_RoundTripAcrossUsers(t *testing.T) {
 	// back from the DB rather than the in-memory one factory.Post returned.
 	dbWithLink := testutil.Must(factory.GetPost(ctx, db, withLink.ID))(t)
 
-	archive := testutil.Must(postops.SerializeBlog(ctx, db, storage, author.ID))(t)
+	archive := testutil.Must(svc(db, storage).ExportBlog(ctx, author))(t)
 
 	posts, images, err := postops.DeserializeArchive(archive)
 	require.NoError(t, err)
 	require.Len(t, posts, 2)
 	require.Empty(t, images)
 
-	stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, newOwner.ID, posts, images))(t)
+	stats := testutil.Must(svc(db, storage).InjectPosts(ctx, newOwner, posts, images))(t)
 	require.Equal(t, 2, stats.PostsCreated)
 	require.Equal(t, 0, stats.PostsUpdated)
 
@@ -99,14 +99,14 @@ func TestInjectPostsInDB(t *testing.T) {
 		// The export carries the original post ID, so importing it back for
 		// the same author updates the existing row instead of creating a
 		// duplicate.
-		archive := testutil.Must(postops.SerializeBlog(ctx, db, storage, author.ID))(t)
+		archive := testutil.Must(svc(db, storage).ExportBlog(ctx, author))(t)
 		posts, images, err := postops.DeserializeArchive(archive)
 		require.NoError(t, err)
 		require.Len(t, posts, 1)
 
 		posts[0].Post.Body = "edited body"
 
-		stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, author.ID, posts, images))(t)
+		stats := testutil.Must(svc(db, storage).InjectPosts(ctx, author, posts, images))(t)
 		require.Equal(t, 0, stats.PostsCreated)
 		require.Equal(t, 1, stats.PostsUpdated)
 
@@ -132,7 +132,7 @@ func TestInjectPostsInDB(t *testing.T) {
 		}
 		images := map[string][]byte{"original-name.png": pngBytes}
 
-		stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, owner.ID, posts, images))(t)
+		stats := testutil.Must(svc(db, storage).InjectPosts(ctx, owner, posts, images))(t)
 		require.Equal(t, 1, stats.ImagesUploaded)
 		require.Equal(t, 0, stats.ImagesSkipped)
 
@@ -160,7 +160,7 @@ func TestInjectPostsInDB(t *testing.T) {
 		}
 		images := map[string][]byte{existing.UploadedFname: []byte("does-not-matter")}
 
-		stats := testutil.Must(postops.InjectPostsInDB(ctx, db, storage, owner.ID, posts, images))(t)
+		stats := testutil.Must(svc(db, storage).InjectPosts(ctx, owner, posts, images))(t)
 		require.Equal(t, 0, stats.ImagesUploaded)
 		require.Equal(t, 1, stats.ImagesSkipped)
 	})

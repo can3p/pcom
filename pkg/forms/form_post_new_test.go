@@ -8,9 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/posts"
+	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -27,7 +30,11 @@ import (
 // reaching the not-found path.
 const missingID = "00000000-0000-0000-0000-000000000000"
 
-func mediaReplacer(in string) (bool, string) { return false, in }
+// postsService is the service the forms call, over db and a sender that
+// records instead of sending.
+func postsService(db *sqlx.DB, s sender.Sender) *posts.Service {
+	return registry.New(db, registry.Deps{Sender: s}).Posts
+}
 
 // renderStub makes c.HTML a no-op: the forms' fallback save action renders
 // the form, and a bare test engine has no HTML renderer.
@@ -91,7 +98,7 @@ func TestNewPostFormNew(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			form := testutil.Must(forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, tc.promptID))(t)
+			form := testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), user, tc.promptID))(t)
 			if tc.wantPromptID == "" {
 				require.Nil(t, form.Prompt)
 			} else {
@@ -110,12 +117,12 @@ func TestEditPostFormNew(t *testing.T) {
 	other := testutil.Must(factory.User(ctx, db))(t)
 	post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
-	form := testutil.Must(forms.EditPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, post.ID))(t)
+	form := testutil.Must(forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), author, post.ID))(t)
 	require.Equal(t, post.ID, form.Post.ID)
 
-	_, err := forms.EditPostFormNew(ctx, db, fakesender.New(), other, mediaReplacer, post.ID)
+	_, err := forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), other, post.ID)
 	require.ErrorIs(t, err, ginhelpers.ErrNotFound, "another user's post")
-	_, err = forms.EditPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, missingID)
+	_, err = forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), author, missingID)
 	require.ErrorIs(t, err, ginhelpers.ErrNotFound, "an unknown post")
 }
 
@@ -151,7 +158,7 @@ func TestPostForm_Validate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, fakesender.New(), user, mediaReplacer, ""))(t), forms.PostFormActionAutosave)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), user, ""))(t), forms.PostFormActionAutosave)
 			if tc.edit != nil {
 				tc.edit(form)
 			}
@@ -192,7 +199,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			connect(t, ctx, db, author.ID, conn.ID)
 
 			sender := fakesender.New()
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, sender, author, mediaReplacer, ""))(t), action)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, sender), author, ""))(t), action)
 			w := savePost(t, ctx, db, form)
 
 			posts := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
@@ -224,7 +231,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 		t.Parallel()
 
 		author := testutil.Must(factory.User(ctx, db))(t)
-		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, ""))(t), forms.PostFormActionDelete)
+		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), author, ""))(t), forms.PostFormActionDelete)
 		savePost(t, ctx, db, form)
 		require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, author.ID))(t))
 	})
@@ -234,7 +241,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			t.Parallel()
 
 			author := testutil.Must(factory.User(ctx, db))(t)
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, fakesender.New(), author, mediaReplacer, ""))(t), forms.PostFormActionAutosave)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), author, ""))(t), forms.PostFormActionAutosave)
 			form.Input.URL = url
 			savePost(t, ctx, db, form)
 
@@ -259,7 +266,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 				action = forms.PostFormActionPublish
 			}
 			sender := fakesender.New()
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, db, sender, author, mediaReplacer, prompt.ID))(t), action)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, sender), author, prompt.ID))(t), action)
 			require.NotNil(t, form.Prompt)
 			savePost(t, ctx, db, form)
 
@@ -329,7 +336,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 			post := testutil.Must(factory.Post(ctx, db, author.ID, opts...))(t)
 
 			sender := fakesender.New()
-			form := fillPost(testutil.Must(forms.EditPostFormNew(ctx, db, sender, author, mediaReplacer, post.ID))(t), tc.action)
+			form := fillPost(testutil.Must(forms.EditPostFormNew(ctx, postsService(db, sender), author, post.ID))(t), tc.action)
 			w := savePost(t, ctx, db, form)
 
 			if tc.wantHeader != "" {

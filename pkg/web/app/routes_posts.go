@@ -1,18 +1,11 @@
 package app
 
 import (
-	"bytes"
-	"fmt"
 	"net/http"
-	"time"
 
 	gogoForms "github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/userops"
 	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
@@ -21,8 +14,7 @@ import (
 // mountPostRoutes registers the pages and forms that write posts, comments and prompts, and the post export.
 func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 	db := d.DB
-	sender := d.Sender
-	mediaStorage := d.MediaStorage
+	posts := d.Services.Posts
 
 	r.GET("/posts/:id/zip", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -39,41 +31,29 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 
 		author := post.MustGet().Post.Author
 
-		b, err := postops.SerializeBlog(c, db, mediaStorage, author.ID, core.PostWhere.ID.EQ(postID))
+		b, err := posts.ExportPost(c, author.ID, postID)
 
 		if err != nil {
 			panic(err)
 		}
 
-		fname := fmt.Sprintf("export_%s_%s.zip", author.Username, time.Now().Format(time.RFC3339))
-		contentLength := int64(len(b))
-		contentType := "application/zip"
-
-		reader := bytes.NewReader(b)
-
-		extraHeaders := map[string]string{
-			"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fname),
-		}
-
-		c.DataFromReader(http.StatusOK, contentLength, contentType, reader, extraHeaders)
+		sendZip(c, author.Username, b)
 	})
 
 	r.GET("/posts/:id/edit", auth.EnforceAuth, requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
-		postID := c.Param("id")
 
-		ginhelpers.HTML(c, "edit_post.html", web.EditPost(c, db, &userData, postID))
+		ginhelpers.HTML(c, "edit_post.html", web.EditPost(c, posts, &userData, c.Param("id")))
 	})
 
 	r.GET("/write", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "write.html", web.Write(c, db, &userData))
+		ginhelpers.HTML(c, "write.html", web.Write(c, posts, &userData))
 	})
 
 	controlsForms.POST("/edit_post", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-		dbUser := userData.DBUser
+		dbUser := auth.GetUserData(c).DBUser
 
 		postID := c.PostForm("post_id")
 
@@ -81,13 +61,13 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 		var err error
 
 		if postID == "" {
-			form, err = forms.NewPostFormNew(c, db, sender, dbUser, links.MediaReplacer, c.PostForm("prompt_id"))
+			form, err = forms.NewPostFormNew(c, posts, dbUser, c.PostForm("prompt_id"))
 
 			if err != nil {
 				panic(err)
 			}
 		} else {
-			form, err = forms.EditPostFormNew(c, db, sender, dbUser, links.MediaReplacer, postID)
+			form, err = forms.EditPostFormNew(c, posts, dbUser, postID)
 
 			if err != nil {
 				if err == ginhelpers.ErrNotFound {
@@ -103,34 +83,22 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 	})
 
 	controlsForms.POST("/new_comment", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-		dbUser := userData.DBUser
+		dbUser := auth.GetUserData(c).DBUser
 
-		form := forms.NewCommentFormNew(sender, dbUser, c.PostForm("post_id"), links.MediaReplacer)
+		form := forms.NewCommentFormNew(posts, dbUser, c.PostForm("post_id"))
 
 		gogoForms.DefaultHandler(c, db, form)
 	})
 
 	controlsForms.POST("/prompt_post", func(c *gin.Context) {
-		userData := auth.GetUserData(c)
-		dbUser := userData.DBUser
+		dbUser := auth.GetUserData(c).DBUser
 
-		userIDs, err := userops.GetDirectUserIDs(c, db, dbUser.ID)
-
-		if err != nil {
-			panic(err)
-		}
-
-		directConnections, err := core.Users(
-			core.UserWhere.ID.IN(userIDs),
-		).All(c, db)
+		directConnections, err := posts.DirectConnections(c, dbUser)
 
 		if err != nil {
 			panic(err)
 		}
 
-		form := forms.PostPromptFormNew(sender, dbUser, directConnections)
-
-		gogoForms.DefaultHandler(c, db, form)
+		gogoForms.DefaultHandler(c, db, forms.PostPromptFormNew(posts, dbUser, directConnections))
 	})
 }

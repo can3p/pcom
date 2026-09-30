@@ -3,7 +3,6 @@ package postops
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,15 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 var headerRe = regexp.MustCompile(`^(\w+)\s*:\s*(.+)?$`)
@@ -188,115 +183,15 @@ func DeserializeArchive(b []byte) ([]*PostWithMeta, map[string][]byte, error) {
 	return posts, images, nil
 }
 
+// DetectContentType names the content type of uploaded bytes. Services don't
+// import net/http, so they ask here.
+func DetectContentType(b []byte) string {
+	return http.DetectContentType(b)
+}
+
 type InjectStats struct {
 	PostsCreated   int
 	PostsUpdated   int
 	ImagesUploaded int
 	ImagesSkipped  int
-}
-
-func InjectPostsInDB(ctx context.Context, exec boil.ContextExecutor, mediaStorage server.MediaStorage, userID string, posts []*PostWithMeta, images map[string][]byte) (*InjectStats, error) {
-	stats := &InjectStats{}
-
-	// current assumption: if you've guessed the name of the file in db, we assume
-	// we don't need to reupload it
-	// ideally we should do a checksum check ofc
-	imgInDB, err := core.MediaUploads(
-		core.MediaUploadWhere.UploadedFname.IN(lo.Keys(images)),
-		core.MediaUploadWhere.UserID.EQ(null.StringFrom(userID)),
-	).All(ctx, exec)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// any new files should get a brand new name before upload
-	renameMap := map[string]string{}
-	existingMap := map[string]struct{}{}
-
-	for _, img := range imgInDB {
-		if _, ok := images[img.UploadedFname]; ok {
-			stats.ImagesSkipped++
-			delete(images, img.UploadedFname)
-			existingMap[img.UploadedFname] = struct{}{}
-		}
-	}
-
-	for name, b := range images {
-		fname, err := media.HandleUpload(ctx, exec, mediaStorage, &userID, nil, bytes.NewReader(b))
-
-		if err != nil {
-			return nil, err
-		}
-
-		renameMap[name] = fname
-		stats.ImagesUploaded++
-	}
-
-	postIDs := lo.Map(
-		lo.Filter(posts, func(p *PostWithMeta, idx int) bool { return p.Post.ID != "" }),
-		func(p *PostWithMeta, idx int) string { return p.Post.ID })
-
-	existingPosts, err := core.Posts(
-		core.PostWhere.UserID.EQ(userID),
-		core.PostWhere.ID.IN(postIDs),
-	).All(ctx, exec)
-
-	if err != nil {
-		return nil, err
-	}
-
-	keepIDs := map[string]struct{}{}
-
-	for _, p := range existingPosts {
-		keepIDs[p.ID] = struct{}{}
-	}
-
-	for _, postWithMeta := range posts {
-		p := postWithMeta.Post
-
-		_, keepPostID := keepIDs[p.ID]
-		insertPost := p.ID == "" || !keepPostID
-
-		if insertPost {
-			id, err := uuid.NewV7()
-
-			if err != nil {
-				return nil, err
-			}
-
-			p.ID = id.String()
-		}
-
-		body, err := markdown.ReplaceImageUrls(p.Body, markdown.ImportReplacer(renameMap, existingMap))
-		if err != nil {
-			return nil, err
-		}
-		p.Body = body
-		p.UserID = userID
-
-		if postWithMeta.Additional != nil && postWithMeta.Additional.URL != "" {
-			url, err := StoreURL(ctx, exec, postWithMeta.Additional.URL)
-
-			if err != nil {
-				return nil, err
-			}
-
-			p.URLID = null.StringFrom(url.ID)
-		}
-
-		if insertPost {
-			if err := p.Insert(ctx, exec, boil.Infer()); err != nil {
-				return nil, err
-			}
-			stats.PostsCreated++
-		} else {
-			if _, err := p.Update(ctx, exec, boil.Infer()); err != nil {
-				return nil, err
-			}
-			stats.PostsUpdated++
-		}
-	}
-
-	return stats, nil
 }

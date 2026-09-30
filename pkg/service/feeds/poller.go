@@ -12,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/can3p/pcom/pkg/util"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
 )
@@ -144,7 +143,7 @@ func (s *Service) saveFeed(ctx context.Context, tx *repo.Store, feed *core.RSSFe
 				continue
 			}
 
-			url, err := storeURL(ctx, tx, item.URL)
+			url, err := tx.StoreURL(ctx, item.URL)
 			if err != nil {
 				return err
 			}
@@ -213,7 +212,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
 
-	url, err := storeURL(ctx, tx, rssFeedItem.URL)
+	url, err := tx.StoreURL(ctx, rssFeedItem.URL)
 	if err != nil {
 		return false, err
 	}
@@ -308,13 +307,4 @@ func calculateNewAverage(ctx context.Context, tx *repo.Store, feedID string, avg
 	}
 
 	return float64(count) / float64(avgWindowDays), nil
-}
-
-func storeURL(ctx context.Context, tx *repo.Store, rawURL string) (*core.NormalizedURL, error) {
-	normalized, err := util.NormalizeURL(rawURL)
-	if err != nil {
-		return nil, err
-	}
-
-	return tx.StoreFeedItemURL(ctx, normalized)
 }

@@ -2,24 +2,16 @@ package forms
 
 import (
 	"context"
-	"database/sql"
-	"strings"
-	"time"
+	"errors"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
-	"github.com/can3p/pcom/pkg/types"
-	"github.com/can3p/pcom/pkg/userops"
+	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -33,11 +25,10 @@ type PostFormInput struct {
 
 type PostForm struct {
 	*forms.FormBase[PostFormInput]
-	User          *core.User
-	Sender        sender.Sender
-	MediaReplacer types.Replacer[string]
-	Post          *core.Post
-	Prompt        *postops.PostPrompt
+	User   *core.User
+	Posts  *posts.Service
+	Post   *core.Post
+	Prompt *postops.PostPrompt
 }
 
 type PostFormAction string
@@ -54,16 +45,13 @@ const (
 	PostFormActionAutosave  PostFormAction = "autosave"
 )
 
-func NewPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string], promptID string) (*PostForm, error) {
+func NewPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, promptID string) (*PostForm, error) {
 	var prompt *postops.PostPrompt
-	var err error
 
 	if promptID != "" {
-		prompt, err = postops.GetPostPrompt(ctx, db,
-			core.PostPromptWhere.RecipientID.EQ(u.ID),
-			core.PostPromptWhere.ID.EQ(promptID),
-		)
+		var err error
 
+		prompt, err = svc.PromptFor(ctx, u, promptID)
 		if err != nil {
 			return nil, err
 		}
@@ -80,34 +68,24 @@ func NewPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.
 				"Prompt": prompt,
 			},
 		},
-		User:          u,
-		Sender:        sender,
-		MediaReplacer: mediaReplacer,
-		Prompt:        prompt,
+		User:   u,
+		Posts:  svc,
+		Prompt: prompt,
 	}
 
 	return form, nil
 }
 
-func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender.Sender, u *core.User, mediaReplacer types.Replacer[string], postID string) (*PostForm, error) {
-	post, err := core.Posts(
-		core.PostWhere.ID.EQ(postID),
-		core.PostWhere.UserID.EQ(u.ID),
-	).One(ctx, db)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ginhelpers.ErrNotFound
-		}
-
+func EditPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, postID string) (*PostForm, error) {
+	view, err := svc.ForEdit(ctx, u, postID)
+	if errors.Is(err, service.ErrForbidden) {
+		// somebody else's post is none of the actor's business
+		return nil, service.ErrNotFound
+	} else if err != nil {
 		return nil, err
 	}
 
-	prompt, err := postops.GetPostPrompt(ctx, db, core.PostPromptWhere.PostID.EQ(null.StringFrom(post.ID)))
-
-	if err != nil {
-		return nil, err
-	}
+	post := view.Post
 
 	form := &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
@@ -120,242 +98,103 @@ func EditPostFormNew(ctx context.Context, db boil.ContextExecutor, sender sender
 				"PostID":        post.ID,
 				"IsPublished":   post.PublishedAt.Valid,
 				"LastUpdatedAt": post.UpdatedAt.Time,
-				"Prompt":        prompt,
+				"Prompt":        view.Prompt,
 			},
 		},
-		User:          u,
-		Post:          post,
-		Sender:        sender,
-		MediaReplacer: mediaReplacer,
-		Prompt:        prompt,
+		User:   u,
+		Posts:  svc,
+		Post:   post,
+		Prompt: view.Prompt,
 	}
 
 	return form, nil
 }
 
-func (f *PostForm) Validate(c *gin.Context, db boil.ContextExecutor) error {
-	if err := validation.ValidateMinMax("subject", f.Input.Subject, 0, 100); err != nil {
-		f.AddError("subject", err.Error())
+// saveInput is what the form's input asks the service to save.
+func (f *PostForm) saveInput() posts.SaveInput {
+	in := posts.SaveInput{
+		Subject:    f.Input.Subject,
+		URL:        f.Input.URL,
+		Body:       f.Input.Body,
+		Visibility: f.Input.Visibility,
+		Action:     posts.Action(f.Input.SaveAction),
 	}
 
-	if err := validation.ValidateURL(f.Input.URL); err != nil {
-		f.AddError("url", err.Error())
+	switch {
+	case f.Post != nil:
+		in.PostID = f.Post.ID
+	case f.Prompt != nil:
+		in.PromptID = f.Prompt.Prompt.ID
 	}
 
-	if err := validation.ValidateMinMax("body", f.Input.Body, 0, 20_000); err != nil {
-		f.AddError("body", err.Error())
-	}
+	return in
+}
 
-	saveAction := f.Input.SaveAction
-
-	if saveAction == "" {
-		saveAction = PostFormActionAutosave
-	}
-
-	if err := validation.ValidateEnum(saveAction,
-		[]PostFormAction{PostFormActionSavePost, PostFormActionMakeDraft, PostFormActionPublish, PostFormActionDelete, PostFormActionAutosave},
-		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
-		f.AddError("save_action", err.Error())
-	}
-
-	if err := validation.ValidateEnum(f.Input.Visibility,
-		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic},
-		[]string{"direct only", "their connections as well", "public"}); err != nil {
-		f.AddError("visibility", err.Error())
+func (f *PostForm) Validate(c *gin.Context, _ boil.ContextExecutor) error {
+	for field, message := range posts.ValidateSave(f.saveInput()) {
+		f.AddError(field, message)
 	}
 
 	// this sounds like too much, but this way
 	// we put the permission logic into a single place
 	// and do not rely on adhoc queries
 	if f.Post != nil {
-		post := f.Post
-
-		radius, err := userops.GetConnectionRadius(c, db, f.User.ID, post.UserID)
-
-		if err != nil {
+		if err := f.Posts.CheckEdit(c, f.User, f.Post); err != nil {
 			return err
-		}
-
-		capabilities := postops.GetPostCapabilities(radius)
-
-		if !capabilities.CanEdit {
-			return ginhelpers.ErrForbidden
 		}
 	}
 
 	return f.Errors.PassedValidation()
 }
 
-func (f *PostForm) Save(c context.Context, exec boil.ContextExecutor) (forms.FormSaveAction, error) {
-	subject := strings.TrimSpace(f.Input.Subject)
-	url := strings.TrimSpace(f.Input.URL)
-	body := strings.TrimSpace(f.Input.Body)
+func (f *PostForm) Save(c context.Context, _ boil.ContextExecutor) (forms.FormSaveAction, error) {
+	saved, err := f.Posts.Save(c, f.User, f.saveInput())
+	if err != nil {
+		return nil, err
+	}
 
+	if saved.Deleted {
+		return forms.FormSaveRedirect(links.Link("controls")), nil
+	}
+
+	post := saved.Post
 	saveAction := f.Input.SaveAction
 
 	if saveAction == "" {
 		saveAction = PostFormActionAutosave
 	}
 
-	if f.Input.SaveAction == PostFormActionDelete {
-		// deleting a post that was never saved stores nothing
-		if f.Post != nil {
-			if err := postops.DeletePost(c, exec, f.Post.ID); err != nil {
-				return nil, err
-			}
-		}
-
-		return forms.FormSaveRedirect(links.Link("controls")), nil
-	}
-
-	// Store URL if provided
-	var storedURL *core.NormalizedURL
-	var err error
-	if url != "" {
-		storedURL, err = postops.StoreURL(c, exec, url)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	post := &core.Post{
-		Subject:          null.NewString(subject, subject != ""),
-		Body:             body,
-		UserID:           f.User.ID,
-		VisibilityRadius: f.Input.Visibility,
-	}
-
-	if storedURL != nil {
-		post.URLID = null.StringFrom(storedURL.ID)
-	}
-
-	// Set URL relation directly since we have it
-	if storedURL != nil {
-		post.R = post.R.NewStruct()
-		post.R.URL = storedURL
-	}
-
 	var action = forms.FormSaveDefault(true)
 
-	sendPublishNotification := false
+	// a draft that was saved reports it to the page without leaving it
+	draftSaved := func(action forms.FormSaveAction) forms.FormSaveAction {
+		f.AddTemplateData("DraftSaved", true)
 
-	if f.Post == nil {
-		postID, err := uuid.NewV7()
-
-		if err != nil {
-			return nil, err
-		}
-
-		post.ID = postID.String()
-
-		if saveAction == PostFormActionPublish {
-			// not null value means a published post
-			post.PublishedAt = null.TimeFrom(time.Now())
-
-			action = forms.FormSaveRedirect(links.Link("post", post.ID))
-			sendPublishNotification = true
-		} else {
-			f.AddTemplateData("DraftSaved", true)
-			action = formhelpers.Retarget(
-				formhelpers.Trigger(
-					formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)),
-					gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID, "edit_preview", "true")}},
-				),
-				"#last_draft_save",
-			)
-		}
-
-		if err := post.Insert(c, exec, boil.Infer()); err != nil {
-			return nil, err
-		}
-
-		if f.Prompt != nil {
-			dbPrompt := f.Prompt.Prompt
-
-			dbPrompt.PostID = null.StringFrom(post.ID)
-
-			if _, err := dbPrompt.Update(c, exec, boil.Infer()); err != nil {
-				return nil, err
-			}
-		}
-
-		f.AddTemplateData("PostID", post.ID)
-		f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
-		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
-	} else {
-		post.ID = f.Post.ID
-
-		switch saveAction {
-		case PostFormActionMakeDraft:
-			post.PublishedAt = null.Time{}
-		case PostFormActionPublish:
-			post.PublishedAt = null.TimeFrom(time.Now())
-
-			// let's redirect to the post whenever we publish a post
-			action = forms.FormSaveRedirect(links.Link("post", post.ID))
-			sendPublishNotification = true
-		default:
-			post.PublishedAt = f.Post.PublishedAt
-
-			if saveAction != PostFormActionAutosave && post.PublishedAt.Valid {
-				action = forms.FormSaveRedirect(links.Link("post", post.ID))
-			} else {
-				f.AddTemplateData("DraftSaved", true)
-				action = formhelpers.Retarget(
-					formhelpers.Trigger(
-						action,
-						gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID, "edit_preview", "true")}},
-					),
-					"#last_draft_save",
-				)
-			}
-		}
-
-		if _, err := post.Update(c, exec, boil.Infer()); err != nil {
-			return nil, err
-		}
-
-		f.AddTemplateData("PostID", post.ID)
-		f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
-		f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
+		return formhelpers.Retarget(
+			formhelpers.Trigger(
+				action,
+				gin.H{"draft_saved": gin.H{"url": links.Link("post", post.ID, "edit_preview", "true")}},
+			),
+			"#last_draft_save",
+		)
 	}
 
-	if sendPublishNotification {
-		if f.Prompt != nil && f.Prompt.Prompt.DismissedAt.IsZero() {
-			dbPrompt := f.Prompt.Prompt
-
-			dbPrompt.PostID = null.StringFrom(post.ID)
-			dbPrompt.DismissedAt = null.TimeFrom(time.Now())
-
-			if _, err := dbPrompt.Update(c, exec, boil.Infer()); err != nil {
-				return nil, err
-			}
-
-			if err := mail.PostPromptAnswer(c, exec, f.Sender, f.Prompt.Author, f.User, post, dbPrompt); err != nil {
-				return nil, err
-			}
-		}
-
-		directConnectionsIDs, err := userops.GetDirectUserIDs(c, exec, post.UserID)
-
-		if err != nil {
-			return nil, err
-		}
-
-		connections, err := core.Users(
-			core.UserWhere.ID.IN(directConnectionsIDs),
-		).All(c, exec)
-
-		if err != nil {
-			return nil, err
-		}
-
-		for _, conn := range connections {
-			if err := mail.NewPost(c, exec, f.Sender, f.MediaReplacer, f.User, conn, post); err != nil {
-				return nil, err
-			}
-		}
+	switch {
+	case saveAction == PostFormActionPublish:
+		// let's redirect to the post whenever we publish a post
+		action = forms.FormSaveRedirect(links.Link("post", post.ID))
+	case saved.Created:
+		action = draftSaved(formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)))
+	case saveAction == PostFormActionMakeDraft:
+	case saveAction != PostFormActionAutosave && post.PublishedAt.Valid:
+		action = forms.FormSaveRedirect(links.Link("post", post.ID))
+	default:
+		action = draftSaved(action)
 	}
+
+	f.AddTemplateData("PostID", post.ID)
+	f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
+	f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
 
 	return action, nil
 }
