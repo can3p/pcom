@@ -12,13 +12,13 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 	"github.com/jmoiron/sqlx"
@@ -121,9 +121,9 @@ func TestEditPostFormNew(t *testing.T) {
 	require.Equal(t, post.ID, form.Post.ID)
 
 	_, err := forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), other, post.ID)
-	require.ErrorIs(t, err, ginhelpers.ErrNotFound, "another user's post")
+	require.ErrorIs(t, err, service.ErrNotFound, "another user's post")
 	_, err = forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), author, missingID)
-	require.ErrorIs(t, err, ginhelpers.ErrNotFound, "an unknown post")
+	require.ErrorIs(t, err, service.ErrNotFound, "an unknown post")
 }
 
 func TestPostForm_Validate(t *testing.T) {
@@ -154,7 +154,7 @@ func TestPostForm_Validate(t *testing.T) {
 		{name: "the author editing their post", edit: func(f *forms.PostForm) { f.Post = post }},
 		// Built without EditPostFormNew, whose ownership check would reject
 		// it first, to reach Validate's own capability check.
-		{name: "a stranger editing the post", edit: func(f *forms.PostForm) { f.User = other; f.Post = post }, wantIs: ginhelpers.ErrForbidden},
+		{name: "a stranger editing the post", edit: func(f *forms.PostForm) { f.User = other; f.Post = post }, wantIs: service.ErrForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

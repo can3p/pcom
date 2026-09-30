@@ -8,12 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/util"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"

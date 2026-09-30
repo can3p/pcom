@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/can3p/gogo/util/ginhelpers"
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -70,6 +72,9 @@ func New(t testing.TB, method, target string, body io.Reader, opts ...Option) (*
 
 	store := cookie.NewStore([]byte("ginctx-test-secret"))
 	sessions.Sessions(sessionName, store)(c)
+
+	// the same options router.go installs, with errors shown as in dev
+	ginhelpers.Configure(ginhelpers.Options{RedirectToLogin: auth.RedirectToLogin, ShowErrors: true})(c)
 
 	for _, opt := range opts {
 		opt(c)

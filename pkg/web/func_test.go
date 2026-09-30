@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/feeds"
@@ -22,7 +23,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
@@ -208,8 +208,8 @@ func TestEditPost(t *testing.T) {
 		postID string
 		want   error
 	}{
-		{"stranger cannot edit", stranger, post.ID, ginhelpers.ErrForbidden},
-		{"missing post", author, "0190a0a0-0000-7000-8000-000000000000", ginhelpers.ErrNotFound},
+		{"stranger cannot edit", stranger, post.ID, service.ErrForbidden},
+		{"missing post", author, "0190a0a0-0000-7000-8000-000000000000", service.ErrNotFound},
 	}
 
 	for _, tc := range errCases {

@@ -16,11 +16,11 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/can3p/pcom/pkg/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -303,10 +303,10 @@ func TestPrivacyMatrix(t *testing.T) {
 
 				switch row.want {
 				case needsLogin:
-					require.ErrorIs(t, res.Error(), ginhelpers.ErrNeedsLogin)
+					require.ErrorIs(t, res.Error(), service.ErrNeedsLogin)
 					return
 				case notFound:
-					require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+					require.ErrorIs(t, res.Error(), service.ErrNotFound)
 					return
 				}
 
@@ -338,7 +338,7 @@ func TestPrivacyMatrix(t *testing.T) {
 		for _, v := range []viewer{asAnonymous, asStranger} {
 			c, userData := w.userData(t, v, core.ProfileVisibilityPublic)
 			res := postPage(c, w.db, userData, uuid.NewString())
-			require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound, v)
+			require.ErrorIs(t, res.Error(), service.ErrNotFound, v)
 		}
 	})
 
@@ -390,7 +390,7 @@ func TestPrivacyMatrix(t *testing.T) {
 			res := userHome(c, w.db, userData, author.Username)
 
 			if row.want == notFound {
-				require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+				require.ErrorIs(t, res.Error(), service.ErrNotFound)
 				return
 			}
 
@@ -425,7 +425,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 		c, userData := w.userData(t, asStranger, core.ProfileVisibilityPublic)
 		res := userHome(c, w.db, userData, "no-such-user")
-		require.ErrorIs(t, res.Error(), ginhelpers.ErrNotFound)
+		require.ErrorIs(t, res.Error(), service.ErrNotFound)
 	})
 
 	// Explore, /explore, lists published public posts only, and only of
@@ -487,7 +487,7 @@ func TestPrivacyMatrix(t *testing.T) {
 				page, err := shares.New(repo.Using(w.db)).Get(c, share.ID)
 
 				if !key.published {
-					require.ErrorIs(t, err, ginhelpers.ErrNotFound)
+					require.ErrorIs(t, err, service.ErrNotFound)
 					return
 				}
 
@@ -503,7 +503,7 @@ func TestPrivacyMatrix(t *testing.T) {
 
 		c, _ := w.userData(t, asAnonymous, core.ProfileVisibilityPublic)
 		_, err := shares.New(repo.Using(w.db)).Get(c, uuid.NewString())
-		require.ErrorIs(t, err, ginhelpers.ErrNotFound)
+		require.ErrorIs(t, err, service.ErrNotFound)
 	})
 }
 
@@ -629,8 +629,8 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 				}
 
 				require.Error(t, err, "query %d failed", failAt)
-				require.NotErrorIs(t, err, ginhelpers.ErrNotFound, "query %d failed", failAt)
-				require.NotErrorIs(t, err, ginhelpers.ErrNeedsLogin, "query %d failed", failAt)
+				require.NotErrorIs(t, err, service.ErrNotFound, "query %d failed", failAt)
+				require.NotErrorIs(t, err, service.ErrNeedsLogin, "query %d failed", failAt)
 			}
 		})
 	}
