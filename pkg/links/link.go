@@ -87,6 +87,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/action/" + builder.Shift()
 	case "uploaded_media":
 		out = "/user-media/" + builder.Shift()
+	case "public_feed":
+		out = "/rss/public"
 	case "public_blog_feed":
 		out = "/rss/public/" + builder.Shift()
 	case "private_user_feed":

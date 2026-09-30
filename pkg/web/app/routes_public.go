@@ -19,6 +19,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// publicPostsLimit caps the posts on the index page.
+const publicPostsLimit = 50
+
 // mountPublicRoutes registers the pages anyone may read.
 func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	reading := d.Services.Reading
@@ -31,7 +34,13 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "index.html", web.Index(c, &userData))
+		posts, err := reading.PublicPosts(c, publicPostsLimit)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "index.html", web.Index(c, &userData, posts))
 	})
 
 	r.GET("/articles/:id", func(c *gin.Context) {
@@ -125,6 +134,11 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 
 	r.GET("/explore", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
+
+		if !userData.IsLoggedIn {
+			c.Redirect(http.StatusFound, "/")
+			return
+		}
 
 		posts, err := reading.Explore(c, userData.DBUser)
 		if err != nil {

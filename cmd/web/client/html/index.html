@@ -1,43 +1,19 @@
 {{ template "header.html" . }}
 
-<div class="p-3">
-  <div class="px-4 pt-5 my-5 text-center border-bottom">
-    <h1 class="display-4 fw-bold">Social network for private groups</h1>
+<div class="user-styles-applied us-user-home user-home">
+<div class="container col-md-8">
+  <div class="row justify-content-md-center mt-lg-4 mt-2">
+    <h1 class="us-user-header user-header">Public posts <a href="{{ link "public_feed" }}" title="RSS feed" aria-label="RSS feed"><i class="bi bi-rss"></i></a></h1>
 
-    <div class="col-lg-6 mx-auto">
-      <p class="lead mb-4">Bring back interactions with real people</p>
-      <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mb-5">
-        <a href="/signup?attribution=index_page" class="btn btn-primary btn-lg px-4 me-sm-3">Get started</a>
-      </div>
-    </div>
-
-    <div class="container px-lg-5 ytcontainer">
-      <lite-youtube videoid="z1dFNulT9xU" playlabel="Play Demo"></lite-youtube>
-    </div>
-
-    <div class="container px-4 py-5">
-  <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
-    <div class="col d-flex align-items-start">
-      <div>
-        <h2>No more twitter storms</h2>
-        <p>The network is built around the concept of limited visibility. Your posts can be seen either by your direct contact or by their direct contacts as well if you allow it</p>
-      </div>
-    </div>
-    <div class="col d-flex align-items-start">
-      <div>
-        <h2>No more bots</h2>
-        <p>There is no way to send a connect request to a random person. You either allow that proactively or your direct peers mediate the connection request</p>
-      </div>
-    </div>
-    <div class="col d-flex align-items-start">
-      <div>
-        <h2>Open</h2>
-        <p>Pcom is <a href="https://github.com/can3p/pcom">open-source</a>, there is no company backing it. You can host your instance if you like. Pcom supports markdown, allows easy export/import and has a public api, which you can use to build <a href="https://github.com/can3p/blg">a client</a> if you want to.</p>
-      </div>
-    </div>
+    {{ if eq (len .Items) 0 }}
+    <p>There are no public posts yet.</p>
+    {{ else }}
+      {{ range .Items }}
+        {{ template "partial--post-item.html" toMap "Post" .Post "User" $.User }}
+      {{ end }}
+    {{ end }}
   </div>
 </div>
-  </div>
 </div>
 
 {{ template "footer.html" . }}
