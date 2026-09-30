@@ -125,6 +125,40 @@ The issues, as filed:
 {issues}"""
 
 
+# Feature waves (F*) change behavior on purpose, as the wave file decides; the new tests prove the feature.
+FEATURE_TEMPLATE = """\
+You are building a feature in pcom. Read docs/architecture.md and docs/testing.md; read no other docs.
+Task: {task}.
+
+{excerpt}
+
+You own exactly these files: {owns}. Do not edit any other file; if another file must change, stop and
+report it under needs:. Do not run git. Do not edit go.mod.
+Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
+skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
+Before touching cmd/web/client or an htmx handler, follow the frontend-htmx skill.
+Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
+Build exactly what the task describes; every decision in it is made, so don't reopen one. If something is
+undecided, stop and report it under needs:.
+Layering: handlers bind input, call one service method and render; services hold rules and authorization;
+every query lives in pkg/repo. Never grow the pkg/arch allowlist.
+Tests prove what the feature is for, not incidental markup: what a user does in a page is a browser test
+(e2e/browser), a server rule is an E2E or service test. An existing assertion may change only where the
+task changes that behavior; name each one under bugs:. Keep tests compact (ground rule 9 in
+docs/testing.md).
+After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
+Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end{ui}.
+Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
+`make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
+Done when: {done}.
+{report}"""
+
+BROWSER_RUN = (", and your browser tests with `tools/qrun.sh test-ui go test -tags browser -count=1 -run"
+               " '<tests>' ./e2e/browser/...` (not `make test-ui`: it rebuilds the assets other tasks share). If you"
+               " change cmd/web/client/js or scss, rebuild once with `tools/qrun.sh ui-build yarn --cwd cmd/web build`"
+               " and say so under needs:")
+
+
 def issue_bodies(excerpt):
     out = []
     for n in dict.fromkeys(re.findall(r"#(\d{3})\b", excerpt)):
@@ -243,11 +277,15 @@ def build(wave, task):
     done = f"the coverage of the task's packages is at least {target}" if target else \
         fields.get("done when") or "<FILL: the task's done-when, from the excerpt>"
     header = f"# model: {TIERS.get(tier, '<FILL: tier>')}   ({wave.upper()}.{task}, tier {tier or '?'})"
-    if wave.lower() == "wb":
-        ui = (", and the un-skipped browser tests with `tools/qrun.sh test-ui go test -tags browser -count=1 -run"
-              " '<tests>' ./e2e/browser/...` (not `make test-ui`: it rebuilds the assets other tasks share). If you"
-              " change cmd/web/client/js or scss, rebuild once with `tools/qrun.sh ui-build yarn --cwd cmd/web build`"
-              " and say so under needs:") if "browser" in excerpt else ""
+    if wave.lower().startswith("f"):
+        dirs = [d for d in dirs if not d.startswith("e2e")]  # the preamble runs e2e once at the end
+        pkg = " ".join(f"./{d}/..." for d in dirs) or "<FILL: ./pkg/x/...>"
+        pkg = f'"{pkg}"' if len(dirs) > 1 else pkg
+        ui = BROWSER_RUN if "browser" in excerpt else ""
+        body = FEATURE_TEMPLATE.format(task=f"{wave.upper()}.{task}", excerpt=excerpt, pkg=pkg, done=done,
+                                       report=REPORT, ui=ui, owns=owned or "<FILL: the task's owned files>")
+    elif wave.lower() == "wb":
+        ui = BROWSER_RUN.replace("your browser", "the un-skipped browser") if "browser" in excerpt else ""
         if pkg.startswith('"'):
             pkg = " ".join(p for p in pkg.strip('"').split() if not p.startswith("./e2e/"))
             pkg = f'"{pkg}"' if " " in pkg else pkg

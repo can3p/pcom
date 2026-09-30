@@ -62,6 +62,7 @@ Related documents:
 | R5 | bob ORM, one repository at a time | RS, R3 | planned | `refactor/r5-bob` |
 | R6 | Dependency hygiene | any time after W5 | planned | `chore/r6-deps` |
 | R7 | Structured logging with zap | RS, R2 | planned | `refactor/r7-logging` |
+| F1 | Public post feed on the index page, `/rss/public` (#146) | RS | planned | `feat/f1-public-feed` |
 
 ```
             ┌── W1 (12 tasks) ──┐
@@ -71,6 +72,8 @@ W0 ─────────┼── W3 (4 tasks)  ──┼── W5 ── 
             └── W6 (8 tasks) ──────────────────┘     └─ R5 (also after R3)
                                                   R3: after W5   R6: any time
 ```
+
+F-waves are product features, planned from an issue; unlike the other waves they change behavior on purpose, as their wave file decides.
 
 Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.md`); a finished wave's file is deleted and its record moves to `docs/archive/history.md`.
 
