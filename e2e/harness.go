@@ -317,14 +317,13 @@ func coverDir() string {
 	return os.Getenv("GOCOVERDIR")
 }
 
-// processEnv is the test's environment with the given overrides. FLY_APP_NAME
-// is removed, because it switches the binary to production mode.
+// processEnv is the test's environment with the given overrides.
 func processEnv(overrides map[string]string) []string {
 	var env []string
 
 	for _, kv := range os.Environ() {
 		key, _, _ := strings.Cut(kv, "=")
-		if _, ok := overrides[key]; ok || key == "FLY_APP_NAME" {
+		if _, ok := overrides[key]; ok {
 			continue
 		}
 

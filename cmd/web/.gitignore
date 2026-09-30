@@ -1,3 +1,5 @@
 node_modules
 .env
 dist
+# local media from before R2 (uploads go to tommy now); kept so old files are never committed
+user_media

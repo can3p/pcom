@@ -282,9 +282,7 @@ var envExempt = []string{"cmd/web", "e2e", "pkg/testutil"}
 
 // envAllowlist is every file that still reads the environment itself, with
 // the R2 task that moves it onto pkg/config. R2 is done when this is empty.
-var envAllowlist = map[string]string{
-	"pkg/util/cluster.go": "R2.F",
-}
+var envAllowlist = map[string]string{}
 
 // TestSettingsComeFromConfig keeps every setting in pkg/config, parsed by
 // go-flags: no package reads the environment on its own.
