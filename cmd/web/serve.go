@@ -20,7 +20,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const MediaServerConcurrency = 3
+const (
+	MediaServerConcurrency = 3
+	pprofAddr              = ":8081"
+)
 
 type serveCmd struct {
 	config.Serve
@@ -29,11 +32,7 @@ type serveCmd struct {
 func (c *serveCmd) Execute([]string) error {
 	cfg := c.Serve
 
-	if cfg.Web.GinMode != "" {
-		gin.SetMode(cfg.Web.GinMode)
-	}
-
-	slog.SetLogLoggerLevel(cfg.Web.SlogLevel())
+	applyProcessSettings(cfg)
 
 	db, closeDB, err := openDB(cfg.Database.URL)
 	if err != nil {
@@ -57,7 +56,7 @@ func (c *serveCmd) Execute([]string) error {
 
 	go feeder.RunPoller(ctx)
 
-	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web.MediaPermaCache.On())
+	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {
 		return err
 	}
@@ -71,27 +70,41 @@ func (c *serveCmd) Execute([]string) error {
 		Sender:       dbSender,
 		MediaStorage: mediaStorage,
 		MediaServer:  mediaServer,
-		Config: app.Config{
-			HTMLDir:               cfg.Web.HTMLDir,
-			ForceOpenRegistration: cfg.Web.ForceSignup.On(),
-			SessionSalt:           cfg.Web.SessionSalt.Reveal(),
-			StaticAsset:           app.LoadStaticManifest(cfg.Web.StaticCDN),
-			SiteRoot:              cfg.Web.SiteRoot,
-			StaticCDN:             cfg.Web.StaticCDN,
-			MediaCDN:              cfg.Media.CDN,
-			SenderAddress:         cfg.Mail.SenderAddress,
-			AdminAddress:          cfg.Mail.AdminAddress,
-			SecureCookies:         cfg.Web.SecureCookies.On(),
-			HSTS:                  cfg.Web.HSTS.On(),
-			StaticCache:           cfg.Web.StaticCache.On(),
-			ShowErrors:            cfg.Web.ShowErrors.On(),
-			ReportPanics:          cfg.Web.ReportPanics.On(),
-		},
+		Config:       appConfig(cfg, app.LoadStaticManifest(cfg.Web.StaticCDN)),
 	}
 
-	startPprof(cfg.Web.EnablePprof.On())
+	startPprof(cfg.Web.EnablePprof.On(), pprofAddr)
 
 	return app.New(deps).Run(fmt.Sprintf(":%d", cfg.Web.Port))
+}
+
+// applyProcessSettings sets the process-wide gin mode and log level.
+func applyProcessSettings(cfg config.Serve) {
+	if cfg.Web.GinMode != "" {
+		gin.SetMode(cfg.Web.GinMode)
+	}
+
+	slog.SetLogLoggerLevel(cfg.Web.SlogLevel())
+}
+
+// appConfig maps the settings onto what the app needs.
+func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
+	return app.Config{
+		HTMLDir:               cfg.Web.HTMLDir,
+		ForceOpenRegistration: cfg.Web.ForceSignup.On(),
+		SessionSalt:           cfg.Web.SessionSalt.Reveal(),
+		StaticAsset:           staticAsset,
+		SiteRoot:              cfg.Web.SiteRoot,
+		StaticCDN:             cfg.Web.StaticCDN,
+		MediaCDN:              cfg.Media.CDN,
+		SenderAddress:         cfg.Mail.SenderAddress,
+		AdminAddress:          cfg.Mail.AdminAddress,
+		SecureCookies:         cfg.Web.SecureCookies.On(),
+		HSTS:                  cfg.Web.HSTS.On(),
+		StaticCache:           cfg.Web.StaticCache.On(),
+		ShowErrors:            cfg.Web.ShowErrors.On(),
+		ReportPanics:          cfg.Web.ReportPanics.On(),
+	}
 }
 
 // newMediaStorage is the S3 bucket user media lives in.
@@ -108,13 +121,13 @@ func newMediaStorage(cfg config.Media) (server.MediaStorage, error) {
 
 // newMediaServer serves user media in the thumb and full classes; the caller
 // runs the returned cleanup on exit.
-func newMediaServer(mediaStorage server.MediaStorage, permaCache bool) (server.MediaServer, func(), error) {
+func newMediaServer(mediaStorage server.MediaStorage, web config.Web) (server.MediaServer, func(), error) {
 	var mediaServer server.MediaServer
 
 	mediaServer, mediaServerCleanup, err := server.New(mediaStorage,
 		server.WithClass("thumb", server.ClassParams{Width: 720, Height: 540}),
 		server.WithClass("full", server.ClassParams{Width: 1200, Height: 900}),
-		server.WithPermaCache(permaCache),
+		server.WithPermaCache(web.MediaPermaCache.On()),
 		server.WithClassResolver(func(c context.Context, req *http.Request) string {
 			// we know that the context is gin
 			ginCtx := c.(*gin.Context)
@@ -137,15 +150,15 @@ func newMediaServer(mediaStorage server.MediaStorage, permaCache bool) (server.M
 }
 
 // startPprof moves the pprof handlers off the default mux and, when enabled,
-// serves them on :8081.
-func startPprof(enabled bool) {
+// serves them on addr.
+func startPprof(enabled bool, addr string) {
 	pprofMux := http.DefaultServeMux
 	http.DefaultServeMux = http.NewServeMux()
 
 	if enabled {
 		go func() {
 			srv := &http.Server{
-				Addr:    ":8081",
+				Addr:    addr,
 				Handler: pprofMux,
 			}
 

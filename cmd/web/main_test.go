@@ -34,18 +34,26 @@ func TestHelp(t *testing.T) {
 }
 
 // TestServe_MissingSettingsFailBeforeStarting checks that serve names every
-// missing required setting at startup, before it opens the database.
+// required setting of the parser at startup, before it opens the database.
 func TestServe_MissingSettingsFailBeforeStarting(t *testing.T) {
-	for _, env := range []string{"DATABASE_URL", "SITE_ROOT", "SESSION_SALT", "SENDER_ADDRESS", "MJ_APIKEY_PUBLIC", "MJ_APIKEY_PRIVATE"} {
-		t.Setenv(env, "")
+	var vars []string
+
+	for env, o := range serveOptions(t) {
+		if o.Required {
+			vars = append(vars, env)
+			t.Setenv(env, "")
+		}
 	}
+
+	require.Contains(t, vars, "USER_MEDIA_ENDPOINT")
+	require.Contains(t, vars, "MJ_APIKEY_PUBLIC")
 
 	err := run([]string{"serve"})
 
 	var flagsErr *flags.Error
 	require.True(t, errors.As(err, &flagsErr) && flagsErr.Type == flags.ErrRequired, "want a missing-settings error, got %v", err)
 
-	for _, want := range []string{"$DATABASE_URL", "$SITE_ROOT", "$SESSION_SALT", "$SENDER_ADDRESS", "$MJ_APIKEY_PUBLIC", "$MJ_APIKEY_PRIVATE"} {
-		require.Contains(t, flagsErr.Message, want)
+	for _, env := range vars {
+		require.Contains(t, flagsErr.Message, "$"+env)
 	}
 }

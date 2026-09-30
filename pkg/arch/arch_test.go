@@ -276,6 +276,8 @@ func first(s []string, n int) []string {
 	return s
 }
 
+const awsConfigPkg = "github.com/aws/aws-sdk-go-v2/config"
+
 // envExempt may read the environment: the composition root that parses the
 // settings, and test harnesses and fixtures.
 var envExempt = []string{"cmd/web", "e2e", "pkg/testutil"}
@@ -294,9 +296,11 @@ func TestSettingsComeFromConfig(t *testing.T) {
 
 	for _, p := range goList(t) {
 		rel, ok := strings.CutPrefix(p.ImportPath, module+"/")
-		if !ok || slices.ContainsFunc(envExempt, func(e string) bool { return rel == e || strings.HasPrefix(rel, e+"/") }) {
+		if !ok {
 			continue
 		}
+
+		exempt := slices.ContainsFunc(envExempt, func(e string) bool { return rel == e || strings.HasPrefix(rel, e+"/") })
 
 		for _, name := range p.GoFiles {
 			path := filepath.Join(p.Dir, name)
@@ -306,8 +310,13 @@ func TestSettingsComeFromConfig(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// the AWS config loader reads AWS_* variables and ~/.aws
+			if rel != "cmd/web" && !strings.HasPrefix(rel, "cmd/web/") && importName(f, awsConfigPkg) != "" {
+				t.Errorf("%s imports %s, which reads the environment; build the client from explicit settings", strings.TrimPrefix(path, repoRoot(t)+"/"), awsConfigPkg)
+			}
+
 			osName := importName(f, "os")
-			if osName == "" {
+			if osName == "" || exempt {
 				continue
 			}
 
