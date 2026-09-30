@@ -28,6 +28,13 @@ Raised by the 2026-09-21 modernization survey.
 
 ## Decided
 
+- **2026-10-01. Public post feed (#146, wave F1):** for an anonymous
+  visitor `/` lists the 50 newest posts that Q15 allows (no pagination
+  yet), and `/rss/public` serves the same list. `/explore` stays for
+  logged in users; an anonymous visitor is redirected to `/`. The anonymous menu is Home, Sign up, Login; the
+  "Why" article goes, `/articles/:id` stays for the legal pages. The feed
+  is advertised in the page head and by a visible RSS icon; the navbar gets
+  a GitHub icon. RSS items are dated by publication, not creation.
 - **2026-09-30. R2 production switches:** `FLY_APP_NAME` is replaced by one
   setting per behavior (`SECURE_COOKIES`, `HSTS`, `STATIC_CACHE`,
   `MEDIA_PERMA_CACHE`, `REPORT_PANICS`, `SHOW_ERRORS`, `LOG_LEVEL`) with

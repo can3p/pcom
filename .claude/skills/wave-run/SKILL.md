@@ -1,6 +1,6 @@
 ---
 name: wave-run
-description: Coordinate one wave of the pcom modernization plan (W0-W6, WB, R1-R6, RS) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
+description: Coordinate one wave of the pcom modernization plan (W0-W6, WB, R1-R7, RS, F1) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
 ---
 
 # Running a wave
@@ -35,7 +35,7 @@ It pastes the task's table row or `###` section into a preamble and prints the `
 line. Replace every `<FILL: ...>`, above all the owned files, before dispatching. If the excerpt names
 something a subagent can't read (another wave's matrix, an issue by number, an open question), paste its
 definition or a one-line summary into the prompt: subagents read no other wave files and have no GitHub
-access. There are three preambles,
+access. There are four preambles,
 chosen by wave:
 
 - **Test waves** (W0–W5): read only `docs/testing.md`; LSP, the `model-shape` and `test-failure` skills;
@@ -43,6 +43,8 @@ chosen by wave:
 - **W6**: the same, but tests run through `make test-ui` and compile with `TAGS=browser`.
 - **R-waves and RS**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
   their assertions, and the layering rules apply.
+- **F-waves**: a feature preamble. Behavior changes as the wave file decides; tests prove the feature
+  (browser tests for what users do); an existing assertion changes only where the task changes it.
 - **WB**: a bug-fix preamble. Each task fixes the issues in its row, removes their `t.Skip`s (in `e2e/` too)
   and changes no other assertion. The builder pastes each issue's title and body from `gh`, so subagents
   need no GitHub access.
