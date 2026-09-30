@@ -1,3 +1,3 @@
 
 watchexec:
-	watchexec -w '../..' --restart "echo -- && go run ."
+	watchexec -w '../..' --restart "echo -- && go run . serve"

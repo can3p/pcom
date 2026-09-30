@@ -20,4 +20,4 @@ ENV VERSION $VERSION
 ENV PORT 8080
 EXPOSE 8080
 ENV GIN_MODE=release
-CMD ["/web"]
+CMD ["/web", "serve"]

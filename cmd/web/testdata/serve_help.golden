@@ -1,0 +1,94 @@
+Usage:
+  web [OPTIONS] serve [serve-OPTIONS]
+
+Serve the site, send queued mail and poll RSS feeds.
+
+Help Options:
+  -h, --help                                  Show this help message
+
+[serve command options]
+
+    Database:
+          --database-url=                     Postgres connection URL
+                                              [$DATABASE_URL]
+
+    Web:
+          --site-root=                        Public root URL of the site, such
+                                              as https://pcom.example; absolute
+                                              links start with it [$SITE_ROOT]
+          --session-salt=                     Salt for session cookies and
+                                              hashed values [$SESSION_SALT]
+          --port=                             Port to listen on (default: 8080)
+                                              [$PORT]
+          --gin-mode=                         gin mode: debug, release or test;
+                                              gin's own default if empty
+                                              [$GIN_MODE]
+          --html-dir=                         Template directory, relative to
+                                              the working directory (default:
+                                              client/html) [$HTML_DIR]
+          --force-signup=                     Allow new signups even when
+                                              system settings close them
+                                              (default: false) [$FORCE_SIGNUP]
+          --static-cdn=                       Origin that serves /static, such
+                                              as https://cdn.example; served by
+                                              the app if empty [$STATIC_CDN]
+          --secure-cookies=                   Mark the session cookie Secure
+                                              (turn off for plain-HTTP
+                                              localhost) (default: true)
+                                              [$SECURE_COOKIES]
+          --hsts=                             Send Strict-Transport-Security
+                                              (default: true) [$HSTS]
+          --static-cache=                     Serve /static with a long
+                                              immutable Cache-Control (default:
+                                              true) [$STATIC_CACHE]
+          --media-perma-cache=                Keep resized user media in the
+                                              media server's permanent cache
+                                              (default: true)
+                                              [$MEDIA_PERMA_CACHE]
+          --show-errors=                      Show error details in pages
+                                              (development only) (default:
+                                              false) [$SHOW_ERRORS]
+          --report-panics=                    Mail the admin address when a
+                                              page panics (default: true)
+                                              [$REPORT_PANICS]
+          --log-level=[debug|info|warn|error] Log level (default: info)
+                                              [$LOG_LEVEL]
+          --enable-pprof=                     Serve net/http/pprof on :8081
+                                              (default: false) [$ENABLE_PPROF]
+
+    Mail:
+          --sender-address=                   From address of every mail
+                                              [$SENDER_ADDRESS]
+          --admin-address=                    Where admin notifications
+                                              (signups, page failures) go
+                                              [$ADMIN_ADDRESS]
+          --email-poll-interval=              How often the mail queue is sent
+                                              (default: 10s)
+                                              [$EMAIL_POLL_INTERVAL]
+
+    Mailjet:
+          --mj-api-key-public=                Mailjet API key public
+                                              [$MJ_APIKEY_PUBLIC]
+          --mj-api-key-private=               Mailjet API key private
+                                              [$MJ_APIKEY_PRIVATE]
+          --mj-api-base=                      Mailjet API root, such as a
+                                              mock's http://localhost:8822;
+                                              Mailjet's own if empty
+                                              [$MJ_API_BASE]
+
+    User media:
+          --user-media-endpoint=              S3 endpoint URL
+                                              [$USER_MEDIA_ENDPOINT]
+          --user-media-bucket=                Bucket name [$USER_MEDIA_BUCKET]
+          --user-media-region=                Bucket region [$USER_MEDIA_REGION]
+          --user-media-key=                   Access key ID [$USER_MEDIA_KEY]
+          --user-media-secret=                Secret access key
+                                              [$USER_MEDIA_SECRET]
+          --user-media-path-style=            Path-style addressing
+                                              (endpoint/bucket/key), as tommy
+                                              needs (default: false)
+                                              [$USER_MEDIA_PATH_STYLE]
+          --user-media-cdn=                   Origin that serves user media,
+                                              such as https://media.example;
+                                              served by the app if empty
+                                              [$USER_MEDIA_CDN]

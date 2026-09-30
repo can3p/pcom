@@ -110,12 +110,23 @@ services:
       - -c
       - >-
         until [ -f dist/manifest.json ]; do echo 'waiting for dist/manifest.json'; sleep 1; done;
-        exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md,json --ignore '**/node_modules/**' --restart -- go run .
+        exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md,json --ignore '**/node_modules/**' --restart -- go run . serve
     environment:
       DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
       SESSION_SALT: local-dev-session-salt-change-me
       SITE_ROOT: http://localhost:8080
       PORT: "8080"
+      SENDER_ADDRESS: pcom@localhost
+      MJ_APIKEY_PUBLIC: dev
+      MJ_APIKEY_PRIVATE: dev
+      MJ_API_BASE: http://tommy:8822
+      SECURE_COOKIES: "false"
+      HSTS: "false"
+      STATIC_CACHE: "false"
+      MEDIA_PERMA_CACHE: "false"
+      SHOW_ERRORS: "true"
+      REPORT_PANICS: "false"
+      LOG_LEVEL: debug
       PCOM_WATCH_POLL: ${PCOM_WATCH_POLL:-}
     ports:
       - "${PCOM_APP_PORT:-8080}:8080"
@@ -127,6 +138,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      tommy:
+        condition: service_started
 
   # Frontend bundle watcher; writes cmd/web/dist on the bind mount, which host
   # mode reads too.

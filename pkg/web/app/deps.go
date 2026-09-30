@@ -33,4 +33,23 @@ type Config struct {
 	SessionSalt string
 	// StaticAsset resolves a frontend asset name to its URL; see LoadStaticManifest.
 	StaticAsset StaticAssetFunc
+
+	// SiteRoot is the public root URL; absolute links start with it.
+	SiteRoot string
+	// StaticCDN and MediaCDN are the origins that serve /static and user
+	// media; empty means the app serves them.
+	StaticCDN, MediaCDN string
+	// SenderAddress is the From of every mail; AdminAddress receives admin
+	// notifications.
+	SenderAddress, AdminAddress string
+	// SecureCookies marks the session cookie Secure.
+	SecureCookies bool
+	// HSTS sends Strict-Transport-Security.
+	HSTS bool
+	// StaticCache serves /static with a long immutable Cache-Control.
+	StaticCache bool
+	// ShowErrors shows error details in pages.
+	ShowErrors bool
+	// ReportPanics mails AdminAddress when a page panics.
+	ReportPanics bool
 }

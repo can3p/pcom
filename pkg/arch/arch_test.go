@@ -37,7 +37,8 @@ var exempt = []string{
 	"pkg/mail/sender/dbsender",
 	"pkg/service/registry",
 	"cmd/seed",
-	"cmd/web/main.go",
+	"cmd/web/serve.go",
+	"cmd/web/db.go",
 	"pkg/web/app/deps.go",
 	"e2e",
 }
@@ -273,4 +274,108 @@ func first(s []string, n int) []string {
 	}
 
 	return s
+}
+
+// envExempt may read the environment: the composition root that parses the
+// settings, and test harnesses and fixtures.
+var envExempt = []string{"cmd/web", "e2e", "pkg/testutil"}
+
+// envAllowlist is every file that still reads the environment itself, with
+// the R2 task that moves it onto pkg/config. R2 is done when this is empty.
+var envAllowlist = map[string]string{
+	"cmd/scripts/add_invite.go":                            "R2.X",
+	"cmd/scripts/test_comment_email/test_comment_email.go": "R2.X",
+	"cmd/scripts/toggle_open_registration/main.go":         "R2.X",
+	"cmd/seed/main.go":                                     "R2.X",
+	"pkg/admin/notifications.go":                           "R2.A",
+	"pkg/admin/panics.go":                                  "R2.A",
+	"pkg/auth/auth.go":                                     "R2.A",
+	"pkg/links/link.go":                                    "R2.A",
+	"pkg/mail/confirm_signup.go":                           "R2.A",
+	"pkg/mail/confirm_waiting_list.go":                     "R2.A",
+	"pkg/mail/invite.go":                                   "R2.A",
+	"pkg/mail/new_post.go":                                 "R2.A",
+	"pkg/mail/post_comment_author.go":                      "R2.A",
+	"pkg/mail/post_comment_participants.go":                "R2.A",
+	"pkg/mail/post_prompt.go":                              "R2.A",
+	"pkg/mail/post_prompt_answer.go":                       "R2.A",
+	"pkg/media/server/storage/s3/server.go":                "R2.S",
+	"pkg/util/cluster.go":                                  "R2.F",
+	"pkg/util/ginhelpers/csp/csp.go":                       "R2.B",
+	"pkg/util/siteroot.go":                                 "R2.A",
+	"pkg/web/app/funcmap.go":                               "R2.A",
+}
+
+// TestSettingsComeFromConfig keeps every setting in pkg/config, parsed by
+// go-flags: no package reads the environment on its own.
+func TestSettingsComeFromConfig(t *testing.T) {
+	t.Parallel()
+
+	got := map[string][]string{}
+	fset := token.NewFileSet()
+
+	for _, p := range goList(t) {
+		rel, ok := strings.CutPrefix(p.ImportPath, module+"/")
+		if !ok || slices.ContainsFunc(envExempt, func(e string) bool { return rel == e || strings.HasPrefix(rel, e+"/") }) {
+			continue
+		}
+
+		for _, name := range p.GoFiles {
+			path := filepath.Join(p.Dir, name)
+
+			f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			osName := importName(f, "os")
+			if osName == "" {
+				continue
+			}
+
+			ast.Inspect(f, func(n ast.Node) bool {
+				sel, ok := n.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+
+				if x, ok := sel.X.(*ast.Ident); ok && x.Name == osName && slices.Contains([]string{"Getenv", "LookupEnv", "Environ"}, sel.Sel.Name) {
+					file := strings.TrimPrefix(path, repoRoot(t)+"/")
+					got[file] = append(got[file], fmt.Sprintf("line %d: os.%s", fset.Position(sel.Pos()).Line, sel.Sel.Name))
+				}
+
+				return true
+			})
+		}
+	}
+
+	for f, where := range got {
+		if _, ok := envAllowlist[f]; !ok {
+			t.Errorf("%s reads the environment; declare the setting in pkg/config instead:\n\t%s", f, strings.Join(first(where, 5), "\n\t"))
+		}
+	}
+
+	for f, task := range envAllowlist {
+		if _, ok := got[f]; !ok {
+			t.Errorf("%s no longer reads the environment: delete its envAllowlist entry (%s)", f, task)
+		}
+	}
+}
+
+// importName is the name f refers to the package path by, or "" when f
+// doesn't import it.
+func importName(f *ast.File, path string) string {
+	for _, spec := range f.Imports {
+		if strings.Trim(spec.Path.Value, `"`) != path {
+			continue
+		}
+
+		if spec.Name != nil {
+			return spec.Name.Name
+		}
+
+		return filepath.Base(path)
+	}
+
+	return ""
 }

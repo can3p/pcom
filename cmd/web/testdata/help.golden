@@ -1,0 +1,8 @@
+Usage:
+  web [OPTIONS] <serve>
+
+Help Options:
+  -h, --help  Show this help message
+
+Available commands:
+  serve  Run the web server
