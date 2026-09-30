@@ -77,25 +77,27 @@ func TestSeed_EveryVariable(t *testing.T) {
 }
 
 func TestSeed_Reset(t *testing.T) {
-	got := &seedOnly{}
-	require.NoError(t, parseCmd(t, "seed", got, map[string]string{"DATABASE_URL": "postgres://db/pcom"}, "--reset"))
-	require.True(t, got.Reset)
+	db := map[string]string{"DATABASE_URL": "postgres://db/pcom"}
+
+	for _, tc := range []struct {
+		args []string
+		want bool
+	}{{[]string{"--reset"}, true}, {nil, false}} {
+		got := &seedOnly{}
+		require.NoError(t, parseCmd(t, "seed", got, db, tc.args...))
+		require.Equal(t, tc.want, got.Reset, tc.args)
+	}
 }
 
+// Only what the command tests in cmd/web do not cover: the required --email
+// and the --close flag.
 func TestAdmin_Flags(t *testing.T) {
 	db := map[string]string{"DATABASE_URL": "postgres://db/pcom"}
 
-	inv := &inviteOnly{}
-	require.NoError(t, parseCmd(t, "invite", inv, db, "--email", "a@pcom.test", "--num", "4"))
-	require.Equal(t, "a@pcom.test", inv.Email)
-	require.Equal(t, 4, inv.Num)
-	require.ErrorContains(t, parseCmd(t, "invite", &inviteOnly{}, db, "--email", "a@pcom.test"), "num")
 	require.ErrorContains(t, parseCmd(t, "invite", &inviteOnly{}, db, "--num", "1"), "email")
-	require.ErrorContains(t, parseCmd(t, "invite", &inviteOnly{}, nil, "--email", "a@pcom.test", "--num", "1"), "$DATABASE_URL")
 
 	reg := &registrationOnly{}
-	require.NoError(t, parseCmd(t, "registration", reg, db, "--open"))
-	require.True(t, reg.Open)
-	require.False(t, reg.Close)
-	require.ErrorContains(t, parseCmd(t, "registration", &registrationOnly{}, nil, "--open"), "$DATABASE_URL")
+	require.NoError(t, parseCmd(t, "registration", reg, db, "--close"))
+	require.True(t, reg.Close)
+	require.False(t, reg.Open)
 }

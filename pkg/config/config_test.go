@@ -213,16 +213,21 @@ func TestServe_SecretsDontPrint(t *testing.T) {
 }
 
 func TestSwitch(t *testing.T) {
+	showErrors := func(s *config.Serve) bool { return s.Web.ShowErrors.On() }
+	hsts := func(s *config.Serve) bool { return s.Web.HSTS.On() }
+
 	cases := []struct {
 		name string
 		env  map[string]string
 		args []string
+		get  func(*config.Serve) bool
 		want bool
 		err  string
 	}{
-		{name: "flag alone turns it on", args: []string{"--show-errors"}, want: true},
-		{name: "flag turns a default-on switch off", args: []string{"--hsts=false"}, want: false},
-		{name: "1 is true", env: map[string]string{"HSTS": "0", "SHOW_ERRORS": "1"}, want: true},
+		{name: "flag alone turns it on", args: []string{"--show-errors"}, get: showErrors, want: true},
+		{name: "flag turns a default-on switch off", args: []string{"--hsts=false"}, get: hsts, want: false},
+		{name: "1 is true", env: map[string]string{"SHOW_ERRORS": "1"}, get: showErrors, want: true},
+		{name: "0 is false", env: map[string]string{"HSTS": "0"}, get: hsts, want: false},
 		{name: "empty is an error, not a default", env: map[string]string{"SHOW_ERRORS": ""}, err: "want true or false"},
 		{name: "garbage is an error", env: map[string]string{"SHOW_ERRORS": "yes please"}, err: "want true or false"},
 	}
@@ -236,12 +241,7 @@ func TestSwitch(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-
-			on := got.Web.ShowErrors.On()
-			if len(tc.args) > 0 && tc.args[0] == "--hsts=false" {
-				on = got.Web.HSTS.On()
-			}
-			require.Equal(t, tc.want, on)
+			require.Equal(t, tc.want, tc.get(got))
 		})
 	}
 }

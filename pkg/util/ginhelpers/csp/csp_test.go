@@ -66,6 +66,10 @@ func TestCsp_Options(t *testing.T) {
 
 			require.Equal(t, tc.hsts, w.Header().Get("Strict-Transport-Security") == "max-age=31536000; includeSubDomains")
 
+			if !tc.hsts {
+				require.Empty(t, w.Header().Values("Strict-Transport-Security"))
+			}
+
 			header := w.Header().Get("Content-Security-Policy")
 			for _, cdn := range []string{"https://static.example", "https://media.example"} {
 				require.Equal(t, slices.Contains(tc.cdn, cdn), strings.Contains(header, cdn), cdn)

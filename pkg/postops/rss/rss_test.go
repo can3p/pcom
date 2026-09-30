@@ -111,3 +111,31 @@ func TestToFeed_NoPosts(t *testing.T) {
 	feed := rss.ToFeed(links.Site{}, "Empty Blog", "https://example.com", nil, nil)
 	require.Empty(t, feed.Items)
 }
+
+// The site decides the item link and where uploaded media comes from.
+func TestToFeed_SiteRootAndMediaCDN(t *testing.T) {
+	t.Parallel()
+
+	const media = "3fa85f64-5717-4562-b3fc-2c963f66afa6.png"
+
+	author := &core.User{Username: "alice"}
+	post := mkPost("post-1", "look ![pic]("+media+")", core.PostVisibilityPublic, author)
+
+	for _, tc := range []struct {
+		name      string
+		site      links.Site
+		wantMedia string
+	}{
+		{"with CDN", links.Site{Root: "https://pcom.test", MediaCDN: "https://media.test"}, "https://media.test/" + media},
+		{"without CDN", links.Site{Root: "https://pcom.test"}, "https://pcom.test/user-media/" + media},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			item := rss.ToFeed(tc.site, "My Blog", "https://example.com", author, []*postops.Post{post}).Items[0]
+
+			require.Equal(t, "https://pcom.test"+links.Link("post", "post-1"), item.Link.Href)
+			require.Contains(t, item.Description, tc.wantMedia)
+		})
+	}
+}

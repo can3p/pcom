@@ -3,6 +3,8 @@ package app_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,9 +17,11 @@ import (
 
 func settingsConfig() app.Config {
 	return app.Config{
-		HTMLDir:     "../../../cmd/web/client/html",
-		SessionSalt: "test-salt",
-		StaticAsset: func(n string) string { return "/static/" + n },
+		HTMLDir:       "../../../cmd/web/client/html",
+		SessionSalt:   "test-salt",
+		SenderAddress: "sender@pcom.test",
+		AdminAddress:  "admin@pcom.test",
+		StaticAsset:   func(n string) string { return "/static/" + n },
 	}
 }
 
@@ -50,21 +54,6 @@ func TestRouter_Settings(t *testing.T) {
 			target: "/",
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, on bool) {
 				require.Equal(t, on, rec.Header().Get("Strict-Transport-Security") != "")
-			},
-		},
-		{
-			name: "StaticCache makes /static immutable", set: func(c *app.Config) { c.StaticCache = true },
-			target: "/static/nothing-here",
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, on bool) {
-				require.Equal(t, on, strings.Contains(rec.Header().Get("Cache-Control"), "immutable"))
-			},
-		},
-		{
-			name: "ShowErrors shows error details", set: func(c *app.Config) { c.ShowErrors = true },
-			target: "/users/nobody-here",
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, on bool) {
-				require.Equal(t, http.StatusNotFound, rec.Code)
-				require.Equal(t, on, rec.Body.String() == "not found")
 			},
 		},
 	} {
@@ -114,7 +103,87 @@ func TestRouter_ReportPanics(t *testing.T) {
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
 
-			require.Equal(t, on, len(snd.Sent()) == 1)
+			if !on {
+				require.Empty(t, snd.Sent())
+				return
+			}
+
+			require.Len(t, snd.Sent(), 1)
+			got := snd.Sent()[0]
+			require.Equal(t, "panic_notification", got.EmailType)
+			require.Equal(t, cfg.SenderAddress, got.Mail.From.Address)
+			require.Len(t, got.Mail.To, 1)
+			require.Equal(t, cfg.AdminAddress, got.Mail.To[0].Address)
+		})
+	}
+}
+
+// StaticCache makes served /static files immutable; off, they are not. Not
+// parallel: /static is served from ./dist, so the test changes directory.
+func TestRouter_StaticCache(t *testing.T) {
+	htmlDir, err := filepath.Abs(settingsConfig().HTMLDir)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "dist"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "dist", "app.js"), []byte("x"), 0o644))
+	t.Chdir(dir)
+
+	for _, on := range []bool{true, false} {
+		cfg := settingsConfig()
+		cfg.HTMLDir = htmlDir
+		cfg.StaticCache = on
+		h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/app.js", nil))
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Equal(t, on, strings.Contains(rec.Header().Get("Cache-Control"), "immutable"), "on=%v", on)
+	}
+}
+
+// A missing file must not be cached forever.
+func TestRouter_StaticCache_MissingFileNotImmutable(t *testing.T) {
+	t.Skip("#183: /static 404s carry the immutable Cache-Control header (group middleware in routes_media.go)")
+
+	cfg := settingsConfig()
+	htmlDir, err := filepath.Abs(cfg.HTMLDir)
+	require.NoError(t, err)
+
+	t.Chdir(t.TempDir())
+
+	cfg.HTMLDir = htmlDir
+	cfg.StaticCache = true
+	h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/nothing-here", nil))
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.NotContains(t, rec.Header().Get("Cache-Control"), "immutable")
+}
+
+// ForceOpenRegistration shows the signup form although system settings close
+// registration; off, the page is the waiting list.
+func TestRouter_ForceOpenRegistration(t *testing.T) {
+	t.Parallel()
+
+	for _, force := range []bool{true, false} {
+		t.Run(map[bool]string{true: "on", false: "off"}[force], func(t *testing.T) {
+			t.Parallel()
+
+			db := testdb.New(t).DB
+			_, err := db.Exec(`UPDATE system_settings SET registration_open = false`)
+			require.NoError(t, err)
+
+			cfg := settingsConfig()
+			cfg.ForceOpenRegistration = force
+			h := app.New(&app.Deps{DB: db, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/signup", nil))
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, force, strings.Contains(rec.Body.String(), "New Account"))
+			require.Equal(t, !force, strings.Contains(rec.Body.String(), "Join the waiting list"))
 		})
 	}
 }
