@@ -101,8 +101,8 @@ func zipNames(t *testing.T, body string) []string {
 	return names
 }
 
-// TestVisibility_Index: the anonymous index lists published public posts of public
-// profiles only (Q15); a logged in user is sent to the feed.
+// TestVisibility_Index: the anonymous index is the public posts feed (the Q15 matrix
+// is owned by the reading service); a logged in user is sent to the feed.
 func TestVisibility_Index(t *testing.T) {
 	t.Parallel()
 
@@ -110,22 +110,14 @@ func TestVisibility_Index(t *testing.T) {
 
 	pubAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
 	regAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers))
-	connAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityConnections))
+	included := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	excluded := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
 
-	pubPost := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	regPost := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	connPost := newPost(t, app, connAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	draft := newPost(t, app, pubAuthor.ID, factory.Visibility(core.PostVisibilityPublic))
+	text := requireStatus(t, app.Client(t).Get("/"), http.StatusOK).Doc().Text()
+	require.Contains(t, text, included.Subject.String)
+	require.NotContains(t, text, excluded.Subject.String)
 
-	resp := requireStatus(t, app.Client(t).Get("/"), http.StatusOK)
-	text := resp.Doc().Text()
-	require.Contains(t, text, pubPost.Subject.String)
-	require.NotContains(t, text, regPost.Subject.String)
-	require.NotContains(t, text, connPost.Subject.String)
-	require.NotContains(t, text, draft.Subject.String)
-	require.Equal(t, 1, resp.Doc().Find(`link[rel="alternate"][href="/rss/public"]`).Length())
-
-	resp = requireStatus(t, loginAs(t, app, pubAuthor).Get("/"), http.StatusFound)
+	resp := requireStatus(t, loginAs(t, app, pubAuthor).Get("/"), http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 }
 
@@ -145,6 +137,7 @@ func TestVisibility_Articles(t *testing.T) {
 	requireStatus(t, c.Get("/articles/terms_of_service"), http.StatusOK)
 
 	for _, path := range []string{
+		"/articles/why",
 		"/articles/does_not_exist",
 		"/articles/Privacy_Policy",
 		"/articles/bad-name",

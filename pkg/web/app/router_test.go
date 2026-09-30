@@ -46,7 +46,7 @@ func TestRouter_Anonymous(t *testing.T) {
 		wantLoginReturn string
 		wantBody        string
 	}{
-		{name: "landing page renders", target: "/", wantStatus: http.StatusOK, wantBody: `href="/rss/public"`},
+		{name: "landing page renders", target: "/", wantStatus: http.StatusOK, wantBody: "Public posts"},
 		{name: "controls redirect to login", target: "/controls/", wantStatus: http.StatusFound, wantLoginReturn: "/controls/"},
 		{name: "non-UUID post id is not found", target: "/posts/not-a-uuid", wantStatus: http.StatusNotFound},
 	}
