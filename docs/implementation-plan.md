@@ -55,7 +55,7 @@ Related documents:
 | W6 | Browser tests (playwright-go): user flows | W0 | done | `test/w6-browser` |
 | WB | Bug-fix wave (#108–#122, #139–#168) | W1–W3 | done | `fix/wb-survey-bugs` |
 | R1 | Router decomposition (move handlers) | W3, W6, WB | done | `refactor/r1-router` |
-| RS | Repositories and services, thin handlers | R1 | planned | `refactor/rs-layers` |
+| RS | Repositories and services, thin handlers | R1 | done | `refactor/rs-layers` |
 | R2 | go-flags config, single binary, tommy for mail and S3, object storage only | RS, R3 (mailjet BaseURL) | planned | `refactor/r2-config` |
 | R3 | gogo convergence | W5 | planned | `refactor/r3-gogo` |
 | R4 | Mailers | W1 (mail goldens), R2 | planned | `refactor/r4-mailers` |
