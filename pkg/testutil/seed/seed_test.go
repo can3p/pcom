@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/reading"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -72,7 +75,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM user_invitations WHERE user_id = $1 AND created_user_id IS NULL`, eve))
 
 	for _, v := range []string{"direct_only", "second_degree", "public"} {
-		assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM posts WHERE visibility_radius = $1 AND published_at IS NOT NULL AND url_id IS NULL`, v), v)
+		assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM posts WHERE visibility_radius = $1 AND published_at IS NOT NULL AND url_id IS NULL AND subject NOT LIKE 'Paging: %'`, v), v)
 	}
 
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM posts WHERE published_at IS NULL`), "draft")
@@ -81,7 +84,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM post_prompts WHERE dismissed_at IS NULL AND post_id IS NULL`), "open prompt")
 
 	// Comment thread three levels deep.
-	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM post_comments`))
+	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM post_comments c JOIN posts p ON p.id = c.post_id WHERE p.subject NOT LIKE 'Paging: %'`))
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM post_comments c3
 		JOIN post_comments c2 ON c3.parent_comment_id = c2.id
 		JOIN post_comments c1 ON c2.parent_comment_id = c1.id
@@ -92,8 +95,8 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 	require.Len(t, keys, 1)
 	assert.Equal(t, AliceAPIKey, keys[0].APIKey)
 
-	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM rss_feeds WHERE url LIKE 'https://example.test/%'`))
-	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM rss_items`))
+	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM rss_feeds WHERE url = $1`, FeedURL))
+	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM rss_items i JOIN rss_feeds f ON f.id = i.feed_id WHERE f.url = $1`, FeedURL))
 
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM user_connection_mediation_requests WHERE who_user_id = $1 AND target_user_id = $2`, alice, carol))
 	assert.Equal(t, 0, count(t, db, `SELECT count(*) FROM user_connection_mediators`), "pending")
@@ -144,7 +147,7 @@ func TestSeed_ResetKeepsMigrationsAndSettings(t *testing.T) {
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM system_settings WHERE registration_open`))
 	assert.Equal(t, 5, count(t, db, `SELECT count(*) FROM users`))
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM user_api_keys`))
-	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM post_comments`))
+	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM post_comments c JOIN posts p ON p.id = c.post_id WHERE p.subject NOT LIKE 'Paging: %'`))
 }
 
 func TestSeed_RefusesOnFly(t *testing.T) {
@@ -159,4 +162,69 @@ func TestSeed_RefusesOnFly(t *testing.T) {
 	require.ErrorContains(t, Run(context.Background(), db.DB, &out, o), "FLY_APP_NAME")
 	assert.Empty(t, out.String())
 	assert.Equal(t, 0, count(t, db, `SELECT count(*) FROM users`))
+}
+
+// The paging data puts every paged list past its first page at the default
+// page size, Alice's feed with all three kinds on it, and Carol's RSS feed
+// at its cap.
+func TestSeed_FillsEveryPagedList(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.New(t).DB
+
+	require.NoError(t, Run(ctx, db.DB, &bytes.Buffer{}, options(false)))
+
+	svc := reading.New(repo.New(db))
+	alice := testutil.Must(factory.GetUser(ctx, db, userID(t, db, "alice")))(t)
+
+	feed := testutil.Must(svc.Feed(ctx, alice, ""))(t)
+	require.Len(t, feed.Items, reading.DefaultPageSize)
+	require.NotEmpty(t, feed.Next, "alice's feed")
+
+	// every seeded item reaches the feed, and the kinds interleave from the
+	// first page on
+	kinds := map[string]int{}
+	firstPageKinds := map[string]bool{}
+	for page, n := feed, 0; ; n++ {
+		for _, item := range page.Items {
+			kind := "post"
+			switch {
+			case item.Comment != nil:
+				kind = "comment"
+				if strings.HasPrefix(item.Comment.Post.PostSubject(), PagingPrefix) {
+					kinds["paging comment"]++
+				}
+			case item.FeedItem != nil:
+				kind = "rss"
+			}
+
+			kinds[kind]++
+			if n == 0 {
+				firstPageKinds[kind] = true
+			}
+		}
+
+		if page.Next == "" {
+			break
+		}
+
+		page = testutil.Must(svc.Feed(ctx, alice, page.Next))(t)
+	}
+	require.GreaterOrEqual(t, kinds["post"], PagingPosts)
+	require.Equal(t, PagingComments, kinds["paging comment"])
+	require.Equal(t, PagingFeedItems, kinds["rss"])
+	require.Len(t, firstPageKinds, 3, "all three kinds on the first page")
+
+	explore := testutil.Must(svc.Explore(ctx, alice, ""))(t)
+	require.NotEmpty(t, explore.Next, "explore")
+
+	index := testutil.Must(svc.PublicPosts(ctx, ""))(t)
+	require.NotEmpty(t, index.Next, "the index")
+
+	journal := testutil.Must(svc.Journal(ctx, nil, "carol", ""))(t)
+	require.NotEmpty(t, journal.Next, "carol's journal")
+
+	rss := testutil.Must(svc.PublicFeed(ctx, "carol"))(t)
+	require.Len(t, rss.Posts, reading.DefaultRSSLimit, "carol's RSS feed")
 }

@@ -21,6 +21,12 @@
 //	00000000-0000-4000-8000-000000000001
 //
 // for blg development. Registration is opened in the seeded database only.
+//
+// Every paged list also gets more than one page (see pages): Carol has 60
+// public posts, Bob 30 comments on Alice's "Paging: Alice's busy thread",
+// and Alice follows a "Paging feed" with 30 items, all spread over the last
+// days, so Alice's feed, explore, the anonymous index and Carol's journal
+// each load more, and Carol's RSS feed stops at its limit.
 package seed
 
 import (
@@ -30,6 +36,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -42,6 +49,16 @@ const (
 	AliceAPIKey = "00000000-0000-4000-8000-000000000001"
 	// FeedURL is the placeholder feed; the poller fails on it harmlessly.
 	FeedURL = "https://example.test/seed/feed.xml"
+	// PagingFeedURL is the placeholder feed whose items fill Alice's feed.
+	PagingFeedURL = "https://example.test/seed/paging.xml"
+	// PagingPrefix starts the subject of every post seeded for paging.
+	PagingPrefix = "Paging: "
+	// PagingPosts, PagingComments and PagingFeedItems size the paging data:
+	// more than one page of the default page size (reading.DefaultPageSize)
+	// everywhere, and more posts than the default RSS limit.
+	PagingPosts     = 60
+	PagingComments  = 30
+	PagingFeedItems = 30
 	// DefaultSiteRoot is used when SITE_ROOT is not set.
 	DefaultSiteRoot = "http://localhost:8080"
 )
@@ -185,6 +202,10 @@ func build(ctx context.Context, tx *sql.Tx) ([]*seededUser, string, error) {
 		return nil, "", err
 	}
 
+	if err := pages(ctx, tx, alice, bob, carol); err != nil {
+		return nil, "", fmt.Errorf("paging data: %w", err)
+	}
+
 	k, err := factory.APIKey(ctx, tx, alice.ID, factory.WithAPIKey(AliceAPIKey))
 	if err != nil {
 		return nil, "", err
@@ -281,6 +302,59 @@ func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *core.User) e
 	}
 
 	return factory.SetRegistrationOpen(ctx, tx, true)
+}
+
+// pages fills every paged list past its first page, with items spread over
+// the last days so the kinds interleave: Carol's public posts (explore, the
+// index, Carol's journal and RSS feed, and Alice's feed, second degree),
+// Bob's comments on a thread of Alice's and the items of a feed Alice
+// follows (Alice's feed).
+func pages(ctx context.Context, tx *sql.Tx, alice, bob, carol *core.User) error {
+	start := time.Now().Add(-time.Hour)
+
+	for i := range PagingPosts {
+		if _, err := factory.Post(ctx, tx, carol.ID, factory.PublishedAt(start.Add(-time.Duration(2*i)*time.Hour)),
+			factory.Visibility(core.PostVisibilityPublic), factory.WithSubject(fmt.Sprintf("%sCarol's post %02d", PagingPrefix, PagingPosts-i)),
+			factory.WithBody(fmt.Sprintf("Carol's post %d of %d, seeded to page the lists.", PagingPosts-i, PagingPosts))); err != nil {
+			return err
+		}
+	}
+
+	thread, err := factory.Post(ctx, tx, alice.ID, factory.PublishedAt(start.Add(-time.Duration(2*PagingPosts)*time.Hour)),
+		factory.Visibility(core.PostVisibilityDirectOnly), factory.WithSubject(PagingPrefix+"Alice's busy thread"),
+		factory.WithBody("Bob comments here a lot, so Alice's feed has comments on every page."))
+	if err != nil {
+		return err
+	}
+
+	for i := range PagingComments {
+		if _, err := factory.Comment(ctx, tx, thread.ID, bob.ID, factory.CommentCreatedAt(start.Add(-time.Duration(3*i+1)*time.Hour)),
+			factory.WithCommentBody(fmt.Sprintf("Bob's comment %02d", PagingComments-i))); err != nil {
+			return err
+		}
+	}
+
+	feed, err := factory.RSSFeed(ctx, tx, factory.WithFeedURL(PagingFeedURL), factory.WithFeedTitle("Paging feed"))
+	if err != nil {
+		return err
+	}
+
+	if _, err := factory.Subscription(ctx, tx, alice.ID, feed.ID); err != nil {
+		return err
+	}
+
+	for i := range PagingFeedItems {
+		item, err := factory.RSSItem(ctx, tx, feed.ID, factory.WithItemTitle(fmt.Sprintf("Paging feed item %02d", PagingFeedItems-i)))
+		if err != nil {
+			return err
+		}
+
+		if _, err := factory.UserFeedItem(ctx, tx, alice.ID, item.ID, factory.FeedItemCreatedAt(start.Add(-time.Duration(4*i+2)*time.Hour))); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func summary(users []*seededUser, apiKey, siteRoot string) string {

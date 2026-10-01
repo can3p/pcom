@@ -157,6 +157,14 @@ func IsDismissed() UserFeedItemOpt {
 	}
 }
 
+// FeedItemCreatedAt backdates the moment the item entered the user's feed,
+// which orders it there.
+func FeedItemCreatedAt(t time.Time) UserFeedItemOpt {
+	return func(i *core.UserFeedItem) {
+		i.CreatedAt = t
+	}
+}
+
 // UserFeedItem inserts rssItemID into userID's feed, looking up the item's
 // URL so a caller does not have to pass it separately.
 func UserFeedItem(ctx context.Context, exec boil.ContextExecutor, userID, rssItemID string, opts ...UserFeedItemOpt) (*core.UserFeedItem, error) {
