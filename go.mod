@@ -36,6 +36,7 @@ require (
 	github.com/uptrace/bun v1.3.0
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/vanng822/go-premailer v1.37.0
+	github.com/wiremock/go-wiremock v1.16.0
 	github.com/yuin/goldmark v1.8.6
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
 	go.uber.org/zap v1.28.0
