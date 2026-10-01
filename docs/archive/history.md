@@ -850,3 +850,45 @@ resumed once; R2 mid; 1 strong audit), median 19 turns and 81k peak.
 Skills: wave-run×1, wave-close×1. A little cheaper than F1 (76 turns, peak
 163k) for a larger change: prompts came straight from `task_prompt.py`, and
 R2 got R1's lesson in its prompt, so it needed no second round.
+## F6 — Public website on GitHub Pages (done 2026-10-01, branch `feat/f6-website`, #145)
+
+**Built.** A static site for `can3p.github.io/pcom`, ported from tommy's
+website: its own Go module in `website/` (goldmark only), the page list in
+Go (`docPages`), a landing page made only of slices of `README.md` and the
+guide pages, links rewritten through one map, a missing page or image
+failing the build, and every internal link crawled by a test. `pages.yml`
+deploys on push to master; a CI job vets, tests and builds `website/` on
+PRs. A user guide in `docs/guide/` (eight pages, each opening with its
+landing-card text) and `make screenshots`, a runner behind the
+`browser,screenshots` tags that seeds the E2E app and writes seven PNGs.
+The README links the site, drops the dead `why.md` link and names its
+"Quick start". The wave skills, the feature preamble and `AGENTS.md` now
+require every F-wave to end with its docs task.
+
+**Wrong or surprising.** Before F4's paging data, the seed world had no
+visible public posts (Alice's profile is connections-only; Carol, the
+public profile, had none), and its comment threads still showed "No
+Comments yet": the factory doesn't maintain `post_stats`. The seed now sets
+the counts; both were caught only by looking at the screenshots. F2–F4
+merged while F6 was open, so the wave rebased and documented them too. The editor has no inline preview (it's a separate page), so
+`editor.png` shows typed markdown. A strong fact check of the guide against
+the code found 15 errors in the mid-tier draft, mostly plausible
+generalizations (every account gets an invitation, everyone sees a
+journal's public posts, unsubscribe from the feed); all corrected. The S0
+audit found the "a card per guide page" test circular (it read the
+hand-kept list it was meant to check) and links above the repo root
+silently clamped. Bugs filed: #191 (publishing a published post re-notifies),
+#192 (a logged-in stranger sees fewer journal posts than an anonymous
+visitor), #193 (the import text in Settings is wrong).
+
+**Left out.** No pixel diffing of screenshots. F5 and F7 document
+themselves. `/posts/<id>/md` and `/zip`
+have no UI link; the guide gives the addresses.
+
+**Cost.** 1 coordinator session (78 turns, peak 169k context, 447k of tool
+results, much of it the seven PNGs read to check them; flags: `cat`×2,
+raw build×1 in the coordinator) and 7 subagents (S0, S1, S2 mid, S0 and S2
+resumed once for audit fixes; S3, S4 cheap; 2 strong read-only audits),
+median 17 turns and 93k peak. Skills: wave-run×1, wave-close×1. Close to
+F1 in coordinator turns, with more subagents: the fact check of prose was
+new and paid off more than the test audit did.

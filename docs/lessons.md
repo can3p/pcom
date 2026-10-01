@@ -259,3 +259,10 @@ Generalizable lessons from running the waves. Wave-specific notes go in
   page both left F4.R1's first browser tests green: body `hx-boost` fetched in
   place and the pasted page still contained the expected items. The rule
   now lives in the `frontend-htmx` skill.
+- **Fact-check prose against the code with a strong reader.** F6's mid-tier
+  guide draft read well and was wrong in 15 places, mostly by generalizing
+  ("every account gets an invitation"). A read-only audit citing file and
+  line for each claim caught them; the same applies to any docs task.
+- **Look at generated artifacts, not just their existence.** `make
+  screenshots` "wrote every PNG", but two showed empty pages and one a
+  contradictory comment count; both were seed gaps no test noticed.
