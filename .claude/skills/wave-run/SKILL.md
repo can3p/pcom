@@ -1,6 +1,6 @@
 ---
 name: wave-run
-description: Coordinate one wave of the pcom modernization plan (W0-W6, WB, R1-R7, RS, F1) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
+description: Coordinate one wave of the pcom modernization plan (W0-W6, WB, R1-R7, RS, F-waves) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
 ---
 
 # Running a wave

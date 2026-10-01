@@ -63,6 +63,12 @@ Related documents:
 | R6 | Dependency hygiene | any time after W5 | planned | `chore/r6-deps` |
 | R7 | Structured logging with zap | RS, R2 | planned | `refactor/r7-logging` |
 | F1 | Public post feed on the index page, `/rss/public` (#146) | RS | done | `feat/f1-public-feed` |
+| F2 | Comment editing (#176) | — (Q18) | planned | `feat/f2-comment-edit` |
+| F3 | Public profile section on the blog page (#186) | — (Q19) | planned | `feat/f3-profile` |
+| F4 | Feed pagination, capped RSS outputs (#124) | — (Q20) | planned | `feat/f4-pagination` |
+| F5 | Magic-link login, passwords removed (#175) | Q21–Q23 answered | planned | `feat/f5-magic-links` |
+| F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Q24 answered; Pages enabled | planned | `feat/f6-website` |
+| F7 | Translating posts and RSS items to English (#144) | F4; Q26, Q27 answered; API key | planned | `feat/f7-translation` |
 
 ```
             ┌── W1 (12 tasks) ──┐
@@ -74,6 +80,47 @@ W0 ─────────┼── W3 (4 tasks)  ──┼── W5 ── 
 ```
 
 F-waves are product features, planned from an issue; unlike the other waves they change behavior on purpose, as their wave file decides.
+
+### Feature waves F2–F7
+
+```
+F2 comment edit ──┐
+F3 profile ───────┤  any order, in parallel
+F4 pagination ────┼──────────────── F7 translation (also Q26, Q27, API key)
+F5 magic links ───┤  (Q21–Q23 first)
+F6 website ───────┘  (Q24 first; afterwards every F-wave updates the guide)
+```
+
+Each wave file states the defaults it builds and names the open question
+the owner confirms first. They can run in parallel sessions, each on its own
+branch from `origin/master`; what they share:
+
+- **Migrations and generated models.** F2, F3, F5 and F7 add migrations
+  and regenerate `pkg/model/core`. Generated code is never merged by hand:
+  the wave that merges second rebases, takes master's `pkg/model/core`,
+  renames its migration to a timestamp after master's newest if needed, and
+  reruns `make generate`.
+- **`e2e/guards_test.go`.** Every new route needs a row in
+  `TestGuards_RouteTableMatchesSource`; rows from parallel waves conflict
+  only textually.
+- **`settings.html`.** F3 adds a card, F5 removes "Change Password", F7
+  adds "Translation"; independent blocks.
+- **`LoginAs`.** F5 changes `e2e.Client.LoginAs(email, password)` to
+  `LoginAs(email)`. A wave in flight that adds tests fixes its calls when it
+  rebases (a compile error).
+- **The feed templates.** F2 marks edited comments in the feed's comment
+  item, F4 moves that item into `partial--feed-items.html`, F7 adds
+  translation to the post and RSS items. F7 starts after F4.
+- **Website rule.** Once F6 has merged, a feature wave's last task updates
+  `docs/guide/`, `docs/site.yml` and the screenshots (`make screenshots`);
+  `wave-close` checks it. Features merged before F6 are documented by F6.
+- **With the R-waves.** Every F-wave adds repository methods, so R5 (bob)
+  starts after the F-waves in flight merge, or they rebase onto it. F5 adds
+  a mail and changes two (`login_link`, `invite`, `confirm_signup`), which
+  R4 declares with the rest. F7's worker logs; R7 converts it with the
+  others if it lands first.
+- **go.mod.** Only F7 (T0) adds dependencies: the Anthropic SDK and a
+  language detection library.
 
 Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.md`), with the task table ahead of the `###` task sections; a finished wave's file is deleted and its record moves to `docs/archive/history.md`.
 
