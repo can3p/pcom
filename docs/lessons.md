@@ -227,3 +227,15 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Put a wave file's task table before its task sections.**
   `task_prompt.py` pastes a `###` section up to the next heading, so the last
   section also carried the table and closing notes into its prompt.
+- **A feature that resends a notification must check the queue's dedup
+  key.** The mail queue drops a repeated (type, unique id); F2's plan reused
+  the new-comment mails for edits without saying so, which would have sent
+  the first edit's mail at most. Look at how the existing sender keys
+  messages before planning a "notify again" feature, and test two events in
+  a row.
+- **A hidden prefilled form duplicates text on the page.** Browser
+  assertions that search the whole page or card for a comment's text pass
+  from the textarea alone; scope them to the rendered body.
+- **When Docker Hub rate-limits the sandbox (429), pull from
+  `mirror.gcr.io/<image>` and `docker tag` it back** rather than waiting or
+  skipping the suite.

@@ -727,3 +727,45 @@ mid; 1 strong audit), median 13 turns and 55k peak. Skills: wave-run×1,
 wave-close×1, frontend-htmx×1 (P1). Much cheaper than R2 (175 turns, 10
 subagents): three small tasks, one audit round, and the planning happened
 in the same session.
+
+## F2 — Comment editing, with notifications (done 2026-10-01, branch `feat/f2-comment-edit`, #176)
+
+**Built.** `posts.EditComment`: the comment's author edits it while they
+may still comment on the post; anybody else and a missing id get
+`ErrNotFound`, anonymous `ErrNeedsLogin`. A changed (trimmed) body is
+stored with the new `post_comments.edited_at` and mails the post's author
+and the other participants an "edited" variant of the two comment mails
+(the editor none); an unchanged body writes and sends nothing, and an edit
+doesn't bump the new-comment counter. `addComment`'s notification code is
+now `notifyComment`, shared by both paths. `POST
+/controls/form/edit_comment/:id` reloads the page; `form--comment.html` has
+an edit mode opened inline by an "Edit" button on the viewer's own
+comments; "(edited <time>)" shows on the post page and in the feed's
+comment item.
+
+**Wrong or surprising.** The plan missed the mail queue's dedup on (type,
+unique id): reusing `comment.ID + recipient.ID` would have dropped every
+edit mail, so edited mails add `edited_at` to the id (caught while filling
+the prompt, pinned by a two-edit test and a mutation). The hidden,
+prefilled edit form put each comment's text on the page twice, so two
+existing browser assertions now look inside `.post-user-home`. The mail
+functions' new `edited` flag forced a compile fix in `pkg/mail/escape_test.go`,
+outside C0's owned files. Docker Hub rate-limited the sandbox (429):
+`make generate` ran with the pinned sqlboiler/sql-migrate on the host, and
+the tommy image came from `mirror.gcr.io`. Both audits found gaps after the
+mutation checks passed (a no-op edit tested only on an already edited
+comment, a mail body never checked, a form test duplicating the service
+test, a browser text check satisfied by the hidden textarea, no feed marker
+check); all fixed in one round each.
+
+**Left out.** No edit history, no time limit, no edit link in the feed.
+The "(edited …)" time text itself is not pinned, only the word.
+
+**Cost.** 1 coordinator session (66 turns, peak 143k context, 84k of tool
+results; flags: `cat`×4 in the coordinator, `cat`×12 and raw builds×2
+across the wave) and 4 subagents (C0 mid, resumed once, 29 turns, 91k
+peak; C1 mid, resumed once, 19 turns, 77k peak; 2 strong audits, 5–6
+turns). Skills: wave-run×1, wave-close×1, frontend-htmx×1 (C1). A little
+cheaper than F1 (76 turns, 5 subagents): two sequential tasks, but about a
+third of the coordinator's turns went to the Docker Hub outage and to
+re-running the sandbox-only browser failures against the parent commit.
