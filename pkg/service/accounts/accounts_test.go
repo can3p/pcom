@@ -216,18 +216,19 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 	boom := errors.New("smtp down")
 
 	cases := []struct {
-		name string
-		run  func(s *fakesender.Sender) error
+		name  string
+		email string
+		run   func(s *fakesender.Sender) (*core.UserInvitation, error)
 	}{
-		{name: "signup", run: func(s *fakesender.Sender) error {
+		{name: "signup", email: "fail-signup@x.test", run: func(s *fakesender.Sender) (*core.UserInvitation, error) {
 			_, err := svcWith(db, s).Register(ctx, "fail-signup@x.test", "failsignup", "")
-			return err
+			return nil, err
 		}},
-		{name: "accept invite", run: func(s *fakesender.Sender) error {
+		{name: "accept invite", email: "fail-invitee@x.test", run: func(s *fakesender.Sender) (*core.UserInvitation, error) {
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("fail-invitee@x.test")))(t)
 
-			return acceptInvite(ctx, db, s, invite, "failinvitee")
+			return invite, acceptInvite(ctx, db, s, invite, "failinvitee")
 		}},
 	}
 
@@ -238,9 +239,45 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 			s := fakesender.New()
 			s.FailWith(boom)
 
-			require.ErrorIs(t, tc.run(s), boom)
+			invite, err := tc.run(s)
+			require.ErrorIs(t, err, boom)
+
+			_, err = factory.GetUserByEmail(ctx, db, tc.email)
+			require.Error(t, err, "no user is left behind")
+
+			if invite != nil {
+				require.False(t, invite.CreatedUserID.Valid)
+			}
 		})
 	}
+}
+
+// A failure after the user insert (here: no code key, so no attempt can start)
+// leaves no user and no queued mail, through the real queue.
+func TestRegisterAndAcceptInvite_AreAtomic(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
+	svc := accounts.New(repo.New(db), queue, nil)
+
+	inviter := newUser(t, ctx, db)
+	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("atomic-invitee@x.test")))(t)
+
+	_, err := svc.Register(ctx, "atomic-signup@x.test", "atomicsignup", "")
+	require.Error(t, err)
+
+	_, err = svc.AcceptInvite(ctx, invite, "atomicinvitee")
+	require.Error(t, err)
+	require.False(t, invite.CreatedUserID.Valid)
+
+	for _, email := range []string{"atomic-signup@x.test", "atomic-invitee@x.test"} {
+		_, err := factory.GetUserByEmail(ctx, db, email)
+		require.Error(t, err, email)
+	}
+
+	require.Empty(t, testutil.Must(factory.ListOutgoingEmails(ctx, db))(t), "no mail is queued, so no attempt was started either")
 }
 
 // TestSendInvite_Queue goes through the real email queue, which the fake
