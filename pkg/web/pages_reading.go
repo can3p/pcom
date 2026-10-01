@@ -89,6 +89,8 @@ type FeedPage struct {
 	DirectConnections []*core.User
 	OpenPrompts       []*postops.PostPrompt
 	Items             []*FeedItem
+	Next              string // cursor of the next page, empty on the last
+	LoadMoreURL       string
 	Capabilities      FeedPageCapabilities
 }
 
@@ -105,6 +107,8 @@ func Feed(c *gin.Context, userData *auth.UserData, feed *reading.Feed) *FeedPage
 		DirectConnections: feed.DirectConnections,
 		OpenPrompts:       feed.OpenPrompts,
 		Items:             feed.Items,
+		Next:              feed.Next,
+		LoadMoreURL:       links.Link("feed"),
 		Capabilities:      FeedPageCapabilities{ShowPromptForm: true},
 	}
 }
@@ -116,6 +120,7 @@ func Explore(c *gin.Context, userData *auth.UserData, posts []*postops.Post) *Fe
 		Items: lo.Map(posts, func(p *postops.Post, _ int) *FeedItem {
 			return &FeedItem{Post: p}
 		}),
+		LoadMoreURL:  links.Link("explore"),
 		Capabilities: FeedPageCapabilities{ShowPromptForm: false},
 	}
 }
