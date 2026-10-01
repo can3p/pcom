@@ -19,6 +19,6 @@ Nothing is shared by default. A post reaches your direct connections, optionally
 
 ## Signing up
 
-Without an account you see the public index above and any public profile or post. To get an account you follow an invitation from a member, which also connects you to them, or you sign up on the site if it is open. Members get a few invitations of their own, listed in [Settings](settings.md).
+Without an account you see the public index above and any public profile or post. To get an account you follow an invitation from a member, which also connects you to them, or you sign up on the site if it is open. An account created from an invitation gets one invitation of its own, shown in [Settings](settings.md); more come from the site admin.
 
 The source and the developer documentation are on [GitHub](https://github.com/can3p/pcom); the [README](../../README.md) is the way in.
