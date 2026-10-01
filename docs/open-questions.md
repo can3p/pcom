@@ -29,15 +29,14 @@ Raised by the 2026-09-21 modernization survey.
 Raised by planning F2–F7 on 2026-10-01. Each wave file states the default
 it builds; confirm or change it before the wave starts.
 
-- **Q22. Removing passwords (F5, #175).** Default: every password path
-  goes in the wave; the `pwdhash` column is dropped by a later migration,
-  deployed after the wave has run in production; a CLI command `web admin
-  login-code --email` issues a fresh code for the user's open login attempt
-  and prints it, as the operator's way in when mail is down. Keep a
-  password login as a fallback instead? Is the CLI escape hatch wanted?
-
 ## Decided
 
+- **2026-10-01. Q22, removing passwords (F5, #175):** the default. Every
+  password path goes in the wave, with no password fallback. The `pwdhash`
+  column is dropped by a later migration (M4), deployed after the wave has
+  run in production. `web admin login-code --email` issues a fresh code for
+  the user's newest open login attempt and prints it, as the operator's way
+  in when mail is down.
 - **2026-10-01. Q18, comment edits (F2, #176):** only the author, while they
   may still comment on the post. An edit that changes the body notifies the
   same people as a new comment, with an "edited" variant of the two comment
