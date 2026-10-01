@@ -137,26 +137,44 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		page, err := reading.Explore(c, userData.DBUser, "")
+		page, err := reading.Explore(c, userData.DBUser, c.Query("cursor"))
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		c.HTML(http.StatusOK, "feed.html", web.Explore(c, &userData, page.Posts))
+		feedPage := web.Explore(c, &userData, page.Posts)
+		feedPage.Next = page.Next
+		renderFeed(c, feedPage)
 	})
 
 	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		feed, err := reading.Feed(c, userData.DBUser, "")
+		feed, err := reading.Feed(c, userData.DBUser, c.Query("cursor"))
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		c.HTML(http.StatusOK, "feed.html", web.Feed(c, &userData, feed))
+		page := web.Feed(c, &userData, feed)
+		// the prompts and connections come with the first page only
+		page.Capabilities.ShowPromptForm = c.Query("cursor") == ""
+		renderFeed(c, page)
 	})
+}
+
+// renderFeed renders a page of a list: only the items and the next button
+// for an htmx "Load more" request, the whole page otherwise.
+func renderFeed(c *gin.Context, page *web.FeedPage) {
+	if c.GetHeader("HX-Request") == "true" && c.GetHeader("HX-Boosted") != "true" && c.Query("cursor") != "" {
+		c.HTML(http.StatusOK, "partial--feed-items.html", map[string]any{
+			"Items": page.Items, "User": page.User, "Next": page.Next, "URL": page.LoadMoreURL,
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "feed.html", page)
 }
 
 // loadArticle reads a static article: its title, the signup attribution and
