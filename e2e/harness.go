@@ -34,6 +34,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
+	"github.com/can3p/pcom/pkg/testutil/wiremock"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -84,6 +85,7 @@ func Run(m *testing.M) int {
 
 	_ = postgres.Cleanup()
 	_ = tommy.Cleanup()
+	_ = wiremock.Cleanup()
 
 	return code
 }
@@ -299,6 +301,7 @@ type Option func(*config)
 type config struct {
 	env        map[string]string
 	realAssets bool
+	wiremock   bool
 }
 
 // WithEnv sets an extra environment variable for the binary.
@@ -311,6 +314,26 @@ func WithEnv(key, value string) Option {
 // browser. The build must exist: `make test-ui` runs `yarn build` first.
 func WithRealAssets() Option {
 	return func(c *config) { c.realAssets = true }
+}
+
+// WithWireMock starts the shared WireMock container (pkg/testutil/wiremock)
+// and tells the binary to translate through it: TRANSLATION_PROVIDER=azure and
+// TRANSLATION_AZURE_ENDPOINT=<container URL>/azure-translator. The stubs
+// under that prefix are the ones registered with wiremock.Register.
+func WithWireMock() Option {
+	return func(c *config) {
+		c.wiremock = true
+	}
+}
+
+// resolve turns the options that need a container into environment.
+func (c *config) resolve(t testing.TB) {
+	t.Helper()
+
+	if c.wiremock {
+		c.env["TRANSLATION_PROVIDER"] = "azure"
+		c.env["TRANSLATION_AZURE_ENDPOINT"] = wiremock.Shared(t).URL("azure-translator")
+	}
 }
 
 // Start runs the web binary against a fresh database and returns once it
@@ -335,6 +358,8 @@ func Start(t testing.TB, opts ...Option) *App {
 	for _, o := range opts {
 		o(&cfg)
 	}
+
+	cfg.resolve(t)
 
 	db := testdb.New(t)
 	work := workDir(t, cfg.realAssets)
