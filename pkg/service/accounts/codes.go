@@ -33,9 +33,10 @@ const (
 var errNoCodeKey = errors.New("accounts: login codes need a code key (accounts.WithCodeKey)")
 
 // clock is the service's current time in UTC, the zone timestamps are
-// stored in.
+// stored in, at the database's microsecond precision, so a time read back
+// compares equal to the one written.
 func (s *Service) clock() time.Time {
-	return s.now().UTC()
+	return s.now().UTC().Truncate(time.Microsecond)
 }
 
 func newCode() (string, error) {
@@ -235,6 +236,10 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 // LatestLoginAttempt returns the id of the newest attempt of the confirmed
 // user with email that can still log in, or ErrNotFound.
 func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string, error) {
+	if len(s.codeKey) == 0 {
+		return "", errNoCodeKey
+	}
+
 	user, err := notFound(s.store.UserByEmail(ctx, pgsession.NormalizeEmail(email), true))
 	if err != nil {
 		return "", err
