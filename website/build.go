@@ -188,4 +188,4 @@ func (s *Site) landing() (*LandingView, error) {
 
 // quickstartSection is the README section the landing page shows as the quick
 // start.
-const quickstartSection = "Local development"
+const quickstartSection = "Quick start"

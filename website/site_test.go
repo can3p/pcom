@@ -92,9 +92,7 @@ func TestEveryInternalLinkResolves(t *testing.T) {
 // shows up here as a decision to make rather than as a 404.
 func TestLinksToUnpublishedFilesAreKnown(t *testing.T) {
 	site, _ := build(t)
-	want := []string{
-		"cmd/web/client/articles/why.md", // the manifesto, linked from the README; it is app content, not documentation
-	}
+	want := []string{}
 	var got []string
 	for repoPath := range site.Unpublished() {
 		got = append(got, repoPath)
@@ -217,8 +215,8 @@ func TestLandingCardsWithAndWithoutImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(v.Cards) != 3 {
-		t.Fatalf("cards = %+v", v.Cards)
+	if want := len(s.guidePages()); len(v.Cards) != want {
+		t.Fatalf("cards = %+v, want %d", v.Cards, want)
 	}
 	byTitle := map[string]GuideCard{}
 	for _, c := range v.Cards {
