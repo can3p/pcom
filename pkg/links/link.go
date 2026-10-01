@@ -61,6 +61,8 @@ func Link(name string, args ...string) string {
 		out = "/form/accept_invite/" + builder.Shift()
 	case "form_login":
 		out = "/form/login"
+	case "form_login_code":
+		out = "/form/login/code"
 	case "confirm_waiting_list":
 		out = "/confirm_waiting_list/" + builder.Shift()
 	case "confirm_signup":

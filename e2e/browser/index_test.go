@@ -48,9 +48,7 @@ func TestIndex_AnonymousVisitor(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(nav.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Explore"})).ToHaveCount(0))
 
 	require.NoError(t, nav.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Login", Exact: new(true)}).Click())
-	require.NoError(t, page.GetByLabel("Email address").Fill(reader.Email))
-	require.NoError(t, page.GetByLabel("Password").Fill(browser.Password))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click())
+	browser.LogInWithCode(t, app, page, reader.Email)
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed`)))
 }
 

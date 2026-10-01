@@ -37,9 +37,9 @@ func b7ConfirmLink(t testing.TB, app *e2e.App, email string) string {
 	return link
 }
 
-// Bad credentials on the login form come back as an in-place error: the form
-// is swapped for itself with the error shown, the page never navigates away.
-func TestAccounts_LoginBadCredentialsShowErrorInPlace(t *testing.T) {
+// A user enters their email, reads the code from the mail and types it: they
+// land on their feed.
+func TestAccounts_LoginWithEmailedCode(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
@@ -50,11 +50,30 @@ func TestAccounts_LoginBadCredentialsShowErrorInPlace(t *testing.T) {
 	_, err := page.Goto("/login")
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByLabel("Email address").Fill(user.Email))
-	require.NoError(t, page.GetByLabel("Password").Fill("not-the-password"))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click())
+	browser.LogInWithCode(t, app, page, user.Email)
 
-	require.NoError(t, browser.Expect.Locator(page.Locator(".alert-danger")).ToContainText("Bad credentials"))
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
+}
+
+// A wrong code comes back as an in-place error: the code form is swapped for
+// itself with the error shown, the page never navigates away.
+func TestAccounts_LoginWrongCodeShowsErrorInPlace(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+
+	page := browser.Page(t, app)
+
+	_, err := page.Goto("/login")
+	require.NoError(t, err)
+
+	browser.SubmitLoginEmail(t, page, user.Email)
+	// the mailed code is never six zeros, in practice
+	browser.SubmitLoginCode(t, page, "000000")
+
+	require.NoError(t, browser.Expect.Locator(page.Locator(".invalid-feedback")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Code")).ToBeVisible())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/login`)))
 }
 
@@ -74,9 +93,7 @@ func TestAccounts_LoginWithSignedReturnURLLandsOnRequestedPage(t *testing.T) {
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/login\?.*return_url=`)))
 
-	require.NoError(t, page.GetByLabel("Email address").Fill(user.Email))
-	require.NoError(t, page.GetByLabel("Password").Fill(browser.Password))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click())
+	browser.LogInWithCode(t, app, page, user.Email)
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/settings$`)))
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log out"})).ToBeVisible())
@@ -137,9 +154,7 @@ func TestAccounts_SignupWhileOpenAndConfirmEmail(t *testing.T) {
 
 	// the account only becomes usable once the email is confirmed: logging
 	// in with it now succeeds and lands on the default authorized home.
-	require.NoError(t, page.GetByLabel("Email address").Fill(email))
-	require.NoError(t, page.GetByLabel("Password").Fill(browser.Password))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click())
+	browser.LogInWithCode(t, app, page, email)
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
 }

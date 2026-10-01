@@ -68,7 +68,7 @@ func TestSeed_EveryPageRenders(t *testing.T) {
 	for _, name := range seed.Usernames() {
 		t.Run(name, func(t *testing.T) {
 			c := app.Client(t)
-			c.LoginAs(name+"@example.test", seed.Password)
+			c.LoginAs(name + "@example.test")
 
 			for _, path := range pages {
 				resp := c.Get(path)

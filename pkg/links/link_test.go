@@ -26,6 +26,7 @@ func TestLink_SimpleNames(t *testing.T) {
 		{"form_signup_waiting_list", "/form/signup_waiting_list"},
 		{"form_signup", "/form/signup"},
 		{"form_login", "/form/login"},
+		{"form_login_code", "/form/login/code"},
 		{"form_edit_post", "/controls/form/edit_post"},
 		{"form_new_comment", "/controls/form/new_comment"},
 		{"form_save_settings", "/controls/form/save_settings"},

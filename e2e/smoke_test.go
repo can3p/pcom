@@ -20,13 +20,13 @@ func TestSmoke_AnonymousHome(t *testing.T) {
 
 func TestSmoke_LoginReachesFeed(t *testing.T) {
 	app := e2e.Start(t)
-	user, err := factory.User(context.Background(), app.DB, factory.WithPassword("secret-pw"))
+	user, err := factory.User(context.Background(), app.DB)
 	require.NoError(t, err)
 
 	client := app.Client(t)
 	client.Get("/feed").RequireStatus(http.StatusFound)
 
-	client.LoginAs(user.Email, "secret-pw")
+	client.LoginAs(user.Email)
 
 	client.Get("/feed").RequireStatus(http.StatusOK)
 }

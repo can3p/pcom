@@ -94,7 +94,7 @@ func newGuardWorld(t *testing.T, app *e2e.App) *guardWorld {
 	require.NoError(t, factory.SetRegistrationOpen(ctx, db, true))
 
 	w.ownerClient = app.Client(t)
-	w.ownerClient.LoginAs(w.owner.Email, testPassword)
+	w.ownerClient.LoginAs(w.owner.Email)
 	w.ownerSessionCookie = w.ownerClient.Cookies()
 
 	return w
@@ -328,8 +328,10 @@ var guardRoutes = []guardRoute{
 	// /form
 	{http.MethodPost, "/form/login", staticPath("/form/login"),
 		func(w *guardWorld) map[string]string {
-			return map[string]string{"email": w.stranger.Email, "password": testPassword}
+			return map[string]string{"email": w.stranger.Email}
 		}},
+	{http.MethodPost, "/form/login/code", staticPath("/form/login/code"),
+		func(*guardWorld) map[string]string { return map[string]string{"code": "123456"} }},
 	{http.MethodPost, "/form/accept_invite/:id", func(w *guardWorld) string { return "/form/accept_invite/" + w.invitation.ID },
 		func(*guardWorld) map[string]string {
 			return map[string]string{"username": "invitedguest", "password": "invited-password-1"}
@@ -612,7 +614,7 @@ func TestGuards_CSRFTokenAccepted(t *testing.T) {
 
 	// the owner's token is useless in another session
 	other := app.Client(t)
-	other.LoginAs(w.friend.Email, testPassword)
+	other.LoginAs(w.friend.Email)
 	resp = rawRequest(t, app, other.Cookies(), http.MethodPost, "/controls/action/generate_api_key",
 		"application/json", "{}", token)
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
@@ -638,9 +640,9 @@ func TestGuards_ForeignObjects(t *testing.T) {
 
 		p := attackerPair{attacker: newUser(t, app), victim: newUser(t, app)}
 		p.attackerClient = app.Client(t)
-		p.attackerClient.LoginAs(p.attacker.Email, testPassword)
+		p.attackerClient.LoginAs(p.attacker.Email)
 		p.victimClient = app.Client(t)
-		p.victimClient.LoginAs(p.victim.Email, testPassword)
+		p.victimClient.LoginAs(p.victim.Email)
 
 		return p
 	}
@@ -977,7 +979,7 @@ func TestGuards_LoginWhileLoggedIn(t *testing.T) {
 	app := e2e.Start(t)
 	user := newUser(t, app)
 	client := app.Client(t)
-	client.LoginAs(user.Email, testPassword)
+	client.LoginAs(user.Email)
 
 	for _, path := range []string{"/login", "/login?return_url=%2Fwrite&sign=x", "/signup"} {
 		resp := client.Get(path).RequireStatus(http.StatusFound)
@@ -1023,55 +1025,69 @@ func TestGuards_LoginReturnURL(t *testing.T) {
 		require.Empty(t, ret, path)
 		require.Empty(t, sig, path)
 	}
+
+	// the signed return url survives the code step; the code lands there
+	user := newUser(t, app)
+	client.PostForm("/form/login", url.Values{"email": {user.Email}, "return_url": {"/write"}, "sign": {sign}}).
+		RequireStatus(http.StatusOK)
+	done := client.PostForm("/form/login/code", url.Values{"code": {app.IssueLoginCode(t, user.Email)}}).
+		RequireStatus(http.StatusOK)
+	require.Equal(t, app.URL+"/write", done.Header.Get("HX-Redirect"))
+
+	// a forged signature is dropped at the first step
+	other := newUser(t, app)
+	forged := app.Client(t)
+	forged.PostForm("/form/login", url.Values{"email": {other.Email}, "return_url": {"/write"}, "sign": {"forged"}}).
+		RequireStatus(http.StatusOK)
+	done = forged.PostForm("/form/login/code", url.Values{"code": {app.IssueLoginCode(t, other.Email)}}).
+		RequireStatus(http.StatusOK)
+	require.Equal(t, "/feed", done.Header.Get("HX-Redirect"))
 }
 
-// TestGuards_LoginBadCredentials: a wrong password, an unknown email and an
-// unconfirmed account all fail to log in.
-func TestGuards_LoginBadCredentials(t *testing.T) {
+// TestGuards_LoginUnknownAddressGetsSamePageAndNoMail: an unknown and an
+// unconfirmed address are answered with the code form like a known one, and
+// no mail goes to them, so the page tells nothing about who has an account.
+func TestGuards_LoginUnknownAddressGetsSamePageAndNoMail(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
-	unconfirmed, err := factory.User(ctx, app.DB, factory.WithPassword(testPassword), func(u *core.User) {
+	unconfirmed, err := factory.User(ctx, app.DB, func(u *core.User) {
 		u.EmailConfirmedAt = null.Time{}
 	})
 	require.NoError(t, err)
 
-	for _, creds := range [][2]string{
-		{"nobody@example.test", testPassword},
-		{unconfirmed.Email, testPassword},
-	} {
+	known := newUser(t, app)
+
+	for _, email := range []string{"nobody@example.test", unconfirmed.Email, known.Email} {
 		client := app.Client(t)
 		client.Get("/login").RequireStatus(http.StatusOK)
 
-		resp := client.PostForm("/form/login", url.Values{"email": {creds[0]}, "password": {creds[1]}}).
-			RequireStatus(http.StatusOK)
-		require.Contains(t, resp.Doc().Find(".alert-danger").Text(), "Bad credentials", creds[0])
+		resp := client.PostForm("/form/login", url.Values{"email": {email}}).RequireStatus(http.StatusOK)
+		require.Equal(t, 1, resp.Doc().Find(`input[name="code"]`).Length(), email)
+		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
 
 		client.Get("/feed").RequireStatus(http.StatusFound)
 	}
+
+	app.NoMails(t, "nobody@example.test", nil)
+	app.NoMails(t, unconfirmed.Email, nil)
+	require.Len(t, app.Mails(t, known.Email, nil), 1)
 }
 
 // TestGuards_LoginCaseInsensitiveEmail: logging in with the account's email
-// upper-cased, and the correct password, succeeds.
+// upper-cased succeeds.
 func TestGuards_LoginCaseInsensitiveEmail(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 	user := newUser(t, app)
 
-	// a fresh, never-logged-in client is sent to /login from /feed, so a 200
-	// below proves the session the form login established, not a default.
+	// a fresh, never-logged-in client is sent to /login from /feed, so the
+	// 200 LoginAs requires proves the session the login established.
 	app.Client(t).Get("/feed").RequireStatus(http.StatusFound)
 
-	client := app.Client(t)
-	client.Get("/login").RequireStatus(http.StatusOK)
-
-	client.PostForm("/form/login", url.Values{
-		"email": {strings.ToUpper(user.Email)}, "password": {testPassword},
-	}).RequireStatus(http.StatusOK)
-
-	client.Get("/feed").RequireStatus(http.StatusOK)
+	app.Client(t).LoginAs(strings.ToUpper(user.Email))
 }
 
 // TestGuards_LoginRotatesSession pins #122: the session cookie a visitor
@@ -1099,7 +1115,7 @@ func TestGuards_LoginRotatesSession(t *testing.T) {
 	client.Get("/login").RequireStatus(http.StatusOK)
 	before := sessCookie(client)
 
-	client.LoginAs(user.Email, testPassword)
+	client.LoginAs(user.Email)
 	require.NotEqual(t, before.Value, sessCookie(client).Value)
 
 	planted := app.Client(t)
@@ -1160,7 +1176,7 @@ func TestGuards_LoggedInFormLoginHasNoEffect(t *testing.T) {
 	user, client := newLoggedIn(t, app)
 	other := newUser(t, app)
 
-	resp := client.PostForm("/form/login", url.Values{"email": {other.Email}, "password": {testPassword}}).
+	resp := client.PostForm("/form/login", url.Values{"email": {other.Email}}).
 		RequireStatus(http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
 
