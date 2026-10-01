@@ -61,15 +61,17 @@ func New(db *sqlx.DB, deps Deps) *Services {
 	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 
 	feedSvc := feeds.New(store, deps.MediaStorage)
+	readingSvc := reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit))
+	translationsSvc := translations.New(store, readingSvc, deps.Translator, deps.TranslationLimits)
 
 	return &Services{
 		Connections:  connections.New(store),
 		Feeds:        feedSvc,
 		Shares:       shares.New(store),
-		Reading:      reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
+		Reading:      readingSvc,
 		Media:        media.New(store, deps.MediaStorage),
-		Posts:        posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
+		Posts:        posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTranslations(translationsSvc)),
 		Accounts:     accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
-		Translations: translations.New(store, deps.Translator, deps.TranslationLimits),
+		Translations: translationsSvc,
 	}
 }
