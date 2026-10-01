@@ -206,3 +206,28 @@ jobs:
 
       - name: Build dev image
         run: docker build --target dev -f tools/Dockerfile .
+
+  website:
+    name: Website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: website/go.mod
+          cache: true
+          cache-dependency-path: website/go.sum
+
+      - name: Vet
+        working-directory: website
+        run: go vet ./...
+
+      - name: Test
+        working-directory: website
+        run: go test ./...
+
+      - name: Build site
+        working-directory: website
+        run: go run . -out ../site
