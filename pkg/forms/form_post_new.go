@@ -20,6 +20,10 @@ type PostFormInput struct {
 	Body       string              `form:"body"`
 	Visibility core.PostVisibility `form:"visibility"`
 	SaveAction PostFormAction      `form:"save_action"`
+	// TranslationShown says the editor offered the checkbox; an unticked box
+	// sends nothing, so without it the stored choice is kept.
+	TranslationShown bool `form:"translation_shown"`
+	AllowTranslation bool `form:"allow_translation"`
 }
 
 type PostForm struct {
@@ -63,8 +67,9 @@ func NewPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, promp
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
 			ExtraTemplateData: map[string]any{
-				"User":   u,
-				"Prompt": prompt,
+				"User":               u,
+				"Prompt":             prompt,
+				"TranslationEnabled": svc.TranslationEnabled(),
 			},
 		},
 		User:   u,
@@ -93,11 +98,12 @@ func EditPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, post
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
 			ExtraTemplateData: map[string]any{
-				"User":          u,
-				"PostID":        post.ID,
-				"IsPublished":   post.PublishedAt.Valid,
-				"LastUpdatedAt": post.UpdatedAt.Time,
-				"Prompt":        view.Prompt,
+				"User":               u,
+				"PostID":             post.ID,
+				"IsPublished":        post.PublishedAt.Valid,
+				"LastUpdatedAt":      post.UpdatedAt.Time,
+				"Prompt":             view.Prompt,
+				"TranslationEnabled": svc.TranslationEnabled(),
 			},
 		},
 		User:   u,
@@ -117,6 +123,10 @@ func (f *PostForm) saveInput() posts.SaveInput {
 		Body:       f.Input.Body,
 		Visibility: f.Input.Visibility,
 		Action:     posts.Action(f.Input.SaveAction),
+	}
+
+	if f.Input.TranslationShown {
+		in.AllowTranslation = &f.Input.AllowTranslation
 	}
 
 	switch {

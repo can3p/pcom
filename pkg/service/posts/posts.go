@@ -19,6 +19,18 @@ type Service struct {
 	sender  repo.MailQueue
 	storage server.MediaStorage
 	ident   mail.Identity
+
+	translations Translations
+}
+
+// Translations is what posts needs from the translation service: the
+// translations of a post are refreshed when its text changes and dropped when
+// its author stops allowing translation. Both run in the save transaction.
+type Translations interface {
+	// Enabled reports whether a translation provider is configured.
+	Enabled() bool
+	RetranslateStale(ctx context.Context, tx *repo.Store, postID string) error
+	Forget(ctx context.Context, tx *repo.Store, postID string) error
 }
 
 // Option changes how New builds the service.
@@ -28,6 +40,18 @@ type Option func(*Service)
 // address the mail comes from.
 func WithIdentity(ident mail.Identity) Option {
 	return func(s *Service) { s.ident = ident }
+}
+
+// WithTranslations makes saves keep the post's translations in step. Without
+// it nothing is translated and the editor offers no toggle.
+func WithTranslations(t Translations) Option {
+	return func(s *Service) { s.translations = t }
+}
+
+// TranslationEnabled reports whether authors can allow translation of their
+// posts.
+func (s *Service) TranslationEnabled() bool {
+	return s.translations != nil && s.translations.Enabled()
 }
 
 func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage, opts ...Option) *Service {

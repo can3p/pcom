@@ -317,6 +317,58 @@ func TestAPI_EditPost(t *testing.T) {
 	require.Equal(t, "# Updated Body", got.Body)
 }
 
+// TestAPI_AllowTranslation pins that allow_translation is stored and that an
+// edit which leaves it out keeps the stored value.
+func TestAPI_AllowTranslation(t *testing.T) {
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+
+	apiKey, err := factory.APIKey(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+
+	client := app.Client(t)
+
+	send := func(path string, data map[string]any) web.ApiNewPostResponse {
+		body, err := json.Marshal(data)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, app.URL+path, bytes.NewReader(body))
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+apiKey.APIKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp := client.Do(req)
+		resp.RequireStatus(http.StatusOK)
+
+		return decodeData[web.ApiNewPostResponse](t, resp.Body)
+	}
+
+	created := send("/api/v1/posts", map[string]any{"subject": "s", "md_body": "b", "visibility": "public", "allow_translation": true})
+
+	got, err := factory.GetPost(ctx, app.DB, created.ID)
+	require.NoError(t, err)
+	require.True(t, got.AllowTranslation)
+
+	off := send("/api/v1/posts", map[string]any{"subject": "s", "md_body": "b", "visibility": "public"})
+	got, err = factory.GetPost(ctx, app.DB, off.ID)
+	require.NoError(t, err)
+	require.False(t, got.AllowTranslation)
+
+	send("/api/v1/posts/"+off.ID, map[string]any{"subject": "s", "md_body": "b", "visibility": "public", "allow_translation": true})
+	got, err = factory.GetPost(ctx, app.DB, off.ID)
+	require.NoError(t, err)
+	require.True(t, got.AllowTranslation, "enabling through an edit")
+
+	send("/api/v1/posts/"+created.ID, map[string]any{"subject": "s2", "md_body": "b", "visibility": "public"})
+
+	got, err = factory.GetPost(ctx, app.DB, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, "s2", got.Subject.String)
+	require.True(t, got.AllowTranslation, "omitting the field keeps the stored value")
+}
+
 // TestAPI_EditPost_Foreign tests POST /api/v1/posts/:id for someone else's
 // post (must return 404, and the post must be left unchanged). Pins the
 // UserID filter in forms.EditPostFormNew.
