@@ -19,3 +19,6 @@ github.com/can3p/pcom/pkg/service/posts 79.7
 github.com/can3p/pcom/pkg/service/reading 99.0
 github.com/can3p/pcom/pkg/service/registry 99.0
 github.com/can3p/pcom/pkg/service/shares 95.7
+github.com/can3p/pcom/pkg/service/translations 84.0
+github.com/can3p/pcom/pkg/translate 94.6
+github.com/can3p/pcom/pkg/translate/azure 87.9
