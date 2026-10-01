@@ -5,7 +5,6 @@ package browser_test
 import (
 	"context"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
@@ -17,24 +16,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// b7ConfirmLinkRE matches the absolute confirmation link the way it is sent
-// in the plain-text body of the confirm_signup mail.
-var b7ConfirmLinkRE = regexp.MustCompile(`https?://\S+/confirm_signup/\S+`)
+// b7SignupCodeRE matches the code in the plain-text body of the signup mail.
+var b7SignupCodeRE = regexp.MustCompile(`confirmation code is (\d{6})`)
 
-// b7ConfirmLink waits for the confirmation mail this app delivered to email
-// and pulls the confirmation link out of its plain-text body.
-func b7ConfirmLink(t testing.TB, app *e2e.App, email string) string {
+// b7SignupCode waits for the signup mail this app delivered to email and
+// pulls the code out of its plain-text body.
+func b7SignupCode(t testing.TB, app *e2e.App, email string) string {
 	t.Helper()
 
-	mails := app.Mails(t, email, func(m tommy.Mail) bool {
-		return m.Subject == "Welcome to pcom" && strings.Contains(m.Text, app.URL+"/confirm_signup/")
-	})
+	mails := app.Mails(t, email, func(m tommy.Mail) bool { return b7SignupCodeRE.MatchString(m.Text) })
 	require.Len(t, mails, 1)
 
-	link := b7ConfirmLinkRE.FindString(mails[0].Text)
-	require.NotEmpty(t, link, "confirm_signup mail body: %s", mails[0].Text)
-
-	return link
+	return b7SignupCodeRE.FindStringSubmatch(mails[0].Text)[1]
 }
 
 // A user enters their email, reads the code from the mail and types it: they
@@ -122,10 +115,9 @@ func TestAccounts_Logout(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Login", Exact: new(true)})).ToBeVisible())
 }
 
-// Signing up while registration is open queues a confirmation email;
-// following the link in it confirms the address and the account can then
-// log in, which only works once the email is confirmed.
-func TestAccounts_SignupWhileOpenAndConfirmEmail(t *testing.T) {
+// Signing up while registration is open mails a code: typing it confirms the
+// address and logs the new account in, with no password anywhere.
+func TestAccounts_SignupWhileOpenAndConfirmWithCode(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
@@ -141,30 +133,31 @@ func TestAccounts_SignupWhileOpenAndConfirmEmail(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "New Account"})).ToBeVisible())
+	require.Zero(t, mustCount(t, page.GetByLabel("Password")))
 
 	require.NoError(t, page.GetByLabel("Email address").Fill(email))
 	require.NoError(t, page.GetByLabel("Username").Fill(username))
-	require.NoError(t, page.GetByLabel("Password").Fill(browser.Password))
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Create an account"}).Click())
 
-	require.NoError(t, browser.Expect.Locator(page.Locator("body")).ToContainText("check your mailbox"))
+	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Code")).ToBeVisible())
 
-	link := b7ConfirmLink(t, app, email)
-
-	_, err = page.Goto(link)
-	require.NoError(t, err)
-
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Your email got confirmed, thanks!"})).ToBeVisible())
-
-	// the account only becomes usable once the email is confirmed: logging
-	// in with it now succeeds and lands on the default authorized home.
-	browser.LogInWithCode(t, app, page, email)
+	browser.SubmitLoginCode(t, page, b7SignupCode(t, app, email))
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username))
 }
 
-// Accepting an invitation creates the account, logs it in straight away and
-// connects it to the inviter, all visible from the resulting /controls page.
+func mustCount(t testing.TB, l playwright.Locator) int {
+	t.Helper()
+
+	n, err := l.Count()
+	require.NoError(t, err)
+
+	return n
+}
+
+// An invited person picks a username, reads the code from the mail and types
+// it: they land logged in, connected to the inviter.
 func TestAccounts_AcceptInvitationConnectsToInviter(t *testing.T) {
 	t.Parallel()
 
@@ -184,10 +177,15 @@ func TestAccounts_AcceptInvitationConnectsToInviter(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Accept invite from " + inviter.Username})).ToBeVisible())
 
 	require.NoError(t, page.GetByLabel("Username").Fill(username))
-	require.NoError(t, page.GetByLabel("Password").Fill(browser.Password))
+	require.Zero(t, mustCount(t, page.GetByLabel("Password")))
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Create an account"}).Click())
 
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/?$`)))
+	browser.SubmitLoginCode(t, page, browser.LoginCode(t, app, "b7invitee@example.test"))
+
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
+
+	_, err = page.Goto("/controls")
+	require.NoError(t, err)
 
 	// logged in as the new account
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username, playwright.LocatorAssertionsToContainTextOptions{}))

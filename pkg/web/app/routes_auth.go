@@ -111,20 +111,6 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 		return nil
 	}))
 
-	r.GET("/confirm_signup/:id", requireUUIDParam("id"), signedOutPage(func(c *gin.Context, userData auth.UserData) error {
-		if err := accounts.ConfirmSignup(c, c.Param("id")); err != nil {
-			return err
-		}
-
-		c.HTML(http.StatusOK, "signup_confirmed.html", map[string]any{
-			"User":        userData,
-			"StyleNonce":  csp.GetStyleNonce(c),
-			"ScriptNonce": csp.GetScriptNonce(c),
-		})
-
-		return nil
-	}))
-
 	actions.POST("/logout", auth.Logout)
 
 	nonControlsForms.POST("/login", signedOutPage(func(c *gin.Context, _ auth.UserData) error {

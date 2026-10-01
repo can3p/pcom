@@ -92,102 +92,46 @@ func (s *Service) UsernameTaken(ctx context.Context, username string) (bool, err
 	return s.store.UsernameExists(ctx, username)
 }
 
-// Signup creates an account that still has to confirm its email address and
-// tells the admin about it.
-func (s *Service) Signup(ctx context.Context, email, username, password, attribution string) (*core.User, error) {
-	var u *core.User
+// Register is what the signup form does: it creates an account that has no
+// password and a confirmed email only once its owner types the code, tells the
+// admin, starts a login attempt and queues the mail with its code, so that all
+// of them exist or none. It returns the attempt's id; finishing it logs the
+// user in and confirms the address.
+func (s *Service) Register(ctx context.Context, email, username, attribution string) (string, error) {
+	var attemptID string
 
-	err := s.store.Tx(ctx, func(tx *repo.Store) (err error) {
-		u, err = s.signup(ctx, tx, email, username, password, attribution)
+	err := s.store.Tx(ctx, func(tx *repo.Store) error {
+		if email == "" || username == "" {
+			return service.Invalid("", "Not enough data")
+		}
 
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
+		u := &core.User{
+			ID:                uuid.NewString(),
+			Email:             pgsession.NormalizeEmail(email),
+			Username:          username,
+			SignupAttribution: null.NewString(attribution, attribution != ""),
+		}
 
-	return u, nil
-}
-
-// Register is what the signup form does: it creates the account, and queues
-// the confirmation mail and the admin's notification with it, so that all of
-// them exist or none.
-func (s *Service) Register(ctx context.Context, email, username, password, attribution string) (*core.User, error) {
-	var u *core.User
-
-	err := s.store.Tx(ctx, func(tx *repo.Store) (err error) {
-		if u, err = s.signup(ctx, tx, email, username, password, attribution); err != nil {
+		if err := tx.InsertUser(ctx, u); err != nil {
 			return err
 		}
 
-		confirm, err := mail.ConfirmSignup(s.ident.Site, s.ident.From, u)
-		if err != nil {
+		if err := s.send(ctx, tx, admin.NewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
 			return err
 		}
 
-		return fatal(s.send(ctx, tx, confirm))
+		id, err := s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
+			return mail.ConfirmSignup(s.ident.From, id, u.Email, code, CodeLifetime)
+		})
+		attemptID = id
+
+		return fatal(err)
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return u, nil
-}
-
-func (s *Service) signup(ctx context.Context, tx *repo.Store, email, username, password, attribution string) (*core.User, error) {
-	if password == "" || email == "" || username == "" {
-		return nil, service.Invalid("", "Not enough data")
-	}
-
-	u := &core.User{
-		ID:                uuid.NewString(),
-		Email:             pgsession.NormalizeEmail(email),
-		Username:          username,
-		Pwdhash:           null.StringFrom(pgsession.HashPassword(password)),
-		EmailConfirmSeed:  null.StringFrom(uuid.NewString()),
-		SignupAttribution: null.NewString(attribution, attribution != ""),
-	}
-
-	if err := tx.InsertUser(ctx, u); err != nil {
-		return nil, err
-	}
-
-	if err := s.send(ctx, tx, admin.NewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
-		return nil, err
-	}
-
-	return u, nil
-}
-
-// ConfirmSignup marks the account behind a confirmation link as confirmed
-// and tells the admin. Following the link again changes nothing.
-func (s *Service) ConfirmSignup(ctx context.Context, seed string) error {
-	confirmed := false
-
-	user, err := notFound(s.store.UserBySignupSeed(ctx, seed))
-	if err != nil {
-		return err
-	}
-
-	err = s.store.Tx(ctx, func(tx *repo.Store) error {
-		if user.EmailConfirmedAt.Valid {
-			return nil
-		}
-
-		user.EmailConfirmedAt = null.TimeFrom(time.Now())
-		confirmed = true
-
-		return tx.SaveUser(ctx, user)
-	})
-	if err != nil {
-		return err
-	}
-
-	if confirmed {
-		s.notifyAdmin(ctx, "signup confirmed", admin.SignupConfirmed(s.ident.Site, s.ident.From, s.ident.AdminAddress, user))
-	}
-
-	return nil
+	return attemptID, nil
 }
 
 // JoinWaitingList adds an address to the waiting list, asks it to confirm

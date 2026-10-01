@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/forms"
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,6 @@ import (
 type SignupFormInput struct {
 	Email       string `form:"email"`
 	Username    string `form:"username"`
-	Password    string `form:"password"`
 	Attribution string `form:"attribution"`
 }
 
@@ -62,12 +62,6 @@ func (f *SignupForm) Validate(c *gin.Context) error {
 		}
 	}
 
-	if f.Input.Password == "" {
-		f.AddError("password", "password is required")
-	} else if err := validation.ValidatePassword(f.Input.Password); err != nil {
-		f.AddError("password", err.Error())
-	}
-
 	return f.Errors.PassedValidation()
 }
 
@@ -86,11 +80,26 @@ func (f *SignupForm) Save(c context.Context) (forms.FormSaveAction, error) {
 		attribution = attribution[0:100]
 	}
 
-	if _, err := f.Accounts.Register(c, email, username, f.Input.Password, attribution); err != nil {
+	gc := c.(*gin.Context)
+
+	attemptID, err := f.Accounts.Register(gc.Request.Context(), email, username, attribution)
+	if err != nil {
 		return nil, panicOnFatal(err)
 	}
 
-	return func(c *gin.Context, f forms.Form) {
-		c.HTML(http.StatusOK, "partial--signup-goto-email.html", map[string]any{})
+	return codeStep(gc, attemptID, email)
+}
+
+// codeStep makes the attempt the visitor's and answers with the code form for
+// it, the same second step logging in has.
+func codeStep(c *gin.Context, attemptID, email string) (forms.FormSaveAction, error) {
+	if err := auth.SetLoginAttempt(c, attemptID); err != nil {
+		return nil, err
+	}
+
+	next := &LoginCodeFormInput{Email: email}
+
+	return func(c *gin.Context, _ forms.Form) {
+		c.HTML(http.StatusOK, loginCodeTemplate, map[string]any{"Input": next, "Errors": forms.FormErrors{}})
 	}, nil
 }

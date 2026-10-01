@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -30,34 +31,28 @@ func TestSignupForm_Validate(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		setup        func(t *testing.T) (email, username, password string)
+		setup        func(t *testing.T) (email, username string)
 		wantErrField string
 	}{
-		{"empty email", func(t *testing.T) (string, string, string) {
-			return "", "newuser", "ValidPassword123!"
+		{"empty email", func(t *testing.T) (string, string) {
+			return "", "newuser"
 		}, "email"},
-		{"existing email", func(t *testing.T) (string, string, string) {
+		{"existing email", func(t *testing.T) (string, string) {
 			u := testutil.Must(factory.User(ctx, db))(t)
-			return u.Email, "newuser", "ValidPassword123!"
+			return u.Email, "newuser"
 		}, "email"},
-		{"empty username", func(t *testing.T) (string, string, string) {
-			return "valid@example.test", "", "ValidPassword123!"
+		{"empty username", func(t *testing.T) (string, string) {
+			return "valid@example.test", ""
 		}, "username"},
-		{"existing username", func(t *testing.T) (string, string, string) {
+		{"existing username", func(t *testing.T) (string, string) {
 			u := testutil.Must(factory.User(ctx, db))(t)
-			return "valid@example.test", u.Username, "ValidPassword123!"
+			return "valid@example.test", u.Username
 		}, "username"},
-		{"invalid username format", func(t *testing.T) (string, string, string) {
-			return "valid@example.test", "1abc", "ValidPassword123!"
+		{"invalid username format", func(t *testing.T) (string, string) {
+			return "valid@example.test", "1abc"
 		}, "username"},
-		{"weak password", func(t *testing.T) (string, string, string) {
-			return "valid@example.test", "newuser", "short"
-		}, "password"},
-		{"empty password", func(t *testing.T) (string, string, string) {
-			return "valid@example.test", "newuser", ""
-		}, "password"},
-		{"success", func(t *testing.T) (string, string, string) {
-			return "valid@example.test", "newuser", "ValidPassword123!"
+		{"success", func(t *testing.T) (string, string) {
+			return "valid@example.test", "newuser"
 		}, ""},
 	}
 
@@ -66,12 +61,11 @@ func TestSignupForm_Validate(t *testing.T) {
 			t.Parallel()
 
 			c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-			email, username, password := tt.setup(t)
+			email, username := tt.setup(t)
 
-			form := forms.SignupFormNew(accountsFor(db, fakesender.New())).(*forms.SignupForm)
+			form := forms.SignupFormNew(codeAccounts(db, fakesender.New())).(*forms.SignupForm)
 			form.Input.Email = email
 			form.Input.Username = username
-			form.Input.Password = password
 
 			err := form.Validate(c)
 			if tt.wantErrField == "" {
@@ -98,13 +92,14 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	form := forms.SignupFormNew(accountsFor(db, sender)).(*forms.SignupForm)
+	form := forms.SignupFormNew(codeAccounts(db, sender)).(*forms.SignupForm)
 	form.Input.Email = "newuser@example.test"
 	form.Input.Username = "newuser"
-	form.Input.Password = "ValidPassword123!"
 	form.Input.Attribution = "invalid-with-dashes"
 
-	action, err := form.Save(ctx)
+	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
+
+	action, err := form.Save(c)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
@@ -117,21 +112,22 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	require.Equal(t, "admin_new_user", sent[0].EmailType)
 	require.Equal(t, "confirm_signup", sent[1].EmailType)
 	require.Equal(t, newUser.Email, sent[1].Mail.To[0].Address)
+	require.NotEmpty(t, auth.LoginAttempt(c), "the visitor's session carries the attempt the code form finishes")
 }
 
 func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
-	ctx := context.Background()
 	sender := fakesender.New()
 
-	form := forms.SignupFormNew(accountsFor(db, sender)).(*forms.SignupForm)
+	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
+
+	form := forms.SignupFormNew(codeAccounts(db, sender)).(*forms.SignupForm)
 	form.Input.Email = "  Valid@EXAMPLE.TEST  "
 	form.Input.Username = "  NewUser  "
-	form.Input.Password = "ValidPassword123!"
 
-	action, err := form.Save(ctx)
+	action, err := form.Save(c)
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
@@ -139,11 +135,9 @@ func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	// username are confirmed the way the form itself would see them: a second
 	// signup using the already-trimmed/lowercased values must be rejected as
 	// a duplicate of the one Save just persisted.
-	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
-	dup := forms.SignupFormNew(accountsFor(db, sender)).(*forms.SignupForm)
+	dup := forms.SignupFormNew(codeAccounts(db, sender)).(*forms.SignupForm)
 	dup.Input.Email = "valid@example.test"
 	dup.Input.Username = "newuser"
-	dup.Input.Password = "ValidPassword123!"
 
 	err = dup.Validate(c)
 	require.Error(t, err)

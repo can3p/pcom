@@ -6,9 +6,7 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
@@ -16,7 +14,6 @@ import (
 
 type AcceptInviteFormInput struct {
 	Username string `form:"username"`
-	Password string `form:"password"`
 }
 
 type AcceptInviteForm struct {
@@ -45,12 +42,6 @@ func AcceptInviteFormNew(accounts *accounts.Service, invite *core.UserInvitation
 func (f *AcceptInviteForm) Validate(c *gin.Context) error {
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
-	if f.Input.Password == "" {
-		f.AddError("password", "password is required")
-	} else if err := validation.ValidatePassword(f.Input.Password); err != nil {
-		f.AddError("password", err.Error())
-	}
-
 	if username == "" {
 		f.AddError("username", "username is required")
 	} else if err := validation.ValidateUsername(username); err != nil {
@@ -72,14 +63,12 @@ func (f *AcceptInviteForm) Validate(c *gin.Context) error {
 func (f *AcceptInviteForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	username := strings.TrimSpace(strings.ToLower(f.Input.Username))
 
-	user, err := f.Accounts.AcceptInvite(c, f.Invite, username, f.Input.Password)
+	gc := c.(*gin.Context)
+
+	attemptID, err := f.Accounts.AcceptInvite(gc.Request.Context(), f.Invite, username)
 	if err != nil {
-		return nil, err
+		return nil, panicOnFatal(err)
 	}
 
-	if err := auth.StartSession(c.(*gin.Context), user); err != nil {
-		return nil, err
-	}
-
-	return forms.FormSaveRedirect(links.Link("controls")), nil
+	return codeStep(gc, attemptID, f.Invite.InvitationEmail.String)
 }

@@ -93,54 +93,17 @@ func send(ctx context.Context, s *fakesender.Sender, e *mail.Envelope) error {
 	return s.Send(ctx, nil, e.UniqueID, e.Type, e.Mail)
 }
 
-func sendConfirmSignup(ctx context.Context, s *fakesender.Sender, user *core.User) error {
-	e, err := mail.ConfirmSignup(links.Site{}, testFrom, user)
-	if err != nil {
-		return err
-	}
-
-	return send(ctx, s, e)
-}
-
 func TestConfirmSignup(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
-		ID:               "user-1",
-		Email:            "user@example.test",
-		EmailConfirmSeed: null.StringFrom("confirm-seed-123"),
-	}
-
 	sender := fakesender.New()
-	ctx := context.Background()
 
-	err := sendConfirmSignup(ctx, sender, user)
-	require.NoError(t, err)
+	require.NoError(t, send(context.Background(), sender, mail.ConfirmSignup(testFrom, "attempt-1", "user@example.test", "123456", 15*time.Minute)))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
 
 	golden.Assert(t, "confirm_signup", mailsToGolden(sent))
-}
-
-func TestConfirmSignup_NoSeed(t *testing.T) {
-	t.Parallel()
-
-	user := &core.User{
-		ID:               "user-1",
-		Email:            "user@example.test",
-		EmailConfirmSeed: null.String{}, // Empty seed
-	}
-
-	sender := fakesender.New()
-	ctx := context.Background()
-
-	err := sendConfirmSignup(ctx, sender, user)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "empty confirmation seed")
-
-	sent := sender.Sent()
-	require.Empty(t, sent, "should not send email if seed is empty")
 }
 
 func TestNewPost(t *testing.T) {

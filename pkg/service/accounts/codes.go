@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -142,10 +143,47 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 	return attempt.ID, nil
 }
 
+// startAttempt starts a login attempt for a user just created in tx and
+// queues the mail build makes for its code, so the user, the attempt and the
+// mail exist together or not at all. It does not look at the mail limit: the
+// user is new.
+func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.User, build func(attemptID, code string) *mail.Envelope) (string, error) {
+	if len(s.codeKey) == 0 {
+		return "", errNoCodeKey
+	}
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", err
+	}
+
+	code, err := newCode()
+	if err != nil {
+		return "", err
+	}
+
+	now := s.clock()
+	attempt := &core.LoginAttempt{
+		ID:        id.String(),
+		UserID:    null.StringFrom(user.ID),
+		CodeHash:  null.StringFrom(s.codeHash(id.String(), code)),
+		ExpiresAt: now.Add(CodeLifetime),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if err := tx.InsertLoginAttempt(ctx, attempt); err != nil {
+		return "", err
+	}
+
+	return attempt.ID, s.send(ctx, tx, build(attempt.ID, code))
+}
+
 // FinishLogin checks code against the attempt and counts the try. A match
 // uses the attempt up and returns its user and return URL. A wrong code is a
 // ValidationError on "code"; an attempt that is used, expired, out of tries
-// or has no user is ErrNotFound.
+// or has no user is ErrNotFound. Finishing an attempt also confirms the
+// user's email address when it is not confirmed yet: the code proves it.
 func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*core.User, string, error) {
 	if len(s.codeKey) == 0 {
 		return nil, "", errNoCodeKey
@@ -155,6 +193,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 		user      *core.User
 		returnURL string
 		wrong     bool
+		confirmed bool
 	)
 
 	err := s.store.Tx(ctx, func(tx *repo.Store) error {
@@ -185,8 +224,14 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 
 		returnURL = a.ReturnURL
 		user, err = notFound(tx.UserByID(ctx, a.UserID.String))
+		if err != nil || user.EmailConfirmedAt.Valid {
+			return err
+		}
 
-		return err
+		user.EmailConfirmedAt = null.TimeFrom(now)
+		confirmed = true
+
+		return tx.SaveUser(ctx, user)
 	})
 	if err != nil {
 		return nil, "", err
@@ -194,6 +239,10 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 
 	if wrong {
 		return nil, "", service.Invalid("code", "This code is not right. Check the mail and try again.")
+	}
+
+	if confirmed {
+		s.notifyAdmin(ctx, "signup confirmed", admin.SignupConfirmed(s.ident.Site, s.ident.From, s.ident.AdminAddress, user))
 	}
 
 	return user, returnURL, nil

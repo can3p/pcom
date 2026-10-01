@@ -1,5 +1,5 @@
 EmailType: confirm_signup
-UniqueID: user-1
+UniqueID: attempt-1
 From: Your pcom <noreply@pcom.test>
 To: user@example.test
 Subject: Welcome to pcom
@@ -8,14 +8,14 @@ Subject: Welcome to pcom
 
 	Hi!
 
-	Thank you for your interest in pcom! Please follow the link to confirm your email address
+	Thank you for your interest in pcom! Your confirmation code is 123456
 
-	/confirm_signup/confirm-seed-123
+	Type it on the signup page to confirm your email address and log in. It works once, for the next 15 minutes.
 
 --- HTML ---
 
 	<p>Hi!</p>
 
-	<p>Thank you for your interest in pcom! Please follow the link to confirm your email address</p>
+	<p>Thank you for your interest in pcom! Your confirmation code is <strong>123456</strong></p>
 
-	<a href="/confirm_signup/confirm-seed-123">/confirm_signup/confirm-seed-123</a>
+	<p>Type it on the signup page to confirm your email address and log in. It works once, for the next 15 minutes.</p>

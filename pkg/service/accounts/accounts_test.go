@@ -21,11 +21,11 @@ import (
 
 // svcWith is the accounts service over db that sends through snd.
 func svcWith(db *sqlx.DB, snd repo.MailQueue) *accounts.Service {
-	return accounts.New(repo.New(db), snd, nil)
+	return accounts.New(repo.New(db), snd, nil, accounts.WithCodeKey("test-key"))
 }
 
-func acceptInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, invite *core.UserInvitation, username, password string) error {
-	_, err := svcWith(db, s).AcceptInvite(ctx, invite, username, password)
+func acceptInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, invite *core.UserInvitation, username string) error {
+	_, err := svcWith(db, s).AcceptInvite(ctx, invite, username)
 
 	return err
 }
@@ -61,120 +61,125 @@ func newInvitation(t *testing.T, ctx context.Context, db *sqlx.DB, userID string
 	testutil.Must(factory.Invitation(ctx, db, userID))(t)
 }
 
-func TestSignup_InsertsUnconfirmedUserAndNotifiesAdmin(t *testing.T) {
+func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
 
-	u, err := svcWith(db, sender).Signup(ctx, "new-signup@example.test", "newsignup", "s3cr3t-pw", "some-campaign")
-	require.NoError(t, err)
-	require.NotEmpty(t, u.ID)
+	t.Run("creates an unconfirmed user without a password, tells the admin and mails the code", func(t *testing.T) {
+		t.Parallel()
 
-	got := testutil.Must(factory.GetUser(ctx, db, u.ID))(t)
-	require.Equal(t, "new-signup@example.test", got.Email)
-	require.Equal(t, "newsignup", got.Username)
-	require.False(t, got.EmailConfirmedAt.Valid, "signup leaves the email unconfirmed until it's verified")
-	require.True(t, got.EmailConfirmSeed.Valid, "a confirmation seed is generated so the user can confirm later")
-	require.Equal(t, "some-campaign", got.SignupAttribution.String)
+		sender := fakesender.New()
 
-	require.Len(t, sender.Sent(), 1, "signup notifies the admin of the new user")
+		id, err := svcWith(db, sender).Register(ctx, "New-Signup@example.test", "newsignup", "some-campaign")
+		require.NoError(t, err)
+		require.NotEmpty(t, id)
+
+		got := testutil.Must(factory.GetUserByEmail(ctx, db, "new-signup@example.test"))(t)
+		require.Equal(t, "newsignup", got.Username)
+		require.False(t, got.EmailConfirmedAt.Valid, "the email is unconfirmed until the code is typed")
+		require.False(t, got.Pwdhash.Valid)
+		require.Equal(t, "some-campaign", got.SignupAttribution.String)
+
+		sent := sender.Sent()
+		require.Len(t, sent, 2)
+		require.Equal(t, "admin_new_user", sent[0].EmailType)
+		require.Equal(t, "confirm_signup", sent[1].EmailType)
+		require.Equal(t, "new-signup@example.test", sent[1].Mail.To[0].Address)
+		require.Equal(t, id, sent[1].UniqueID)
+	})
+
+	t.Run("missing fields", func(t *testing.T) {
+		t.Parallel()
+
+		sender := fakesender.New()
+
+		_, err := svcWith(db, sender).Register(ctx, "", "user", "")
+		require.Error(t, err)
+
+		_, err = svcWith(db, sender).Register(ctx, "a@b.example.test", "", "")
+		require.Error(t, err)
+
+		require.Empty(t, sender.Sent(), "a rejected signup must not notify anyone")
+	})
+
+	t.Run("an address in use", func(t *testing.T) {
+		t.Parallel()
+
+		sender := fakesender.New()
+		existing := newUser(t, ctx, db)
+
+		_, err := svcWith(db, sender).Register(ctx, existing.Email, "someoneelse", "")
+		require.Error(t, err, "the email column is unique, so a second signup for it must fail")
+		require.Empty(t, sender.Sent(), "a failed signup must not notify anyone")
+	})
 }
 
-func TestSignup_MissingFieldsReturnsError(t *testing.T) {
+func TestAcceptInvite(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
 
-	_, err := svcWith(db, sender).Signup(ctx, "", "user", "pw", "")
-	require.Error(t, err)
+	newInvite := func(t *testing.T, to string) (*core.User, *core.UserInvitation) {
+		inviter := newUser(t, ctx, db)
 
-	_, err = svcWith(db, sender).Signup(ctx, "a@b.example.test", "", "pw", "")
-	require.Error(t, err)
+		return inviter, testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent(to)))(t)
+	}
 
-	_, err = svcWith(db, sender).Signup(ctx, "a@b.example.test", "user", "", "")
-	require.Error(t, err)
+	t.Run("creates a confirmed user without a password, connects it and mails the code", func(t *testing.T) {
+		t.Parallel()
 
-	require.Empty(t, sender.Sent(), "a rejected signup must not notify anyone")
-}
+		sender := fakesender.New()
+		inviter, invite := newInvite(t, "invitee@example.test")
 
-func TestSignup_DuplicateEmailReturnsError(t *testing.T) {
-	t.Parallel()
+		id, err := svcWith(db, sender).AcceptInvite(ctx, invite, "invitee")
+		require.NoError(t, err)
+		require.NotEmpty(t, id)
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
+		// AcceptInvite mutates the invite it was given: CreatedUserID is set
+		// to the freshly inserted user's ID.
+		require.True(t, invite.CreatedUserID.Valid)
+		newUserID := invite.CreatedUserID.String
 
-	existing := testutil.Must(factory.User(ctx, db))(t)
+		got := testutil.Must(factory.GetUser(ctx, db, newUserID))(t)
+		require.Equal(t, "invitee", got.Username)
+		require.Equal(t, "invitee@example.test", got.Email)
+		require.True(t, got.EmailConfirmedAt.Valid, "accepting an invite confirms the email right away")
+		require.False(t, got.Pwdhash.Valid)
+		require.Equal(t, "accepted_invite", got.SignupAttribution.String)
 
-	_, err := svcWith(db, sender).Signup(ctx, existing.Email, "someoneelse", "s3cr3t-pw", "")
-	require.Error(t, err, "the email column is unique, so a second signup for it must fail")
-	require.Empty(t, sender.Sent(), "a failed signup must not notify anyone")
-}
+		require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t))
 
-func TestAcceptInvite_CreatesUserAndConnectsToInviter(t *testing.T) {
-	t.Parallel()
+		sent := sender.Sent()
+		require.Len(t, sent, 2)
+		require.Equal(t, "admin_new_user", sent[0].EmailType)
+		require.Equal(t, "login_code", sent[1].EmailType)
+		require.Equal(t, "invitee@example.test", sent[1].Mail.To[0].Address)
+	})
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
+	t.Run("an empty username consumes nothing", func(t *testing.T) {
+		t.Parallel()
 
-	inviter := testutil.Must(factory.User(ctx, db))(t)
-	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee@example.test")))(t)
+		sender := fakesender.New()
+		_, invite := newInvite(t, "invitee2@example.test")
 
-	require.NoError(t, acceptInvite(ctx, db, sender, invite, "invitee", "s3cr3t-pw"))
+		require.Error(t, acceptInvite(ctx, db, sender, invite, ""))
+		require.False(t, invite.CreatedUserID.Valid)
+		require.Empty(t, sender.Sent())
+	})
 
-	// AcceptInvite mutates the invite it was given: CreatedUserID is set to
-	// the freshly inserted user's ID.
-	require.True(t, invite.CreatedUserID.Valid)
-	newUserID := invite.CreatedUserID.String
+	t.Run("an address in use", func(t *testing.T) {
+		t.Parallel()
 
-	gotUser := testutil.Must(factory.GetUser(ctx, db, newUserID))(t)
-	require.Equal(t, "invitee", gotUser.Username)
-	require.Equal(t, "invitee@example.test", gotUser.Email)
-	require.True(t, gotUser.EmailConfirmedAt.Valid, "accepting an invite confirms the email right away")
-	require.Equal(t, "accepted_invite", gotUser.SignupAttribution.String)
+		sender := fakesender.New()
+		_, invite := newInvite(t, newUser(t, ctx, db).Email)
 
-	require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t), "accepting an invite connects the new user to the inviter")
-
-	require.Len(t, sender.Sent(), 1, "accepting an invite notifies the admin of the new user")
-}
-
-func TestAcceptInvite_MissingFieldsReturnsError(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-
-	inviter := testutil.Must(factory.User(ctx, db))(t)
-	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee2@example.test")))(t)
-
-	require.Error(t, acceptInvite(ctx, db, sender, invite, "", "s3cr3t-pw"))
-	require.Error(t, acceptInvite(ctx, db, sender, invite, "invitee2", ""))
-
-	require.False(t, invite.CreatedUserID.Valid, "a rejected accept must not consume the invite")
-	require.Empty(t, sender.Sent())
-}
-
-func TestAcceptInvite_DuplicateEmailReturnsError(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	sender := fakesender.New()
-
-	inviter := testutil.Must(factory.User(ctx, db))(t)
-	existing := testutil.Must(factory.User(ctx, db))(t)
-	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent(existing.Email)))(t)
-
-	err := acceptInvite(ctx, db, sender, invite, "someoneelse", "s3cr3t-pw")
-	require.Error(t, err, "the email column is unique, so accepting into an already-used email must fail")
-	require.False(t, invite.CreatedUserID.Valid)
-	require.Empty(t, sender.Sent())
+		require.Error(t, acceptInvite(ctx, db, sender, invite, "someoneelse"), "the email column is unique")
+		require.False(t, invite.CreatedUserID.Valid)
+		require.Empty(t, sender.Sent())
+	})
 }
 
 func TestCheckCredentials(t *testing.T) {
@@ -215,14 +220,14 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 		run  func(s *fakesender.Sender) error
 	}{
 		{name: "signup", run: func(s *fakesender.Sender) error {
-			_, err := svcWith(db, s).Signup(ctx, "fail-signup@x.test", "failsignup", "s3cr3t-pw", "")
+			_, err := svcWith(db, s).Register(ctx, "fail-signup@x.test", "failsignup", "")
 			return err
 		}},
 		{name: "accept invite", run: func(s *fakesender.Sender) error {
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("fail-invitee@x.test")))(t)
 
-			return acceptInvite(ctx, db, s, invite, "failinvitee", "s3cr3t-pw")
+			return acceptInvite(ctx, db, s, invite, "failinvitee")
 		}},
 	}
 
