@@ -98,6 +98,13 @@ var docPages = []struct {
 	Group, Src, Out, Nav string
 }{
 	{GroupGuide, "docs/guide/overview.md", "docs/guide/overview.html", "Overview"},
+	{GroupGuide, "docs/guide/connections.md", "docs/guide/connections.html", "Connections"},
+	{GroupGuide, "docs/guide/writing.md", "docs/guide/writing.html", "Writing"},
+	{GroupGuide, "docs/guide/feed.md", "docs/guide/feed.html", "Feed and RSS"},
+	{GroupGuide, "docs/guide/comments.md", "docs/guide/comments.html", "Comments"},
+	{GroupGuide, "docs/guide/settings.md", "docs/guide/settings.html", "Settings"},
+	{GroupGuide, "docs/guide/api.md", "docs/guide/api.html", "API and blg"},
+	{GroupGuide, "docs/guide/self-hosting.md", "docs/guide/self-hosting.html", "Self-hosting"},
 
 	{GroupDev, "README.md", "readme.html", "README"},
 	{GroupDev, "docs/running.md", "docs/running.html", "Running locally"},

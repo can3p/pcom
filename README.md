@@ -1,7 +1,8 @@
 # Pcom - private social network
 
-Private as in the content is not public by default and discovery requires a human touch. Please refer to [manifesto](cmd/web/client/articles/why.md)
-for more details.
+Private as in the content is not public by default and discovery requires a human touch.
+
+User guide and developer docs: https://can3p.github.io/pcom/
 
 Pcom uses [gogo](https://github.com/can3p/gogo) to handle forms and some other things!
 
@@ -11,7 +12,7 @@ If you want to follow the development, there is a [youtube playlist](https://www
 
 Official client is [blg](https://github.com/can3p/blg), command line client that plays well with pcom. See [docs/api.md](docs/api.md) for the API.
 
-## Local development
+## Quick start
 
 Docker is the only dependency. Cold start, seeded users, ports, everyday commands and troubleshooting are in
 [docs/running.md](docs/running.md):
