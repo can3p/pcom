@@ -131,7 +131,6 @@ func TestAPIKeyAndFeedToken(t *testing.T) {
 		"RegenerateFeedToken": func(u *core.User) error { return svc.RegenerateFeedToken(ctx, u) },
 		"SaveUserStyles":      func(u *core.User) error { return svc.SaveUserStyles(ctx, u, "x") },
 		"SaveGeneralSettings": func(u *core.User) error { return svc.SaveGeneralSettings(ctx, u, "UTC", core.ProfileVisibilityPublic) },
-		"ChangePassword":      func(u *core.User) error { return svc.ChangePassword(ctx, u, "a", "b") },
 		"SendInvite":          func(u *core.User) error { return svc.SendInvite(ctx, u, "a@example.test") },
 	} {
 		require.ErrorIs(t, act(nil), service.ErrNeedsLogin, name)
@@ -162,25 +161,18 @@ func TestUserStyles(t *testing.T) {
 	require.Empty(t, css)
 }
 
-func TestSettingsAndPasswordChanges(t *testing.T) {
+func TestSettingsChanges(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
 	svc := svcWith(db, nil)
-	user := testutil.Must(factory.User(ctx, db, factory.WithPassword("old-password")))(t)
+	user := testutil.Must(factory.User(ctx, db))(t)
 
 	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "Europe/Berlin", core.ProfileVisibilityPublic))
 	got := testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
 	require.Equal(t, "Europe/Berlin", got.Timezone)
 	require.Equal(t, core.ProfileVisibilityPublic, got.ProfileVisibility)
-
-	_, isOK := problem(svc.ChangePassword(ctx, user, "wrong", "new-password-1!"))
-	require.False(t, isOK, "the old password has to match")
-	require.NoError(t, svc.ChangePassword(ctx, user, "old-password", "new-password-1!"))
-	require.NoError(t, svc.CheckCredentials(ctx, user.Email, "new-password-1!"))
-	_, isOK = problem(svc.CheckCredentials(ctx, user.Email, "old-password"))
-	require.False(t, isOK, "the old password stops working")
 }
 
 func TestRegistrationOpenAndInvites(t *testing.T) {

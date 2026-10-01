@@ -11,14 +11,6 @@ import (
 
 var usernameRE = regexp.MustCompile(`^[a-z][0-9a-z]*(_[0-9a-z]+)*$`)
 
-func ValidatePassword(p string) error {
-	if len(strings.TrimSpace(p)) < 8 {
-		return errors.Errorf("Password should be 8 characters or longer")
-	}
-
-	return nil
-}
-
 func ValidateUsername(p string) error {
 	trimmed := strings.ToLower(strings.TrimSpace(p))
 

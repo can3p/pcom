@@ -3,16 +3,13 @@ package seed
 import (
 	"bytes"
 	"context"
-	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -53,13 +50,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 
 	require.NoError(t, Run(ctx, db.DB, &out, options(false)))
 
-	// Users can log in with the real password check.
 	assert.Equal(t, 5, count(t, db, `SELECT count(*) FROM users`))
-
-	for _, name := range []string{"alice", "bob", "carol", "dave", "eve"} {
-		c, _ := ginctx.New(t, http.MethodGet, "/", nil)
-		require.NoError(t, accounts.New(repo.New(db), nil, nil).CheckCredentials(c, name+"@example.test", "password"), name)
-	}
 
 	alice, bob, carol, dave, eve := userID(t, db, "alice"), userID(t, db, "bob"), userID(t, db, "carol"), userID(t, db, "dave"), userID(t, db, "eve")
 
@@ -107,7 +98,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM system_settings WHERE registration_open`))
 
 	summary := out.String()
-	for _, want := range []string{"alice", "bob", "carol", "dave", "eve", "password", AliceAPIKey, "http://site.test/login", "public", "connections", "registered_users"} {
+	for _, want := range []string{"alice", "bob", "carol", "dave", "eve", AliceAPIKey, "http://site.test/login", "public", "connections", "registered_users"} {
 		assert.Contains(t, summary, want)
 	}
 }

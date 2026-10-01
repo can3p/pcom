@@ -16,7 +16,7 @@ import (
 func TestHelp(t *testing.T) {
 	for _, args := range [][]string{
 		{"--help"}, {"serve", "--help"}, {"seed", "--help"}, {"admin", "--help"}, {"admin", "invite", "--help"},
-		{"admin", "registration", "--help"}, {"debug", "--help"}, {"debug", "feed", "--help"},
+		{"admin", "registration", "--help"}, {"admin", "login-code", "--help"}, {"debug", "--help"}, {"debug", "feed", "--help"},
 	} {
 		name := strings.Join(args[:len(args)-1], "_") + "_help"
 		if len(args) == 1 {

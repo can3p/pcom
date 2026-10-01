@@ -60,46 +60,6 @@ const b5RSSTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 </item>
 </channel></rss>`
 
-// Submitting the change-password form with the wrong current password shows
-// the error in place, without leaving the settings page (the htmx form is
-// swapped, not the whole page); fixing the password then lets the user log
-// back in with it after logging out.
-func TestSettings_ChangePasswordValidatesInPlaceThenLogsInAgain(t *testing.T) {
-	t.Parallel()
-
-	const newPassword = "b5-new-password"
-
-	app := e2e.Start(t, e2e.WithRealAssets())
-	user := browser.NewUser(t, app)
-	page := browser.Page(t, app, browser.As(user))
-
-	_, err := page.Goto("/controls/settings")
-	require.NoError(t, err)
-
-	require.NoError(t, page.GetByLabel("Old Password").Fill("not-the-real-password"))
-	require.NoError(t, page.GetByLabel("New Password").Fill(newPassword))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Change password"}).Click())
-
-	require.NoError(t, browser.Expect.Locator(page.GetByText("old password is not correct")).ToBeVisible())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/settings$`)))
-
-	require.NoError(t, page.GetByLabel("Old Password").Fill(browser.Password))
-	require.NoError(t, page.GetByLabel("New Password").Fill(newPassword))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Change password"}).Click())
-
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("alert")).ToContainText("Password has been changed successfully"))
-
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log out"}).Click())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/$`)))
-
-	_, err = page.Goto("/login")
-	require.NoError(t, err)
-
-	browser.LogInWithCode(t, app, page, user.Email)
-
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
-}
-
 // Saving the general settings form shows a success message and persists the
 // chosen profile visibility across a reload.
 func TestSettings_GeneralSavesProfileVisibility(t *testing.T) {

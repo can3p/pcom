@@ -318,10 +318,6 @@ var guardRoutes = []guardRoute{
 		func(*guardWorld) map[string]string { return map[string]string{"styles": "body { color: red }"} }},
 	{http.MethodPost, "/controls/form/save_profile", staticPath("/controls/form/save_profile"),
 		func(*guardWorld) map[string]string { return map[string]string{"about": "About me"} }},
-	{http.MethodPost, "/controls/form/change_password", staticPath("/controls/form/change_password"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"old_password": testPassword, "password": "a-new-password-123"}
-		}},
 	{http.MethodPost, "/controls/form/prompt_post", staticPath("/controls/form/prompt_post"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"message": "write about it", "recipient_handle": w.friend.Username}

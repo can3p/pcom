@@ -10,14 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testPassword is the password of every user made by newUser.
-const testPassword = "secret-pw"
-
-// newUser creates a user who can log in with testPassword.
+// newUser creates a confirmed user.
 func newUser(t *testing.T, app *e2e.App, opts ...factory.UserOpt) *core.User {
 	t.Helper()
 
-	u, err := factory.User(context.Background(), app.DB, append([]factory.UserOpt{factory.WithPassword(testPassword)}, opts...)...)
+	u, err := factory.User(context.Background(), app.DB, opts...)
 	require.NoError(t, err)
 
 	return u
