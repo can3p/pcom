@@ -68,7 +68,7 @@ Related documents:
 | F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | done | `feat/f4-pagination` |
 | F5 | Login with an emailed code, passwords removed (#175) | — | done; M4 (drop `pwdhash`) waits for F5 to run in production | `feat/f5-login-codes`, then `feat/f5-drop-pwdhash` |
 | F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | done | `feat/f6-website` |
-| F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | planned | `feat/f7-translation` |
+| F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | in progress | `feat/f7-translation` |
 
 ```
             ┌── W1 (12 tasks) ──┐
