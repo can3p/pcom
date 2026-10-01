@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
@@ -107,7 +106,6 @@ func TestAccounts_MalformedUUIDPathParam(t *testing.T) {
 	// guest-only routes redirect a logged-in user, so use anonymous clients
 	for _, path := range []string{
 		"/invite/not-a-uuid",
-		"/confirm_signup/not-a-uuid",
 		"/confirm_waiting_list/not-a-uuid",
 	} {
 		t.Run(path, func(t *testing.T) {
@@ -126,51 +124,49 @@ func TestAccounts_MalformedUUIDPathParam(t *testing.T) {
 	})
 }
 
-// TestAccounts_ConfirmSignup checks that /confirm_signup/:seed confirms the account
-// and notifies the admins once, and only for a known seed.
-func TestAccounts_ConfirmSignup(t *testing.T) {
+// TestAccounts_AcceptInviteStartsACodeLogin checks the wiring of the accept
+// form: a free username creates the account and mails its login code, a taken
+// one creates nothing.
+func TestAccounts_AcceptInviteStartsACodeLogin(t *testing.T) {
 	app := e2e.Start(t)
 	ctx := context.Background()
 
-	t.Run("unconfirmed", func(t *testing.T) {
-		seed := "550e8400-e29b-41d4-a716-446655440000"
-		user, err := factory.User(ctx, app.DB, factory.WithConfirmSeed(seed), factory.Unconfirmed())
+	inviter, err := factory.User(ctx, app.DB)
+	require.NoError(t, err)
+
+	accept := func(t *testing.T, to, username string) *e2e.Response {
+		invite, err := factory.Invitation(ctx, app.DB, inviter.ID, factory.Sent(to))
 		require.NoError(t, err)
 
-		app.Client(t).Get("/confirm_signup/" + seed).RequireStatus(http.StatusOK)
+		anon := app.Client(t)
+		anon.Get("/invite/" + invite.ID).RequireStatus(http.StatusOK)
 
-		user, err = factory.GetUser(ctx, app.DB, user.ID)
+		return anon.PostForm("/form/accept_invite/"+invite.ID, url.Values{"username": {username}}).RequireStatus(http.StatusOK)
+	}
+
+	t.Run("free username", func(t *testing.T) {
+		to := "e2e-invitee@example.test"
+		resp := accept(t, to, "e2einvitee")
+
+		require.Equal(t, 1, resp.Doc().Find(`form[action="/form/login/code"]`).Length())
+
+		user, err := factory.GetUserByEmail(ctx, app.DB, to)
 		require.NoError(t, err)
 		require.True(t, user.EmailConfirmedAt.Valid)
-		require.Len(t, app.Mails(t, e2e.AdminAddress, signupConfirmedNotice(user.ID)), 1)
+		require.False(t, user.Pwdhash.Valid)
+		require.Len(t, app.Mails(t, to, func(m tommy.Mail) bool { return m.Subject == "Your pcom login code" }), 1)
 	})
 
-	t.Run("already confirmed", func(t *testing.T) {
-		seed := "550e8400-e29b-41d4-a716-446655440001"
-		user, err := factory.User(ctx, app.DB, factory.WithConfirmSeed(seed))
-		require.NoError(t, err)
-		user, err = factory.GetUser(ctx, app.DB, user.ID) // the stored, microsecond precision time
-		require.NoError(t, err)
+	t.Run("taken username", func(t *testing.T) {
+		to := "e2e-invitee-taken@example.test"
+		resp := accept(t, to, inviter.Username)
 
-		app.Client(t).Get("/confirm_signup/" + seed).RequireStatus(http.StatusOK)
+		require.Equal(t, 1, resp.Doc().Find(".invalid-feedback").Length())
 
-		after, err := factory.GetUser(ctx, app.DB, user.ID)
-		require.NoError(t, err)
-		require.True(t, user.EmailConfirmedAt.Time.Equal(after.EmailConfirmedAt.Time), "the confirmation time must not move")
-		app.NoMails(t, e2e.AdminAddress, signupConfirmedNotice(user.ID)) // no second admin notification
+		_, err := factory.GetUserByEmail(ctx, app.DB, to)
+		require.Error(t, err)
+		app.NoMails(t, to, func(m tommy.Mail) bool { return m.Subject == "Your pcom login code" })
 	})
-
-	t.Run("unknown", func(t *testing.T) {
-		app.Client(t).Get("/confirm_signup/00000000-0000-0000-0000-000000000000").RequireStatus(http.StatusNotFound)
-	})
-}
-
-// signupConfirmedNotice matches the admin notification that the user with
-// userID confirmed their email.
-func signupConfirmedNotice(userID string) func(tommy.Mail) bool {
-	return func(m tommy.Mail) bool {
-		return m.Subject == "New User confirmed email on pcom" && strings.Contains(m.Text, userID)
-	}
 }
 
 // TestAccounts_ConfirmWaitingList checks that /confirm_waiting_list/:id records the

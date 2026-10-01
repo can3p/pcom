@@ -85,22 +85,25 @@ func (s *Service) SendInvite(ctx context.Context, actor *core.User, to string) e
 
 // AcceptInvite creates the account an invitation was sent for, connects it to
 // the inviter and gives it one invitation of its own to make things (slowly)
-// spread. The account is confirmed, since the invitation reached its email.
-func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation, username, password string) (*core.User, error) {
-	if password == "" || username == "" {
-		return nil, service.Invalid("", "Not enough data")
+// spread. The account is confirmed, since the invitation reached its email,
+// and has no password: it logs in with a code. AcceptInvite starts that login
+// in the same transaction, mails its code and returns the attempt's id.
+func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation, username string) (string, error) {
+	if username == "" {
+		return "", service.Invalid("", "Not enough data")
 	}
 
 	u := &core.User{
 		ID:                uuid.NewString(),
 		Email:             pgsession.NormalizeEmail(invite.InvitationEmail.String),
 		Username:          username,
-		Pwdhash:           null.StringFrom(pgsession.HashPassword(password)),
 		EmailConfirmedAt:  null.TimeFrom(time.Now()),
 		SignupAttribution: null.StringFrom("accepted_invite"),
 	}
 
-	err := s.store.Tx(ctx, func(tx *repo.Store) error {
+	var attemptID string
+
+	err := s.store.Tx(ctx, func(tx *repo.Store) (err error) {
 		if err := tx.InsertUser(ctx, u); err != nil {
 			return err
 		}
@@ -119,11 +122,21 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 			return err
 		}
 
-		return tx.InsertInvitation(ctx, &core.UserInvitation{ID: uuid.NewString(), UserID: u.ID})
+		if err := tx.InsertInvitation(ctx, &core.UserInvitation{ID: uuid.NewString(), UserID: u.ID}); err != nil {
+			return err
+		}
+
+		attemptID, err = s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
+			return mail.LoginCode(s.ident.From, id, u.Email, code, CodeLifetime)
+		})
+
+		return err
 	})
 	if err != nil {
-		return nil, err
+		invite.CreatedUserID = null.String{}
+
+		return "", err
 	}
 
-	return u, nil
+	return attemptID, nil
 }

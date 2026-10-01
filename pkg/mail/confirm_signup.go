@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
+	"time"
 
 	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/pkg/errors"
 )
 
 // Envelope is a mail with the id and type the outgoing queue files it under.
@@ -19,15 +17,10 @@ type Envelope struct {
 	Mail     *sender.Mail
 }
 
-// ConfirmSignup is the mail with the link that confirms a new account's
-// email address.
-func ConfirmSignup(site links.Site, from string, user *core.User) (*Envelope, error) {
-	if user.EmailConfirmSeed.String == "" {
-		return nil, errors.Errorf("cannot send confirm email for user with empty confirmation seed, user id = %s", user.ID)
-	}
-
-	link := site.Abs("confirm_signup", user.EmailConfirmSeed.String)
-	to := user.Email
+// ConfirmSignup is the mail that carries the code which confirms a new
+// account's email address and logs it in, for the login attempt attemptID.
+func ConfirmSignup(from string, attemptID, to, code string, lifetime time.Duration) *Envelope {
+	minutes := int(lifetime.Minutes())
 
 	mail := &sender.Mail{
 		From: mail.Address{
@@ -43,16 +36,16 @@ func ConfirmSignup(site links.Site, from string, user *core.User) (*Envelope, er
 		Text: fmt.Sprintf(`
 	Hi!
 
-	Thank you for your interest in pcom! Please follow the link to confirm your email address
+	Thank you for your interest in pcom! Your confirmation code is %s
 
-	%s`, link),
+	Type it on the signup page to confirm your email address and log in. It works once, for the next %d minutes.`, code, minutes),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
-	<p>Thank you for your interest in pcom! Please follow the link to confirm your email address</p>
+	<p>Thank you for your interest in pcom! Your confirmation code is <strong>%s</strong></p>
 
-	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
+	<p>Type it on the signup page to confirm your email address and log in. It works once, for the next %d minutes.</p>`, html.EscapeString(code), minutes),
 	}
 
-	return &Envelope{UniqueID: user.ID, Type: "confirm_signup", Mail: mail}, nil
+	return &Envelope{UniqueID: attemptID, Type: "confirm_signup", Mail: mail}
 }

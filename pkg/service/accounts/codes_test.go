@@ -123,6 +123,51 @@ func TestLoginCodes(t *testing.T) {
 		requireNotFound(t, err)
 	})
 
+	t.Run("a signup attempt is finished with the mailed code, which confirms the email", func(t *testing.T) {
+		t.Parallel()
+
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		email := "signup-code@example.test"
+
+		id := testutil.Must(svc.Register(ctx, email, "signupcode", ""))(t)
+		require.Empty(t, mailedCodes(t, db, email), "the signup mail is not a login code")
+
+		var code string
+		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("confirm_signup")))(t) {
+			var m sender.Mail
+			require.NoError(t, e.Payload.Unmarshal(&m))
+			if m.To[0].Address == email {
+				code = regexp.MustCompile(`confirmation code is (\d{6})`).FindStringSubmatch(m.Text)[1]
+			}
+		}
+		require.NotEmpty(t, code)
+
+		_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
+		requireWrongCode(t, err)
+		require.False(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+
+		got, _, err := svc.FinishLogin(ctx, id, code)
+		require.NoError(t, err)
+		require.Equal(t, "signupcode", got.Username)
+		require.True(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+	})
+
+	t.Run("an accepted invitation starts an attempt for the new user", func(t *testing.T) {
+		t.Parallel()
+
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		inviter := newUser(t)
+		invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee-code@example.test")))(t)
+
+		id := testutil.Must(svc.AcceptInvite(ctx, invite, "inviteecode"))(t)
+		codes := mailedCodes(t, db, "invitee-code@example.test")
+		require.Len(t, codes, 1)
+
+		got, _, err := svc.FinishLogin(ctx, id, codes[0])
+		require.NoError(t, err)
+		require.Equal(t, invite.CreatedUserID.String, got.ID)
+	})
+
 	for _, tc := range []struct {
 		name    string
 		setup   func(t *testing.T, svc *accounts.Service) (email string, mailedBefore int)

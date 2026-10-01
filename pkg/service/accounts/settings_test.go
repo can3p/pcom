@@ -55,26 +55,6 @@ func TestConfirmations(t *testing.T) {
 	s := fakesender.New()
 	svc := svcWith(db, s)
 
-	t.Run("a signup link confirms the account once and tells the admin once", func(t *testing.T) {
-		t.Parallel()
-
-		u, err := svc.Register(ctx, "confirm@example.test", "confirmer", "s3cr3t-pw", "")
-		require.NoError(t, err)
-
-		require.NoError(t, svc.ConfirmSignup(ctx, u.EmailConfirmSeed.String))
-		require.NoError(t, svc.ConfirmSignup(ctx, u.EmailConfirmSeed.String))
-
-		require.True(t, testutil.Must(factory.GetUser(ctx, db, u.ID))(t).EmailConfirmedAt.Valid)
-
-		confirmed := 0
-		for _, m := range s.Sent() {
-			if m.EmailType == "signup_confirmed" {
-				confirmed++
-			}
-		}
-		require.Equal(t, 1, confirmed)
-	})
-
 	t.Run("a waiting list link confirms the entry", func(t *testing.T) {
 		t.Parallel()
 
@@ -87,7 +67,6 @@ func TestConfirmations(t *testing.T) {
 	t.Run("unknown links are not found", func(t *testing.T) {
 		t.Parallel()
 
-		require.ErrorIs(t, svc.ConfirmSignup(ctx, "00000000-0000-0000-0000-000000000000"), service.ErrNotFound)
 		require.ErrorIs(t, svc.ConfirmWaitingList(ctx, "00000000-0000-0000-0000-000000000000"), service.ErrNotFound)
 	})
 }

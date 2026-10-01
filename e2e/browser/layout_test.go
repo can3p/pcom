@@ -11,7 +11,6 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/google/uuid"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -72,9 +71,6 @@ func TestLayout_Pages(t *testing.T) {
 	waitingList, err := factory.SignupRequest(ctx, app.DB)
 	require.NoError(t, err)
 
-	pending, err := factory.User(ctx, app.DB, factory.Unconfirmed(), factory.WithConfirmSeed(uuid.NewString()))
-	require.NoError(t, err)
-
 	authUser := browser.NewUser(t, app)
 	draftPost, err := factory.Post(ctx, app.DB, authUser.ID)
 	require.NoError(t, err)
@@ -86,7 +82,6 @@ func TestLayout_Pages(t *testing.T) {
 		{name: "Login", path: "/login", anon: true},
 		{name: "Signup", path: "/signup", anon: true},
 		{name: "Explore", path: "/explore", auth: true},
-		{name: "Confirm signup", path: "/confirm_signup/" + pending.EmailConfirmSeed.String, anon: true},
 		{name: "Invite", path: "/invite/" + invite.ID, anon: true},
 		{name: "Confirm waiting list", path: "/confirm_waiting_list/" + waitingList.ID, anon: true},
 		{name: "Article", path: "/articles/privacy_policy", anon: true, auth: true},
