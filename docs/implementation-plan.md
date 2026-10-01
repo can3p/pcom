@@ -67,7 +67,7 @@ Related documents:
 | F3 | Public profile section on the blog page (#186) | — (Q19) | planned | `feat/f3-profile` |
 | F4 | Feed pagination, capped RSS outputs (#124) | — (Q20) | planned | `feat/f4-pagination` |
 | F5 | Magic-link login, passwords removed (#175) | Q21–Q23 answered | planned | `feat/f5-magic-links` |
-| F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Q24 answered; Pages enabled | planned | `feat/f6-website` |
+| F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | planned | `feat/f6-website` |
 | F7 | Translating posts and RSS items to English (#144) | F4; Q26, Q27 answered; API key | planned | `feat/f7-translation` |
 
 ```
@@ -88,7 +88,7 @@ F2 comment edit ──┐
 F3 profile ───────┤  any order, in parallel
 F4 pagination ────┼──────────────── F7 translation (also Q26, Q27, API key)
 F5 magic links ───┤  (Q21–Q23 first)
-F6 website ───────┘  (Q24 first; afterwards every F-wave updates the guide)
+F6 website ───────┘  (Pages enabled first; afterwards every F-wave updates the guide)
 ```
 
 Each wave file states the defaults it builds and names the open question
@@ -114,6 +114,8 @@ branch from `origin/master`; what they share:
 - **Website rule.** Once F6 has merged, a feature wave's last task updates
   `docs/guide/`, `docs/site.yml` and the screenshots (`make screenshots`);
   `wave-close` checks it. Features merged before F6 are documented by F6.
+  F6's generator is its own module (`website/go.mod`), so it never touches
+  the app's `go.mod`.
 - **With the R-waves.** Every F-wave adds repository methods, so R5 (bob)
   starts after the F-waves in flight merge, or they rebase onto it. F5 adds
   a mail and changes two (`login_link`, `invite`, `confirm_signup`), which

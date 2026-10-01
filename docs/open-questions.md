@@ -63,18 +63,28 @@ it builds; confirm or change it before the wave starts.
   The alternative: log in right after confirming, since the invitation
   link already proves the inbox, one step fewer. Which one? Open signup
   (`FORCE_SIGNUP`) follows the same answer.
-- **Q24. The public website (F6, #145).** Default: GitHub Pages at
-  `can3p.github.io/pcom`; a small Go generator in `tools/site` over a new
-  user guide in `docs/guide/` plus `README.md`, `docs/running.md` and
-  `docs/api.md`; plans, history, lessons, testing and architecture stay
-  unpublished; screenshots committed and regenerated with `make
-  screenshots` from the seed world. Alternatives: mkdocs-material or Hugo
-  (a new toolchain in the tools image), screenshots generated in CI only. A
-  custom domain? Is the developer documentation public?
-- **Q26. Translation provider and budget (F7).** Default: Claude Haiku 4.5
-  through the Anthropic API, a key in the fly secrets, a per-user daily
-  limit (default 50 new translations) and a site-wide one (default 1,000);
-  no key turns the feature off. Which limits, and who pays?
+- **Q26. Translation provider and budget (F7).** Options, cheapest first
+  (prices as of 2026-10; a post of ~6,000 characters is ~1,500 tokens each
+  way, plus the JSON segment overhead):
+  1. Self-hosted LibreTranslate/Argos: no per-call cost, a ~2 GB container
+     on fly, weakest quality, keeps content on pcom's machines.
+  2. Free tiers of the MT APIs: Azure Translator F0 (2M characters a month),
+     DeepL API Free and Google Basic (500k each). Free at pcom's size, hard
+     monthly caps, check each one's data-use terms.
+  3. Claude Haiku 4.5 ($1/$5 per million tokens in/out): about $0.01 a post,
+     ~$1.5 per million characters; follows the segment-array instruction and
+     keeps the markdown runs intact. The plan's default.
+  4. Paid MT APIs: Azure S1 $10, Google Basic $20, DeepL Pro $25 (+$5.49 a
+     month) per million characters; strong quality, native HTML tag
+     handling, no prompt to maintain.
+  5. Claude Sonnet 5.5 ($2/$10): about $0.02 a post; better idiom and tone.
+  6. Claude Opus 5.5 ($4/$20): about $0.04 a post; more than translation
+     needs.
+  The Batch API halves the Claude prices but answers within hours, which
+  fits only the background re-translation after an edit. The plan's limits:
+  a per-user daily cap (default 50 new translations) and a site-wide one
+  (default 1,000); no key turns the feature off. Which provider, which
+  limits?
 - **Q27. Language detection and target (F7).** Default: a local Go
   library detects the language on publish, edit and RSS import, free and
   offline, less accurate on short texts; English is the only target, stored
@@ -83,6 +93,14 @@ it builds; confirm or change it before the wave starts.
   the candidates' license and binary size at T0.
 
 ## Decided
+
+- **2026-10-01. Q24, the public website (F6, #145):** copy tommy's website
+  (`can3p/tommy/website`): its own Go module in `website/`, the page list in
+  Go, a landing page made only of slices of existing files, links to
+  unpublished files sent to GitHub and asserted by a test, deployed by
+  `pages.yml` to `can3p.github.io/pcom`. Developer docs are published, as
+  tommy's are; the wave files are not. pcom adds a user guide in
+  `docs/guide/` and screenshots from `make screenshots`.
 
 - **2026-10-01. Q25, translation and privacy (F7, #144):** the author
   decides. A post is sent to the model provider for translation only if its
