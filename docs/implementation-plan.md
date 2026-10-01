@@ -68,7 +68,7 @@ Related documents:
 | F4 | Feed pagination, capped RSS outputs (#124) | — (Q20) | planned | `feat/f4-pagination` |
 | F5 | Magic-link login, passwords removed (#175) | Q21–Q23 answered | planned | `feat/f5-magic-links` |
 | F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | planned | `feat/f6-website` |
-| F7 | Translating posts and RSS items to English (#144) | F4; Q26, Q27 answered; API key | planned | `feat/f7-translation` |
+| F7 | Translating posts and RSS items to English (#144) | F4; Q27; an Azure Translator key | planned | `feat/f7-translation` |
 
 ```
             ┌── W1 (12 tasks) ──┐
@@ -86,7 +86,7 @@ F-waves are product features, planned from an issue; unlike the other waves they
 ```
 F2 comment edit ──┐
 F3 profile ───────┤  any order, in parallel
-F4 pagination ────┼──────────────── F7 translation (also Q26, Q27, API key)
+F4 pagination ────┼──────────────── F7 translation (also Q27, Azure key)
 F5 magic links ───┤  (Q21–Q23 first)
 F6 website ───────┘  (Pages enabled first; afterwards every F-wave updates the guide)
 ```
@@ -121,8 +121,12 @@ branch from `origin/master`; what they share:
   a mail and changes two (`login_link`, `invite`, `confirm_signup`), which
   R4 declares with the rest. F7's worker logs; R7 converts it with the
   others if it lands first.
-- **go.mod.** Only F7 (T0) adds dependencies: the Anthropic SDK and a
-  language detection library.
+- **go.mod.** Only F7 (T0) adds a dependency: a language detection
+  library. Its translation backends are plain HTTP clients.
+- **Third-party API mocks.** F7's TM adds `pkg/testutil/apimock`, a
+  universal stub server for APIs pcom calls (tommy stays for mail and
+  storage). It changes `e2e/harness.go` (a new option only) and can run
+  before the rest of F7.
 
 Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.md`), with the task table ahead of the `###` task sections; a finished wave's file is deleted and its record moves to `docs/archive/history.md`.
 
