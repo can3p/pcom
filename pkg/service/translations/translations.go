@@ -18,7 +18,6 @@ import (
 	"github.com/abadojack/whatlanggo"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/postops/rss"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/reading"
@@ -78,7 +77,7 @@ func (s *Service) Enabled() bool { return s.translator != nil }
 // Result is a translation shown to a reader.
 type Result struct {
 	Subject string
-	// Body is markdown for a post and sanitized HTML for an RSS item, as the source.
+	// Body is markdown, for a post and for an RSS item alike.
 	Body string
 	// SourceLang is the source's language, ISO 639-1; empty if unknown.
 	SourceLang string
@@ -145,6 +144,13 @@ func (s *Service) Translate(ctx context.Context, actor *core.User, kind core.Tra
 		return nil, err
 	}
 
+	return s.translate(ctx, actor, src)
+}
+
+// translate is Translate for a source the actor may translate.
+func (s *Service) translate(ctx context.Context, actor *core.User, src *source) (*Result, error) {
+	kind, id := src.kind, src.id
+
 	row, err := s.store.Translation(ctx, kind, id, TargetLang)
 	if err != nil {
 		return nil, err
@@ -175,36 +181,117 @@ func (s *Service) Translate(ctx context.Context, actor *core.User, kind core.Tra
 
 // source checks that the actor may translate kind/id and returns its text.
 func (s *Service) source(ctx context.Context, actor *core.User, kind core.TranslationSourceKind, id string) (*source, error) {
+	src, ok, err := s.fetch(ctx, actor, kind, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, ErrNotTranslatable
+	}
+
+	return src, nil
+}
+
+// fetch loads the text of kind/id the actor may read, and whether it gets a
+// translation control.
+func (s *Service) fetch(ctx context.Context, actor *core.User, kind core.TranslationSourceKind, id string) (*source, bool, error) {
 	if actor == nil {
-		return nil, service.ErrNeedsLogin
+		return nil, false, service.ErrNeedsLogin
 	}
 
 	switch kind {
 	case core.TranslationSourceKindPost:
 		post, err := s.reading.PostToTranslate(ctx, actor, id)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
-		if !s.TranslatablePost(actor, post) {
-			return nil, ErrNotTranslatable
-		}
-
-		return postSource(post), nil
+		return postSource(post), s.TranslatablePost(actor, post), nil
 	case core.TranslationSourceKindRSSItem:
 		item, err := s.reading.RSSItemToTranslate(ctx, actor, id)
+		if err != nil {
+			return nil, false, err
+		}
+
+		return rssSource(item), s.TranslatableRSSItem(actor, item.Language), nil
+	default:
+		return nil, false, service.ErrNotFound
+	}
+}
+
+// SlotMode is what a Slot call is for.
+type SlotMode int
+
+const (
+	// SlotOriginal shows the original, with a button when it may be translated.
+	SlotOriginal SlotMode = iota
+	// SlotAuto is a page asking what to show: the translation when the
+	// reader always translates the language, the original otherwise.
+	SlotAuto
+	// SlotTranslate is the reader's click: the translation.
+	SlotTranslate
+)
+
+// Messages a Slot carries when it falls back to the original.
+const (
+	MessageLimit    = "Translation is not available right now"
+	MessageUpdating = "Translation is being updated"
+)
+
+// Slot is what a post or an RSS item shows: its original, and the
+// translation when there is one.
+type Slot struct {
+	// Subject, Body and Lang are the original's.
+	Subject, Body, Lang string
+	// CanTranslate: show a Translate button.
+	CanTranslate bool
+	// Result is the translation, nil when the original is shown.
+	Result *Result
+	// Message says why the original is shown instead of a requested translation.
+	Message string
+}
+
+// Slot loads kind/id once, for what mode asks. A source the actor may read
+// but not translate is its original without a button. A translation that is
+// over budget (ErrLimit) or being updated (ErrUpdating) is the original and a
+// Message; anonymous is ErrNeedsLogin and an unreadable source ErrNotFound.
+func (s *Service) Slot(ctx context.Context, actor *core.User, kind core.TranslationSourceKind, id string, mode SlotMode) (*Slot, error) {
+	src, ok, err := s.fetch(ctx, actor, kind, id)
+	if err != nil {
+		return nil, err
+	}
+
+	slot := &Slot{Subject: src.subject, Body: src.body, Lang: src.lang, CanTranslate: ok}
+	if !ok || mode == SlotOriginal {
+		return slot, nil
+	}
+
+	if mode == SlotAuto {
+		langs, err := s.Languages(ctx, actor)
 		if err != nil {
 			return nil, err
 		}
 
-		if !s.TranslatableRSSItem(actor, item.Language) {
-			return nil, ErrNotTranslatable
+		if !slices.Contains(langs, src.lang) {
+			return slot, nil
 		}
-
-		return rssSource(item), nil
-	default:
-		return nil, service.ErrNotFound
 	}
+
+	res, err := s.translate(ctx, actor, src)
+
+	switch {
+	case err == nil:
+		slot.Result = res
+	case errors.Is(err, ErrLimit):
+		slot.CanTranslate, slot.Message = false, MessageLimit
+	case errors.Is(err, ErrUpdating):
+		slot.CanTranslate, slot.Message = false, MessageUpdating
+	default:
+		return nil, err
+	}
+
+	return slot, nil
 }
 
 func (s *Service) result(lang string, row *core.Translation) *Result {
@@ -338,17 +425,7 @@ type segments struct {
 }
 
 func splitSource(src *source) (*segments, error) {
-	var (
-		body []markdown.Segment
-		err  error
-	)
-
-	if src.kind == core.TranslationSourceKindPost {
-		body, err = markdown.Segments(src.body)
-	} else {
-		body, err = rss.Segments(src.body)
-	}
-
+	body, err := markdown.Segments(src.body)
 	if err != nil {
 		return nil, err
 	}
@@ -374,11 +451,7 @@ func (segs *segments) apply(src *source, out []string) (subject, body string, er
 		out = out[1:]
 	}
 
-	if src.kind == core.TranslationSourceKindPost {
-		body, err = markdown.Apply(src.body, segs.body, out)
-	} else {
-		body, err = rss.Apply(src.body, segs.body, out)
-	}
+	body, err = markdown.Apply(src.body, segs.body, out)
 
 	return subject, body, err
 }

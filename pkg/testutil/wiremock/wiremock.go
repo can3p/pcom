@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -115,16 +116,19 @@ func (w *WireMock) Verify(t testing.TB, want int64, pattern *wm.Request) {
 
 // Watch makes the test fail, when it ends, for every request to prefix that
 // matched no stub, and reports the near misses. Other prefixes are ignored,
-// so parallel tests don't fail each other. It returns URL(prefix).
-func (w *WireMock) Watch(t testing.TB, prefix string) string {
+// so parallel tests don't fail each other. With markers, only an unmatched
+// request whose body contains one of them counts, so tests sharing a prefix
+// don't fail each other either: pass content only this test sends. It
+// returns URL(prefix).
+func (w *WireMock) Watch(t testing.TB, prefix string, markers ...string) string {
 	t.Helper()
 
-	t.Cleanup(func() { w.reportUnmatched(t, "/"+strings.Trim(prefix, "/")) })
+	t.Cleanup(func() { w.reportUnmatched(t, "/"+strings.Trim(prefix, "/"), markers) })
 
 	return w.URL(prefix)
 }
 
-func (w *WireMock) reportUnmatched(t testing.TB, prefix string) {
+func (w *WireMock) reportUnmatched(t testing.TB, prefix string, markers []string) {
 	t.Helper()
 
 	var near struct {
@@ -150,6 +154,10 @@ func (w *WireMock) reportUnmatched(t testing.TB, prefix string) {
 
 	for _, n := range near.NearMisses {
 		if !strings.HasPrefix(n.Request.URL, prefix+"/") && n.Request.URL != prefix {
+			continue
+		}
+
+		if len(markers) > 0 && !slices.ContainsFunc(markers, func(m string) bool { return strings.Contains(n.Request.Body, m) }) {
 			continue
 		}
 

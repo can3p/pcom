@@ -17,6 +17,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/samber/lo"
+	"github.com/volatiletech/null/v8"
 )
 
 type Service struct {
@@ -49,7 +50,11 @@ type RssFeed struct {
 
 // RssFeedItem is an item in a user's reading list.
 type RssFeedItem struct {
+	// ID is the user_feed_item ID; RSSItemID is the item's own, which the
+	// translation service takes, and Language its detected ISO 639-1 code.
 	ID          string
+	RSSItemID   string
+	Language    null.String
 	URL         string
 	FeedTitle   string
 	FeedURL     string
@@ -189,6 +194,8 @@ func (s *Service) Items(ctx context.Context, actor *core.User) ([]*RssFeedItem, 
 
 		return &RssFeedItem{
 			ID:          item.ID,
+			RSSItemID:   item.RSSItemID,
+			Language:    item.R.RSSItem.Language,
 			URL:         item.R.URL.URL,
 			Title:       item.R.RSSItem.Title,
 			Summary:     item.R.RSSItem.SanitizedDescription,

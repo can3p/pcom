@@ -1,7 +1,0 @@
---- source
-<p>See <img src="/a.png" title="A title" class="wide" width="10" alt="a tall tree"/> now.</p>
---- segments
-[0] "See <span class=\"notranslate\" data-i=\"0\"></span> now."
-[1] "a tall tree"
---- applied
-<p>SEE <img src="/a.png" title="A title" class="wide" width="10" alt="A TALL TREE"/> NOW.</p>

@@ -95,4 +95,23 @@ func TestUnmatchedCallFailsTheTest(t *testing.T) {
 	}
 
 	require.Empty(t, g.errors)
+
+	// with markers, only the unmatched requests carrying one count
+	h := &fakeT{TB: t}
+	w.Watch(h, "toy-unmatched", "some other test's text")
+
+	for _, fn := range h.cleanups {
+		fn()
+	}
+
+	require.Empty(t, h.errors)
+
+	k := &fakeT{TB: t}
+	w.Watch(k, "toy-unmatched", "no stub for")
+
+	for _, fn := range k.cleanups {
+		fn()
+	}
+
+	require.NotEmpty(t, k.errors)
 }

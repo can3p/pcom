@@ -1,8 +1,0 @@
---- source
-<blockquote>quoted words<p>inner para</p></blockquote>bare text after
---- segments
-[0] "quoted words"
-[1] "inner para"
-[2] "bare text after"
---- applied
-<blockquote>QUOTED WORDS<p>INNER PARA</p></blockquote>BARE TEXT AFTER

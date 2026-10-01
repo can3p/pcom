@@ -1,6 +1,0 @@
---- source
-<p class="lead">Fish &amp; chips &lt;3 <span class="x">styled</span> <b class="y">bold</b> <u>under</u></p>
---- segments
-[0] "Fish &amp; chips &lt;3 <span data-i=\"0\">styled</span> <b data-i=\"1\">bold</b> <u data-i=\"2\">under</u>"
---- applied
-<p class="lead">FISH &amp; CHIPS &lt;3 <span class="x">STYLED</span> <b class="y">BOLD</b> <u>UNDER</u></p>

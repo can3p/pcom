@@ -7,7 +7,9 @@ import (
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/translations"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
@@ -38,6 +40,8 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 
 		sendZip(c, author.Username, b)
 	})
+
+	mountTranslateRoutes(d, r)
 
 	r.GET("/posts/:id/edit", auth.EnforceAuth, requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
@@ -106,4 +110,70 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 
 		gogoForms.DefaultHandler(c, forms.PostPromptFormNew(posts, dbUser, directConnections))
 	})
+}
+
+// translateKinds maps the kind in a translation URL to the source kind.
+var translateKinds = map[string]core.TranslationSourceKind{
+	"post":     core.TranslationSourceKindPost,
+	"rss_item": core.TranslationSourceKindRSSItem,
+}
+
+// mountTranslateRoutes registers the htmx fragments of the translation
+// control: the translation of a post or an RSS item, and its original, each
+// replacing the slot the page rendered. They answer logged-in htmx requests
+// only; every page renders the original itself.
+func mountTranslateRoutes(d *Deps, r *gin.RouterGroup) {
+	tr := d.Services.Translations
+
+	// serve renders the slot the service answers for the mode.
+	serve := func(routeMode translations.SlotMode) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			mode := routeMode
+
+			kind, ok := translateKinds[c.Param("kind")]
+			if !ok || c.GetHeader("HX-Request") != "true" {
+				c.AbortWithStatus(http.StatusNotFound)
+				return
+			}
+
+			view := c.Query("view")
+			if view != "home" && view != "single" {
+				view = "feed"
+			}
+
+			if mode == translations.SlotOriginal && c.Query("auto") == "1" {
+				mode = translations.SlotAuto
+			}
+
+			id := c.Param("id")
+
+			res, err := tr.Slot(c, auth.GetUserData(c).DBUser, kind, id, mode)
+			if err != nil {
+				ginhelpers.HTMLError(c, err)
+				return
+			}
+
+			slot := map[string]any{
+				"Kind": c.Param("kind"), "ID": id, "View": view, "Body": res.Body, "Lang": res.Lang,
+				"CanTranslate": res.CanTranslate, "Message": res.Message,
+			}
+
+			if res.Result != nil {
+				slot["Translated"] = true
+				slot["Subject"] = res.Result.Subject
+				slot["Body"] = res.Result.Body
+				slot["Language"] = forms.LanguageName(res.Result.SourceLang)
+				slot["Provider"] = res.Result.Provider
+			}
+
+			c.HTML(http.StatusOK, "translation.slot", slot)
+		}
+	}
+
+	r.GET("/controls/translate/:kind/:id", auth.EnforceAuth, requireUUIDParam("id"), serve(translations.SlotTranslate))
+
+	// the original, which is also where a page lands when it asks what to
+	// show: with auto, a language the reader always translates comes back
+	// translated.
+	r.GET("/controls/translate/:kind/:id/original", auth.EnforceAuth, requireUUIDParam("id"), serve(translations.SlotOriginal))
 }

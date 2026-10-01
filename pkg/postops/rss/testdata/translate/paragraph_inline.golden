@@ -1,7 +1,0 @@
---- source
-<p>Hello <em>big</em> and <strong>bold</strong> world, see <a href="https://example.com/x" title="T">a <em>fine</em> page</a> now.</p><p>Line one<br/>line two</p>
---- segments
-[0] "Hello <em>big</em> and <strong>bold</strong> world, see <a data-i=\"0\">a <em>fine</em> page</a> now."
-[1] "Line one<br>line two"
---- applied
-<p>HELLO <em>BIG</em> AND <strong>BOLD</strong> WORLD, SEE <a href="https://example.com/x" title="T">A <em>FINE</em> PAGE</a> NOW.</p><p>LINE ONE<br/>LINE TWO</p>

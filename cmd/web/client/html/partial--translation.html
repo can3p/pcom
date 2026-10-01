@@ -1,0 +1,72 @@
+{{/*
+  The translatable text of a post or an RSS item, in a slot the translation
+  routes swap in place (outerHTML). Data: Kind ("post" or "rss_item"), ID, View
+  ("feed", "home" or "single"), Body (markdown),
+  Lang (detected ISO 639-1 code), Load (the page asks the server to decide:
+  a Translate button, or the translation when the reader always translates the
+  language) and, from the routes, Translated, Subject, Language (name), Provider,
+  Message, CanTranslate.
+*/}}
+{{ define "translation.body" }}
+{{- if eq .Kind "rss_item" }}{{ markdown_feed .Body }}
+{{- else if eq .View "single" }}{{ markdown_single_post .Body }}
+{{- else }}{{ markdown_feed .Body .ID }}{{ end -}}
+{{ end }}
+
+{{ define "translation.class" }}{{ if eq .View "single" }}mt-3 post-full us-post-body{{ else if eq .View "home" }}mt-3 post-user-home{{ else }}mt-3 post-in-feed{{ end }}{{ end }}
+
+{{ define "translation.slot" }}
+<div id="tr-{{ .Kind }}-{{ .ID }}" class="tr-slot"{{ if .Load }} hx-get="{{ link "translate_original" .Kind .ID }}?view={{ .View }}&amp;auto=1" hx-trigger="load" hx-swap="outerHTML"{{ end }}>
+  {{ if .Translated }}
+    <div class="small text-muted mt-3 translation-label">
+      Automatically translated from {{ .Language }} by {{ .Provider }} &middot;
+      <button type="button" class="btn btn-link btn-sm p-0 align-baseline"
+              hx-get="{{ link "translate_original" .Kind .ID }}?view={{ .View }}"
+              hx-target="closest .tr-slot" hx-swap="outerHTML" hx-disabled-elt="this">Show original</button>
+    </div>
+    <div lang="en" class="translation-text">
+      {{ with .Subject }}<p class="fw-semibold mt-2 mb-0 translation-subject">{{ . }}</p>{{ end }}
+      <div class="{{ template "translation.class" . }}">{{ template "translation.body" . }}</div>
+    </div>
+  {{ else }}
+    <div {{ with .Lang }}lang="{{ . }}" {{ end }}class="{{ template "translation.class" . }}">{{ template "translation.body" . }}</div>
+    {{ with .Message }}<div class="small text-muted translation-message" role="status">{{ . }}</div>{{ end }}
+    {{ if .CanTranslate }}
+      <div class="mt-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary translate-button"
+                hx-get="{{ link "translate" .Kind .ID }}?view={{ .View }}"
+                hx-target="closest .tr-slot" hx-swap="outerHTML" hx-disabled-elt="this">Translate</button>
+      </div>
+    {{ end }}
+  {{ end }}
+</div>
+{{ end }}
+
+{{ define "form--settings-translation" }}
+{{ if .FormSaved }}
+  {{ template "partial--success-message.html" toMap "Message" "Translation settings have been saved" }}
+{{ end }}
+
+<form method="POST"
+  action="{{ link "form_save_translation" }}"
+  hx-post="{{ link "form_save_translation" }}"
+  hx-swap="outerHTML"
+  hx-disabled-elt="this"
+  >
+  <div class="mb-3">
+    <label for="translationLanguages" class="form-label">Always translate these languages</label>
+    <select name="languages" id="translationLanguages" multiple size="6"
+            class="form-select {{ if (.Errors.HasError "languages") }}is-invalid{{ end }}">
+      {{ range .Options }}
+        <option value="{{ .Code }}" {{ if .Selected }}selected{{ end }}>{{ .Name }}</option>
+      {{ end }}
+    </select>
+    {{ if (.Errors.HasError "languages") }}
+    <div class="invalid-feedback">{{ .Errors.languages }}</div>
+    {{ end }}
+    <div class="form-text">Posts and feed items in these languages are shown translated into English, when their author allows it. Hold Ctrl or Cmd to pick several.</div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
+{{ end }}

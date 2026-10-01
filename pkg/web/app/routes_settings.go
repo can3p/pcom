@@ -48,7 +48,14 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "settings.html", web.Settings(c, accounts, &userData, view))
+		page := web.Settings(c, accounts, &userData, view)
+
+		if err := page.WithTranslation(c, d.Services.Translations); err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "settings.html", page)
 	})
 
 	// form maps a settings form to its route: the form is built for the
@@ -69,6 +76,10 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 
 	controlsForms.POST("/save_user_styles", form(func(c *gin.Context) gogoForms.Form {
 		return forms.SettingsUserStylesNew(accounts, auth.GetUserData(c).DBUser)
+	}))
+
+	controlsForms.POST("/save_translation", form(func(c *gin.Context) gogoForms.Form {
+		return forms.SettingsTranslationNew(d.Services.Translations, auth.GetUserData(c).DBUser, nil)
 	}))
 
 	controlsForms.POST("/save_profile", form(func(c *gin.Context) gogoForms.Form {
