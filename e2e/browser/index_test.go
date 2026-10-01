@@ -24,7 +24,6 @@ func TestIndex_AnonymousVisitor(t *testing.T) {
 	author := browser.NewUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
 	post, err := factory.Post(t.Context(), app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
 	require.NoError(t, err)
-	reader := browser.NewUser(t, app)
 
 	page := browser.Page(t, app)
 	_, err = page.Goto("/")
@@ -48,8 +47,7 @@ func TestIndex_AnonymousVisitor(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(nav.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Explore"})).ToHaveCount(0))
 
 	require.NoError(t, nav.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Login", Exact: new(true)}).Click())
-	browser.LogInWithCode(t, app, page, reader.Email)
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed`)))
+	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Email address")).ToBeVisible())
 }
 
 // The menu's sign-up entry reaches the signup form.

@@ -23,13 +23,11 @@ func TestSmoke_LoginAndBoostedNavigation(t *testing.T) {
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	page := browser.Page(t, app)
+	page := browser.Page(t, app, browser.As(user))
 	rss := page.Locator(`head link[rel="alternate"][type="application/rss+xml"]`)
 
-	_, err := page.Goto("/login")
+	_, err := page.Goto("/feed")
 	require.NoError(t, err)
-
-	browser.LogInWithCode(t, app, page, user.Email)
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
 	require.NoError(t, browser.Expect.Locator(rss).ToHaveCount(0))

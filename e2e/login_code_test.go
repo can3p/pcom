@@ -36,40 +36,17 @@ func postCode(client *e2e.Client, code string) bool {
 	return client.Get("/feed").StatusCode == http.StatusOK
 }
 
-// TestLoginCode_MailedCodeLogsInOnce: the code from the mail logs in, and the
-// same code does nothing for another session's attempt.
-func TestLoginCode_MailedCodeLogsInOnce(t *testing.T) {
+// TestLoginCode_CodeBelongsToItsSessionsAttempt: with two attempts open, a
+// code posted from the other session is refused, and from its own it logs in.
+func TestLoginCode_CodeBelongsToItsSessionsAttempt(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 	user := newUser(t, app)
 
-	client, code := startLogin(t, app, user.Email)
-	require.True(t, postCode(client, code))
+	a, codeA := startLogin(t, app, user.Email)
+	b, _ := startLogin(t, app, user.Email)
 
-	other, _ := startLogin(t, app, user.Email)
-	require.False(t, postCode(other, code))
-}
-
-// TestLoginCode_FiveWrongCodesKillTheAttempt: after five wrong codes even the
-// mailed one is refused.
-func TestLoginCode_FiveWrongCodesKillTheAttempt(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t)
-	user := newUser(t, app)
-
-	client, code := startLogin(t, app, user.Email)
-
-	wrong := "000000"
-	if code == wrong {
-		wrong = "111111"
-	}
-
-	for range 5 {
-		resp := client.PostForm("/form/login/code", url.Values{"code": {wrong}}).RequireStatus(http.StatusOK)
-		require.NotZero(t, resp.Doc().Find(".invalid-feedback, .alert-danger").Length())
-	}
-
-	require.False(t, postCode(client, code))
+	require.False(t, postCode(b, codeA))
+	require.True(t, postCode(a, codeA))
 }

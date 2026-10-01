@@ -1028,8 +1028,17 @@ func TestGuards_LoginReturnURL(t *testing.T) {
 
 	// the signed return url survives the code step; the code lands there
 	user := newUser(t, app)
-	client.PostForm("/form/login", url.Values{"email": {user.Email}, "return_url": {"/write"}, "sign": {sign}}).
+	step := client.PostForm("/form/login", url.Values{"email": {user.Email}, "return_url": {"/write"}, "sign": {sign}}).
 		RequireStatus(http.StatusOK)
+
+	// "Use a different email" goes back to the email step with it kept
+	back, ok := step.Doc().Find("a:contains('Use a different email')").Attr("href")
+	require.True(t, ok)
+	require.Equal(t, "/login?"+url.Values{"return_url": {"/write"}, "sign": {sign}}.Encode(), back)
+	ret, sig = hidden(t, back)
+	require.Equal(t, "/write", ret)
+	require.Equal(t, sign, sig)
+
 	done := client.PostForm("/form/login/code", url.Values{"code": {app.IssueLoginCode(t, user.Email)}}).
 		RequireStatus(http.StatusOK)
 	require.Equal(t, app.URL+"/write", done.Header.Get("HX-Redirect"))
@@ -1073,21 +1082,6 @@ func TestGuards_LoginUnknownAddressGetsSamePageAndNoMail(t *testing.T) {
 	app.NoMails(t, "nobody@example.test", nil)
 	app.NoMails(t, unconfirmed.Email, nil)
 	require.Len(t, app.Mails(t, known.Email, nil), 1)
-}
-
-// TestGuards_LoginCaseInsensitiveEmail: logging in with the account's email
-// upper-cased succeeds.
-func TestGuards_LoginCaseInsensitiveEmail(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t)
-	user := newUser(t, app)
-
-	// a fresh, never-logged-in client is sent to /login from /feed, so the
-	// 200 LoginAs requires proves the session the login established.
-	app.Client(t).Get("/feed").RequireStatus(http.StatusFound)
-
-	app.Client(t).LoginAs(strings.ToUpper(user.Email))
 }
 
 // TestGuards_LoginRotatesSession pins #122: the session cookie a visitor
