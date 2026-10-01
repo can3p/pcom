@@ -3,11 +3,13 @@ package repo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // postgres db driver
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -32,6 +34,16 @@ func (s *Store) CommentByID(ctx context.Context, id string) (*core.PostComment, 
 // InsertComment stores a new comment.
 func (s *Store) InsertComment(ctx context.Context, comment *core.PostComment) error {
 	return comment.Insert(ctx, s.exec, boil.Infer())
+}
+
+// UpdateCommentBody stores a new body of a comment and marks it as edited.
+func (s *Store) UpdateCommentBody(ctx context.Context, comment *core.PostComment, body string) error {
+	comment.Body = body
+	comment.EditedAt = null.TimeFrom(time.Now())
+
+	_, err := comment.Update(ctx, s.exec, boil.Whitelist(core.PostCommentColumns.Body, core.PostCommentColumns.EditedAt))
+
+	return err
 }
 
 // PostWithAuthorAndURL returns a post with its author and linked URL loaded

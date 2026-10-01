@@ -125,13 +125,65 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.Us
 		return err
 	}
 
-	post, err := tx.PostWithAuthorAndURL(ctx, in.PostID)
+	if err := s.notifyComment(ctx, tx, actor, comment, false); err != nil {
+		return err
+	}
+
+	return tx.CountNewComment(ctx, in.PostID)
+}
+
+// EditComment replaces the body of the actor's own comment and tells the
+// post's author and the other participants about it. The actor must still be
+// connected to the post's author. The comment stays as it is, and nobody is
+// told, when the body does not change.
+func (s *Service) EditComment(ctx context.Context, actor *core.User, commentID, body string) error {
+	if err := requireActor(actor); err != nil {
+		return err
+	}
+
+	if err := ValidateCommentBody(body); err != nil {
+		return service.Invalid("body", err.Error())
+	}
+
+	return s.store.Tx(ctx, func(tx *repo.Store) error {
+		comment, err := tx.CommentByID(ctx, commentID)
+		if errors.Is(err, repo.ErrNotFound) {
+			return service.ErrNotFound
+		} else if err != nil {
+			return err
+		}
+
+		if comment.UserID != actor.ID {
+			return service.ErrNotFound
+		}
+
+		if _, err := s.checkComment(ctx, tx, actor, comment.PostID, ""); err != nil {
+			return err
+		}
+
+		body = strings.TrimSpace(body)
+		if body == comment.Body {
+			return nil
+		}
+
+		if err := tx.UpdateCommentBody(ctx, comment, body); err != nil {
+			return err
+		}
+
+		return s.notifyComment(ctx, tx, actor, comment, true)
+	})
+}
+
+// notifyComment tells the post's author and everybody else who commented on
+// the post about a new comment, or an edited one.
+func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *core.User, comment *core.PostComment, edited bool) error {
+	post, err := tx.PostWithAuthorAndURL(ctx, comment.PostID)
 	if err != nil {
 		return err
 	}
 
 	// notify post author about discussion
-	out, err := mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.R.User, post, comment)
+	out, err := mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.R.User, post, comment, edited)
 	if err := s.queueE(ctx, tx, out, err); err != nil {
 		return err
 	}
@@ -149,11 +201,11 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.Us
 	slog.Debug("comment in the post", "participants", len(participants))
 
 	for _, cmt := range participants {
-		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.R.User, post, comment)
+		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.R.User, post, comment, edited)
 		if err := s.queueE(ctx, tx, out, err); err != nil {
 			return err
 		}
 	}
 
-	return tx.CountNewComment(ctx, in.PostID)
+	return nil
 }

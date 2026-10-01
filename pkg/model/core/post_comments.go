@@ -32,6 +32,7 @@ type PostComment struct {
 	CreatedAt       time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt       time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	TopCommentID    string      `boil:"top_comment_id" json:"top_comment_id" toml:"top_comment_id" yaml:"top_comment_id"`
+	EditedAt        null.Time   `boil:"edited_at" json:"edited_at,omitempty" toml:"edited_at" yaml:"edited_at,omitempty"`
 
 	R *postCommentR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postCommentL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -46,6 +47,7 @@ var PostCommentColumns = struct {
 	CreatedAt       string
 	UpdatedAt       string
 	TopCommentID    string
+	EditedAt        string
 }{
 	ID:              "id",
 	UserID:          "user_id",
@@ -55,6 +57,7 @@ var PostCommentColumns = struct {
 	CreatedAt:       "created_at",
 	UpdatedAt:       "updated_at",
 	TopCommentID:    "top_comment_id",
+	EditedAt:        "edited_at",
 }
 
 var PostCommentTableColumns = struct {
@@ -66,6 +69,7 @@ var PostCommentTableColumns = struct {
 	CreatedAt       string
 	UpdatedAt       string
 	TopCommentID    string
+	EditedAt        string
 }{
 	ID:              "post_comments.id",
 	UserID:          "post_comments.user_id",
@@ -75,6 +79,7 @@ var PostCommentTableColumns = struct {
 	CreatedAt:       "post_comments.created_at",
 	UpdatedAt:       "post_comments.updated_at",
 	TopCommentID:    "post_comments.top_comment_id",
+	EditedAt:        "post_comments.edited_at",
 }
 
 // Generated where
@@ -88,6 +93,7 @@ var PostCommentWhere = struct {
 	CreatedAt       whereHelpertime_Time
 	UpdatedAt       whereHelpertime_Time
 	TopCommentID    whereHelperstring
+	EditedAt        whereHelpernull_Time
 }{
 	ID:              whereHelperstring{field: "\"post_comments\".\"id\""},
 	UserID:          whereHelperstring{field: "\"post_comments\".\"user_id\""},
@@ -97,6 +103,7 @@ var PostCommentWhere = struct {
 	CreatedAt:       whereHelpertime_Time{field: "\"post_comments\".\"created_at\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"post_comments\".\"updated_at\""},
 	TopCommentID:    whereHelperstring{field: "\"post_comments\".\"top_comment_id\""},
+	EditedAt:        whereHelpernull_Time{field: "\"post_comments\".\"edited_at\""},
 }
 
 // PostCommentRels is where relationship names are stored.
@@ -231,9 +238,9 @@ func (r *postCommentR) GetTopCommentPostComments() PostCommentSlice {
 type postCommentL struct{}
 
 var (
-	postCommentAllColumns            = []string{"id", "user_id", "post_id", "parent_comment_id", "body", "created_at", "updated_at", "top_comment_id"}
+	postCommentAllColumns            = []string{"id", "user_id", "post_id", "parent_comment_id", "body", "created_at", "updated_at", "top_comment_id", "edited_at"}
 	postCommentColumnsWithoutDefault = []string{"id", "user_id", "post_id", "body", "created_at", "updated_at", "top_comment_id"}
-	postCommentColumnsWithDefault    = []string{"parent_comment_id"}
+	postCommentColumnsWithDefault    = []string{"parent_comment_id", "edited_at"}
 	postCommentPrimaryKeyColumns     = []string{"id"}
 	postCommentGeneratedColumns      = []string{}
 )
