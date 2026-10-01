@@ -18,7 +18,7 @@ You can also send a prompt to a connection from the top of the feed.
 
 ## Explore
 
-Explore lists public posts of authors who are open to you without a connection: public profiles, and profiles open to registered users. Nobody can comment or act from there.
+Explore needs a login; anonymous visitors are sent to the front page. It lists public posts of authors who are open to you without a connection: public profiles, and profiles open to registered users. Nobody can comment or act from there.
 
 ![Explore: public posts, signed in.](screenshots/explore.png)
 
@@ -28,7 +28,7 @@ Visitors without an account land on a page of recent public posts. It only shows
 
 ## RSS subscriptions
 
-In [Settings](settings.md) you add the URL of an RSS or Atom feed. New items then appear in your feed, and you can unsubscribe there.
+In [Settings](settings.md) you add the URL of an RSS or Atom feed. New items then appear in your feed, where you can only dismiss them; you unsubscribe in Settings.
 
 ## Your private feed
 

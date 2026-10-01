@@ -14,7 +14,7 @@ Change your password by entering the old one and a new one of at least eight cha
 
 ## Invitations
 
-Pcom grows by invitation. The page shows how many invitations you have left and to whom you sent the others. Send one to an email address and the recipient gets a link to create an account, connected to you. See [Connections](connections.md).
+Pcom grows by invitation. This section appears only while you have unused or sent invitations, and shows how many are left and to whom you sent the others. Send one to an email address and the recipient gets a link to create an account, connected to you. See [Connections](connections.md).
 
 ## Feeds and private feed
 
@@ -22,11 +22,11 @@ Add the URL of an RSS feed to follow it in your [feed](feed.md), and remove it a
 
 ## Styles
 
-You can add your own CSS, which is applied to your journal page.
+You can add your own CSS, which is applied to your journal, your single-post pages, and your own feed and Explore pages.
 
 ## Import and export
 
-Export downloads all your posts with their images as a zip file; import reads such a file back, into the same or another account. Importing does not remove duplicates.
+Export downloads all your posts with their images as a zip file; import reads such a file back, into the same or another account. Importing into the same account updates the posts you already own and skips images already uploaded under the same name; importing into another account creates new copies.
 
 ## API key
 
