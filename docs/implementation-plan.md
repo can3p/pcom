@@ -65,7 +65,7 @@ Related documents:
 | F1 | Public post feed on the index page, `/rss/public` (#146) | RS | done | `feat/f1-public-feed` |
 | F2 | Comment editing, with notifications (#176) | — | done | `feat/f2-comment-edit` |
 | F3 | Public profile section on the blog page (#186) | — | done | `feat/f3-profile` |
-| F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | planned | `feat/f4-pagination` |
+| F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | done | `feat/f4-pagination` |
 | F5 | Login with an emailed code, passwords removed (#175) | Q22 answered | planned | `feat/f5-login-codes` |
 | F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | planned | `feat/f6-website` |
 | F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | planned | `feat/f7-translation` |

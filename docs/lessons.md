@@ -247,3 +247,15 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Check that the code a plan says to copy exists.** F3 told A0 to add a
   `ViewProfile` case wherever `ViewComment` has one; there was none. A
   `grep -n` while writing the plan is cheaper than a subagent's detour.
+
+- **A signature change's callers belong in the owned list.** F4's R0
+  changed five repository methods and the reading service; four files
+  outside its list (another service, a page builder, two web tests) had to
+  change to compile. The subagent handed patched copies back under `needs:`,
+  which worked but cost a round trip. When a task changes a signature, list
+  its callers (LSP `findReferences`) in the plan.
+- **Mutate the server, not only the markup, for htmx swaps.** Removing
+  `hx-get` from the "Load more" link and making the handler return the full
+  page both left F4.R1's first browser tests green: body `hx-boost` fetched in
+  place and the pasted page still contained the expected items. The rule
+  now lives in the `frontend-htmx` skill.
