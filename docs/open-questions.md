@@ -29,49 +29,34 @@ Raised by the 2026-09-21 modernization survey.
 Raised by planning F2–F7 on 2026-10-01. Each wave file states the default
 it builds; confirm or change it before the wave starts.
 
-- **Q18. Comment edits (F2, #176).** Default: only the author, only while
-  they may still comment on the post; no mail to the post's author or the
-  participants on an edit; the marker shows the last edit time, no
-  history. Should an edit notify anybody, or should the post's author be
-  able to see the previous text?
-- **Q19. Profile section (F3, #186).** Default: shown only on the journal
-  page, to whoever may see the journal, under no heading of its own (a
-  block with the class `us-profile-about`); stored in its own table; empty
-  clears it. Should it also appear elsewhere (the per-user public RSS
-  feed's description, a hover card, explore), and should it have a heading
-  ("About")?
-- **Q20. Pagination (F4, #124).** Default: cursor pagination merging the
-  sources, 30 items a page, a "Load more" button (no infinite scroll), on
-  the feed, explore, the anonymous index and the journal (the journal is
-  not in the issue); RSS outputs capped at F1's 50 and not paged. Is the
-  journal in scope, and is 30 right?
-- **Q21. Magic links and prefetching (F5, #175).** Default: the mailed link
-  opens a page with a "Log in" button (a POST); no JS auto-submit, because
-  link scanners that run JS would log in; the link is not tied to the
-  browser that asked for it; 15 minutes, single use, at most 3 unused links
-  per 15 minutes. Alternatives: auto-submit with JS, or a code typed into
-  the original tab (works across devices, survives every scanner, costs a
-  step).
-- **Q22. Removing passwords (F5).** Default: every password path goes in
-  the wave; the `pwdhash` column is dropped by a later migration, deployed
-  after the wave has run in production; a CLI command `web admin
-  login-link --email` prints a link for an operator, as the way in when
-  mail is down. Keep a password login as a fallback instead? Is the CLI
-  escape hatch wanted?
-- **Q23. Invitations and signup without passwords (F5).** The issue: the
-  invite page asks to confirm, then mails a magic link. That's the default.
-  The alternative: log in right after confirming, since the invitation
-  link already proves the inbox, one step fewer. Which one? Open signup
-  (`FORCE_SIGNUP`) follows the same answer.
-- **Q27. Language detection and target (F7).** Default: a local Go
-  library detects the language on publish, edit and RSS import, free and
-  offline, less accurate on short texts; English is the only target, stored
-  per user so others can come later. Alternative: the backend's own
-  detection (Azure's `/detect`), which sends every published post that
-  allows translation to the provider, translated or not. Which library: the
-  owner checks the candidates' license and binary size at T0.
+- **Q22. Removing passwords (F5, #175).** Default: every password path
+  goes in the wave; the `pwdhash` column is dropped by a later migration,
+  deployed after the wave has run in production; a CLI command `web admin
+  login-code --email` issues a fresh code for the user's open login attempt
+  and prints it, as the operator's way in when mail is down. Keep a
+  password login as a fallback instead? Is the CLI escape hatch wanted?
 
 ## Decided
+
+- **2026-10-01. Q18, comment edits (F2, #176):** only the author, while they
+  may still comment on the post. An edit that changes the body notifies the
+  same people as a new comment, with an "edited" variant of the two comment
+  mails. No history is stored; the marker shows the last edit time.
+- **2026-10-01. Q19, profile section (F3, #186):** on the blog page (the
+  journal) only, under an "About" heading.
+- **2026-10-01. Q20, pagination (F4, #124):** the journal is in scope, with
+  the feed, explore and the anonymous index; cursor pagination, 30 items a
+  page, a "Load more" button; RSS outputs capped at 50.
+- **2026-10-01. Q21, login without passwords (F5, #175):** the mail carries
+  a one-time code, no link; the user types it on the login page where they
+  entered their email. 6 digits, 15 minutes, one use, 5 tries, bound to the
+  login attempt in that browser's session.
+- **2026-10-01. Q23, invitations and signup (F5):** confirming the
+  invitation (or an open signup) creates the user and mails a code, which
+  the user types on the same page to log in.
+- **2026-10-01. Q27, language detection (F7, #144):** deferred to the
+  implementation. F7's T0 picks a local Go library, checking its license
+  and binary size, and records the choice here.
 
 - **2026-10-01. Q26, translation provider (F7, #144):** translation is
   common infrastructure (`pkg/translate`) with pluggable backends, all

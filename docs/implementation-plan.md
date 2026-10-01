@@ -63,12 +63,12 @@ Related documents:
 | R6 | Dependency hygiene | any time after W5 | planned | `chore/r6-deps` |
 | R7 | Structured logging with zap | RS, R2 | planned | `refactor/r7-logging` |
 | F1 | Public post feed on the index page, `/rss/public` (#146) | RS | done | `feat/f1-public-feed` |
-| F2 | Comment editing (#176) | — (Q18) | planned | `feat/f2-comment-edit` |
-| F3 | Public profile section on the blog page (#186) | — (Q19) | planned | `feat/f3-profile` |
-| F4 | Feed pagination, capped RSS outputs (#124) | — (Q20) | planned | `feat/f4-pagination` |
-| F5 | Magic-link login, passwords removed (#175) | Q21–Q23 answered | planned | `feat/f5-magic-links` |
+| F2 | Comment editing, with notifications (#176) | — | planned | `feat/f2-comment-edit` |
+| F3 | Public profile section on the blog page (#186) | — | planned | `feat/f3-profile` |
+| F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | planned | `feat/f4-pagination` |
+| F5 | Login with an emailed code, passwords removed (#175) | Q22 answered | planned | `feat/f5-login-codes` |
 | F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | planned | `feat/f6-website` |
-| F7 | Translating posts and RSS items to English (#144) | F4; Q27; an Azure Translator key | planned | `feat/f7-translation` |
+| F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | planned | `feat/f7-translation` |
 
 ```
             ┌── W1 (12 tasks) ──┐
@@ -86,8 +86,8 @@ F-waves are product features, planned from an issue; unlike the other waves they
 ```
 F2 comment edit ──┐
 F3 profile ───────┤  any order, in parallel
-F4 pagination ────┼──────────────── F7 translation (also Q27, Azure key)
-F5 magic links ───┤  (Q21–Q23 first)
+F4 pagination ────┼──────────────── F7 translation (also an Azure key)
+F5 login codes ───┤  (Q22 first)
 F6 website ───────┘  (Pages enabled first; afterwards every F-wave updates the guide)
 ```
 
@@ -118,8 +118,9 @@ branch from `origin/master`; what they share:
   the app's `go.mod`.
 - **With the R-waves.** Every F-wave adds repository methods, so R5 (bob)
   starts after the F-waves in flight merge, or they rebase onto it. F5 adds
-  a mail and changes two (`login_link`, `invite`, `confirm_signup`), which
-  R4 declares with the rest. F7's worker logs; R7 converts it with the
+  a mail and changes two (`login_code`, `invite`, `confirm_signup`); F2
+  adds "edited" variants of the two comment mails. R4 declares all of
+  them with the rest. F7's worker logs; R7 converts it with the
   others if it lands first.
 - **go.mod.** Only F7 adds dependencies: `go-wiremock` (TM, tests) and a
   language detection library (T0). Its translation backends are plain HTTP
