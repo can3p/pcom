@@ -150,3 +150,9 @@ func TestSite_Abs(t *testing.T) {
 		})
 	}
 }
+
+func TestLink_EditComment(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "/controls/form/edit_comment/c1", links.Link("edit_comment", "c1"))
+}
