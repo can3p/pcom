@@ -3,8 +3,10 @@ package reading
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,54 +130,151 @@ func TestGetComments_QueryErrorsPropagate(t *testing.T) {
 	}
 }
 
+type feedEntry struct {
+	at       time.Time
+	kind, id string
+}
+
+// byFeedOrder sorts entries the way the feed promises: newest first, then
+// kind (rss, post, comment), then ID, descending.
+func byFeedOrder(a, b feedEntry) int {
+	if c := b.at.Compare(a.at); c != 0 {
+		return c
+	}
+	if c := strings.Compare(b.kind, a.kind); c != 0 {
+		return c
+	}
+	return strings.Compare(b.id, a.id)
+}
+
+func feedIDs(items []*FeedItem) []string {
+	return lo.Map(items, func(i *FeedItem, _ int) string {
+		switch {
+		case i.Post != nil:
+			return i.Post.ID
+		case i.FeedItem != nil:
+			return i.FeedItem.ID
+		default:
+			return i.Comment.ID
+		}
+	})
+}
+
 // The feed merges posts, RSS items and comments newest first, ties broken by
-// kind and ID: two pages visit every item once, in that total order, with
-// items sharing a timestamp across sources and across the page boundary.
-// Only the first page carries the connections, and the last has no Next.
+// kind and ID, and pages through them without gaps or repeats. In "two
+// pages" the posts outnumber a page and the cut falls inside a tie of posts
+// that RSS items and comments share; an exactly full page has no Next. Only
+// the first page carries the connections, prompts and feed token.
 func TestFeedPages(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	svc := New(repo.Using(db))
-
-	reader := testutil.Must(factory.User(ctx, db))(t)
-	direct := testutil.Must(factory.User(ctx, db))(t)
-	connect(t, db, ctx, reader.ID, direct.ID)
-	ownPost := testutil.Must(factory.Post(ctx, db, reader.ID))(t)
-	feed := testutil.Must(factory.RSSFeed(ctx, db))(t)
-
-	base := time.Now().UTC().Truncate(time.Second)
-	const perSource = 12
-	var want []string
-	// oldest first, the reverse of the feed's order; 4 timestamps shared by 9
-	// items each, so the boundary after item 30 falls inside a tie
-	for i := perSource - 1; i >= 0; i-- {
-		at := base.Add(-time.Duration(i%4) * time.Hour)
-		post := testutil.Must(factory.Post(ctx, db, direct.ID, func(p *core.Post) { p.PublishedAt = null.TimeFrom(at) }))(t)
-		item := testutil.Must(factory.RSSItem(ctx, db, feed.ID))(t)
-		feedItem := testutil.Must(factory.UserFeedItem(ctx, db, reader.ID, item.ID, func(i *core.UserFeedItem) { i.CreatedAt = at }))(t)
-		comment := testutil.Must(factory.Comment(ctx, db, ownPost.ID, direct.ID, func(c *core.PostComment) { c.CreatedAt = at }))(t)
-		want = append(want, post.ID, feedItem.ID, comment.ID)
+	base := time.Now().UTC().Truncate(time.Microsecond)
+	us := func(n int) time.Time { return base.Add(-time.Duration(n) * time.Microsecond) }
+	n := func(kind string, count int, at func(i int) time.Time) []feedEntry {
+		return lo.Times(count, func(i int) feedEntry { return feedEntry{at: at(i), kind: kind} })
 	}
 
-	first, err := svc.Feed(ctx, reader, "")
+	twoPages := slices.Concat(
+		n(repo.KindPost, 22, us),
+		n(repo.KindPost, 14, func(int) time.Time { return us(22) }),
+		n(repo.KindRSSItem, 5, func(i int) time.Time { return us([]int{3, 9, 15, 22, 23}[i]) }),
+		n(repo.KindComment, 4, func(i int) time.Time { return us([]int{6, 12, 22, 23}[i]) }),
+	)
+	exactlyFull := slices.Concat(
+		n(repo.KindPost, 20, us),
+		n(repo.KindRSSItem, 5, func(i int) time.Time { return us(i * 4) }),
+		n(repo.KindComment, 5, func(i int) time.Time { return us(i*4 + 1) }),
+	)
+
+	for name, entries := range map[string][]feedEntry{"two pages": twoPages, "exactly full": exactlyFull} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			reader := testutil.Must(factory.User(ctx, db))(t)
+			direct := testutil.Must(factory.User(ctx, db))(t)
+			connect(t, db, ctx, reader.ID, direct.ID)
+			ownPost := testutil.Must(factory.Post(ctx, db, reader.ID))(t)
+			feed := testutil.Must(factory.RSSFeed(ctx, db))(t)
+			testutil.Must(factory.PostPrompt(ctx, db, direct.ID, reader.ID))(t)
+			testutil.Must(repo.RegenerateFeedToken(ctx, db, reader.ID))(t)
+
+			// oldest first, the reverse of the feed's order
+			slices.SortFunc(entries, func(a, b feedEntry) int { return a.at.Compare(b.at) })
+			for i, e := range entries {
+				switch e.kind {
+				case repo.KindPost:
+					entries[i].id = testutil.Must(factory.Post(ctx, db, direct.ID,
+						func(p *core.Post) { p.PublishedAt = null.TimeFrom(e.at) }))(t).ID
+				case repo.KindRSSItem:
+					item := testutil.Must(factory.RSSItem(ctx, db, feed.ID))(t)
+					entries[i].id = testutil.Must(factory.UserFeedItem(ctx, db, reader.ID, item.ID,
+						func(i *core.UserFeedItem) { i.CreatedAt = e.at }))(t).ID
+				default:
+					entries[i].id = testutil.Must(factory.Comment(ctx, db, ownPost.ID, direct.ID,
+						func(c *core.PostComment) { c.CreatedAt = e.at }))(t).ID
+				}
+			}
+			slices.SortFunc(entries, byFeedOrder)
+			want := lo.Map(entries, func(e feedEntry, _ int) string { return e.id })
+
+			first, err := svc.Feed(ctx, reader, "")
+			require.NoError(t, err)
+			require.Equal(t, want[:PageSize], feedIDs(first.Items))
+			require.Len(t, first.DirectConnections, 1)
+			require.Len(t, first.OpenPrompts, 1)
+			require.NotNil(t, first.FeedToken)
+
+			if len(want) == PageSize {
+				require.Empty(t, first.Next)
+				return
+			}
+
+			second, err := svc.Feed(ctx, reader, first.Next)
+			require.NoError(t, err)
+			require.Equal(t, want[PageSize:], feedIDs(second.Items))
+			require.Empty(t, second.Next)
+			require.Nil(t, second.DirectConnections)
+			require.Empty(t, second.OpenPrompts)
+			require.Nil(t, second.FeedToken)
+
+			_, err = svc.Feed(ctx, reader, "not a cursor")
+			var invalid *service.ValidationError
+			require.ErrorAs(t, err, &invalid)
+		})
+	}
+}
+
+func TestParseCursor(t *testing.T) {
+	t.Parallel()
+
+	id := uuid.NewString()
+	at := time.Now().UTC().Truncate(time.Microsecond)
+	got, err := ParseCursor(Cursor{Time: at, Kind: repo.KindRSSItem, ID: id}.String())
 	require.NoError(t, err)
-	require.Len(t, first.Items, PageSize)
-	require.NotEmpty(t, first.Next)
-	require.Len(t, first.DirectConnections, 1)
+	require.True(t, at.Equal(got.Time), "microseconds survive")
+	require.Equal(t, repo.KindRSSItem, got.Kind)
+	require.Equal(t, id, got.ID)
 
-	second, err := svc.Feed(ctx, reader, first.Next)
+	got, err = ParseCursor("")
 	require.NoError(t, err)
-	require.Len(t, second.Items, 3*perSource-PageSize)
-	require.Empty(t, second.Next)
-	require.Nil(t, second.DirectConnections)
+	require.Zero(t, got, "the first page")
 
-	items := append(first.Items, second.Items...)
-	require.True(t, slices.IsSortedFunc(items, compareItems), "a total order, newest first")
-	require.ElementsMatch(t, want, lo.Map(items, func(i *FeedItem, _ int) string { return cursorOf(i).ID }))
-
-	_, err = svc.Feed(ctx, reader, "not a cursor")
-	var invalid *service.ValidationError
-	require.ErrorAs(t, err, &invalid)
+	b64 := func(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
+	for name, cursor := range map[string]string{
+		"not base64":         "!!!",
+		"wrong part count":   b64("1|post"),
+		"zero micros":        b64("0|post|" + id),
+		"non-numeric micros": b64("x|post|" + id),
+		"unknown kind":       b64("1|draft|" + id),
+		"non-UUID id":        b64("1|post|42"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseCursor(cursor)
+			var invalid *service.ValidationError
+			require.ErrorAs(t, err, &invalid)
+		})
+	}
 }

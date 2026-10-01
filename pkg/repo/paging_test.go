@@ -100,14 +100,14 @@ func TestPaging(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	base := time.Now().UTC().Truncate(time.Second)
-	tie := base.Add(-time.Hour)
+	base := time.Now().UTC().Truncate(time.Microsecond)
+	tie := base.Add(-time.Microsecond)
 
 	for name, src := range pagedSources(t, ctx, db) {
 		t.Run(name, func(t *testing.T) {
 			// oldest first, the reverse of the expected order
 			var want []pagedItem
-			for _, at := range []time.Time{base.Add(-2 * time.Hour), tie, tie, tie, base} {
+			for _, at := range []time.Time{base.Add(-2 * time.Microsecond), tie, tie, tie, base} {
 				want = append(want, pagedItem{at, src.add(at)})
 			}
 			slices.SortFunc(want, func(a, b pagedItem) int {
@@ -134,7 +134,7 @@ func TestPaging(t *testing.T) {
 
 			all, err := src.list(repo.Page{})
 			require.NoError(t, err)
-			require.Len(t, all, len(want), "no limit")
+			require.Equal(t, wantIDs, lo.Map(all, func(i pagedItem, _ int) string { return i.id }), "no limit")
 
 			after := func(kind string) []string {
 				items, err := src.list(repo.Page{Before: tie, BeforeKind: kind, BeforeID: want[2].id})

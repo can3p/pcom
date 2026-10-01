@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,89 +127,141 @@ func TestPublicPosts(t *testing.T) {
 	require.Equal(t, []string{newest, newer, oldest.id}, all, "newest publication first")
 }
 
-// Explore, the public posts and a journal page by publication time: two
-// pages visit every post once, newest first, across a tie at the boundary,
-// and the last page has no Next. The RSS outputs aren't paged: they stop at
-// RSSLimit. A cursor that doesn't parse is invalid input.
+// Explore, the public posts and a journal (anonymous, and a direct
+// connection's, which loads stats) page by publication time: the pages
+// together list every post once, newest first then by ID, across a tie at the
+// boundary, and the last page has no Next, also when it is exactly full.
+// Explore adds the profiles open to registered users. The RSS outputs aren't
+// paged: they stop at RSSLimit. A cursor that doesn't parse is invalid input.
 func TestPostPages(t *testing.T) {
 	t.Parallel()
 
-	db := testdb.New(t).DB
-	ctx := context.Background()
-	svc := New(repo.Using(db))
+	for _, tc := range []struct {
+		name               string
+		public, registered int
+	}{
+		{"two pages", RSSLimit + 1, 4},
+		{"exactly full", PageSize, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
-	reader := testutil.Must(factory.User(ctx, db))(t)
-	connect(t, db, ctx, reader.ID, author.ID)
+			// Explore and the public posts list every author's posts: a
+			// database of its own
+			db := testdb.New(t).DB
+			ctx := context.Background()
+			svc := New(repo.Using(db))
 
-	base := time.Now().UTC().Truncate(time.Second)
-	var want []string
-	for i := RSSLimit; i >= 0; i-- { // oldest first; posts 28 to 32 share a time
-		at := base.Add(-time.Duration((i+2)/5) * time.Minute)
-		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Visibility(core.PostVisibilityPublic),
-			func(p *core.Post) { p.PublishedAt = null.TimeFrom(at) }))(t)
-		want = append(want, post.ID)
-	}
-	slices.Reverse(want)
+			author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
+			registered := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers)))(t)
+			reader := testutil.Must(factory.User(ctx, db))(t)
+			connect(t, db, ctx, reader.ID, author.ID)
 
-	ids := func(posts []*postops.Post) []string {
-		return lo.Map(posts, func(p *postops.Post, _ int) string { return p.ID })
-	}
-	lists := map[string]func(cursor string) ([]*postops.Post, string, error){
-		"explore": func(c string) ([]*postops.Post, string, error) {
-			page, err := svc.Explore(ctx, reader, c)
-			if err != nil {
-				return nil, "", err
+			base := time.Now().UTC().Truncate(time.Microsecond)
+			type entry struct {
+				at time.Time
+				id string
 			}
-			return page.Posts, page.Next, nil
-		},
-		"public posts": func(c string) ([]*postops.Post, string, error) {
-			page, err := svc.PublicPosts(ctx, c)
-			if err != nil {
-				return nil, "", err
+			add := func(authorID string, ago int) entry {
+				at := base.Add(-time.Duration(ago) * time.Microsecond)
+				post := testutil.Must(factory.Post(ctx, db, authorID, factory.Visibility(core.PostVisibilityPublic),
+					func(p *core.Post) { p.PublishedAt = null.TimeFrom(at) }))(t)
+				return entry{at, post.ID}
 			}
-			return page.Posts, page.Next, nil
-		},
-		"journal": func(c string) ([]*postops.Post, string, error) {
-			journal, err := svc.Journal(ctx, nil, author.Username, c)
-			if err != nil {
-				return nil, "", err
+			var public, all []entry
+			for i := tc.public - 1; i >= 0; i-- { // oldest first; posts 28 to 32 share a time
+				ago := i
+				if i > 32 {
+					ago = i - 4
+				} else if i >= 28 {
+					ago = 28
+				}
+				public = append(public, add(author.ID, ago))
 			}
-			return journal.Posts, journal.Next, nil
-		},
-	}
-	for name, list := range lists {
-		t.Run(name, func(t *testing.T) {
-			first, next, err := list("")
+			all = slices.Clone(public)
+			for i := range tc.registered {
+				all = append(all, add(registered.ID, 30-i*10))
+			}
+			order := func(entries []entry) []string {
+				slices.SortFunc(entries, func(a, b entry) int {
+					if c := b.at.Compare(a.at); c != 0 {
+						return c
+					}
+					return strings.Compare(b.id, a.id)
+				})
+				return lo.Map(entries, func(e entry, _ int) string { return e.id })
+			}
+			wantPublic, wantAll := order(public), order(all)
+
+			ids := func(posts []*postops.Post) []string {
+				return lo.Map(posts, func(p *postops.Post, _ int) string { return p.ID })
+			}
+			journal := func(actor *core.User) func(string) ([]*postops.Post, string, error) {
+				return func(c string) ([]*postops.Post, string, error) {
+					j, err := svc.Journal(ctx, actor, author.Username, c)
+					if err != nil {
+						return nil, "", err
+					}
+					return j.Posts, j.Next, nil
+				}
+			}
+			posts := func(list func(string) (*Posts, error)) func(string) ([]*postops.Post, string, error) {
+				return func(c string) ([]*postops.Post, string, error) {
+					page, err := list(c)
+					if err != nil {
+						return nil, "", err
+					}
+					return page.Posts, page.Next, nil
+				}
+			}
+			for name, l := range map[string]struct {
+				list func(cursor string) ([]*postops.Post, string, error)
+				want []string
+			}{
+				"explore":            {posts(func(c string) (*Posts, error) { return svc.Explore(ctx, reader, c) }), wantAll},
+				"public posts":       {posts(func(c string) (*Posts, error) { return svc.PublicPosts(ctx, c) }), wantPublic},
+				"anonymous journal":  {journal(nil), wantPublic},
+				"connection journal": {journal(reader), wantPublic},
+			} {
+				t.Run(name, func(t *testing.T) {
+					first, next, err := l.list("")
+					require.NoError(t, err)
+					require.Equal(t, l.want[:PageSize], ids(first))
+					if len(l.want) == PageSize {
+						require.Empty(t, next)
+						return
+					}
+
+					second, last, err := l.list(next)
+					require.NoError(t, err)
+					require.Len(t, second, len(l.want)-PageSize)
+					require.Equal(t, l.want, append(ids(first), ids(second)...))
+					require.Empty(t, last)
+
+					_, _, err = l.list("bm90IGEgY3Vyc29y")
+					var invalid *service.ValidationError
+					require.ErrorAs(t, err, &invalid)
+				})
+			}
+
+			if tc.public <= RSSLimit {
+				return
+			}
+
+			token := testutil.Must(repo.RegenerateFeedToken(ctx, db, reader.ID))(t)
+			private, err := svc.PrivateFeed(ctx, token.Token)
 			require.NoError(t, err)
-			require.Len(t, first, PageSize)
-			second, last, err := list(next)
-			require.NoError(t, err)
-			require.Empty(t, last)
-			ordered := slices.IsSortedFunc(append(first, second...), func(a, b *postops.Post) int {
-				return b.PublishedAt.Time.Compare(a.PublishedAt.Time)
-			})
-			require.True(t, ordered, "newest first")
-			require.ElementsMatch(t, want, append(ids(first), ids(second)...))
+			require.Equal(t, wantPublic[:RSSLimit], ids(private.Posts), "the private feed")
 
-			_, _, err = list("bm90IGEgY3Vyc29y")
-			var invalid *service.ValidationError
-			require.ErrorAs(t, err, &invalid)
+			feed, err := svc.PublicFeed(ctx, author.Username)
+			require.NoError(t, err)
+			require.Equal(t, wantPublic[:RSSLimit], ids(feed.Posts), "the author's public feed")
+
+			rss, err := svc.PublicPostsRSS(ctx)
+			require.NoError(t, err)
+			require.Equal(t, wantPublic[:RSSLimit], ids(rss), "the public feed")
 		})
 	}
-
-	token := testutil.Must(repo.RegenerateFeedToken(ctx, db, reader.ID))(t)
-	private, err := svc.PrivateFeed(ctx, token.Token)
-	require.NoError(t, err)
-	require.ElementsMatch(t, want[:RSSLimit], ids(private.Posts), "the private feed")
-
-	public, err := svc.PublicFeed(ctx, author.Username)
-	require.NoError(t, err)
-	require.ElementsMatch(t, want[:RSSLimit], ids(public.Posts), "the author's public feed")
-
-	all, err := svc.PublicPostsRSS(ctx)
-	require.NoError(t, err)
-	require.Len(t, all, RSSLimit, "the public feed")
 }
 
 // The journal carries the author's About text for whoever may open it, and a

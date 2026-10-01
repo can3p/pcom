@@ -206,7 +206,8 @@ type Page struct {
 	Limit      int
 }
 
-// The kinds of the lists a feed merges, in the order they take on a tie.
+// The kinds of the lists a feed merges. Kinds compare as strings and the
+// merged order is descending, so on a tie it is rss, post, comment.
 const (
 	KindComment = "comment"
 	KindPost    = "post"
