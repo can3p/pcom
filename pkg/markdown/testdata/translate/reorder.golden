@@ -1,0 +1,15 @@
+--- source
+A *one* then [two](http://a.test) and `x` plus **three** at [four](http://b.test "T").
+
+With @hana and <https://example.org> then ![alt text](http://i.test/a.png) and [l2](http://l2.test).
+--- segments
+[0] "A <em>one</em> then <a data-i=\"0\">two</a> and <span class=\"notranslate\" data-i=\"1\">x</span> plus <strong>three</strong> at <a data-i=\"2\">four</a>."
+    "A <a data-i=\"2\">four</a> then <strong>three</strong> and <span class=\"notranslate\" data-i=\"1\">x</span> plus <a data-i=\"0\">two</a> at <em>one</em>."
+[1] "With <span class=\"notranslate\" data-i=\"0\">@hana</span> and <span class=\"notranslate\" data-i=\"1\">https://example.org</span> then <span class=\"notranslate\" data-i=\"2\"></span> and <a data-i=\"3\">l2</a>."
+    "With <a data-i=\"3\">l2</a> and <span class=\"notranslate\" data-i=\"2\"></span> then <span class=\"notranslate\" data-i=\"1\">https://example.org</span> and <span class=\"notranslate\" data-i=\"0\">@hana</span>."
+[2] "alt text"
+    "alt text"
+--- applied
+A [four](http://b.test "T") then **three** and `x` plus [two](http://a.test) at *one*.
+
+With [l2](http://l2.test) and ![alt text](http://i.test/a.png) then <https://example.org> and @hana.

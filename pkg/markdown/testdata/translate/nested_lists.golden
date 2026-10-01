@@ -1,0 +1,26 @@
+--- source
+- top *one*
+  - nested two
+    - deep three
+- top four
+
+1. first
+   - sub of first
+2. second
+--- segments
+[0] "top <em>one</em>"
+[1] "nested two"
+[2] "deep three"
+[3] "top four"
+[4] "first"
+[5] "sub of first"
+[6] "second"
+--- applied
+- TOP *ONE*
+  - NESTED TWO
+    - DEEP THREE
+- TOP FOUR
+
+1. FIRST
+   - SUB OF FIRST
+2. SECOND

@@ -1,0 +1,19 @@
+--- source
+- first `code()` item
+- second item with @some_user handle
+  continued line
+
+1. one thing
+2. other thing
+--- segments
+[0] "first <span class=\"notranslate\" data-i=\"0\">code()</span> item"
+[1] "second item with <span class=\"notranslate\" data-i=\"0\">@some_user</span> handle\ncontinued line"
+[2] "one thing"
+[3] "other thing"
+--- applied
+- FIRST `code()` ITEM
+- SECOND ITEM WITH @some_user HANDLE
+  CONTINUED LINE
+
+1. ONE THING
+2. OTHER THING

@@ -1,0 +1,13 @@
+--- source
+`code`
+
+https://example.com
+
+![](http://x/a.png)
+--- segments
+--- applied
+`code`
+
+https://example.com
+
+![](http://x/a.png)

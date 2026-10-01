@@ -1,0 +1,18 @@
+--- source
+# Title here
+
+Setext heading
+-------------
+
+body
+--- segments
+[0] "Title here"
+[1] "Setext heading"
+[2] "body"
+--- applied
+# TITLE HERE
+
+SETEXT HEADING
+-------------
+
+BODY

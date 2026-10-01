@@ -1,0 +1,8 @@
+--- source
+<pre>keep   this
+as is</pre><p><iframe src="https://video.example/e"></iframe></p><p><code>only_code</code></p><hr/><p>after</p>
+--- segments
+[0] "after"
+--- applied
+<pre>keep   this
+as is</pre><p><iframe src="https://video.example/e"></iframe></p><p><code>only_code</code></p><hr/><p>AFTER</p>

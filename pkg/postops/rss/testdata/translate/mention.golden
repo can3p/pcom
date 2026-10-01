@@ -1,0 +1,6 @@
+--- source
+<p>Hi <a href="/user/bob">@bob</a>, read <a href="/p/1">this post</a>.</p>
+--- segments
+[0] "Hi <span class=\"notranslate\" data-i=\"0\">@bob</span>, read <a data-i=\"1\">this post</a>."
+--- applied
+<p>HI <a href="/user/bob">@bob</a>, READ <a href="/p/1">THIS POST</a>.</p>
