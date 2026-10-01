@@ -64,7 +64,7 @@ func (s *Service) Post(ctx context.Context, actor *core.User, postID string, edi
 			return nil, err
 		}
 
-		out.Comments = postops.ConstructComments(comments, radius)
+		out.Comments = postops.ConstructComments(actor, comments, radius)
 	}
 
 	if out.Post.Capabilities.CanShare {

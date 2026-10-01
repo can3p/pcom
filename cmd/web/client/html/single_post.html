@@ -106,7 +106,7 @@
                       >
                 Leave a comment
               </button>
-              {{ if eq $.User.DBUser.ID .UserID }}
+              {{ if .Capabilities.CanEdit }}
               <button class="btn btn-sm btn-outline-secondary"
                       type="button"
                       data-controller="toggle"
@@ -124,7 +124,7 @@
           </div>
         </div>
       </div>
-      {{ if and $canLeaveComments (eq $.User.DBUser.ID .UserID) }}
+      {{ if .Capabilities.CanEdit }}
       <div class="card mt-2 collapse" id="comment-wrapper-edit{{ .PostID }}{{ .ID }}">
         <div class="card-body bg-theme-surface">
           {{ template "form--comment.html" toMap "PostID" .PostID "EditID" .ID "Body" .Body }}

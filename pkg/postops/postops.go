@@ -13,6 +13,9 @@ import (
 
 type CommentCapabilities struct {
 	CanRespond bool
+	// CanEdit is set on the viewer's own comments while they may still
+	// comment on the post; posts.EditComment enforces the same rule.
+	CanEdit bool
 }
 
 type Comment struct {
@@ -115,7 +118,7 @@ func ConstructPost(user *core.User, post *core.Post, radius graph.Radius, via []
 	}
 }
 
-func ConstructComments(comments core.PostCommentSlice, radius graph.Radius) []*Comment {
+func ConstructComments(user *core.User, comments core.PostCommentSlice, radius graph.Radius) []*Comment {
 	if len(comments) == 0 {
 		return nil
 	}
@@ -133,6 +136,7 @@ func ConstructComments(comments core.PostCommentSlice, radius graph.Radius) []*C
 			Author:      dbComment.R.User,
 			Capabilities: &CommentCapabilities{
 				CanRespond: radius.IsSameUser() || radius.IsDirect(),
+				CanEdit:    user != nil && user.ID == dbComment.UserID && GetPostCapabilities(radius).CanLeaveComments,
 			},
 			Level: 0,
 		}
