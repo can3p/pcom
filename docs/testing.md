@@ -255,6 +255,10 @@ few browser tests fail only there (an embedded external resource, inline-style C
 `TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility` and `TestActions_ShareLifecycle` (2026-10-01). Trust CI's
 `browser` job for those; W6 and refactor waves run the full suite there.
 
+The tools image may not build in the sandbox (Docker Hub rate limits, package mirrors blocked). Then run
+`PCOM_ALLOW_HOST_TOOLS=1 ./generate.sh` on the host with the sql-migrate and sqlboiler versions `tools/Dockerfile`
+pins, against a throwaway `postgres:16-alpine` container (F5 did, twice).
+
 ## Worked examples
 
 A unit test, pinning an unexported function's logic (ground rule 4):
