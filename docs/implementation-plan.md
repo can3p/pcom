@@ -66,7 +66,7 @@ Related documents:
 | F2 | Comment editing, with notifications (#176) | — | planned | `feat/f2-comment-edit` |
 | F3 | Public profile section on the blog page (#186) | — | planned | `feat/f3-profile` |
 | F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | planned | `feat/f4-pagination` |
-| F5 | Login with an emailed code, passwords removed (#175) | Q22 answered | planned | `feat/f5-login-codes` |
+| F5 | Login with an emailed code, passwords removed (#175) | — | planned | `feat/f5-login-codes` |
 | F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | planned | `feat/f6-website` |
 | F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | planned | `feat/f7-translation` |
 
@@ -87,7 +87,7 @@ F-waves are product features, planned from an issue; unlike the other waves they
 F2 comment edit ──┐
 F3 profile ───────┤  any order, in parallel
 F4 pagination ────┼──────────────── F7 translation (also an Azure key)
-F5 login codes ───┤  (Q22 first)
+F5 login codes ───┤
 F6 website ───────┘  (Pages enabled first; afterwards every F-wave updates the guide)
 ```
 
