@@ -16,11 +16,35 @@ import (
 )
 
 type Service struct {
-	store *repo.Store
+	store    *repo.Store
+	pageSize int
+	rssLimit int
 }
 
-func New(store *repo.Store) *Service {
-	return &Service{store: store}
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// WithLimits sets how many items a page of a list holds and how many an RSS
+// output lists. A value that isn't positive keeps the default.
+func WithLimits(pageSize, rssLimit int) Option {
+	return func(s *Service) {
+		if pageSize > 0 {
+			s.pageSize = pageSize
+		}
+
+		if rssLimit > 0 {
+			s.rssLimit = rssLimit
+		}
+	}
+}
+
+func New(store *repo.Store, opts ...Option) *Service {
+	s := &Service{store: store, pageSize: DefaultPageSize, rssLimit: DefaultRSSLimit}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // Post is a post as the actor may see it: the comments and the share link
@@ -100,7 +124,7 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username, curso
 		return nil, err
 	}
 
-	return s.journal(ctx, actor, username, after, PageSize)
+	return s.journal(ctx, actor, username, after, s.pageSize)
 }
 
 func (s *Service) journal(ctx context.Context, actor *core.User, username string, after Cursor, limit int) (*Journal, error) {
@@ -173,7 +197,7 @@ func (s *Service) journal(ctx context.Context, actor *core.User, username string
 
 // PublicFeed is what the public RSS feed of the user with that username
 // lists: the journal an anonymous visitor sees. Only a public profile has
-// one. It lists the newest RSSLimit posts.
+// one. It lists the newest rss limit posts (WithLimits).
 func (s *Service) PublicFeed(ctx context.Context, username string) (*Journal, error) {
 	author, err := s.store.UserByUsername(ctx, username)
 	if errors.Is(err, repo.ErrNotFound) {
@@ -186,7 +210,7 @@ func (s *Service) PublicFeed(ctx context.Context, username string) (*Journal, er
 		return nil, service.ErrNotFound
 	}
 
-	return s.journal(ctx, nil, username, Cursor{}, RSSLimit)
+	return s.journal(ctx, nil, username, Cursor{}, s.rssLimit)
 }
 
 // Posts is a page of posts. Next is the cursor of the next page, empty on
@@ -209,7 +233,7 @@ func (s *Service) Explore(ctx context.Context, actor *core.User, cursor string) 
 		profiles = append(profiles, core.ProfileVisibilityRegisteredUsers)
 	}
 
-	return s.publicPosts(ctx, actor, profiles, cursor, PageSize)
+	return s.publicPosts(ctx, actor, profiles, cursor, s.pageSize)
 }
 
 // PublicPosts is the page after cursor (empty for the first) of the public
@@ -218,13 +242,13 @@ func (s *Service) Explore(ctx context.Context, actor *core.User, cursor string) 
 // users or connections only stays readable at its own page but is not listed
 // here. Posts are built for nobody: no actor, no comments, no actions.
 func (s *Service) PublicPosts(ctx context.Context, cursor string) (*Posts, error) {
-	return s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, cursor, PageSize)
+	return s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, cursor, s.pageSize)
 }
 
-// PublicPostsRSS is the newest RSSLimit posts of the public feed, for its
+// PublicPostsRSS is the newest rss limit posts of the public feed, for its
 // RSS output.
 func (s *Service) PublicPostsRSS(ctx context.Context) ([]*postops.Post, error) {
-	page, err := s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, "", RSSLimit)
+	page, err := s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, "", s.rssLimit)
 	if err != nil {
 		return nil, err
 	}

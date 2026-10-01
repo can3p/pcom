@@ -21,7 +21,7 @@ func New(d *Deps) *gin.Engine {
 	db := d.DB
 
 	if d.Services == nil {
-		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength})
+		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit})
 	}
 
 	store := pgsession.NewStore(db, []byte(d.Config.SessionSalt))

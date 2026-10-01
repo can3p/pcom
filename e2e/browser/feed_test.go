@@ -116,7 +116,7 @@ func TestFeed_DismissRSSItemCancelled(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(feedItem(page, item)).ToBeVisible())
 }
 
-const pagedPosts = 35 // more than one page (reading.PageSize is 30)
+const pagedPosts = 35 // more than one page (reading.DefaultPageSize is 30)
 
 // publishPosts publishes n posts by author, oldest first, with the subjects
 // "<prefix> 01", "<prefix> 02", ...; the lowest numbers end up on the last page.

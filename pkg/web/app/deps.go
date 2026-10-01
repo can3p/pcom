@@ -51,4 +51,7 @@ type Config struct {
 	ShowErrors bool
 	// ReportPanics mails AdminAddress when a page panics.
 	ReportPanics bool
+	// PageSize is how many items a page of a list holds, RSSLimit how many
+	// items an RSS output lists; zero means the reading service's default.
+	PageSize, RSSLimit int
 }

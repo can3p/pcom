@@ -80,6 +80,11 @@ Help Options:
           --profile-about-max-length=         Most characters a user's About
                                               text may have (default: 6000)
                                               [$PROFILE_ABOUT_MAX_LENGTH]
+          --page-size=                        Items per page of the feed,
+                                              explore, the index and a journal
+                                              (default: 30) [$PAGE_SIZE]
+          --rss-limit=                        Items in every RSS output
+                                              (default: 50) [$RSS_LIMIT]
 
     User media:
           --user-media-endpoint=              S3 endpoint URL

@@ -132,7 +132,7 @@ func TestPublicPosts(t *testing.T) {
 // together list every post once, newest first then by ID, across a tie at the
 // boundary, and the last page has no Next, also when it is exactly full.
 // Explore adds the profiles open to registered users. The RSS outputs aren't
-// paged: they stop at RSSLimit. A cursor that doesn't parse is invalid input.
+// paged: they stop at DefaultRSSLimit. A cursor that doesn't parse is invalid input.
 func TestPostPages(t *testing.T) {
 	t.Parallel()
 
@@ -140,8 +140,8 @@ func TestPostPages(t *testing.T) {
 		name               string
 		public, registered int
 	}{
-		{"two pages", RSSLimit + 1, 4},
-		{"exactly full", PageSize, 0},
+		{"two pages", DefaultRSSLimit + 1, 4},
+		{"exactly full", DefaultPageSize, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -226,15 +226,15 @@ func TestPostPages(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					first, next, err := l.list("")
 					require.NoError(t, err)
-					require.Equal(t, l.want[:PageSize], ids(first))
-					if len(l.want) == PageSize {
+					require.Equal(t, l.want[:DefaultPageSize], ids(first))
+					if len(l.want) == DefaultPageSize {
 						require.Empty(t, next)
 						return
 					}
 
 					second, last, err := l.list(next)
 					require.NoError(t, err)
-					require.Len(t, second, len(l.want)-PageSize)
+					require.Len(t, second, len(l.want)-DefaultPageSize)
 					require.Equal(t, l.want, append(ids(first), ids(second)...))
 					require.Empty(t, last)
 
@@ -244,22 +244,22 @@ func TestPostPages(t *testing.T) {
 				})
 			}
 
-			if tc.public <= RSSLimit {
+			if tc.public <= DefaultRSSLimit {
 				return
 			}
 
 			token := testutil.Must(repo.RegenerateFeedToken(ctx, db, reader.ID))(t)
 			private, err := svc.PrivateFeed(ctx, token.Token)
 			require.NoError(t, err)
-			require.Equal(t, wantPublic[:RSSLimit], ids(private.Posts), "the private feed")
+			require.Equal(t, wantPublic[:DefaultRSSLimit], ids(private.Posts), "the private feed")
 
 			feed, err := svc.PublicFeed(ctx, author.Username)
 			require.NoError(t, err)
-			require.Equal(t, wantPublic[:RSSLimit], ids(feed.Posts), "the author's public feed")
+			require.Equal(t, wantPublic[:DefaultRSSLimit], ids(feed.Posts), "the author's public feed")
 
 			rss, err := svc.PublicPostsRSS(ctx)
 			require.NoError(t, err)
-			require.Equal(t, wantPublic[:RSSLimit], ids(rss), "the public feed")
+			require.Equal(t, wantPublic[:DefaultRSSLimit], ids(rss), "the public feed")
 		})
 	}
 }
@@ -279,21 +279,54 @@ func TestJournalAbout(t *testing.T) {
 	visitor := testutil.Must(factory.User(ctx, db))(t)
 	connect(t, db, ctx, visitor.ID, hidden.ID)
 
-	j, err := svc.Journal(ctx, nil, public.Username)
+	j, err := svc.Journal(ctx, nil, public.Username, "")
 	require.NoError(t, err)
 	require.Equal(t, "About **me**", j.About, "an anonymous visitor of a public journal")
 
-	j, err = svc.Journal(ctx, nil, none.Username)
+	j, err = svc.Journal(ctx, nil, none.Username, "")
 	require.NoError(t, err)
 	require.Empty(t, j.About)
 
-	_, err = svc.Journal(ctx, nil, hidden.Username)
+	_, err = svc.Journal(ctx, nil, hidden.Username, "")
 	require.ErrorIs(t, err, service.ErrNotFound)
 
-	_, err = svc.Journal(ctx, testutil.Must(factory.User(ctx, db))(t), hidden.Username)
+	_, err = svc.Journal(ctx, testutil.Must(factory.User(ctx, db))(t), hidden.Username, "")
 	require.ErrorIs(t, err, service.ErrNotFound, "a stranger")
 
-	j, err = svc.Journal(ctx, visitor, hidden.Username)
+	j, err = svc.Journal(ctx, visitor, hidden.Username, "")
 	require.NoError(t, err)
 	require.Equal(t, "secret", j.About, "a connection of a connections-only journal")
+}
+
+// WithLimits sizes every list: a page of posts and the RSS outputs. A limit
+// that isn't positive keeps the default.
+func TestWithLimits(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
+	for range 4 {
+		testutil.Must(factory.Post(ctx, db, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic)))(t)
+	}
+
+	svc := New(repo.Using(db), WithLimits(2, 3))
+
+	page := testutil.Must(svc.PublicPosts(ctx, ""))(t)
+	require.Len(t, page.Posts, 2)
+	require.NotEmpty(t, page.Next)
+
+	journal := testutil.Must(svc.Journal(ctx, nil, author.Username, ""))(t)
+	require.Len(t, journal.Posts, 2)
+
+	feed := testutil.Must(svc.PublicFeed(ctx, author.Username))(t)
+	require.Len(t, feed.Posts, 3)
+
+	rss := testutil.Must(svc.PublicPostsRSS(ctx))(t)
+	require.Len(t, rss, 3)
+
+	defaults := New(repo.Using(db), WithLimits(0, -1))
+	require.Equal(t, DefaultPageSize, defaults.pageSize)
+	require.Equal(t, DefaultRSSLimit, defaults.rssLimit)
 }

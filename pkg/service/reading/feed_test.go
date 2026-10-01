@@ -222,19 +222,19 @@ func TestFeedPages(t *testing.T) {
 
 			first, err := svc.Feed(ctx, reader, "")
 			require.NoError(t, err)
-			require.Equal(t, want[:PageSize], feedIDs(first.Items))
+			require.Equal(t, want[:DefaultPageSize], feedIDs(first.Items))
 			require.Len(t, first.DirectConnections, 1)
 			require.Len(t, first.OpenPrompts, 1)
 			require.NotNil(t, first.FeedToken)
 
-			if len(want) == PageSize {
+			if len(want) == DefaultPageSize {
 				require.Empty(t, first.Next)
 				return
 			}
 
 			second, err := svc.Feed(ctx, reader, first.Next)
 			require.NoError(t, err)
-			require.Equal(t, want[PageSize:], feedIDs(second.Items))
+			require.Equal(t, want[DefaultPageSize:], feedIDs(second.Items))
 			require.Empty(t, second.Next)
 			require.Nil(t, second.DirectConnections)
 			require.Empty(t, second.OpenPrompts)

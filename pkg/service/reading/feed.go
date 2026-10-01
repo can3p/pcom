@@ -60,7 +60,7 @@ func (s *Service) Feed(ctx context.Context, actor *core.User, cursor string) (*F
 		return nil, err
 	}
 
-	page := after.page(PageSize)
+	page := after.page(s.pageSize)
 
 	items, err := s.feedPosts(ctx, actor, page)
 	if err != nil {
@@ -84,7 +84,7 @@ func (s *Service) Feed(ctx context.Context, actor *core.User, cursor string) (*F
 	slices.SortFunc(items, compareItems)
 
 	out := &Feed{}
-	out.Items, out.Next = cut(items, PageSize, cursorOf)
+	out.Items, out.Next = cut(items, s.pageSize, cursorOf)
 
 	if cursor != "" {
 		return out, nil
@@ -124,7 +124,7 @@ type PrivateFeed struct {
 }
 
 // PrivateFeed resolves a private RSS feed token. Anybody who has the token
-// may read the feed, so there is no actor. It lists the newest RSSLimit
+// may read the feed, so there is no actor. It lists the newest rss limit
 // posts of the owner's feed.
 func (s *Service) PrivateFeed(ctx context.Context, token string) (*PrivateFeed, error) {
 	owner, err := s.store.FeedTokenOwner(ctx, token)
@@ -134,7 +134,7 @@ func (s *Service) PrivateFeed(ctx context.Context, token string) (*PrivateFeed, 
 		return nil, err
 	}
 
-	items, err := s.feedPosts(ctx, owner, repo.Page{Limit: RSSLimit})
+	items, err := s.feedPosts(ctx, owner, repo.Page{Limit: s.rssLimit})
 	if err != nil {
 		return nil, err
 	}
