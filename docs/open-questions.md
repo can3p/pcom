@@ -26,7 +26,69 @@ Raised by the 2026-09-21 modernization survey.
   the platform to collect, or something else? And should request logs carry
   the user ID, given the privacy rules for direct-only content?
 
+Raised by planning F2–F7 on 2026-10-01. Each wave file states the default
+it builds; confirm or change it before the wave starts.
+
+- **Q18. Comment edits (F2, #176).** Default: only the author, only while
+  they may still comment on the post; no mail to the post's author or the
+  participants on an edit; the marker shows the last edit time, no
+  history. Should an edit notify anybody, or should the post's author be
+  able to see the previous text?
+- **Q19. Profile section (F3, #186).** Default: shown only on the journal
+  page, to whoever may see the journal, under no heading of its own (a
+  block with the class `us-profile-about`); stored in its own table; empty
+  clears it. Should it also appear elsewhere (the per-user public RSS
+  feed's description, a hover card, explore), and should it have a heading
+  ("About")?
+- **Q20. Pagination (F4, #124).** Default: cursor pagination merging the
+  sources, 30 items a page, a "Load more" button (no infinite scroll), on
+  the feed, explore, the anonymous index and the journal (the journal is
+  not in the issue); RSS outputs capped at F1's 50 and not paged. Is the
+  journal in scope, and is 30 right?
+- **Q21. Magic links and prefetching (F5, #175).** Default: the mailed link
+  opens a page with a "Log in" button (a POST); no JS auto-submit, because
+  link scanners that run JS would log in; the link is not tied to the
+  browser that asked for it; 15 minutes, single use, at most 3 unused links
+  per 15 minutes. Alternatives: auto-submit with JS, or a code typed into
+  the original tab (works across devices, survives every scanner, costs a
+  step).
+- **Q22. Removing passwords (F5).** Default: every password path goes in
+  the wave; the `pwdhash` column is dropped by a later migration, deployed
+  after the wave has run in production; a CLI command `web admin
+  login-link --email` prints a link for an operator, as the way in when
+  mail is down. Keep a password login as a fallback instead? Is the CLI
+  escape hatch wanted?
+- **Q23. Invitations and signup without passwords (F5).** The issue: the
+  invite page asks to confirm, then mails a magic link. That's the default.
+  The alternative: log in right after confirming, since the invitation
+  link already proves the inbox, one step fewer. Which one? Open signup
+  (`FORCE_SIGNUP`) follows the same answer.
+- **Q24. The public website (F6, #145).** Default: GitHub Pages at
+  `can3p.github.io/pcom`; a small Go generator in `tools/site` over a new
+  user guide in `docs/guide/` plus `README.md`, `docs/running.md` and
+  `docs/api.md`; plans, history, lessons, testing and architecture stay
+  unpublished; screenshots committed and regenerated with `make
+  screenshots` from the seed world. Alternatives: mkdocs-material or Hugo
+  (a new toolchain in the tools image), screenshots generated in CI only. A
+  custom domain? Is the developer documentation public?
+- **Q26. Translation provider and budget (F7).** Default: Claude Haiku 4.5
+  through the Anthropic API, a key in the fly secrets, a per-user daily
+  limit (default 50 new translations) and a site-wide one (default 1,000);
+  no key turns the feature off. Which limits, and who pays?
+- **Q27. Language detection and target (F7).** Default: a local Go
+  library detects the language on publish, edit and RSS import, free and
+  offline, less accurate on short texts; English is the only target, stored
+  per user so others can come later. Alternative: ask the model to detect,
+  which costs a call per published post. Which library: the owner checks
+  the candidates' license and binary size at T0.
+
 ## Decided
+
+- **2026-10-01. Q25, translation and privacy (F7, #144):** the author
+  decides. A post is sent to the model provider for translation only if its
+  author allowed it with a per-post toggle (off by default, so no existing
+  post is translated until its author opts in); RSS items are always
+  translatable. Comments and profiles are out of scope.
 
 - **2026-10-01. Public post feed (#146, wave F1):** for an anonymous
   visitor `/` lists the 50 newest posts that Q15 allows (no pagination
