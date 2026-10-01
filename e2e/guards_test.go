@@ -250,6 +250,10 @@ var guardRoutes = []guardRoute{
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
+	{http.MethodGet, "/controls/translate/:kind/:id",
+		func(w *guardWorld) string { return "/controls/translate/post/" + w.published.ID }, noExtra},
+	{http.MethodGet, "/controls/translate/:kind/:id/original",
+		func(w *guardWorld) string { return "/controls/translate/post/" + w.published.ID + "/original" }, noExtra},
 	{http.MethodGet, "/controls/settings", staticPath("/controls/settings"), noExtra},
 
 	// /controls/action (actions.go and logout)
@@ -318,6 +322,8 @@ var guardRoutes = []guardRoute{
 		func(*guardWorld) map[string]string { return map[string]string{"styles": "body { color: red }"} }},
 	{http.MethodPost, "/controls/form/save_profile", staticPath("/controls/form/save_profile"),
 		func(*guardWorld) map[string]string { return map[string]string{"about": "About me"} }},
+	{http.MethodPost, "/controls/form/save_translation", staticPath("/controls/form/save_translation"),
+		func(*guardWorld) map[string]string { return map[string]string{"languages": "de"} }},
 	{http.MethodPost, "/controls/form/prompt_post", staticPath("/controls/form/prompt_post"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"message": "write about it", "recipient_handle": w.friend.Username}

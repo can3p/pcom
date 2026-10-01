@@ -15,7 +15,7 @@
     {{ if eq (len .Items) 0 }}
     <p>No posts yet</p>
     {{ else }}
-      {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL }}
+      {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL "Translation" .Translation }}
     {{ end }}
   </div>
 </div>

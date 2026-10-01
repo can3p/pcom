@@ -75,7 +75,7 @@ func lang(code string, allow bool) factory.PostOpt {
 
 func ruItem(i *core.RSSItem) {
 	i.Language = null.StringFrom("ru")
-	i.SanitizedDescription = "<p>Привет, <a href=\"https://example.com\">мир</a></p>"
+	i.SanitizedDescription = "Привет, [мир](https://example.com)\n\n- раз\n- два"
 }
 
 // publicPost makes a reader and a public, published post in lang.
@@ -516,4 +516,121 @@ func TestWorker(t *testing.T) {
 			require.Equal(t, chars, testutil.Must(store.TranslationCharsToday(ctx, reader.ID))(t), "the reader isn't charged")
 		})
 	}
+}
+
+// An RSS item is markdown like a post: its list and its link survive.
+func TestTranslate_RSSItemKeepsMarkdownStructure(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	reader, _, item := subscribedItem(t, db)
+	svc := newService(db, roomy, &fakeBackend{})
+
+	res, err := svc.Translate(context.Background(), reader, core.TranslationSourceKindRSSItem, item.ID)
+	require.NoError(t, err)
+	require.Contains(t, res.Body, "](https://example.com)")
+	require.Contains(t, res.Body, "- EN раз")
+	require.Contains(t, res.Body, "- EN два")
+}
+
+// Slot: what a post shows for each mode, from one load of the source.
+func TestSlot(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	store := repo.New(db)
+	post := core.TranslationSourceKindPost
+
+	t.Run("original has a button and no translation", func(t *testing.T) {
+		t.Parallel()
+
+		b := &fakeBackend{}
+		reader, p := publicPost(t, db)
+		slot := testutil.Must(newService(db, roomy, b).Slot(ctx, reader, post, p.ID, translations.SlotOriginal))(t)
+
+		require.True(t, slot.CanTranslate)
+		require.Nil(t, slot.Result)
+		require.Equal(t, "Привет, мир", slot.Body)
+		require.Equal(t, "ru", slot.Lang)
+		require.Zero(t, b.count())
+	})
+
+	t.Run("translate", func(t *testing.T) {
+		t.Parallel()
+
+		reader, p := publicPost(t, db)
+		slot := testutil.Must(newService(db, roomy, &fakeBackend{}).Slot(ctx, reader, post, p.ID, translations.SlotTranslate))(t)
+
+		require.Equal(t, "EN Привет, мир", slot.Result.Body)
+		require.Equal(t, "Привет, мир", slot.Body)
+	})
+
+	t.Run("auto translates a language in the list only", func(t *testing.T) {
+		t.Parallel()
+
+		b := &fakeBackend{}
+		svc := newService(db, roomy, b)
+		reader, p := publicPost(t, db)
+
+		slot := testutil.Must(svc.Slot(ctx, reader, post, p.ID, translations.SlotAuto))(t)
+		require.Nil(t, slot.Result)
+		require.True(t, slot.CanTranslate)
+		require.Zero(t, b.count())
+
+		require.NoError(t, svc.SetLanguages(ctx, reader, []string{"ru"}))
+
+		slot = testutil.Must(svc.Slot(ctx, reader, post, p.ID, translations.SlotAuto))(t)
+		require.NotNil(t, slot.Result)
+		require.Equal(t, 1, b.count())
+	})
+
+	t.Run("not translatable is the original without a button", func(t *testing.T) {
+		t.Parallel()
+
+		reader, p := publicPost(t, db, lang("ru", false))
+		slot := testutil.Must(newService(db, roomy, &fakeBackend{}).Slot(ctx, reader, post, p.ID, translations.SlotTranslate))(t)
+
+		require.False(t, slot.CanTranslate)
+		require.Nil(t, slot.Result)
+	})
+
+	t.Run("over the limit is the original and a message", func(t *testing.T) {
+		t.Parallel()
+
+		reader, p := publicPost(t, db)
+		svc := newService(db, translations.Limits{UserDailyChars: 5, SiteMonthlyChars: roomy.SiteMonthlyChars}, &fakeBackend{})
+		slot := testutil.Must(svc.Slot(ctx, reader, post, p.ID, translations.SlotTranslate))(t)
+
+		require.Nil(t, slot.Result)
+		require.False(t, slot.CanTranslate)
+		require.Equal(t, translations.MessageLimit, slot.Message)
+		require.Equal(t, "Привет, мир", slot.Body)
+	})
+
+	t.Run("being updated is the original and a message", func(t *testing.T) {
+		t.Parallel()
+
+		svc := newService(db, roomy, &fakeBackend{})
+		reader, p := publicPost(t, db)
+		makeStale(t, store, svc, reader, p.ID)
+		require.NoError(t, svc.RetranslateStale(ctx, store, p.ID))
+
+		slot := testutil.Must(svc.Slot(ctx, reader, post, p.ID, translations.SlotTranslate))(t)
+		require.Nil(t, slot.Result)
+		require.Equal(t, translations.MessageUpdating, slot.Message)
+	})
+
+	t.Run("anonymous and unreadable", func(t *testing.T) {
+		t.Parallel()
+
+		svc := newService(db, roomy, &fakeBackend{})
+		_, p := publicPost(t, db)
+
+		_, err := svc.Slot(ctx, nil, post, p.ID, translations.SlotOriginal)
+		require.ErrorIs(t, err, service.ErrNeedsLogin)
+
+		_, err = svc.Slot(ctx, testutil.Must(factory.User(ctx, db))(t), core.TranslationSourceKind("nope"), p.ID, translations.SlotOriginal)
+		require.ErrorIs(t, err, service.ErrNotFound)
+	})
 }

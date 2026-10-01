@@ -37,6 +37,7 @@ func TestLink_SimpleNames(t *testing.T) {
 		{"form_change_password", "/controls/form/change_password"},
 		{"form_whitelist_connection", "/controls/form/whitelist_connection"},
 		{"form_prompt_post", "/controls/form/prompt_post"},
+		{"form_save_translation", "/controls/form/save_translation"},
 	}
 
 	for _, tt := range tests {
@@ -56,6 +57,8 @@ func TestLink_WithArguments(t *testing.T) {
 		expected string
 	}{
 		{"post", []string{"123"}, "/posts/123"},
+		{"translate", []string{"post", "123"}, "/controls/translate/post/123"},
+		{"translate_original", []string{"rss_item", "9"}, "/controls/translate/rss_item/9/original"},
 		{"shared_post", []string{"456"}, "/shared/456"},
 		{"edit_post", []string{"789"}, "/posts/789/edit"},
 		{"user", []string{"user-id-1"}, "/users/user-id-1"},

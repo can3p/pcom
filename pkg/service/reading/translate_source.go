@@ -3,6 +3,7 @@ package reading
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -62,25 +63,30 @@ func (s *Service) PostsToTranslate(ctx context.Context, actor *core.User, posts 
 		return nil, nil
 	}
 
-	radii := map[string]graph.Radius{}
+	// the radii of all authors come from the actor's two neighbourhood queries,
+	// as the feed does, not one query per author
+	direct, secondDegree, _, err := graph.DirectAndSecondDegree(ctx, s.store, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	radiusOf := func(authorID string) graph.Radius {
+		switch {
+		case authorID == actor.ID:
+			return graph.RadiusSameUser
+		case slices.Contains(direct, authorID):
+			return graph.RadiusDirect
+		case slices.Contains(secondDegree, authorID):
+			return graph.RadiusSecondDegree
+		default:
+			return graph.RadiusUnrelated
+		}
+	}
+
 	out := make([]*core.Post, 0, len(posts))
 
 	for _, post := range posts {
-		if !post.PublishedAt.Valid {
-			continue
-		}
-
-		radius, ok := radii[post.UserID]
-		if !ok {
-			var err error
-			if radius, err = s.radius(ctx, actor, post.UserID); err != nil {
-				return nil, err
-			}
-
-			radii[post.UserID] = radius
-		}
-
-		if postops.CanSeePost(post, radius) {
+		if post.PublishedAt.Valid && postops.CanSeePost(post, radiusOf(post.UserID)) {
 			out = append(out, post)
 		}
 	}

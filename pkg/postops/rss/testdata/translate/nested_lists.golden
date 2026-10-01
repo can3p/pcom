@@ -1,9 +1,0 @@
---- source
-<ul><li>top <em>one</em><ul><li>nested two<ul><li>deep three</li></ul></li></ul></li><li>top four</li></ul>
---- segments
-[0] "top <em>one</em>"
-[1] "nested two"
-[2] "deep three"
-[3] "top four"
---- applied
-<ul><li>TOP <em>ONE</em><ul><li>NESTED TWO<ul><li>DEEP THREE</li></ul></li></ul></li><li>TOP FOUR</li></ul>

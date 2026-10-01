@@ -13,6 +13,16 @@
         </div>
       </div>
 
+      {{ with .Translation }}
+      <div class="card mt-2">
+        <h5 class="card-header">Translation</h5>
+        <div class="card-body">
+          <p class="card-text">Posts and feed items in other languages can be translated into English on request. Translations are made by a machine and may contain mistakes; each one says so and links back to the original.</p>
+          {{ template "form--settings-translation" .TemplateData }}
+        </div>
+      </div>
+      {{ end }}
+
       <div class="card mt-2">
         <h5 class="card-header">Import/Export</h5>
         <div class="card-body">
