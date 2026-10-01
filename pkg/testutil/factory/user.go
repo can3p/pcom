@@ -3,6 +3,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
@@ -11,6 +12,10 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
+
+// aboutTexts carries WithProfileAbout's text from the option to User, which
+// saves it once the user row exists. UserOpt only sees the user.
+var aboutTexts sync.Map
 
 // UserOpt customizes a User before it is inserted.
 type UserOpt func(*core.User)
@@ -43,6 +48,14 @@ func WithEmail(email string) UserOpt {
 func WithVisibility(v core.ProfileVisibility) UserOpt {
 	return func(u *core.User) {
 		u.ProfileVisibility = v
+	}
+}
+
+// WithProfileAbout gives the user an "About" text, saved after the user is
+// inserted.
+func WithProfileAbout(about string) UserOpt {
+	return func(u *core.User) {
+		aboutTexts.Store(u, about)
 	}
 }
 
@@ -85,6 +98,12 @@ func User(ctx context.Context, exec boil.ContextExecutor, opts ...UserOpt) (*cor
 
 	if err := u.Insert(ctx, exec, boil.Infer()); err != nil {
 		return nil, err
+	}
+
+	if about, ok := aboutTexts.LoadAndDelete(u); ok {
+		if err := repo.Using(exec).SaveProfileAbout(ctx, u.ID, about.(string)); err != nil {
+			return nil, err
+		}
 	}
 
 	return u, nil

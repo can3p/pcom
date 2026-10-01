@@ -75,6 +75,7 @@ func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 		"markdown_feed":         markdown(types.ViewFeed),
 		"markdown_edit_preview": markdown(types.ViewEditPreview),
 		"markdown_comment":      markdown(types.ViewComment),
+		"markdown_profile":      markdown(types.ViewProfile),
 		"markdown_article":      markdown(types.ViewArticle),
 
 		"tzlist": func() []string {

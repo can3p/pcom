@@ -23,6 +23,7 @@ var TableNames = struct {
 	UserFeedSubscriptions           string
 	UserFeedTokens                  string
 	UserInvitations                 string
+	UserProfiles                    string
 	UserSignupRequests              string
 	UserStyles                      string
 	Users                           string
@@ -47,6 +48,7 @@ var TableNames = struct {
 	UserFeedSubscriptions:           "user_feed_subscriptions",
 	UserFeedTokens:                  "user_feed_tokens",
 	UserInvitations:                 "user_invitations",
+	UserProfiles:                    "user_profiles",
 	UserSignupRequests:              "user_signup_requests",
 	UserStyles:                      "user_styles",
 	Users:                           "users",

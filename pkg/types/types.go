@@ -11,6 +11,7 @@ const (
 	ViewSinglePost  HTMLView = "single_post"
 	ViewFeed        HTMLView = "feed"
 	ViewComment     HTMLView = "comment"
+	ViewProfile     HTMLView = "profile"
 	ViewArticle     HTMLView = "article"
 	ViewEmail       HTMLView = "post_notification_email"
 	ViewRSS         HTMLView = "rss_feed"
