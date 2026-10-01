@@ -79,7 +79,8 @@ for callers built without configuration, and tests use that constant, not the li
   tests). CI's Go Fix job commits whatever go fix rewrites, straight onto the branch, and that commit must
   still pass Lint: a helper go fix inlines everywhere is left unused, for example.
 - Never `go test -v ./...`, never `-json`, never `cat` a log. Dig into a failure with `grep -n` on the log path
-  the report prints, or re-run the single test with `-v`.
+  the report prints, or re-run the single test with `-v`. `make cover` prints the whole `-coverpkg` list on
+  every package line: send it to a file and read `make cover-check`, or grep only `^(--- FAIL|FAIL)`.
 - Golden files: after `UPDATE_GOLDEN=1`, check `git diff --stat`, not the contents.
 - Pipe unavoidable noisy commands (`docker compose`, `yarn`, `gh run view`) through `tail -n 40` or `grep`.
 - Don't paste code or logs into reports to a coordinator.
