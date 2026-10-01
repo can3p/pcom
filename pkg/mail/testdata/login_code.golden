@@ -1,0 +1,25 @@
+EmailType: login_code
+UniqueID: attempt-1
+From: Your pcom <noreply@pcom.test>
+To: user@example.test
+Subject: Your pcom login code
+
+--- TEXT ---
+
+	Hi!
+
+	Your pcom login code is 123456
+
+	It works once, for the next 15 minutes.
+
+	If you didn't try to log in to pcom, ignore this mail: nobody can log in without the code.
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>Your pcom login code is <strong>123456</strong></p>
+
+	<p>It works once, for the next 15 minutes.</p>
+
+	<p>If you didn't try to log in to pcom, ignore this mail: nobody can log in without the code.</p>

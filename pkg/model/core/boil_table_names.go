@@ -4,6 +4,7 @@
 package core
 
 var TableNames = struct {
+	LoginAttempts                   string
 	MediaUploads                    string
 	NormalizedUrls                  string
 	OutgoingEmails                  string
@@ -29,6 +30,7 @@ var TableNames = struct {
 	Users                           string
 	WhitelistedConnections          string
 }{
+	LoginAttempts:                   "login_attempts",
 	MediaUploads:                    "media_uploads",
 	NormalizedUrls:                  "normalized_urls",
 	OutgoingEmails:                  "outgoing_emails",

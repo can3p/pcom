@@ -161,6 +161,7 @@ var UserRels = struct {
 	UserFeedToken                             string
 	UserProfile                               string
 	UserStyle                                 string
+	LoginAttempts                             string
 	MediaUploads                              string
 	PostComments                              string
 	AskerPostPrompts                          string
@@ -183,6 +184,7 @@ var UserRels = struct {
 	UserFeedToken:        "UserFeedToken",
 	UserProfile:          "UserProfile",
 	UserStyle:            "UserStyle",
+	LoginAttempts:        "LoginAttempts",
 	MediaUploads:         "MediaUploads",
 	PostComments:         "PostComments",
 	AskerPostPrompts:     "AskerPostPrompts",
@@ -208,6 +210,7 @@ type userR struct {
 	UserFeedToken                             *UserFeedToken                      `boil:"UserFeedToken" json:"UserFeedToken" toml:"UserFeedToken" yaml:"UserFeedToken"`
 	UserProfile                               *UserProfile                        `boil:"UserProfile" json:"UserProfile" toml:"UserProfile" yaml:"UserProfile"`
 	UserStyle                                 *UserStyle                          `boil:"UserStyle" json:"UserStyle" toml:"UserStyle" yaml:"UserStyle"`
+	LoginAttempts                             LoginAttemptSlice                   `boil:"LoginAttempts" json:"LoginAttempts" toml:"LoginAttempts" yaml:"LoginAttempts"`
 	MediaUploads                              MediaUploadSlice                    `boil:"MediaUploads" json:"MediaUploads" toml:"MediaUploads" yaml:"MediaUploads"`
 	PostComments                              PostCommentSlice                    `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
 	AskerPostPrompts                          PostPromptSlice                     `boil:"AskerPostPrompts" json:"AskerPostPrompts" toml:"AskerPostPrompts" yaml:"AskerPostPrompts"`
@@ -294,6 +297,22 @@ func (r *userR) GetUserStyle() *UserStyle {
 	}
 
 	return r.UserStyle
+}
+
+func (o *User) GetLoginAttempts() LoginAttemptSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetLoginAttempts()
+}
+
+func (r *userR) GetLoginAttempts() LoginAttemptSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.LoginAttempts
 }
 
 func (o *User) GetMediaUploads() MediaUploadSlice {
@@ -752,6 +771,20 @@ func (o *User) UserStyle(mods ...qm.QueryMod) userStyleQuery {
 	queryMods = append(queryMods, mods...)
 
 	return UserStyles(queryMods...)
+}
+
+// LoginAttempts retrieves all the login_attempt's LoginAttempts with an executor.
+func (o *User) LoginAttempts(mods ...qm.QueryMod) loginAttemptQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"login_attempts\".\"user_id\"=?", o.ID),
+	)
+
+	return LoginAttempts(queryMods...)
 }
 
 // MediaUploads retrieves all the media_upload's MediaUploads with an executor.
@@ -1418,6 +1451,112 @@ func (userL) LoadUserStyle(ctx context.Context, e boil.ContextExecutor, singular
 				local.R.UserStyle = foreign
 				if foreign.R == nil {
 					foreign.R = &userStyleR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadLoginAttempts allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadLoginAttempts(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`login_attempts`),
+		qm.WhereIn(`login_attempts.user_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load login_attempts")
+	}
+
+	var resultSlice []*LoginAttempt
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice login_attempts")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on login_attempts")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for login_attempts")
+	}
+
+	if singular {
+		object.R.LoginAttempts = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &loginAttemptR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if queries.Equal(local.ID, foreign.UserID) {
+				local.R.LoginAttempts = append(local.R.LoginAttempts, foreign)
+				if foreign.R == nil {
+					foreign.R = &loginAttemptR{}
 				}
 				foreign.R.User = local
 				break
@@ -3467,6 +3606,167 @@ func (o *User) SetUserStyle(ctx context.Context, exec boil.ContextExecutor, inse
 	} else {
 		related.R.User = o
 	}
+	return nil
+}
+
+// AddLoginAttemptsP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.LoginAttempts.
+// Sets related.R.User appropriately.
+// Panics on error.
+func (o *User) AddLoginAttemptsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*LoginAttempt) {
+	if err := o.AddLoginAttempts(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddLoginAttempts adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.LoginAttempts.
+// Sets related.R.User appropriately.
+func (o *User) AddLoginAttempts(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*LoginAttempt) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			queries.Assign(&rel.UserID, o.ID)
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"login_attempts\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, loginAttemptPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.UserID, o.ID)
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			LoginAttempts: related,
+		}
+	} else {
+		o.R.LoginAttempts = append(o.R.LoginAttempts, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &loginAttemptR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
+	return nil
+}
+
+// SetLoginAttemptsP removes all previously related items of the
+// user replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.User's LoginAttempts accordingly.
+// Replaces o.R.LoginAttempts with related.
+// Sets related.R.User's LoginAttempts accordingly.
+// Panics on error.
+func (o *User) SetLoginAttemptsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*LoginAttempt) {
+	if err := o.SetLoginAttempts(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetLoginAttempts removes all previously related items of the
+// user replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.User's LoginAttempts accordingly.
+// Replaces o.R.LoginAttempts with related.
+// Sets related.R.User's LoginAttempts accordingly.
+func (o *User) SetLoginAttempts(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*LoginAttempt) error {
+	query := "update \"login_attempts\" set \"user_id\" = null where \"user_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.LoginAttempts {
+			queries.SetScanner(&rel.UserID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.User = nil
+		}
+		o.R.LoginAttempts = nil
+	}
+
+	return o.AddLoginAttempts(ctx, exec, insert, related...)
+}
+
+// RemoveLoginAttemptsP relationships from objects passed in.
+// Removes related items from R.LoginAttempts (uses pointer comparison, removal does not keep order)
+// Sets related.R.User.
+// Panics on error.
+func (o *User) RemoveLoginAttemptsP(ctx context.Context, exec boil.ContextExecutor, related ...*LoginAttempt) {
+	if err := o.RemoveLoginAttempts(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveLoginAttempts relationships from objects passed in.
+// Removes related items from R.LoginAttempts (uses pointer comparison, removal does not keep order)
+// Sets related.R.User.
+func (o *User) RemoveLoginAttempts(ctx context.Context, exec boil.ContextExecutor, related ...*LoginAttempt) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.UserID, nil)
+		if rel.R != nil {
+			rel.R.User = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("user_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.LoginAttempts {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.LoginAttempts)
+			if ln > 1 && i < ln-1 {
+				o.R.LoginAttempts[i] = o.R.LoginAttempts[ln-1]
+			}
+			o.R.LoginAttempts = o.R.LoginAttempts[:ln-1]
+			break
+		}
+	}
+
 	return nil
 }
 

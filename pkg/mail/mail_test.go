@@ -707,3 +707,12 @@ func TestPostCommentEdited(t *testing.T) {
 		})
 	}
 }
+
+func TestLoginCode(t *testing.T) {
+	t.Parallel()
+
+	sender := fakesender.New()
+	require.NoError(t, send(context.Background(), sender, mail.LoginCode(testFrom, "attempt-1", "user@example.test", "123456", 15*time.Minute)))
+
+	golden.Assert(t, "login_code", mailsToGolden(sender.Sent()))
+}
