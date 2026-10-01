@@ -30,10 +30,16 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/testcontainers/postgres"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/jmoiron/sqlx"
 )
+
+// SessionSalt is the SESSION_SALT of the app under test. The login code key
+// comes from it, so LoginAs can ask for a code of its own.
+const SessionSalt = "test"
 
 var (
 	// repoRoot is the module root, resolved from this file.
@@ -164,6 +170,10 @@ type App struct {
 	DB *sqlx.DB
 
 	tommy *tommy.Tommy
+
+	// loginMu keeps two LoginAs of one app from interleaving: the newest
+	// attempt of an address is the one LoginAs finishes.
+	loginMu sync.Mutex
 }
 
 // AdminAddress is the ADMIN_ADDRESS the binary runs with: admin
@@ -209,6 +219,28 @@ func (a *App) QueuedMails(t testing.TB) int {
 	}
 
 	return n
+}
+
+// IssueLoginCode gives the newest open login attempt of email a fresh code
+// without mailing it, the way the operator's command line does; it fails the
+// test when email has no open attempt, so post it to /form/login first.
+func (a *App) IssueLoginCode(t testing.TB, email string) string {
+	t.Helper()
+
+	ctx := context.Background()
+	svc := accounts.New(repo.New(a.DB), nil, nil, accounts.WithCodeKey(SessionSalt))
+
+	attempt, err := svc.LatestLoginAttempt(ctx, email)
+	if err != nil {
+		t.Fatalf("e2e: no login attempt for %s: %v", email, err)
+	}
+
+	code, err := svc.IssueLoginCode(ctx, attempt)
+	if err != nil {
+		t.Fatalf("e2e: no login code for %s: %v", email, err)
+	}
+
+	return code
 }
 
 // Mails waits for the app to send its mail and returns what was delivered to
@@ -340,7 +372,7 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 	env := map[string]string{
 		"PORT":                fmt.Sprint(port),
 		"DATABASE_URL":        dbURL,
-		"SESSION_SALT":        "test",
+		"SESSION_SALT":        SessionSalt,
 		"SITE_ROOT":           url,
 		"GIN_MODE":            "release",
 		"SENDER_ADDRESS":      "pcom@pcom.test",

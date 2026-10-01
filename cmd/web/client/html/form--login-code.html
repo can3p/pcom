@@ -1,0 +1,37 @@
+<form method="POST"
+      action="{{ link "form_login_code" }}"
+      hx-post="{{ link "form_login_code" }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="this"
+  >
+
+  <input type="hidden" name="email" value="{{ .Input.Email }}" />
+  <input type="hidden" name="return_url" value="{{ .Input.ReturnURL }}" />
+  <input type="hidden" name="sign" value="{{ .Input.Sign }}" />
+
+  {{ with .FormError }}
+  <div class="alert alert-danger">{{ . }}</div>
+  {{ end }}
+
+  <p>If <strong>{{ .Input.Email }}</strong> belongs to an account, we have mailed a login code to it.</p>
+
+  <div class="mb-3">
+    <label for="loginCode" class="form-label">Code</label>
+    <input name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                       class="form-control {{ if (.Errors.HasError "code") }}is-invalid{{ end }}"
+                       id="loginCode" required autofocus>
+    {{ if (.Errors.HasError "code") }}
+    <div class="invalid-feedback">{{ .Errors.code }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100">Log in</button>
+
+  <div class="col-12 mt-3 form-text">
+    {{ if .Input.Sign }}
+    <p class="mb-0"><a href="{{ link "login" "return_url" .Input.ReturnURL "sign" .Input.Sign }}">Use a different email</a></p>
+    {{ else }}
+    <p class="mb-0"><a href="{{ link "login" }}">Use a different email</a></p>
+    {{ end }}
+  </div>
+</form>

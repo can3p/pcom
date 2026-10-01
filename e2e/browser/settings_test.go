@@ -95,9 +95,7 @@ func TestSettings_ChangePasswordValidatesInPlaceThenLogsInAgain(t *testing.T) {
 	_, err = page.Goto("/login")
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByLabel("Email address").Fill(user.Email))
-	require.NoError(t, page.GetByLabel("Password").Fill(newPassword))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click())
+	browser.LogInWithCode(t, app, page, user.Email)
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
 }

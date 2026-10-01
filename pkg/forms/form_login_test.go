@@ -2,113 +2,60 @@ package forms_test
 
 import (
 	"context"
+	gogoforms "github.com/can3p/gogo/forms"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
-
-func TestLoginForm_Validate(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	tests := []struct {
-		name         string
-		setup        func(t *testing.T) (email, password string)
-		wantErr      bool
-		wantErrField string
-	}{
-		{name: "empty email", setup: func(t *testing.T) (string, string) { return "", "somepassword" },
-			wantErr: true, wantErrField: "email"},
-		{name: "empty password", setup: func(t *testing.T) (string, string) { return "valid@example.test", "" },
-			wantErr: true, wantErrField: "password"},
-		{name: "invalid credentials", setup: func(t *testing.T) (string, string) {
-			u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
-			return u.Email, "wrongpassword"
-		}, wantErr: true},
-		{name: "case-insensitive email",
-			setup: func(t *testing.T) (string, string) {
-				u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
-				return strings.ToUpper(u.Email), "correctpassword"
-			}, wantErr: false},
-		{name: "valid credentials", setup: func(t *testing.T) (string, string) {
-			u := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
-			return u.Email, "correctpassword"
-		}, wantErr: false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-			email, password := tt.setup(t)
-
-			form := forms.LoginFormNew(accountsFor(db, nil), testSalt, testSiteRoot).(*forms.LoginForm)
-			form.Input.Email = email
-			form.Input.Password = password
-
-			err := form.Validate(c)
-			if !tt.wantErr {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			if tt.wantErrField != "" {
-				require.True(t, form.Errors.HasError(tt.wantErrField))
-			}
-		})
-	}
-}
 
 const (
 	testSalt     = "test-salt"
 	testSiteRoot = "https://site.test"
 )
 
-func TestLoginForm_Save(t *testing.T) {
+// codeAccounts is the accounts service with the code key logging in needs.
+func codeAccounts(db *sqlx.DB) *accounts.Service {
+	return accounts.New(repo.New(db), fakesender.New(), nil, accounts.WithCodeKey("test-key"))
+}
+
+func TestLoginForm_ValidateNeedsAnEmail(t *testing.T) {
+	t.Parallel()
+
+	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+	form := forms.LoginFormNew(nil, testSalt).(*forms.LoginForm)
+	form.Input.Email = "  "
+
+	require.ErrorIs(t, form.Validate(c), gogoforms.ErrValidationFailed)
+	require.True(t, form.Errors.HasError("email"))
+}
+
+// A known and an unknown address are answered the same way: an attempt is
+// kept in the session and the code form follows.
+func TestLoginForm_SaveStartsAnAttemptForAnyAddress(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
-	ctx := context.Background()
+	user := testutil.Must(factory.User(context.Background(), db))(t)
 
-	tests := []struct {
-		name         string
-		sign         func(returnURL string) string
-		wantRedirect func(returnURL string) string
-	}{
-		{"signed return url redirects there", func(u string) string { return auth.HashValue(testSalt, u) }, func(u string) string { return testSiteRoot + u }},
-		{"bad signature redirects home", func(string) string { return "not-a-valid-signature" }, func(string) string { return links.DefaultAuthorizedHome() }},
-	}
+	for _, email := range []string{user.Email, "nobody@example.test"} {
+		c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
+		form := forms.LoginFormNew(codeAccounts(db), testSalt).(*forms.LoginForm)
+		form.Input.Email = email
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			user := testutil.Must(factory.User(ctx, db, factory.WithPassword("correctpassword")))(t)
-			c, w := ginctx.New(t, http.MethodPost, "/login", nil)
-
-			form := forms.LoginFormNew(accountsFor(db, nil), testSalt, testSiteRoot).(*forms.LoginForm)
-			form.Input.Email = user.Email
-			form.Input.Password = "correctpassword"
-			form.Input.ReturnURL = "/feed"
-			form.Input.Sign = tt.sign(form.Input.ReturnURL)
-
-			action, err := form.Save(c)
-			require.NoError(t, err)
-			action(c, form)
-
-			require.Equal(t, tt.wantRedirect(form.Input.ReturnURL), w.Header().Get("HX-Redirect"))
-		})
+		action, err := form.Save(c)
+		require.NoError(t, err)
+		require.NotNil(t, action)
+		require.NotEmpty(t, auth.LoginAttempt(c), email)
 	}
 }

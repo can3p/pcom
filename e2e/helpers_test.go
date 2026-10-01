@@ -28,7 +28,7 @@ func loginAs(t *testing.T, app *e2e.App, u *core.User) *e2e.Client {
 	t.Helper()
 
 	c := app.Client(t)
-	c.LoginAs(u.Email, testPassword)
+	c.LoginAs(u.Email)
 
 	return c
 }
