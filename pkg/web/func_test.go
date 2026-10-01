@@ -379,7 +379,9 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 
 	byID := map[string]*FeedItem{}
 	for _, item := range page.Items {
-		byID[item.Post.ID] = item
+		if item.Post != nil {
+			byID[item.Post.ID] = item
+		}
 	}
 
 	require.Contains(t, byID, directPost.ID, "a direct connection's post is always visible")
