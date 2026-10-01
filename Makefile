@@ -1,4 +1,4 @@
-.PHONY: shell tunnel lint test test-short cover cover-check build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace \
+.PHONY: shell tunnel lint test test-short cover cover-check build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace screenshots \
 	dev-up dev dev-logs dev-down migrate migrate-status migrate-down migration generate psql db-reset seed seed-reset \
 	tools-shell migrate-prod
 
@@ -98,6 +98,12 @@ ui-deps:
 test-ui:
 	@tools/qrun.sh ui-build yarn --cwd cmd/web build
 	@HEADED=$(HEADED) SLOWMO=$(SLOWMO) tools/qrun.sh test-ui go test -tags browser -count=$(COUNT) $(if $(RUN),-run '$(RUN)') ./e2e/browser/...
+
+# `make screenshots` regenerates docs/guide/screenshots/ (build tag `screenshots`,
+# never part of test-ui).
+screenshots:
+	@tools/qrun.sh ui-build yarn --cwd cmd/web build
+	@HEADED=$(HEADED) SLOWMO=$(SLOWMO) tools/qrun.sh screenshots go test -tags browser,screenshots -count=1 ./e2e/browser/screenshots/
 
 ui-trace:
 	$(PLAYWRIGHT) show-trace $(F)
