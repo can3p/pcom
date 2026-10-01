@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
@@ -14,7 +15,7 @@ import (
 
 // The account links are the one-shot URLs sent by email. Their flows through
 // the browser are in e2e/browser/accounts_test.go (accepting an invite, and
-// signing up and confirming, skipped for #139); here are the server rules:
+// signing up, each finished with the emailed code); here are the server rules:
 // which link is honored, which is refused, and what the database records.
 
 // TestAccounts_SignupRendersFormForRegistrationState checks that /signup offers
@@ -167,6 +168,36 @@ func TestAccounts_AcceptInviteStartsACodeLogin(t *testing.T) {
 		require.Error(t, err)
 		app.NoMails(t, to, func(m tommy.Mail) bool { return m.Subject == "Your pcom login code" })
 	})
+}
+
+// The /confirm_signup/:id link is gone: codes replaced it.
+func TestAccounts_ConfirmSignupLinkIsGone(t *testing.T) {
+	app := e2e.Start(t)
+
+	app.Client(t).Get("/confirm_signup/550e8400-e29b-41d4-a716-446655440000").RequireStatus(http.StatusNotFound)
+}
+
+// TestAccounts_SignupStartsACodeLogin checks the wiring of the signup form: it
+// answers with the code form, mails the code, and leaves a user without a
+// password who is not confirmed yet.
+func TestAccounts_SignupStartsACodeLogin(t *testing.T) {
+	app := e2e.Start(t)
+	ctx := context.Background()
+	require.NoError(t, factory.SetRegistrationOpen(ctx, app.DB, true))
+
+	const to = "e2e-signup@example.test"
+
+	anon := app.Client(t)
+	anon.Get("/signup").RequireStatus(http.StatusOK)
+
+	resp := anon.PostForm("/form/signup", url.Values{"email": {to}, "username": {"e2esignup"}}).RequireStatus(http.StatusOK)
+	require.Equal(t, 1, resp.Doc().Find(`form[action="/form/login/code"]`).Length())
+
+	user, err := factory.GetUserByEmail(ctx, app.DB, to)
+	require.NoError(t, err)
+	require.False(t, user.EmailConfirmedAt.Valid)
+	require.False(t, user.Pwdhash.Valid)
+	require.Len(t, app.Mails(t, to, func(m tommy.Mail) bool { return strings.Contains(m.Text, "confirmation code is") }), 1)
 }
 
 // TestAccounts_ConfirmWaitingList checks that /confirm_waiting_list/:id records the
