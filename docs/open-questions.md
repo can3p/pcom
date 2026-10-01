@@ -74,14 +74,17 @@ it builds; confirm or change it before the wave starts.
 ## Decided
 
 - **2026-10-01. Q26, translation provider (F7, #144):** translation is
-  common infrastructure (`pkg/translate`) with a pluggable backend chosen by
-  configuration; Azure Translator is the first backend. Limits are in
+  common infrastructure (`pkg/translate`) with pluggable backends, all
+  compiled in; the deployment picks one with `TRANSLATION_PROVIDER`. Azure
+  Translator is the first. Settings are scoped to the provider
+  (`TRANSLATION_AZURE_KEY`, …), never global, and only the selected
+  backend's are required. Limits are in
   characters: per user per day, site-wide per month (default 2M, Azure
   F0's cap). Every translation is labelled as automatic, with the
   provider's name and "Show original". Integration and browser tests run
-  against a mock Azure API built on a new universal API-mock primitive
-  (`pkg/testutil/apimock`), never a real provider; tommy stays for mail and
-  storage. Options considered, cheapest first (2026-10 prices):
+  against WireMock (JSON stubs, a shared testcontainer, `go-wiremock` to
+  verify calls; Hoverfly, Killgrave, Smocker and in-process mocks were
+  compared), never a real provider; tommy stays for mail and storage. Options considered, cheapest first (2026-10 prices):
   self-hosted LibreTranslate; the MT free tiers (Azure F0 2M chars a month,
   DeepL and Google 500k); Claude Haiku 4.5 (~$1.5 per million characters);
   Azure S1 $10, Google $20, DeepL Pro $25 per million characters; Claude

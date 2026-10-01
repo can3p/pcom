@@ -121,12 +121,14 @@ branch from `origin/master`; what they share:
   a mail and changes two (`login_link`, `invite`, `confirm_signup`), which
   R4 declares with the rest. F7's worker logs; R7 converts it with the
   others if it lands first.
-- **go.mod.** Only F7 (T0) adds a dependency: a language detection
-  library. Its translation backends are plain HTTP clients.
-- **Third-party API mocks.** F7's TM adds `pkg/testutil/apimock`, a
-  universal stub server for APIs pcom calls (tommy stays for mail and
-  storage). It changes `e2e/harness.go` (a new option only) and can run
-  before the rest of F7.
+- **go.mod.** Only F7 adds dependencies: `go-wiremock` (TM, tests) and a
+  language detection library (T0). Its translation backends are plain HTTP
+  clients.
+- **Third-party API stubs.** F7's TM adds WireMock as a shared test
+  container (`pkg/testutil/wiremock`, JSON stubs next to each backend) for
+  APIs pcom calls; tommy stays for mail and storage. It changes
+  `e2e/harness.go` (a new option only) and `go.mod` (`go-wiremock`), and can
+  run before the rest of F7.
 
 Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.md`), with the task table ahead of the `###` task sections; a finished wave's file is deleted and its record moves to `docs/archive/history.md`.
 
