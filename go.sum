@@ -368,6 +368,8 @@ github.com/volatiletech/sqlboiler/v4 v4.19.1/go.mod h1:q10x7FF/cR86pf8VT/0L0FTnL
 github.com/volatiletech/strmangle v0.0.1/go.mod h1:F6RA6IkB5vq0yTG4GQ0UsbbRcl3ni9P76i+JrTBKFFg=
 github.com/volatiletech/strmangle v0.0.8 h1:UZkTDFIjZcL1Lk4BXhGsxcyXxNcWuM5ZwdzZc0sJcWg=
 github.com/volatiletech/strmangle v0.0.8/go.mod h1:ycDvbDkjDvhC0NUU8w3fWwl5JEMTV56vTKXzR3GeR+0=
+github.com/wiremock/go-wiremock v1.16.0 h1:zTdLQxHwc1igMOiy+ZhY+rDGctXyvl3RFCNVUOwHTKg=
+github.com/wiremock/go-wiremock v1.16.0/go.mod h1:Sp+z/P7s0MB6jjj5Y3WWjDsPHfHPV/heZj0ej+EOdeY=
 github.com/xanzy/ssh-agent v0.3.0/go.mod h1:3s9xbODqPuuhK9JV1R321M/FlMZSBvE5aY6eAcqrDh0=
 github.com/yuin/goldmark v1.4.5/go.mod h1:rmuwmfZ0+bvzB24eSC//bk1R1Zp3hM0OXYv/G2LIilg=
 github.com/yuin/goldmark v1.8.6 h1:d0VcaP1sx9GkFVkoW+KtggpGi2KZ965i14b0+bDQST4=
