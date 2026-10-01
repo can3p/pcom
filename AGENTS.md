@@ -28,6 +28,11 @@ Target layering (built by waves R1 and RS; new code follows it now): handlers on
 service and render; services (`pkg/service/<area>`) hold business rules, authorization and transactions;
 all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a handler.
 
+**No magic numbers.** A limit or tunable value (a length cap, a page size, a timeout) is a setting in
+`pkg/config` with its default there, handed to the service as an option; the service exports the same default
+for callers built without configuration, and tests use that constant, not the literal. Pattern:
+`Limits.ProfileAboutMaxLength` → `accounts.WithProfileAboutMaxLength`.
+
 ## Reading code economically
 
 - **Generated code is never read.** `pkg/model/core` is 1 MB of sqlboiler output. `make model` lists the
