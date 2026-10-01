@@ -105,6 +105,14 @@
 
   </div>
 
+  <div class="card mt-2">
+    <h5 class="card-header">Public profile</h5>
+    <div class="card-body">
+      <p>The text is shown under an <em>About</em> heading at the top of your journal. Markdown is supported.</p>
+      {{ template "form--settings-profile.html" .Profile.TemplateData }}
+    </div>
+  </div>
+
   {{ template "partial--settings_user_styles.html"  .UserStyles.TemplateData }}
 
   {{ template "partial--settings_feeds.html"  toMap "Feeds" .Feeds "User" .User }}

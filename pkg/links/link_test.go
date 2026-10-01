@@ -30,6 +30,7 @@ func TestLink_SimpleNames(t *testing.T) {
 		{"form_new_comment", "/controls/form/new_comment"},
 		{"form_save_settings", "/controls/form/save_settings"},
 		{"form_user_styles", "/controls/form/save_user_styles"},
+		{"form_save_profile", "/controls/form/save_profile"},
 		{"form_add_user_feed", "/controls/form/add_user_feed"},
 		{"form_send_invite", "/controls/form/send_invite"},
 		{"form_change_password", "/controls/form/change_password"},

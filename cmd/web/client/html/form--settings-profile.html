@@ -1,0 +1,40 @@
+<form
+      method="POST"
+      action="{{ link "form_save_profile" }}"
+      hx-post="{{ link "form_save_profile" }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="this"
+      >
+
+  <div class="mb-3"
+       data-controller="mdeditor"
+       data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
+    >
+    <label for="profileAbout" class="form-label">About you</label>
+
+    <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
+      <i role="button" data-command="bold" class="bi bi-type-bold"></i>
+      <i role="button" data-command="italic" class="bi bi-type-italic"></i>
+      <i role="button" data-command="block-quotes" class="bi bi-quote"></i>
+      <i role="button" data-command="unordered-list" class="bi bi-list-ul"></i>
+      <i role="button" data-command="code-block" class="bi bi-code"></i>
+      <i role="button" data-command="link" class="bi bi-link-45deg"></i>
+      <div class="custom-file">
+        <label for="profileFileUpload"><i role="button" class="bi bi-camera"></i></label>
+        <input class="d-none" type="file" id="profileFileUpload" aria-label="Custom controls" multiple>
+      </div>
+    </div>
+
+    <textarea class="form-control comment-textarea {{ if (.Errors.HasError "about") }}is-invalid{{ end }}"
+              name="about"
+              id="profileAbout"
+              rows="6"
+              autocomplete="off"
+              >{{ if .Input }}{{ .Input.About }}{{ end }}</textarea>
+    {{ if (.Errors.HasError "about") }}
+    <div class="invalid-feedback">{{ .Errors.about }}</div>
+    {{ end }}
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save profile</button>
+</form>

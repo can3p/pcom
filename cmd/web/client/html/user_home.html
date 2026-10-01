@@ -59,6 +59,13 @@
     </div>
     {{ end }}
 
+    {{ with .About }}
+    <div class="mt-3">
+      <h2>About</h2>
+      <div class="us-profile-about">{{ markdown_profile . }}</div>
+    </div>
+    {{ end }}
+
     {{ if .ConnectionRadius.IsUnrelated }}
     <p>You are not allowed to see posts in this journal</p>
     {{ else }}
