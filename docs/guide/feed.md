@@ -16,6 +16,8 @@ The feed is the first thing you see after logging in. It lists, newest first:
 
 You can also send a prompt to a connection from the top of the feed.
 
+The feed, Explore, the public index and a journal show a page of 30 items at a time, with a "Load more" button at the bottom.
+
 ## Explore
 
 Explore needs a login; anonymous visitors are sent to the front page. It lists public posts of authors who are open to you without a connection: public profiles, and profiles open to registered users. Nobody can comment or act from there.
@@ -24,7 +26,7 @@ Explore needs a login; anonymous visitors are sent to the front page. It lists p
 
 ## The public index
 
-Visitors without an account land on a page of recent public posts. It only shows authors with a public profile. Its RSS icon points to `/rss/public`, a feed of the same posts that any reader can follow. A user with a public profile also has a feed of their own posts at `/rss/public/<username>`.
+Visitors without an account land on a page of recent public posts. It only shows authors with a public profile. Its RSS icon points to `/rss/public`, a feed of the same posts that any reader can follow. A user with a public profile also has a feed of their own posts at `/rss/public/<username>`. RSS outputs, including your private feed below, hold only the latest 50 items.
 
 ## RSS subscriptions
 

@@ -38,7 +38,7 @@ Your profile visibility, set in [Settings](settings.md), decides who can open yo
 - **Registered users**: anybody who is logged in.
 - **Direct and indirect connections**: your direct and second-degree connections only.
 
-Opening a profile does not open every post in it. On a journal, you and direct connections see all published posts, second-degree connections see the second-degree and public ones, and anonymous visitors see the public ones. A logged-in user with no connection to the author sees "You are not allowed to see posts in this journal"; they can read a public post only at its own address or in Explore. A public post of a profile that is not public is still readable at its own address but is left out of the public index and the public RSS feed. [Feed and RSS](feed.md) covers where public posts are listed.
+The About text from [Settings](settings.md) is shown on the journal to everyone who can open it. Opening a profile does not open every post in it. On a journal, you and direct connections see all published posts, second-degree connections see the second-degree and public ones, and anonymous visitors see the public ones. A logged-in user with no connection to the author sees "You are not allowed to see posts in this journal"; they can read a public post only at its own address or in Explore. A public post of a profile that is not public is still readable at its own address but is left out of the public index and the public RSS feed. [Feed and RSS](feed.md) covers where public posts are listed.
 
 A share link (see [Writing](writing.md)) is the one exception: it shows a single published post to whoever holds the link.
 
