@@ -67,7 +67,7 @@ Related documents:
 | F3 | Public profile section on the blog page (#186) | — | done | `feat/f3-profile` |
 | F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | done | `feat/f4-pagination` |
 | F5 | Login with an emailed code, passwords removed (#175) | Q22 answered | planned | `feat/f5-login-codes` |
-| F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | planned | `feat/f6-website` |
+| F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | done | `feat/f6-website` |
 | F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | planned | `feat/f7-translation` |
 
 ```
@@ -111,11 +111,14 @@ branch from `origin/master`; what they share:
 - **The feed templates.** F2 marks edited comments in the feed's comment
   item, F4 moves that item into `partial--feed-items.html`, F7 adds
   translation to the post and RSS items. F7 starts after F4.
-- **Website rule.** Once F6 has merged, a feature wave's last task updates
-  `docs/guide/`, `docs/site.yml` and the screenshots (`make screenshots`);
-  `wave-close` checks it. Features merged before F6 are documented by F6.
-  F6's generator is its own module (`website/go.mod`), so it never touches
-  the app's `go.mod`.
+- **Website rule.** A feature wave's last task is its docs task: it
+  updates the pages in `docs/guide/` (a new page also goes into `docPages`
+  in `website/site.go`), adds new screens to the table in
+  `e2e/browser/screenshots/`, reruns `make screenshots` and builds the site;
+  `wave-close` checks it. F6 documented what had merged before it
+  (through F4); F5 and F7 document themselves. The generator
+  is its own module (`website/go.mod`), so it never touches the app's
+  `go.mod`.
 - **With the R-waves.** Every F-wave adds repository methods, so R5 (bob)
   starts after the F-waves in flight merge, or they rebase onto it. F5 adds
   a mail and changes two (`login_code`, `invite`, `confirm_signup`); F2
