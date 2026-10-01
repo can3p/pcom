@@ -68,7 +68,8 @@ configurable Mailjet base URL), planned for wave R2. The values it will use are 
 
 ## Seeding
 
-`make seed` runs `go run ./cmd/seed` in the tools container. It reads `DATABASE_URL` (and `SITE_ROOT`) and
+`make seed` runs `go run ./cmd/web seed` in the `app` container (the dev image: building `cmd/web` needs cgo
+and libvips, which the tools image lacks). It reads `DATABASE_URL` (and `SITE_ROOT`) and
 prints a summary with the logins. It runs in one transaction, so a failure changes nothing.
 
 | Command | Does | Use when |
@@ -195,7 +196,7 @@ images built from `golang:1.26-alpine`) have arm64 variants, so nothing runs und
   passes `HOST_UID` and `HOST_GID` to compose. Run the make targets rather than `docker compose` directly, or
   set those variables yourself.
 * The first make target builds the tools image; sql-migrate and sqlboiler are installed in it
-  (`tools/Dockerfile`), not in `go.mod`. The first `make seed` compiles the seed command; the Go caches live in
+  (`tools/Dockerfile`), not in `go.mod`. The first `make seed` builds the dev image and compiles `cmd/web`; the Go caches live in
   the `gomod` and `gobuild` volumes, which `docker compose down -v` clears.
 * `make generate` says the sqlboiler versions differ: `go.mod` moved the sqlboiler library, so bump
   `SQLBOILER_VERSION` in `tools/Dockerfile` to match and run `docker compose build tools`.
