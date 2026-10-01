@@ -65,7 +65,7 @@ func TestComments_LeaveTopLevelComment(t *testing.T) {
 	require.NoError(t, textarea.Press("Control+Enter"))
 
 	require.NoError(t, browser.Expect.Locator(page.GetByText("One comment")).ToBeVisible())
-	require.NoError(t, browser.Expect.Locator(page.GetByText(body)).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator(".post-user-home", playwright.PageLocatorOptions{HasText: body})).ToBeVisible())
 }
 
 // Replying to an existing comment nests the reply under it and indents it
@@ -190,7 +190,7 @@ func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 	require.NoError(t, topForm.GetByLabel("Your Comment").Fill(body))
 	require.NoError(t, topForm.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Post a comment"}).Click())
 
-	require.NoError(t, browser.Expect.Locator(page.GetByText(body)).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator(".post-user-home", playwright.PageLocatorOptions{HasText: body})).ToBeVisible())
 
 	// a notification of a comment on this post, to anyone
 	isNotification := func(m tommy.Mail) bool {
@@ -208,4 +208,53 @@ func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 
 	require.ElementsMatch(t, []string{author.Email, participant.Email}, to)
 	require.NotContains(t, to, commenter.Email)
+}
+
+// The author fixes a typo in their own comment through the inline Edit form
+// and, after the reload, sees the new text and the "edited" marker. A
+// connected user sees the marker too but gets no Edit link on that comment.
+func TestComments_AuthorEditsOwnComment(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	ctx := context.Background()
+
+	author, friend := b3ConnectedPair(t, app)
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	require.NoError(t, err)
+
+	comment, err := factory.Comment(ctx, app.DB, post.ID, friend.ID, factory.WithCommentBody("A comment with a typpo"))
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(friend))
+
+	_, err = page.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+
+	card := page.Locator("#comment" + post.ID + comment.ID)
+	editForm := page.Locator("#comment-wrapper-edit" + post.ID + comment.ID)
+	require.NoError(t, card.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Edit"}).Click())
+
+	textarea := editForm.GetByLabel("Your Comment")
+	require.NoError(t, browser.Expect.Locator(textarea).ToHaveValue("A comment with a typpo"))
+	require.NoError(t, textarea.Fill("A comment with a typo fixed"))
+	require.NoError(t, editForm.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Save"}).Click())
+
+	text := card.Locator(".post-user-home")
+	require.NoError(t, browser.Expect.Locator(text).ToContainText("A comment with a typo fixed"))
+	require.NoError(t, browser.Expect.Locator(text).Not().ToContainText("typpo"))
+	require.NoError(t, browser.Expect.Locator(card).ToContainText("edited"))
+
+	other := browser.Page(t, app, browser.As(author))
+
+	_, err = other.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+
+	otherCard := other.Locator("#comment" + post.ID + comment.ID)
+	require.NoError(t, browser.Expect.Locator(otherCard).ToContainText("edited"))
+	require.NoError(t, browser.Expect.Locator(otherCard.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Edit"})).ToHaveCount(0))
+
+	_, err = other.Goto("/feed")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(other.Locator(".us-feed-comment", playwright.PageLocatorOptions{HasText: "A comment with a typo fixed"})).ToContainText("(edited"))
 }

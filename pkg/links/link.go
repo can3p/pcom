@@ -69,6 +69,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/form/edit_post"
 	case "form_new_comment":
 		out = "/controls/form/new_comment"
+	case "edit_comment":
+		out = "/controls/form/edit_comment/" + builder.Shift()
 	case "form_save_settings":
 		out = "/controls/form/save_settings"
 	case "form_user_styles":

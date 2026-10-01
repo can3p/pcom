@@ -89,6 +89,12 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 		gogoForms.DefaultHandler(c, form)
 	})
 
+	controlsForms.POST("/edit_comment/:id", requireUUIDParam("id"), func(c *gin.Context) {
+		dbUser := auth.GetUserData(c).DBUser
+
+		gogoForms.DefaultHandler(c, forms.EditCommentFormNew(posts, dbUser, c.Param("id")))
+	})
+
 	controlsForms.POST("/prompt_post", func(c *gin.Context) {
 		dbUser := auth.GetUserData(c).DBUser
 

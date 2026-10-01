@@ -308,6 +308,8 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"post_id": w.published.ID, "body": "a forged comment"}
 		}},
+	{http.MethodPost, "/controls/form/edit_comment/:id", func(w *guardWorld) string { return "/controls/form/edit_comment/" + w.comment.ID },
+		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged edit"} }},
 	{http.MethodPost, "/controls/form/save_settings", staticPath("/controls/form/save_settings"),
 		func(*guardWorld) map[string]string {
 			return map[string]string{"timezone": "Europe/Berlin", "profile_visibility": "registered_users"}
