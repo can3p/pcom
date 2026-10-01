@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
@@ -32,11 +33,11 @@ func TestLoginCodeForm_Save(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc := codeAccounts(db)
+	svc := codeAccounts(db, fakesender.New())
 
 	// attempt returns a context whose session holds a fresh attempt of a user
 	// and the code that logs it in.
-	attempt := func(returnURL string) (*forms.LoginCodeForm, string, func() string) {
+	attempt := func(returnURL string) (*forms.LoginCodeForm, string, string, func() string) {
 		user := testutil.Must(factory.User(ctx, db))(t)
 		id := testutil.Must(svc.StartLogin(ctx, user.Email, returnURL))(t)
 		code := testutil.Must(svc.IssueLoginCode(ctx, id))(t)
@@ -46,7 +47,7 @@ func TestLoginCodeForm_Save(t *testing.T) {
 		form := forms.LoginCodeFormNew(svc, testSiteRoot).(*forms.LoginCodeForm)
 		form.Input.Code = code
 
-		return form, user.ID, func() string {
+		return form, user.ID, code, func() string {
 			action, err := form.Save(c)
 			require.NoError(t, err)
 			require.NotNil(t, action)
@@ -56,6 +57,7 @@ func TestLoginCodeForm_Save(t *testing.T) {
 			}
 
 			require.Equal(t, user.ID, sessions.Default(c).Get("user"))
+			require.Empty(t, auth.LoginAttempt(c))
 			action(c, form)
 
 			return w.Header().Get("HX-Redirect")
@@ -63,20 +65,37 @@ func TestLoginCodeForm_Save(t *testing.T) {
 	}
 
 	t.Run("the code starts the session and goes home", func(t *testing.T) {
-		_, _, save := attempt("")
+		_, _, _, save := attempt("")
 		require.Equal(t, links.DefaultAuthorizedHome(), save())
 	})
 
 	t.Run("the code goes to the return url of the attempt", func(t *testing.T) {
-		_, _, save := attempt("/write")
+		_, _, _, save := attempt("/write")
 		require.Equal(t, testSiteRoot+"/write", save())
 	})
 
 	t.Run("a wrong code is an error on the field", func(t *testing.T) {
-		form, _, save := attempt("")
+		form, _, code, save := attempt("")
 		form.Input.Code = "000000"
+		if form.Input.Code == code {
+			form.Input.Code = "111111"
+		}
 		require.Empty(t, save())
 		require.True(t, form.Errors.HasError("code"))
+	})
+
+	t.Run("a dead attempt is an expired login", func(t *testing.T) {
+		// an unknown address gets an attempt that can never log in
+		id := testutil.Must(svc.StartLogin(ctx, "nobody@example.test", ""))(t)
+		c, _ := ginctx.New(t, http.MethodPost, "/login/code", nil)
+		require.NoError(t, auth.SetLoginAttempt(c, id))
+
+		form := forms.LoginCodeFormNew(svc, testSiteRoot).(*forms.LoginCodeForm)
+		form.Input.Code = "123456"
+
+		_, err := form.Save(c)
+		require.NoError(t, err)
+		require.Contains(t, form.FormError, "start again")
 	})
 
 	t.Run("no attempt in the session is an expired login", func(t *testing.T) {
