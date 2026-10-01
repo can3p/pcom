@@ -24,6 +24,11 @@ Located in `cmd/web/client/js/index.js`:
 ### Template Structure
 - Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
 - Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
+- **What a viewer may do is a capability, never a template condition.** Show a control with
+  `{{ if .Capabilities.CanX }}` from the view type (`postops.PostCapabilities`,
+  `postops.CommentCapabilities`, ...). Don't compare ids (`eq $.User.DBUser.ID .UserID`) or combine
+  permissions in the template: add a field computed in Go, next to the rule the service enforces, with a
+  unit test. A control and the form it opens use the same capability.
 
 ### CSRF Protection
 - Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
