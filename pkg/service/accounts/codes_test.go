@@ -2,9 +2,9 @@ package accounts_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -30,16 +30,21 @@ type clock struct{ t time.Time }
 func (c *clock) now() time.Time          { return c.t }
 func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
-// codeSvc is the accounts service over the real mail queue, timed by c.
-func codeSvc(db *sqlx.DB, c *clock) *accounts.Service {
+// codeSvc is the accounts service over the real mail queue, timed by c and
+// keyed with key ("" for none).
+func codeSvc(db *sqlx.DB, c *clock, key string) *accounts.Service {
 	queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
+	opts := []accounts.Option{accounts.WithClock(c.now)}
+	if key != "" {
+		opts = append(opts, accounts.WithCodeKey(key))
+	}
 
-	return accounts.New(repo.New(db), queue, nil, accounts.WithCodeKey("test-key"), accounts.WithClock(c.now))
+	return accounts.New(repo.New(db), queue, nil, opts...)
 }
 
 var codeRe = regexp.MustCompile(`login code is (\d{6})`)
 
-// mailedCodes returns the codes queued for the address, oldest first.
+// mailedCodes returns the codes queued for the address, in no order.
 func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
 	t.Helper()
 
@@ -53,6 +58,24 @@ func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
 	}
 
 	return codes
+}
+
+// start starts a login for the user's address and returns the attempt and
+// the one code it mailed.
+func start(t *testing.T, ctx context.Context, db *sqlx.DB, svc *accounts.Service, u *core.User, returnURL string) (string, string) {
+	t.Helper()
+
+	before := mailedCodes(t, db, u.Email)
+	id := testutil.Must(svc.StartLogin(ctx, u.Email, returnURL))(t)
+	after := mailedCodes(t, db, u.Email)
+	require.Len(t, after, len(before)+1)
+
+	for _, c := range before {
+		i := slices.Index(after, c)
+		after = slices.Delete(after, i, i+1)
+	}
+
+	return id, after[0]
 }
 
 func otherCode(code string) string {
@@ -69,17 +92,23 @@ func requireWrongCode(t *testing.T, err error) {
 	require.Equal(t, "code", invalid.Field)
 }
 
+func requireNotFound(t *testing.T, err error) {
+	t.Helper()
+	require.ErrorIs(t, err, service.ErrNotFound)
+}
+
 func TestLoginCodes(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
+	newUser := func(t *testing.T) *core.User { return testutil.Must(factory.User(ctx, db))(t) }
 
 	t.Run("a confirmed user's code logs in once, with the address lowercased", func(t *testing.T) {
 		t.Parallel()
 
-		svc := codeSvc(db, &clock{time.Now()})
-		u := testutil.Must(factory.User(ctx, db))(t)
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		u := newUser(t)
 
 		id := testutil.Must(svc.StartLogin(ctx, " "+strings.ToUpper(u.Email)+" ", "/posts/1"))(t)
 		codes := mailedCodes(t, db, u.Email)
@@ -91,32 +120,33 @@ func TestLoginCodes(t *testing.T) {
 		require.Equal(t, "/posts/1", returnURL)
 
 		_, _, err = svc.FinishLogin(ctx, id, codes[0])
-		require.ErrorIs(t, err, service.ErrNotFound)
+		requireNotFound(t, err)
 	})
 
 	for _, tc := range []struct {
-		name  string
-		setup func(t *testing.T, svc *accounts.Service) (email string, mailedBefore int)
+		name    string
+		setup   func(t *testing.T, svc *accounts.Service) (email string, mailedBefore int)
+		wantErr func(t *testing.T, err error)
 	}{
 		{"unknown address", func(t *testing.T, _ *accounts.Service) (string, int) {
 			return "nobody-" + strconv.FormatInt(time.Now().UnixNano(), 10) + "@example.test", 0
-		}},
+		}, requireNotFound},
 		{"unconfirmed user", func(t *testing.T, _ *accounts.Service) (string, int) {
 			return testutil.Must(factory.User(ctx, db, factory.Unconfirmed()))(t).Email, 0
-		}},
-		{"over the limit", func(t *testing.T, svc *accounts.Service) (string, int) {
-			u := testutil.Must(factory.User(ctx, db))(t)
+		}, requireNotFound},
+		{"user over the limit", func(t *testing.T, svc *accounts.Service) (string, int) {
+			u := newUser(t)
 			for range 3 {
 				testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
 			}
 
 			return u.Email, 3
-		}},
+		}, requireWrongCode},
 	} {
 		t.Run(tc.name+" is mailed nothing and never logs in", func(t *testing.T) {
 			t.Parallel()
 
-			svc := codeSvc(db, &clock{time.Now()})
+			svc := codeSvc(db, &clock{time.Now()}, "test-key")
 			email, before := tc.setup(t, svc)
 
 			id := testutil.Must(svc.StartLogin(ctx, email, ""))(t)
@@ -124,26 +154,30 @@ func TestLoginCodes(t *testing.T) {
 			require.Len(t, mailedCodes(t, db, email), before)
 
 			_, _, err := svc.FinishLogin(ctx, id, "000000")
-			require.Error(t, err)
-			for _, code := range mailedCodes(t, db, email) {
-				_, _, err := svc.FinishLogin(ctx, id, code)
-				require.Error(t, err)
-			}
+			tc.wantErr(t, err)
 		})
 	}
 
-	t.Run("the limit frees up after its window", func(t *testing.T) {
+	t.Run("the limit is per user and frees up after its window", func(t *testing.T) {
 		t.Parallel()
 
 		c := &clock{time.Now()}
-		svc := codeSvc(db, c)
-		u := testutil.Must(factory.User(ctx, db))(t)
+		t0 := c.t
+		svc := codeSvc(db, c, "test-key")
+		u, other := newUser(t), newUser(t)
 		for range 4 {
 			testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
 		}
 		require.Len(t, mailedCodes(t, db, u.Email), 3)
 
-		c.advance(16 * time.Minute)
+		testutil.Must(svc.StartLogin(ctx, other.Email, ""))(t)
+		require.Len(t, mailedCodes(t, db, other.Email), 1)
+
+		c.t = t0.Add(15*time.Minute - time.Second)
+		testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
+		require.Len(t, mailedCodes(t, db, u.Email), 3)
+
+		c.t = t0.Add(15*time.Minute + time.Second)
 		testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
 		require.Len(t, mailedCodes(t, db, u.Email), 4)
 	})
@@ -151,10 +185,9 @@ func TestLoginCodes(t *testing.T) {
 	t.Run("wrong codes are counted and the sixth try fails even with the right code", func(t *testing.T) {
 		t.Parallel()
 
-		svc := codeSvc(db, &clock{time.Now()})
-		u := testutil.Must(factory.User(ctx, db))(t)
-		id := testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
-		code := mailedCodes(t, db, u.Email)[0]
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		u := newUser(t)
+		id, code := start(t, ctx, db, svc, u, "")
 
 		for range 5 {
 			_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
@@ -162,65 +195,134 @@ func TestLoginCodes(t *testing.T) {
 		}
 
 		_, _, err := svc.FinishLogin(ctx, id, code)
-		require.ErrorIs(t, err, service.ErrNotFound)
-	})
-
-	t.Run("an expired attempt fails", func(t *testing.T) {
-		t.Parallel()
-
-		c := &clock{time.Now()}
-		svc := codeSvc(db, c)
-		u := testutil.Must(factory.User(ctx, db))(t)
-		id := testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
-
-		c.advance(accounts.CodeLifetime + time.Second)
-		_, _, err := svc.FinishLogin(ctx, id, mailedCodes(t, db, u.Email)[0])
-		require.ErrorIs(t, err, service.ErrNotFound)
-
+		requireNotFound(t, err)
+		_, err = svc.IssueLoginCode(ctx, id)
+		requireNotFound(t, err)
 		_, err = svc.LatestLoginAttempt(ctx, u.Email)
-		require.ErrorIs(t, err, service.ErrNotFound)
+		requireNotFound(t, err)
 	})
 
-	t.Run("an issued code logs in to the latest open attempt", func(t *testing.T) {
+	t.Run("an attempt works until it expires", func(t *testing.T) {
 		t.Parallel()
 
 		c := &clock{time.Now()}
-		svc := codeSvc(db, c)
-		u := testutil.Must(factory.User(ctx, db))(t)
-		older := testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
+		t0 := c.t
+		svc := codeSvc(db, c, "test-key")
+		u := newUser(t)
+		early, earlyCode := start(t, ctx, db, svc, u, "")
+		late, lateCode := start(t, ctx, db, svc, u, "")
+
+		c.t = t0.Add(15*time.Minute - time.Second)
+		_, _, err := svc.FinishLogin(ctx, early, earlyCode)
+		require.NoError(t, err)
+
+		c.t = t0.Add(15 * time.Minute)
+		_, _, err = svc.FinishLogin(ctx, late, lateCode)
+		requireNotFound(t, err)
+		_, err = svc.IssueLoginCode(ctx, late)
+		requireNotFound(t, err)
+		_, err = svc.LatestLoginAttempt(ctx, u.Email)
+		requireNotFound(t, err)
+	})
+
+	t.Run("an issued code replaces the mailed one on the latest open attempt", func(t *testing.T) {
+		t.Parallel()
+
+		c := &clock{time.Now()}
+		svc := codeSvc(db, c, "test-key")
+		u := newUser(t)
+		older, _ := start(t, ctx, db, svc, u, "")
 		c.advance(time.Second)
-		newer := testutil.Must(svc.StartLogin(ctx, u.Email, "/feed"))(t)
+		newer, mailed := start(t, ctx, db, svc, u, "/feed")
 
 		latest := testutil.Must(svc.LatestLoginAttempt(ctx, strings.ToUpper(u.Email)))(t)
 		require.Equal(t, newer, latest)
 
 		code := testutil.Must(svc.IssueLoginCode(ctx, latest))(t)
-		_, _, err := svc.FinishLogin(ctx, newer, mailedCodes(t, db, u.Email)[1])
+		_, _, err := svc.FinishLogin(ctx, newer, mailed)
 		requireWrongCode(t, err)
 
-		got, returnURL, err := svc.FinishLogin(ctx, latest, code)
+		got, returnURL, err := svc.FinishLogin(ctx, newer, code)
 		require.NoError(t, err)
 		require.Equal(t, u.ID, got.ID)
 		require.Equal(t, "/feed", returnURL)
 
 		require.Equal(t, older, testutil.Must(svc.LatestLoginAttempt(ctx, u.Email))(t))
-
 		_, err = svc.IssueLoginCode(ctx, newer)
-		require.ErrorIs(t, err, service.ErrNotFound)
+		requireNotFound(t, err)
 		_, err = svc.LatestLoginAttempt(ctx, "nobody@example.test")
-		require.ErrorIs(t, err, service.ErrNotFound)
+		requireNotFound(t, err)
+	})
+
+	t.Run("a code works only on its own attempt", func(t *testing.T) {
+		t.Parallel()
+
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		u := newUser(t)
+		_, codeA := start(t, ctx, db, svc, u, "")
+		b, codeB := start(t, ctx, db, svc, u, "")
+
+		_, _, err := svc.FinishLogin(ctx, b, codeA)
+		requireWrongCode(t, err)
+		_, _, err = svc.FinishLogin(ctx, b, codeB)
+		require.NoError(t, err)
+	})
+
+	t.Run("the code is stored keyed, and another key rejects it", func(t *testing.T) {
+		t.Parallel()
+
+		c := &clock{time.Now()}
+		svc := codeSvc(db, c, "test-key")
+		u := newUser(t)
+		id, code := start(t, ctx, db, svc, u, "")
+
+		stored := testutil.Must(repo.New(db).LockLoginAttempt(ctx, id))(t)
+		require.True(t, stored.CodeHash.Valid)
+		require.NotContains(t, stored.CodeHash.String, code)
+
+		_, _, err := codeSvc(db, c, "other-key").FinishLogin(ctx, id, code)
+		requireWrongCode(t, err)
+		_, _, err = svc.FinishLogin(ctx, id, code)
+		require.NoError(t, err)
+	})
+
+	t.Run("a malformed or unknown attempt id is not found", func(t *testing.T) {
+		t.Parallel()
+
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		for _, id := range []string{"not-an-id", "00000000-0000-0000-0000-000000000000"} {
+			_, _, err := svc.FinishLogin(ctx, id, "123456")
+			requireNotFound(t, err)
+			_, err = svc.IssueLoginCode(ctx, id)
+			requireNotFound(t, err)
+		}
 	})
 
 	t.Run("without a code key nothing is issued or checked", func(t *testing.T) {
 		t.Parallel()
 
-		svc := accounts.New(repo.New(db), fakesender.New(), nil)
-		_, err := svc.StartLogin(ctx, "someone@example.test", "")
+		c := &clock{time.Now()}
+		keyed, unkeyed := codeSvc(db, c, "test-key"), codeSvc(db, c, "")
+		u := newUser(t)
+
+		_, err := unkeyed.StartLogin(ctx, u.Email, "")
 		require.Error(t, err)
-		_, _, err = svc.FinishLogin(ctx, "00000000-0000-0000-0000-000000000000", "123456")
+		require.Empty(t, mailedCodes(t, db, u.Email))
+		_, err = keyed.LatestLoginAttempt(ctx, u.Email)
+		requireNotFound(t, err)
+
+		id, code := start(t, ctx, db, keyed, u, "")
+		_, _, err = unkeyed.FinishLogin(ctx, id, code)
 		require.Error(t, err)
-		require.False(t, errors.Is(err, service.ErrNotFound))
-		_, err = svc.IssueLoginCode(ctx, "00000000-0000-0000-0000-000000000000")
+		require.NotErrorIs(t, err, service.ErrNotFound)
+		_, err = unkeyed.IssueLoginCode(ctx, id)
 		require.Error(t, err)
+		require.NotErrorIs(t, err, service.ErrNotFound)
+		_, err = unkeyed.LatestLoginAttempt(ctx, u.Email)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, service.ErrNotFound)
+
+		_, _, err = keyed.FinishLogin(ctx, id, code)
+		require.NoError(t, err)
 	})
 }
