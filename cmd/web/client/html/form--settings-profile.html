@@ -12,18 +12,7 @@
     >
     <label for="profileAbout" class="form-label">About you</label>
 
-    <div class="mt-2 mb-2 d-flex flex-row flex-wrap text-editor-toolbar">
-      <i role="button" data-command="bold" class="bi bi-type-bold"></i>
-      <i role="button" data-command="italic" class="bi bi-type-italic"></i>
-      <i role="button" data-command="block-quotes" class="bi bi-quote"></i>
-      <i role="button" data-command="unordered-list" class="bi bi-list-ul"></i>
-      <i role="button" data-command="code-block" class="bi bi-code"></i>
-      <i role="button" data-command="link" class="bi bi-link-45deg"></i>
-      <div class="custom-file">
-        <label for="profileFileUpload"><i role="button" class="bi bi-camera"></i></label>
-        <input class="d-none" type="file" id="profileFileUpload" aria-label="Custom controls" multiple>
-      </div>
-    </div>
+    {{ template "partial--editor-toolbar.html" toMap "UploadID" "profileFileUpload" }}
 
     <textarea class="form-control comment-textarea {{ if (.Errors.HasError "about") }}is-invalid{{ end }}"
               name="about"
