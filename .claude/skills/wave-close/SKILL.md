@@ -20,12 +20,15 @@ A wave is finished when the documents are accurate again and CI is green, not wh
 4. **Lessons.** Add generalizable lessons to `docs/lessons.md` (create it on first use). If a rule in
    `AGENTS.md` or a skill proved wrong or missing, fix it there, not only in the lessons.
 5. **Questions.** Move answered items in `docs/open-questions.md` to "Decided".
-6. **Commits.** Logically split commits, with the docs commit last. Never a single "wave complete" commit.
-7. **PR and CI.** Before pushing, run `make cover` and then `make cover-check`: the check reads whatever
+6. **Documentation (F-waves only).** Check that the guide pages the wave changed are updated, that new
+   screens are in the screenshot table, that `make screenshots` was rerun and its PNGs committed, and that
+   the site builds and its tests pass (`cd website && go test ./... && go run . -out ../site`).
+7. **Commits.** Logically split commits, with the docs commit last. Never a single "wave complete" commit.
+8. **PR and CI.** Before pushing, run `make cover` and then `make cover-check`: the check reads whatever
    `.cover/` the last `make cover` left, so on its own it can pass on stale data (WB's first check did,
    while `pkg/auth` had fallen below its floor). Then push, open the PR (with `--base <parent branch>` if the parent wave hasn't merged), and
    watch CI with `gh pr checks --watch`. On a failure, read `gh run view --log-failed | tail -n 60` and follow
    the `test-failure` skill. From W6 on, that includes the `browser` job. **A wave with red or pending CI
    is not finished.**
-8. **Report and stop.** Four lines at most: PR link, coverage change, bugs filed, cost line. Merging is the
+9. **Report and stop.** Four lines at most: PR link, coverage change, bugs filed, cost line. Merging is the
    owner's call.

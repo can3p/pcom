@@ -15,6 +15,7 @@ the one for the area you touch:
 | Markdown rendering, view types, custom renderers | `pkg/markdown/AGENTS.md` |
 | RSS feed fetching and image budgets | `pkg/feedops/AGENTS.md` |
 | Writing tests: libraries, test DB, factories, mocks, E2E and browser tests, ground rules | `docs/testing.md` |
+| User guide, website, screenshots | `website/`, `docs/guide/` |
 
 ## Modernization Plan
 

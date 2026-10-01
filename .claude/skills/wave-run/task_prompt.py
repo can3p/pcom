@@ -142,6 +142,7 @@ Build exactly what the task describes; every decision in it is made, so don't re
 undecided, stop and report it under needs:.
 Layering: handlers bind input, call one service method and render; services hold rules and authorization;
 every query lives in pkg/repo. Never grow the pkg/arch allowlist.
+A task that changes what a user sees names the guide page it affects under needs:, so the wave's docs task updates it.
 Tests prove what the feature is for, not incidental markup: what a user does in a page is a browser test
 (e2e/browser), a server rule is an E2E or service test. A rule a service test already owns is not
 repeated in E2E: a route test proves the wiring with one case the rule admits and one it rejects. An

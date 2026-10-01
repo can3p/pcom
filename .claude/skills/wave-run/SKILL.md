@@ -44,7 +44,8 @@ chosen by wave:
 - **R-waves and RS**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
   their assertions, and the layering rules apply.
 - **F-waves**: a feature preamble. Behavior changes as the wave file decides; tests prove the feature
-  (browser tests for what users do); an existing assertion changes only where the task changes it.
+  (browser tests for what users do); an existing assertion changes only where the task changes it. A feature
+  wave's last task is its docs task (guide, screenshot table, `make screenshots`, site build).
 - **WB**: a bug-fix preamble. Each task fixes the issues in its row, removes their `t.Skip`s (in `e2e/` too)
   and changes no other assertion. The builder pastes each issue's title and body from `gh`, so subagents
   need no GitHub access.
