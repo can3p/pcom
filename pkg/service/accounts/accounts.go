@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/can3p/pcom/pkg/mail"
@@ -28,6 +29,10 @@ type Service struct {
 	ident  mail.Identity
 
 	aboutMaxLength int
+	// codeKey keys the HMAC of login codes; without it no code is issued
+	// or checked.
+	codeKey []byte
+	now     func() time.Time
 }
 
 // New builds the service. sender may be nil for a command line script that
@@ -55,8 +60,19 @@ func WithIdentity(ident mail.Identity) Option {
 	return func(s *Service) { s.ident = ident }
 }
 
+// WithCodeKey sets the key login codes are hashed with. The server and any
+// command that issues codes must use the same key.
+func WithCodeKey(key string) Option {
+	return func(s *Service) { s.codeKey = []byte(key) }
+}
+
+// WithClock replaces the clock login attempts are timed by, for tests.
+func WithClock(now func() time.Time) Option {
+	return func(s *Service) { s.now = now }
+}
+
 func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength}
+	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, now: time.Now}
 	for _, opt := range opts {
 		opt(s)
 	}

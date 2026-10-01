@@ -31,6 +31,9 @@ type Deps struct {
 	// PageSize and RSSLimit size the reading service's lists; zero means its
 	// defaults.
 	PageSize, RSSLimit int
+	// CodeKey keys the HMAC of login codes. Empty means no login codes can
+	// be issued or checked.
+	CodeKey string
 }
 
 // Services is one field per area service.
@@ -57,6 +60,6 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage),
 		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength)),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey)),
 	}
 }
