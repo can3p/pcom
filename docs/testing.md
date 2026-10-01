@@ -246,8 +246,13 @@ step fails:
 - installs the playwright-go driver and sets `CHROMIUM_PATH=/opt/pw-browsers/chromium`, because the
   network policy blocks Playwright's CDN, so `make ui-deps` can't download Chromium.
 
+`make generate` builds the tools image, which needs the network, so it fails in the sandbox. Run
+`generate.sh` on the host instead, with `sqlboiler` and `sql-migrate` installed by `go install` at the versions
+the tools image pins (F3 did).
+
 The image's Chromium is older than the one CI installs, and the sandbox has no general outbound network, so a
-few browser tests fail only there (an embedded external resource, inline-style CSP reports). Trust CI's
+few browser tests fail only there (an embedded external resource, inline-style CSP reports):
+`TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility` and `TestActions_ShareLifecycle` (2026-10-01). Trust CI's
 `browser` job for those; W6 and refactor waves run the full suite there.
 
 ## Worked examples

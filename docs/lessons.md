@@ -239,3 +239,11 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **When Docker Hub rate-limits the sandbox (429), pull from
   `mirror.gcr.io/<image>` and `docker tag` it back** rather than waiting or
   skipping the suite.
+- **A field that reaches a template crosses a page struct.** F3's plan
+  owned the service (`reading.Journal`) and the template (`user_home.html`)
+  but not `pkg/web/pages_*.go`, which copies one into the other, so the
+  template task stopped. When a service view gains a field a page shows,
+  own the page constructor too.
+- **Check that the code a plan says to copy exists.** F3 told A0 to add a
+  `ViewProfile` case wherever `ViewComment` has one; there was none. A
+  `grep -n` while writing the plan is cheaper than a subagent's detour.
