@@ -85,13 +85,25 @@ type Journal struct {
 	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             []*postops.Post
 	About             string // the author's "About" text, empty when there is none
+	// Next is the cursor of the next page of posts, empty on the last one.
+	Next string
 }
 
 // Journal opens the profile of the user with that username for the actor,
-// nil for an anonymous visitor: the published posts the actor may read,
-// and how the actor could connect to the author. A profile the actor may not
-// see is not found, so whether it exists isn't revealed.
-func (s *Service) Journal(ctx context.Context, actor *core.User, username string) (*Journal, error) {
+// nil for an anonymous visitor: the page after cursor (empty for the first)
+// of the published posts the actor may read, and how the actor could connect
+// to the author. A profile the actor may not see is not found, so whether it
+// exists isn't revealed.
+func (s *Service) Journal(ctx context.Context, actor *core.User, username, cursor string) (*Journal, error) {
+	after, err := ParseCursor(cursor)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.journal(ctx, actor, username, after, PageSize)
+}
+
+func (s *Service) journal(ctx context.Context, actor *core.User, username string, after Cursor, limit int) (*Journal, error) {
 	author, err := s.store.UserByUsername(ctx, username)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.ErrNotFound
@@ -125,7 +137,7 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 		visibilities = []core.PostVisibility{core.PostVisibilityPublic}
 	}
 
-	rawPosts, err := s.store.PublishedPostsOf(ctx, author.ID, visibilities, visibilities == nil)
+	rawPosts, err := s.store.PublishedPostsOf(ctx, author.ID, visibilities, visibilities == nil, after.page(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +147,8 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 		return nil, err
 	}
 
-	out := &Journal{About: about, Author: author, ConnectionRadius: radius, Posts: make([]*postops.Post, 0, len(rawPosts))}
-
-	for _, p := range rawPosts {
-		out.Posts = append(out.Posts, postops.ConstructPost(actor, p, radius, nil, false))
-	}
+	out := &Journal{About: about, Author: author, ConnectionRadius: radius}
+	out.Posts, out.Next = postsPage(actor, rawPosts, radius, limit)
 
 	if actor == nil {
 		return out, nil
@@ -164,7 +173,7 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 
 // PublicFeed is what the public RSS feed of the user with that username
 // lists: the journal an anonymous visitor sees. Only a public profile has
-// one.
+// one. It lists the newest RSSLimit posts.
 func (s *Service) PublicFeed(ctx context.Context, username string) (*Journal, error) {
 	author, err := s.store.UserByUsername(ctx, username)
 	if errors.Is(err, repo.ErrNotFound) {
@@ -177,13 +186,21 @@ func (s *Service) PublicFeed(ctx context.Context, username string) (*Journal, er
 		return nil, service.ErrNotFound
 	}
 
-	return s.Journal(ctx, nil, username)
+	return s.journal(ctx, nil, username, Cursor{}, RSSLimit)
 }
 
-// Explore lists the published public posts of the profiles the actor could
-// open without a connection: public ones, and for a logged in actor those
-// open to registered users. Nobody gets comments or actions there.
-func (s *Service) Explore(ctx context.Context, actor *core.User) ([]*postops.Post, error) {
+// Posts is a page of posts. Next is the cursor of the next page, empty on
+// the last one.
+type Posts struct {
+	Posts []*postops.Post
+	Next  string
+}
+
+// Explore lists the page after cursor (empty for the first) of the published
+// public posts of the profiles the actor could open without a connection:
+// public ones, and for a logged in actor those open to registered users.
+// Nobody gets comments or actions there.
+func (s *Service) Explore(ctx context.Context, actor *core.User, cursor string) (*Posts, error) {
 	profiles := []core.ProfileVisibility{core.ProfileVisibilityPublic}
 
 	if actor != nil {
@@ -192,37 +209,57 @@ func (s *Service) Explore(ctx context.Context, actor *core.User) ([]*postops.Pos
 		profiles = append(profiles, core.ProfileVisibilityRegisteredUsers)
 	}
 
-	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic, profiles, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	posts := make([]*postops.Post, 0, len(rawPosts))
-	for _, p := range rawPosts {
-		posts = append(posts, postops.ConstructPost(actor, p, graph.RadiusUnknown, nil, false))
-	}
-
-	return posts, nil
+	return s.publicPosts(ctx, actor, profiles, cursor, PageSize)
 }
 
-// PublicPosts is the public feed (Q15): at most limit published public posts
-// by authors whose profile is public, newest publication first. A public post
-// of a profile open to registered users or connections only stays readable
-// at its own page but is not listed here. Posts are built for nobody: no
-// actor, no comments, no actions.
-func (s *Service) PublicPosts(ctx context.Context, limit int) ([]*postops.Post, error) {
-	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic,
-		[]core.ProfileVisibility{core.ProfileVisibilityPublic}, limit)
+// PublicPosts is the page after cursor (empty for the first) of the public
+// feed (Q15): the published public posts by authors whose profile is public,
+// newest publication first. A public post of a profile open to registered
+// users or connections only stays readable at its own page but is not listed
+// here. Posts are built for nobody: no actor, no comments, no actions.
+func (s *Service) PublicPosts(ctx context.Context, cursor string) (*Posts, error) {
+	return s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, cursor, PageSize)
+}
+
+// PublicPostsRSS is the newest RSSLimit posts of the public feed, for its
+// RSS output.
+func (s *Service) PublicPostsRSS(ctx context.Context) ([]*postops.Post, error) {
+	page, err := s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, "", RSSLimit)
 	if err != nil {
 		return nil, err
 	}
 
-	posts := make([]*postops.Post, 0, len(rawPosts))
-	for _, p := range rawPosts {
-		posts = append(posts, postops.ConstructPost(nil, p, graph.RadiusUnknown, nil, false))
+	return page.Posts, nil
+}
+
+func (s *Service) publicPosts(ctx context.Context, actor *core.User, profiles []core.ProfileVisibility, cursor string, limit int) (*Posts, error) {
+	after, err := ParseCursor(cursor)
+	if err != nil {
+		return nil, err
 	}
 
-	return posts, nil
+	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic, profiles, after.page(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	out := &Posts{}
+	out.Posts, out.Next = postsPage(actor, rawPosts, graph.RadiusUnknown, limit)
+
+	return out, nil
+}
+
+// postsPage builds the first limit posts of a repository page for the actor,
+// and the cursor of the next page.
+func postsPage(actor *core.User, rawPosts core.PostSlice, radius graph.Radius, limit int) ([]*postops.Post, string) {
+	posts := make([]*postops.Post, 0, len(rawPosts))
+	for _, p := range rawPosts {
+		posts = append(posts, postops.ConstructPost(actor, p, radius, nil, false))
+	}
+
+	return cut(posts, limit, func(p *postops.Post) Cursor {
+		return Cursor{Time: p.PublishedAt.Time, Kind: repo.KindPost, ID: p.ID}
+	})
 }
 
 // radius is how far the author is from the actor; RadiusUnknown for an

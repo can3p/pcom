@@ -175,7 +175,7 @@ func (s *Service) Items(ctx context.Context, actor *core.User) ([]*RssFeedItem, 
 		return nil, service.ErrNeedsLogin
 	}
 
-	dbItems, err := s.store.UndismissedFeedItems(ctx, actor.ID)
+	dbItems, err := s.store.UndismissedFeedItems(ctx, actor.ID, repo.Page{})
 	if err != nil {
 		return nil, err
 	}

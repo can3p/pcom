@@ -206,7 +206,7 @@ func postPage(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, postI
 }
 
 func userHome(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, username string) mo.Result[*web.UserHomePage] {
-	journal, err := reading.New(repo.Using(exec)).Journal(c, u.DBUser, username)
+	journal, err := reading.New(repo.Using(exec)).Journal(c, u.DBUser, username, "")
 	if err != nil {
 		return mo.Err[*web.UserHomePage](err)
 	}
@@ -215,12 +215,12 @@ func userHome(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, usern
 }
 
 func explore(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) mo.Result[*web.FeedPage] {
-	posts, err := reading.New(repo.Using(exec)).Explore(c, u.DBUser)
+	page, err := reading.New(repo.Using(exec)).Explore(c, u.DBUser, "")
 	if err != nil {
 		return mo.Err[*web.FeedPage](err)
 	}
 
-	return mo.Ok(web.Explore(c, u, posts))
+	return mo.Ok(web.Explore(c, u, page.Posts))
 }
 
 func TestPrivacyMatrix(t *testing.T) {
@@ -596,7 +596,7 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 			return err
 		}},
 		{"Feed/direct", asDirect, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
-			_, err := reading.New(repo.Using(exec)).Feed(c, u.DBUser, false)
+			_, err := reading.New(repo.Using(exec)).Feed(c, u.DBUser, "")
 			return err
 		}},
 		// a failure after the author is found is an error, not a missing feed

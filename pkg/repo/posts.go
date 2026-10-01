@@ -195,16 +195,60 @@ func (s *Store) PostToRead(ctx context.Context, id string) (*core.Post, error) {
 	return post, notFound(err)
 }
 
-// PublishedPostsOf returns the author's published posts, newest first, with
-// the author and linked URL loaded. visibilities limits the posts to those
-// visibilities; nil means any. withStats loads post.R.PostStat too.
-func (s *Store) PublishedPostsOf(ctx context.Context, authorID string, visibilities []core.PostVisibility, withStats bool) (core.PostSlice, error) {
+// Page is one page of a list sorted newest first by a time, then by kind and
+// ID, so that the order is total even across lists that are merged. A page
+// holds what comes after the item (Before, BeforeKind, BeforeID); a zero
+// Before is the first page. Limit caps the rows, 0 means no cap.
+type Page struct {
+	Before     time.Time
+	BeforeKind string
+	BeforeID   string
+	Limit      int
+}
+
+// The kinds of the lists a feed merges, in the order they take on a tie.
+const (
+	KindComment = "comment"
+	KindPost    = "post"
+	KindRSSItem = "rss"
+)
+
+// mods sorts a list of kind by timeCol and idCol, newest first, and keeps the
+// rows that come after the page's item in the merged order.
+func (p Page) mods(kind, timeCol, idCol string) []qm.QueryMod {
+	m := []qm.QueryMod{qm.OrderBy(fmt.Sprintf("%s DESC, %s DESC", timeCol, idCol))}
+
+	if p.Limit > 0 {
+		m = append(m, qm.Limit(p.Limit))
+	}
+
+	switch {
+	case p.Before.IsZero():
+	case kind < p.BeforeKind:
+		m = append(m, qm.Where(timeCol+" <= ?", p.Before))
+	case kind > p.BeforeKind:
+		m = append(m, qm.Where(timeCol+" < ?", p.Before))
+	default:
+		m = append(m, qm.Where(fmt.Sprintf("(%s, %s) < (?, ?)", timeCol, idCol), p.Before, p.BeforeID))
+	}
+
+	return m
+}
+
+// postMods pages published posts by publication time.
+func (p Page) postMods() []qm.QueryMod {
+	return p.mods(KindPost, core.PostTableColumns.PublishedAt, core.PostTableColumns.ID)
+}
+
+// PublishedPostsOf returns a page of the author's published posts, newest
+// first, with the author and linked URL loaded. visibilities limits the posts
+// to those visibilities; nil means any. withStats loads post.R.PostStat too.
+func (s *Store) PublishedPostsOf(ctx context.Context, authorID string, visibilities []core.PostVisibility, withStats bool, page Page) (core.PostSlice, error) {
 	m := []qm.QueryMod{
 		core.PostWhere.UserID.EQ(authorID),
 		core.PostWhere.PublishedAt.IsNotNull(),
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.URL),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	}
 
 	if withStats {
@@ -215,14 +259,14 @@ func (s *Store) PublishedPostsOf(ctx context.Context, authorID string, visibilit
 		m = append(m, core.PostWhere.VisibilityRadius.IN(visibilities))
 	}
 
-	return core.Posts(m...).All(ctx, s.exec)
+	return core.Posts(append(m, page.postMods()...)...).All(ctx, s.exec)
 }
 
-// PublishedPostsOfUsers returns, newest first, the published posts of the
-// users in allOf, and those of the users in someOf that have one of the
-// visibilities given. Author, stats and linked URL are loaded.
-func (s *Store) PublishedPostsOfUsers(ctx context.Context, allOf, someOf []string, visibilities []core.PostVisibility) (core.PostSlice, error) {
-	return core.Posts(
+// PublishedPostsOfUsers returns a page, newest first, of the published posts
+// of the users in allOf, and those of the users in someOf that have one of
+// the visibilities given. Author, stats and linked URL are loaded.
+func (s *Store) PublishedPostsOfUsers(ctx context.Context, allOf, someOf []string, visibilities []core.PostVisibility, page Page) (core.PostSlice, error) {
+	m := []qm.QueryMod{
 		core.PostWhere.PublishedAt.IsNotNull(),
 		qm.Expr(
 			core.PostWhere.UserID.IN(allOf),
@@ -233,16 +277,16 @@ func (s *Store) PublishedPostsOfUsers(ctx context.Context, allOf, someOf []strin
 		qm.Load(core.PostRels.User),
 		qm.Load(core.PostRels.PostStat),
 		qm.Load(core.PostRels.URL),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
-	).All(ctx, s.exec)
+	}
+
+	return core.Posts(append(m, page.postMods()...)...).All(ctx, s.exec)
 }
 
-// PublishedPostsByProfile returns, newest first, the published posts with
-// the given visibility whose authors have one of the profile visibilities
-// given, at most limit of them (0 means no limit). Author, stats and linked
-// URL are loaded.
-func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility core.PostVisibility, profiles []core.ProfileVisibility, limit int) (core.PostSlice, error) {
-	mods := []qm.QueryMod{
+// PublishedPostsByProfile returns a page, newest first, of the published
+// posts with the given visibility whose authors have one of the profile
+// visibilities given. Author, stats and linked URL are loaded.
+func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility core.PostVisibility, profiles []core.ProfileVisibility, page Page) (core.PostSlice, error) {
+	m := []qm.QueryMod{
 		core.PostWhere.PublishedAt.IsNotNull(),
 		core.PostWhere.VisibilityRadius.EQ(visibility),
 		qm.Load(core.PostRels.User),
@@ -250,14 +294,9 @@ func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility core.Pos
 		qm.Load(core.PostRels.URL),
 		qm.LeftOuterJoin("users on users.ID = posts.user_id"),
 		core.UserWhere.ProfileVisibility.IN(profiles),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostColumns.PublishedAt)),
 	}
 
-	if limit > 0 {
-		mods = append(mods, qm.Limit(limit))
-	}
-
-	return core.Posts(mods...).All(ctx, s.exec)
+	return core.Posts(append(m, page.postMods()...)...).All(ctx, s.exec)
 }
 
 // PostsOfOrAmong returns the posts, drafts included, written by userID, and

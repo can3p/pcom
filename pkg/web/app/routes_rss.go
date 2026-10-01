@@ -18,7 +18,7 @@ func mountRSSRoutes(d *Deps, r *gin.RouterGroup) {
 	reading := d.Services.Reading
 
 	r.GET("/rss/public", func(c *gin.Context) {
-		posts, err := reading.PublicPosts(c.Request.Context(), publicPostsLimit)
+		posts, err := reading.PublicPostsRSS(c.Request.Context())
 		if err != nil {
 			rssError(c, err)
 			return

@@ -92,13 +92,8 @@ type FeedPage struct {
 	Capabilities      FeedPageCapabilities
 }
 
-// Feed is the user's feed, /feed. A feed of posts only is not a page: it
-// carries the items and nothing else.
+// Feed is the user's feed, /feed.
 func Feed(c *gin.Context, userData *auth.UserData, feed *reading.Feed) *FeedPage {
-	if feed.PostsOnly {
-		return &FeedPage{Items: feed.Items}
-	}
-
 	basePage := getBasePage(c, "Your Feed", userData)
 
 	if feed.FeedToken != nil {

@@ -96,10 +96,11 @@ func (s *Store) LastImportedAt(ctx context.Context, feedIDs []string) (map[strin
 	return out, nil
 }
 
-// UndismissedFeedItems returns a user's feed items that are not dismissed,
-// newest first, with the item, its feed and its URL loaded.
-func (s *Store) UndismissedFeedItems(ctx context.Context, userID string) (core.UserFeedItemSlice, error) {
-	return core.UserFeedItems(
+// UndismissedFeedItems returns a page of a user's feed items that are not
+// dismissed, newest addition first, with the item, its feed and its URL
+// loaded.
+func (s *Store) UndismissedFeedItems(ctx context.Context, userID string, page Page) (core.UserFeedItemSlice, error) {
+	m := []qm.QueryMod{
 		core.UserFeedItemWhere.UserID.EQ(userID),
 		core.UserFeedItemWhere.IsDismissed.EQ(false),
 		qm.Load(qm.Rels(
@@ -107,8 +108,10 @@ func (s *Store) UndismissedFeedItems(ctx context.Context, userID string) (core.U
 			core.RSSItemRels.Feed,
 		)),
 		qm.Load(core.UserFeedItemRels.URL),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.UserFeedItemColumns.ID)),
-	).All(ctx, s.exec)
+	}
+
+	return core.UserFeedItems(append(m, page.mods(KindRSSItem,
+		core.UserFeedItemTableColumns.CreatedAt, core.UserFeedItemTableColumns.ID)...)...).All(ctx, s.exec)
 }
 
 // UserFeedItemByID returns a user's feed item, or ErrNotFound if the user has

@@ -143,13 +143,15 @@ func (s *Store) CommentedPostIDs(ctx context.Context, userID string) ([]string, 
 	return ids, nil
 }
 
-// CommentsOnPostsNotBy returns the comments on postIDs that someone other
-// than userID left, newest first, with their authors loaded.
-func (s *Store) CommentsOnPostsNotBy(ctx context.Context, postIDs []string, userID string) (core.PostCommentSlice, error) {
-	return core.PostComments(
+// CommentsOnPostsNotBy returns a page of the comments on postIDs that
+// someone other than userID left, newest first, with their authors loaded.
+func (s *Store) CommentsOnPostsNotBy(ctx context.Context, postIDs []string, userID string, page Page) (core.PostCommentSlice, error) {
+	m := []qm.QueryMod{
 		core.PostCommentWhere.UserID.NEQ(userID),
 		core.PostCommentWhere.PostID.IN(postIDs),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostCommentColumns.CreatedAt)),
 		qm.Load(core.PostCommentRels.User),
-	).All(ctx, s.exec)
+	}
+
+	return core.PostComments(append(m, page.mods(KindComment,
+		core.PostCommentTableColumns.CreatedAt, core.PostCommentTableColumns.ID)...)...).All(ctx, s.exec)
 }

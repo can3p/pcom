@@ -34,60 +34,66 @@ func (i *FeedItem) AddedToFeedAt() time.Time {
 	return i.Comment.CreatedAt
 }
 
-// Feed is the actor's feed. PostsOnly feeds carry the posts and nothing
-// else.
+// Feed is a page of the actor's feed. Only the first page carries the
+// connections, prompts and feed token. Next is the cursor of the next page,
+// empty on the last one.
 type Feed struct {
-	PostsOnly         bool
 	Items             []*FeedItem
+	Next              string
 	DirectConnections []*core.User
 	OpenPrompts       []*postops.PostPrompt
 	// FeedToken is the actor's private RSS feed token, nil when they have none.
 	FeedToken *core.UserFeedToken
 }
 
-// Feed is what the actor reads at /feed, newest first: the published posts of
-// their direct connections, the posts of second-degree connections shared that
-// far, their RSS items and the comments on posts they take part in. postsOnly
-// stops after the posts, for the private RSS feed.
-func (s *Service) Feed(ctx context.Context, actor *core.User, postsOnly bool) (*Feed, error) {
+// Feed is the page after cursor (empty for the first) of what the actor
+// reads at /feed, newest first: the published posts of their direct
+// connections, the posts of second-degree connections shared that far, their
+// RSS items and the comments on posts they take part in.
+func (s *Service) Feed(ctx context.Context, actor *core.User, cursor string) (*Feed, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
 
-	direct, secondDegree, via, err := graph.DirectAndSecondDegree(ctx, s.store, actor.ID)
+	after, err := ParseCursor(cursor)
 	if err != nil {
 		return nil, err
 	}
 
-	items, err := s.feedPosts(ctx, actor, direct, secondDegree, via)
+	page := after.page(PageSize)
+
+	items, err := s.feedPosts(ctx, actor, page)
 	if err != nil {
 		return nil, err
 	}
 
-	if postsOnly {
-		return &Feed{PostsOnly: true, Items: items}, nil
-	}
-
-	rssItems, err := s.rssItems(ctx, actor.ID)
+	rssItems, err := s.rssItems(ctx, actor.ID, page)
 	if err != nil {
 		return nil, err
 	}
 
 	items = append(items, rssItems...)
 
-	comments, err := s.feedComments(ctx, actor.ID)
+	comments, err := s.feedComments(ctx, actor.ID, page)
 	if err != nil {
 		return nil, err
 	}
 
 	items = append(items, comments...)
 
-	// newest items first
-	slices.SortFunc(items, func(a, b *FeedItem) int {
-		return b.AddedToFeedAt().Compare(a.AddedToFeedAt())
-	})
+	slices.SortFunc(items, compareItems)
 
-	out := &Feed{Items: items}
+	out := &Feed{}
+	out.Items, out.Next = cut(items, PageSize, cursorOf)
+
+	if cursor != "" {
+		return out, nil
+	}
+
+	direct, err := graph.DirectUserIDs(ctx, s.store, actor.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	out.DirectConnections, err = s.store.UsersByIDs(ctx, direct)
 	if err != nil {
@@ -118,7 +124,8 @@ type PrivateFeed struct {
 }
 
 // PrivateFeed resolves a private RSS feed token. Anybody who has the token
-// may read the feed, so there is no actor.
+// may read the feed, so there is no actor. It lists the newest RSSLimit
+// posts of the owner's feed.
 func (s *Service) PrivateFeed(ctx context.Context, token string) (*PrivateFeed, error) {
 	owner, err := s.store.FeedTokenOwner(ctx, token)
 	if errors.Is(err, repo.ErrNotFound) {
@@ -127,23 +134,28 @@ func (s *Service) PrivateFeed(ctx context.Context, token string) (*PrivateFeed, 
 		return nil, err
 	}
 
-	feed, err := s.Feed(ctx, owner, true)
+	items, err := s.feedPosts(ctx, owner, repo.Page{Limit: RSSLimit})
 	if err != nil {
 		return nil, err
 	}
 
 	return &PrivateFeed{
 		Owner: owner,
-		Posts: lo.Map(feed.Items, func(item *FeedItem, _ int) *postops.Post { return item.Post }),
+		Posts: lo.Map(items, func(item *FeedItem, _ int) *postops.Post { return item.Post }),
 	}, nil
 }
 
-// feedPosts is the published posts of the direct connections, and of the
-// second-degree connections those shared that far, each with the direct
-// connections it came through.
-func (s *Service) feedPosts(ctx context.Context, actor *core.User, direct, secondDegree []string, via map[string][]string) ([]*FeedItem, error) {
+// feedPosts is a page of the published posts of the actor's direct
+// connections, and of the second-degree connections those shared that far,
+// each with the direct connections it came through.
+func (s *Service) feedPosts(ctx context.Context, actor *core.User, page repo.Page) ([]*FeedItem, error) {
+	direct, secondDegree, via, err := graph.DirectAndSecondDegree(ctx, s.store, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	posts, err := s.store.PublishedPostsOfUsers(ctx, direct, secondDegree,
-		[]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic})
+		[]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}, page)
 	if err != nil {
 		return nil, err
 	}
@@ -181,9 +193,10 @@ func (s *Service) feedPosts(ctx context.Context, actor *core.User, direct, secon
 	}), nil
 }
 
-// rssItems is the RSS items in the user's feed they haven't dismissed.
-func (s *Service) rssItems(ctx context.Context, userID string) ([]*FeedItem, error) {
-	dbItems, err := s.store.UndismissedFeedItems(ctx, userID)
+// rssItems is a page of the RSS items in the user's feed they haven't
+// dismissed.
+func (s *Service) rssItems(ctx context.Context, userID string, page repo.Page) ([]*FeedItem, error) {
+	dbItems, err := s.store.UndismissedFeedItems(ctx, userID, page)
 	if err != nil {
 		return nil, err
 	}
@@ -208,10 +221,10 @@ func (s *Service) rssItems(ctx context.Context, userID string) ([]*FeedItem, err
 	}), nil
 }
 
-// feedComments is the comments others left on the user's own posts, and on
+// feedComments is a page of the comments others left on the user's own posts, and on
 // the posts of their direct connections they have commented on. The
 // connection is checked again because the user may have lost it since.
-func (s *Service) feedComments(ctx context.Context, userID string) ([]*FeedItem, error) {
+func (s *Service) feedComments(ctx context.Context, userID string, page repo.Page) ([]*FeedItem, error) {
 	participatedPostIDs, err := s.store.CommentedPostIDs(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -229,7 +242,7 @@ func (s *Service) feedComments(ctx context.Context, userID string) ([]*FeedItem,
 
 	postMap := lo.KeyBy(posts, func(p *core.Post) string { return p.ID })
 
-	comments, err := s.store.CommentsOnPostsNotBy(ctx, lo.Map(posts, func(p *core.Post, _ int) string { return p.ID }), userID)
+	comments, err := s.store.CommentsOnPostsNotBy(ctx, lo.Map(posts, func(p *core.Post, _ int) string { return p.ID }), userID, page)
 	if err != nil {
 		return nil, err
 	}

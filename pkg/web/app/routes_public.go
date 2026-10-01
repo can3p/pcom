@@ -19,9 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// publicPostsLimit caps the posts on the index page and in /rss/public.
-const publicPostsLimit = 50
-
 // mountPublicRoutes registers the pages anyone may read.
 func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	reading := d.Services.Reading
@@ -34,13 +31,13 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		posts, err := reading.PublicPosts(c, publicPostsLimit)
+		page, err := reading.PublicPosts(c, "")
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		c.HTML(http.StatusOK, "index.html", web.Index(c, &userData, posts))
+		c.HTML(http.StatusOK, "index.html", web.Index(c, &userData, page.Posts))
 	})
 
 	r.GET("/articles/:id", func(c *gin.Context) {
@@ -75,7 +72,7 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	r.GET("/users/:username", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		journal, err := reading.Journal(c, userData.DBUser, c.Param("username"))
+		journal, err := reading.Journal(c, userData.DBUser, c.Param("username"), "")
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
@@ -140,19 +137,19 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		posts, err := reading.Explore(c, userData.DBUser)
+		page, err := reading.Explore(c, userData.DBUser, "")
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		c.HTML(http.StatusOK, "feed.html", web.Explore(c, &userData, posts))
+		c.HTML(http.StatusOK, "feed.html", web.Explore(c, &userData, page.Posts))
 	})
 
 	r.GET("/feed", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		feed, err := reading.Feed(c, userData.DBUser, false)
+		feed, err := reading.Feed(c, userData.DBUser, "")
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
