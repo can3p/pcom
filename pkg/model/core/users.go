@@ -32,7 +32,6 @@ type User struct {
 	EmailConfirmedAt  null.Time         `boil:"email_confirmed_at" json:"email_confirmed_at,omitempty" toml:"email_confirmed_at" yaml:"email_confirmed_at,omitempty"`
 	EmailConfirmSeed  null.String       `boil:"email_confirm_seed" json:"email_confirm_seed,omitempty" toml:"email_confirm_seed" yaml:"email_confirm_seed,omitempty"`
 	SignupAttribution null.String       `boil:"signup_attribution" json:"signup_attribution,omitempty" toml:"signup_attribution" yaml:"signup_attribution,omitempty"`
-	Pwdhash           null.String       `boil:"pwdhash" json:"pwdhash,omitempty" toml:"pwdhash" yaml:"pwdhash,omitempty"`
 	Username          string            `boil:"username" json:"username" toml:"username" yaml:"username"`
 	ProfileVisibility ProfileVisibility `boil:"profile_visibility" json:"profile_visibility" toml:"profile_visibility" yaml:"profile_visibility"`
 
@@ -49,7 +48,6 @@ var UserColumns = struct {
 	EmailConfirmedAt  string
 	EmailConfirmSeed  string
 	SignupAttribution string
-	Pwdhash           string
 	Username          string
 	ProfileVisibility string
 }{
@@ -61,7 +59,6 @@ var UserColumns = struct {
 	EmailConfirmedAt:  "email_confirmed_at",
 	EmailConfirmSeed:  "email_confirm_seed",
 	SignupAttribution: "signup_attribution",
-	Pwdhash:           "pwdhash",
 	Username:          "username",
 	ProfileVisibility: "profile_visibility",
 }
@@ -75,7 +72,6 @@ var UserTableColumns = struct {
 	EmailConfirmedAt  string
 	EmailConfirmSeed  string
 	SignupAttribution string
-	Pwdhash           string
 	Username          string
 	ProfileVisibility string
 }{
@@ -87,7 +83,6 @@ var UserTableColumns = struct {
 	EmailConfirmedAt:  "users.email_confirmed_at",
 	EmailConfirmSeed:  "users.email_confirm_seed",
 	SignupAttribution: "users.signup_attribution",
-	Pwdhash:           "users.pwdhash",
 	Username:          "users.username",
 	ProfileVisibility: "users.profile_visibility",
 }
@@ -138,7 +133,6 @@ var UserWhere = struct {
 	EmailConfirmedAt  whereHelpernull_Time
 	EmailConfirmSeed  whereHelpernull_String
 	SignupAttribution whereHelpernull_String
-	Pwdhash           whereHelpernull_String
 	Username          whereHelperstring
 	ProfileVisibility whereHelperProfileVisibility
 }{
@@ -150,7 +144,6 @@ var UserWhere = struct {
 	EmailConfirmedAt:  whereHelpernull_Time{field: "\"users\".\"email_confirmed_at\""},
 	EmailConfirmSeed:  whereHelpernull_String{field: "\"users\".\"email_confirm_seed\""},
 	SignupAttribution: whereHelpernull_String{field: "\"users\".\"signup_attribution\""},
-	Pwdhash:           whereHelpernull_String{field: "\"users\".\"pwdhash\""},
 	Username:          whereHelperstring{field: "\"users\".\"username\""},
 	ProfileVisibility: whereHelperProfileVisibility{field: "\"users\".\"profile_visibility\""},
 }
@@ -572,9 +565,9 @@ func (r *userR) GetWhoWhitelistedConnections() WhitelistedConnectionSlice {
 type userL struct{}
 
 var (
-	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "username", "profile_visibility"}
+	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "username", "profile_visibility"}
 	userColumnsWithoutDefault = []string{"id", "email", "timezone", "username"}
-	userColumnsWithDefault    = []string{"created_at", "updated_at", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "profile_visibility"}
+	userColumnsWithDefault    = []string{"created_at", "updated_at", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "profile_visibility"}
 	userPrimaryKeyColumns     = []string{"id"}
 	userGeneratedColumns      = []string{}
 )

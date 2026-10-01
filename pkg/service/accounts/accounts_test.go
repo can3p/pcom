@@ -79,7 +79,6 @@ func TestRegister(t *testing.T) {
 		got := testutil.Must(factory.GetUserByEmail(ctx, db, "new-signup@example.test"))(t)
 		require.Equal(t, "newsignup", got.Username)
 		require.False(t, got.EmailConfirmedAt.Valid, "the email is unconfirmed until the code is typed")
-		require.False(t, got.Pwdhash.Valid)
 		require.Equal(t, "some-campaign", got.SignupAttribution.String)
 
 		sent := sender.Sent()
@@ -147,7 +146,6 @@ func TestAcceptInvite(t *testing.T) {
 		require.Equal(t, "invitee", got.Username)
 		require.Equal(t, "invitee@example.test", got.Email)
 		require.True(t, got.EmailConfirmedAt.Valid, "accepting an invite confirms the email right away")
-		require.False(t, got.Pwdhash.Valid)
 		require.Equal(t, "accepted_invite", got.SignupAttribution.String)
 
 		require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t))

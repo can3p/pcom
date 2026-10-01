@@ -145,6 +145,9 @@ host mode and `.env.example` assume the default ports; if you override one, upda
 | `make migrate-down` | Roll back the last migration. |
 | `make migration name=add_foo` | Create `migrations/<timestamp>-add_foo.sql`; edit it, then `make migrate`. |
 | `make generate` | Regenerate `pkg/model/core` from the migrations alone, using a throwaway `pcom_codegen` database that is dropped afterwards. CI checks the models are current, so run it after every migration. |
+
+The migration `20261001000000-drop_users_pwdhash.sql` drops the `users.pwdhash` column and must be deployed only after the F5 release has run in production, so a rollback still finds the column.
+
 | `make psql` | psql on the compose database. Pass arguments with `ARGS`: `make psql ARGS="-c 'select count(*) from users'"`. |
 | `make tools-shell` | Bash in the tools container; run one command with `make tools-shell CMD='go version'`. |
 | `make db-reset` | Drop, recreate and migrate the dev database. |

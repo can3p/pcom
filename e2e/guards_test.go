@@ -155,8 +155,8 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	for _, u := range []*core.User{w.owner, w.friend, w.stranger, w.requester} {
 		got, err := factory.GetUser(ctx, db, u.ID)
 		require.NoError(t, err)
-		s.Users = append(s.Users, fmt.Sprintf("%s|%s|%s|%s|%s|%v",
-			got.Email, got.Username, got.Pwdhash.String, got.Timezone, got.ProfileVisibility, got.UpdatedAt.Time))
+		s.Users = append(s.Users, fmt.Sprintf("%s|%s|%s|%s|%v",
+			got.Email, got.Username, got.Timezone, got.ProfileVisibility, got.UpdatedAt.Time))
 
 		posts, err := factory.ListPosts(ctx, db, u.ID)
 		require.NoError(t, err)

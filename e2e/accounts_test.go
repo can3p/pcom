@@ -154,7 +154,6 @@ func TestAccounts_AcceptInviteStartsACodeLogin(t *testing.T) {
 		user, err := factory.GetUserByEmail(ctx, app.DB, to)
 		require.NoError(t, err)
 		require.True(t, user.EmailConfirmedAt.Valid)
-		require.False(t, user.Pwdhash.Valid)
 		require.Len(t, app.Mails(t, to, func(m tommy.Mail) bool { return m.Subject == "Your pcom login code" }), 1)
 	})
 
@@ -196,7 +195,6 @@ func TestAccounts_SignupStartsACodeLogin(t *testing.T) {
 	user, err := factory.GetUserByEmail(ctx, app.DB, to)
 	require.NoError(t, err)
 	require.False(t, user.EmailConfirmedAt.Valid)
-	require.False(t, user.Pwdhash.Valid)
 	require.Len(t, app.Mails(t, to, func(m tommy.Mail) bool { return strings.Contains(m.Text, "confirmation code is") }), 1)
 }
 
