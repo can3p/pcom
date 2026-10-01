@@ -63,36 +63,29 @@ it builds; confirm or change it before the wave starts.
   The alternative: log in right after confirming, since the invitation
   link already proves the inbox, one step fewer. Which one? Open signup
   (`FORCE_SIGNUP`) follows the same answer.
-- **Q26. Translation provider and budget (F7).** Options, cheapest first
-  (prices as of 2026-10; a post of ~6,000 characters is ~1,500 tokens each
-  way, plus the JSON segment overhead):
-  1. Self-hosted LibreTranslate/Argos: no per-call cost, a ~2 GB container
-     on fly, weakest quality, keeps content on pcom's machines.
-  2. Free tiers of the MT APIs: Azure Translator F0 (2M characters a month),
-     DeepL API Free and Google Basic (500k each). Free at pcom's size, hard
-     monthly caps, check each one's data-use terms.
-  3. Claude Haiku 4.5 ($1/$5 per million tokens in/out): about $0.01 a post,
-     ~$1.5 per million characters; follows the segment-array instruction and
-     keeps the markdown runs intact. The plan's default.
-  4. Paid MT APIs: Azure S1 $10, Google Basic $20, DeepL Pro $25 (+$5.49 a
-     month) per million characters; strong quality, native HTML tag
-     handling, no prompt to maintain.
-  5. Claude Sonnet 5.5 ($2/$10): about $0.02 a post; better idiom and tone.
-  6. Claude Opus 5.5 ($4/$20): about $0.04 a post; more than translation
-     needs.
-  The Batch API halves the Claude prices but answers within hours, which
-  fits only the background re-translation after an edit. The plan's limits:
-  a per-user daily cap (default 50 new translations) and a site-wide one
-  (default 1,000); no key turns the feature off. Which provider, which
-  limits?
 - **Q27. Language detection and target (F7).** Default: a local Go
   library detects the language on publish, edit and RSS import, free and
   offline, less accurate on short texts; English is the only target, stored
-  per user so others can come later. Alternative: ask the model to detect,
-  which costs a call per published post. Which library: the owner checks
-  the candidates' license and binary size at T0.
+  per user so others can come later. Alternative: the backend's own
+  detection (Azure's `/detect`), which sends every published post that
+  allows translation to the provider, translated or not. Which library: the
+  owner checks the candidates' license and binary size at T0.
 
 ## Decided
+
+- **2026-10-01. Q26, translation provider (F7, #144):** translation is
+  common infrastructure (`pkg/translate`) with a pluggable backend chosen by
+  configuration; Azure Translator is the first backend. Limits are in
+  characters: per user per day, site-wide per month (default 2M, Azure
+  F0's cap). Every translation is labelled as automatic, with the
+  provider's name and "Show original". Integration and browser tests run
+  against a mock Azure API built on a new universal API-mock primitive
+  (`pkg/testutil/apimock`), never a real provider; tommy stays for mail and
+  storage. Options considered, cheapest first (2026-10 prices):
+  self-hosted LibreTranslate; the MT free tiers (Azure F0 2M chars a month,
+  DeepL and Google 500k); Claude Haiku 4.5 (~$1.5 per million characters);
+  Azure S1 $10, Google $20, DeepL Pro $25 per million characters; Claude
+  Sonnet 5.5 and Opus 5.5. Each is a later backend.
 
 - **2026-10-01. Q24, the public website (F6, #145):** copy tommy's website
   (`can3p/tommy/website`): its own Go module in `website/`, the page list in
