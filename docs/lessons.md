@@ -227,3 +227,18 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Put a wave file's task table before its task sections.**
   `task_prompt.py` pastes a `###` section up to the next heading, so the last
   section also carried the table and closing notes into its prompt.
+- **A task that changes the test harness owns the routes the harness
+  calls.** F5 planned `LoginAs(email)` in the contract task, before the
+  code routes existed; it could only move to the task that adds them.
+- **Tasks that share a file are not parallel.** Run them in sequence rather
+  than plan a merge; F5's M1 and M2 shared a route file, a test file and a
+  form.
+- **"Merged now, deployed later" doesn't hold where deploys migrate.** fly's
+  `release_command` runs every pending migration, so a deferred migration
+  goes on a stacked branch with its own PR.
+- **A test of a printed secret uses it.** F5's CLI test checked that six
+  digits were printed; a wrong HMAC key passed it until the test logged in
+  with the code.
+- **Plan file deletions for the coordinator.** The permission check refuses
+  a subagent command that deletes tracked files; the coordinator removes
+  them with `git rm` (with the owner's approval) before dispatching.
