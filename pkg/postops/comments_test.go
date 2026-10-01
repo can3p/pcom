@@ -157,7 +157,7 @@ func TestConstructComments(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := postops.ConstructComments(tc.comments, graph.RadiusDirect)
+			got := postops.ConstructComments(nil, tc.comments, graph.RadiusDirect)
 
 			if len(tc.want) == 0 {
 				require.Empty(t, got)
@@ -177,14 +177,31 @@ func TestConstructComments_Capabilities(t *testing.T) {
 		mkComment("c1", "", t0, "alice"),
 	}
 
-	sameUser := postops.ConstructComments(comments, graph.RadiusSameUser)
+	sameUser := postops.ConstructComments(nil, comments, graph.RadiusSameUser)
 	require.True(t, sameUser[0].Capabilities.CanRespond)
 
-	direct := postops.ConstructComments(comments, graph.RadiusDirect)
+	direct := postops.ConstructComments(nil, comments, graph.RadiusDirect)
 	require.True(t, direct[0].Capabilities.CanRespond)
 
-	unrelated := postops.ConstructComments(comments, graph.RadiusUnrelated)
+	unrelated := postops.ConstructComments(nil, comments, graph.RadiusUnrelated)
 	require.False(t, unrelated[0].Capabilities.CanRespond)
+}
+
+func TestConstructComments_CanEdit(t *testing.T) {
+	t.Parallel()
+
+	t0 := base(t)
+	comment := mkComment("c1", "", t0, "alice")
+	comment.UserID = "alice-id"
+	comments := core.PostCommentSlice{comment}
+	alice := &core.User{ID: "alice-id"}
+
+	require.True(t, postops.ConstructComments(alice, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
+	require.True(t, postops.ConstructComments(alice, comments, graph.RadiusSameUser)[0].Capabilities.CanEdit)
+	// lost the connection to the post's author
+	require.False(t, postops.ConstructComments(alice, comments, graph.RadiusUnrelated)[0].Capabilities.CanEdit)
+	require.False(t, postops.ConstructComments(&core.User{ID: "bob-id"}, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
+	require.False(t, postops.ConstructComments(nil, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
 }
 
 func TestConstructComments_AuthorIsCarriedThrough(t *testing.T) {
@@ -195,6 +212,6 @@ func TestConstructComments_AuthorIsCarriedThrough(t *testing.T) {
 		mkComment("c1", "", t0, "alice"),
 	}
 
-	got := postops.ConstructComments(comments, graph.RadiusDirect)
+	got := postops.ConstructComments(nil, comments, graph.RadiusDirect)
 	require.Equal(t, "alice", got[0].Author.Username)
 }
