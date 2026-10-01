@@ -1,0 +1,25 @@
+EmailType: comment_notification
+UniqueID: comment-1user-12026-09-30T12:00:00Z
+From: Your pcom <noreply@pcom.test>
+To: recipient@example.test
+Subject: Edited comment in your post "Original Post"
+
+--- TEXT ---
+Hi!
+
+@alice has edited a comment in your post "Original Post".
+
+> Nice post, edited!
+
+Checkout the comment in the post: /posts/post-1#commentpost-1comment-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>@alice has edited a comment in your post "Original Post".</p>
+
+	<blockquote><p>Nice post, edited!</p>
+</blockquote>
+
+	<p>Checkout the comment in the <a href="/posts/post-1#commentpost-1comment-1">post</a>.</p>

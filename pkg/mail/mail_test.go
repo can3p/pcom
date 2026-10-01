@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
@@ -232,7 +233,7 @@ func TestPostCommentAuthor(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment, false))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -267,7 +268,7 @@ func TestPostCommentAuthor_NotToMyself(t *testing.T) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
 	// Passing the same user as both commenter and author should skip sending
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, user, user, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, user, user, post, comment, false))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -304,7 +305,7 @@ func TestPostCommentParticipants(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment, false))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -339,7 +340,7 @@ func TestPostCommentParticipants_NotToMyself(t *testing.T) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
 	// Passing the same user as both commenter and participant should skip sending
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, user, user, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, user, user, post, comment, false))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -616,7 +617,7 @@ func TestPostCommentAuthor_WithURL(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment, false))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
@@ -660,11 +661,49 @@ func TestPostCommentParticipants_WithURL(t *testing.T) {
 	ctx := context.Background()
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment))
+	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment, false))
 	require.NoError(t, err)
 
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
 
 	golden.Assert(t, "post_comment_participants_with_url", mailsToGolden(sent))
+}
+
+func TestPostCommentEdited(t *testing.T) {
+	t.Parallel()
+
+	commenter := &core.User{ID: "user-1", Email: "commenter@example.test", Username: "alice"}
+	recipient := &core.User{ID: "user-2", Email: "recipient@example.test", Username: "bob"}
+	post := &core.Post{ID: "post-1", Subject: null.StringFrom("Original Post"), Body: "Post body", UserID: recipient.ID}
+	comment := &core.PostComment{
+		ID:       "comment-1",
+		PostID:   post.ID,
+		UserID:   commenter.ID,
+		Body:     "Nice post, edited!",
+		EditedAt: null.TimeFrom(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+	}
+	mediaReplacer := func(in string) (bool, string) { return false, in }
+
+	for name, format := range map[string]func() (*mail.Outgoing, error){
+		"post_comment_author_edited": func() (*mail.Outgoing, error) {
+			return mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, true)
+		},
+		"post_comment_participants_edited": func() (*mail.Outgoing, error) {
+			return mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, true)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			sender := fakesender.New()
+			require.NoError(t, deliverE(context.Background(), sender)(format()))
+
+			sent := sender.Sent()
+			require.Len(t, sent, 1)
+			require.Contains(t, sent[0].UniqueID, "2026-09-30T12:00:00Z")
+
+			golden.Assert(t, name, mailsToGolden(sent))
+		})
+	}
 }

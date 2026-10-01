@@ -41,10 +41,10 @@ func mailers() map[string]func(s *fakesender.Sender) error {
 			return deliver(ctx, s)(mail.NewPost(links.Site{}, testFrom, replacer, alice, bob, post))
 		},
 		"PostCommentAuthor": func(s *fakesender.Sender) error {
-			return deliverE(ctx, s)(mail.PostCommentAuthor(links.Site{}, testFrom, replacer, alice, bob, post, comment))
+			return deliverE(ctx, s)(mail.PostCommentAuthor(links.Site{}, testFrom, replacer, alice, bob, post, comment, false))
 		},
 		"PostCommentParticipants": func(s *fakesender.Sender) error {
-			return deliverE(ctx, s)(mail.PostCommentParticipants(links.Site{}, testFrom, replacer, alice, bob, post, comment))
+			return deliverE(ctx, s)(mail.PostCommentParticipants(links.Site{}, testFrom, replacer, alice, bob, post, comment, false))
 		},
 		"PostPrompt": func(s *fakesender.Sender) error {
 			return deliver(ctx, s)(mail.PostPrompt(links.Site{}, testFrom, alice, bob, prompt))
