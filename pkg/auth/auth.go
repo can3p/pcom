@@ -125,17 +125,6 @@ func EnforceReferer(siteRoot string) gin.HandlerFunc {
 	}
 }
 
-// Login checks the credentials and starts the session of the user they
-// belong to.
-func Login(c *gin.Context, accounts *accounts.Service, email string, password string) error {
-	user, err := accounts.Authenticate(c.Request.Context(), email, password)
-	if err != nil {
-		return err
-	}
-
-	return StartSession(c, user)
-}
-
 // SetLoginAttempt remembers the login attempt of the visitor in the session.
 func SetLoginAttempt(c *gin.Context, attemptID string) error {
 	session := sessions.Default(c)

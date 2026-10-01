@@ -1,5 +1,7 @@
 package config
 
+import "github.com/can3p/gogo/settings"
+
 // Seed is the settings of the seed command, which fills a development
 // database.
 type Seed struct {
@@ -23,4 +25,11 @@ type AdminRegistration struct {
 	Database Database `group:"Database"`
 	Open     bool     `long:"open" description:"Open registration"`
 	Close    bool     `long:"close" description:"Close registration"`
+}
+
+// AdminLoginCode is the settings of `admin login-code`.
+type AdminLoginCode struct {
+	Database    Database        `group:"Database"`
+	Email       string          `long:"email" description:"Email of the account to issue a login code for" required:"true"`
+	SessionSalt settings.Secret `long:"session-salt" env:"SESSION_SALT" description:"Salt for session cookies and hashed values" required:"true"`
 }

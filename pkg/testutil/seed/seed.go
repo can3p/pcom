@@ -8,7 +8,7 @@
 // run when Options.Production is set (FLY_APP_NAME is set). Without --reset it exits if users already exist; --reset truncates
 // every table except migrations and system_settings first.
 //
-// Every account logs in with the password "password":
+// Every account logs in with a code mailed to <username>@example.test:
 //
 //	alice  alice@example.test  connections       connected to bob; second degree to carol; owns the API key
 //	bob    bob@example.test    registered_users  connected to alice and carol
@@ -36,8 +36,6 @@ import (
 )
 
 const (
-	// Password is the login password of every seeded user.
-	Password = "password"
 	// AliceAPIKey is Alice's fixed API key.
 	AliceAPIKey = "00000000-0000-4000-8000-000000000001"
 	// FeedURL is the placeholder feed; the poller fails on it harmlessly.
@@ -168,7 +166,6 @@ func build(ctx context.Context, tx *sql.Tx) ([]*seededUser, string, error) {
 		u, err := factory.User(ctx, tx,
 			factory.WithUsername(su.Name),
 			factory.WithEmail(su.Name+"@example.test"),
-			factory.WithPassword(Password),
 			factory.WithVisibility(su.Visibility),
 		)
 		if err != nil {
@@ -288,10 +285,10 @@ func summary(users []*seededUser, apiKey, siteRoot string) string {
 
 	fmt.Fprintln(&b, "Seeded the development database.")
 	fmt.Fprintln(&b)
-	fmt.Fprintf(&b, "%-6s %-24s %-10s %-17s %s\n", "user", "login (email)", "password", "profile", "role")
+	fmt.Fprintf(&b, "%-6s %-24s %-17s %s\n", "user", "login (email)", "profile", "role")
 
 	for _, su := range users {
-		fmt.Fprintf(&b, "%-6s %-24s %-10s %-17s %s\n", su.Name, su.user.Email, Password, su.Visibility, su.Role)
+		fmt.Fprintf(&b, "%-6s %-24s %-17s %s\n", su.Name, su.user.Email, su.Visibility, su.Role)
 	}
 
 	fmt.Fprintln(&b)

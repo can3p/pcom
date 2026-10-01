@@ -70,8 +70,4 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 	controlsForms.POST("/save_user_styles", form(func(c *gin.Context) gogoForms.Form {
 		return forms.SettingsUserStylesNew(accounts, auth.GetUserData(c).DBUser)
 	}))
-
-	controlsForms.POST("/change_password", form(func(c *gin.Context) gogoForms.Form {
-		return forms.ChangePasswordFormNew(accounts, auth.GetUserData(c).DBUser)
-	}))
 }

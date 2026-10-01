@@ -1,8 +1,17 @@
 package main
 
 import (
+	"context"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/testutil"
+	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
@@ -41,6 +50,48 @@ func TestAdminRegistration(t *testing.T) {
 
 	require.Error(t, run([]string{"admin", "registration", "--database-url", db.URL}))
 	require.Error(t, run([]string{"admin", "registration", "--database-url", db.URL, "--open", "--close"}))
+}
+
+// stdoutOf runs args and returns what the command printed to stdout.
+func stdoutOf(t *testing.T, args []string) (string, error) {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+
+	orig := os.Stdout
+	os.Stdout = w
+
+	runErr := run(args)
+
+	os.Stdout = orig
+	require.NoError(t, w.Close())
+
+	out, err := io.ReadAll(r)
+	require.NoError(t, err)
+
+	return string(out), runErr
+}
+
+func TestAdminLoginCode(t *testing.T) {
+	db := testdb.New(t)
+	ctx := context.Background()
+	user := testutil.Must(factory.User(ctx, db.DB))(t)
+	args := []string{"admin", "login-code", "--database-url", db.URL, "--session-salt", "test-key", "--email", user.Email}
+
+	_, err := stdoutOf(t, args)
+	require.ErrorContains(t, err, "must first enter their email on the login page")
+
+	svc := accounts.New(repo.New(db.DB), fakesender.New(), nil, accounts.WithCodeKey("test-key"))
+	attemptID := testutil.Must(svc.StartLogin(ctx, user.Email, ""))(t)
+
+	out, err := stdoutOf(t, args)
+	require.NoError(t, err)
+	require.Regexp(t, `^\d{6}\n$`, out, "only the code is printed")
+
+	got, _, err := svc.FinishLogin(ctx, attemptID, strings.TrimSpace(out))
+	require.NoError(t, err, "the printed code logs in to the user's attempt")
+	require.Equal(t, user.ID, got.ID)
 }
 
 func TestSeed(t *testing.T) {

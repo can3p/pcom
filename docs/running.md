@@ -28,7 +28,7 @@ make dev
 ```
 
 Runs the app (live reload on `.go`, `.html` and `.md` changes) and the frontend watcher in containers, in the
-foreground. Open http://localhost:8080 and log in as `alice@example.test` / `password`. `make dev-logs` follows
+foreground. Open http://localhost:8080 and log in as `alice@example.test` with the code from tommy's mail (http://localhost:8811/ui/). `make dev-logs` follows
 the logs from another terminal; `make dev-down` stops everything.
 
 The containers set their in-network values (database host, `SITE_ROOT`, `PORT`) as real environment variables,
@@ -81,15 +81,19 @@ database, not only earlier seed data.
 
 ### Seeded users
 
-Every account logs in with the email and the password `password`.
+Every account logs in with its email and a code that the app mails to it. Enter the email on the login page, then
+open tommy's mail UI at http://localhost:8811/ui/ (`PCOM_TOMMY_PORT` in `docker-compose.yml`) and type the code
+from the newest mail. When mail is down, enter the email on the login page first and run
+`web admin login-code --email alice@example.test` (it needs `DATABASE_URL` and `SESSION_SALT`); it prints a fresh
+code for that open login attempt.
 
-| User | Login | Password | Profile visibility | Relationships |
-|---|---|---|---|---|
-| alice | alice@example.test | password | connections | connected to bob; second degree to carol; owns the API key; has a pending mediation request to carol |
-| bob | bob@example.test | password | registered_users | connected to alice and carol |
-| carol | carol@example.test | password | public | connected to bob; target of alice's mediation request |
-| dave | dave@example.test | password | connections | unrelated to everyone |
-| eve | eve@example.test | password | registered_users | has an unaccepted invite (eve-friend@example.test) |
+| User | Login | Profile visibility | Relationships |
+|---|---|---|---|
+| alice | alice@example.test | connections | connected to bob; second degree to carol; owns the API key; has a pending mediation request to carol |
+| bob | bob@example.test | registered_users | connected to alice and carol |
+| carol | carol@example.test | public | connected to bob; target of alice's mediation request |
+| dave | dave@example.test | connections | unrelated to everyone |
+| eve | eve@example.test | registered_users | has an unaccepted invite (eve-friend@example.test) |
 
 This table mirrors the doc comment of `pkg/testutil/seed/seed.go`; when one changes, change the other.
 

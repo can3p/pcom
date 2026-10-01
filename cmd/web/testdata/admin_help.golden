@@ -1,5 +1,5 @@
 Usage:
-  web [OPTIONS] admin <invite | registration>
+  web [OPTIONS] admin <invite | login-code | registration>
 
 Administrative tasks that talk to the database directly.
 
@@ -8,4 +8,5 @@ Help Options:
 
 Available commands:
   invite        Add invites to an account
+  login-code    Issue a login code
   registration  Open or close registration

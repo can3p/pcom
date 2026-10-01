@@ -23,12 +23,8 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 	alice, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	bob, err := factory.User(ctx, db,
-		factory.WithPassword("s3cret-password"),
-		factory.WithVisibility(core.ProfileVisibilityPublic),
-	)
+	bob, err := factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic))
 	require.NoError(t, err)
-	require.True(t, bob.Pwdhash.Valid)
 	require.Equal(t, core.ProfileVisibilityPublic, bob.ProfileVisibility)
 
 	carol, err := factory.User(ctx, db)

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -15,15 +14,6 @@ import (
 // UserOpt customizes a User before it is inserted.
 type UserOpt func(*core.User)
 
-// WithPassword sets a login password: it hashes it the way the app does and
-// marks the user's email confirmed.
-func WithPassword(pw string) UserOpt {
-	return func(u *core.User) {
-		u.Pwdhash = null.StringFrom(pgsession.HashUserPwd(u.Email, pw))
-		u.EmailConfirmedAt = null.TimeFrom(time.Now())
-	}
-}
-
 // WithUsername overrides the made-up username.
 func WithUsername(name string) UserOpt {
 	return func(u *core.User) {
@@ -31,8 +21,7 @@ func WithUsername(name string) UserOpt {
 	}
 }
 
-// WithEmail overrides the made-up email. Apply it before WithPassword, which
-// hashes the password together with the email.
+// WithEmail overrides the made-up email.
 func WithEmail(email string) UserOpt {
 	return func(u *core.User) {
 		u.Email = email

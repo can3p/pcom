@@ -1,0 +1,16 @@
+Usage:
+  web [OPTIONS] admin login-code [login-code-OPTIONS]
+
+Print a fresh login code for the account's open login attempt, for when mail is
+down.
+
+Help Options:
+  -h, --help              Show this help message
+
+[login-code command options]
+          --email=        Email of the account to issue a login code for
+          --session-salt= Salt for session cookies and hashed values
+                          [$SESSION_SALT]
+
+    Database:
+          --database-url= Postgres connection URL [$DATABASE_URL]
