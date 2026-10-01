@@ -98,7 +98,7 @@ its own database). Every test gets its own database, so `t.Parallel()` is safe a
 
 Builders such as `factory.User(ctx, exec, opts...)`, `factory.Post(ctx, exec, authorID, opts...)`,
 `factory.Comment(ctx, exec, postID, authorID, opts...)` and `factory.RSSFeed(ctx, exec, opts...)` insert one
-row with sane defaults. Functional options override specific fields, e.g. `factory.WithPassword("secret")`,
+row with sane defaults. Functional options override specific fields, e.g. `factory.WithEmail("a@b.test")`,
 `factory.Published()`, `factory.Visibility(core.PostVisibilityPublic)`. Readers, in `read.go`, fetch state
 back through the same `exec`: `factory.GetUser`, `factory.GetPost`, `factory.ListPosts`, `factory.ListComments`,
 `factory.ListOutgoingEmails`, `factory.ConnectionExists`.
@@ -124,7 +124,7 @@ headers, HTML and the resulting database state. It is for server rules that don'
 Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
 
 `e2e.Start(t, opts...)` returns `*App{URL, DB}`. `app.Client(t)` gives a cookie-carrying `*Client` with `Get`,
-`PostForm`, `PostJSON`, `LoginAs(email, password)` and `Do(req)` for anything else; each returns a `*Response`
+`PostForm`, `PostJSON`, `LoginAs(email)` (it posts the email, issues the code through the accounts service and posts it) and `Do(req)` for anything else; each returns a `*Response`
 with `RequireStatus(code)`, `Doc()` (goquery) and `Location()`; `Header` and `Body` are plain fields. A feed a test creates must point at an `httptest.Server` the test owns,
 never a real remote URL.
 
@@ -165,7 +165,7 @@ every parallel test opens its own window.
 The harness API:
 
 - `e2e.Start(t, e2e.WithRealAssets())` serves the real `cmd/web/dist`. Every test starts its own app.
-- `browser.NewUser(t, app, opts...)` is `factory.User` with the password `browser.Password`, and
+- `browser.NewUser(t, app, opts...)` is `factory.User` for a confirmed user, and
   `browser.Page(t, app, browser.As(user))` returns a page in a fresh browser context, already logged in
   (it reuses an HTTP login's session cookie). The base URL is the app's, so `page.Goto("/feed")`.
 - **Guards:** the page fails the test on an uncaught error, a `console.error`, a CSP violation, a failed
@@ -332,13 +332,13 @@ import (
 
 func TestFeedRequiresLogin(t *testing.T) {
 	app := e2e.Start(t)
-	user, err := factory.User(context.Background(), app.DB, factory.WithPassword("secret-pw"))
+	user, err := factory.User(context.Background(), app.DB)
 	require.NoError(t, err)
 
 	client := app.Client(t)
 	client.Get("/feed").RequireStatus(http.StatusFound)
 
-	client.LoginAs(user.Email, "secret-pw")
+	client.LoginAs(user.Email)
 	client.Get("/feed").RequireStatus(http.StatusOK)
 }
 ```

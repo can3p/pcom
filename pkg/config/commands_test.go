@@ -22,11 +22,15 @@ type registrationOnly struct{ config.AdminRegistration }
 
 func (*registrationOnly) Execute([]string) error { return nil }
 
+type loginCodeOnly struct{ config.AdminLoginCode }
+
+func (*loginCodeOnly) Execute([]string) error { return nil }
+
 // parseCmd parses `name args...` into cmd with exactly env set.
 func parseCmd(t *testing.T, name string, cmd flags.Commander, env map[string]string, args ...string) error {
 	t.Helper()
 
-	for _, k := range []string{"DATABASE_URL", "SITE_ROOT", "FLY_APP_NAME"} {
+	for _, k := range []string{"DATABASE_URL", "SITE_ROOT", "FLY_APP_NAME", "SESSION_SALT"} {
 		t.Setenv(k, "")
 		require.NoError(t, os.Unsetenv(k))
 	}
@@ -100,4 +104,16 @@ func TestAdmin_Flags(t *testing.T) {
 	require.NoError(t, parseCmd(t, "registration", reg, db, "--close"))
 	require.True(t, reg.Close)
 	require.False(t, reg.Open)
+}
+
+func TestAdminLoginCode_Flags(t *testing.T) {
+	db := map[string]string{"DATABASE_URL": "postgres://db/pcom"}
+
+	require.ErrorContains(t, parseCmd(t, "login-code", &loginCodeOnly{}, db, "--email", "a@b.c"), "SESSION_SALT")
+	require.ErrorContains(t, parseCmd(t, "login-code", &loginCodeOnly{}, map[string]string{"DATABASE_URL": "postgres://db/pcom", "SESSION_SALT": "s"}), "email")
+
+	got := &loginCodeOnly{}
+	require.NoError(t, parseCmd(t, "login-code", got, map[string]string{"DATABASE_URL": "postgres://db/pcom", "SESSION_SALT": "s"}, "--email", "a@b.c"))
+	require.Equal(t, "a@b.c", got.Email)
+	require.Equal(t, "s", got.SessionSalt.Reveal())
 }

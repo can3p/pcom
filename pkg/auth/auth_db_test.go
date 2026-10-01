@@ -2,9 +2,7 @@ package auth_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
@@ -12,7 +10,6 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -20,7 +17,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
 // svc is the accounts service over the test database; auth talks to users through it.
@@ -28,90 +24,15 @@ func svc(db *sqlx.DB) *accounts.Service {
 	return accounts.New(repo.New(db), nil, nil)
 }
 
-func TestLogin(t *testing.T) {
+func TestStartSession_PutsTheUserInTheSession(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user := testutil.Must(factory.User(ctx, db, factory.WithPassword("s3cr3t-pw")))(t)
-
-	cases := []struct {
-		name     string
-		password string
-		wantErr  bool
-	}{
-		{name: "sets session on success", password: "s3cr3t-pw"},
-		{name: "bad credentials returns error without setting session", password: "wrong-pw", wantErr: true},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-
-			err := auth.Login(c, svc(db), user.Email, tc.password)
-			if tc.wantErr {
-				require.Error(t, err)
-				require.Nil(t, sessions.Default(c).Get("user"))
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, user.ID, sessions.Default(c).Get("user"))
-			}
-		})
-	}
-}
-
-// TestLogin_EmailCaseAndLegacyHashes pins #114 and #119. The email is
-// matched whatever case and surrounding space the user types. A legacy
-// sha256 hash, computed from the stored email, is replaced by argon2id at
-// login.
-func TestLogin_EmailCaseAndLegacyHashes(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	for i, typed := range []string{"%s@x.test", "%s@X.TEST", " %s@x.test "} {
-		t.Run(typed, func(t *testing.T) {
-			t.Parallel()
-
-			local := fmt.Sprintf("user%d", i)
-			email := local + "@x.test"
-			id := testutil.Must(factory.User(ctx, db, factory.WithEmail(email), factory.WithPassword("pw")))(t).ID
-			typed := fmt.Sprintf(typed, strings.ToUpper(local[:1])+local[1:])
-
-			c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-			require.NoError(t, auth.Login(c, svc(db), typed, "pw"))
-			require.Equal(t, id, sessions.Default(c).Get("user"))
-
-			got := testutil.Must(factory.GetUser(ctx, db, id))(t)
-			require.True(t, strings.HasPrefix(got.Pwdhash.String, "$argon2id$"), "a legacy hash is replaced at login")
-			require.Equal(t, email, got.Email)
-
-			c2, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-			require.NoError(t, auth.Login(c2, svc(db), typed, "pw"), "the new hash logs in too")
-			require.Equal(t, id, sessions.Default(c2).Get("user"))
-			require.Error(t, auth.Login(c2, svc(db), typed, "wrong-pw"))
-		})
-	}
-}
-
-func TestLogin_DBErrorIsReturnedAsIs(t *testing.T) {
-	t.Parallel()
-
-	testDB := testdb.New(t)
-	db := testDB.DB
-	require.NoError(t, db.Close())
+	user := testutil.Must(factory.User(context.Background(), db))(t)
 
 	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-
-	var err error
-	require.NotPanics(t, func() {
-		err = auth.Login(c, svc(db), "someone@example.test", "pw")
-	})
-	require.Error(t, err, "a DB error should be returned to the caller, not mistaken for bad credentials")
+	require.NoError(t, auth.StartSession(c, user))
+	require.Equal(t, user.ID, sessions.Default(c).Get("user"))
 }
 
 func TestAuth_StaleSessionUserLogsAndContinues(t *testing.T) {
@@ -245,16 +166,4 @@ func TestAuthAPI_KnownKeySetsUser(t *testing.T) {
 	got := pgsession.GetUser(c)
 	require.NotNil(t, got)
 	require.Equal(t, user.ID, got.DBUser.ID)
-}
-
-func TestLogin_AccountWithoutPasswordCannotLogIn(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user := testutil.Must(factory.User(ctx, db, func(u *core.User) { u.Pwdhash = null.String{} }))(t)
-
-	c, _ := ginctx.New(t, http.MethodPost, "/login", nil)
-	require.Error(t, auth.Login(c, svc(db), user.Email, ""))
 }

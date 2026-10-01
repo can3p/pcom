@@ -30,9 +30,6 @@ import (
 	"github.com/mxschmitt/playwright-go"
 )
 
-// Password is the login password of every user made by NewUser.
-const Password = "browser-pw"
-
 // Expect holds Playwright's auto-waiting assertions. Wait for a state with
 // these, never with a sleep.
 var Expect = playwright.NewPlaywrightAssertions(5000)
@@ -139,11 +136,11 @@ func LogInWithCode(t testing.TB, app *e2e.App, page playwright.Page, email strin
 	SubmitLoginCode(t, page, LoginCode(t, app, email))
 }
 
-// NewUser creates a user who can log in with Password.
+// NewUser creates a confirmed user.
 func NewUser(t testing.TB, app *e2e.App, opts ...factory.UserOpt) *core.User {
 	t.Helper()
 
-	u, err := factory.User(context.Background(), app.DB, append([]factory.UserOpt{factory.WithPassword(Password)}, opts...)...)
+	u, err := factory.User(context.Background(), app.DB, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

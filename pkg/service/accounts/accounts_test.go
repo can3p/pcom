@@ -182,32 +182,6 @@ func TestAcceptInvite(t *testing.T) {
 	})
 }
 
-func TestCheckCredentials(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	ctx := context.Background()
-
-	user := testutil.Must(factory.User(ctx, db, factory.WithPassword("correct-horse")))(t)
-
-	require.NoError(t, svcWith(db, nil).CheckCredentials(ctx, user.Email, "correct-horse"))
-	require.Error(t, svcWith(db, nil).CheckCredentials(ctx, user.Email, "wrong-password"))
-	require.Error(t, svcWith(db, nil).CheckCredentials(ctx, "unknown@example.test", "correct-horse"))
-}
-
-func TestCheckCredentials_DBErrorIsReturnedAsIs(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	testDB := testdb.New(t)
-	db := testDB.DB
-	require.NoError(t, db.Close())
-
-	err := svcWith(db, nil).CheckCredentials(ctx, "someone@example.test", "pw")
-	require.Error(t, err)
-	require.NotEqual(t, "Bad credentials", err.Error(), "a real DB error must not be mistaken for wrong credentials")
-}
-
 func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 	t.Parallel()
 
