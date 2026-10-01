@@ -65,7 +65,6 @@ func TestLink_WithArguments(t *testing.T) {
 		{"use_case", []string{"use-case-slug"}, "/use-case/use-case-slug"},
 		{"form_accept_invite", []string{"invite-token"}, "/form/accept_invite/invite-token"},
 		{"confirm_waiting_list", []string{"token-123"}, "/confirm_waiting_list/token-123"},
-		{"confirm_signup", []string{"token-456"}, "/confirm_signup/token-456"},
 		{"action", []string{"publish"}, "/controls/action/publish"},
 		{"uploaded_media", []string{"image.jpg"}, "/user-media/image.jpg"},
 		{"public_feed", nil, "/rss/public"},

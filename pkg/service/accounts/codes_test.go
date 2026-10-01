@@ -78,6 +78,22 @@ func start(t *testing.T, ctx context.Context, db *sqlx.DB, svc *accounts.Service
 	return id, after[0]
 }
 
+// signupConfirmed counts the admin's "confirmed email" notices naming email.
+func signupConfirmed(t *testing.T, db *sqlx.DB, email string) int {
+	t.Helper()
+
+	n := 0
+	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, core.OutgoingEmailWhere.EmailType.EQ("signup_confirmed")))(t) {
+		var m sender.Mail
+		require.NoError(t, e.Payload.Unmarshal(&m))
+		if strings.Contains(m.Text, email) {
+			n++
+		}
+	}
+
+	return n
+}
+
 func otherCode(code string) string {
 	n, _ := strconv.Atoi(code)
 
@@ -132,6 +148,15 @@ func TestLoginCodes(t *testing.T) {
 		id := testutil.Must(svc.Register(ctx, email, "signupcode", ""))(t)
 		require.Empty(t, mailedCodes(t, db, email), "the signup mail is not a login code")
 
+		// the address is not confirmed: no login code is mailed, and the attempt
+		// StartLogin made is dead
+		other := testutil.Must(svc.StartLogin(ctx, email, ""))(t)
+		require.Empty(t, mailedCodes(t, db, email))
+		_, _, err := svc.FinishLogin(ctx, other, "000000")
+		requireNotFound(t, err)
+
+		before := signupConfirmed(t, db, email)
+
 		var code string
 		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("confirm_signup")))(t) {
 			var m sender.Mail
@@ -142,14 +167,16 @@ func TestLoginCodes(t *testing.T) {
 		}
 		require.NotEmpty(t, code)
 
-		_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
+		_, _, err = svc.FinishLogin(ctx, id, otherCode(code))
 		requireWrongCode(t, err)
 		require.False(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+		require.Equal(t, before, signupConfirmed(t, db, email))
 
 		got, _, err := svc.FinishLogin(ctx, id, code)
 		require.NoError(t, err)
 		require.Equal(t, "signupcode", got.Username)
 		require.True(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+		require.Equal(t, before+1, signupConfirmed(t, db, email), "the admin hears of the confirmation once")
 	})
 
 	t.Run("an accepted invitation starts an attempt for the new user", func(t *testing.T) {
@@ -166,6 +193,7 @@ func TestLoginCodes(t *testing.T) {
 		got, _, err := svc.FinishLogin(ctx, id, codes[0])
 		require.NoError(t, err)
 		require.Equal(t, invite.CreatedUserID.String, got.ID)
+		require.Zero(t, signupConfirmed(t, db, "invitee-code@example.test"), "an invited address was confirmed from the start")
 	})
 
 	for _, tc := range []struct {

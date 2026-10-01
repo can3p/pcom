@@ -79,12 +79,8 @@ func TestSignupForm_Validate(t *testing.T) {
 }
 
 // TestSignupForm_SaveSanitizesInvalidAttribution uses an attribution the
-// anchored regex validation.AttributionRE is meant to reject outright
-// ("invalid-with-dashes" contains characters outside [a-z_]). Today's
-// unanchored regex matches a substring of it, so Save keeps the raw value
-// instead of falling back to "unknown"; this is the only assertion below
-// that fails until #148 is fixed. The mail assertions are not affected by
-// the bug and are expected to pass already.
+// anchored regex validation.AttributionRE rejects ("invalid-with-dashes"
+// contains characters outside [a-z_]): Save falls back to "unknown".
 func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	t.Parallel()
 

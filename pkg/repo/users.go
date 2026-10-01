@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -26,14 +25,6 @@ func (s *Store) UserByEmail(ctx context.Context, email string, confirmedOnly boo
 	}
 
 	u, err := core.Users(mods...).One(ctx, s.exec)
-
-	return u, notFound(err)
-}
-
-// UserBySignupSeed returns the user whose confirmation link carries seed,
-// or ErrNotFound.
-func (s *Store) UserBySignupSeed(ctx context.Context, seed string) (*core.User, error) {
-	u, err := core.Users(core.UserWhere.EmailConfirmSeed.EQ(null.StringFrom(seed))).One(ctx, s.exec)
 
 	return u, notFound(err)
 }
