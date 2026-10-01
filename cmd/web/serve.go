@@ -105,6 +105,8 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		ShowErrors:            cfg.Web.ShowErrors.On(),
 		ReportPanics:          cfg.Web.ReportPanics.On(),
 		ProfileAboutMaxLength: cfg.Limits.ProfileAboutMaxLength,
+		PageSize:              cfg.Limits.PageSize,
+		RSSLimit:              cfg.Limits.RSSLimit,
 	}
 }
 

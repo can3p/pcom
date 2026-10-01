@@ -62,6 +62,8 @@ func (w *Web) SlogLevel() slog.Level {
 // Limits are the sizes users may not exceed.
 type Limits struct {
 	ProfileAboutMaxLength int `long:"profile-about-max-length" env:"PROFILE_ABOUT_MAX_LENGTH" description:"Most characters a user's About text may have" default:"6000"`
+	PageSize              int `long:"page-size" env:"PAGE_SIZE" description:"Items per page of the feed, explore, the index and a journal" default:"30"`
+	RSSLimit              int `long:"rss-limit" env:"RSS_LIMIT" description:"Items in every RSS output" default:"50"`
 }
 
 // Mail is outgoing mail: the addresses, the queue, and the Mailjet API that

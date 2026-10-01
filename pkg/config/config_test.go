@@ -126,6 +126,8 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"REPORT_PANICS", "false", func(s *config.Serve) any { return s.Web.ReportPanics.On() }, true, false},
 		{"LOG_LEVEL", "debug", func(s *config.Serve) any { return s.Web.SlogLevel() }, slog.LevelInfo, slog.LevelDebug},
 		{"ENABLE_PPROF", "true", func(s *config.Serve) any { return s.Web.EnablePprof.On() }, false, true},
+		{"PAGE_SIZE", "10", func(s *config.Serve) any { return s.Limits.PageSize }, 30, 10},
+		{"RSS_LIMIT", "20", func(s *config.Serve) any { return s.Limits.RSSLimit }, 50, 20},
 		{"SENDER_ADDRESS", "other@pcom.test", func(s *config.Serve) any { return s.Mail.SenderAddress }, nil, "other@pcom.test"},
 		{"ADMIN_ADDRESS", "admin@pcom.test", func(s *config.Serve) any { return s.Mail.AdminAddress }, "", "admin@pcom.test"},
 		{"EMAIL_POLL_INTERVAL", "250ms", func(s *config.Serve) any { return s.Mail.PollInterval }, 10 * time.Second, 250 * time.Millisecond},

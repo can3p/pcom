@@ -28,6 +28,9 @@ type Deps struct {
 	AdminAddress  string
 	// ProfileAboutMaxLength limits the About text; accounts' default when zero.
 	ProfileAboutMaxLength int
+	// PageSize and RSSLimit size the reading service's lists; zero means its
+	// defaults.
+	PageSize, RSSLimit int
 }
 
 // Services is one field per area service.
@@ -51,7 +54,7 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Connections: connections.New(store),
 		Feeds:       feedSvc,
 		Shares:      shares.New(store),
-		Reading:     reading.New(store),
+		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage),
 		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
 		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength)),

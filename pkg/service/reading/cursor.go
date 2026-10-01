@@ -12,12 +12,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// PageSize is how many items a page of a list holds: the feed, explore,
-// the index page and a journal.
-const PageSize = 30
+// DefaultPageSize is how many items a page of a list holds (the feed,
+// explore, the index page and a journal) unless WithLimits sets it.
+const DefaultPageSize = 30
 
-// RSSLimit caps every RSS output; they are not paged.
-const RSSLimit = 50
+// DefaultRSSLimit caps every RSS output, which isn't paged, unless
+// WithLimits sets it.
+const DefaultRSSLimit = 50
 
 // Cursor is where a page starts: right after the item with this sort time,
 // kind and ID. Clients get it as an opaque string.

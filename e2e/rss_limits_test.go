@@ -42,14 +42,14 @@ func rssTitles(t *testing.T, app *e2e.App, path string) []string {
 func publishRSSPosts(t *testing.T, app *e2e.App, authorID string, vis core.PostVisibility) (newest, oldestKept string) {
 	t.Helper()
 
-	n := reading.RSSLimit + 5
+	n := reading.DefaultRSSLimit + 5
 	for i := 1; i <= n; i++ {
 		_, err := factory.Post(context.Background(), app.DB, authorID, factory.Published(),
 			factory.Visibility(vis), factory.WithSubject(fmt.Sprintf("Rss %02d", i)))
 		require.NoError(t, err)
 	}
 
-	return fmt.Sprintf("Rss %02d", n), fmt.Sprintf("Rss %02d", n-reading.RSSLimit+1)
+	return fmt.Sprintf("Rss %02d", n), fmt.Sprintf("Rss %02d", n-reading.DefaultRSSLimit+1)
 }
 
 // The private feed lists at most RSSLimit items, newest first.
@@ -67,7 +67,7 @@ func TestRSSPrivate_Limit(t *testing.T) {
 	newest, oldest := publishRSSPosts(t, app, author.ID, core.PostVisibilityDirectOnly)
 
 	titles := rssTitles(t, app, "/rss/private/"+token.Token)
-	require.Len(t, titles, reading.RSSLimit)
+	require.Len(t, titles, reading.DefaultRSSLimit)
 	require.Equal(t, newest, titles[0])
 	require.Equal(t, oldest, titles[len(titles)-1])
 }
@@ -81,7 +81,7 @@ func TestRSSPublicJournal_Limit(t *testing.T) {
 	newest, oldest := publishRSSPosts(t, app, author.ID, core.PostVisibilityPublic)
 
 	titles := rssTitles(t, app, "/rss/public/"+author.Username)
-	require.Len(t, titles, reading.RSSLimit)
+	require.Len(t, titles, reading.DefaultRSSLimit)
 	require.Equal(t, newest, titles[0])
 	require.Equal(t, oldest, titles[len(titles)-1])
 }

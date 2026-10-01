@@ -55,7 +55,7 @@ func TestPublicLists_CursorPages(t *testing.T) {
 
 	app := e2e.Start(t)
 	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	for i := 1; i <= 35; i++ { // more than one page (reading.PageSize is 30)
+	for i := 1; i <= 35; i++ { // more than one page (reading.DefaultPageSize is 30)
 		newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic),
 			factory.WithSubject(fmt.Sprintf("Paged %02d", i)))
 	}
