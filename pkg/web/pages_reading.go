@@ -55,6 +55,7 @@ type UserHomePage struct {
 	ConnectionAllowed bool
 	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             []*postops.Post
+	About             string
 }
 
 // UserHome is a user's journal, /users/:username. Only a public profile
@@ -73,6 +74,7 @@ func UserHome(c *gin.Context, userData *auth.UserData, journal *reading.Journal)
 		ConnectionAllowed: journal.ConnectionAllowed,
 		MediationRequest:  journal.MediationRequest,
 		Posts:             journal.Posts,
+		About:             journal.About,
 	}
 }
 

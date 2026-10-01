@@ -17,12 +17,16 @@ type SettingsPage struct {
 	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
+	Profile          *forms.SettingsProfile
 	Feeds            []*feeds.RssFeed
 }
 
 func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, view *accounts.SettingsView) *SettingsPage {
 	formUserStyles := forms.SettingsUserStylesNew(svc, userData.DBUser)
 	formUserStyles.Input.Styles = view.UserStyles
+
+	formProfile := forms.SettingsProfileNew(svc, userData.DBUser)
+	formProfile.Input.About = view.ProfileAbout
 
 	return &SettingsPage{
 		BasePage:         getBasePage(c, "Settings", userData),
@@ -32,6 +36,7 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 		FeedURL:          view.FeedURL,
 		GeneralSettings:  forms.SettingsGeneralFormNew(svc, userData.DBUser),
 		UserStyles:       formUserStyles,
+		Profile:          formProfile,
 		Feeds:            view.Feeds,
 	}
 }

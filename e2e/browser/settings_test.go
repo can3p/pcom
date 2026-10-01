@@ -364,3 +364,45 @@ func TestSettings_UploadedImageRendersFromUserMedia(t *testing.T) {
 	require.Equal(t, "image/png", app.S3Object(t, fname).ContentType)
 	require.Equal(t, "image/webp", app.ResizedVariant(t, fname, class).ContentType)
 }
+
+// The About text written in the settings is rendered as markdown on the
+// journal for the owner and for an allowed visitor, and clearing it removes
+// the block.
+func TestSettings_ProfileAboutShownOnJournal(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	visitor := browser.NewUser(t, app)
+	_, _, err := factory.Connect(context.Background(), app.DB, user.ID, visitor.ID)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	_, err = page.Goto("/controls/settings")
+	require.NoError(t, err)
+
+	require.NoError(t, page.GetByLabel("About you").Fill("I like [the web](https://example.com/web)"))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save profile"}).Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("alert")).ToContainText("Profile has been saved"))
+
+	about := page.Locator(".us-profile-about")
+	_, err = page.Goto("/users/" + user.Username)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "About"})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(about.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "the web"})).ToHaveAttribute("href", "https://example.com/web"))
+
+	vpage := browser.Page(t, app, browser.As(visitor))
+	_, err = vpage.Goto("/users/" + user.Username)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(vpage.Locator(".us-profile-about").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "the web"})).ToBeVisible())
+
+	_, err = page.Goto("/controls/settings")
+	require.NoError(t, err)
+	require.NoError(t, page.GetByLabel("About you").Fill(""))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save profile"}).Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("alert")).ToContainText("Profile has been saved"))
+
+	_, err = page.Goto("/users/" + user.Username)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-profile-about")).ToHaveCount(0))
+}
