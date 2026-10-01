@@ -275,6 +275,12 @@ func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *core.User) e
 		return err
 	}
 
+	// The app counts comments in post_stats as it creates them; the factory
+	// doesn't, so the seed sets the count its thread has.
+	if err := countComments(ctx, tx, pub.ID, 3); err != nil {
+		return err
+	}
+
 	// An open prompt from Bob to Alice.
 	if _, err := factory.PostPrompt(ctx, tx, bob.ID, alice.ID, factory.WithPromptMessage("What are you reading?")); err != nil {
 		return err
@@ -334,6 +340,10 @@ func pages(ctx context.Context, tx *sql.Tx, alice, bob, carol *core.User) error 
 		}
 	}
 
+	if err := countComments(ctx, tx, thread.ID, PagingComments); err != nil {
+		return err
+	}
+
 	feed, err := factory.RSSFeed(ctx, tx, factory.WithFeedURL(PagingFeedURL), factory.WithFeedTitle("Paging feed"))
 	if err != nil {
 		return err
@@ -373,4 +383,16 @@ func summary(users []*seededUser, apiKey, siteRoot string) string {
 	fmt.Fprintf(&b, "log in at: %s\n", strings.TrimRight(siteRoot, "/")+"/login")
 
 	return b.String()
+}
+
+// countComments sets the cached comment count of postID, which the app keeps
+// in post_stats as it creates comments and the factory doesn't.
+func countComments(ctx context.Context, tx *sql.Tx, postID string, n int) error {
+	if _, err := factory.PostStat(ctx, tx, postID); err != nil {
+		return err
+	}
+
+	_, err := tx.ExecContext(ctx, `UPDATE post_stats SET comments_number = $1 WHERE post_id = $2`, n, postID)
+
+	return err
 }
