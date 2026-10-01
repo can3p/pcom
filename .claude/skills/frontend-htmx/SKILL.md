@@ -18,6 +18,10 @@ Located in `cmd/web/client/js/index.js`:
 - `htmx.config.includeIndicatorStyles = false` - CSP compliance
 - `htmx.config.allowScriptTags = false` - Security and Turbo-like behavior
 - `hx-boost="true"` on `<body>` enables smooth page transitions
+  - Boost hides broken fragment endpoints: a link with its own `hx-target`/`hx-swap` is fetched in place
+    even without `hx-get`, and a full-page response pasted into a list still "shows" the new items. A
+    "load more" or partial-swap browser test must assert the page structure isn't duplicated (one navbar,
+    one heading) and that earlier content stays; prove it by making the handler return the full page.
 - `hx-ext="head-support"` auto-merges `<head>` elements during navigation
 - `json-enc` extension for JSON payloads (sets `Content-Type: application/json`, stringifies parameters)
 
