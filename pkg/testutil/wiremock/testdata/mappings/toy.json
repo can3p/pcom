@@ -1,0 +1,16 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "POST",
+        "urlPath": "/toy/translate",
+        "bodyPatterns": [{"equalToJson": {"text": "hello toy"}}]
+      },
+      "response": {
+        "status": 200,
+        "headers": {"Content-Type": "application/json"},
+        "jsonBody": {"text": "bonjour toy"}
+      }
+    }
+  ]
+}
