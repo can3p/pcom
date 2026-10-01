@@ -13,6 +13,7 @@ import (
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
+	"github.com/can3p/pcom/pkg/translate"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
 )
@@ -39,6 +40,9 @@ type SaveInput struct {
 	Body       string
 	Visibility core.PostVisibility
 	Action     Action
+	// AllowTranslation is whether readers may have the post translated;
+	// nil keeps the stored value (false for a new post).
+	AllowTranslation *bool
 }
 
 // Saved is what a save left behind. Post is nil after a delete.
@@ -174,6 +178,17 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 		post.R.URL = storedURL
 	}
 
+	if existing != nil {
+		post.AllowTranslation = existing.AllowTranslation
+	}
+
+	if in.AllowTranslation != nil {
+		post.AllowTranslation = *in.AllowTranslation
+	}
+
+	lang, ok := translate.DetectLanguage(post.Subject.String + "\n" + post.Body)
+	post.Language = null.NewString(lang, ok)
+
 	publishing := false
 
 	if existing == nil {
@@ -225,6 +240,10 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 		}
 	}
 
+	if err := s.syncTranslations(ctx, tx, existing, post); err != nil {
+		return nil, err
+	}
+
 	if publishing {
 		if err := s.notifyPublished(ctx, tx, actor, post, prompt); err != nil {
 			return nil, err
@@ -232,6 +251,27 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 	}
 
 	return &Saved{Post: post, Created: existing == nil}, nil
+}
+
+// syncTranslations keeps cached translations right after a save: gone when
+// the author stopped allowing them (draft or not), refreshed when the text of
+// a post that allows them and is published after the save changed. A new post
+// has none to keep.
+func (s *Service) syncTranslations(ctx context.Context, tx *repo.Store, existing, post *core.Post) error {
+	if s.translations == nil || existing == nil {
+		return nil
+	}
+
+	if existing.AllowTranslation && !post.AllowTranslation {
+		return s.translations.Forget(ctx, tx, post.ID)
+	}
+
+	if post.AllowTranslation && post.PublishedAt.Valid &&
+		(existing.Subject != post.Subject || existing.Body != post.Body) {
+		return s.translations.RetranslateStale(ctx, tx, post.ID)
+	}
+
+	return nil
 }
 
 // promptOf finds the prompt a post answers: the one being answered by a new
