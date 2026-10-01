@@ -1,0 +1,28 @@
+{{define "landing" -}}
+<section class="hero">
+  <h1>pcom</h1>
+  <div class="lede">{{.Lede}}</div>
+  <div class="cta">
+    <a class="primary" href="#quickstart">Quick start</a>
+    <a href="#guide">Guide</a>
+    <a href="readme.html">README</a>
+    <a href="https://github.com/can3p/pcom">GitHub</a>
+  </div>
+</section>
+<div class="landing">
+  <section id="guide">
+    <h2>Guide</h2>
+    <div class="cards">
+      {{range .Cards}}
+      <div class="card">
+        {{if .Image}}<a href="{{.Path}}"><img src="{{.Image}}" alt="{{.Alt}}" loading="lazy"></a>{{end}}
+        <h3><a href="{{.Path}}">{{.Title}}</a></h3>
+        {{.Intro}}
+      </div>
+      {{end}}
+    </div>
+  </section>
+
+  <section id="quickstart" class="panel">{{.Quickstart}}</section>
+</div>
+{{- end}}

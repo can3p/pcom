@@ -1,0 +1,52 @@
+{{define "layout" -}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Page.IsLanding}}pcom{{else}}{{.Page.Title}} · pcom{{end}}</title>
+<link rel="stylesheet" href="{{.Rel "style.css"}}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{.Rel "index.html"}}">pcom</a>
+  <nav>
+    {{range .Nav}}{{with index .Items 0}}<a href="{{$.Rel .Path}}">{{.Title}}</a>{{end}}{{end}}
+  </nav>
+  <span class="spacer"></span>
+  <nav><a href="https://github.com/can3p/pcom">GitHub</a></nav>
+</header>
+{{if .Page.IsLanding}}
+{{.Page.Body}}
+{{else}}
+<div class="layout">
+  <details class="sidebar">
+    <summary>Contents</summary>
+    <ul><li><a href="{{.Rel "index.html"}}">Home</a></li></ul>
+    {{range .Nav}}
+    <h2>{{.Title}}</h2>
+    <ul>
+      {{range .Items}}
+      <li><a href="{{$.Rel .Path}}"{{if $.Active .Path}} class="active"{{end}}>{{.Title}}</a></li>
+      {{end}}
+    </ul>
+    {{end}}
+  </details>
+  <main>
+    {{if .Page.Src}}<p class="source-note">Rendered from <a href="{{$.SourceURL}}"><code>{{.Page.Src}}</code></a> in the repository.</p>{{end}}
+    {{if .Page.TOC}}
+    <details class="toc" open>
+      <summary>On this page</summary>
+      <ul>{{range .Page.TOC}}<li><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ul>
+    </details>
+    {{end}}
+    <article class="doc">{{.Page.Body}}</article>
+  </main>
+</div>
+{{end}}
+<footer class="footer">
+  Generated from the <a href="https://github.com/can3p/pcom">pcom</a> repository. Every page on this site is one of its files, rendered.
+</footer>
+</body>
+</html>
+{{- end}}
