@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
@@ -667,4 +668,13 @@ func TestPostCommentParticipants_WithURL(t *testing.T) {
 	require.Len(t, sent, 1)
 
 	golden.Assert(t, "post_comment_participants_with_url", mailsToGolden(sent))
+}
+
+func TestLoginCode(t *testing.T) {
+	t.Parallel()
+
+	sender := fakesender.New()
+	require.NoError(t, send(context.Background(), sender, mail.LoginCode(testFrom, "attempt-1", "user@example.test", "123456", 15*time.Minute)))
+
+	golden.Assert(t, "login_code", mailsToGolden(sender.Sent()))
 }
