@@ -1,0 +1,13 @@
+{
+  "name": "catch-all: any call without a key gets Azure's 401",
+  "priority": 100,
+  "request": {
+    "urlPathPattern": "/azure-translator/.*",
+    "headers": {"Ocp-Apim-Subscription-Key": {"absent": true}}
+  },
+  "response": {
+    "status": 401,
+    "headers": {"Content-Type": "application/json; charset=utf-8"},
+    "jsonBody": {"error": {"code": 401000, "message": "The request is not authorized because credentials are missing or invalid."}}
+  }
+}

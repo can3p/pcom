@@ -1,0 +1,226 @@
+{
+  "mappings": [
+    {
+      "name": "rate limited first: 429 with Retry-After",
+      "scenarioName": "azure-retry",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "rate-limited",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "headers": {
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "azure-stub-retry: Привет"
+              }
+            ]
+          }
+        ],
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "ru"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        }
+      },
+      "response": {
+        "status": 429,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8",
+          "Retry-After": "3"
+        },
+        "jsonBody": {
+          "error": {
+            "code": 429001,
+            "message": "The server rejected the request because the client has exceeded request limits."
+          }
+        }
+      }
+    },
+    {
+      "name": "then answers; back to Started, so the test can run again on the same container",
+      "scenarioName": "azure-retry",
+      "requiredScenarioState": "rate-limited",
+      "newScenarioState": "Started",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "headers": {
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "azure-stub-retry: Привет"
+              }
+            ]
+          }
+        ],
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "ru"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "azure-stub-retry: Hello",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unavailable first: 503 with Retry-After",
+      "scenarioName": "azure-retry-503",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "rate-limited",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "headers": {
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "azure-stub-retry-503: Привет"
+              }
+            ]
+          }
+        ],
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "ru"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        }
+      },
+      "response": {
+        "status": 503,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8",
+          "Retry-After": "2"
+        },
+        "jsonBody": {
+          "error": {
+            "code": 503000,
+            "message": "The service is temporarily unavailable."
+          }
+        }
+      }
+    },
+    {
+      "name": "then answers; back to Started, so the test can run again on the same container",
+      "scenarioName": "azure-retry-503",
+      "requiredScenarioState": "rate-limited",
+      "newScenarioState": "Started",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "headers": {
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "azure-stub-retry-503: Привет"
+              }
+            ]
+          }
+        ],
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "ru"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "azure-stub-retry-503: Hello",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

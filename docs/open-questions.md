@@ -62,7 +62,11 @@ it builds; confirm or change it before the wave starts.
   same one; invitations still may go to a +tag).
 - **2026-10-01. Q27, language detection (F7, #144):** deferred to the
   implementation. F7's T0 picks a local Go library, checking its license
-  and binary size, and records the choice here.
+  and binary size, and records the choice here. Chosen in T0:
+  `github.com/abadojack/whatlanggo` v1.0.1 (MIT, pure Go, trigram-based,
+  ISO 639-1 codes with a reliability flag; the web binary grew by about
+  0.5 MB for all of T0). `lingua-go` is more accurate but embeds very large
+  models.
 
 - **2026-10-01. Q26, translation provider (F7, #144):** translation is
   common infrastructure (`pkg/translate`) with pluggable backends, all
