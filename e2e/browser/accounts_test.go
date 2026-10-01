@@ -69,8 +69,12 @@ func TestAccounts_LoginWrongCodeShowsErrorInPlace(t *testing.T) {
 	require.NoError(t, err)
 
 	browser.SubmitLoginEmail(t, page, user.Email)
-	// the mailed code is never six zeros, in practice
-	browser.SubmitLoginCode(t, page, "000000")
+	wrong := "000000"
+	if browser.LoginCode(t, app, user.Email) == wrong {
+		wrong = "111111"
+	}
+
+	browser.SubmitLoginCode(t, page, wrong)
 
 	require.NoError(t, browser.Expect.Locator(page.Locator(".invalid-feedback")).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Code")).ToBeVisible())
