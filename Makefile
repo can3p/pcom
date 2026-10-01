@@ -162,11 +162,13 @@ db-reset:
 	$(COMPOSE) exec -T postgres sh -c 'dropdb -U "$$POSTGRES_USER" --if-exists --force "$$POSTGRES_DB" && createdb -U "$$POSTGRES_USER" "$$POSTGRES_DB"'
 	$(MAKE) migrate
 
+# Seeding builds cmd/web, which needs cgo and libvips (govips): only the dev
+# image (service `app`) has them, the tools image does not.
 seed:
-	$(TOOLS) go run ./cmd/web seed
+	$(TOOLS_RUN) app go run . seed
 
 seed-reset:
-	$(TOOLS) go run ./cmd/web seed --reset
+	$(TOOLS_RUN) app go run . seed --reset
 
 tools-shell:
 	$(TOOLS) bash $(if $(CMD),-c '$(CMD)')
