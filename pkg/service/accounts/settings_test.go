@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -260,12 +261,17 @@ func TestProfileAbout(t *testing.T) {
 	require.NoError(t, svc.SaveProfile(ctx, user, " \n\t "))
 	require.Zero(t, rows(), "whitespace only counts as empty")
 
-	require.NoError(t, svc.SaveProfile(ctx, user, strings.Repeat("я", 6_000)))
-	err := svc.SaveProfile(ctx, user, strings.Repeat("я", 6_001))
+	limit := accounts.DefaultProfileAboutMaxLength
+	require.NoError(t, svc.SaveProfile(ctx, user, strings.Repeat("я", limit)))
+	err := svc.SaveProfile(ctx, user, strings.Repeat("я", limit+1))
 	var invalid *service.ValidationError
 	require.ErrorAs(t, err, &invalid)
 	require.Equal(t, "about", invalid.Field)
-	require.Equal(t, strings.Repeat("я", 6_000), about(), "a rejected text changes nothing")
+	require.Equal(t, strings.Repeat("я", limit), about(), "a rejected text changes nothing")
+
+	short := accounts.New(repo.New(db), nil, nil, accounts.WithProfileAboutMaxLength(5))
+	require.NoError(t, short.SaveProfile(ctx, user, "12345"))
+	require.ErrorAs(t, short.SaveProfile(ctx, user, "123456"), &invalid, "the configured limit applies")
 
 	require.ErrorIs(t, svc.SaveProfile(ctx, nil, "hi"), service.ErrNeedsLogin)
 }

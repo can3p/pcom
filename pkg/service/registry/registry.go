@@ -26,6 +26,8 @@ type Deps struct {
 	Site          links.Site
 	SenderAddress string
 	AdminAddress  string
+	// ProfileAboutMaxLength limits the About text; accounts' default when zero.
+	ProfileAboutMaxLength int
 }
 
 // Services is one field per area service.
@@ -52,6 +54,6 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Reading:     reading.New(store),
 		Media:       media.New(store, deps.MediaStorage),
 		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident)),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength)),
 	}
 }

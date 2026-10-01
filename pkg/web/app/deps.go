@@ -39,6 +39,8 @@ type Config struct {
 	// SenderAddress is the From of every mail; AdminAddress receives admin
 	// notifications.
 	SenderAddress, AdminAddress string
+	// ProfileAboutMaxLength is the most characters a user's About text may have.
+	ProfileAboutMaxLength int
 	// SecureCookies marks the session cookie Secure.
 	SecureCookies bool
 	// HSTS sends Strict-Transport-Security.

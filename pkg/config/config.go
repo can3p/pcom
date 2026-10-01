@@ -59,6 +59,11 @@ func (w *Web) SlogLevel() slog.Level {
 	return l
 }
 
+// Limits are the sizes users may not exceed.
+type Limits struct {
+	ProfileAboutMaxLength int `long:"profile-about-max-length" env:"PROFILE_ABOUT_MAX_LENGTH" description:"Most characters a user's About text may have" default:"6000"`
+}
+
 // Mail is outgoing mail: the addresses, the queue, and the Mailjet API that
 // delivers it (tommy in development and tests).
 type Mail struct {
@@ -86,6 +91,7 @@ type Serve struct {
 	Database Database `group:"Database"`
 	Web      Web      `group:"Web"`
 	Mail     Mail     `group:"Mail"`
+	Limits   Limits   `group:"Limits"`
 	Media    Media    `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
 }
 

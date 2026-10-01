@@ -26,12 +26,28 @@ type Service struct {
 	sender repo.MailQueue
 	feeds  *feeds.Service
 	ident  mail.Identity
+
+	aboutMaxLength int
 }
 
 // New builds the service. sender may be nil for a command line script that
 // sends no mail; feeds may be nil when the settings page is not used.
 // Option changes how New builds the service.
 type Option func(*Service)
+
+// DefaultProfileAboutMaxLength is the About text limit when the
+// configuration sets none; it is also the configuration's default.
+const DefaultProfileAboutMaxLength = 6_000
+
+// WithProfileAboutMaxLength sets the most characters the About text may
+// have; zero keeps DefaultProfileAboutMaxLength.
+func WithProfileAboutMaxLength(n int) Option {
+	return func(s *Service) {
+		if n > 0 {
+			s.aboutMaxLength = n
+		}
+	}
+}
 
 // WithIdentity tells the service the site its links point to and the
 // addresses its mail uses. Without it links are relative and mail has no sender.
@@ -40,7 +56,7 @@ func WithIdentity(ident mail.Identity) Option {
 }
 
 func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions}
+	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -104,9 +120,9 @@ func (s *Service) SaveUserStyles(ctx context.Context, actor *core.User, styles s
 
 // ValidateProfileAbout checks the length of the "About" text. An empty text
 // is valid: it removes the section.
-func ValidateProfileAbout(about string) error {
-	if n := utf8.RuneCountInString(strings.TrimSpace(about)); n > 6_000 {
-		return fmt.Errorf("about text can have at most 6000 characters, this one has %d", n)
+func (s *Service) ValidateProfileAbout(about string) error {
+	if n := utf8.RuneCountInString(strings.TrimSpace(about)); n > s.aboutMaxLength {
+		return fmt.Errorf("about text can have at most %d characters, this one has %d", s.aboutMaxLength, n)
 	}
 
 	return nil
@@ -119,8 +135,8 @@ func (s *Service) SaveProfile(ctx context.Context, actor *core.User, about strin
 		return service.ErrNeedsLogin
 	}
 
-	if err := ValidateProfileAbout(about); err != nil {
-		return service.Invalid("about", "The About text can have at most 6000 characters.")
+	if err := s.ValidateProfileAbout(about); err != nil {
+		return service.Invalid("about", fmt.Sprintf("The About text can have at most %d characters.", s.aboutMaxLength))
 	}
 
 	about = strings.TrimSpace(about)
