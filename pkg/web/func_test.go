@@ -94,8 +94,8 @@ func connect(t *testing.T, db boil.ContextExecutor, ctx context.Context, aID, bI
 
 // feedPage builds the feed page the way /feed does: the reading service's
 // feed, rendered by Feed.
-func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData, postsOnly bool) mo.Result[*FeedPage] {
-	feed, err := reading.New(repo.Using(db)).Feed(c, userData.DBUser, postsOnly)
+func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+	feed, err := reading.New(repo.Using(db)).Feed(c, userData.DBUser, "")
 	if err != nil {
 		return mo.Err[*FeedPage](err)
 	}
@@ -375,7 +375,7 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 	strangerPost := testutil.Must(factory.Post(ctx, db, stranger.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
-	page := testutil.Must(feedPage(c, db, userDataFor(user), true).Get())(t)
+	page := testutil.Must(feedPage(c, db, userDataFor(user)).Get())(t)
 
 	byID := map[string]*FeedItem{}
 	for _, item := range page.Items {
@@ -422,7 +422,7 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	post := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
-	page := testutil.Must(feedPage(c, db, userDataFor(user), false).Get())(t)
+	page := testutil.Must(feedPage(c, db, userDataFor(user)).Get())(t)
 	require.Empty(t, page.RSSFeed, "no private feed link without an api key")
 
 	require.Len(t, page.Items, 3)
@@ -433,13 +433,8 @@ func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {
 	require.NotNil(t, page.Items[2].FeedItem)
 	require.Equal(t, rssItem.Title, page.Items[2].FeedItem.Title)
 
-	onlyPostsPage := testutil.Must(feedPage(c, db, userDataFor(user), true).Get())(t)
-	require.Nil(t, onlyPostsPage.BasePage, "onlyPosts skips the rest of page composition")
-	require.Len(t, onlyPostsPage.Items, 1, "onlyPosts drops rss items and comments")
-	require.Equal(t, post.ID, onlyPostsPage.Items[0].Post.ID)
-
 	feedToken := testutil.Must(repo.RegenerateFeedToken(ctx, db, user.ID))(t)
-	withKeyPage := testutil.Must(feedPage(c, db, userDataFor(user), false).Get())(t)
+	withKeyPage := testutil.Must(feedPage(c, db, userDataFor(user)).Get())(t)
 	require.Equal(t, links.Link("private_user_feed", feedToken.Token), withKeyPage.RSSFeed)
 }
 
@@ -506,7 +501,7 @@ func TestOrderByColumns(t *testing.T) {
 			for _, at := range ts { // oldest inserted first
 				ids = append(ids, testutil.Must(factory.PostPrompt(ctx, db, asker.ID, recipient.ID, factory.PromptCreatedAt(at)))(t).ID)
 			}
-			page := testutil.Must(feedPage(newTestContext(t, http.MethodGet, "/feed"), db, userDataFor(recipient), false).Get())(t)
+			page := testutil.Must(feedPage(newTestContext(t, http.MethodGet, "/feed"), db, userDataFor(recipient)).Get())(t)
 			var got []string
 			for _, p := range page.OpenPrompts {
 				got = append(got, p.Prompt.ID)
