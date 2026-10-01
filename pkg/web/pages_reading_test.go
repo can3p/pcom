@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
@@ -130,4 +131,99 @@ func TestNewTranslationView(t *testing.T) {
 	disabled, err := newTranslationView(ctx, off, reader, postSources(off, reader, []*postops.Post{cached}), nil)
 	require.NoError(t, err)
 	require.Nil(t, disabled)
+}
+
+// Each page type builds its translation view from its own items; no service,
+// a disabled one and an anonymous reader give no view, and a reader's
+// always-translate languages decide which items load.
+func TestPageTranslate(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.New(t).DB
+	store := repo.New(db)
+	on := translations.New(store, reading.New(store), translate.NewTranslator(echoBackend{}), translations.Limits{UserDailyChars: 1_000_000, SiteMonthlyChars: 1_000_000_000})
+	off := translations.New(store, reading.New(store), nil, translations.Limits{})
+
+	author := testutil.Must(factory.User(ctx, db))(t)
+	withLang := testutil.Must(factory.User(ctx, db))(t)
+	without := testutil.Must(factory.User(ctx, db))(t)
+
+	for _, u := range []*core.User{withLang, without} {
+		_, _, err := factory.Connect(ctx, db, author.ID, u.ID)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, on.SetLanguages(ctx, withLang, []string{"de"}))
+
+	post := &postops.Post{Post: testutil.Must(factory.Post(ctx, db, author.ID,
+		factory.Published(), factory.WithLanguage("de"), factory.AllowTranslation()))(t)}
+	item := &FeedItem{Post: post}
+
+	pages := func(u *auth.UserData) map[string]interface {
+		Translate(context.Context, *translations.Service) error
+	} {
+		return map[string]interface {
+			Translate(context.Context, *translations.Service) error
+		}{
+			"feed":   &FeedPage{BasePage: &BasePage{User: u}, Items: []*FeedItem{item}},
+			"home":   &UserHomePage{BasePage: &BasePage{User: u}, Posts: []*postops.Post{post}},
+			"single": &SinglePostPage{BasePage: &BasePage{User: u}, Post: post},
+		}
+	}
+
+	view := func(page any) *TranslationView {
+		switch p := page.(type) {
+		case *FeedPage:
+			return p.Translation
+		case *UserHomePage:
+			return p.Translation
+		default:
+			return p.(*SinglePostPage).Translation
+		}
+	}
+
+	slot := func(v *TranslationView) map[string]any { return v.Slot("post", post.ID, "feed", "b", "de") }
+
+	for _, tc := range []struct {
+		name string
+		user *auth.UserData
+		svc  *translations.Service
+		want func(t *testing.T, v *TranslationView)
+	}{
+		{"no service", userDataFor(withLang), nil, func(t *testing.T, v *TranslationView) { require.Nil(t, v) }},
+		{"disabled", userDataFor(withLang), off, func(t *testing.T, v *TranslationView) { require.Nil(t, v) }},
+		{"anonymous", &auth.UserData{}, on, func(t *testing.T, v *TranslationView) { require.Nil(t, v) }},
+		{"reader with a language", userDataFor(withLang), on, func(t *testing.T, v *TranslationView) {
+			require.Equal(t, true, slot(v)["Load"])
+		}},
+		{"reader without languages", userDataFor(without), on, func(t *testing.T, v *TranslationView) {
+			require.Equal(t, true, slot(v)["CanTranslate"])
+			require.NotContains(t, slot(v), "Load")
+		}},
+	} {
+		for name, page := range pages(tc.user) {
+			t.Run(tc.name+"/"+name, func(t *testing.T) {
+				require.NoError(t, page.Translate(ctx, tc.svc))
+				tc.want(t, view(page))
+			})
+		}
+	}
+
+	t.Run("settings", func(t *testing.T) {
+		for _, tc := range []struct {
+			svc  *translations.Service
+			want []string
+		}{{off, nil}, {on, []string{"de"}}} {
+			page := &SettingsPage{BasePage: &BasePage{User: userDataFor(withLang)}}
+			require.NoError(t, page.WithTranslation(ctx, tc.svc))
+
+			if tc.want == nil {
+				require.Nil(t, page.Translation)
+				continue
+			}
+
+			require.Equal(t, tc.want, page.Translation.Input.Languages)
+		}
+	})
 }
