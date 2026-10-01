@@ -29,13 +29,13 @@ func Invitation(site links.Site, from string, invite *core.UserInvitation, to st
 		Text: fmt.Sprintf(`
 	Hi!
 
-	Welcome to pcom! Please follow the link to set up your account.
+	Welcome to pcom! Please follow the link to choose a username. You will log in with a code we mail you, so there is no password to set.
 
 	%s`, link),
 		Html: fmt.Sprintf(`
 	<p>Hi!</p>
 
-	<p>Welcome to pcom! Please follow the link to set up your account.</p>
+	<p>Welcome to pcom! Please follow the link to choose a username. You will log in with a code we mail you, so there is no password to set.</p>
 
 	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
 	}

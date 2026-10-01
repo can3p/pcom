@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -31,7 +30,7 @@ func TestMailFailuresAreReturned(t *testing.T) {
 	t.Run("register leaves no user behind", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := svcWith(db, failing()).Register(ctx, "rolled-back@example.test", "rolledback", "s3cr3t-pw", "")
+		_, err := svcWith(db, failing()).Register(ctx, "rolled-back@example.test", "rolledback", "")
 		require.ErrorIs(t, err, boom)
 
 		_, err = factory.GetUserByEmail(ctx, db, "rolled-back@example.test")
@@ -57,15 +56,5 @@ func TestMailFailuresAreReturned(t *testing.T) {
 
 		// the invitation slot came back with the rollback
 		require.NoError(t, sendInvite(ctx, db, fakesender.New(), inviter, "invitee-fails@example.test"))
-	})
-
-	t.Run("confirm signup still confirms", func(t *testing.T) {
-		t.Parallel()
-
-		u := testutil.Must(svcWith(db, fakesender.New()).Register(ctx, "confirm-fails@example.test", "confirmfails", "s3cr3t-pw", ""))(t)
-
-		// the admin notification is best effort here: its failure is only logged
-		require.NoError(t, svcWith(db, failing()).ConfirmSignup(ctx, u.EmailConfirmSeed.String))
-		require.True(t, testutil.Must(factory.GetUser(ctx, db, u.ID))(t).EmailConfirmedAt.Valid)
 	})
 }

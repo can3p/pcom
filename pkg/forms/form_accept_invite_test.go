@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -36,17 +37,14 @@ func TestAcceptInviteForm_Validate(t *testing.T) {
 	tests := []struct {
 		name         string
 		username     func(t *testing.T) string
-		password     string
 		wantErrField string
 	}{
-		{"empty username", func(t *testing.T) string { return "" }, "ValidPassword123!", "username"},
+		{"empty username", func(t *testing.T) string { return "" }, "username"},
 		{"existing username", func(t *testing.T) string {
 			return testutil.Must(factory.User(ctx, db))(t).Username
-		}, "ValidPassword123!", "username"},
-		{"empty password", func(t *testing.T) string { return "newuser" }, "", "password"},
-		{"invalid password format", func(t *testing.T) string { return "newuser" }, "short", "password"},
-		{"invalid username format", func(t *testing.T) string { return "1abc" }, "ValidPassword123!", "username"},
-		{"success", func(t *testing.T) string { return "newuser" }, "ValidPassword123!", ""},
+		}, "username"},
+		{"invalid username format", func(t *testing.T) string { return "1abc" }, "username"},
+		{"success", func(t *testing.T) string { return "newuser" }, ""},
 	}
 
 	for _, tt := range tests {
@@ -56,9 +54,8 @@ func TestAcceptInviteForm_Validate(t *testing.T) {
 			invite := newInvite(t, ctx, db)
 			c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
-			form := forms.AcceptInviteFormNew(accountsFor(db, sender), invite).(*forms.AcceptInviteForm)
+			form := forms.AcceptInviteFormNew(codeAccounts(db, sender), invite).(*forms.AcceptInviteForm)
 			form.Input.Username = tt.username(t)
-			form.Input.Password = tt.password
 
 			err := form.Validate(c)
 			if tt.wantErrField == "" {
@@ -71,7 +68,7 @@ func TestAcceptInviteForm_Validate(t *testing.T) {
 	}
 }
 
-func TestAcceptInviteForm_SaveLogsInUser(t *testing.T) {
+func TestAcceptInviteForm_SaveStartsTheCodeLogin(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
@@ -81,16 +78,15 @@ func TestAcceptInviteForm_SaveLogsInUser(t *testing.T) {
 
 	invite := newInvite(t, ctx, db)
 
-	form := forms.AcceptInviteFormNew(accountsFor(db, sender), invite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(codeAccounts(db, sender), invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
-	form.Input.Password = "ValidPassword123!"
 
 	_, err := form.Save(c)
 	require.NoError(t, err)
 
 	require.True(t, invite.CreatedUserID.Valid)
-	require.Equal(t, invite.CreatedUserID.String, sessions.Default(c).Get("user"),
-		"accepting an invite must log the newly created user in")
+	require.NotEmpty(t, auth.LoginAttempt(c), "the visitor's session carries the attempt the code form finishes")
+	require.Nil(t, sessions.Default(c).Get("user"), "nobody is logged in before the code is typed")
 }
 
 // TestAcceptInviteForm_SaveGivesNewUserAFreshInvite exercises SendInviteForm as
@@ -107,9 +103,8 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 
 	invite := newInvite(t, ctx, db)
 
-	form := forms.AcceptInviteFormNew(accountsFor(db, sender), invite).(*forms.AcceptInviteForm)
+	form := forms.AcceptInviteFormNew(codeAccounts(db, sender), invite).(*forms.AcceptInviteForm)
 	form.Input.Username = "newuser"
-	form.Input.Password = "ValidPassword123!"
 
 	_, err := form.Save(c)
 	require.NoError(t, err)

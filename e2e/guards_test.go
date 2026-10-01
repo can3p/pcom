@@ -1126,29 +1126,6 @@ func TestGuards_LoginRotatesSession(t *testing.T) {
 // The #109 tests: a logged-in user hitting a guest-only route is redirected
 // home and the handler has no side effect.
 
-func TestGuards_LoggedInConfirmSignupHasNoEffect(t *testing.T) {
-	t.Parallel()
-
-	app := e2e.Start(t)
-	ctx := context.Background()
-	_, client := newLoggedIn(t, app)
-
-	pending, err := factory.User(ctx, app.DB, func(u *core.User) {
-		u.EmailConfirmedAt = null.Time{}
-		u.EmailConfirmSeed = null.StringFrom(uuid.NewString())
-	})
-	require.NoError(t, err)
-
-	resp := client.Get("/confirm_signup/" + pending.EmailConfirmSeed.String).RequireStatus(http.StatusFound)
-	require.Equal(t, "/feed", resp.Location())
-
-	got, err := factory.GetUser(ctx, app.DB, pending.ID)
-	require.NoError(t, err)
-	require.False(t, got.EmailConfirmedAt.Valid)
-
-	app.NoMails(t, e2e.AdminAddress, signupConfirmedNotice(pending.ID))
-}
-
 func TestGuards_LoggedInConfirmWaitingListHasNoEffect(t *testing.T) {
 	t.Parallel()
 
