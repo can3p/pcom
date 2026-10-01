@@ -146,3 +146,32 @@ Help Options:
                                               such as https://media.example;
                                               served by the app if empty
                                               [$USER_MEDIA_CDN]
+
+    Translation:
+          --translation-provider=[|azure]     Translation backend; empty turns
+                                              translation off
+                                              [$TRANSLATION_PROVIDER]
+          --translation-user-daily-chars=     Characters one reader may have
+                                              translated per day (default:
+                                              50000)
+                                              [$TRANSLATION_USER_DAILY_CHARS]
+          --translation-site-monthly-chars=   Characters the whole site may
+                                              have translated per month,
+                                              background re-translations
+                                              included (default: 2000000)
+                                              [$TRANSLATION_SITE_MONTHLY_CHARS]
+
+    Azure Translator:
+          --translation-azure-key=            Azure Translator resource key;
+                                              required with provider azure
+                                              [$TRANSLATION_AZURE_KEY]
+          --translation-azure-region=         Resource region, such as
+                                              westeurope; required by regional
+                                              and multi-service resources,
+                                              empty for a global one
+                                              [$TRANSLATION_AZURE_REGION]
+          --translation-azure-endpoint=       Translator API endpoint (default:
+                                              https://api.cognitive.microsofttr-
+
+                                              anslator.com)
+                                              [$TRANSLATION_AZURE_ENDPOINT]

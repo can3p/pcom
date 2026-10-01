@@ -317,7 +317,7 @@ func WithRealAssets() Option {
 }
 
 // WithWireMock starts the shared WireMock container (pkg/testutil/wiremock)
-// and tells the binary to translate through it: TRANSLATION_PROVIDER=azure and
+// and tells the binary to translate through it: TRANSLATION_PROVIDER=azure, a dummy TRANSLATION_AZURE_KEY and
 // TRANSLATION_AZURE_ENDPOINT=<container URL>/azure-translator. The stubs
 // under that prefix are the ones registered with wiremock.Register.
 func WithWireMock() Option {
@@ -332,6 +332,7 @@ func (c *config) resolve(t testing.TB) {
 
 	if c.wiremock {
 		c.env["TRANSLATION_PROVIDER"] = "azure"
+		c.env["TRANSLATION_AZURE_KEY"] = "e2e-key"
 		c.env["TRANSLATION_AZURE_ENDPOINT"] = wiremock.Shared(t).URL("azure-translator")
 	}
 }

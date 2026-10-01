@@ -16,6 +16,9 @@ var TableNames = struct {
 	RSSFeeds                        string
 	RSSItems                        string
 	SystemSettings                  string
+	TranslationJobs                 string
+	TranslationUsage                string
+	Translations                    string
 	UserAPIKeys                     string
 	UserConnectionMediationRequests string
 	UserConnectionMediators         string
@@ -27,6 +30,7 @@ var TableNames = struct {
 	UserProfiles                    string
 	UserSignupRequests              string
 	UserStyles                      string
+	UserTranslationLanguages        string
 	Users                           string
 	WhitelistedConnections          string
 }{
@@ -42,6 +46,9 @@ var TableNames = struct {
 	RSSFeeds:                        "rss_feeds",
 	RSSItems:                        "rss_items",
 	SystemSettings:                  "system_settings",
+	TranslationJobs:                 "translation_jobs",
+	TranslationUsage:                "translation_usage",
+	Translations:                    "translations",
 	UserAPIKeys:                     "user_api_keys",
 	UserConnectionMediationRequests: "user_connection_mediation_requests",
 	UserConnectionMediators:         "user_connection_mediators",
@@ -53,6 +60,7 @@ var TableNames = struct {
 	UserProfiles:                    "user_profiles",
 	UserSignupRequests:              "user_signup_requests",
 	UserStyles:                      "user_styles",
+	UserTranslationLanguages:        "user_translation_languages",
 	Users:                           "users",
 	WhitelistedConnections:          "whitelisted_connections",
 }

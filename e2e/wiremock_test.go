@@ -22,6 +22,7 @@ func TestWithWireMockStartsTheContainer(t *testing.T) {
 
 	w := wiremock.Shared(t)
 	require.Equal(t, "azure", cfg.env["TRANSLATION_PROVIDER"])
+	require.NotEmpty(t, cfg.env["TRANSLATION_AZURE_KEY"])
 	require.Equal(t, w.URL("azure-translator"), cfg.env["TRANSLATION_AZURE_ENDPOINT"])
 	require.Contains(t, processEnv(cfg.env), "TRANSLATION_PROVIDER=azure")
 

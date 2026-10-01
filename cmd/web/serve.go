@@ -11,12 +11,17 @@ import (
 
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
+	"github.com/can3p/pcom/pkg/service/registry"
+	"github.com/can3p/pcom/pkg/service/translations"
+	"github.com/can3p/pcom/pkg/translate"
+	_ "github.com/can3p/pcom/pkg/translate/azure" // registers TRANSLATION_PROVIDER=azure
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +38,16 @@ type serveCmd struct {
 func (c *serveCmd) Execute([]string) error {
 	cfg := c.Serve
 
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
 	applyProcessSettings(cfg)
+
+	translator, err := translate.New(cfg.Translation)
+	if err != nil {
+		return err
+	}
 
 	db, closeDB, err := openDB(cfg.Database.URL)
 	if err != nil {
@@ -75,10 +89,32 @@ func (c *serveCmd) Execute([]string) error {
 		MediaServer:  mediaServer,
 		Config:       appConfig(cfg, app.LoadStaticManifest(cfg.Web.StaticCDN)),
 	}
+	deps.Services = newServices(deps, cfg, translator)
+
+	if translator != nil {
+		go deps.Services.Translations.Run(ctx, translations.DefaultPollInterval)
+	}
 
 	startPprof(cfg.Web.EnablePprof.On(), pprofAddr)
 
 	return app.New(deps).Run(fmt.Sprintf(":%d", cfg.Web.Port))
+}
+
+// newServices builds the services as app.New would, plus the translator,
+// which only serve configures.
+func newServices(d *app.Deps, cfg config.Serve, translator *translate.Translator) *registry.Services {
+	return registry.New(d.DB, registry.Deps{
+		Sender:        d.Sender,
+		MediaStorage:  d.MediaStorage,
+		Site:          links.Site{Root: cfg.Web.SiteRoot, MediaCDN: cfg.Media.CDN},
+		SenderAddress: cfg.Mail.SenderAddress,
+		AdminAddress:  cfg.Mail.AdminAddress,
+		Translator:    translator,
+		TranslationLimits: translations.Limits{
+			UserDailyChars:   cfg.Translation.UserDailyChars,
+			SiteMonthlyChars: cfg.Translation.SiteMonthlyChars,
+		},
+	})
 }
 
 // applyProcessSettings sets the process-wide gin mode and log level.

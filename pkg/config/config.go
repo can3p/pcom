@@ -5,6 +5,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -114,6 +115,52 @@ type Serve struct {
 	Limits   Limits   `group:"Limits"`
 	Login    Login    `group:"Login"`
 	Media    Media    `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
+
+	Translation Translation `group:"Translation" namespace:"translation" env-namespace:"TRANSLATION"`
+}
+
+// Validate checks what go-flags tags can't express: settings required only
+// together with others. Run it after parsing.
+func (s *Serve) Validate() error {
+	return s.Translation.Validate()
+}
+
+// Translation is translating posts and RSS items for readers. Provider picks
+// the backend; empty turns the feature off. Each backend has its own nested
+// group, and only the selected backend's settings are required.
+type Translation struct {
+	Provider         string `long:"provider" env:"PROVIDER" description:"Translation backend; empty turns translation off" choice:"" choice:"azure"`
+	UserDailyChars   int    `long:"user-daily-chars" env:"USER_DAILY_CHARS" description:"Characters one reader may have translated per day" default:"50000"`
+	SiteMonthlyChars int    `long:"site-monthly-chars" env:"SITE_MONTHLY_CHARS" description:"Characters the whole site may have translated per month, background re-translations included" default:"2000000"`
+
+	Azure AzureTranslator `group:"Azure Translator" namespace:"azure" env-namespace:"AZURE"`
+}
+
+// AzureTranslator is the Azure Translator backend (provider azure).
+type AzureTranslator struct {
+	Key      settings.Secret `long:"key" env:"KEY" description:"Azure Translator resource key; required with provider azure"`
+	Region   string          `long:"region" env:"REGION" description:"Resource region, such as westeurope; required by regional and multi-service resources, empty for a global one"`
+	Endpoint string          `long:"endpoint" env:"ENDPOINT" description:"Translator API endpoint" default:"https://api.cognitive.microsofttranslator.com"`
+}
+
+// Validate requires the selected backend's settings and ignores the others'.
+func (t *Translation) Validate() error {
+	if t.UserDailyChars < 0 || t.SiteMonthlyChars < 0 {
+		return errors.New("translation character limits can't be negative")
+	}
+
+	switch t.Provider {
+	case "azure":
+		if t.Azure.Key.Reveal() == "" {
+			return errors.New("translation provider azure needs $TRANSLATION_AZURE_KEY (--translation-azure-key)")
+		}
+
+		if t.Azure.Endpoint == "" {
+			return errors.New("translation provider azure needs $TRANSLATION_AZURE_ENDPOINT (--translation-azure-endpoint)")
+		}
+	}
+
+	return nil
 }
 
 // Switch is a boolean setting that may default to true, which go-flags
