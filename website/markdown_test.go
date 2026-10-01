@@ -7,16 +7,10 @@ import (
 	"testing"
 )
 
+// newTestSite is the production site: the real docPages map, over repo.
 func newTestSite(t *testing.T, repo string) *Site {
 	t.Helper()
-	s := newSite(repo)
-	s.repoToSite = map[string]string{
-		"README.md":               "readme.html",
-		"docs/guide/overview.md":  "docs/guide/overview.html",
-		"docs/architecture.md":    "docs/architecture.html",
-		"docs/archive/history.md": "docs/history.html",
-	}
-	return s
+	return newSite(repo)
 }
 
 // Link rewriting is the fiddly part of the generator: the documentation is
@@ -67,8 +61,29 @@ func TestResolveLink(t *testing.T) {
 		})
 	}
 
+	if len(s.problems) != 0 {
+		t.Errorf("unexpected problems: %v", s.problems)
+	}
 	if from := s.Unpublished()["Makefile"]; len(from) != 1 || from[0] != "docs/architecture.md" {
 		t.Errorf("unpublished links not recorded: %v", s.Unpublished())
+	}
+}
+
+// A link that climbs above the repository root is a build problem, not
+// something to clamp to the root.
+func TestResolveLinkAboveRootIsAProblem(t *testing.T) {
+	s := newTestSite(t, "..")
+	if got := s.ResolveLink("README.md", "readme.html", "../outside.md"); got != "../outside.md" {
+		t.Errorf("got %q", got)
+	}
+	if got := s.ResolveLink("docs/running.md", "docs/running.html", "../../outside.md"); got != "../../outside.md" {
+		t.Errorf("got %q", got)
+	}
+	if len(s.problems) != 2 || !strings.Contains(s.problems[0], "climbs above") {
+		t.Errorf("problems = %v", s.problems)
+	}
+	if len(s.Unpublished()) != 0 {
+		t.Errorf("a link above the root must not be recorded as unpublished: %v", s.Unpublished())
 	}
 }
 
@@ -174,7 +189,7 @@ func TestImageLinks(t *testing.T) {
 	repo := t.TempDir()
 	writeFixture(t, repo, "docs/guide/screenshots/a.png", "png")
 	s := newTestSite(t, repo)
-	if got := s.ResolveImage("docs/guide/overview.md", "docs/guide/overview.html", "screenshots/a.png"); got != "screenshots/a.png" {
+	if got := s.ResolveImage("docs/guide/overview.md", "docs/guide/overview.html", "screenshots/a.png"); len(s.problems) != 0 || got != "screenshots/a.png" {
 		t.Errorf("got %q", got)
 	}
 	if got := s.ResolveImage("docs/guide/overview.md", "index.html", "screenshots/a.png"); got != "docs/guide/screenshots/a.png" {
@@ -191,14 +206,25 @@ func TestImageLinks(t *testing.T) {
 // Raw HTML must never reach a page: the documents in this repository contain
 // none, and the renderer is configured so that any that appeared could not.
 func TestRawHTMLIsNotPassedThrough(t *testing.T) {
-	repo := t.TempDir()
-	src := "docs/evil.md"
-	if err := os.MkdirAll(filepath.Join(repo, "docs"), 0o755); err != nil {
-		t.Fatal(err)
+	const body = "<script>alert(1)</script>\n\nplain\n\nan <b onclick=x>inline</b> case\n"
+	check := func(t *testing.T, html string) {
+		t.Helper()
+		for _, bad := range []string{"<script>", "<b onclick", "alert(1)</script>"} {
+			if strings.Contains(html, bad) {
+				t.Errorf("raw HTML %q reached the page: %s", bad, html)
+			}
+		}
+		for _, want := range []string{"plain", "inline", "case"} {
+			if !strings.Contains(html, want) {
+				t.Errorf("surrounding text %q was dropped: %s", want, html)
+			}
+		}
 	}
-	writeFixture(t, repo, src, "<script>alert(1)</script>\n\nplain\n")
+
+	repo := t.TempDir()
+	writeFixture(t, repo, "docs/evil.md", body)
 	s := newTestSite(t, repo)
-	doc, err := s.md.Parse(src, "docs/evil.html")
+	doc, err := s.md.Parse("docs/evil.md", "docs/evil.html")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +232,18 @@ func TestRawHTMLIsNotPassedThrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(html), "<script>") {
-		t.Errorf("raw HTML reached the page: %s", html)
+	check(t, string(html))
+
+	// And through a whole build.
+	repo = fixtureRepo(t)
+	writeFixture(t, repo, "docs/running.md", "# Running\n\n"+body)
+	out := t.TempDir()
+	if _, err := Build(Config{Repo: repo, Out: out}); err != nil {
+		t.Fatal(err)
 	}
+	page, err := os.ReadFile(filepath.Join(out, "docs", "running.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	check(t, string(page))
 }

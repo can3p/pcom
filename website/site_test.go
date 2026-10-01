@@ -107,10 +107,77 @@ func TestLinksToUnpublishedFilesAreKnown(t *testing.T) {
 	}
 }
 
-func TestSidebarGroupsGuideThenDeveloperDocs(t *testing.T) {
-	site, _ := build(t)
+// Every docPages entry appears exactly once in the rendered sidebar, under
+// its own group, guide first.
+func TestSidebarListsEveryDocPageOnce(t *testing.T) {
+	site, dir := build(t)
 	if len(site.Nav) != 2 || site.Nav[0].Title != GroupGuide || site.Nav[1].Title != GroupDev {
 		t.Fatalf("nav = %+v", site.Nav)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, "readme.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sidebar := string(body)
+	i := strings.Index(sidebar, `<details class="sidebar">`)
+	j := strings.Index(sidebar, "</details>")
+	if i < 0 || j < i {
+		t.Fatal("no sidebar in readme.html")
+	}
+	sidebar = sidebar[i:j]
+	for _, d := range docPages {
+		want := fmt.Sprintf(`href="%s"`, relPath("readme.html", d.Out))
+		if n := strings.Count(sidebar, want); n != 1 {
+			t.Errorf("%s appears %d times in the sidebar, want 1", d.Out, n)
+		}
+	}
+	if g, d := strings.Index(sidebar, "<h2>"+GroupGuide), strings.Index(sidebar, "<h2>"+GroupDev); g < 0 || d < g {
+		t.Error("sidebar groups are not Guide then Developer docs")
+	}
+}
+
+// Guide pages are discovered from disk: a file under docs/guide that docPages
+// does not list fails here, as does a listed one that is gone.
+func TestGuidePagesOnDiskMatchDocPages(t *testing.T) {
+	site, dir := build(t)
+	files, err := filepath.Glob(filepath.Join("..", "docs", "guide", "*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var onDisk, listed []string
+	for _, f := range files {
+		onDisk = append(onDisk, "docs/guide/"+filepath.Base(f))
+	}
+	for _, d := range docPages {
+		if d.Group == GroupGuide {
+			listed = append(listed, d.Src)
+		}
+	}
+	sort.Strings(onDisk)
+	sort.Strings(listed)
+	if strings.Join(onDisk, ",") != strings.Join(listed, ",") {
+		t.Errorf("guide files on disk and in docPages differ:\n disk   %v\n listed %v", onDisk, listed)
+	}
+
+	body, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hrefs []string
+	for _, m := range regexp.MustCompile(`(?s)<div class="card">.*?<h3><a href="([^"]+)"`).FindAllStringSubmatch(string(body), -1) {
+		hrefs = append(hrefs, m[1])
+	}
+	var want []string
+	for _, p := range site.guidePages() {
+		want = append(want, p.Path)
+	}
+	for i, f := range onDisk {
+		onDisk[i] = strings.TrimSuffix(f, ".md") + ".html"
+	}
+	sort.Strings(hrefs)
+	sort.Strings(want)
+	if strings.Join(hrefs, ",") != strings.Join(onDisk, ",") || strings.Join(want, ",") != strings.Join(onDisk, ",") {
+		t.Errorf("landing cards %v, guide pages %v, files on disk %v", hrefs, want, onDisk)
 	}
 }
 
@@ -199,6 +266,13 @@ func TestBuildCopiesImages(t *testing.T) {
 			t.Errorf("output lacks %s: %v", f, err)
 		}
 	}
+	idx, err := os.ReadFile(filepath.Join(out, "index.html"))
+	if err != nil || !strings.Contains(string(idx), `src="docs/guide/screenshots/a.png"`) {
+		t.Errorf("landing card image link is wrong: %v", err)
+	}
+	if problems, _, err := checkLinks(out); err != nil || len(problems) != 0 {
+		t.Errorf("links do not resolve: %v %v", problems, err)
+	}
 	body, err := os.ReadFile(filepath.Join(out, "docs", "guide", "overview.html"))
 	if err != nil || !strings.Contains(string(body), `src="screenshots/a.png"`) {
 		t.Errorf("image link not relative to the page: %v", err)
@@ -248,13 +322,13 @@ func checkLinks(dir string) (problems []string, checked int, err error) {
 	for _, name := range names {
 		for _, m := range linkRE.FindAllStringSubmatch(pages[name], -1) {
 			href := m[1]
-			checked++
 			if href == "" || strings.HasPrefix(href, "//") {
 				continue
 			}
 			if i := strings.Index(href, ":"); i > 0 && !strings.ContainsAny(href[:i], "/.") {
 				continue // external scheme
 			}
+			checked++
 			target, frag := href, ""
 			if before, after, ok := strings.Cut(href, "#"); ok {
 				target, frag = before, after
@@ -262,8 +336,13 @@ func checkLinks(dir string) (problems []string, checked int, err error) {
 			page := name
 			if target != "" {
 				page = path.Clean(path.Join(path.Dir(name), target))
-				if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(page))); err != nil {
+				fi, err := os.Stat(filepath.Join(dir, filepath.FromSlash(page)))
+				if err != nil {
 					problems = append(problems, fmt.Sprintf("%s links to %s, which the site does not contain", name, href))
+					continue
+				}
+				if fi.IsDir() {
+					problems = append(problems, fmt.Sprintf("%s links to %s, which is a directory, not a file", name, href))
 					continue
 				}
 			}
@@ -284,7 +363,10 @@ func TestCheckLinksCatchesABrokenLink(t *testing.T) {
 	}
 	write("a.html", `<a href="b.html">ok</a><a href="b.html#top">ok</a>`+
 		`<a href="gone.html">bad</a><a href="b.html#nope">bad</a>`+
-		`<a href="https://example.com/x.html">external</a>`)
+		`<a href="https://example.com/x.html">external</a><a href="sub">dir</a>`)
+	if err := os.Mkdir(filepath.Join(dir, "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	write("b.html", `<h1 id="top">b</h1>`)
 
 	problems, checked, err := checkLinks(dir)
@@ -292,12 +374,34 @@ func TestCheckLinksCatchesABrokenLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	if checked != 5 {
-		t.Errorf("checked %d links, want 5", checked)
+		t.Errorf("checked %d internal links, want 5", checked)
 	}
-	if len(problems) != 2 {
-		t.Fatalf("want 2 problems, got %d: %v", len(problems), problems)
+	if len(problems) != 3 {
+		t.Fatalf("want 3 problems, got %d: %v", len(problems), problems)
 	}
-	if !strings.Contains(problems[0], "gone.html") || !strings.Contains(problems[1], "no such anchor") {
+	if !strings.Contains(problems[0], "gone.html") || !strings.Contains(problems[1], "no such anchor") ||
+		!strings.Contains(problems[2], "directory") {
 		t.Errorf("unexpected problems: %v", problems)
+	}
+}
+
+func TestBuildFailsForBrokenLandingSources(t *testing.T) {
+	cases := []struct {
+		name, file, body, want string
+	}{
+		{"guide page without an H1", "docs/guide/overview.md", "Just a paragraph.\n", "H1"},
+		{"guide page without a paragraph", "docs/guide/overview.md", "# Overview\n", "paragraph"},
+		{"README without the quick start", "README.md", "# Fixture\n\nThe lede.\n", quickstartSection},
+		{"a link above the repository root", "docs/running.md", "# R\n\n[x](../../outside.md)\n", "climbs"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := fixtureRepo(t)
+			writeFixture(t, repo, c.file, c.body)
+			_, err := Build(Config{Repo: repo, Out: t.TempDir()})
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("want an error containing %q, got %v", c.want, err)
+			}
+		})
 	}
 }
