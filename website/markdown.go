@@ -245,8 +245,9 @@ func (s *Site) ResolveLink(srcRepoPath, pagePath, dest string) string {
 		return dest
 	}
 	repoPath := path.Clean(path.Join(path.Dir(srcRepoPath), target))
-	if strings.HasPrefix(repoPath, "..") {
-		repoPath = strings.TrimPrefix(path.Clean("/"+repoPath), "/")
+	if repoPath == ".." || strings.HasPrefix(repoPath, "../") {
+		s.problems = append(s.problems, fmt.Sprintf("%s: link %q climbs above the repository root", srcRepoPath, dest))
+		return dest
 	}
 	repoPath = strings.TrimSuffix(repoPath, "/")
 
