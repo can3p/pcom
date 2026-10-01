@@ -77,6 +77,10 @@ func TestNonFeedViewLinksDoNotOpenInNewTab(t *testing.T) {
 			name: "comment view",
 			view: types.ViewComment,
 		},
+		{
+			name: "profile view",
+			view: types.ViewProfile,
+		},
 	}
 
 	input := "[example](https://example.com)"

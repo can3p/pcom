@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -101,6 +102,35 @@ func (s *Service) SaveUserStyles(ctx context.Context, actor *core.User, styles s
 	return s.store.SaveUserStyle(ctx, actor.ID, styles)
 }
 
+// ValidateProfileAbout checks the length of the "About" text. An empty text
+// is valid: it removes the section.
+func ValidateProfileAbout(about string) error {
+	if n := utf8.RuneCountInString(strings.TrimSpace(about)); n > 6_000 {
+		return fmt.Errorf("about text can have at most 6000 characters, this one has %d", n)
+	}
+
+	return nil
+}
+
+// SaveProfile replaces the actor's "About" text. An empty text, or one of
+// whitespace only, removes it.
+func (s *Service) SaveProfile(ctx context.Context, actor *core.User, about string) error {
+	if actor == nil {
+		return service.ErrNeedsLogin
+	}
+
+	if err := ValidateProfileAbout(about); err != nil {
+		return service.Invalid("about", "The About text can have at most 6000 characters.")
+	}
+
+	about = strings.TrimSpace(about)
+	if about == "" {
+		return s.store.DeleteProfileAbout(ctx, actor.ID)
+	}
+
+	return s.store.SaveProfileAbout(ctx, actor.ID, about)
+}
+
 // SaveGeneralSettings changes the actor's timezone and profile visibility.
 func (s *Service) SaveGeneralSettings(ctx context.Context, actor *core.User, timezone string, visibility core.ProfileVisibility) error {
 	if actor == nil {
@@ -148,6 +178,7 @@ type SettingsView struct {
 	APIKey           *core.UserAPIKey
 	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	UserStyles       string
+	ProfileAbout     string
 	Feeds            []*feeds.RssFeed
 }
 
@@ -192,6 +223,10 @@ func (s *Service) Settings(ctx context.Context, actor *core.User) (*SettingsView
 		return nil, err
 	} else if style != nil {
 		view.UserStyles = style.Styles
+	}
+
+	if view.ProfileAbout, err = s.store.ProfileAbout(ctx, actor.ID); err != nil {
+		return nil, err
 	}
 
 	if s.feeds != nil {

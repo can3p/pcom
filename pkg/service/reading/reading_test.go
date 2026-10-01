@@ -126,3 +126,37 @@ func TestPublicPosts(t *testing.T) {
 	require.Equal(t, []string{newest, newer, oldest.id}, all, "newest publication first")
 	require.Equal(t, []string{newest, newer}, ids(2), "at most limit")
 }
+
+// The journal carries the author's About text for whoever may open it, and a
+// journal that is hidden from the visitor is not found, text and all.
+func TestJournalAbout(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	svc := New(repo.Using(db))
+
+	public := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic), factory.WithProfileAbout("About **me**")))(t)
+	hidden := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityConnections), factory.WithProfileAbout("secret")))(t)
+	none := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
+	visitor := testutil.Must(factory.User(ctx, db))(t)
+	connect(t, db, ctx, visitor.ID, hidden.ID)
+
+	j, err := svc.Journal(ctx, nil, public.Username)
+	require.NoError(t, err)
+	require.Equal(t, "About **me**", j.About, "an anonymous visitor of a public journal")
+
+	j, err = svc.Journal(ctx, nil, none.Username)
+	require.NoError(t, err)
+	require.Empty(t, j.About)
+
+	_, err = svc.Journal(ctx, nil, hidden.Username)
+	require.ErrorIs(t, err, service.ErrNotFound)
+
+	_, err = svc.Journal(ctx, testutil.Must(factory.User(ctx, db))(t), hidden.Username)
+	require.ErrorIs(t, err, service.ErrNotFound, "a stranger")
+
+	j, err = svc.Journal(ctx, visitor, hidden.Username)
+	require.NoError(t, err)
+	require.Equal(t, "secret", j.About, "a connection of a connections-only journal")
+}

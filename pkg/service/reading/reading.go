@@ -84,6 +84,7 @@ type Journal struct {
 	ConnectionAllowed bool
 	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             []*postops.Post
+	About             string // the author's "About" text, empty when there is none
 }
 
 // Journal opens the profile of the user with that username for the actor,
@@ -129,7 +130,12 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username string
 		return nil, err
 	}
 
-	out := &Journal{Author: author, ConnectionRadius: radius, Posts: make([]*postops.Post, 0, len(rawPosts))}
+	about, err := s.store.ProfileAbout(ctx, author.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &Journal{About: about, Author: author, ConnectionRadius: radius, Posts: make([]*postops.Post, 0, len(rawPosts))}
 
 	for _, p := range rawPosts {
 		out.Posts = append(out.Posts, postops.ConstructPost(actor, p, radius, nil, false))

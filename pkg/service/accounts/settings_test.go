@@ -2,6 +2,7 @@ package accounts_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -223,4 +224,48 @@ func TestRegistrationOpenAndInvites(t *testing.T) {
 	require.NoError(t, svc.AddInvites(ctx, " "+user.Email+" ", 3))
 	require.Equal(t, int64(3), testutil.Must(repo.New(db).InvitationCount(ctx, user.ID))(t))
 	require.ErrorIs(t, svc.AddInvites(ctx, "nobody@example.test", 1), service.ErrNotFound)
+}
+
+func TestProfileAbout(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.New(t).DB
+	svc := svcWith(db, nil)
+	user := newUser(t, ctx, db)
+
+	about := func() string {
+		v, err := svc.Settings(ctx, user)
+		require.NoError(t, err)
+		return v.ProfileAbout
+	}
+	rows := func() int64 {
+		n, err := core.UserProfiles(core.UserProfileWhere.UserID.EQ(user.ID)).Count(ctx, db)
+		require.NoError(t, err)
+		return n
+	}
+
+	require.Empty(t, about())
+
+	require.NoError(t, svc.SaveProfile(ctx, user, "first **text**"))
+	require.NoError(t, svc.SaveProfile(ctx, user, "  second  "))
+	require.Equal(t, "second", about(), "saving replaces the text")
+	require.EqualValues(t, 1, rows())
+
+	require.NoError(t, svc.SaveProfile(ctx, user, ""))
+	require.Empty(t, about())
+	require.Zero(t, rows(), "an empty text deletes the row")
+
+	require.NoError(t, svc.SaveProfile(ctx, user, "again"))
+	require.NoError(t, svc.SaveProfile(ctx, user, " \n\t "))
+	require.Zero(t, rows(), "whitespace only counts as empty")
+
+	require.NoError(t, svc.SaveProfile(ctx, user, strings.Repeat("я", 6_000)))
+	err := svc.SaveProfile(ctx, user, strings.Repeat("я", 6_001))
+	var invalid *service.ValidationError
+	require.ErrorAs(t, err, &invalid)
+	require.Equal(t, "about", invalid.Field)
+	require.Equal(t, strings.Repeat("я", 6_000), about(), "a rejected text changes nothing")
+
+	require.ErrorIs(t, svc.SaveProfile(ctx, nil, "hi"), service.ErrNeedsLogin)
 }

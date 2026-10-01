@@ -13,6 +13,7 @@ Defined in `pkg/types/types.go`:
 - `ViewSinglePost` - Individual post view
 - `ViewEditPreview` - Post editor preview
 - `ViewComment` - Comment rendering
+- `ViewProfile` - "About" text of a profile (own case, same behavior as comments)
 - `ViewArticle` - Article view
 - `ViewEmail` - Email notifications
 - `ViewRSS` - RSS feed output
@@ -23,6 +24,7 @@ Defined in `cmd/web/main.go` funcmap:
 - `markdown_single_post` - Renders posts with `ViewSinglePost`
 - `markdown_edit_preview` - Renders editor preview with `ViewEditPreview`
 - `markdown_comment` - Renders comments with `ViewComment`
+- `markdown_profile` - Renders the profile "About" text with `ViewProfile`
 - `markdown_article` - Renders articles with `ViewArticle`
 
 ## Custom Renderers
