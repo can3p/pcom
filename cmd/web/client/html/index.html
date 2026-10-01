@@ -8,9 +8,7 @@
     {{ if eq (len .Items) 0 }}
     <p>There are no public posts yet.</p>
     {{ else }}
-      {{ range .Items }}
-        {{ template "partial--post-item.html" toMap "Post" .Post "User" $.User }}
-      {{ end }}
+      {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL }}
     {{ end }}
   </div>
 </div>
