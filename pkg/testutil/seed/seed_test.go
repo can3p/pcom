@@ -78,6 +78,10 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 		assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM posts WHERE visibility_radius = $1 AND published_at IS NOT NULL AND url_id IS NULL AND subject NOT LIKE 'Paging: %'`, v), v)
 	}
 
+	// Every seeded comment is counted, as the app counts the ones it creates.
+	assert.Equal(t, 0, count(t, db, `SELECT count(*) FROM posts p WHERE (SELECT count(*) FROM post_comments c WHERE c.post_id = p.id)
+		<> COALESCE((SELECT comments_number FROM post_stats s WHERE s.post_id = p.id), 0)`), "comment counters")
+
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM posts WHERE published_at IS NULL`), "draft")
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM posts WHERE url_id IS NOT NULL`), "url post")
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM post_shares`))
