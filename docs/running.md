@@ -105,6 +105,21 @@ This table mirrors the doc comment of `pkg/testutil/seed/seed.go`; when one chan
 * Alice asks Bob to introduce her to Carol; nobody has decided yet.
 * Registration is opened (`system_settings.registration_open`) in the seeded database only.
 
+### Paging data
+
+Every paged list has more than one page at the default page size (30), with nothing to create by hand.
+Paging posts' subjects start with `Paging: `; all of it is spread over the last days, older than the world
+above.
+
+* Carol has 60 public posts: explore (logged in), the anonymous index and `/users/carol` each load more,
+  and `/rss/public/carol` stops at the RSS limit (50).
+* Bob left 30 comments on Alice's direct-only "Paging: Alice's busy thread".
+* Alice follows "Paging feed" (`https://example.test/seed/paging.xml`) with 30 items in her feed.
+* So Alice's `/feed` holds posts, comments and RSS items interleaved, over several pages.
+
+To see paging on less data, run the app with a smaller page, for example `PAGE_SIZE=5` (and
+`RSS_LIMIT` for the RSS outputs).
+
 ### Alice's API key
 
 The key is fixed: `00000000-0000-4000-8000-000000000001`. The API takes it as a bearer token in the

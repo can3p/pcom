@@ -21,6 +21,14 @@ func Published() PostOpt {
 	}
 }
 
+// PublishedAt marks the post as published at t, for data that depends on
+// the order of posts.
+func PublishedAt(t time.Time) PostOpt {
+	return func(p *core.Post) {
+		p.PublishedAt = null.TimeFrom(t)
+	}
+}
+
 // Visibility overrides the post's visibility radius (direct_only by
 // default).
 func Visibility(v core.PostVisibility) PostOpt {
@@ -101,6 +109,14 @@ func ReplyTo(commentID string) CommentOpt {
 func WithCommentBody(body string) CommentOpt {
 	return func(c *core.PostComment) {
 		c.Body = body
+	}
+}
+
+// CommentCreatedAt backdates the comment, for data that depends on the order
+// of comments.
+func CommentCreatedAt(t time.Time) CommentOpt {
+	return func(c *core.PostComment) {
+		c.CreatedAt = t
 	}
 }
 
