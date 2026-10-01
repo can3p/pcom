@@ -96,14 +96,19 @@ func (c *Client) PostJSON(path string, v any) *Response {
 	return c.post(req)
 }
 
-// LoginAs logs in by posting the login form, and fails the test unless the
-// session can then open /feed.
-func (c *Client) LoginAs(email, password string) {
+// LoginAs logs in by posting the email to the login form, taking the code of
+// the attempt from the accounts service instead of the mail, and posting
+// that. It fails the test unless the session can then open /feed.
+func (c *Client) LoginAs(email string) {
 	c.t.Helper()
 
-	c.Get("/login").RequireStatus(http.StatusOK)
+	c.app.loginMu.Lock()
+	defer c.app.loginMu.Unlock()
 
-	resp := c.PostForm("/form/login", url.Values{"email": {email}, "password": {password}})
+	c.Get("/login").RequireStatus(http.StatusOK)
+	c.PostForm("/form/login", url.Values{"email": {email}}).RequireStatus(http.StatusOK)
+
+	resp := c.PostForm("/form/login/code", url.Values{"code": {c.app.IssueLoginCode(c.t, email)}})
 
 	if feed := c.Get("/feed"); feed.StatusCode != http.StatusOK {
 		c.t.Fatalf("e2e: login as %s was rejected (status %d):\n%s", email, resp.StatusCode, resp.Body)

@@ -26,6 +26,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
 )
 
@@ -79,6 +80,63 @@ func run(m *testing.M) int {
 	defer func() { _ = chromium.Close() }()
 
 	return e2e.Run(m)
+}
+
+var loginCodeRE = regexp.MustCompile(`login code is (\d{6})`)
+
+// SubmitLoginEmail fills the login form's email and submits it, which swaps
+// in the code form.
+func SubmitLoginEmail(t testing.TB, page playwright.Page, email string) {
+	t.Helper()
+
+	if err := page.GetByLabel("Email address").Fill(email); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Email me a code"}).Click(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Expect.Locator(page.GetByLabel("Code")).ToBeVisible(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// LoginCode returns the code of the newest login mail the app delivered to
+// email.
+func LoginCode(t testing.TB, app *e2e.App, email string) string {
+	t.Helper()
+
+	mails := app.Mails(t, email, func(m tommy.Mail) bool { return m.Subject == "Your pcom login code" })
+
+	m := loginCodeRE.FindStringSubmatch(mails[0].Text)
+	if m == nil {
+		t.Fatalf("browser: no code in the login mail to %s: %s", email, mails[0].Text)
+	}
+
+	return m[1]
+}
+
+// SubmitLoginCode types code into the code form and submits it.
+func SubmitLoginCode(t testing.TB, page playwright.Page, code string) {
+	t.Helper()
+
+	if err := page.GetByLabel("Code").Fill(code); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// LogInWithCode logs in on the login page the way a user does: the email,
+// then the code from the mail.
+func LogInWithCode(t testing.TB, app *e2e.App, page playwright.Page, email string) {
+	t.Helper()
+
+	SubmitLoginEmail(t, page, email)
+	SubmitLoginCode(t, page, LoginCode(t, app, email))
 }
 
 // NewUser creates a user who can log in with Password.
@@ -193,7 +251,7 @@ func login(t testing.TB, app *e2e.App, ctx playwright.BrowserContext, user *core
 	t.Helper()
 
 	client := app.Client(t)
-	client.LoginAs(user.Email, Password)
+	client.LoginAs(user.Email)
 
 	var cookies []playwright.OptionalCookie
 	for _, c := range client.Cookies() {

@@ -128,7 +128,13 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 	actions.POST("/logout", auth.Logout)
 
 	nonControlsForms.POST("/login", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
-		gogoForms.DefaultHandler(c, forms.LoginFormNew(accounts, d.Config.SessionSalt, d.Config.SiteRoot))
+		gogoForms.DefaultHandler(c, forms.LoginFormNew(accounts, d.Config.SessionSalt))
+
+		return nil
+	}))
+
+	nonControlsForms.POST("/login/code", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
+		gogoForms.DefaultHandler(c, forms.LoginCodeFormNew(accounts, d.Config.SiteRoot))
 
 		return nil
 	}))

@@ -24,6 +24,9 @@ import (
 const (
 	userkey      = "user"
 	csrfTokenKey = "csrf_token"
+	// loginAttemptKey holds the id of the login attempt the visitor is
+	// entering a code for, so the code form never carries it.
+	loginAttemptKey = "login_attempt"
 )
 
 func setUser(c *gin.Context, u *core.User) {
@@ -131,6 +134,30 @@ func Login(c *gin.Context, accounts *accounts.Service, email string, password st
 	}
 
 	return StartSession(c, user)
+}
+
+// SetLoginAttempt remembers the login attempt of the visitor in the session.
+func SetLoginAttempt(c *gin.Context, attemptID string) error {
+	session := sessions.Default(c)
+	session.Set(loginAttemptKey, attemptID)
+
+	return errors.Wrap(session.Save(), "Failed to save session")
+}
+
+// LoginAttempt returns the id of the visitor's login attempt, empty when there
+// is none.
+func LoginAttempt(c *gin.Context) string {
+	id, _ := sessions.Default(c).Get(loginAttemptKey).(string)
+
+	return id
+}
+
+// ClearLoginAttempt forgets the visitor's login attempt.
+func ClearLoginAttempt(c *gin.Context) error {
+	session := sessions.Default(c)
+	session.Delete(loginAttemptKey)
+
+	return errors.Wrap(session.Save(), "Failed to save session")
 }
 
 // StartSession logs user in: the session gets a new ID, a CSRF token and the
