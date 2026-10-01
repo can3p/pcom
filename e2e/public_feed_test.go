@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -44,4 +45,44 @@ func TestPublicFeed(t *testing.T) {
 	it := doc.Channel.Items[0]
 	require.Equal(t, public.Subject.String, it.Title)
 	require.True(t, strings.HasSuffix(it.Link, "/posts/"+public.ID), it.Link)
+}
+
+// The index and a journal answer a "Load more" request from htmx with the
+// posts alone and a plain request with the whole page from that cursor; a bad
+// cursor is a 400.
+func TestPublicLists_CursorPages(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
+	for i := 1; i <= 35; i++ { // more than one page (reading.PageSize is 30)
+		newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic),
+			factory.WithSubject(fmt.Sprintf("Paged %02d", i)))
+	}
+
+	for _, path := range []string{"/", "/users/" + author.Username} {
+		t.Run(path, func(t *testing.T) {
+			c := app.Client(t)
+
+			href, ok := c.Get(path).RequireStatus(http.StatusOK).Doc().Find("a.btn:contains('Load more')").First().Attr("href")
+			require.True(t, ok, "first page has no Load more link")
+
+			req, err := http.NewRequest(http.MethodGet, app.URL+href, nil)
+			require.NoError(t, err)
+			req.Header.Set("HX-Request", "true")
+			frag := c.Do(req).RequireStatus(http.StatusOK)
+			require.NotContains(t, frag.Body, "<html")
+			require.NotContains(t, frag.Body, "navbar")
+			require.Contains(t, frag.Body, "Paged 01")
+			require.NotContains(t, frag.Body, "Load more", "the last page has no button")
+
+			full := c.Get(href).RequireStatus(http.StatusOK)
+			require.Contains(t, full.Body, "<html")
+			require.Contains(t, full.Body, "navbar")
+			require.Contains(t, full.Body, "Paged 01")
+			require.NotContains(t, full.Body, "Paged 35", "the page starts at the cursor")
+
+			c.Get(path + "?cursor=garbage").RequireStatus(http.StatusBadRequest)
+		})
+	}
 }

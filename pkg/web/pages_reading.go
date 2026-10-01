@@ -56,6 +56,7 @@ type UserHomePage struct {
 	MediationRequest  *core.UserConnectionMediationRequest
 	Posts             []*postops.Post
 	About             string
+	Next              string // cursor of the next page, empty on the last
 }
 
 // UserHome is a user's journal, /users/:username. Only a public profile
@@ -75,6 +76,7 @@ func UserHome(c *gin.Context, userData *auth.UserData, journal *reading.Journal)
 		MediationRequest:  journal.MediationRequest,
 		Posts:             journal.Posts,
 		About:             journal.About,
+		Next:              journal.Next,
 	}
 }
 

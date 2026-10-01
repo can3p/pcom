@@ -67,3 +67,15 @@ func TestIndex_SignUpFromMenu(t *testing.T) {
 	require.NoError(t, page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Sign up"}).Click())
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "New Account"})).ToBeVisible())
 }
+
+// The anonymous index shows the newest public posts; "Load more" appends the
+// older ones in place.
+func TestIndex_LoadMore(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	author := browser.NewUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
+	publishPosts(t, app, author.ID, "Indexpost", core.PostVisibilityPublic, pagedPosts)
+
+	expectLoadsMore(t, browser.Page(t, app), "/", "Indexpost")
+}

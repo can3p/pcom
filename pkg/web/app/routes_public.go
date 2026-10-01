@@ -31,13 +31,21 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		page, err := reading.PublicPosts(c, "")
+		page, err := reading.PublicPosts(c, c.Query("cursor"))
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		c.HTML(http.StatusOK, "index.html", web.Index(c, &userData, page.Posts))
+		indexPage := web.Index(c, &userData, page)
+		if isLoadMore(c) {
+			c.HTML(http.StatusOK, "partial--feed-items.html", map[string]any{
+				"Items": indexPage.Items, "User": indexPage.User, "Next": indexPage.Next, "URL": indexPage.LoadMoreURL,
+			})
+			return
+		}
+
+		c.HTML(http.StatusOK, "index.html", indexPage)
 	})
 
 	r.GET("/articles/:id", func(c *gin.Context) {
@@ -72,13 +80,21 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	r.GET("/users/:username", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		journal, err := reading.Journal(c, userData.DBUser, c.Param("username"), "")
+		journal, err := reading.Journal(c, userData.DBUser, c.Param("username"), c.Query("cursor"))
 		if err != nil {
 			ginhelpers.HTMLError(c, err)
 			return
 		}
 
-		c.HTML(http.StatusOK, "user_home.html", web.UserHome(c, &userData, journal))
+		home := web.UserHome(c, &userData, journal)
+		if isLoadMore(c) {
+			c.HTML(http.StatusOK, "partial--post-list.html", map[string]any{
+				"Posts": home.Posts, "User": home.User, "Next": home.Next, "URL": links.Link("user", home.Author.Username),
+			})
+			return
+		}
+
+		c.HTML(http.StatusOK, "user_home.html", home)
 	})
 
 	r.GET("/shared/:id", requireUUIDParam("id"), func(c *gin.Context) {
@@ -164,10 +180,16 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 	})
 }
 
+// isLoadMore reports a "Load more" request from htmx: it has a cursor and is
+// not a boosted navigation.
+func isLoadMore(c *gin.Context) bool {
+	return c.GetHeader("HX-Request") == "true" && c.GetHeader("HX-Boosted") != "true" && c.Query("cursor") != ""
+}
+
 // renderFeed renders a page of a list: only the items and the next button
 // for an htmx "Load more" request, the whole page otherwise.
 func renderFeed(c *gin.Context, page *web.FeedPage) {
-	if c.GetHeader("HX-Request") == "true" && c.GetHeader("HX-Boosted") != "true" && c.Query("cursor") != "" {
+	if isLoadMore(c) {
 		c.HTML(http.StatusOK, "partial--feed-items.html", map[string]any{
 			"Items": page.Items, "User": page.User, "Next": page.Next, "URL": page.LoadMoreURL,
 		})
