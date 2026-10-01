@@ -36,7 +36,7 @@ func SettingsProfileNew(accounts *accounts.Service, u *core.User) *SettingsProfi
 }
 
 func (f *SettingsProfile) Validate(c *gin.Context) error {
-	if err := accounts.ValidateProfileAbout(f.Input.About); err != nil {
+	if err := f.Accounts.ValidateProfileAbout(f.Input.About); err != nil {
 		f.AddError("about", err.Error())
 	}
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -23,7 +24,7 @@ func TestSettingsProfile_ValidateAndSave(t *testing.T) {
 	c, _ := ginctx.New(t, http.MethodPost, "/controls/form/save_profile", nil)
 
 	form := forms.SettingsProfileNew(accountsFor(db, nil), user)
-	form.Input.About = strings.Repeat("a", 6_001)
+	form.Input.About = strings.Repeat("a", accounts.DefaultProfileAboutMaxLength+1)
 	require.Error(t, form.Validate(c))
 	require.True(t, form.Errors.HasError("about"))
 

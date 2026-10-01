@@ -11,6 +11,7 @@ import (
 
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
 )
@@ -137,6 +138,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"USER_MEDIA_KEY", "media-key", func(s *config.Serve) any { return s.Media.Key }, nil, "media-key"},
 		{"USER_MEDIA_SECRET", "media-secret", func(s *config.Serve) any { return s.Media.Secret.Reveal() }, nil, "media-secret"},
 		{"USER_MEDIA_PATH_STYLE", "true", func(s *config.Serve) any { return s.Media.PathStyle.On() }, false, true},
+		{"PROFILE_ABOUT_MAX_LENGTH", "300", func(s *config.Serve) any { return s.Limits.ProfileAboutMaxLength }, accounts.DefaultProfileAboutMaxLength, 300},
 		{"USER_MEDIA_CDN", "https://media.test", func(s *config.Serve) any { return s.Media.CDN }, "", "https://media.test"},
 	}
 

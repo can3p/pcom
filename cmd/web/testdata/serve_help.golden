@@ -76,6 +76,11 @@ Help Options:
                                               Mailjet's own if empty
                                               [$MJ_API_BASE]
 
+    Limits:
+          --profile-about-max-length=         Most characters a user's About
+                                              text may have (default: 6000)
+                                              [$PROFILE_ABOUT_MAX_LENGTH]
+
     User media:
           --user-media-endpoint=              S3 endpoint URL
                                               [$USER_MEDIA_ENDPOINT]

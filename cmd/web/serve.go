@@ -104,6 +104,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		StaticCache:           cfg.Web.StaticCache.On(),
 		ShowErrors:            cfg.Web.ShowErrors.On(),
 		ReportPanics:          cfg.Web.ReportPanics.On(),
+		ProfileAboutMaxLength: cfg.Limits.ProfileAboutMaxLength,
 	}
 }
 
