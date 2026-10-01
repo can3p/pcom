@@ -141,14 +141,6 @@ func LoginAttempt(c *gin.Context) string {
 	return id
 }
 
-// ClearLoginAttempt forgets the visitor's login attempt.
-func ClearLoginAttempt(c *gin.Context) error {
-	session := sessions.Default(c)
-	session.Delete(loginAttemptKey)
-
-	return errors.Wrap(session.Save(), "Failed to save session")
-}
-
 // StartSession logs user in: the session gets a new ID, a CSRF token and the
 // user.
 func StartSession(c *gin.Context, user *core.User) error {
