@@ -1,0 +1,17 @@
+--- source
+{cut more}
+inside the cut
+{/cut}
+
+> quoted words
+> second quoted line
+--- segments
+[0] "inside the cut"
+[1] "quoted words\nsecond quoted line"
+--- applied
+{cut more}
+INSIDE THE CUT
+{/cut}
+
+> QUOTED WORDS
+> SECOND QUOTED LINE

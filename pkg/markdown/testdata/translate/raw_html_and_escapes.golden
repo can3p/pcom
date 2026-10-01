@@ -1,0 +1,19 @@
+--- source
+Some <b>raw</b> html and 1 \* 2 \[x\] AT&T more
+
+<div>block html</div>
+
+---
+
+plain
+--- segments
+[0] "Some <span class=\"notranslate\" data-i=\"0\">&lt;b&gt;</span>raw<span class=\"notranslate\" data-i=\"1\">&lt;/b&gt;</span> html and 1 * 2 [x] AT&amp;T more"
+[1] "plain"
+--- applied
+SOME <b>RAW</b> HTML AND 1 \* 2 \[X\] AT&T MORE
+
+<div>block html</div>
+
+---
+
+PLAIN

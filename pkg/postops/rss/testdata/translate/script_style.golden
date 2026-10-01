@@ -1,0 +1,6 @@
+--- source
+<style>p { color: red }</style><p>before <script>var a = "x < y";</script> after</p><script>alert(1)</script>
+--- segments
+[0] "before <span class=\"notranslate\" data-i=\"0\"></span> after"
+--- applied
+<style>p { color: red }</style><p>BEFORE <script>var a = "x < y";</script> AFTER</p><script>alert(1)</script>

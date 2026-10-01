@@ -1,0 +1,8 @@
+--- source
+<blockquote><p>outer words</p><blockquote><p>inner words</p></blockquote>back outside</blockquote>
+--- segments
+[0] "outer words"
+[1] "inner words"
+[2] "back outside"
+--- applied
+<blockquote><p>OUTER WORDS</p><blockquote><p>INNER WORDS</p></blockquote>BACK OUTSIDE</blockquote>

@@ -1,0 +1,15 @@
+--- source
+Hello *big* and **bold** world, see [a *fine* page](https://example.com/x "Title") now.
+
+Second para
+with a soft break and a hard break\
+here.
+--- segments
+[0] "Hello <em>big</em> and <strong>bold</strong> world, see <a data-i=\"0\">a <em>fine</em> page</a> now."
+[1] "Second para\nwith a soft break and a hard break<br>here."
+--- applied
+HELLO *BIG* AND **BOLD** WORLD, SEE [A *FINE* PAGE](https://example.com/x "Title") NOW.
+
+SECOND PARA
+WITH A SOFT BREAK AND A HARD BREAK\
+HERE.

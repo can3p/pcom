@@ -1,0 +1,9 @@
+--- source
+<table><thead><tr><th>Name</th><th>Role</th></tr></thead><tbody><tr><td><em>Ann</em></td><td><code>admin</code> user</td></tr></tbody></table>
+--- segments
+[0] "Name"
+[1] "Role"
+[2] "<em>Ann</em>"
+[3] "<span class=\"notranslate\" data-i=\"0\">admin</span> user"
+--- applied
+<table><thead><tr><th>NAME</th><th>ROLE</th></tr></thead><tbody><tr><td><em>ANN</em></td><td><code>admin</code> USER</td></tr></tbody></table>

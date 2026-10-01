@@ -1,0 +1,8 @@
+--- source
+<p>Look <img src="/a.png" alt="a red apple"/> here.</p><p><img src="/b.png" alt="only alt"/></p><p><img src="/c.png" alt=""/></p>
+--- segments
+[0] "Look <span class=\"notranslate\" data-i=\"0\"></span> here."
+[1] "a red apple"
+[2] "only alt"
+--- applied
+<p>LOOK <img src="/a.png" alt="A RED APPLE"/> HERE.</p><p><img src="/b.png" alt="ONLY ALT"/></p><p><img src="/c.png" alt=""/></p>
