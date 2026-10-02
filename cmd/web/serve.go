@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,8 @@ func (c *serveCmd) Execute([]string) error {
 	feeder := feeds.New(repo.New(db), mediaStorage)
 
 	go feeder.RunPoller(ctx)
+
+	go accounts.New(repo.New(db), nil, nil).RunLoginAttemptPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {

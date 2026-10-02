@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"time"
@@ -347,4 +348,32 @@ func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string,
 	}
 
 	return a.ID, nil
+}
+
+// pruneEvery is how often RunLoginAttemptPruner deletes dead attempts.
+const pruneEvery = time.Hour
+
+// PruneLoginAttempts deletes the attempts no limit looks at any more: those
+// that expired more than wrongTryWindow ago, and so were created even earlier.
+// It returns how many it deleted.
+func (s *Service) PruneLoginAttempts(ctx context.Context) (int64, error) {
+	return s.store.DeleteLoginAttemptsExpiredBefore(ctx, s.clock().Add(-wrongTryWindow))
+}
+
+// RunLoginAttemptPruner prunes login attempts every pruneEvery until ctx is
+// done.
+func (s *Service) RunLoginAttemptPruner(ctx context.Context) {
+	ticker := time.NewTicker(pruneEvery)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if _, err := s.PruneLoginAttempts(ctx); err != nil {
+				slog.Warn("Failed to prune login attempts", "err", err.Error())
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
