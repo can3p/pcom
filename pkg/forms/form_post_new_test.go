@@ -313,6 +313,10 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 			wantHeader: "HX-Redirect", wantLink: func(id string) string { return links.Link("post", id) }, wantMail: true,
 		},
 		{
+			name: "publish on a published post keeps its date without re-notifying", published: true, action: forms.PostFormActionPublish,
+			wantPublished: true, wantHeader: "HX-Redirect", wantLink: func(id string) string { return links.Link("post", id) },
+		},
+		{
 			name: "save on a published post redirects without re-notifying", published: true, action: forms.PostFormActionSavePost,
 			wantPublished: true, wantHeader: "HX-Redirect", wantLink: func(id string) string { return links.Link("post", id) },
 		},
@@ -334,6 +338,8 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 				opts = append(opts, factory.Published())
 			}
 			post := testutil.Must(factory.Post(ctx, db, author.ID, opts...))(t)
+			// read back, as the zone is lost on the way through Postgres
+			before := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
 
 			sender := fakesender.New()
 			form := fillPost(testutil.Must(forms.EditPostFormNew(ctx, postsService(db, sender), author, post.ID))(t), tc.action)
@@ -345,7 +351,11 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 			if tc.wantDeleted {
 				require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, author.ID))(t))
 			} else {
-				require.Equal(t, tc.wantPublished, testutil.Must(factory.GetPost(ctx, db, post.ID))(t).PublishedAt.Valid)
+				stored := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
+				require.Equal(t, tc.wantPublished, stored.PublishedAt.Valid)
+				if tc.published && tc.wantPublished {
+					require.True(t, before.PublishedAt.Time.Equal(stored.PublishedAt.Time), "publish date must not move")
+				}
 			}
 			if tc.wantMail {
 				sent := sender.Sent()

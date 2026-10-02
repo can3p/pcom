@@ -208,8 +208,14 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 		case ActionMakeDraft:
 			post.PublishedAt = null.Time{}
 		case ActionPublish:
-			post.PublishedAt = null.TimeFrom(time.Now())
-			publishing = true
+			// publishing a published post is a plain save: it keeps its
+			// date and doesn't notify anybody again
+			if existing.PublishedAt.Valid {
+				post.PublishedAt = existing.PublishedAt
+			} else {
+				post.PublishedAt = null.TimeFrom(time.Now())
+				publishing = true
+			}
 		default:
 			post.PublishedAt = existing.PublishedAt
 		}
