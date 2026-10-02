@@ -133,10 +133,12 @@ TOOLS = $(TOOLS_RUN) tools
 
 dev-up:
 	$(COMPOSE) up -d --wait postgres tommy
+	@./tools/dev-urls.sh
 
 # The app (live reload) and the frontend watcher in containers; foreground.
+# The addresses are printed once the app answers.
 dev:
-	$(COMPOSE) --profile dev up
+	@./tools/dev-urls.sh --app & $(COMPOSE) --profile dev up
 
 dev-logs:
 	$(COMPOSE) --profile dev logs -f

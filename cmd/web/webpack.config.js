@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
@@ -94,6 +95,21 @@ module.exports = (env, argv) => {
       ]
     },
   };
+
+  // PCOM_READY_FILE (set by the `assets` compose service): touch that file
+  // after every build that left a manifest, so the service's healthcheck
+  // reports ready only once this run has written dist/manifest.json.
+  if (process.env.PCOM_READY_FILE) {
+    config.plugins.push({
+      apply: (compiler) => {
+        compiler.hooks.done.tap('PcomReadyFile', () => {
+          if (fs.existsSync(path.join(compiler.outputPath, 'manifest.json'))) {
+            fs.writeFileSync(process.env.PCOM_READY_FILE, '');
+          }
+        });
+      },
+    });
+  }
 
   // PRODUCTION ONLY configuration
   if (isProduction) {
