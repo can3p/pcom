@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -24,11 +25,19 @@ import (
 const (
 	// CodeLifetime is how long a login code works.
 	CodeLifetime = 15 * time.Minute
+	// codeDigits is the length of a code: 10^8 of them leave a guesser who
+	// gets maxWrongTries a wrongTryWindow nothing to hope for.
+	codeDigits = 8
 	// maxCodeTries is how many tries an attempt allows; after that it is dead.
 	maxCodeTries = 5
 	// maxCodesMailed codes are mailed to one user per codeLimitWindow.
 	maxCodesMailed  = 3
 	codeLimitWindow = 15 * time.Minute
+	// After maxWrongTries wrong codes on a user's attempts started within
+	// wrongTryWindow, no code logs the user in and none is mailed until the
+	// window moves past them.
+	maxWrongTries  = 10
+	wrongTryWindow = time.Hour
 )
 
 var errNoCodeKey = errors.New("accounts: login codes need a code key (accounts.WithCodeKey)")
@@ -41,12 +50,12 @@ func (s *Service) clock() time.Time {
 }
 
 func newCode() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(math.Pow10(codeDigits))))
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("%06d", n.Int64()), nil
+	return fmt.Sprintf("%0*d", codeDigits, n.Int64()), nil
 }
 
 // codeHash binds a code to its attempt, so a code is useless on any other.
@@ -62,6 +71,12 @@ func (s *Service) codeHash(attemptID, code string) string {
 // it just never matches.
 func open(a *core.LoginAttempt, now time.Time) bool {
 	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.Tries < maxCodeTries
+}
+
+// lockLoginCodes serializes everything that counts a user's codes and tries,
+// so concurrent requests cannot each see room under a limit.
+func lockLoginCodes(ctx context.Context, tx *repo.Store, userID string) error {
+	return tx.LockUser(ctx, repo.LockLoginCodes, userID)
 }
 
 // lockOpenAttempt locks the attempt and returns it when it can still log in,
@@ -85,8 +100,9 @@ func lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now 
 
 // StartLogin starts a login attempt for email and returns its id. The code
 // is mailed only when the address belongs to a confirmed user who has been
-// mailed fewer than maxCodesMailed codes lately; otherwise the attempt can
-// never log in, and the caller cannot tell the difference.
+// mailed fewer than maxCodesMailed codes lately and has not used up
+// maxWrongTries; otherwise the attempt can never log in, and the caller
+// cannot tell the difference.
 func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (string, error) {
 	if len(s.codeKey) == 0 {
 		return "", errNoCodeKey
@@ -116,12 +132,21 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 
 		attempt.UserID = null.StringFrom(user.ID)
 
+		if err := lockLoginCodes(ctx, tx, user.ID); err != nil {
+			return err
+		}
+
 		mailed, err := tx.LoginCodesSince(ctx, user.ID, now.Add(-codeLimitWindow))
 		if err != nil {
 			return err
 		}
 
-		if mailed >= maxCodesMailed {
+		wrongTries, err := tx.WrongLoginTriesSince(ctx, user.ID, now.Add(-wrongTryWindow))
+		if err != nil {
+			return err
+		}
+
+		if mailed >= maxCodesMailed || wrongTries >= maxWrongTries {
 			return tx.InsertLoginAttempt(ctx, attempt)
 		}
 
@@ -184,9 +209,10 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 // FinishLogin checks code against the attempt and counts the try. A match
 // uses the attempt up and returns its user and return URL. A wrong code is a
 // ValidationError on "code", and so is any code for an attempt that has no
-// user, so it cannot be told from a wrong guess; an attempt that is used,
-// expired or out of tries is ErrNotFound. Finishing an attempt also confirms
-// the user's email address when it is not confirmed yet: the code proves it.
+// user or whose user has had maxWrongTries lately, so neither can be told
+// from a wrong guess; an attempt that is used, expired or out of tries is
+// ErrNotFound. Finishing an attempt also confirms the user's email address
+// when it is not confirmed yet: the code proves it.
 func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*core.User, string, error) {
 	if len(s.codeKey) == 0 {
 		return nil, "", errNoCodeKey
@@ -210,7 +236,21 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 		a.Tries++
 		cols := []string{core.LoginAttemptColumns.Tries}
 
-		wrong = !a.UserID.Valid || !a.CodeHash.Valid || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
+		wrong = !a.UserID.Valid || !a.CodeHash.Valid
+		if !wrong {
+			// every try of the user waits here, so the count is exact
+			if err := lockLoginCodes(ctx, tx, a.UserID.String); err != nil {
+				return err
+			}
+
+			wrongTries, err := tx.WrongLoginTriesSince(ctx, a.UserID.String, now.Add(-wrongTryWindow))
+			if err != nil {
+				return err
+			}
+
+			wrong = wrongTries >= maxWrongTries || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
+		}
+
 		if !wrong {
 			a.UsedAt = null.TimeFrom(now)
 			cols = append(cols, core.LoginAttemptColumns.UsedAt)

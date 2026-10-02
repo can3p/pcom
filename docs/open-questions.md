@@ -49,7 +49,10 @@ it builds; confirm or change it before the wave starts.
 - **2026-10-01. Q21, login without passwords (F5, #175):** the mail carries
   a one-time code, no link; the user types it on the login page where they
   entered their email. 6 digits, 15 minutes, one use, 5 tries, bound to the
-  login attempt in that browser's session.
+  login attempt in that browser's session. Amended 2026-10-03 after a
+  security review: 8 digits, and after 10 wrong codes on a user's attempts
+  within an hour no code logs them in and none is mailed until the hour
+  passes.
 - **2026-10-01. Q23, invitations and signup (F5):** confirming the
   invitation (or an open signup) creates the user and mails a code, which
   the user types on the same page to log in.

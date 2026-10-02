@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var mailedCodeRE = regexp.MustCompile(`login code is (\d{6})`)
+var mailedCodeRE = regexp.MustCompile(`login code is (\d{8})`)
 
 // startLogin posts email to a fresh client and returns it with the code the
 // mail to email carries.

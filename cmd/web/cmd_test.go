@@ -87,7 +87,7 @@ func TestAdminLoginCode(t *testing.T) {
 
 	out, err := stdoutOf(t, args)
 	require.NoError(t, err)
-	require.Regexp(t, `^\d{6}\n$`, out, "only the code is printed")
+	require.Regexp(t, `^\d{8}\n$`, out, "only the code is printed")
 
 	got, _, err := svc.FinishLogin(ctx, attemptID, strings.TrimSpace(out))
 	require.NoError(t, err, "the printed code logs in to the user's attempt")

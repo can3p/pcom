@@ -79,7 +79,7 @@ func run(m *testing.M) int {
 	return e2e.Run(m)
 }
 
-var loginCodeRE = regexp.MustCompile(`login code is (\d{6})`)
+var loginCodeRE = regexp.MustCompile(`login code is (\d{8})`)
 
 // SubmitLoginEmail fills the login form's email and submits it, which swaps
 // in the code form.

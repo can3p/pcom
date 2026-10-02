@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +44,7 @@ func codeSvc(db *sqlx.DB, c *clock, key string) *accounts.Service {
 	return accounts.New(repo.New(db), queue, nil, opts...)
 }
 
-var codeRe = regexp.MustCompile(`login code is (\d{6})`)
+var codeRe = regexp.MustCompile(`login code is (\d{8})`)
 
 // mailedCodes returns the codes queued for the address, in no order.
 func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
@@ -97,7 +99,7 @@ func signupConfirmed(t *testing.T, db *sqlx.DB, email string) int {
 func otherCode(code string) string {
 	n, _ := strconv.Atoi(code)
 
-	return fmt.Sprintf("%06d", (n+1)%1_000_000)
+	return fmt.Sprintf("%08d", (n+1)%100_000_000)
 }
 
 func requireWrongCode(t *testing.T, err error) {
@@ -152,7 +154,7 @@ func TestLoginCodes(t *testing.T) {
 		// StartLogin made never logs in
 		other := testutil.Must(svc.StartLogin(ctx, email, ""))(t)
 		require.Empty(t, mailedCodes(t, db, email))
-		_, _, err := svc.FinishLogin(ctx, other, "000000")
+		_, _, err := svc.FinishLogin(ctx, other, "00000000")
 		requireWrongCode(t, err)
 
 		before := signupConfirmed(t, db, email)
@@ -162,7 +164,7 @@ func TestLoginCodes(t *testing.T) {
 			var m sender.Mail
 			require.NoError(t, e.Payload.Unmarshal(&m))
 			if m.To[0].Address == email {
-				code = regexp.MustCompile(`confirmation code is (\d{6})`).FindStringSubmatch(m.Text)[1]
+				code = regexp.MustCompile(`confirmation code is (\d{8})`).FindStringSubmatch(m.Text)[1]
 			}
 		}
 		require.NotEmpty(t, code)
@@ -228,14 +230,65 @@ func TestLoginCodes(t *testing.T) {
 			require.Len(t, mailedCodes(t, db, email), before)
 
 			for range 5 {
-				_, _, err := svc.FinishLogin(ctx, id, "000000")
+				_, _, err := svc.FinishLogin(ctx, id, "00000000")
 				requireWrongCode(t, err)
 			}
 
-			_, _, err := svc.FinishLogin(ctx, id, "000000")
+			_, _, err := svc.FinishLogin(ctx, id, "00000000")
 			requireNotFound(t, err)
 		})
 	}
+
+	t.Run("concurrent logins mail no more codes than the limit", func(t *testing.T) {
+		t.Parallel()
+
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		u := newUser(t)
+
+		var wg sync.WaitGroup
+		for range 10 {
+			wg.Go(func() {
+				_, err := svc.StartLogin(ctx, u.Email, "")
+				assert.NoError(t, err)
+			})
+		}
+		wg.Wait()
+
+		require.Len(t, mailedCodes(t, db, u.Email), 3)
+	})
+
+	t.Run("after too many wrong codes the user cannot log in or get a code until the window passes", func(t *testing.T) {
+		t.Parallel()
+
+		c := &clock{time.Now()}
+		t0 := c.t
+		svc := codeSvc(db, c, "test-key")
+		u := newUser(t)
+		a, codeA := start(t, ctx, db, svc, u, "")
+		b, codeB := start(t, ctx, db, svc, u, "")
+		last, lastCode := start(t, ctx, db, svc, u, "")
+
+		for _, at := range []struct{ id, code string }{{a, codeA}, {b, codeB}} {
+			for range 5 {
+				_, _, err := svc.FinishLogin(ctx, at.id, otherCode(at.code))
+				requireWrongCode(t, err)
+			}
+		}
+
+		_, _, err := svc.FinishLogin(ctx, last, lastCode)
+		requireWrongCode(t, err)
+
+		// the mail limit is free again, the wrong codes still count
+		c.t = t0.Add(16 * time.Minute)
+		testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
+		require.Len(t, mailedCodes(t, db, u.Email), 3)
+
+		c.t = t0.Add(time.Hour + time.Second)
+		id, code := start(t, ctx, db, svc, u, "")
+		got, _, err := svc.FinishLogin(ctx, id, code)
+		require.NoError(t, err)
+		require.Equal(t, u.ID, got.ID)
+	})
 
 	t.Run("the limit is per user and frees up after its window", func(t *testing.T) {
 		t.Parallel()
@@ -370,7 +423,7 @@ func TestLoginCodes(t *testing.T) {
 
 		svc := codeSvc(db, &clock{time.Now()}, "test-key")
 		for _, id := range []string{"not-an-id", "00000000-0000-0000-0000-000000000000"} {
-			_, _, err := svc.FinishLogin(ctx, id, "123456")
+			_, _, err := svc.FinishLogin(ctx, id, "12345678")
 			requireNotFound(t, err)
 			_, err = svc.IssueLoginCode(ctx, id)
 			requireNotFound(t, err)
