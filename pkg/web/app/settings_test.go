@@ -144,8 +144,6 @@ func TestRouter_StaticCache(t *testing.T) {
 
 // A missing file must not be cached forever.
 func TestRouter_StaticCache_MissingFileNotImmutable(t *testing.T) {
-	t.Skip("#183: /static 404s carry the immutable Cache-Control header (group middleware in routes_media.go)")
-
 	cfg := settingsConfig()
 	htmlDir, err := filepath.Abs(cfg.HTMLDir)
 	require.NoError(t, err)

@@ -9,6 +9,48 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// staticCacheControl is sent with every /static file that is served.
+const staticCacheControl = "public, max-age=604800, immutable, stale-while-revalidate=86400"
+
+// successCacheWriter sets Cache-Control only on a response that is not an
+// error, so a missing asset's 404 is not cached as immutable (#183).
+type successCacheWriter struct {
+	gin.ResponseWriter
+	value string
+}
+
+func (w *successCacheWriter) apply(code int) {
+	if code < http.StatusBadRequest {
+		w.Header().Set("Cache-Control", w.value)
+	} else {
+		w.Header().Del("Cache-Control")
+	}
+}
+
+func (w *successCacheWriter) WriteHeader(code int) {
+	if !w.Written() {
+		w.apply(code)
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *successCacheWriter) WriteHeaderNow() {
+	if !w.Written() {
+		w.apply(w.Status())
+	}
+	w.ResponseWriter.WriteHeaderNow()
+}
+
+func (w *successCacheWriter) Write(data []byte) (int, error) {
+	w.WriteHeaderNow()
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *successCacheWriter) WriteString(s string) (int, error) {
+	w.WriteHeaderNow()
+	return w.ResponseWriter.WriteString(s)
+}
+
 // mountMediaRoutes serves the frontend build and user media.
 func mountMediaRoutes(d *Deps, router *gin.Engine) {
 	mediaServer := d.MediaServer
@@ -17,7 +59,7 @@ func mountMediaRoutes(d *Deps, router *gin.Engine) {
 	//cache static forever
 	if d.Config.StaticCache {
 		router.Group("/static", func(c *gin.Context) {
-			c.Header("Cache-Control", "public, max-age=604800, immutable, stale-while-revalidate=86400")
+			c.Writer = &successCacheWriter{ResponseWriter: c.Writer, value: staticCacheControl}
 			c.Next()
 		}).Static("/", "dist")
 	} else {
