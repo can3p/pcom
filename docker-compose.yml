@@ -44,7 +44,7 @@ services:
 
   # Mail sink and object store in one container.
   tommy:
-    image: can3p/tommy:0.3.0
+    image: can3p/tommy:0.3.1
     environment:
       TOMMY_S3_BUCKETS: pcom-media
       TOMMY_PERSIST: /data/tommy
