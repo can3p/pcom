@@ -46,8 +46,9 @@ func New(d *Deps) *gin.Engine {
 
 	if d.Config.ReportPanics {
 		router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
-			userData := auth.GetUserData(c)
-			user := userData.DBUser
+			// not auth.GetUserData: routes outside the auth group have no
+			// session, and its MustGet would panic inside the recovery
+			user := auth.GetAPIUserData(c).DBUser
 
 			if nerr := d.Services.Accounts.SendAdminMail(c, admin.PageFailure(d.Config.SenderAddress, d.Config.AdminAddress, c, err, user)); nerr != nil {
 				log.Printf("failed to queue the page failure notification: %v", nerr)

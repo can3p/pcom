@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -116,6 +117,29 @@ func TestRouter_ReportPanics(t *testing.T) {
 			require.Equal(t, cfg.AdminAddress, got.Mail.To[0].Address)
 		})
 	}
+}
+
+// A panic on a route outside the auth group (no session) still mails the
+// admin, as an anonymous failure.
+func TestRouter_ReportPanics_NoSession(t *testing.T) {
+	t.Parallel()
+
+	cfg := settingsConfig()
+	cfg.ReportPanics = true
+
+	storage := fakestorage.New()
+	storage.FailExistsWith(errors.New("storage down"))
+	storage.FailDownloadWith(errors.New("storage down"))
+	snd := fakesender.New()
+	h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: snd, MediaStorage: storage, Config: cfg})
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/user-media/some.jpg/thumb", nil))
+
+	require.Len(t, snd.Sent(), 1)
+	got := snd.Sent()[0]
+	require.Equal(t, "panic_notification", got.EmailType)
+	require.Contains(t, got.Mail.Text, "User: Anonymous")
 }
 
 // StaticCache makes served /static files immutable; off, they are not. Not
