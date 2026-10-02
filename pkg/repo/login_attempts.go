@@ -56,6 +56,12 @@ func (s *Store) WrongLoginTriesSince(ctx context.Context, userID string, since t
 	return n, err
 }
 
+// DeleteLoginAttemptsExpiredBefore deletes the attempts that expired before t
+// and returns how many there were.
+func (s *Store) DeleteLoginAttemptsExpiredBefore(ctx context.Context, t time.Time) (int64, error) {
+	return core.LoginAttempts(core.LoginAttemptWhere.ExpiresAt.LT(t)).DeleteAll(ctx, s.exec)
+}
+
 // NewestOpenLoginAttempt returns the user's newest attempt that is unused,
 // expires after now and has had fewer than maxTries tries, or ErrNotFound.
 func (s *Store) NewestOpenLoginAttempt(ctx context.Context, userID string, now time.Time, maxTries int) (*core.LoginAttempt, error) {

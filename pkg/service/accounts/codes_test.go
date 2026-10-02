@@ -290,6 +290,28 @@ func TestLoginCodes(t *testing.T) {
 		require.Equal(t, u.ID, got.ID)
 	})
 
+	t.Run("pruning deletes only attempts no limit counts any more", func(t *testing.T) {
+		t.Parallel()
+
+		// pruning sweeps the whole table, so it gets a database of its own
+		db := testdb.New(t).DB
+		c := &clock{time.Now()}
+		t0 := c.t
+		svc := codeSvc(db, c, "test-key")
+		u := testutil.Must(factory.User(ctx, db))(t)
+		old, _ := start(t, ctx, db, svc, u, "")
+		c.t = t0.Add(10 * time.Minute)
+		recent, _ := start(t, ctx, db, svc, u, "")
+
+		// old expired at t0+15m, recent at t0+25m; the cut is an hour before now
+		c.t = t0.Add(time.Hour + 20*time.Minute)
+		testutil.Must(svc.PruneLoginAttempts(ctx))(t)
+
+		_, err := repo.New(db).LockLoginAttempt(ctx, old)
+		require.ErrorIs(t, err, repo.ErrNotFound)
+		testutil.Must(repo.New(db).LockLoginAttempt(ctx, recent))(t)
+	})
+
 	t.Run("the limit is per user and frees up after its window", func(t *testing.T) {
 		t.Parallel()
 
