@@ -1053,10 +1053,11 @@ func TestGuards_LoginReturnURL(t *testing.T) {
 	require.Equal(t, "/feed", done.Header.Get("HX-Redirect"))
 }
 
-// TestGuards_LoginUnknownAddressGetsSamePageAndNoMail: an unknown and an
-// unconfirmed address are answered with the code form like a known one, and
-// no mail goes to them, so the page tells nothing about who has an account.
-func TestGuards_LoginUnknownAddressGetsSamePageAndNoMail(t *testing.T) {
+// TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail: an unknown and an
+// unconfirmed address are answered with the code form like a known one, a
+// guessed code is wrong for all three, and no mail goes to the first two, so
+// neither step tells anything about who has an account.
+func TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
@@ -1074,6 +1075,11 @@ func TestGuards_LoginUnknownAddressGetsSamePageAndNoMail(t *testing.T) {
 
 		resp := client.PostForm("/form/login", url.Values{"email": {email}}).RequireStatus(http.StatusOK)
 		require.Equal(t, 1, resp.Doc().Find(`input[name="code"]`).Length(), email)
+		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
+
+		// a guessed code is just wrong, whoever the address belongs to
+		resp = client.PostForm("/form/login/code", url.Values{"code": {"000000"}}).RequireStatus(http.StatusOK)
+		require.Equal(t, 1, resp.Doc().Find(`input[name="code"].is-invalid`).Length(), email)
 		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
 
 		client.Get("/feed").RequireStatus(http.StatusFound)
