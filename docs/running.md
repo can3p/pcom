@@ -15,8 +15,8 @@ If you already have a `cmd/web/.env` from the old setup, move it aside first: it
 at a Postgres installed on your machine (port 5432). The one from `.env.example` points at the compose Postgres
 on `localhost:5442`.
 
-`make dev-up` starts Postgres and tommy (mail sink and S3 stand-in) and waits until they are healthy.
-`make migrate` applies the migrations, `make seed` fills the database with a small named world (see
+`make dev-up` starts Postgres and tommy (mail sink and S3 stand-in), waits until they are healthy and prints
+their addresses. `make migrate` applies the migrations, `make seed` fills the database with a small named world (see
 [Seeding](#seeding)). The first run builds the tools image (sql-migrate, sqlboiler, psql), which is slow once.
 
 Then pick one way to run the app.
@@ -28,8 +28,10 @@ make dev
 ```
 
 Runs the app (live reload on `.go`, `.html` and `.md` changes) and the frontend watcher in containers, in the
-foreground. Open http://localhost:8080 and log in as `alice@example.test` / `password`. `make dev-logs` follows
-the logs from another terminal; `make dev-down` stops everything.
+foreground. The app starts once the frontend watcher has finished its first build, and when it answers,
+`make dev` prints the addresses of the app, tommy, S3 and Postgres below the logs. Open http://localhost:8080
+and log in as `alice@example.test` / `password`. `make dev-logs` follows the logs from another terminal;
+`make dev-down` stops everything.
 
 The containers set their in-network values (database host, `SITE_ROOT`, `PORT`) as real environment variables,
 and the app never lets `cmd/web/.env` override a variable that is already set, so the same `.env` serves both

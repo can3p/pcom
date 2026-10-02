@@ -102,19 +102,19 @@ services:
     working_dir: /src/cmd/web
     # PCOM_WATCH_POLL=<ms> switches watchexec to polling (see above).
     # The app reads dist/manifest.json at startup and panics without it, while
-    # the assets service starts by deleting dist. So wait for the manifest, and
-    # restart on json changes too: every webpack rebuild rewrites the manifest
-    # with new hashes, and a stale one deleted under the app is replaced.
+    # the assets service starts by deleting dist. A manifest left over from the
+    # previous run is no proof the bundle is there, so the app waits for the
+    # assets healthcheck, which passes only after this run's first build. json
+    # changes restart the app too: every webpack rebuild rewrites the manifest.
     command:
       - sh
       - -c
       - >-
-        until [ -f dist/manifest.json ]; do echo 'waiting for dist/manifest.json'; sleep 1; done;
         exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md,json --ignore '**/node_modules/**' --restart -- go run . serve
     environment:
       DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
       SESSION_SALT: local-dev-session-salt-change-me
-      SITE_ROOT: http://localhost:8080
+      SITE_ROOT: http://localhost:${PCOM_APP_PORT:-8080}
       PORT: "8080"
       SENDER_ADDRESS: pcom@localhost
       MJ_APIKEY_PUBLIC: dev
@@ -146,15 +146,28 @@ services:
         condition: service_healthy
       tommy:
         condition: service_started
+      assets:
+        condition: service_healthy
 
   # Frontend bundle watcher; writes cmd/web/dist on the bind mount, which host
-  # mode reads too.
+  # mode reads too. Healthy once webpack has finished its first build in this
+  # run: the marker lives in the container, outside the bind mount, and is
+  # removed first so a restarted container never reports a stale build.
   assets:
     build: *dev-build
     profiles: ["dev"]
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /src/cmd/web
-    command: ["sh", "-c", "yarn install --frozen-lockfile && yarn watch"]
+    command: ["sh", "-c", "rm -f \"$$PCOM_READY_FILE\" && yarn install --frozen-lockfile && yarn watch"]
+    environment:
+      PCOM_READY_FILE: /tmp/pcom-assets-ready
+    healthcheck:
+      test: ["CMD-SHELL", "test -f \"$$PCOM_READY_FILE\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      # yarn install on a fresh node_modules volume takes a while.
+      start_period: 10m
     volumes:
       - .:/src
       - webnodemodules:/src/cmd/web/node_modules
