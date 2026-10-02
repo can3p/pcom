@@ -76,9 +76,9 @@ func TestLoginCodeForm_Save(t *testing.T) {
 
 	t.Run("a wrong code is an error on the field", func(t *testing.T) {
 		form, _, code, save := attempt("")
-		form.Input.Code = "000000"
+		form.Input.Code = "00000000"
 		if form.Input.Code == code {
-			form.Input.Code = "111111"
+			form.Input.Code = "11111111"
 		}
 		require.Empty(t, save())
 		require.True(t, form.Errors.HasError("code"))
@@ -88,14 +88,14 @@ func TestLoginCodeForm_Save(t *testing.T) {
 		// an attempt out of tries
 		id := testutil.Must(svc.StartLogin(ctx, "nobody@example.test", ""))(t)
 		for range 5 {
-			_, _, err := svc.FinishLogin(ctx, id, "123456")
+			_, _, err := svc.FinishLogin(ctx, id, "12345678")
 			require.Error(t, err)
 		}
 		c, _ := ginctx.New(t, http.MethodPost, "/login/code", nil)
 		require.NoError(t, auth.SetLoginAttempt(c, id))
 
 		form := forms.LoginCodeFormNew(svc, testSiteRoot).(*forms.LoginCodeForm)
-		form.Input.Code = "123456"
+		form.Input.Code = "12345678"
 
 		_, err := form.Save(c)
 		require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestLoginCodeForm_Save(t *testing.T) {
 	t.Run("no attempt in the session is an expired login", func(t *testing.T) {
 		c, _ := ginctx.New(t, http.MethodPost, "/login/code", nil)
 		form := forms.LoginCodeFormNew(svc, testSiteRoot).(*forms.LoginCodeForm)
-		form.Input.Code = "123456"
+		form.Input.Code = "12345678"
 
 		_, err := form.Save(c)
 		require.NoError(t, err)

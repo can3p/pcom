@@ -17,7 +17,7 @@ import (
 )
 
 // b7SignupCodeRE matches the code in the plain-text body of the signup mail.
-var b7SignupCodeRE = regexp.MustCompile(`confirmation code is (\d{6})`)
+var b7SignupCodeRE = regexp.MustCompile(`confirmation code is (\d{8})`)
 
 // b7SignupCode waits for the signup mail this app delivered to email and
 // pulls the code out of its plain-text body.
@@ -62,9 +62,9 @@ func TestAccounts_LoginWrongCodeShowsErrorInPlace(t *testing.T) {
 	require.NoError(t, err)
 
 	browser.SubmitLoginEmail(t, page, user.Email)
-	wrong := "000000"
+	wrong := "00000000"
 	if browser.LoginCode(t, app, user.Email) == wrong {
-		wrong = "111111"
+		wrong = "11111111"
 	}
 
 	browser.SubmitLoginCode(t, page, wrong)

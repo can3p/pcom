@@ -331,7 +331,7 @@ var guardRoutes = []guardRoute{
 			return map[string]string{"email": w.stranger.Email}
 		}},
 	{http.MethodPost, "/form/login/code", staticPath("/form/login/code"),
-		func(*guardWorld) map[string]string { return map[string]string{"code": "123456"} }},
+		func(*guardWorld) map[string]string { return map[string]string{"code": "12345678"} }},
 	{http.MethodPost, "/form/accept_invite/:id", func(w *guardWorld) string { return "/form/accept_invite/" + w.invitation.ID },
 		func(*guardWorld) map[string]string {
 			return map[string]string{"username": "invitedguest", "password": "invited-password-1"}
@@ -1078,7 +1078,7 @@ func TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail(t *testing.T) {
 		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
 
 		// a guessed code is just wrong, whoever the address belongs to
-		resp = client.PostForm("/form/login/code", url.Values{"code": {"000000"}}).RequireStatus(http.StatusOK)
+		resp = client.PostForm("/form/login/code", url.Values{"code": {"00000000"}}).RequireStatus(http.StatusOK)
 		require.Equal(t, 1, resp.Doc().Find(`input[name="code"].is-invalid`).Length(), email)
 		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
 
