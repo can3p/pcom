@@ -57,9 +57,11 @@ func (s *Service) codeHash(attemptID, code string) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// open reports whether an attempt can still log in at now.
+// open reports whether an attempt still takes tries at now. An attempt with
+// no user takes them too, so it answers like any other until it is used up;
+// it just never matches.
 func open(a *core.LoginAttempt, now time.Time) bool {
-	return a.UserID.Valid && !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.Tries < maxCodeTries
+	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.Tries < maxCodeTries
 }
 
 // lockOpenAttempt locks the attempt and returns it when it can still log in,
@@ -181,9 +183,10 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 
 // FinishLogin checks code against the attempt and counts the try. A match
 // uses the attempt up and returns its user and return URL. A wrong code is a
-// ValidationError on "code"; an attempt that is used, expired, out of tries
-// or has no user is ErrNotFound. Finishing an attempt also confirms the
-// user's email address when it is not confirmed yet: the code proves it.
+// ValidationError on "code", and so is any code for an attempt that has no
+// user, so it cannot be told from a wrong guess; an attempt that is used,
+// expired or out of tries is ErrNotFound. Finishing an attempt also confirms
+// the user's email address when it is not confirmed yet: the code proves it.
 func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*core.User, string, error) {
 	if len(s.codeKey) == 0 {
 		return nil, "", errNoCodeKey
@@ -207,7 +210,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 		a.Tries++
 		cols := []string{core.LoginAttemptColumns.Tries}
 
-		wrong = !a.CodeHash.Valid || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
+		wrong = !a.UserID.Valid || !a.CodeHash.Valid || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
 		if !wrong {
 			a.UsedAt = null.TimeFrom(now)
 			cols = append(cols, core.LoginAttemptColumns.UsedAt)
@@ -264,6 +267,10 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 		a, err := lockOpenAttempt(ctx, tx, attemptID, now)
 		if err != nil {
 			return err
+		}
+
+		if !a.UserID.Valid {
+			return service.ErrNotFound
 		}
 
 		if code, err = newCode(); err != nil {

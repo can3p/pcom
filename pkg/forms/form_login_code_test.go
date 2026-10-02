@@ -85,8 +85,12 @@ func TestLoginCodeForm_Save(t *testing.T) {
 	})
 
 	t.Run("a dead attempt is an expired login", func(t *testing.T) {
-		// an unknown address gets an attempt that can never log in
+		// an attempt out of tries
 		id := testutil.Must(svc.StartLogin(ctx, "nobody@example.test", ""))(t)
+		for range 5 {
+			_, _, err := svc.FinishLogin(ctx, id, "123456")
+			require.Error(t, err)
+		}
 		c, _ := ginctx.New(t, http.MethodPost, "/login/code", nil)
 		require.NoError(t, auth.SetLoginAttempt(c, id))
 

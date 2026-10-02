@@ -149,11 +149,11 @@ func TestLoginCodes(t *testing.T) {
 		require.Empty(t, mailedCodes(t, db, email), "the signup mail is not a login code")
 
 		// the address is not confirmed: no login code is mailed, and the attempt
-		// StartLogin made is dead
+		// StartLogin made never logs in
 		other := testutil.Must(svc.StartLogin(ctx, email, ""))(t)
 		require.Empty(t, mailedCodes(t, db, email))
 		_, _, err := svc.FinishLogin(ctx, other, "000000")
-		requireNotFound(t, err)
+		requireWrongCode(t, err)
 
 		before := signupConfirmed(t, db, email)
 
@@ -197,16 +197,15 @@ func TestLoginCodes(t *testing.T) {
 	})
 
 	for _, tc := range []struct {
-		name    string
-		setup   func(t *testing.T, svc *accounts.Service) (email string, mailedBefore int)
-		wantErr func(t *testing.T, err error)
+		name  string
+		setup func(t *testing.T, svc *accounts.Service) (email string, mailedBefore int)
 	}{
 		{"unknown address", func(t *testing.T, _ *accounts.Service) (string, int) {
 			return "nobody-" + strconv.FormatInt(time.Now().UnixNano(), 10) + "@example.test", 0
-		}, requireNotFound},
+		}},
 		{"unconfirmed user", func(t *testing.T, _ *accounts.Service) (string, int) {
 			return testutil.Must(factory.User(ctx, db, factory.Unconfirmed()))(t).Email, 0
-		}, requireNotFound},
+		}},
 		{"user over the limit", func(t *testing.T, svc *accounts.Service) (string, int) {
 			u := newUser(t)
 			for range 3 {
@@ -214,9 +213,11 @@ func TestLoginCodes(t *testing.T) {
 			}
 
 			return u.Email, 3
-		}, requireWrongCode},
+		}},
 	} {
-		t.Run(tc.name+" is mailed nothing and never logs in", func(t *testing.T) {
+		// a stranger cannot tell any of these from a real login: every try is
+		// a wrong code until the attempt is out of tries
+		t.Run(tc.name+" is mailed nothing and answers like a wrong code", func(t *testing.T) {
 			t.Parallel()
 
 			svc := codeSvc(db, &clock{time.Now()}, "test-key")
@@ -226,8 +227,13 @@ func TestLoginCodes(t *testing.T) {
 			require.NotEmpty(t, id)
 			require.Len(t, mailedCodes(t, db, email), before)
 
+			for range 5 {
+				_, _, err := svc.FinishLogin(ctx, id, "000000")
+				requireWrongCode(t, err)
+			}
+
 			_, _, err := svc.FinishLogin(ctx, id, "000000")
-			tc.wantErr(t, err)
+			requireNotFound(t, err)
 		})
 	}
 
