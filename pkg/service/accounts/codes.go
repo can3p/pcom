@@ -392,9 +392,9 @@ func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
 }
 
 // RunPruner prunes login attempts and unconfirmed accounts every pruneEvery
-// until ctx is done.
+// (or WithPruneEvery) until ctx is done.
 func (s *Service) RunPruner(ctx context.Context) {
-	ticker := time.NewTicker(pruneEvery)
+	ticker := time.NewTicker(s.pruneEvery)
 	defer ticker.Stop()
 
 	for {
