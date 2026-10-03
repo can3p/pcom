@@ -55,7 +55,9 @@ it builds; confirm or change it before the wave starts.
   passes.
 - **2026-10-01. Q23, invitations and signup (F5):** confirming the
   invitation (or an open signup) creates the user and mails a code, which
-  the user types on the same page to log in.
+  the user types on the same page to log in. Amended 2026-10-03: an
+  unconfirmed user can log in from the login page, which confirms them; an
+  account nobody confirms within 24 hours is deleted.
 - **2026-10-01. Q27, language detection (F7, #144):** deferred to the
   implementation. F7's T0 picks a local Go library, checking its license
   and binary size, and records the choice here.

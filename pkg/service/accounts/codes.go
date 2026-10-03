@@ -39,6 +39,9 @@ const (
 	// window moves past them.
 	maxWrongTries  = 10
 	wrongTryWindow = time.Hour
+	// unconfirmedLifetime is how long an account whose owner never typed a
+	// code is kept; after it the address and the username are free again.
+	unconfirmedLifetime = 24 * time.Hour
 )
 
 var errNoCodeKey = errors.New("accounts: login codes need a code key (accounts.WithCodeKey)")
@@ -100,10 +103,11 @@ func lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now 
 }
 
 // StartLogin starts a login attempt for email and returns its id. The code
-// is mailed only when the address belongs to a confirmed user who has been
-// mailed fewer than maxCodesMailed codes lately and has not used up
-// maxWrongTries; otherwise the attempt can never log in, and the caller
-// cannot tell the difference.
+// is mailed only when the address belongs to a user who has been mailed
+// fewer than maxCodesMailed codes lately and has not used up maxWrongTries;
+// otherwise the attempt can never log in, and the caller cannot tell the
+// difference. The user need not be confirmed: a signup whose code expired
+// logs in here, and the code confirms the address.
 func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (string, error) {
 	if len(s.codeKey) == 0 {
 		return "", errNoCodeKey
@@ -124,7 +128,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 	}
 
 	err = s.store.Tx(ctx, func(tx *repo.Store) error {
-		user, err := tx.UserByEmail(ctx, pgsession.NormalizeEmail(email), true)
+		user, err := tx.UserByEmail(ctx, pgsession.NormalizeEmail(email))
 		if errors.Is(err, repo.ErrNotFound) {
 			return tx.InsertLoginAttempt(ctx, attempt)
 		} else if err != nil {
@@ -330,14 +334,14 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 	return code, nil
 }
 
-// LatestLoginAttempt returns the id of the newest attempt of the confirmed
-// user with email that can still log in, or ErrNotFound.
+// LatestLoginAttempt returns the id of the newest attempt of the user with
+// email that can still log in, or ErrNotFound.
 func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string, error) {
 	if len(s.codeKey) == 0 {
 		return "", errNoCodeKey
 	}
 
-	user, err := notFound(s.store.UserByEmail(ctx, pgsession.NormalizeEmail(email), true))
+	user, err := notFound(s.store.UserByEmail(ctx, pgsession.NormalizeEmail(email)))
 	if err != nil {
 		return "", err
 	}
@@ -350,7 +354,7 @@ func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string,
 	return a.ID, nil
 }
 
-// pruneEvery is how often RunLoginAttemptPruner deletes dead attempts.
+// pruneEvery is how often RunPruner deletes dead attempts and accounts.
 const pruneEvery = time.Hour
 
 // PruneLoginAttempts deletes the attempts no limit looks at any more: those
@@ -360,9 +364,36 @@ func (s *Service) PruneLoginAttempts(ctx context.Context) (int64, error) {
 	return s.store.DeleteLoginAttemptsExpiredBefore(ctx, s.clock().Add(-wrongTryWindow))
 }
 
-// RunLoginAttemptPruner prunes login attempts every pruneEvery until ctx is
-// done.
-func (s *Service) RunLoginAttemptPruner(ctx context.Context) {
+// PruneUnconfirmedUsers deletes the accounts created more than
+// unconfirmedLifetime ago whose owner never typed a code, one at a time, so
+// that one the database refuses to delete (an operator gave it invitations,
+// say) is logged and does not hold up the rest. It returns how many it
+// deleted.
+func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
+	ids, err := s.store.UnconfirmedUserIDsCreatedBefore(ctx, s.clock().Add(-unconfirmedLifetime))
+	if err != nil {
+		return 0, err
+	}
+
+	deleted := 0
+	for _, id := range ids {
+		ok, err := s.store.DeleteUnconfirmedUser(ctx, id)
+		if err != nil {
+			slog.Warn("Failed to delete an unconfirmed user", "user_id", id, "err", err.Error())
+			continue
+		}
+
+		if ok {
+			deleted++
+		}
+	}
+
+	return deleted, nil
+}
+
+// RunPruner prunes login attempts and unconfirmed accounts every pruneEvery
+// until ctx is done.
+func (s *Service) RunPruner(ctx context.Context) {
 	ticker := time.NewTicker(pruneEvery)
 	defer ticker.Stop()
 
@@ -371,6 +402,10 @@ func (s *Service) RunLoginAttemptPruner(ctx context.Context) {
 		case <-ticker.C:
 			if _, err := s.PruneLoginAttempts(ctx); err != nil {
 				slog.Warn("Failed to prune login attempts", "err", err.Error())
+			}
+
+			if _, err := s.PruneUnconfirmedUsers(ctx); err != nil {
+				slog.Warn("Failed to prune unconfirmed users", "err", err.Error())
 			}
 		case <-ctx.Done():
 			return

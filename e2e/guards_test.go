@@ -1053,10 +1053,10 @@ func TestGuards_LoginReturnURL(t *testing.T) {
 	require.Equal(t, "/feed", done.Header.Get("HX-Redirect"))
 }
 
-// TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail: an unknown and an
-// unconfirmed address are answered with the code form like a known one, a
-// guessed code is wrong for all three, and no mail goes to the first two, so
-// neither step tells anything about who has an account.
+// TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail: an unknown address
+// is answered with the code form like a known one, confirmed or not, a
+// guessed code is wrong for all three, and only the unknown one gets no mail,
+// so neither step tells anything about who has an account.
 func TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail(t *testing.T) {
 	t.Parallel()
 
@@ -1086,7 +1086,7 @@ func TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail(t *testing.T) {
 	}
 
 	app.NoMails(t, "nobody@example.test", nil)
-	app.NoMails(t, unconfirmed.Email, nil)
+	require.Len(t, app.Mails(t, unconfirmed.Email, nil), 1, "an unconfirmed user logs in to confirm")
 	require.Len(t, app.Mails(t, known.Email, nil), 1)
 }
 

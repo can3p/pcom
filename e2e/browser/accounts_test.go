@@ -147,6 +147,37 @@ func TestAccounts_SignupWhileOpenAndConfirmWithCode(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username))
 }
 
+// Someone who signs up and never types the signup code is not locked out:
+// logging in later with the same address mails a code that confirms it.
+func TestAccounts_SignupWithoutTheCodeLogsInLater(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	require.NoError(t, factory.SetRegistrationOpen(context.Background(), app.DB, true))
+
+	// unique, since every test binary run shares one tommy
+	email := "b7late-" + uuid.NewString() + "@example.test"
+	const username = "b7lateuser"
+
+	page := browser.Page(t, app)
+
+	_, err := page.Goto("/signup")
+	require.NoError(t, err)
+
+	require.NoError(t, page.GetByLabel("Email address").Fill(email))
+	require.NoError(t, page.GetByLabel("Username").Fill(username))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Create an account"}).Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Code")).ToBeVisible())
+
+	_, err = page.Goto("/login")
+	require.NoError(t, err)
+
+	browser.LogInWithCode(t, app, page, email)
+
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username))
+}
+
 func mustCount(t testing.TB, l playwright.Locator) int {
 	t.Helper()
 
