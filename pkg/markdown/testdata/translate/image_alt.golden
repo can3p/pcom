@@ -1,0 +1,16 @@
+--- source
+Look ![a red apple](http://x/apple.png "On a tree") here.
+
+![only alt text](http://x/only.png)
+
+![](http://x/a.png)
+--- segments
+[0] "Look <span class=\"notranslate\" data-i=\"0\"></span> here."
+[1] "a red apple"
+[2] "only alt text"
+--- applied
+LOOK ![A RED APPLE](http://x/apple.png "On a tree") HERE.
+
+![ONLY ALT TEXT](http://x/only.png)
+
+![](http://x/a.png)

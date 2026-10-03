@@ -1,11 +1,14 @@
 package web
 
 import (
+	"context"
+
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
+	"github.com/can3p/pcom/pkg/service/translations"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +22,8 @@ type SettingsPage struct {
 	UserStyles       *forms.SettingsUserStyles
 	Profile          *forms.SettingsProfile
 	Feeds            []*feeds.RssFeed
+	// Translation is the always-translate form, nil when translation is off.
+	Translation *forms.SettingsTranslation
 }
 
 func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, view *accounts.SettingsView) *SettingsPage {
@@ -39,6 +44,22 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 		Profile:          formProfile,
 		Feeds:            view.Feeds,
 	}
+}
+
+// WithTranslation adds the always-translate form, unless translation is off.
+func (p *SettingsPage) WithTranslation(ctx context.Context, svc *translations.Service) error {
+	if !svc.Enabled() {
+		return nil
+	}
+
+	langs, err := svc.Languages(ctx, p.User.DBUser)
+	if err != nil {
+		return err
+	}
+
+	p.Translation = forms.SettingsTranslationNew(svc, p.User.DBUser, langs)
+
+	return nil
 }
 
 type InvitePage struct {

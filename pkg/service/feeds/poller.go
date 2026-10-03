@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/translate"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
 )
@@ -267,6 +268,8 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 		publishedAt = *rssFeedItem.PublishedAt
 	}
 
+	lang, langOK := translate.DetectLanguage(rssFeedItem.Title + "\n" + markdownContent)
+
 	feedItem := &core.RSSItem{
 		ID:                   feedItemID,
 		FeedID:               feedID,
@@ -276,6 +279,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 		Description:          rssFeedItem.Summary,
 		PublishedAt:          publishedAt,
 		SanitizedDescription: markdownContent,
+		Language:             null.NewString(lang, langOK),
 	}
 
 	created, err := tx.UpsertFeedItem(ctx, feedItem)

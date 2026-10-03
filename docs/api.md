@@ -13,6 +13,7 @@ curl -v -H'Authorization: Bearer 01904236-6811-77fe-8076-f7e80f9a8b99' http://lo
         "md_body": "# We love headers",
         "visibility": "direct_only",
         "is_published": true,
+        "allow_translation": false,
         "public_url": "http://localhost:8080/posts/018fa64b-0f9e-7933-b44d-33eae44ccfe1"
       },
       ...
@@ -58,3 +59,7 @@ curl -v -H'Authorization: Bearer <api-key>' -XPOST -d'{ "subject": "test post1",
 curl -v -H'Authorization: Bearer <api-key>' -XDELETE http://localhost:8080/api/v1/posts/01904796-62f7-7a9a-a7bd-1595ed6d1663
 {"data":null}
 ```
+
+## Allow translation
+
+Posts can carry an optional `allow_translation` boolean (when creating, updating or publishing). When it is `true`, readers may have the post translated to English by an external translation service, so the text of the post is sent to that service. Leaving the field out keeps the stored value (`false` for a new post); `false` turns translation off and drops the cached translations. The field is also returned when posts are fetched.

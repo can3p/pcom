@@ -34,6 +34,8 @@ type Post struct {
 	PublishedAt      null.Time      `boil:"published_at" json:"published_at,omitempty" toml:"published_at" yaml:"published_at,omitempty"`
 	URLID            null.String    `boil:"url_id" json:"url_id,omitempty" toml:"url_id" yaml:"url_id,omitempty"`
 	RSSItemID        null.String    `boil:"rss_item_id" json:"rss_item_id,omitempty" toml:"rss_item_id" yaml:"rss_item_id,omitempty"`
+	Language         null.String    `boil:"language" json:"language,omitempty" toml:"language" yaml:"language,omitempty"`
+	AllowTranslation bool           `boil:"allow_translation" json:"allow_translation" toml:"allow_translation" yaml:"allow_translation"`
 
 	R *postR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L postL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -50,6 +52,8 @@ var PostColumns = struct {
 	PublishedAt      string
 	URLID            string
 	RSSItemID        string
+	Language         string
+	AllowTranslation string
 }{
 	ID:               "id",
 	Subject:          "subject",
@@ -61,6 +65,8 @@ var PostColumns = struct {
 	PublishedAt:      "published_at",
 	URLID:            "url_id",
 	RSSItemID:        "rss_item_id",
+	Language:         "language",
+	AllowTranslation: "allow_translation",
 }
 
 var PostTableColumns = struct {
@@ -74,6 +80,8 @@ var PostTableColumns = struct {
 	PublishedAt      string
 	URLID            string
 	RSSItemID        string
+	Language         string
+	AllowTranslation string
 }{
 	ID:               "posts.id",
 	Subject:          "posts.subject",
@@ -85,6 +93,8 @@ var PostTableColumns = struct {
 	PublishedAt:      "posts.published_at",
 	URLID:            "posts.url_id",
 	RSSItemID:        "posts.rss_item_id",
+	Language:         "posts.language",
+	AllowTranslation: "posts.allow_translation",
 }
 
 // Generated where
@@ -124,6 +134,15 @@ func (w whereHelperPostVisibility) NIN(slice []PostVisibility) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
+type whereHelperbool struct{ field string }
+
+func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
 var PostWhere = struct {
 	ID               whereHelperstring
 	Subject          whereHelpernull_String
@@ -135,6 +154,8 @@ var PostWhere = struct {
 	PublishedAt      whereHelpernull_Time
 	URLID            whereHelpernull_String
 	RSSItemID        whereHelpernull_String
+	Language         whereHelpernull_String
+	AllowTranslation whereHelperbool
 }{
 	ID:               whereHelperstring{field: "\"posts\".\"id\""},
 	Subject:          whereHelpernull_String{field: "\"posts\".\"subject\""},
@@ -146,36 +167,44 @@ var PostWhere = struct {
 	PublishedAt:      whereHelpernull_Time{field: "\"posts\".\"published_at\""},
 	URLID:            whereHelpernull_String{field: "\"posts\".\"url_id\""},
 	RSSItemID:        whereHelpernull_String{field: "\"posts\".\"rss_item_id\""},
+	Language:         whereHelpernull_String{field: "\"posts\".\"language\""},
+	AllowTranslation: whereHelperbool{field: "\"posts\".\"allow_translation\""},
 }
 
 // PostRels is where relationship names are stored.
 var PostRels = struct {
-	RSSItem      string
-	URL          string
-	User         string
-	PostPrompt   string
-	PostShare    string
-	PostStat     string
-	PostComments string
+	RSSItem         string
+	URL             string
+	User            string
+	PostPrompt      string
+	PostShare       string
+	PostStat        string
+	PostComments    string
+	TranslationJobs string
+	Translations    string
 }{
-	RSSItem:      "RSSItem",
-	URL:          "URL",
-	User:         "User",
-	PostPrompt:   "PostPrompt",
-	PostShare:    "PostShare",
-	PostStat:     "PostStat",
-	PostComments: "PostComments",
+	RSSItem:         "RSSItem",
+	URL:             "URL",
+	User:            "User",
+	PostPrompt:      "PostPrompt",
+	PostShare:       "PostShare",
+	PostStat:        "PostStat",
+	PostComments:    "PostComments",
+	TranslationJobs: "TranslationJobs",
+	Translations:    "Translations",
 }
 
 // postR is where relationships are stored.
 type postR struct {
-	RSSItem      *RSSItem         `boil:"RSSItem" json:"RSSItem" toml:"RSSItem" yaml:"RSSItem"`
-	URL          *NormalizedURL   `boil:"URL" json:"URL" toml:"URL" yaml:"URL"`
-	User         *User            `boil:"User" json:"User" toml:"User" yaml:"User"`
-	PostPrompt   *PostPrompt      `boil:"PostPrompt" json:"PostPrompt" toml:"PostPrompt" yaml:"PostPrompt"`
-	PostShare    *PostShare       `boil:"PostShare" json:"PostShare" toml:"PostShare" yaml:"PostShare"`
-	PostStat     *PostStat        `boil:"PostStat" json:"PostStat" toml:"PostStat" yaml:"PostStat"`
-	PostComments PostCommentSlice `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
+	RSSItem         *RSSItem            `boil:"RSSItem" json:"RSSItem" toml:"RSSItem" yaml:"RSSItem"`
+	URL             *NormalizedURL      `boil:"URL" json:"URL" toml:"URL" yaml:"URL"`
+	User            *User               `boil:"User" json:"User" toml:"User" yaml:"User"`
+	PostPrompt      *PostPrompt         `boil:"PostPrompt" json:"PostPrompt" toml:"PostPrompt" yaml:"PostPrompt"`
+	PostShare       *PostShare          `boil:"PostShare" json:"PostShare" toml:"PostShare" yaml:"PostShare"`
+	PostStat        *PostStat           `boil:"PostStat" json:"PostStat" toml:"PostStat" yaml:"PostStat"`
+	PostComments    PostCommentSlice    `boil:"PostComments" json:"PostComments" toml:"PostComments" yaml:"PostComments"`
+	TranslationJobs TranslationJobSlice `boil:"TranslationJobs" json:"TranslationJobs" toml:"TranslationJobs" yaml:"TranslationJobs"`
+	Translations    TranslationSlice    `boil:"Translations" json:"Translations" toml:"Translations" yaml:"Translations"`
 }
 
 // NewStruct creates a new relationship struct
@@ -295,13 +324,45 @@ func (r *postR) GetPostComments() PostCommentSlice {
 	return r.PostComments
 }
 
+func (o *Post) GetTranslationJobs() TranslationJobSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetTranslationJobs()
+}
+
+func (r *postR) GetTranslationJobs() TranslationJobSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.TranslationJobs
+}
+
+func (o *Post) GetTranslations() TranslationSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetTranslations()
+}
+
+func (r *postR) GetTranslations() TranslationSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.Translations
+}
+
 // postL is where Load methods for each relationship are stored.
 type postL struct{}
 
 var (
-	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at", "url_id", "rss_item_id"}
+	postAllColumns            = []string{"id", "subject", "body", "user_id", "created_at", "updated_at", "visibility_radius", "published_at", "url_id", "rss_item_id", "language", "allow_translation"}
 	postColumnsWithoutDefault = []string{"id", "body", "user_id", "visibility_radius"}
-	postColumnsWithDefault    = []string{"subject", "created_at", "updated_at", "published_at", "url_id", "rss_item_id"}
+	postColumnsWithDefault    = []string{"subject", "created_at", "updated_at", "published_at", "url_id", "rss_item_id", "language", "allow_translation"}
 	postPrimaryKeyColumns     = []string{"id"}
 	postGeneratedColumns      = []string{}
 )
@@ -515,6 +576,34 @@ func (o *Post) PostComments(mods ...qm.QueryMod) postCommentQuery {
 	)
 
 	return PostComments(queryMods...)
+}
+
+// TranslationJobs retrieves all the translation_job's TranslationJobs with an executor.
+func (o *Post) TranslationJobs(mods ...qm.QueryMod) translationJobQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"translation_jobs\".\"post_id\"=?", o.ID),
+	)
+
+	return TranslationJobs(queryMods...)
+}
+
+// Translations retrieves all the translation's Translations with an executor.
+func (o *Post) Translations(mods ...qm.QueryMod) translationQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"translations\".\"post_id\"=?", o.ID),
+	)
+
+	return Translations(queryMods...)
 }
 
 // LoadRSSItem allows an eager lookup of values, cached into the
@@ -1294,6 +1383,218 @@ func (postL) LoadPostComments(ctx context.Context, e boil.ContextExecutor, singu
 	return nil
 }
 
+// LoadTranslationJobs allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (postL) LoadTranslationJobs(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`translation_jobs`),
+		qm.WhereIn(`translation_jobs.post_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load translation_jobs")
+	}
+
+	var resultSlice []*TranslationJob
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice translation_jobs")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on translation_jobs")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for translation_jobs")
+	}
+
+	if singular {
+		object.R.TranslationJobs = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &translationJobR{}
+			}
+			foreign.R.Post = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.PostID {
+				local.R.TranslationJobs = append(local.R.TranslationJobs, foreign)
+				if foreign.R == nil {
+					foreign.R = &translationJobR{}
+				}
+				foreign.R.Post = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadTranslations allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (postL) LoadTranslations(ctx context.Context, e boil.ContextExecutor, singular bool, maybePost interface{}, mods queries.Applicator) error {
+	var slice []*Post
+	var object *Post
+
+	if singular {
+		var ok bool
+		object, ok = maybePost.(*Post)
+		if !ok {
+			object = new(Post)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePost))
+			}
+		}
+	} else {
+		s, ok := maybePost.(*[]*Post)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybePost)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePost))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &postR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &postR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`translations`),
+		qm.WhereIn(`translations.post_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load translations")
+	}
+
+	var resultSlice []*Translation
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice translations")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on translations")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for translations")
+	}
+
+	if singular {
+		object.R.Translations = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &translationR{}
+			}
+			foreign.R.Post = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if queries.Equal(local.ID, foreign.PostID) {
+				local.R.Translations = append(local.R.Translations, foreign)
+				if foreign.R == nil {
+					foreign.R = &translationR{}
+				}
+				foreign.R.Post = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetRSSItemP of the post to the related item.
 // Sets o.R.RSSItem to related.
 // Adds o to related.R.Posts.
@@ -1826,6 +2127,231 @@ func (o *Post) AddPostComments(ctx context.Context, exec boil.ContextExecutor, i
 			rel.R.Post = o
 		}
 	}
+	return nil
+}
+
+// AddTranslationJobsP adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.TranslationJobs.
+// Sets related.R.Post appropriately.
+// Panics on error.
+func (o *Post) AddTranslationJobsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*TranslationJob) {
+	if err := o.AddTranslationJobs(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddTranslationJobs adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.TranslationJobs.
+// Sets related.R.Post appropriately.
+func (o *Post) AddTranslationJobs(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*TranslationJob) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PostID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"translation_jobs\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
+				strmangle.WhereClause("\"", "\"", 2, translationJobPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.PostID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &postR{
+			TranslationJobs: related,
+		}
+	} else {
+		o.R.TranslationJobs = append(o.R.TranslationJobs, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &translationJobR{
+				Post: o,
+			}
+		} else {
+			rel.R.Post = o
+		}
+	}
+	return nil
+}
+
+// AddTranslationsP adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.Translations.
+// Sets related.R.Post appropriately.
+// Panics on error.
+func (o *Post) AddTranslationsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) {
+	if err := o.AddTranslations(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddTranslations adds the given related objects to the existing relationships
+// of the post, optionally inserting them as new records.
+// Appends related to o.R.Translations.
+// Sets related.R.Post appropriately.
+func (o *Post) AddTranslations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			queries.Assign(&rel.PostID, o.ID)
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"translations\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"post_id"}),
+				strmangle.WhereClause("\"", "\"", 2, translationPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.PostID, o.ID)
+		}
+	}
+
+	if o.R == nil {
+		o.R = &postR{
+			Translations: related,
+		}
+	} else {
+		o.R.Translations = append(o.R.Translations, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &translationR{
+				Post: o,
+			}
+		} else {
+			rel.R.Post = o
+		}
+	}
+	return nil
+}
+
+// SetTranslationsP removes all previously related items of the
+// post replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.Post's Translations accordingly.
+// Replaces o.R.Translations with related.
+// Sets related.R.Post's Translations accordingly.
+// Panics on error.
+func (o *Post) SetTranslationsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) {
+	if err := o.SetTranslations(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetTranslations removes all previously related items of the
+// post replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.Post's Translations accordingly.
+// Replaces o.R.Translations with related.
+// Sets related.R.Post's Translations accordingly.
+func (o *Post) SetTranslations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) error {
+	query := "update \"translations\" set \"post_id\" = null where \"post_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.Translations {
+			queries.SetScanner(&rel.PostID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.Post = nil
+		}
+		o.R.Translations = nil
+	}
+
+	return o.AddTranslations(ctx, exec, insert, related...)
+}
+
+// RemoveTranslationsP relationships from objects passed in.
+// Removes related items from R.Translations (uses pointer comparison, removal does not keep order)
+// Sets related.R.Post.
+// Panics on error.
+func (o *Post) RemoveTranslationsP(ctx context.Context, exec boil.ContextExecutor, related ...*Translation) {
+	if err := o.RemoveTranslations(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveTranslations relationships from objects passed in.
+// Removes related items from R.Translations (uses pointer comparison, removal does not keep order)
+// Sets related.R.Post.
+func (o *Post) RemoveTranslations(ctx context.Context, exec boil.ContextExecutor, related ...*Translation) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.PostID, nil)
+		if rel.R != nil {
+			rel.R.Post = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("post_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.Translations {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.Translations)
+			if ln > 1 && i < ln-1 {
+				o.R.Translations[i] = o.R.Translations[ln-1]
+			}
+			o.R.Translations = o.R.Translations[:ln-1]
+			break
+		}
+	}
+
 	return nil
 }
 

@@ -1,0 +1,16 @@
+--- source
+> intro line
+>
+> - item one
+>   continued here
+> - item **two**
+--- segments
+[0] "intro line"
+[1] "item one\ncontinued here"
+[2] "item <strong>two</strong>"
+--- applied
+> INTRO LINE
+>
+> - ITEM ONE
+>   CONTINUED HERE
+> - ITEM **TWO**

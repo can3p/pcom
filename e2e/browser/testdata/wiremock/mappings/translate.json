@@ -1,0 +1,503 @@
+{
+  "mappings": [
+    {
+      "name": "list and link post",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Samstag mit Tobias"
+              },
+              {
+                "Text": "Einkaufsliste für Tobias:"
+              },
+              {
+                "Text": "Äpfel kaufen"
+              },
+              {
+                "Text": "<a data-i=\"0\">Brot</a> holen"
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Saturday with Tobias",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "Shopping list for Tobias:",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "Buy apples",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "<a data-i=\"0\">Get bread</a>",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "always translate in the feed",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Lagebericht aus Bremen"
+              },
+              {
+                "Text": "Heute hat es in Bremen den ganzen Tag geregnet."
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Status report from Bremen",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "It rained all day in Bremen today.",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "sibling of a post that is not allowed",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Wetterbericht aus Leipzig"
+              },
+              {
+                "Text": "In Leipzig scheint die Sonne."
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Weather report from Leipzig",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "The sun is shining in Leipzig.",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "author allows translation",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Neuigkeiten aus Mainz"
+              },
+              {
+                "Text": "Der Karneval in Mainz beginnt jedes Jahr im November, und die ganze Stadt feiert gemeinsam auf den Straßen und in den vielen kleinen Kneipen der Altstadt."
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "News from Mainz",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "The carnival in Mainz begins every November, and the whole city celebrates together in the streets and in the many small pubs of the old town.",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "second reader",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Gartenarbeit in Ulm"
+              },
+              {
+                "Text": "Im Garten in Ulm wachsen dieses Jahr besonders viele Tomaten."
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Gardening in Ulm",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "A lot of tomatoes grow in the garden in Ulm this year.",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "rss item",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Hafenbericht aus Hamburg"
+              },
+              {
+                "Text": "Der Hafen in Hamburg ist heute sehr belebt."
+              },
+              {
+                "Text": "Große Schiffe"
+              },
+              {
+                "Text": "<a data-i=\"0\">Fähren</a> im Takt"
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Harbour report from Hamburg",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "The harbour in Hamburg is very busy today.",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "Big ships",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "<a data-i=\"0\">Ferries</a> on schedule",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "cached then always translated",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "e2e-key"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Bahnhof in Kiel"
+              },
+              {
+                "Text": "Am Bahnhof in Kiel gibt es einen kleinen Bäcker."
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Station in Kiel",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "There is a small baker at the station in Kiel.",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

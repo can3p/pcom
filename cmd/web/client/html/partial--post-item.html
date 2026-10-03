@@ -7,7 +7,7 @@
       </div>
 
       <div class="card-body">
-        <div class="mt-3 post-in-feed">{{ markdown_feed .Body }}</div>
+        {{ template "translation.slot" ($.Translation.Slot "post" .ID "feed" .Body .Language.String) }}
 
         {{ if .LinkedURL }}
         <div class="mt-2 text-center">

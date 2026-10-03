@@ -367,3 +367,32 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		})
 	}
 }
+
+// An unticked checkbox sends nothing, so the form only changes the stored
+// choice when the editor showed the checkbox.
+func TestPostForm_Save_AllowTranslation(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	author := testutil.Must(factory.User(ctx, db))(t)
+
+	form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, nil), author, ""))(t), forms.PostFormActionSavePost)
+	form.Input.TranslationShown = true
+	form.Input.AllowTranslation = true
+	savePost(t, ctx, db, form)
+
+	stored := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
+	require.Len(t, stored, 1)
+	require.True(t, stored[0].AllowTranslation)
+
+	edit := fillPost(testutil.Must(forms.EditPostFormNew(ctx, postsService(db, nil), author, stored[0].ID))(t), forms.PostFormActionSavePost)
+	savePost(t, ctx, db, edit)
+
+	require.True(t, testutil.Must(factory.GetPost(ctx, db, stored[0].ID))(t).AllowTranslation, "an editor without the checkbox keeps the choice")
+
+	edit.Input.TranslationShown = true
+	savePost(t, ctx, db, edit)
+
+	require.False(t, testutil.Must(factory.GetPost(ctx, db, stored[0].ID))(t).AllowTranslation, "an unticked box turns it off")
+}

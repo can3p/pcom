@@ -150,6 +150,12 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"LOGIN_WRONG_TRIES_WINDOW", "2h", func(s *config.Serve) any { return s.Login.WrongTriesWindow }, accounts.DefaultLoginLimits.WrongTriesWindow, 2 * time.Hour},
 		{"LOGIN_UNCONFIRMED_LIFETIME", "48h", func(s *config.Serve) any { return s.Login.UnconfirmedLifetime }, accounts.DefaultLoginLimits.UnconfirmedLifetime, 48 * time.Hour},
 		{"LOGIN_PRUNE_EVERY", "10m", func(s *config.Serve) any { return s.Login.PruneEvery }, accounts.DefaultLoginLimits.PruneEvery, 10 * time.Minute},
+		{"TRANSLATION_PROVIDER", "azure", func(s *config.Serve) any { return s.Translation.Provider }, "", "azure"},
+		{"TRANSLATION_USER_DAILY_CHARS", "1000", func(s *config.Serve) any { return s.Translation.UserDailyChars }, 50000, 1000},
+		{"TRANSLATION_SITE_MONTHLY_CHARS", "90000", func(s *config.Serve) any { return s.Translation.SiteMonthlyChars }, 2000000, 90000},
+		{"TRANSLATION_AZURE_KEY", "azure-key", func(s *config.Serve) any { return s.Translation.Azure.Key.Reveal() }, "", "azure-key"},
+		{"TRANSLATION_AZURE_REGION", "westeurope", func(s *config.Serve) any { return s.Translation.Azure.Region }, "", "westeurope"},
+		{"TRANSLATION_AZURE_ENDPOINT", "http://wiremock/azure-translator", func(s *config.Serve) any { return s.Translation.Azure.Endpoint }, "https://api.cognitive.microsofttranslator.com", "http://wiremock/azure-translator"},
 	}
 
 	keys := envKeys(t)
@@ -213,15 +219,54 @@ func TestServe_RequiredVariables(t *testing.T) {
 }
 
 func TestServe_SecretsDontPrint(t *testing.T) {
-	got, err := parseServe(t, with(map[string]string{"USER_MEDIA_SECRET": "media-secret-value"}))
+	got, err := parseServe(t, with(map[string]string{"USER_MEDIA_SECRET": "media-secret-value", "TRANSLATION_AZURE_KEY": "azure-key-value"}))
 	require.NoError(t, err)
 
 	for _, format := range []string{"%v", "%+v", "%#v", "%s"} {
 		out := fmt.Sprintf(format, *got)
-		for _, secret := range []string{"salt-value", "mj-private-value", "media-secret-value"} {
+		for _, secret := range []string{"salt-value", "mj-private-value", "media-secret-value", "azure-key-value"} {
 			require.NotContains(t, out, secret, format)
 		}
 	}
+}
+
+func TestServe_Validate(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		err  string
+	}{
+		{name: "translation off needs nothing", env: nil},
+		{name: "the selected backend's missing key fails", env: map[string]string{"TRANSLATION_PROVIDER": "azure"}, err: "$TRANSLATION_AZURE_KEY"},
+		{name: "the selected backend's empty key fails", env: map[string]string{"TRANSLATION_PROVIDER": "azure", "TRANSLATION_AZURE_KEY": ""}, err: "$TRANSLATION_AZURE_KEY"},
+		{name: "the selected backend with its key", env: map[string]string{"TRANSLATION_PROVIDER": "azure", "TRANSLATION_AZURE_KEY": "k"}},
+		{name: "the selected backend's empty endpoint fails", env: map[string]string{"TRANSLATION_PROVIDER": "azure", "TRANSLATION_AZURE_KEY": "k", "TRANSLATION_AZURE_ENDPOINT": ""}, err: "$TRANSLATION_AZURE_ENDPOINT"},
+		{name: "a negative daily limit fails", env: map[string]string{"TRANSLATION_USER_DAILY_CHARS": "-1"}, err: "negative"},
+		{name: "a negative monthly limit fails", env: map[string]string{"TRANSLATION_SITE_MONTHLY_CHARS": "-1"}, err: "negative"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseServe(t, with(tc.env))
+			require.NoError(t, err)
+
+			err = got.Validate()
+			if tc.err == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			require.ErrorContains(t, err, tc.err)
+		})
+	}
+
+	// azure is the only backend so far, so a Go value stands in for another
+	// selected one: azure's missing key must not matter then.
+	other := config.Translation{Provider: "other-backend"}
+	require.NoError(t, other.Validate(), "an unselected backend's missing key is fine")
+
+	_, err := parseServe(t, with(map[string]string{"TRANSLATION_PROVIDER": "nonesuch"}))
+	require.ErrorContains(t, err, "nonesuch", "the provider is one of the compiled-in backends")
 }
 
 func TestSwitch(t *testing.T) {

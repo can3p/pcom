@@ -1,0 +1,29 @@
+--- source
+Before text
+
+{gallery}
+![kept](http://x/a.png)
+![also](http://x/b.png)
+{/gallery}
+
+```go
+fmt.Println("no")
+```
+
+After text
+--- segments
+[0] "Before text"
+[1] "After text"
+--- applied
+BEFORE TEXT
+
+{gallery}
+![kept](http://x/a.png)
+![also](http://x/b.png)
+{/gallery}
+
+```go
+fmt.Println("no")
+```
+
+AFTER TEXT

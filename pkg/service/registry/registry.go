@@ -15,6 +15,8 @@ import (
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
+	"github.com/can3p/pcom/pkg/service/translations"
+	"github.com/can3p/pcom/pkg/translate"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -37,17 +39,21 @@ type Deps struct {
 	// Login is the limits of login by code; zero fields keep accounts'
 	// defaults.
 	Login accounts.LoginLimits
+	// Translator is nil when translation is off; TranslationLimits are its budgets.
+	Translator        *translate.Translator
+	TranslationLimits translations.Limits
 }
 
 // Services is one field per area service.
 type Services struct {
-	Connections *connections.Service
-	Feeds       *feeds.Service
-	Shares      *shares.Service
-	Reading     *reading.Service
-	Media       *media.Service
-	Posts       *posts.Service
-	Accounts    *accounts.Service
+	Connections  *connections.Service
+	Feeds        *feeds.Service
+	Shares       *shares.Service
+	Reading      *reading.Service
+	Media        *media.Service
+	Posts        *posts.Service
+	Accounts     *accounts.Service
+	Translations *translations.Service
 }
 
 func New(db *sqlx.DB, deps Deps) *Services {
@@ -55,14 +61,17 @@ func New(db *sqlx.DB, deps Deps) *Services {
 	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 
 	feedSvc := feeds.New(store, deps.MediaStorage)
+	readingSvc := reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit))
+	translationsSvc := translations.New(store, readingSvc, deps.Translator, deps.TranslationLimits)
 
 	return &Services{
-		Connections: connections.New(store),
-		Feeds:       feedSvc,
-		Shares:      shares.New(store),
-		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
-		Media:       media.New(store, deps.MediaStorage),
-		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Connections:  connections.New(store),
+		Feeds:        feedSvc,
+		Shares:       shares.New(store),
+		Reading:      readingSvc,
+		Media:        media.New(store, deps.MediaStorage),
+		Posts:        posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTranslations(translationsSvc)),
+		Accounts:     accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Translations: translationsSvc,
 	}
 }

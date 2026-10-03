@@ -73,7 +73,7 @@
         {{ if .ConnectionRadius.IsSecondDegree }}<p>Author has no posts shared outside of direct connetions</p>
         {{- else }}<p>No posts yet</p>{{ end }}
       {{ else }}
-        {{ template "partial--post-list.html" toMap "Posts" .Posts "User" .User "Next" .Next "URL" (link "user" .Author.Username) }}
+        {{ template "partial--post-list.html" toMap "Posts" .Posts "User" .User "Next" .Next "URL" (link "user" .Author.Username) "Translation" .Translation }}
       {{ end }}
     {{ end }}
   </div>

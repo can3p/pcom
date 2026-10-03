@@ -51,6 +51,20 @@ func WithBody(body string) PostOpt {
 	}
 }
 
+// WithLanguage sets the post's detected language, an ISO 639-1 code.
+func WithLanguage(lang string) PostOpt {
+	return func(p *core.Post) {
+		p.Language = null.StringFrom(lang)
+	}
+}
+
+// AllowTranslation lets readers translate the post.
+func AllowTranslation() PostOpt {
+	return func(p *core.Post) {
+		p.AllowTranslation = true
+	}
+}
+
 // WithURL attaches the post to an already-created NormalizedURL.
 func WithURL(urlID string) PostOpt {
 	return func(p *core.Post) {

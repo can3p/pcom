@@ -16,12 +16,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ServiceDeps is what the services need from d. A caller that builds the
+// services itself (serve, to share them with its workers) starts from it.
+func ServiceDeps(d *Deps) registry.Deps {
+	return registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, CodeKey: d.Config.SessionSalt, Login: d.Config.Login}
+}
+
 // New builds the gin engine: middleware, templates and every route group.
 func New(d *Deps) *gin.Engine {
 	db := d.DB
 
 	if d.Services == nil {
-		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, CodeKey: d.Config.SessionSalt, Login: d.Config.Login})
+		d.Services = registry.New(db, ServiceDeps(d))
 	}
 
 	store := pgsession.NewStore(db, []byte(d.Config.SessionSalt))

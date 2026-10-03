@@ -1,0 +1,17 @@
+--- source
+| Name | Role |
+|------|------|
+| *Ann* | `admin` user |
+| Bob | plain \| pipe |
+--- segments
+[0] "Name"
+[1] "Role"
+[2] "<em>Ann</em>"
+[3] "<span class=\"notranslate\" data-i=\"0\">admin</span> user"
+[4] "Bob"
+[5] "plain | pipe"
+--- applied
+| NAME | ROLE |
+|------|------|
+| *ANN* | `admin` USER |
+| BOB | PLAIN \| PIPE |
