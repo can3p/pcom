@@ -96,6 +96,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 	u := &core.User{
 		ID:                uuid.NewString(),
 		Email:             pgsession.NormalizeEmail(invite.InvitationEmail.String),
+		EmailCanonical:    pgsession.CanonicalEmail(invite.InvitationEmail.String),
 		Username:          username,
 		EmailConfirmedAt:  null.TimeFrom(time.Now()),
 		SignupAttribution: null.StringFrom("accepted_invite"),

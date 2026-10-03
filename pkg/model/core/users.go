@@ -35,6 +35,7 @@ type User struct {
 	Pwdhash           null.String       `boil:"pwdhash" json:"pwdhash,omitempty" toml:"pwdhash" yaml:"pwdhash,omitempty"`
 	Username          string            `boil:"username" json:"username" toml:"username" yaml:"username"`
 	ProfileVisibility ProfileVisibility `boil:"profile_visibility" json:"profile_visibility" toml:"profile_visibility" yaml:"profile_visibility"`
+	EmailCanonical    string            `boil:"email_canonical" json:"email_canonical" toml:"email_canonical" yaml:"email_canonical"`
 
 	R *userR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L userL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -52,6 +53,7 @@ var UserColumns = struct {
 	Pwdhash           string
 	Username          string
 	ProfileVisibility string
+	EmailCanonical    string
 }{
 	ID:                "id",
 	Email:             "email",
@@ -64,6 +66,7 @@ var UserColumns = struct {
 	Pwdhash:           "pwdhash",
 	Username:          "username",
 	ProfileVisibility: "profile_visibility",
+	EmailCanonical:    "email_canonical",
 }
 
 var UserTableColumns = struct {
@@ -78,6 +81,7 @@ var UserTableColumns = struct {
 	Pwdhash           string
 	Username          string
 	ProfileVisibility string
+	EmailCanonical    string
 }{
 	ID:                "users.id",
 	Email:             "users.email",
@@ -90,6 +94,7 @@ var UserTableColumns = struct {
 	Pwdhash:           "users.pwdhash",
 	Username:          "users.username",
 	ProfileVisibility: "users.profile_visibility",
+	EmailCanonical:    "users.email_canonical",
 }
 
 // Generated where
@@ -141,6 +146,7 @@ var UserWhere = struct {
 	Pwdhash           whereHelpernull_String
 	Username          whereHelperstring
 	ProfileVisibility whereHelperProfileVisibility
+	EmailCanonical    whereHelperstring
 }{
 	ID:                whereHelperstring{field: "\"users\".\"id\""},
 	Email:             whereHelperstring{field: "\"users\".\"email\""},
@@ -153,6 +159,7 @@ var UserWhere = struct {
 	Pwdhash:           whereHelpernull_String{field: "\"users\".\"pwdhash\""},
 	Username:          whereHelperstring{field: "\"users\".\"username\""},
 	ProfileVisibility: whereHelperProfileVisibility{field: "\"users\".\"profile_visibility\""},
+	EmailCanonical:    whereHelperstring{field: "\"users\".\"email_canonical\""},
 }
 
 // UserRels is where relationship names are stored.
@@ -591,8 +598,8 @@ func (r *userR) GetWhoWhitelistedConnections() WhitelistedConnectionSlice {
 type userL struct{}
 
 var (
-	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "username", "profile_visibility"}
-	userColumnsWithoutDefault = []string{"id", "email", "timezone", "username"}
+	userAllColumns            = []string{"id", "email", "created_at", "updated_at", "timezone", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "username", "profile_visibility", "email_canonical"}
+	userColumnsWithoutDefault = []string{"id", "email", "timezone", "username", "email_canonical"}
 	userColumnsWithDefault    = []string{"created_at", "updated_at", "email_confirmed_at", "email_confirm_seed", "signup_attribution", "pwdhash", "profile_visibility"}
 	userPrimaryKeyColumns     = []string{"id"}
 	userGeneratedColumns      = []string{}

@@ -26,7 +26,7 @@ func count(t *testing.T, db *sqlx.DB, query string) (n int) {
 
 func TestAdminInvite(t *testing.T) {
 	db := testdb.New(t)
-	_, err := db.DB.Exec(`INSERT INTO users (id, email, username, timezone) VALUES ('00000000-0000-4000-8000-000000000001', 'a@pcom.test', 'a', 'UTC')`)
+	_, err := db.DB.Exec(`INSERT INTO users (id, email, email_canonical, username, timezone) VALUES ('00000000-0000-4000-8000-000000000001', 'a@pcom.test', 'a@pcom.test', 'a', 'UTC')`)
 	require.NoError(t, err)
 
 	require.NoError(t, run([]string{"admin", "invite", "--database-url", db.URL, "--email", "a@pcom.test", "--num", "3"}))
