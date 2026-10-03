@@ -137,7 +137,7 @@ func expectLoadsMore(t *testing.T, page playwright.Page, path, prefix string) {
 	t.Helper()
 
 	subject := func(i int) playwright.Locator {
-		return page.GetByRole("link", playwright.PageGetByRoleOptions{Name: fmt.Sprintf("%s %02d", prefix, i), Exact: playwright.Bool(true)})
+		return page.GetByRole("link", playwright.PageGetByRoleOptions{Name: fmt.Sprintf("%s %02d", prefix, i), Exact: new(true)})
 	}
 	more := page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Load more"})
 
@@ -204,7 +204,7 @@ func TestExplore_CursorPages(t *testing.T) {
 	publishPosts(t, app, author.ID, "Explorepost", core.PostVisibilityPublic, pagedPosts)
 
 	c := app.Client(t)
-	c.LoginAs(user.Email, browser.Password)
+	c.LoginAs(user.Email)
 
 	href, ok := c.Get("/explore").RequireStatus(http.StatusOK).Doc().Find("a.btn").FilterFunction(
 		func(_ int, s *goquery.Selection) bool { return strings.TrimSpace(s.Text()) == "Load more" }).First().Attr("href")

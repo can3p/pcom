@@ -17,6 +17,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
+	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/seed"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -80,14 +81,19 @@ func TestScreenshots(t *testing.T) {
 
 	for _, s := range shots {
 		t.Run(s.file, func(t *testing.T) {
-			page := browser.Page(t, app, browser.Configure(func(o *playwright.BrowserNewContextOptions) {
+			opts := []browser.PageOption{browser.Configure(func(o *playwright.BrowserNewContextOptions) {
 				o.Viewport = &playwright.Size{Width: 1280, Height: 800}
 				o.ColorScheme = playwright.ColorSchemeLight
-			}))
-
+			})}
+			// signed in the way the browser tests are: several shots share a
+			// seed user, more than the mail limit lets log in through the form
 			if s.user != "" {
-				login(t, page, s.user)
+				user, err := factory.GetUserByEmail(context.Background(), app.DB, s.user+"@example.test")
+				require.NoError(t, err)
+				opts = append(opts, browser.As(user))
 			}
+
+			page := browser.Page(t, app, opts...)
 
 			path := regexp.MustCompile(`\{post\}`).ReplaceAllString(s.path, postID)
 			_, err := page.Goto(path)
@@ -111,16 +117,4 @@ func TestScreenshots(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-}
-
-// login signs the page in through the login form with the seed password.
-func login(t *testing.T, page playwright.Page, name string) {
-	t.Helper()
-
-	_, err := page.Goto("/login")
-	require.NoError(t, err)
-	require.NoError(t, page.GetByLabel("Email address").Fill(name+"@example.test"))
-	require.NoError(t, page.GetByLabel("Password").Fill(seed.Password))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Log in"}).Click())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
 }
