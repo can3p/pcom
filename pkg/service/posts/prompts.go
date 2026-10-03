@@ -96,6 +96,11 @@ func canPrompt(ctx context.Context, store *repo.Store, actor *core.User) error {
 	return service.Invalid("", fmt.Sprintf("you cannot send prompts for another %s", util.FormatDuration(time.Until(last.CreatedAt.Add(promptTimeout)))))
 }
 
+// ValidatePrompt checks the length of a prompt message.
+func (s *Service) ValidatePrompt(message string) error {
+	return validation.ValidateMinMax("message", message, promptMinLength, s.limits.PromptMaxLength)
+}
+
 // SendPrompt asks a user to write a post on a subject, and tells them by
 // mail. The recipient must be a direct connection of the actor; anyone else
 // is refused with the wording the prompt form always used.
@@ -104,7 +109,7 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, m
 		return err
 	}
 
-	if err := validation.ValidateMinMax("message", message, 3, 1400); err != nil {
+	if err := s.ValidatePrompt(message); err != nil {
 		return service.Invalid("message", err.Error())
 	}
 

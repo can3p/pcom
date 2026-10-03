@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"fmt"
+	"github.com/can3p/pcom/pkg/service/posts"
 	"log/slog"
 	"maps"
 	"os"
@@ -141,6 +142,11 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"USER_MEDIA_SECRET", "media-secret", func(s *config.Serve) any { return s.Media.Secret.Reveal() }, nil, "media-secret"},
 		{"USER_MEDIA_PATH_STYLE", "true", func(s *config.Serve) any { return s.Media.PathStyle.On() }, false, true},
 		{"PROFILE_ABOUT_MAX_LENGTH", "300", func(s *config.Serve) any { return s.Limits.ProfileAboutMaxLength }, accounts.DefaultProfileAboutMaxLength, 300},
+		{"COMMENT_MAX_LENGTH", "500", func(s *config.Serve) any { return s.Limits.CommentMaxLength }, posts.DefaultCommentMaxLength, 500},
+		{"POST_BODY_MAX_LENGTH", "900", func(s *config.Serve) any { return s.Limits.PostBodyMaxLength }, posts.DefaultPostBodyMaxLength, 900},
+		{"POST_SUBJECT_MAX_LENGTH", "50", func(s *config.Serve) any { return s.Limits.PostSubjectMaxLength }, posts.DefaultPostSubjectMaxLength, 50},
+		{"PROMPT_MAX_LENGTH", "700", func(s *config.Serve) any { return s.Limits.PromptMaxLength }, posts.DefaultPromptMaxLength, 700},
+		{"USER_STYLES_MAX_LENGTH", "800", func(s *config.Serve) any { return s.Limits.UserStylesMaxLength }, accounts.DefaultUserStylesMaxLength, 800},
 		{"USER_MEDIA_CDN", "https://media.test", func(s *config.Serve) any { return s.Media.CDN }, "", "https://media.test"},
 		{"LOGIN_CODE_LIFETIME", "5m", func(s *config.Serve) any { return s.Login.CodeLifetime }, accounts.DefaultLoginLimits.CodeLifetime, 5 * time.Minute},
 		{"LOGIN_CODE_TRIES", "3", func(s *config.Serve) any { return s.Login.CodeTries }, accounts.DefaultLoginLimits.CodeTries, 3},

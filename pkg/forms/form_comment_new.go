@@ -41,7 +41,7 @@ func NewCommentFormNew(svc *posts.Service, u *core.User, postID string) forms.Fo
 }
 
 func (f *NewCommentForm) Validate(c *gin.Context) error {
-	if err := posts.ValidateCommentBody(f.Input.Body); err != nil {
+	if err := f.Posts.ValidateCommentBody(f.Input.Body); err != nil {
 		f.AddError("body", err.Error())
 	}
 

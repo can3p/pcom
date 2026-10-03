@@ -130,7 +130,7 @@ func (f *PostForm) saveInput() posts.SaveInput {
 }
 
 func (f *PostForm) Validate(c *gin.Context) error {
-	for field, message := range posts.ValidateSave(f.saveInput()) {
+	for field, message := range f.Posts.ValidateSave(f.saveInput()) {
 		f.AddError(field, message)
 	}
 
