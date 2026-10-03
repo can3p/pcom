@@ -28,6 +28,8 @@ type Deps struct {
 	AdminAddress  string
 	// ProfileAboutMaxLength limits the About text; accounts' default when zero.
 	ProfileAboutMaxLength int
+	// The other text limits; each service's default when zero.
+	CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength, PromptMaxLength, UserStylesMaxLength int
 	// PageSize and RSSLimit size the reading service's lists; zero means its
 	// defaults.
 	PageSize, RSSLimit int
@@ -62,7 +64,7 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Shares:      shares.New(store),
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage),
-		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength})),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 	}
 }

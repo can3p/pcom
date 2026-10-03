@@ -42,6 +42,9 @@ type Config struct {
 	SenderAddress, AdminAddress string
 	// ProfileAboutMaxLength is the most characters a user's About text may have.
 	ProfileAboutMaxLength int
+	// CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength,
+	// PromptMaxLength and UserStylesMaxLength limit the other texts.
+	CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength, PromptMaxLength, UserStylesMaxLength int
 	// SecureCookies marks the session cookie Secure.
 	SecureCookies bool
 	// HSTS sends Strict-Transport-Security.

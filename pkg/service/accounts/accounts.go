@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/can3p/pcom/pkg/forms/validation"
 	"log"
 	"strings"
 	"time"
@@ -29,7 +30,8 @@ type Service struct {
 	feeds  *feeds.Service
 	ident  mail.Identity
 
-	aboutMaxLength int
+	aboutMaxLength  int
+	stylesMaxLength int
 	// codeKey keys the HMAC of login codes; without it no code is issued
 	// or checked.
 	codeKey []byte
@@ -52,6 +54,20 @@ func WithProfileAboutMaxLength(n int) Option {
 	return func(s *Service) {
 		if n > 0 {
 			s.aboutMaxLength = n
+		}
+	}
+}
+
+// DefaultUserStylesMaxLength is the custom CSS limit when the configuration
+// sets none; it is also the configuration's default.
+const DefaultUserStylesMaxLength = 10_000
+
+// WithUserStylesMaxLength sets the most characters the custom CSS may have;
+// zero keeps DefaultUserStylesMaxLength.
+func WithUserStylesMaxLength(n int) Option {
+	return func(s *Service) {
+		if n > 0 {
+			s.stylesMaxLength = n
 		}
 	}
 }
@@ -92,7 +108,7 @@ func WithLoginLimits(l LoginLimits) Option {
 }
 
 func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, now: time.Now, login: DefaultLoginLimits}
+	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, stylesMaxLength: DefaultUserStylesMaxLength, now: time.Now, login: DefaultLoginLimits}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -151,7 +167,17 @@ func (s *Service) SaveUserStyles(ctx context.Context, actor *core.User, styles s
 		return service.ErrNeedsLogin
 	}
 
+	if err := s.ValidateUserStyles(styles); err != nil {
+		return service.Invalid("styles", err.Error())
+	}
+
 	return s.store.SaveUserStyle(ctx, actor.ID, styles)
+}
+
+// ValidateUserStyles checks the length of the custom CSS. Empty styles are
+// valid: they remove the custom CSS.
+func (s *Service) ValidateUserStyles(styles string) error {
+	return validation.ValidateMinMax("styles", styles, 0, s.stylesMaxLength)
 }
 
 // ValidateProfileAbout checks the length of the "About" text. An empty text

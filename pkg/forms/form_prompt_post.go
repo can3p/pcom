@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
@@ -45,7 +44,7 @@ func PostPromptFormNew(svc *posts.Service, u *core.User, directConnections []*co
 }
 
 func (f *PostPromptForm) Validate(c *gin.Context) error {
-	if err := validation.ValidateMinMax("message", f.Input.Message, 3, 1400); err != nil {
+	if err := f.Posts.ValidatePrompt(f.Input.Message); err != nil {
 		return err
 	}
 

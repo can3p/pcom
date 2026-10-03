@@ -19,6 +19,59 @@ type Service struct {
 	sender  repo.MailQueue
 	storage server.MediaStorage
 	ident   mail.Identity
+	limits  TextLimits
+}
+
+// Default text limits, used for every limit the configuration leaves zero;
+// they are also the configuration's defaults.
+const (
+	DefaultCommentMaxLength     = 6_000
+	DefaultPostBodyMaxLength    = 20_000
+	DefaultPostSubjectMaxLength = 100
+	DefaultPromptMaxLength      = 1_400
+)
+
+// Minimum lengths are not tunable.
+const (
+	commentMinLength = 3
+	promptMinLength  = 3
+)
+
+// TextLimits are the most characters the texts of this service may have.
+type TextLimits struct {
+	CommentMaxLength     int
+	PostBodyMaxLength    int
+	PostSubjectMaxLength int
+	PromptMaxLength      int
+}
+
+// DefaultTextLimits are the limits of a service built without configuration.
+var DefaultTextLimits = TextLimits{
+	CommentMaxLength:     DefaultCommentMaxLength,
+	PostBodyMaxLength:    DefaultPostBodyMaxLength,
+	PostSubjectMaxLength: DefaultPostSubjectMaxLength,
+	PromptMaxLength:      DefaultPromptMaxLength,
+}
+
+// WithTextLimits sets the text length limits; a zero field keeps its default.
+func WithTextLimits(l TextLimits) Option {
+	return func(s *Service) {
+		if l.CommentMaxLength > 0 {
+			s.limits.CommentMaxLength = l.CommentMaxLength
+		}
+
+		if l.PostBodyMaxLength > 0 {
+			s.limits.PostBodyMaxLength = l.PostBodyMaxLength
+		}
+
+		if l.PostSubjectMaxLength > 0 {
+			s.limits.PostSubjectMaxLength = l.PostSubjectMaxLength
+		}
+
+		if l.PromptMaxLength > 0 {
+			s.limits.PromptMaxLength = l.PromptMaxLength
+		}
+	}
 }
 
 // Option changes how New builds the service.
@@ -31,7 +84,7 @@ func WithIdentity(ident mail.Identity) Option {
 }
 
 func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, storage: storage}
+	s := &Service{store: store, sender: snd, storage: storage, limits: DefaultTextLimits}
 	for _, opt := range opts {
 		opt(s)
 	}

@@ -80,6 +80,21 @@ Help Options:
           --profile-about-max-length=         Most characters a user's About
                                               text may have (default: 6000)
                                               [$PROFILE_ABOUT_MAX_LENGTH]
+          --comment-max-length=               Most characters a comment may
+                                              have (default: 6000)
+                                              [$COMMENT_MAX_LENGTH]
+          --post-body-max-length=             Most characters a post body may
+                                              have (default: 20000)
+                                              [$POST_BODY_MAX_LENGTH]
+          --post-subject-max-length=          Most characters a post subject
+                                              may have (default: 100)
+                                              [$POST_SUBJECT_MAX_LENGTH]
+          --prompt-max-length=                Most characters a prompt message
+                                              may have (default: 1400)
+                                              [$PROMPT_MAX_LENGTH]
+          --user-styles-max-length=           Most characters a user's custom
+                                              CSS may have (default: 10000)
+                                              [$USER_STYLES_MAX_LENGTH]
           --page-size=                        Items per page of the feed,
                                               explore, the index and a journal
                                               (default: 30) [$PAGE_SIZE]
