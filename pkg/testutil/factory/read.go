@@ -28,7 +28,7 @@ func GetUser(ctx context.Context, exec boil.ContextExecutor, id string) (*core.U
 
 // GetUserByEmail looks up a user by email, for tests of code that creates one.
 func GetUserByEmail(ctx context.Context, exec boil.ContextExecutor, email string) (*core.User, error) {
-	return noRows(repo.Using(exec).UserByEmail(ctx, email, false))
+	return noRows(repo.Using(exec).UserByEmail(ctx, email))
 }
 
 // GetUserStyle returns userID's custom styles, or sql.ErrNoRows if there are none.

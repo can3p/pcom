@@ -57,7 +57,7 @@ func (c *serveCmd) Execute([]string) error {
 
 	go feeder.RunPoller(ctx)
 
-	go accounts.New(repo.New(db), nil, nil).RunLoginAttemptPruner(ctx)
+	go accounts.New(repo.New(db), nil, nil).RunPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {

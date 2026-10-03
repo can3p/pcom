@@ -291,7 +291,7 @@ func (s *Service) notifyAdmin(ctx context.Context, what string, e *mail.Envelope
 // command line script).
 func (s *Service) AddInvites(ctx context.Context, email string, n int) error {
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
-		u, err := notFound(tx.UserByEmail(ctx, pgsession.NormalizeEmail(email), false))
+		u, err := notFound(tx.UserByEmail(ctx, pgsession.NormalizeEmail(email)))
 		if err != nil {
 			return fmt.Errorf("user [%s]: %w", email, err)
 		}

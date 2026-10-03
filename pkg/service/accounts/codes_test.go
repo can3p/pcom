@@ -150,13 +150,6 @@ func TestLoginCodes(t *testing.T) {
 		id := testutil.Must(svc.Register(ctx, email, "signupcode", ""))(t)
 		require.Empty(t, mailedCodes(t, db, email), "the signup mail is not a login code")
 
-		// the address is not confirmed: no login code is mailed, and the attempt
-		// StartLogin made never logs in
-		other := testutil.Must(svc.StartLogin(ctx, email, ""))(t)
-		require.Empty(t, mailedCodes(t, db, email))
-		_, _, err := svc.FinishLogin(ctx, other, "00000000")
-		requireWrongCode(t, err)
-
 		before := signupConfirmed(t, db, email)
 
 		var code string
@@ -169,7 +162,7 @@ func TestLoginCodes(t *testing.T) {
 		}
 		require.NotEmpty(t, code)
 
-		_, _, err = svc.FinishLogin(ctx, id, otherCode(code))
+		_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
 		requireWrongCode(t, err)
 		require.False(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
 		require.Equal(t, before, signupConfirmed(t, db, email))
@@ -179,6 +172,26 @@ func TestLoginCodes(t *testing.T) {
 		require.Equal(t, "signupcode", got.Username)
 		require.True(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
 		require.Equal(t, before+1, signupConfirmed(t, db, email), "the admin hears of the confirmation once")
+	})
+
+	t.Run("a signup whose code expired logs in from the login page, which confirms it", func(t *testing.T) {
+		t.Parallel()
+
+		c := &clock{time.Now()}
+		svc := codeSvc(db, c, "test-key")
+		email := "late-signup@example.test"
+		signup := testutil.Must(svc.Register(ctx, email, "latesignup", ""))(t)
+
+		c.advance(accounts.CodeLifetime + time.Second)
+		_, _, err := svc.FinishLogin(ctx, signup, "00000000")
+		requireNotFound(t, err)
+
+		id, code := start(t, ctx, db, svc, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t), "")
+		got, _, err := svc.FinishLogin(ctx, id, code)
+		require.NoError(t, err)
+		require.Equal(t, "latesignup", got.Username)
+		require.True(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+		require.Equal(t, 1, signupConfirmed(t, db, email))
 	})
 
 	t.Run("an accepted invitation starts an attempt for the new user", func(t *testing.T) {
@@ -204,9 +217,6 @@ func TestLoginCodes(t *testing.T) {
 	}{
 		{"unknown address", func(t *testing.T, _ *accounts.Service) (string, int) {
 			return "nobody-" + strconv.FormatInt(time.Now().UnixNano(), 10) + "@example.test", 0
-		}},
-		{"unconfirmed user", func(t *testing.T, _ *accounts.Service) (string, int) {
-			return testutil.Must(factory.User(ctx, db, factory.Unconfirmed()))(t).Email, 0
 		}},
 		{"user over the limit", func(t *testing.T, svc *accounts.Service) (string, int) {
 			u := newUser(t)
@@ -310,6 +320,36 @@ func TestLoginCodes(t *testing.T) {
 		_, err := repo.New(db).LockLoginAttempt(ctx, old)
 		require.ErrorIs(t, err, repo.ErrNotFound)
 		testutil.Must(repo.New(db).LockLoginAttempt(ctx, recent))(t)
+	})
+
+	t.Run("pruning deletes accounts never confirmed for a day, unless the database refuses", func(t *testing.T) {
+		t.Parallel()
+
+		// pruning sweeps the whole table, so it gets a database of its own
+		db := testdb.New(t).DB
+		svc := codeSvc(db, &clock{time.Now()}, "test-key")
+		user := func(t *testing.T, age time.Duration, opts ...factory.UserOpt) *core.User {
+			u := testutil.Must(factory.User(ctx, db, opts...))(t)
+			_, err := db.ExecContext(ctx, `update users set created_at = $1 where id = $2`, time.Now().UTC().Add(-age), u.ID)
+			require.NoError(t, err)
+
+			return u
+		}
+
+		stale := user(t, 25*time.Hour, factory.Unconfirmed())
+		fresh := user(t, 23*time.Hour, factory.Unconfirmed())
+		confirmed := user(t, 25*time.Hour)
+		// an invitation refers to it, so the delete fails and is skipped
+		held := user(t, 25*time.Hour, factory.Unconfirmed())
+		testutil.Must(factory.Invitation(ctx, db, held.ID))(t)
+
+		require.Equal(t, 1, testutil.Must(svc.PruneUnconfirmedUsers(ctx))(t))
+
+		_, err := factory.GetUserByEmail(ctx, db, stale.Email)
+		require.Error(t, err)
+		for _, u := range []*core.User{fresh, confirmed, held} {
+			testutil.Must(factory.GetUserByEmail(ctx, db, u.Email))(t)
+		}
 	})
 
 	t.Run("the limit is per user and frees up after its window", func(t *testing.T) {
