@@ -62,6 +62,11 @@ func (w *Web) SlogLevel() slog.Level {
 // Limits are the sizes users may not exceed.
 type Limits struct {
 	ProfileAboutMaxLength int `long:"profile-about-max-length" env:"PROFILE_ABOUT_MAX_LENGTH" description:"Most characters a user's About text may have" default:"6000"`
+	CommentMaxLength      int `long:"comment-max-length" env:"COMMENT_MAX_LENGTH" description:"Most characters a comment may have" default:"6000"`
+	PostBodyMaxLength     int `long:"post-body-max-length" env:"POST_BODY_MAX_LENGTH" description:"Most characters a post body may have" default:"20000"`
+	PostSubjectMaxLength  int `long:"post-subject-max-length" env:"POST_SUBJECT_MAX_LENGTH" description:"Most characters a post subject may have" default:"100"`
+	PromptMaxLength       int `long:"prompt-max-length" env:"PROMPT_MAX_LENGTH" description:"Most characters a prompt message may have" default:"1400"`
+	UserStylesMaxLength   int `long:"user-styles-max-length" env:"USER_STYLES_MAX_LENGTH" description:"Most characters a user's custom CSS may have" default:"10000"`
 	PageSize              int `long:"page-size" env:"PAGE_SIZE" description:"Items per page of the feed, explore, the index and a journal" default:"30"`
 	RSSLimit              int `long:"rss-limit" env:"RSS_LIMIT" description:"Items in every RSS output" default:"50"`
 }

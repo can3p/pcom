@@ -41,7 +41,7 @@ func EditCommentFormNew(svc *posts.Service, u *core.User, commentID string) form
 }
 
 func (f *EditCommentForm) Validate(c *gin.Context) error {
-	if err := posts.ValidateCommentBody(f.Input.Body); err != nil {
+	if err := f.Posts.ValidateCommentBody(f.Input.Body); err != nil {
 		f.AddError("body", err.Error())
 	}
 
