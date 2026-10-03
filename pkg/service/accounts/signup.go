@@ -143,7 +143,7 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 		}
 
 		id, err := s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
-			return mail.ConfirmSignup(s.ident.From, id, u.Email, code, CodeLifetime)
+			return mail.ConfirmSignup(s.ident.From, id, u.Email, code, s.login.CodeLifetime)
 		})
 		attemptID = id
 

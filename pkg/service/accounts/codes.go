@@ -23,27 +23,46 @@ import (
 	"github.com/volatiletech/null/v8"
 )
 
-const (
+// codeDigits is the length of a code, part of its format (the mail, the
+// form): 10^8 of them leave a guesser who gets WrongTries a WrongTriesWindow
+// nothing to hope for.
+const codeDigits = 8
+
+// LoginLimits are the limits of login by code. pkg/config sets them
+// (LOGIN_* settings) with DefaultLoginLimits as the defaults.
+type LoginLimits struct {
 	// CodeLifetime is how long a login code works.
-	CodeLifetime = 15 * time.Minute
-	// codeDigits is the length of a code: 10^8 of them leave a guesser who
-	// gets maxWrongTries a wrongTryWindow nothing to hope for.
-	codeDigits = 8
-	// maxCodeTries is how many wrong codes an attempt allows; after that it
-	// is dead.
-	maxCodeTries = 5
-	// maxCodesMailed codes are mailed to one user per codeLimitWindow.
-	maxCodesMailed  = 3
-	codeLimitWindow = 15 * time.Minute
-	// After maxWrongTries wrong codes on a user's attempts started within
-	// wrongTryWindow, no code logs the user in and none is mailed until the
+	CodeLifetime time.Duration
+	// CodeTries is how many wrong codes an attempt allows; after that it is
+	// dead.
+	CodeTries int
+	// CodesMailed codes are mailed to one user per CodesMailedWindow.
+	CodesMailed       int
+	CodesMailedWindow time.Duration
+	// After WrongTries wrong codes on a user's attempts started within
+	// WrongTriesWindow, no code logs the user in and none is mailed until the
 	// window moves past them.
-	maxWrongTries  = 10
-	wrongTryWindow = time.Hour
-	// unconfirmedLifetime is how long an account whose owner never typed a
+	WrongTries       int
+	WrongTriesWindow time.Duration
+	// UnconfirmedLifetime is how long an account whose owner never typed a
 	// code is kept; after it the address and the username are free again.
-	unconfirmedLifetime = 24 * time.Hour
-)
+	UnconfirmedLifetime time.Duration
+	// PruneEvery is how often RunPruner deletes dead attempts and accounts.
+	PruneEvery time.Duration
+}
+
+// DefaultLoginLimits are the limits a service built without WithLoginLimits
+// uses, and the configuration's defaults. Read it; never change it.
+var DefaultLoginLimits = LoginLimits{
+	CodeLifetime:        15 * time.Minute,
+	CodeTries:           5,
+	CodesMailed:         3,
+	CodesMailedWindow:   15 * time.Minute,
+	WrongTries:          10,
+	WrongTriesWindow:    time.Hour,
+	UnconfirmedLifetime: 24 * time.Hour,
+	PruneEvery:          time.Hour,
+}
 
 var errNoCodeKey = errors.New("accounts: login codes need a code key (accounts.WithCodeKey)")
 
@@ -74,8 +93,8 @@ func (s *Service) codeHash(attemptID, code string) string {
 // open reports whether an attempt still takes tries at now. An attempt with
 // no user takes them too, so it answers like any other until it is used up;
 // it just never matches.
-func open(a *core.LoginAttempt, now time.Time) bool {
-	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.WrongTries < maxCodeTries
+func (s *Service) open(a *core.LoginAttempt, now time.Time) bool {
+	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.WrongTries < s.login.CodeTries
 }
 
 // lockLoginCodes serializes everything that counts a user's codes and tries,
@@ -86,7 +105,7 @@ func lockLoginCodes(ctx context.Context, tx *repo.Store, userID string) error {
 
 // lockOpenAttempt locks the attempt and returns it when it can still log in,
 // ErrNotFound otherwise.
-func lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now time.Time) (*core.LoginAttempt, error) {
+func (s *Service) lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now time.Time) (*core.LoginAttempt, error) {
 	if _, err := uuid.Parse(attemptID); err != nil {
 		return nil, service.ErrNotFound
 	}
@@ -96,7 +115,7 @@ func lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now 
 		return nil, err
 	}
 
-	if !open(a, now) {
+	if !s.open(a, now) {
 		return nil, service.ErrNotFound
 	}
 
@@ -105,7 +124,7 @@ func lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now 
 
 // StartLogin starts a login attempt for email and returns its id. The code
 // is mailed only when the address belongs to a user who has been mailed
-// fewer than maxCodesMailed codes lately and has not used up maxWrongTries;
+// fewer than CodesMailed codes lately and has not used up WrongTries;
 // otherwise the attempt can never log in, and the caller cannot tell the
 // difference. The user need not be confirmed: a signup whose code expired
 // logs in here, and the code confirms the address.
@@ -123,7 +142,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 	attempt := &core.LoginAttempt{
 		ID:        id.String(),
 		ReturnURL: returnURL,
-		ExpiresAt: now.Add(CodeLifetime),
+		ExpiresAt: now.Add(s.login.CodeLifetime),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -142,17 +161,17 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 			return err
 		}
 
-		mailed, err := tx.LoginCodesSince(ctx, user.ID, now.Add(-codeLimitWindow))
+		mailed, err := tx.LoginCodesSince(ctx, user.ID, now.Add(-s.login.CodesMailedWindow))
 		if err != nil {
 			return err
 		}
 
-		wrongTries, err := tx.WrongLoginTriesSince(ctx, user.ID, now.Add(-wrongTryWindow))
+		wrongTries, err := tx.WrongLoginTriesSince(ctx, user.ID, now.Add(-s.login.WrongTriesWindow))
 		if err != nil {
 			return err
 		}
 
-		if mailed >= maxCodesMailed || wrongTries >= maxWrongTries {
+		if mailed >= int64(s.login.CodesMailed) || wrongTries >= int64(s.login.WrongTries) {
 			return tx.InsertLoginAttempt(ctx, attempt)
 		}
 
@@ -167,7 +186,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 			return err
 		}
 
-		return s.send(ctx, tx, mail.LoginCode(s.ident.From, attempt.ID, user.Email, code, CodeLifetime))
+		return s.send(ctx, tx, mail.LoginCode(s.ident.From, attempt.ID, user.Email, code, s.login.CodeLifetime))
 	})
 	if err != nil {
 		return "", err
@@ -200,7 +219,7 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 		ID:        id.String(),
 		UserID:    null.StringFrom(user.ID),
 		CodeHash:  null.StringFrom(s.codeHash(id.String(), code)),
-		ExpiresAt: now.Add(CodeLifetime),
+		ExpiresAt: now.Add(s.login.CodeLifetime),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -215,7 +234,7 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 // FinishLogin checks code against the attempt and counts a wrong one. A match
 // uses the attempt up and returns its user and return URL. A wrong code is a
 // ValidationError on "code", and so is any code for an attempt that has no
-// user or whose user has had maxWrongTries lately, so neither can be told
+// user or whose user has had WrongTries lately, so neither can be told
 // from a wrong guess; an attempt that is used, expired or out of tries is
 // ErrNotFound. Finishing an attempt also confirms the user's email address
 // when it is not confirmed yet: the code proves it.
@@ -234,7 +253,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 	err := s.store.Tx(ctx, func(tx *repo.Store) error {
 		now := s.clock()
 
-		a, err := lockOpenAttempt(ctx, tx, attemptID, now)
+		a, err := s.lockOpenAttempt(ctx, tx, attemptID, now)
 		if err != nil {
 			return err
 		}
@@ -246,12 +265,12 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 				return err
 			}
 
-			wrongTries, err := tx.WrongLoginTriesSince(ctx, a.UserID.String, now.Add(-wrongTryWindow))
+			wrongTries, err := tx.WrongLoginTriesSince(ctx, a.UserID.String, now.Add(-s.login.WrongTriesWindow))
 			if err != nil {
 				return err
 			}
 
-			wrong = wrongTries >= maxWrongTries || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
+			wrong = wrongTries >= int64(s.login.WrongTries) || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
 		}
 
 		col := core.LoginAttemptColumns.UsedAt
@@ -310,7 +329,7 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 	err := s.store.Tx(ctx, func(tx *repo.Store) error {
 		now := s.clock()
 
-		a, err := lockOpenAttempt(ctx, tx, attemptID, now)
+		a, err := s.lockOpenAttempt(ctx, tx, attemptID, now)
 		if err != nil {
 			return err
 		}
@@ -324,7 +343,7 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 		}
 
 		a.CodeHash = null.StringFrom(s.codeHash(a.ID, code))
-		a.ExpiresAt = now.Add(CodeLifetime)
+		a.ExpiresAt = now.Add(s.login.CodeLifetime)
 
 		return tx.SaveLoginAttempt(ctx, a, core.LoginAttemptColumns.CodeHash, core.LoginAttemptColumns.ExpiresAt)
 	})
@@ -355,7 +374,7 @@ func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string,
 	}
 
 	for _, a := range attempts {
-		if open(a, now) {
+		if s.open(a, now) {
 			return a.ID, nil
 		}
 	}
@@ -363,23 +382,20 @@ func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string,
 	return "", service.ErrNotFound
 }
 
-// pruneEvery is how often RunPruner deletes dead attempts and accounts.
-const pruneEvery = time.Hour
-
 // PruneLoginAttempts deletes the attempts no limit looks at any more: those
-// that expired more than wrongTryWindow ago, and so were created even earlier.
+// that expired more than WrongTriesWindow ago, and so were created even earlier.
 // It returns how many it deleted.
 func (s *Service) PruneLoginAttempts(ctx context.Context) (int64, error) {
-	return s.store.DeleteLoginAttemptsExpiredBefore(ctx, s.clock().Add(-wrongTryWindow))
+	return s.store.DeleteLoginAttemptsExpiredBefore(ctx, s.clock().Add(-s.login.WrongTriesWindow))
 }
 
 // PruneUnconfirmedUsers deletes the accounts created more than
-// unconfirmedLifetime ago whose owner never typed a code. An account an
+// UnconfirmedLifetime ago whose owner never typed a code. An account an
 // operator gave invitations to is kept. It deletes one at a time, so a delete
 // that fails anyway is logged and does not hold up the rest. It returns how
 // many it deleted.
 func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
-	ids, err := s.store.UnconfirmedUserIDsCreatedBefore(ctx, s.clock().Add(-unconfirmedLifetime))
+	ids, err := s.store.UnconfirmedUserIDsCreatedBefore(ctx, s.clock().Add(-s.login.UnconfirmedLifetime))
 	if err != nil {
 		return 0, err
 	}
@@ -400,10 +416,10 @@ func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
 	return deleted, nil
 }
 
-// RunPruner prunes login attempts and unconfirmed accounts every pruneEvery
-// (or WithPruneEvery) until ctx is done.
+// RunPruner prunes login attempts and unconfirmed accounts every PruneEvery
+// until ctx is done.
 func (s *Service) RunPruner(ctx context.Context) {
-	ticker := time.NewTicker(s.pruneEvery)
+	ticker := time.NewTicker(s.login.PruneEvery)
 	defer ticker.Stop()
 
 	for {

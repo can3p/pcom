@@ -34,6 +34,9 @@ type Deps struct {
 	// CodeKey keys the HMAC of login codes. Empty means no login codes can
 	// be issued or checked.
 	CodeKey string
+	// Login is the limits of login by code; zero fields keep accounts'
+	// defaults.
+	Login accounts.LoginLimits
 }
 
 // Services is one field per area service.
@@ -60,6 +63,6 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage),
 		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident)),
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey)),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 	}
 }

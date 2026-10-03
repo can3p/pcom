@@ -66,6 +66,19 @@ type Limits struct {
 	RSSLimit              int `long:"rss-limit" env:"RSS_LIMIT" description:"Items in every RSS output" default:"50"`
 }
 
+// Login is the limits of login by emailed code. Their defaults are
+// accounts.DefaultLoginLimits.
+type Login struct {
+	CodeLifetime        time.Duration `long:"login-code-lifetime" env:"LOGIN_CODE_LIFETIME" description:"How long a mailed login code works" default:"15m"`
+	CodeTries           int           `long:"login-code-tries" env:"LOGIN_CODE_TRIES" description:"Wrong codes one login attempt allows" default:"5"`
+	CodesMailed         int           `long:"login-codes-mailed" env:"LOGIN_CODES_MAILED" description:"Login codes mailed to one user per --login-codes-mailed-window" default:"3"`
+	CodesMailedWindow   time.Duration `long:"login-codes-mailed-window" env:"LOGIN_CODES_MAILED_WINDOW" description:"Window of --login-codes-mailed" default:"15m"`
+	WrongTries          int           `long:"login-wrong-tries" env:"LOGIN_WRONG_TRIES" description:"Wrong codes on one user's attempts per --login-wrong-tries-window before no code logs them in" default:"10"`
+	WrongTriesWindow    time.Duration `long:"login-wrong-tries-window" env:"LOGIN_WRONG_TRIES_WINDOW" description:"Window of --login-wrong-tries" default:"1h"`
+	UnconfirmedLifetime time.Duration `long:"login-unconfirmed-lifetime" env:"LOGIN_UNCONFIRMED_LIFETIME" description:"How long an account nobody confirmed with a code is kept" default:"24h"`
+	PruneEvery          time.Duration `long:"login-prune-every" env:"LOGIN_PRUNE_EVERY" description:"How often old login attempts and unconfirmed accounts are deleted" default:"1h"`
+}
+
 // Mail is outgoing mail: the addresses, the queue, and the Mailjet API that
 // delivers it (tommy in development and tests).
 type Mail struct {
@@ -94,6 +107,7 @@ type Serve struct {
 	Web      Web      `group:"Web"`
 	Mail     Mail     `group:"Mail"`
 	Limits   Limits   `group:"Limits"`
+	Login    Login    `group:"Login"`
 	Media    Media    `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
 }
 

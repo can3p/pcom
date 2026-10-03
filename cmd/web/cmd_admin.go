@@ -71,7 +71,7 @@ func (c *adminLoginCodeCmd) Execute([]string) error {
 	defer closeDB()
 
 	ctx := context.Background()
-	accounts := registry.New(db, registry.Deps{CodeKey: c.SessionSalt.Reveal()}).Accounts
+	accounts := registry.New(db, registry.Deps{CodeKey: c.SessionSalt.Reveal(), Login: loginLimits(c.Login)}).Accounts
 
 	attempt, err := accounts.LatestLoginAttempt(ctx, c.Email)
 	if errors.Is(err, service.ErrNotFound) {

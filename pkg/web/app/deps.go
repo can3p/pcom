@@ -5,6 +5,7 @@ package app
 import (
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/jmoiron/sqlx"
 )
@@ -54,4 +55,7 @@ type Config struct {
 	// PageSize is how many items a page of a list holds, RSSLimit how many
 	// items an RSS output lists; zero means the reading service's default.
 	PageSize, RSSLimit int
+	// Login is the limits of login by code; zero fields keep accounts'
+	// defaults.
+	Login accounts.LoginLimits
 }

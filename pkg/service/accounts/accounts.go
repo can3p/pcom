@@ -5,6 +5,7 @@
 package accounts
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -33,8 +34,7 @@ type Service struct {
 	// or checked.
 	codeKey []byte
 	now     func() time.Time
-	// pruneEvery is how often RunPruner runs.
-	pruneEvery time.Duration
+	login   LoginLimits
 }
 
 // New builds the service. sender may be nil for a command line script that
@@ -73,13 +73,26 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
-// WithPruneEvery replaces how often RunPruner runs, for tests.
-func WithPruneEvery(d time.Duration) Option {
-	return func(s *Service) { s.pruneEvery = d }
+// WithLoginLimits sets the limits of login by code; a zero field keeps its
+// DefaultLoginLimits value.
+func WithLoginLimits(l LoginLimits) Option {
+	return func(s *Service) {
+		d := DefaultLoginLimits
+		s.login = LoginLimits{
+			CodeLifetime:        cmp.Or(l.CodeLifetime, d.CodeLifetime),
+			CodeTries:           cmp.Or(l.CodeTries, d.CodeTries),
+			CodesMailed:         cmp.Or(l.CodesMailed, d.CodesMailed),
+			CodesMailedWindow:   cmp.Or(l.CodesMailedWindow, d.CodesMailedWindow),
+			WrongTries:          cmp.Or(l.WrongTries, d.WrongTries),
+			WrongTriesWindow:    cmp.Or(l.WrongTriesWindow, d.WrongTriesWindow),
+			UnconfirmedLifetime: cmp.Or(l.UnconfirmedLifetime, d.UnconfirmedLifetime),
+			PruneEvery:          cmp.Or(l.PruneEvery, d.PruneEvery),
+		}
+	}
 }
 
 func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, now: time.Now, pruneEvery: pruneEvery}
+	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, now: time.Now, login: DefaultLoginLimits}
 	for _, opt := range opts {
 		opt(s)
 	}
