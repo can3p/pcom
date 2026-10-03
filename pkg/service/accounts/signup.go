@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"regexp"
-	"strings"
 	"time"
 
 	disposable "github.com/can3p/anti-disposable-email"
@@ -32,14 +31,10 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 		return service.Invalid("email", "Invalid email")
 	}
 
-	if exists, err := s.store.UserEmailExists(ctx, pgsession.NormalizeEmail(address)); err != nil {
+	if taken, err := mailboxTaken(ctx, s.store, pgsession.NormalizeEmail(address)); err != nil {
 		return err
-	} else if exists {
-		return service.Invalid("email", "Email is already used in the system")
-	}
-
-	if strings.Contains(address, "+") && !testEmailRE.MatchString(address) {
-		return service.Invalid("email", "Plus sign is not allowed in the emails")
+	} else if taken {
+		return errMailboxTaken
 	}
 
 	parsedEmail, _ := disposable.ParseEmail(address)
@@ -55,6 +50,20 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 	}
 
 	return nil
+}
+
+var errMailboxTaken = service.Invalid("email", "Email is already used in the system")
+
+// mailboxTaken reports whether an account already uses the mailbox the
+// (normalized) email delivers to, so that a +tag or, on Gmail, extra dots
+// cannot buy a second account. The owner's test addresses (testEmailRE)
+// count only as themselves, so any number of their +tags can sign up.
+func mailboxTaken(ctx context.Context, store *repo.Store, email string) (bool, error) {
+	if testEmailRE.MatchString(email) {
+		return store.UserEmailExists(ctx, email)
+	}
+
+	return store.MailboxHasAccount(ctx, email)
 }
 
 // CheckWaitingListEmail says whether an address may join the waiting list.
@@ -96,7 +105,9 @@ func (s *Service) UsernameTaken(ctx context.Context, username string) (bool, err
 // password and a confirmed email only once its owner types the code, tells the
 // admin, starts a login attempt and queues the mail with its code, so that all
 // of them exist or none. It returns the attempt's id; finishing it logs the
-// user in and confirms the address.
+// user in and confirms the address. A mailbox that already has an account is
+// a ValidationError on "email", checked under a lock so that concurrent
+// signups cannot each find it free.
 func (s *Service) Register(ctx context.Context, email, username, attribution string) (string, error) {
 	var attemptID string
 
@@ -110,6 +121,16 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 			Email:             pgsession.NormalizeEmail(email),
 			Username:          username,
 			SignupAttribution: null.NewString(attribution, attribution != ""),
+		}
+
+		if err := tx.LockMailbox(ctx, repo.LockSignupMailbox, u.Email); err != nil {
+			return err
+		}
+
+		if taken, err := mailboxTaken(ctx, tx, u.Email); err != nil {
+			return err
+		} else if taken {
+			return errMailboxTaken
 		}
 
 		if err := tx.InsertUser(ctx, u); err != nil {

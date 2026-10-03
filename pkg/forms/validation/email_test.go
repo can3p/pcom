@@ -23,7 +23,6 @@ func TestEmailRE(t *testing.T) {
 		{"user@subdomain.example.com", true},
 		{"a@b.co", true},
 		{"user@example", true},                    // single-word domain is allowed
-		{"user @example.com", true},               // space is allowed in name
 		{"user!#$%&'*+/=?^_`{|}~@test.com", true}, // special chars allowed in name
 		{"a.b.c@example.com", true},               // dots allowed in name
 		{"test'email@example.com", true},          // apostrophe allowed
@@ -38,6 +37,8 @@ func TestEmailRE(t *testing.T) {
 		{"user@-example.com", false}, // domain starts with -
 		{"user@example.com-", false}, // domain ends with -
 		{"user@.example.com", false}, // domain starts with dot
+		{"user @example.com", false}, // no mail is delivered to a space
+		{"a,b@example.com", false},   // the whole address must match, not its tail
 	}
 
 	for _, tc := range testCases {
@@ -64,6 +65,8 @@ func TestTestEmailRE(t *testing.T) {
 		{"user@gmail.com", false},
 		{"dpetroff@yahoo.com", false},
 		{"dpetroff", false},
+		{"xdpetroff+tag@gmail.com", false},     // only the owner's own address
+		{"dpetroff+tag@gmailxcom.test", false}, // the dot is a dot
 		{"", false},
 	}
 
