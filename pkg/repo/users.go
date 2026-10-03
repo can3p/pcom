@@ -30,10 +30,10 @@ func (s *Store) UserEmailExists(ctx context.Context, email string) (bool, error)
 	return core.Users(core.UserWhere.Email.EQ(email)).Exists(ctx, s.exec)
 }
 
-// MailboxHasAccount reports whether an account uses any address that
-// delivers to the same mailbox as email (see the canonical_email migration).
-func (s *Store) MailboxHasAccount(ctx context.Context, email string) (bool, error) {
-	return core.Users(qm.Where("canonical_email("+core.UserColumns.Email+") = canonical_email(?)", email)).Exists(ctx, s.exec)
+// MailboxHasAccount reports whether an account uses an address that delivers
+// to the mailbox canonical (see pgsession.CanonicalEmail).
+func (s *Store) MailboxHasAccount(ctx context.Context, canonical string) (bool, error) {
+	return core.Users(core.UserWhere.EmailCanonical.EQ(canonical)).Exists(ctx, s.exec)
 }
 
 // UnconfirmedUserIDsCreatedBefore returns the ids of the users who never

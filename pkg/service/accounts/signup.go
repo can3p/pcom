@@ -63,7 +63,7 @@ func mailboxTaken(ctx context.Context, store *repo.Store, email string) (bool, e
 		return store.UserEmailExists(ctx, email)
 	}
 
-	return store.MailboxHasAccount(ctx, email)
+	return store.MailboxHasAccount(ctx, pgsession.CanonicalEmail(email))
 }
 
 // CheckWaitingListEmail says whether an address may join the waiting list.
@@ -119,11 +119,12 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 		u := &core.User{
 			ID:                uuid.NewString(),
 			Email:             pgsession.NormalizeEmail(email),
+			EmailCanonical:    pgsession.CanonicalEmail(email),
 			Username:          username,
 			SignupAttribution: null.NewString(attribution, attribution != ""),
 		}
 
-		if err := tx.LockMailbox(ctx, repo.LockSignupMailbox, u.Email); err != nil {
+		if err := tx.LockMailbox(ctx, repo.LockSignupMailbox, u.EmailCanonical); err != nil {
 			return err
 		}
 

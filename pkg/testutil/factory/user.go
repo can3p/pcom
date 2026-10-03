@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -76,6 +77,8 @@ func User(ctx context.Context, exec boil.ContextExecutor, opts ...UserOpt) (*cor
 	for _, opt := range opts {
 		opt(u)
 	}
+
+	u.EmailCanonical = pgsession.CanonicalEmail(u.Email)
 
 	if err := u.Insert(ctx, exec, boil.Infer()); err != nil {
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -12,10 +13,11 @@ import (
 
 func CreateUser(ctx context.Context, exec boil.ContextExecutor, email string) (*core.User, error) {
 	user := &core.User{
-		ID:       uuid.New().String(),
-		Email:    email,
-		Username: email,
-		Timezone: "UTC",
+		ID:             uuid.New().String(),
+		Email:          email,
+		EmailCanonical: pgsession.CanonicalEmail(email),
+		Username:       email,
+		Timezone:       "UTC",
 	}
 
 	if err := user.Insert(ctx, exec, boil.Infer()); err != nil {
