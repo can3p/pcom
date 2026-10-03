@@ -86,6 +86,35 @@ Help Options:
           --rss-limit=                        Items in every RSS output
                                               (default: 50) [$RSS_LIMIT]
 
+    Login:
+          --login-code-lifetime=              How long a mailed login code
+                                              works (default: 15m)
+                                              [$LOGIN_CODE_LIFETIME]
+          --login-code-tries=                 Wrong codes one login attempt
+                                              allows (default: 5)
+                                              [$LOGIN_CODE_TRIES]
+          --login-codes-mailed=               Login codes mailed to one user
+                                              per --login-codes-mailed-window
+                                              (default: 3) [$LOGIN_CODES_MAILED]
+          --login-codes-mailed-window=        Window of --login-codes-mailed
+                                              (default: 15m)
+                                              [$LOGIN_CODES_MAILED_WINDOW]
+          --login-wrong-tries=                Wrong codes on one user's
+                                              attempts per
+                                              --login-wrong-tries-window before
+                                              no code logs them in (default:
+                                              10) [$LOGIN_WRONG_TRIES]
+          --login-wrong-tries-window=         Window of --login-wrong-tries
+                                              (default: 1h)
+                                              [$LOGIN_WRONG_TRIES_WINDOW]
+          --login-unconfirmed-lifetime=       How long an account nobody
+                                              confirmed with a code is kept
+                                              (default: 24h)
+                                              [$LOGIN_UNCONFIRMED_LIFETIME]
+          --login-prune-every=                How often old login attempts and
+                                              unconfirmed accounts are deleted
+                                              (default: 1h) [$LOGIN_PRUNE_EVERY]
+
     User media:
           --user-media-endpoint=              S3 endpoint URL
                                               [$USER_MEDIA_ENDPOINT]

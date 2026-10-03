@@ -142,6 +142,14 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"USER_MEDIA_PATH_STYLE", "true", func(s *config.Serve) any { return s.Media.PathStyle.On() }, false, true},
 		{"PROFILE_ABOUT_MAX_LENGTH", "300", func(s *config.Serve) any { return s.Limits.ProfileAboutMaxLength }, accounts.DefaultProfileAboutMaxLength, 300},
 		{"USER_MEDIA_CDN", "https://media.test", func(s *config.Serve) any { return s.Media.CDN }, "", "https://media.test"},
+		{"LOGIN_CODE_LIFETIME", "5m", func(s *config.Serve) any { return s.Login.CodeLifetime }, accounts.DefaultLoginLimits.CodeLifetime, 5 * time.Minute},
+		{"LOGIN_CODE_TRIES", "3", func(s *config.Serve) any { return s.Login.CodeTries }, accounts.DefaultLoginLimits.CodeTries, 3},
+		{"LOGIN_CODES_MAILED", "2", func(s *config.Serve) any { return s.Login.CodesMailed }, accounts.DefaultLoginLimits.CodesMailed, 2},
+		{"LOGIN_CODES_MAILED_WINDOW", "30m", func(s *config.Serve) any { return s.Login.CodesMailedWindow }, accounts.DefaultLoginLimits.CodesMailedWindow, 30 * time.Minute},
+		{"LOGIN_WRONG_TRIES", "20", func(s *config.Serve) any { return s.Login.WrongTries }, accounts.DefaultLoginLimits.WrongTries, 20},
+		{"LOGIN_WRONG_TRIES_WINDOW", "2h", func(s *config.Serve) any { return s.Login.WrongTriesWindow }, accounts.DefaultLoginLimits.WrongTriesWindow, 2 * time.Hour},
+		{"LOGIN_UNCONFIRMED_LIFETIME", "48h", func(s *config.Serve) any { return s.Login.UnconfirmedLifetime }, accounts.DefaultLoginLimits.UnconfirmedLifetime, 48 * time.Hour},
+		{"LOGIN_PRUNE_EVERY", "10m", func(s *config.Serve) any { return s.Login.PruneEvery }, accounts.DefaultLoginLimits.PruneEvery, 10 * time.Minute},
 	}
 
 	keys := envKeys(t)

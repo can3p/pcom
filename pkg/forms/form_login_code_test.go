@@ -3,6 +3,7 @@ package forms_test
 import (
 	"context"
 	gogoforms "github.com/can3p/gogo/forms"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"net/http"
 	"testing"
 
@@ -87,7 +88,7 @@ func TestLoginCodeForm_Save(t *testing.T) {
 	t.Run("a dead attempt is an expired login", func(t *testing.T) {
 		// an attempt out of tries
 		id := testutil.Must(svc.StartLogin(ctx, "nobody@example.test", ""))(t)
-		for range 5 {
+		for range accounts.DefaultLoginLimits.CodeTries {
 			_, _, err := svc.FinishLogin(ctx, id, "12345678")
 			require.Error(t, err)
 		}

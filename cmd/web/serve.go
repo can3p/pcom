@@ -57,7 +57,7 @@ func (c *serveCmd) Execute([]string) error {
 
 	go feeder.RunPoller(ctx)
 
-	go accounts.New(repo.New(db), nil, nil).RunPruner(ctx)
+	go accounts.New(repo.New(db), nil, nil, accounts.WithLoginLimits(loginLimits(cfg.Login))).RunPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {
@@ -110,6 +110,21 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		ProfileAboutMaxLength: cfg.Limits.ProfileAboutMaxLength,
 		PageSize:              cfg.Limits.PageSize,
 		RSSLimit:              cfg.Limits.RSSLimit,
+		Login:                 loginLimits(cfg.Login),
+	}
+}
+
+// loginLimits is the accounts service's view of the login settings.
+func loginLimits(cfg config.Login) accounts.LoginLimits {
+	return accounts.LoginLimits{
+		CodeLifetime:        cfg.CodeLifetime,
+		CodeTries:           cfg.CodeTries,
+		CodesMailed:         cfg.CodesMailed,
+		CodesMailedWindow:   cfg.CodesMailedWindow,
+		WrongTries:          cfg.WrongTries,
+		WrongTriesWindow:    cfg.WrongTriesWindow,
+		UnconfirmedLifetime: cfg.UnconfirmedLifetime,
+		PruneEvery:          cfg.PruneEvery,
 	}
 }
 

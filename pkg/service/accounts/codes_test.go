@@ -28,6 +28,9 @@ import (
 )
 
 // clock is a settable time for one service.
+// lim is the limits the services under test use.
+var lim = accounts.DefaultLoginLimits
+
 type clock struct{ t time.Time }
 
 func (c *clock) now() time.Time          { return c.t }
@@ -183,7 +186,7 @@ func TestLoginCodes(t *testing.T) {
 		email := "late-signup@example.test"
 		signup := testutil.Must(svc.Register(ctx, email, "latesignup", ""))(t)
 
-		c.advance(accounts.CodeLifetime + time.Second)
+		c.advance(lim.CodeLifetime + time.Second)
 		_, _, err := svc.FinishLogin(ctx, signup, "00000000")
 		requireNotFound(t, err)
 
@@ -221,11 +224,11 @@ func TestLoginCodes(t *testing.T) {
 		}},
 		{"user over the limit", func(t *testing.T, svc *accounts.Service) (string, int) {
 			u := newUser(t)
-			for range 3 {
+			for range lim.CodesMailed {
 				testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
 			}
 
-			return u.Email, 3
+			return u.Email, lim.CodesMailed
 		}},
 	} {
 		// a stranger cannot tell any of these from a real login: every try is
@@ -240,7 +243,7 @@ func TestLoginCodes(t *testing.T) {
 			require.NotEmpty(t, id)
 			require.Len(t, mailedCodes(t, db, email), before)
 
-			for range 5 {
+			for range lim.CodeTries {
 				_, _, err := svc.FinishLogin(ctx, id, "00000000")
 				requireWrongCode(t, err)
 			}
@@ -265,7 +268,7 @@ func TestLoginCodes(t *testing.T) {
 		}
 		wg.Wait()
 
-		require.Len(t, mailedCodes(t, db, u.Email), 3)
+		require.Len(t, mailedCodes(t, db, u.Email), lim.CodesMailed)
 	})
 
 	t.Run("after too many wrong codes the user cannot log in or get a code until the window passes", func(t *testing.T) {
@@ -279,8 +282,9 @@ func TestLoginCodes(t *testing.T) {
 		b, codeB := start(t, ctx, db, svc, u, "")
 		last, lastCode := start(t, ctx, db, svc, u, "")
 
+		require.Equal(t, lim.WrongTries, 2*lim.CodeTries, "two attempts' wrong codes reach the user's limit")
 		for _, at := range []struct{ id, code string }{{a, codeA}, {b, codeB}} {
-			for range 5 {
+			for range lim.CodeTries {
 				_, _, err := svc.FinishLogin(ctx, at.id, otherCode(at.code))
 				requireWrongCode(t, err)
 			}
@@ -290,11 +294,11 @@ func TestLoginCodes(t *testing.T) {
 		requireWrongCode(t, err)
 
 		// the mail limit is free again, the wrong codes still count
-		c.t = t0.Add(16 * time.Minute)
+		c.t = t0.Add(lim.CodesMailedWindow + time.Minute)
 		testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
-		require.Len(t, mailedCodes(t, db, u.Email), 3)
+		require.Len(t, mailedCodes(t, db, u.Email), lim.CodesMailed)
 
-		c.t = t0.Add(time.Hour + time.Second)
+		c.t = t0.Add(lim.WrongTriesWindow + time.Second)
 		id, code := start(t, ctx, db, svc, u, "")
 		got, _, err := svc.FinishLogin(ctx, id, code)
 		require.NoError(t, err)
@@ -314,8 +318,8 @@ func TestLoginCodes(t *testing.T) {
 		c.t = t0.Add(10 * time.Minute)
 		recent, _ := start(t, ctx, db, svc, u, "")
 
-		// old expired at t0+15m, recent at t0+25m; the cut is an hour before now
-		c.t = t0.Add(time.Hour + 20*time.Minute)
+		// old expires at t0+CodeLifetime, recent 10m later; the cut falls between
+		c.t = t0.Add(lim.CodeLifetime + lim.WrongTriesWindow + 5*time.Minute)
 		testutil.Must(svc.PruneLoginAttempts(ctx))(t)
 
 		_, err := repo.New(db).LockLoginAttempt(ctx, old)
@@ -337,15 +341,15 @@ func TestLoginCodes(t *testing.T) {
 			return u
 		}
 
-		stale := user(t, 25*time.Hour, factory.Unconfirmed())
-		fresh := user(t, 23*time.Hour, factory.Unconfirmed())
-		confirmed := user(t, 25*time.Hour)
+		stale := user(t, lim.UnconfirmedLifetime+time.Hour, factory.Unconfirmed())
+		fresh := user(t, lim.UnconfirmedLifetime-time.Hour, factory.Unconfirmed())
+		confirmed := user(t, lim.UnconfirmedLifetime+time.Hour)
 		// an operator gave it invitations, so it is kept
-		held := user(t, 25*time.Hour, factory.Unconfirmed())
+		held := user(t, lim.UnconfirmedLifetime+time.Hour, factory.Unconfirmed())
 		testutil.Must(factory.Invitation(ctx, db, held.ID))(t)
 
 		// kept by the rule, not by a refused delete
-		candidates := testutil.Must(repo.New(db).UnconfirmedUserIDsCreatedBefore(ctx, time.Now().UTC().Add(-24*time.Hour)))(t)
+		candidates := testutil.Must(repo.New(db).UnconfirmedUserIDsCreatedBefore(ctx, time.Now().UTC().Add(-lim.UnconfirmedLifetime)))(t)
 		require.Equal(t, []string{stale.ID}, candidates)
 
 		require.Equal(t, 1, testutil.Must(svc.PruneUnconfirmedUsers(ctx))(t))
@@ -364,31 +368,54 @@ func TestLoginCodes(t *testing.T) {
 		t0 := c.t
 		svc := codeSvc(db, c, "test-key")
 		u, other := newUser(t), newUser(t)
-		for range 4 {
+		for range lim.CodesMailed + 1 {
 			testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
 		}
-		require.Len(t, mailedCodes(t, db, u.Email), 3)
+		require.Len(t, mailedCodes(t, db, u.Email), lim.CodesMailed)
 
 		testutil.Must(svc.StartLogin(ctx, other.Email, ""))(t)
 		require.Len(t, mailedCodes(t, db, other.Email), 1)
 
-		c.t = t0.Add(15*time.Minute - time.Second)
+		c.t = t0.Add(lim.CodesMailedWindow - time.Second)
 		testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
-		require.Len(t, mailedCodes(t, db, u.Email), 3)
+		require.Len(t, mailedCodes(t, db, u.Email), lim.CodesMailed)
 
-		c.t = t0.Add(15*time.Minute + time.Second)
+		c.t = t0.Add(lim.CodesMailedWindow + time.Second)
 		testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
-		require.Len(t, mailedCodes(t, db, u.Email), 4)
+		require.Len(t, mailedCodes(t, db, u.Email), lim.CodesMailed+1)
 	})
 
-	t.Run("wrong codes are counted and the sixth try fails even with the right code", func(t *testing.T) {
+	t.Run("the limits are settings: a set one applies, the others keep their defaults", func(t *testing.T) {
+		t.Parallel()
+
+		queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
+		svc := accounts.New(repo.New(db), queue, nil, accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
+		u := newUser(t)
+		id, code := start(t, ctx, db, svc, u, "")
+
+		for range 2 {
+			_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
+			requireWrongCode(t, err)
+		}
+
+		_, _, err := svc.FinishLogin(ctx, id, code)
+		requireNotFound(t, err)
+
+		// the mail limit kept its default
+		for range lim.CodesMailed {
+			testutil.Must(svc.StartLogin(ctx, u.Email, ""))(t)
+		}
+		require.Len(t, mailedCodes(t, db, u.Email), lim.CodesMailed)
+	})
+
+	t.Run("wrong codes are counted and the try past the last allowed one fails even with the right code", func(t *testing.T) {
 		t.Parallel()
 
 		svc := codeSvc(db, &clock{time.Now()}, "test-key")
 		u := newUser(t)
 		id, code := start(t, ctx, db, svc, u, "")
 
-		for range 5 {
+		for range lim.CodeTries {
 			_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
 			requireWrongCode(t, err)
 		}
@@ -411,11 +438,11 @@ func TestLoginCodes(t *testing.T) {
 		early, earlyCode := start(t, ctx, db, svc, u, "")
 		late, lateCode := start(t, ctx, db, svc, u, "")
 
-		c.t = t0.Add(15*time.Minute - time.Second)
+		c.t = t0.Add(lim.CodeLifetime - time.Second)
 		_, _, err := svc.FinishLogin(ctx, early, earlyCode)
 		require.NoError(t, err)
 
-		c.t = t0.Add(15 * time.Minute)
+		c.t = t0.Add(lim.CodeLifetime)
 		_, _, err = svc.FinishLogin(ctx, late, lateCode)
 		requireNotFound(t, err)
 		_, err = svc.IssueLoginCode(ctx, late)
@@ -531,7 +558,7 @@ func TestRunPruner(t *testing.T) {
 
 	ctx := context.Background()
 	pruner := func(db *sqlx.DB, c *clock) *accounts.Service {
-		return accounts.New(repo.New(db), nil, nil, accounts.WithClock(c.now), accounts.WithCodeKey("test-key"), accounts.WithPruneEvery(time.Millisecond))
+		return accounts.New(repo.New(db), nil, nil, accounts.WithClock(c.now), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{PruneEvery: time.Millisecond}))
 	}
 
 	t.Run("prunes on its schedule until its context ends", func(t *testing.T) {
@@ -543,10 +570,10 @@ func TestRunPruner(t *testing.T) {
 		svc := pruner(db, c)
 		attemptID := testutil.Must(svc.StartLogin(ctx, "nobody@example.test", ""))(t)
 		stale := testutil.Must(factory.User(ctx, db, factory.Unconfirmed()))(t)
-		_, err := db.ExecContext(ctx, `update users set created_at = $1 where id = $2`, time.Now().UTC().Add(-25*time.Hour), stale.ID)
+		_, err := db.ExecContext(ctx, `update users set created_at = $1 where id = $2`, time.Now().UTC().Add(-lim.UnconfirmedLifetime-time.Hour), stale.ID)
 		require.NoError(t, err)
 		// set before the pruner starts, so it reads the clock without a race
-		c.advance(2 * time.Hour)
+		c.advance(lim.CodeLifetime + lim.WrongTriesWindow + time.Minute)
 
 		runCtx, cancel := context.WithCancel(ctx)
 		done := make(chan struct{})

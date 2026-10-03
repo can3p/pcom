@@ -128,7 +128,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 		}
 
 		attemptID, err = s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
-			return mail.LoginCode(s.ident.From, id, u.Email, code, CodeLifetime)
+			return mail.LoginCode(s.ident.From, id, u.Email, code, s.login.CodeLifetime)
 		})
 
 		return err

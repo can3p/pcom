@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"github.com/can3p/pcom/pkg/config"
 	"io"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -111,4 +113,29 @@ func TestCommands_MissingDatabaseURL(t *testing.T) {
 	for _, args := range [][]string{{"seed"}, {"admin", "invite", "--email", "a@b.c", "--num", "1"}, {"admin", "registration", "--open"}} {
 		require.ErrorContains(t, run(args), "$DATABASE_URL", args)
 	}
+}
+
+// Every login setting reaches its own field of the service's limits.
+func TestLoginLimits(t *testing.T) {
+	got := loginLimits(config.Login{
+		CodeLifetime:        1 * time.Minute,
+		CodeTries:           2,
+		CodesMailed:         3,
+		CodesMailedWindow:   4 * time.Minute,
+		WrongTries:          5,
+		WrongTriesWindow:    6 * time.Minute,
+		UnconfirmedLifetime: 7 * time.Minute,
+		PruneEvery:          8 * time.Minute,
+	})
+
+	require.Equal(t, accounts.LoginLimits{
+		CodeLifetime:        1 * time.Minute,
+		CodeTries:           2,
+		CodesMailed:         3,
+		CodesMailedWindow:   4 * time.Minute,
+		WrongTries:          5,
+		WrongTriesWindow:    6 * time.Minute,
+		UnconfirmedLifetime: 7 * time.Minute,
+		PruneEvery:          8 * time.Minute,
+	}, got)
 }

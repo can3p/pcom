@@ -32,4 +32,6 @@ type AdminLoginCode struct {
 	Database    Database        `group:"Database"`
 	Email       string          `long:"email" description:"Email of the account to issue a login code for" required:"true"`
 	SessionSalt settings.Secret `long:"session-salt" env:"SESSION_SALT" description:"Salt for session cookies and hashed values" required:"true"`
+	// Login must match the server's, so the code is judged by the same limits.
+	Login Login `group:"Login"`
 }
