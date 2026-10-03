@@ -13,12 +13,16 @@ Nothing is shared by default. A post reaches your direct connections, optionally
 - Write in markdown, keep drafts and publish when ready: [Writing](writing.md).
 - Read what your connections wrote, browse public posts and follow outside RSS feeds: [Feed and RSS](feed.md).
 - Talk about a post with the people who can see its comments: [Comments](comments.md).
-- Choose who can see your profile, change your password and take your posts with you: [Settings](settings.md).
+- Choose who can see your profile and take your posts with you: [Settings](settings.md).
 - Post from the command line or your own scripts: [API and blg](api.md).
 - Run your own copy: [Self-hosting](self-hosting.md).
 
 ## Signing up
 
-Without an account you see the public index above and any public profile or post. To get an account you follow an invitation from a member, which also connects you to them, or you sign up on the site if it is open. An account created from an invitation gets one invitation of its own, shown in [Settings](settings.md); more come from the site admin.
+Without an account you see the public index above and any public profile or post. To get an account you follow an invitation from a member, which also connects you to them, or you sign up on the site if it is open. An account created from an invitation gets one invitation of its own, shown in [Settings](settings.md); more come from the site admin. One mailbox gets one account: a `+tag` or, on Gmail, extra dots in the address count as the same mailbox.
+
+## Logging in
+
+There are no passwords. You enter your email address on the login page, pcom mails you an 8-digit code, and you type it on the same page. A code works once, for 15 minutes. If you signed up but never typed the code, log in the same way: the code confirms your address. An account nobody confirms within a day is deleted.
 
 The source and the developer documentation are on [GitHub](https://github.com/can3p/pcom); the [README](../../README.md) is the way in.

@@ -1,16 +1,12 @@
 # Settings
 
-Settings is where you manage your account: who can see your profile, your password, invitations, feeds, API key and a backup of your posts.
+Settings is where you manage your account: who can see your profile, invitations, feeds, API key and a backup of your posts.
 
 ![The settings page.](screenshots/settings.png)
 
 ## General
 
 You can see your email address, set your time zone, which decides how times are shown to you, and choose your profile visibility: public, registered users, or direct and indirect connections. What each means is in [Connections](connections.md).
-
-## Password
-
-Change your password by entering the old one and a new one of at least eight characters.
 
 ## Invitations
 
