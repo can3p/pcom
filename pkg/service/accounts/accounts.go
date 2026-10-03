@@ -33,6 +33,8 @@ type Service struct {
 	// or checked.
 	codeKey []byte
 	now     func() time.Time
+	// pruneEvery is how often RunPruner runs.
+	pruneEvery time.Duration
 }
 
 // New builds the service. sender may be nil for a command line script that
@@ -71,8 +73,13 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
+// WithPruneEvery replaces how often RunPruner runs, for tests.
+func WithPruneEvery(d time.Duration) Option {
+	return func(s *Service) { s.pruneEvery = d }
+}
+
 func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, now: time.Now}
+	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, now: time.Now, pruneEvery: pruneEvery}
 	for _, opt := range opts {
 		opt(s)
 	}

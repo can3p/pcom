@@ -2,6 +2,7 @@ package accounts_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -518,5 +519,71 @@ func TestLoginCodes(t *testing.T) {
 
 		_, _, err = keyed.FinishLogin(ctx, id, code)
 		require.NoError(t, err)
+	})
+}
+
+func TestRunPruner(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	pruner := func(db *sqlx.DB, c *clock) *accounts.Service {
+		return accounts.New(repo.New(db), nil, nil, accounts.WithClock(c.now), accounts.WithCodeKey("test-key"), accounts.WithPruneEvery(time.Millisecond))
+	}
+
+	t.Run("prunes on its schedule until its context ends", func(t *testing.T) {
+		t.Parallel()
+
+		// pruning sweeps the whole table, so it gets a database of its own
+		db := testdb.New(t).DB
+		c := &clock{time.Now()}
+		svc := pruner(db, c)
+		attemptID := testutil.Must(svc.StartLogin(ctx, "nobody@example.test", ""))(t)
+		stale := testutil.Must(factory.User(ctx, db, factory.Unconfirmed()))(t)
+		_, err := db.ExecContext(ctx, `update users set created_at = $1 where id = $2`, time.Now().UTC().Add(-25*time.Hour), stale.ID)
+		require.NoError(t, err)
+		// set before the pruner starts, so it reads the clock without a race
+		c.advance(2 * time.Hour)
+
+		runCtx, cancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		go func() {
+			svc.RunPruner(runCtx)
+			close(done)
+		}()
+
+		require.Eventually(t, func() bool {
+			_, attemptErr := repo.New(db).LockLoginAttempt(ctx, attemptID)
+			_, userErr := factory.GetUserByEmail(ctx, db, stale.Email)
+
+			return errors.Is(attemptErr, repo.ErrNotFound) && userErr != nil
+		}, 5*time.Second, 10*time.Millisecond)
+
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("RunPruner kept running after its context ended")
+		}
+	})
+
+	t.Run("database failures are returned, and the pruner keeps going", func(t *testing.T) {
+		t.Parallel()
+
+		db := testdb.New(t).DB
+		require.NoError(t, db.Close())
+		svc := pruner(db, &clock{time.Now()})
+
+		_, err := svc.StartLogin(ctx, "nobody@example.test", "")
+		require.ErrorContains(t, err, "database is closed", "not mistaken for an unknown address")
+		_, err = svc.PruneLoginAttempts(ctx)
+		require.ErrorContains(t, err, "database is closed")
+		_, err = svc.PruneUnconfirmedUsers(ctx)
+		require.ErrorContains(t, err, "database is closed")
+
+		// every tick fails; RunPruner logs it and returns only when ctx ends
+		runCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+		svc.RunPruner(runCtx)
+		require.ErrorIs(t, runCtx.Err(), context.DeadlineExceeded)
 	})
 }
