@@ -11,7 +11,6 @@ import (
 
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/config"
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
@@ -103,18 +102,14 @@ func (c *serveCmd) Execute([]string) error {
 // newServices builds the services as app.New would, plus the translator,
 // which only serve configures.
 func newServices(d *app.Deps, cfg config.Serve, translator *translate.Translator) *registry.Services {
-	return registry.New(d.DB, registry.Deps{
-		Sender:        d.Sender,
-		MediaStorage:  d.MediaStorage,
-		Site:          links.Site{Root: cfg.Web.SiteRoot, MediaCDN: cfg.Media.CDN},
-		SenderAddress: cfg.Mail.SenderAddress,
-		AdminAddress:  cfg.Mail.AdminAddress,
-		Translator:    translator,
-		TranslationLimits: translations.Limits{
-			UserDailyChars:   cfg.Translation.UserDailyChars,
-			SiteMonthlyChars: cfg.Translation.SiteMonthlyChars,
-		},
-	})
+	deps := app.ServiceDeps(d)
+	deps.Translator = translator
+	deps.TranslationLimits = translations.Limits{
+		UserDailyChars:   cfg.Translation.UserDailyChars,
+		SiteMonthlyChars: cfg.Translation.SiteMonthlyChars,
+	}
+
+	return registry.New(d.DB, deps)
 }
 
 // applyProcessSettings sets the process-wide gin mode and log level.
