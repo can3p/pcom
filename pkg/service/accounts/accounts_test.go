@@ -3,7 +3,10 @@ package accounts_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
@@ -16,6 +19,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,15 +108,43 @@ func TestRegister(t *testing.T) {
 		require.Empty(t, sender.Sent(), "a rejected signup must not notify anyone")
 	})
 
-	t.Run("an address in use", func(t *testing.T) {
+	t.Run("a mailbox in use, under any spelling", func(t *testing.T) {
 		t.Parallel()
 
-		sender := fakesender.New()
-		existing := newUser(t, ctx, db)
+		existing := testutil.Must(factory.User(ctx, db, factory.WithEmail("in.use@gmail.com")))(t)
 
-		_, err := svcWith(db, sender).Register(ctx, existing.Email, "someoneelse", "")
-		require.Error(t, err, "the email column is unique, so a second signup for it must fail")
-		require.Empty(t, sender.Sent(), "a failed signup must not notify anyone")
+		for i, email := range []string{existing.Email, "in.use+again@gmail.com", "inuse@googlemail.com"} {
+			sender := fakesender.New()
+
+			_, err := svcWith(db, sender).Register(ctx, email, "someoneelse"+strconv.Itoa(i), "")
+			msg, ok := problem(err)
+			require.False(t, ok, email)
+			require.Equal(t, "Email is already used in the system", msg)
+			require.Empty(t, sender.Sent(), "a failed signup must not notify anyone")
+		}
+	})
+
+	t.Run("concurrent signups for one mailbox create one account", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			wg      sync.WaitGroup
+			created atomic.Int32
+		)
+		for i := range 10 {
+			wg.Go(func() {
+				email := "race+" + strconv.Itoa(i) + "@example.test"
+				if _, err := svcWith(db, fakesender.New()).Register(ctx, email, "racer"+strconv.Itoa(i), ""); err == nil {
+					created.Add(1)
+				} else {
+					var invalid *service.ValidationError
+					assert.ErrorAs(t, err, &invalid, "only a taken mailbox may stop a signup")
+				}
+			})
+		}
+		wg.Wait()
+
+		require.EqualValues(t, 1, created.Load())
 	})
 }
 
@@ -456,16 +488,30 @@ func TestCheckSignupEmail(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
+	// registered makes an account for email and returns the address to check
+	registered := func(email, check string) func(t *testing.T) string {
+		return func(t *testing.T) string {
+			testutil.Must(factory.User(ctx, db, factory.WithEmail(email)))(t)
+			return check
+		}
+	}
+	address := func(email string) func(t *testing.T) string { return func(*testing.T) string { return email } }
+
+	// one account per mailbox: a +tag or Gmail's dots name the same one
 	tests := []struct {
 		name   string
 		email  func(t *testing.T) string
 		wantOK bool
 	}{
 		{"existing user", func(t *testing.T) string { return testutil.Must(factory.User(ctx, db))(t).Email }, false},
-		{"plus sign", func(t *testing.T) string { return "user+test@example.com" }, false},
-		{"plus sign allowed test email", func(t *testing.T) string { return "dpetroff+test@gmail.com" }, true},
-		{"disposable domain", func(t *testing.T) string { return "test@mailinator.com" }, false},
-		{"valid email", func(t *testing.T) string { return "valid@gmail.com" }, true},
+		{"+tag of an existing user", registered("tagged@example.com", "Tagged+promo@example.com"), false},
+		{"existing user with a +tag, plain", registered("plain+old@example.com", "plain@example.com"), false},
+		{"new address with a +tag", address("fresh+tag@example.com"), true},
+		{"Gmail dots of an existing user", registered("john.smith@gmail.com", "johnsmith+x@googlemail.com"), false},
+		{"dots elsewhere are another mailbox", registered("jane.doe@example.org", "janedoe@example.org"), true},
+		{"owner's test +tag beside the owner", registered("dpetroff@gmail.com", "dpetroff+test@gmail.com"), true},
+		{"disposable domain", address("test@mailinator.com"), false},
+		{"valid email", address("valid@gmail.com"), true},
 	}
 
 	for _, tt := range tests {

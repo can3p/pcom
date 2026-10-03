@@ -57,7 +57,9 @@ it builds; confirm or change it before the wave starts.
   invitation (or an open signup) creates the user and mails a code, which
   the user types on the same page to log in. Amended 2026-10-03: an
   unconfirmed user can log in from the login page, which confirms them; an
-  account nobody confirms within 24 hours is deleted.
+  account nobody confirms within 24 hours is deleted; signup allows one
+  account per mailbox (a +tag, and on Gmail dots or googlemail.com, name the
+  same one; invitations still may go to a +tag).
 - **2026-10-01. Q27, language detection (F7, #144):** deferred to the
   implementation. F7's T0 picks a local Go library, checking its license
   and binary size, and records the choice here.

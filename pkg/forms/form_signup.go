@@ -2,6 +2,7 @@ package forms
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms/validation"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 )
@@ -83,6 +85,15 @@ func (f *SignupForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	gc := c.(*gin.Context)
 
 	attemptID, err := f.Accounts.Register(gc.Request.Context(), email, username, attribution)
+
+	// a concurrent signup took the mailbox after Validate looked
+	var invalid *service.ValidationError
+	if errors.As(err, &invalid) && invalid.Field == "email" {
+		f.AddError("email", invalid.Message)
+
+		return forms.FormSaveDefault(true), nil
+	}
+
 	if err != nil {
 		return nil, panicOnFatal(err)
 	}
