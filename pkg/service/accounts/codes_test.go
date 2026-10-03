@@ -323,7 +323,7 @@ func TestLoginCodes(t *testing.T) {
 		testutil.Must(repo.New(db).LockLoginAttempt(ctx, recent))(t)
 	})
 
-	t.Run("pruning deletes accounts never confirmed for a day, unless the database refuses", func(t *testing.T) {
+	t.Run("pruning deletes accounts never confirmed for a day, except those holding invitations", func(t *testing.T) {
 		t.Parallel()
 
 		// pruning sweeps the whole table, so it gets a database of its own
@@ -340,9 +340,13 @@ func TestLoginCodes(t *testing.T) {
 		stale := user(t, 25*time.Hour, factory.Unconfirmed())
 		fresh := user(t, 23*time.Hour, factory.Unconfirmed())
 		confirmed := user(t, 25*time.Hour)
-		// an invitation refers to it, so the delete fails and is skipped
+		// an operator gave it invitations, so it is kept
 		held := user(t, 25*time.Hour, factory.Unconfirmed())
 		testutil.Must(factory.Invitation(ctx, db, held.ID))(t)
+
+		// kept by the rule, not by a refused delete
+		candidates := testutil.Must(repo.New(db).UnconfirmedUserIDsCreatedBefore(ctx, time.Now().UTC().Add(-24*time.Hour)))(t)
+		require.Equal(t, []string{stale.ID}, candidates)
 
 		require.Equal(t, 1, testutil.Must(svc.PruneUnconfirmedUsers(ctx))(t))
 

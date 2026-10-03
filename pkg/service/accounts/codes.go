@@ -29,7 +29,8 @@ const (
 	// codeDigits is the length of a code: 10^8 of them leave a guesser who
 	// gets maxWrongTries a wrongTryWindow nothing to hope for.
 	codeDigits = 8
-	// maxCodeTries is how many tries an attempt allows; after that it is dead.
+	// maxCodeTries is how many wrong codes an attempt allows; after that it
+	// is dead.
 	maxCodeTries = 5
 	// maxCodesMailed codes are mailed to one user per codeLimitWindow.
 	maxCodesMailed  = 3
@@ -74,7 +75,7 @@ func (s *Service) codeHash(attemptID, code string) string {
 // no user takes them too, so it answers like any other until it is used up;
 // it just never matches.
 func open(a *core.LoginAttempt, now time.Time) bool {
-	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.Tries < maxCodeTries
+	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.WrongTries < maxCodeTries
 }
 
 // lockLoginCodes serializes everything that counts a user's codes and tries,
@@ -211,7 +212,7 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 	return attempt.ID, s.send(ctx, tx, build(attempt.ID, code))
 }
 
-// FinishLogin checks code against the attempt and counts the try. A match
+// FinishLogin checks code against the attempt and counts a wrong one. A match
 // uses the attempt up and returns its user and return URL. A wrong code is a
 // ValidationError on "code", and so is any code for an attempt that has no
 // user or whose user has had maxWrongTries lately, so neither can be told
@@ -238,9 +239,6 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 			return err
 		}
 
-		a.Tries++
-		cols := []string{core.LoginAttemptColumns.Tries}
-
 		wrong = !a.UserID.Valid || !a.CodeHash.Valid
 		if !wrong {
 			// every try of the user waits here, so the count is exact
@@ -256,12 +254,15 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 			wrong = wrongTries >= maxWrongTries || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
 		}
 
-		if !wrong {
+		col := core.LoginAttemptColumns.UsedAt
+		if wrong {
+			a.WrongTries++
+			col = core.LoginAttemptColumns.WrongTries
+		} else {
 			a.UsedAt = null.TimeFrom(now)
-			cols = append(cols, core.LoginAttemptColumns.UsedAt)
 		}
 
-		if err := tx.SaveLoginAttempt(ctx, a, cols...); err != nil {
+		if err := tx.SaveLoginAttempt(ctx, a, col); err != nil {
 			return err
 		}
 
@@ -346,12 +347,20 @@ func (s *Service) LatestLoginAttempt(ctx context.Context, email string) (string,
 		return "", err
 	}
 
-	a, err := notFound(s.store.NewestOpenLoginAttempt(ctx, user.ID, s.clock(), maxCodeTries))
+	now := s.clock()
+
+	attempts, err := s.store.UnexpiredLoginAttempts(ctx, user.ID, now)
 	if err != nil {
 		return "", err
 	}
 
-	return a.ID, nil
+	for _, a := range attempts {
+		if open(a, now) {
+			return a.ID, nil
+		}
+	}
+
+	return "", service.ErrNotFound
 }
 
 // pruneEvery is how often RunPruner deletes dead attempts and accounts.
@@ -365,10 +374,10 @@ func (s *Service) PruneLoginAttempts(ctx context.Context) (int64, error) {
 }
 
 // PruneUnconfirmedUsers deletes the accounts created more than
-// unconfirmedLifetime ago whose owner never typed a code, one at a time, so
-// that one the database refuses to delete (an operator gave it invitations,
-// say) is logged and does not hold up the rest. It returns how many it
-// deleted.
+// unconfirmedLifetime ago whose owner never typed a code. An account an
+// operator gave invitations to is kept. It deletes one at a time, so a delete
+// that fails anyway is logged and does not hold up the rest. It returns how
+// many it deleted.
 func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
 	ids, err := s.store.UnconfirmedUserIDsCreatedBefore(ctx, s.clock().Add(-unconfirmedLifetime))
 	if err != nil {

@@ -24,62 +24,62 @@ import (
 
 // LoginAttempt is an object representing the database table.
 type LoginAttempt struct {
-	ID        string      `boil:"id" json:"id" toml:"id" yaml:"id"`
-	UserID    null.String `boil:"user_id" json:"user_id,omitempty" toml:"user_id" yaml:"user_id,omitempty"`
-	CodeHash  null.String `boil:"code_hash" json:"code_hash,omitempty" toml:"code_hash" yaml:"code_hash,omitempty"`
-	ReturnURL string      `boil:"return_url" json:"return_url" toml:"return_url" yaml:"return_url"`
-	Tries     int         `boil:"tries" json:"tries" toml:"tries" yaml:"tries"`
-	ExpiresAt time.Time   `boil:"expires_at" json:"expires_at" toml:"expires_at" yaml:"expires_at"`
-	UsedAt    null.Time   `boil:"used_at" json:"used_at,omitempty" toml:"used_at" yaml:"used_at,omitempty"`
-	CreatedAt time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID         string      `boil:"id" json:"id" toml:"id" yaml:"id"`
+	UserID     null.String `boil:"user_id" json:"user_id,omitempty" toml:"user_id" yaml:"user_id,omitempty"`
+	CodeHash   null.String `boil:"code_hash" json:"code_hash,omitempty" toml:"code_hash" yaml:"code_hash,omitempty"`
+	ReturnURL  string      `boil:"return_url" json:"return_url" toml:"return_url" yaml:"return_url"`
+	WrongTries int         `boil:"wrong_tries" json:"wrong_tries" toml:"wrong_tries" yaml:"wrong_tries"`
+	ExpiresAt  time.Time   `boil:"expires_at" json:"expires_at" toml:"expires_at" yaml:"expires_at"`
+	UsedAt     null.Time   `boil:"used_at" json:"used_at,omitempty" toml:"used_at" yaml:"used_at,omitempty"`
+	CreatedAt  time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt  time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *loginAttemptR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L loginAttemptL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var LoginAttemptColumns = struct {
-	ID        string
-	UserID    string
-	CodeHash  string
-	ReturnURL string
-	Tries     string
-	ExpiresAt string
-	UsedAt    string
-	CreatedAt string
-	UpdatedAt string
+	ID         string
+	UserID     string
+	CodeHash   string
+	ReturnURL  string
+	WrongTries string
+	ExpiresAt  string
+	UsedAt     string
+	CreatedAt  string
+	UpdatedAt  string
 }{
-	ID:        "id",
-	UserID:    "user_id",
-	CodeHash:  "code_hash",
-	ReturnURL: "return_url",
-	Tries:     "tries",
-	ExpiresAt: "expires_at",
-	UsedAt:    "used_at",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
+	ID:         "id",
+	UserID:     "user_id",
+	CodeHash:   "code_hash",
+	ReturnURL:  "return_url",
+	WrongTries: "wrong_tries",
+	ExpiresAt:  "expires_at",
+	UsedAt:     "used_at",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
 }
 
 var LoginAttemptTableColumns = struct {
-	ID        string
-	UserID    string
-	CodeHash  string
-	ReturnURL string
-	Tries     string
-	ExpiresAt string
-	UsedAt    string
-	CreatedAt string
-	UpdatedAt string
+	ID         string
+	UserID     string
+	CodeHash   string
+	ReturnURL  string
+	WrongTries string
+	ExpiresAt  string
+	UsedAt     string
+	CreatedAt  string
+	UpdatedAt  string
 }{
-	ID:        "login_attempts.id",
-	UserID:    "login_attempts.user_id",
-	CodeHash:  "login_attempts.code_hash",
-	ReturnURL: "login_attempts.return_url",
-	Tries:     "login_attempts.tries",
-	ExpiresAt: "login_attempts.expires_at",
-	UsedAt:    "login_attempts.used_at",
-	CreatedAt: "login_attempts.created_at",
-	UpdatedAt: "login_attempts.updated_at",
+	ID:         "login_attempts.id",
+	UserID:     "login_attempts.user_id",
+	CodeHash:   "login_attempts.code_hash",
+	ReturnURL:  "login_attempts.return_url",
+	WrongTries: "login_attempts.wrong_tries",
+	ExpiresAt:  "login_attempts.expires_at",
+	UsedAt:     "login_attempts.used_at",
+	CreatedAt:  "login_attempts.created_at",
+	UpdatedAt:  "login_attempts.updated_at",
 }
 
 // Generated where
@@ -240,25 +240,25 @@ func (w whereHelpernull_Time) IsNull() qm.QueryMod    { return qmhelper.WhereIsN
 func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
 var LoginAttemptWhere = struct {
-	ID        whereHelperstring
-	UserID    whereHelpernull_String
-	CodeHash  whereHelpernull_String
-	ReturnURL whereHelperstring
-	Tries     whereHelperint
-	ExpiresAt whereHelpertime_Time
-	UsedAt    whereHelpernull_Time
-	CreatedAt whereHelpertime_Time
-	UpdatedAt whereHelpertime_Time
+	ID         whereHelperstring
+	UserID     whereHelpernull_String
+	CodeHash   whereHelpernull_String
+	ReturnURL  whereHelperstring
+	WrongTries whereHelperint
+	ExpiresAt  whereHelpertime_Time
+	UsedAt     whereHelpernull_Time
+	CreatedAt  whereHelpertime_Time
+	UpdatedAt  whereHelpertime_Time
 }{
-	ID:        whereHelperstring{field: "\"login_attempts\".\"id\""},
-	UserID:    whereHelpernull_String{field: "\"login_attempts\".\"user_id\""},
-	CodeHash:  whereHelpernull_String{field: "\"login_attempts\".\"code_hash\""},
-	ReturnURL: whereHelperstring{field: "\"login_attempts\".\"return_url\""},
-	Tries:     whereHelperint{field: "\"login_attempts\".\"tries\""},
-	ExpiresAt: whereHelpertime_Time{field: "\"login_attempts\".\"expires_at\""},
-	UsedAt:    whereHelpernull_Time{field: "\"login_attempts\".\"used_at\""},
-	CreatedAt: whereHelpertime_Time{field: "\"login_attempts\".\"created_at\""},
-	UpdatedAt: whereHelpertime_Time{field: "\"login_attempts\".\"updated_at\""},
+	ID:         whereHelperstring{field: "\"login_attempts\".\"id\""},
+	UserID:     whereHelpernull_String{field: "\"login_attempts\".\"user_id\""},
+	CodeHash:   whereHelpernull_String{field: "\"login_attempts\".\"code_hash\""},
+	ReturnURL:  whereHelperstring{field: "\"login_attempts\".\"return_url\""},
+	WrongTries: whereHelperint{field: "\"login_attempts\".\"wrong_tries\""},
+	ExpiresAt:  whereHelpertime_Time{field: "\"login_attempts\".\"expires_at\""},
+	UsedAt:     whereHelpernull_Time{field: "\"login_attempts\".\"used_at\""},
+	CreatedAt:  whereHelpertime_Time{field: "\"login_attempts\".\"created_at\""},
+	UpdatedAt:  whereHelpertime_Time{field: "\"login_attempts\".\"updated_at\""},
 }
 
 // LoginAttemptRels is where relationship names are stored.
@@ -298,9 +298,9 @@ func (r *loginAttemptR) GetUser() *User {
 type loginAttemptL struct{}
 
 var (
-	loginAttemptAllColumns            = []string{"id", "user_id", "code_hash", "return_url", "tries", "expires_at", "used_at", "created_at", "updated_at"}
+	loginAttemptAllColumns            = []string{"id", "user_id", "code_hash", "return_url", "wrong_tries", "expires_at", "used_at", "created_at", "updated_at"}
 	loginAttemptColumnsWithoutDefault = []string{"id", "expires_at"}
-	loginAttemptColumnsWithDefault    = []string{"user_id", "code_hash", "return_url", "tries", "used_at", "created_at", "updated_at"}
+	loginAttemptColumnsWithDefault    = []string{"user_id", "code_hash", "return_url", "wrong_tries", "used_at", "created_at", "updated_at"}
 	loginAttemptPrimaryKeyColumns     = []string{"id"}
 	loginAttemptGeneratedColumns      = []string{}
 )

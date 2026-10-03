@@ -37,12 +37,13 @@ func (s *Store) MailboxHasAccount(ctx context.Context, canonical string) (bool, 
 }
 
 // UnconfirmedUserIDsCreatedBefore returns the ids of the users who never
-// confirmed their address and were created before t.
+// confirmed their address, were created before t and hold no invitations.
 func (s *Store) UnconfirmedUserIDsCreatedBefore(ctx context.Context, t time.Time) ([]string, error) {
 	users, err := core.Users(
 		qm.Select(core.UserColumns.ID),
 		core.UserWhere.EmailConfirmedAt.IsNull(),
 		core.UserWhere.CreatedAt.LT(null.TimeFrom(t)),
+		qm.Where(`not exists (select 1 from user_invitations i where i.user_id = users.id)`),
 	).All(ctx, s.exec)
 	if err != nil {
 		return nil, err

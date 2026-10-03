@@ -44,12 +44,12 @@ func (s *Store) LoginCodesSince(ctx context.Context, userID string, since time.T
 	).Count(ctx, s.exec)
 }
 
-// WrongLoginTriesSince counts the wrong codes tried on the user's attempts
-// created after since: every try but the one that used an attempt up.
+// WrongLoginTriesSince sums the wrong codes tried on the user's attempts
+// created after since.
 func (s *Store) WrongLoginTriesSince(ctx context.Context, userID string, since time.Time) (int64, error) {
 	var n int64
 	err := s.exec.QueryRowContext(ctx, `
-		select coalesce(sum(tries - case when used_at is null then 0 else 1 end), 0)
+		select coalesce(sum(wrong_tries), 0)
 		from login_attempts
 		where user_id = $1 and created_at > $2`, userID, since).Scan(&n)
 
@@ -62,16 +62,12 @@ func (s *Store) DeleteLoginAttemptsExpiredBefore(ctx context.Context, t time.Tim
 	return core.LoginAttempts(core.LoginAttemptWhere.ExpiresAt.LT(t)).DeleteAll(ctx, s.exec)
 }
 
-// NewestOpenLoginAttempt returns the user's newest attempt that is unused,
-// expires after now and has had fewer than maxTries tries, or ErrNotFound.
-func (s *Store) NewestOpenLoginAttempt(ctx context.Context, userID string, now time.Time, maxTries int) (*core.LoginAttempt, error) {
-	a, err := core.LoginAttempts(
+// UnexpiredLoginAttempts returns the user's attempts that expire after now,
+// newest first; the service decides which of them can still log in.
+func (s *Store) UnexpiredLoginAttempts(ctx context.Context, userID string, now time.Time) (core.LoginAttemptSlice, error) {
+	return core.LoginAttempts(
 		core.LoginAttemptWhere.UserID.EQ(null.StringFrom(userID)),
-		core.LoginAttemptWhere.UsedAt.IsNull(),
 		core.LoginAttemptWhere.ExpiresAt.GT(now),
-		core.LoginAttemptWhere.Tries.LT(maxTries),
 		qm.OrderBy(core.LoginAttemptColumns.CreatedAt+" desc, "+core.LoginAttemptColumns.ID+" desc"),
-	).One(ctx, s.exec)
-
-	return a, notFound(err)
+	).All(ctx, s.exec)
 }
