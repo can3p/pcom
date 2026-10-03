@@ -9,7 +9,7 @@ allowlist names every file that doesn't follow them yet. Shares
 |---|---|---|---|
 | Transport | `pkg/web/app` (HTML, actions, API), page builders in `pkg/web`, CLI commands | Bind and shape-check input, take the current user from the context, call **one** service method (a page may assemble several reads), render, redirect or set htmx headers, map service errors to responses | SQL or ORM calls, transactions, authorization beyond "is logged in", importing `pkg/repo` |
 | Service | `pkg/service/<area>` | Business rules, authorization, visibility, transactions, sending mail in the same transaction as the change. Methods take `ctx`, the acting user (`*core.User`, nil for anonymous) and the input, and return a result or a service error | Importing gin or `net/http`; building queries |
-| Repository | `pkg/repo` | Every query and write, as methods on `*repo.Store`, named for what they fetch (`PostByID`, `ShareByID`). `sql.ErrNoRows` becomes `repo.ErrNotFound` | Business rules or permission checks: the service computes the filter and passes it in |
+| Repository | `pkg/repo` | Every query and write, as methods on `*repo.Store`, named for what they fetch (`PostByID`, `ShareByID`). `sql.ErrNoRows` becomes `repo.ErrNotFound` | Business rules or permission checks, in Go or in SQL: the service computes the filter and passes it in, and a query's expressions select, count and sum facts, they don't define rules (see "Logic in the database") |
 
 Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 `pkg/forms/validation`'s pure checks, `pkg/util`, mail formatting in
@@ -70,11 +70,65 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **One query, one method.** Repository files are per aggregate; a lookup
   another area needs is called, not copied (`UsersByIDs`, `OpenGrantExists`).
 
+## Logic in the database
+
+Business rules live in Go services, where they are read, tested and changed
+together. Postgres stores facts and protects their integrity. A rule moves
+into the database only for a strong reason, which the migration or
+repository comment names and review checks.
+
+The database does:
+
+- **Integrity backstops.** NOT NULL, foreign keys, unique and partial unique
+  indexes, CHECKs on a column's own shape. The service checks first and
+  returns a form error; the constraint catches races and code paths that
+  forgot (the pending-invitation index, #168; `users.email_canonical NOT
+  NULL`, so an insert that skips the canonical address fails).
+- **Concurrency control.** Transactions, row locks (`LockLoginAttempt`),
+  scoped advisory locks (`repo.LockUser`, `repo.LockMailbox`), and
+  conditional writes that re-check the state they act on
+  (`DeleteUnconfirmedUser … where email_confirmed_at is null`).
+- **Set work it does far better.** Filtering, counting, summing, ordering,
+  paging and graph recursion over stored facts, with every parameter (times,
+  limits, ids) computed by the service and passed in.
+- **Cascades only for rows a parent wholly owns** (`login_attempts` on
+  `users`).
+- **One-off data migrations.** A backfill may restate a Go rule in SQL,
+  commented as a frozen copy that matches the Go rule when written; the live
+  rule stays in Go (`users_email_canonical.sql` and
+  `pgsession.CanonicalEmail`).
+
+The database does not:
+
+- **Compute business values** in functions, triggers, generated columns,
+  views or defaults. F5 first defined the mailbox rule as a Postgres
+  function only the app called; it is now `pgsession.CanonicalEmail`, with a
+  table test, stored on every insert.
+- **Decide time.** No `now()` in a rule's predicate: the service passes its
+  clock's time in, so tests move it (`accounts.WithClock`). `created_at`
+  defaults are fine.
+- **Define a rule in an expression.** When an aggregate's arithmetic would be
+  the rule, store the fact the rule needs and let SQL only add it up: the
+  service counts a wrong code in `login_attempts.wrong_tries`, and
+  `WrongLoginTriesSince` sums that column.
+- **Decide through an error.** A behavior that depends on a constraint
+  failing is stated in the query or the service instead, and a constraint
+  error stays an error: `UnconfirmedUserIDsCreatedBefore` leaves out the
+  accounts holding invitations rather than relying on the foreign key to
+  refuse their delete.
+- **Hold a second copy of a rule.** A query narrows by stored facts and the
+  service applies its predicate to the rows: `UnexpiredLoginAttempts`
+  returns the candidates and `LatestLoginAttempt` picks the first that
+  `open()` accepts.
+
 ## Tests
 
 - Services are tested against `testdb.New(t)` with the factories: no
   interfaces or mocks for the store.
 - Repositories are tested through their services, except queries with
   logic of their own (the graph, pagination) and `Store` itself.
+- A query that keeps a database-side rule for a strong reason, or a filter
+  a service rule depends on, is asserted directly against `testdb`
+  (`UnconfirmedUserIDsCreatedBefore` in the pruning test).
 - A moved test keeps its assertions. If an assertion must change, the
   behavior changed.
