@@ -1,16 +1,12 @@
 {{ if .DraftSaved }}
-<div id="last_draft_save">
+<div id="last_draft_save" class="ed-saved">
   <input type="hidden" name="post_id" value="{{ .PostID }}" />
-  <p class="fw-lighter">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</p>
+  <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
 </div>
 {{ else }}
-<div id="form-container" class="container mt-lg-4 mt-2 flex-grow-1 d-flex flex-column">
-  <h1>{{ if .PostID }}Edit Post{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
-
+<div id="form-container" class="ed">
   {{ with .Prompt }}
-  <div class="alert alert-info" role="alert">
-    {{ .Author.Username }} has asked: {{ .Prompt.Message }}
-  </div>
+  <p class="ed-prompt" role="alert">{{ .Author.Username }} has asked: {{ .Prompt.Message }}</p>
   {{ end }}
 
   <form
@@ -22,116 +18,118 @@
         hx-trigger="change delay:2s, keyup delay:2s, submit"
         hx-disabled-elt="this"
         data-controller="postform"
-        class="flex-grow-1 d-flex flex-column gap-lg-3 gap-2"
+        class="ed-form"
         >
 
-    <div id="last_draft_save">
-    {{ if .PostID }}
-      <input type="hidden" name="post_id" value="{{ .PostID }}" />
-      <small class="fw-lighter">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</small>
-    {{ else }}
-      {{ with .Prompt }}
-        <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
+    <div class="ed-head">
+      <h1 class="ed-title">{{ if .PostID }}Edit Post{{ if not .IsPublished }} <span class="ed-badge">Draft</span>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
+      <div id="last_draft_save" class="ed-saved">
+      {{ if .PostID }}
+        <input type="hidden" name="post_id" value="{{ .PostID }}" />
+        <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
+      {{ else }}
+        {{ with .Prompt }}
+          <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
+        {{ end }}
       {{ end }}
-    {{ end }}
+      </div>
     </div>
 
-    <div>
-      <input name="subject" type="subject"
+    <div class="ed-field">
+      <input name="subject" type="text"
                           value="{{ if .Input }}{{ .Input.Subject }}{{ end }}"
-                          class="form-control {{ if (.Errors.HasError "subject") }}is-invalid{{ end }}"
+                          class="ed-subject"
                           placeholder="Subject"
-                          aria-describedby="subjectHelp">
+                          aria-label="Subject"
+                          {{ if (.Errors.HasError "subject") }}aria-invalid="true"{{ end }}>
       {{ if (.Errors.HasError "subject") }}
-      <div class="invalid-feedback">{{ .Errors.subject }}</div>
+      <p class="field-error">{{ .Errors.subject }}</p>
       {{ end }}
     </div>
 
-    <div>
-      <input name="url" type="url"
-                       value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
-                       class="form-control {{ if (.Errors.HasError "url") }}is-invalid{{ end }}"
-                       placeholder="URL (optional)"
-                       aria-describedby="urlHelp">
+    <div class="ed-field">
+      <div class="ed-url">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"></path><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"></path></svg>
+        <input name="url" type="url"
+                         value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
+                         placeholder="URL (optional)"
+                         aria-label="URL (optional)"
+                         {{ if (.Errors.HasError "url") }}aria-invalid="true"{{ end }}>
+      </div>
       {{ if (.Errors.HasError "url") }}
-      <div class="invalid-feedback">{{ .Errors.url }}</div>
+      <p class="field-error">{{ .Errors.url }}</p>
       {{ end }}
-      <div id="urlHelp" class="form-text">Optional URL for this post</div>
     </div>
 
-    <div class="d-flex flex-column flex-grow-1"
+    <div class="ed-field">
+      <div class="box ed-box mdeditor"
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
-      {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID }}
+        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID }}
 
-      <textarea class="form-control form-control-sm flex-grow-1 mh-auto {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="Your post goes there" rows="10">{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+        <textarea class="ed-body" name="body" placeholder="Your post goes there" aria-label="Post" rows="14" {{ if (.Errors.HasError "body") }}aria-invalid="true"{{ end }}>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
+      </div>
       {{ if (.Errors.HasError "body") }}
-      <div class="invalid-feedback">{{ .Errors.body }}</div>
+      <p class="field-error">{{ .Errors.body }}</p>
       {{ end }}
     </div>
 
-
-    <div>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="visibility" id="visibilityDirect"
-                                                                      value="direct_only"
+    <fieldset class="ed-vis">
+      <legend>Who can read it</legend>
+      <label class="ed-radio" for="visibilityDirect">
+        <input type="radio" name="visibility" id="visibilityDirect" value="direct_only"
         {{ if .Input }}{{ if eq .Input.Visibility "direct_only" }}checked{{ end }}{{ end }}
         >
-        <label class="form-check-label" for="visibilityDirect">
-          Show to direct connections only
-        </label>
-      </div>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree"
+        Show to direct connections only
+      </label>
+      <label class="ed-radio" for="visibilitySecondDegree">
+        <input type="radio" name="visibility" id="visibilitySecondDegree" value="second_degree"
         {{ if not .Input }}checked{{ end }}
         {{ if .Input }}{{ if eq .Input.Visibility "second_degree" }}checked{{ end }}{{ end }}
         >
-        <label class="form-check-label" for="visibilitySecondDegree">
-          Show to their connections as well
-        </label>
-      </div>
-      <div class="form-check">
-        <input class="form-check-input" type="radio" name="visibility" id="visibilityPublic"
-                                                                      value="public"
+        Show to their connections as well
+      </label>
+      <label class="ed-radio" for="visibilityPublic">
+        <input type="radio" name="visibility" id="visibilityPublic" value="public"
         {{ if .Input }}{{ if eq .Input.Visibility "public" }}checked{{ end }}{{ end }}
         >
-        <label class="form-check-label" for="visibilityPublic">
-          Public
-        </label>
-      </div>
+        Public
+      </label>
       {{ if (.Errors.HasError "visibility") }}
-      <div class="invalid-feedback">{{ .Errors.visibility }}</div>
+      <p class="field-error">{{ .Errors.visibility }}</p>
       {{ end }}
-    </div>
+    </fieldset>
 
-    <div class="d-flex gap-2">
+    <div class="ed-acts">
+      <button type="submit" disabled data-postform-pending
+              class="ed-delete"
+              name="save_action"
+              value="delete"
+              data-controller="confirm"
+              data-confirm-message-value="Do you really want to delete this post? The action cannot be reversed"
+              >Delete</button>
+      <div class="ed-main">
       {{ if .IsPublished }}
-        <button type="submit" disabled data-postform-pending class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save Post</button>
         <button type="submit" disabled data-postform-pending
-                class="btn btn-outline-primary btn-sm"
+                class="btn btn-secondary"
                 name="save_action"
                 value="make_draft"
                 data-controller="confirm"
                 data-confirm-message-value="Do you really want to turn the post into draft? It will disappear from the feeds"
                 >Back to draft</button>
+        <button type="submit" disabled data-postform-pending class="btn btn-primary" name="save_action" value="save_post">Save Post</button>
       {{ else }}
-        <button type="submit" disabled data-postform-pending class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save as Draft</button>
+        <button type="submit" disabled data-postform-pending class="btn btn-secondary" name="save_action" value="save_post">Save as Draft</button>
         <button type="submit" disabled data-postform-pending
-                class="btn btn-outline-primary btn-sm"
+                class="btn btn-primary"
                 name="save_action"
                 value="publish"
                 data-controller="confirm"
                 data-confirm-message-value="Do you really want to publish this post?"
                 >Publish</button>
       {{ end }}
-        <button type="submit" disabled data-postform-pending
-                class="btn btn-danger btn-sm"
-                name="save_action"
-                value="delete"
-                data-controller="confirm"
-                data-confirm-message-value="Do you really want to delete this post? The action cannot be reversed"
-                >Delete</button>
+      </div>
     </div>
   </form>
 </div>
