@@ -1,24 +1,25 @@
-<form method="POST"
+<form class="settings-form"
+      method="POST"
       action="{{ link "form_send_invite" }}"
       hx-post="{{ link "form_send_invite" }}"
       hx-swap="outerHTML"
       hx-disabled-elt="this"
       >
-      {{ if and .Errors (ne .Errors.general "") }}
-      <div class="alert alert-danger mt-3 mb-3" role="alert">{{ .Errors.general }}</div>
+  <div class="settings-inline">
+    <div class="field">
+      <label for="sendInviteEmail">Email address</label>
+      <input name="email" type="email" id="sendInviteEmail"
+             value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
+             placeholder="friend@example.org"
+             required
+             {{ if (.Errors.HasError "email") }}aria-invalid="true" aria-describedby="sendInviteEmailError"{{ end }}>
+      {{ if (.Errors.HasError "email") }}
+      <p class="field-error" id="sendInviteEmailError">{{ .Errors.email }}</p>
       {{ end }}
-
-      <div class="mb-3">
-        <label for="sendInviteEmail" class="form-label">Email address</label>
-        <input name="email" type="email"
-                            value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
-                            class="form-control {{ if and .Errors (ne .Errors.email "") }}is-invalid{{ end }}"
-                            id="sendInviteEmail" aria-describedby="emailHelp"
-                                                  required>
-        {{ if and .Errors (ne .Errors.email "") }}
-        <div class="invalid-feedback">{{ .Errors.email }}</div>
-        {{ end }}
-      </div>
-
-      <button type="submit" class="btn btn-primary">Send an invite</button>
+    </div>
+    <div class="settings-row">
+      <button type="submit" class="btn btn-primary">Send invite</button>
+      {{ template "partial--settings_status.html" . }}
+    </div>
+  </div>
 </form>

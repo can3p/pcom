@@ -1,0 +1,25 @@
+{{/* The API key section. APIKey: the user's key, nil until one is generated. */}}
+<section class="settings-sec" id="api" aria-labelledby="api-title">
+  <h2 id="api-title">API key</h2>
+  <p class="settings-lead">For scripts and the blg command-line client. Keep it secret.</p>
+  <div class="settings-row">
+    {{ with .APIKey }}
+      <code class="settings-secret" aria-label="API key, hidden">••••••••••••••••</code>
+      <button type="button"
+              class="btn btn-secondary"
+              data-controller="clipboard"
+              data-clipboard-copy-value="{{ .APIKey }}"
+              >Copy</button>
+    {{ else }}
+      <button type="button"
+              class="btn btn-secondary"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="generate_api_key"
+              data-action-skip-reload-value="true"
+              hx-target="#api"
+              hx-swap="outerHTML"
+              >Generate an API key</button>
+    {{ end }}
+  </div>
+</section>

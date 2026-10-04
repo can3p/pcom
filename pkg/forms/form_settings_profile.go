@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
 )
 
@@ -31,7 +30,9 @@ func SettingsProfileNew(accounts *accounts.Service, u *core.User) *SettingsProfi
 			FormTemplate:        "form--settings-profile.html",
 			KeepValuesAfterSave: true,
 			Input:               &SettingsProfileInput{},
-			ExtraTemplateData:   map[string]any{},
+			ExtraTemplateData: map[string]any{
+				"AboutMaxLength": accounts.TextLimits().ProfileAboutMaxLength,
+			},
 		},
 		Accounts: accounts,
 		User:     u,
@@ -52,5 +53,5 @@ func (f *SettingsProfile) Save(c context.Context) (forms.FormSaveAction, error) 
 		return nil, err
 	}
 
-	return formhelpers.SuccessBadge("Profile has been saved successfully!"), nil
+	return f.FormBase.Save(c)
 }

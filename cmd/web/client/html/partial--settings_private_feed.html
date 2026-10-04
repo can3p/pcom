@@ -1,0 +1,27 @@
+{{/* The private feed section. FeedURL: the private RSS feed URL, empty until a feed token exists. */}}
+<section class="settings-sec" id="private-feed" aria-labelledby="private-feed-title">
+  <h2 id="private-feed-title">Private feed</h2>
+  <p class="settings-lead">A read-only RSS feed of your feed. It is separate from your API key, and making a new URL stops the old one from working.</p>
+  {{ with .FeedURL }}
+  <div class="settings-row">
+    <code class="settings-secret settings-url">{{ . }}</code>
+    <button type="button"
+            class="btn btn-secondary"
+            data-controller="clipboard"
+            data-clipboard-copy-value="{{ . }}"
+            >Copy</button>
+  </div>
+  {{ end }}
+  <div class="settings-row">
+    <button type="button"
+            class="btn btn-secondary"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="regenerate_feed_token"
+            data-action-skip-reload-value="true"
+            hx-target="#private-feed"
+            hx-swap="outerHTML"
+            {{ if .FeedURL }}data-action-prompt-value="The current feed URL will stop working. Make a new one?"{{ end }}
+            >{{ if .FeedURL }}Make a new feed URL{{ else }}Create feed URL{{ end }}</button>
+  </div>
+</section>

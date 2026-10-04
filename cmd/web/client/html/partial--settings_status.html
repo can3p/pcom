@@ -1,0 +1,9 @@
+{{/* The status slot of a settings form, next to its submit button: saved, or not saved and why.
+     Takes the form's template data (FormSaved, Errors, FormError, and SavedMessage, "Saved" when unset). */}}
+{{ if .FormSaved }}
+  {{ template "partial--success-message.html" toMap "Message" (or .SavedMessage "Saved") }}
+{{ else if .FormError }}
+  {{ template "partial--error-message.html" toMap "Message" (printf "Not saved. %s" .FormError) }}
+{{ else if .Errors }}
+  {{ template "partial--error-message.html" toMap "Message" "Not saved. Fix the field above." }}
+{{ end }}

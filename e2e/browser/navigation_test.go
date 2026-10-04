@@ -162,7 +162,7 @@ func TestNavigation_DarkModeBackground(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(lightPage.Locator("body")).Not().ToHaveCSS("background-color", darkBackground))
 }
 
-// Saving the general settings form swaps in a success flash wrapped by the
+// Saving the general settings form swaps in a "Saved" status wrapped by the
 // "auto-dismiss" controller, which fades it out and removes it on its own
 // after a few seconds, with no further user action.
 func TestNavigation_SettingsFlashAutoDismisses(t *testing.T) {
@@ -175,9 +175,10 @@ func TestNavigation_SettingsFlashAutoDismisses(t *testing.T) {
 	_, err := page.Goto("/controls/settings")
 	require.NoError(t, err)
 
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save Settings"}).Click())
+	general := page.GetByRole("region", playwright.PageGetByRoleOptions{Name: "General", Exact: playwright.Bool(true)})
+	require.NoError(t, general.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Save"}).Click())
 
-	flash := page.GetByRole("alert").Filter(playwright.LocatorFilterOptions{HasText: "Settings have been saved"})
+	flash := general.GetByRole("status").Filter(playwright.LocatorFilterOptions{HasText: "Saved"})
 	require.NoError(t, browser.Expect.Locator(flash).ToBeVisible())
 
 	require.NoError(t, browser.Expect.Locator(flash).ToHaveCount(0, playwright.LocatorAssertionsToHaveCountOptions{

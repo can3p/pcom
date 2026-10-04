@@ -36,9 +36,3 @@ func NoContent() forms.FormSaveAction {
 		c.Status(http.StatusNoContent)
 	}
 }
-
-func SuccessBadge(msg string) forms.FormSaveAction {
-	return Trigger(
-		NoContent(),
-		gin.H{"operation:success": gin.H{"explanation": msg}})
-}

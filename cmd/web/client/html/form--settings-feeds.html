@@ -1,23 +1,26 @@
-<form
+<form class="settings-form"
       method="POST"
       action="{{ link "form_add_user_feed" }}"
       hx-post="{{ link "form_add_user_feed" }}"
       hx-swap="outerHTML"
       hx-disabled-elt="this"
       autocomplete="off"
+      novalidate
       >
-
-  <div class="mb-3">
-    <label for="settingsUrl" class="form-label">Feed URL</label>
-      <input name="url" type="url"
-                       value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
-                       class="form-control {{ if (.Errors.HasError "url") }}is-invalid{{ end }}"
-                       placeholder="URL"
-                       aria-describedby="urlHelp">
-    {{ if (.Errors.HasError "url") }}
-    <div class="invalid-feedback">{{ .Errors.url }}</div>
-    {{ end }}
+  <div class="settings-inline">
+    <div class="field">
+      <label for="settingsFeedURL">Feed URL</label>
+      <input name="url" type="url" id="settingsFeedURL"
+             value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
+             placeholder="https://example.org/feed.xml"
+             {{ if (.Errors.HasError "url") }}aria-invalid="true" aria-describedby="settingsFeedURLError"{{ end }}>
+      {{ if (.Errors.HasError "url") }}
+      <p class="field-error" id="settingsFeedURLError">{{ .Errors.url }}</p>
+      {{ end }}
+    </div>
+    <div class="settings-row">
+      <button type="submit" class="btn btn-primary">Add feed</button>
+      {{ template "partial--settings_status.html" . }}
+    </div>
   </div>
-
-  <button type="submit" class="btn btn-primary">Add url</button>
 </form>

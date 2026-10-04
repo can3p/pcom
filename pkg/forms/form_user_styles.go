@@ -7,7 +7,6 @@ import (
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,5 +49,5 @@ func (f *SettingsUserStyles) Save(c context.Context) (forms.FormSaveAction, erro
 		return nil, err
 	}
 
-	return formhelpers.SuccessBadge("Styles have been saved successfully!"), nil
+	return f.FormBase.Save(c)
 }
