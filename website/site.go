@@ -22,11 +22,9 @@ const (
 	KindMarkdown
 )
 
-// Sidebar groups, in the order the sidebar shows them.
-const (
-	GroupGuide = "Guide"
-	GroupDev   = "Developer docs"
-)
+// GroupGuide is the sidebar's one group. The site publishes the user guide
+// only; developer docs are linked to on GitHub.
+const GroupGuide = "Guide"
 
 // Page is one HTML file on the site.
 type Page struct {
@@ -92,8 +90,8 @@ func (s *Site) Unpublished() map[string][]string { return s.unpublished }
 
 // docPages are the repository documents that get a page, with the short label
 // the sidebar uses for each. Navigation labels only: every word of the page
-// itself comes from the file. One line per page; the guide entries are the
-// ones the guide task extends.
+// itself comes from the file. One line per page; a feature wave's docs task
+// adds its guide page here.
 var docPages = []struct {
 	Group, Src, Out, Nav string
 }{
@@ -105,15 +103,6 @@ var docPages = []struct {
 	{GroupGuide, "docs/guide/settings.md", "docs/guide/settings.html", "Settings"},
 	{GroupGuide, "docs/guide/api.md", "docs/guide/api.html", "API and blg"},
 	{GroupGuide, "docs/guide/self-hosting.md", "docs/guide/self-hosting.html", "Self-hosting"},
-
-	{GroupDev, "README.md", "readme.html", "README"},
-	{GroupDev, "docs/running.md", "docs/running.html", "Running locally"},
-	{GroupDev, "docs/api.md", "docs/api.html", "HTTP API"},
-	{GroupDev, "docs/product.md", "docs/product.html", "Product rules"},
-	{GroupDev, "docs/architecture.md", "docs/architecture.html", "Architecture"},
-	{GroupDev, "docs/testing.md", "docs/testing.html", "Testing"},
-	{GroupDev, "docs/implementation-plan.md", "docs/implementation-plan.html", "Implementation plan"},
-	{GroupDev, "docs/open-questions.md", "docs/open-questions.html", "Open questions"},
 }
 
 // newSite builds the page list and the repo->site path map.
@@ -143,7 +132,7 @@ func newSite(repo string) *Site {
 }
 
 func (s *Site) buildNav() {
-	for _, g := range []string{GroupGuide, GroupDev} {
+	for _, g := range []string{GroupGuide} {
 		sec := NavSection{Title: g}
 		for _, p := range s.Pages {
 			if p.Group == g {
