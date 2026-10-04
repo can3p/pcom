@@ -75,8 +75,10 @@ subagents, whose context is thrown away.
   agent that left its files untagged.
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
-- **Subagents run no git commands** and don't touch `go.mod` unless it is among the task's owned files.
-  They report gaps in the test factories instead of patching around them. Add missing helpers in one place,
+- **Splitting the work is yours.** The wave file plans the tasks; you decide who owns what, so that no
+  two parallel tasks write the same file (`go.mod`, a registry, a shared helper) and no task waits on a
+  file another is still writing. Whatever a task's prompt doesn't list as owned, it doesn't edit.
+- **Subagents run no git commands.** They report gaps in the test factories instead of patching around them. Add missing helpers in one place,
   then re-dispatch. If two tasks independently ask for the same helper, it is real.
 - **Escalate once, don't loop.** A task that fails its "done when" twice is bumped one tier, once, with the
   failure summary. If it fails there, stop and report rather than burning more tokens.

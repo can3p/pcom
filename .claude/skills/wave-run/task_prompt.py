@@ -35,7 +35,7 @@ Task: {task}.
 {excerpt}
 
 You own exactly these files: {owns}. Do not edit any other file; if another file must change, stop and
-report it under needs:. Do not run git. Do not edit go.mod.
+report it under needs:. Do not run git.
 Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
 Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
@@ -63,7 +63,7 @@ Task: {task}.
 {excerpt}
 
 You own exactly these files: {owns}. Do not edit any other file; if another file must change, stop and
-report it under needs:. Do not run git. Do not edit go.mod.
+report it under needs:. Do not run git.
 Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
 Before touching cmd/web/client or an htmx handler, follow the frontend-htmx skill.
@@ -77,7 +77,7 @@ Tests prove what the feature is for, not incidental markup: what a user does in 
 (e2e/browser), a server rule is an E2E or service test. A rule a service test already owns is not
 repeated in E2E: a route test proves the wiring with one case the rule admits and one it rejects. An
 existing assertion may change only where the task changes that behavior; name each one under bugs:. Keep
-tests compact (ground rule 9 in docs/testing.md).
+tests compact (ground rule 7 in docs/testing.md).
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end{ui}.
 Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
