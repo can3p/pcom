@@ -37,11 +37,11 @@ func TestIndex_AnonymousVisitor(t *testing.T) {
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+post.ID)))
 
 	nav := page.GetByRole("navigation")
-	github := nav.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "GitHub"})
+	github := page.GetByRole("contentinfo").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Source on GitHub"})
 	require.NoError(t, browser.Expect.Locator(github).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(github).ToHaveAttribute("href", "https://github.com/can3p/pcom"))
 
-	menu := nav.Locator("ul.navbar-nav a")
+	menu := nav.Locator(".nav-links a")
 	require.NoError(t, browser.Expect.Locator(menu).ToHaveText([]string{"Home", "Sign up", "Login"}))
 	require.NoError(t, browser.Expect.Locator(menu.First()).ToHaveAttribute("href", "/"))
 	require.NoError(t, browser.Expect.Locator(nav.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Explore"})).ToHaveCount(0))

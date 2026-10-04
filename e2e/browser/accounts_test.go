@@ -144,7 +144,7 @@ func TestAccounts_SignupWhileOpenAndConfirmWithCode(t *testing.T) {
 	browser.SubmitLoginCode(t, page, b7SignupCode(t, app, email))
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username))
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: username, Exact: new(true)})).ToBeVisible())
 }
 
 // Someone who signs up and never types the signup code is not locked out:
@@ -175,7 +175,7 @@ func TestAccounts_SignupWithoutTheCodeLogsInLater(t *testing.T) {
 	browser.LogInWithCode(t, app, page, email)
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/feed$`)))
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username))
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: username, Exact: new(true)})).ToBeVisible())
 }
 
 func mustCount(t testing.TB, l playwright.Locator) int {
@@ -219,7 +219,7 @@ func TestAccounts_AcceptInvitationConnectsToInviter(t *testing.T) {
 	require.NoError(t, err)
 
 	// logged in as the new account
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation")).ToContainText("Hi "+username, playwright.LocatorAssertionsToContainTextOptions{}))
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: username, Exact: new(true)})).ToBeVisible())
 
 	// connected to the inviter, listed under the new account's direct connections
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("link", playwright.PageGetByRoleOptions{Name: inviter.Username, Exact: new(true)})).ToBeVisible())

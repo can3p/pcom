@@ -49,7 +49,7 @@ func TestWriting_NewDraftAutosaveAndToolbar(t *testing.T) {
 	require.NoError(t, body.Click())
 	require.NoError(t, body.PressSequentially("Hello world"))
 
-	require.NoError(t, page.Locator(".bi-type-bold").Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Bold"}).Click())
 
 	require.NoError(t, browser.Expect.Locator(page.Locator("#last_draft_save")).ToContainText("Last Updated"))
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))

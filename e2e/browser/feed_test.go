@@ -157,7 +157,7 @@ func expectLoadsMore(t *testing.T, page playwright.Page, path, prefix string) {
 	require.NoError(t, browser.Expect.Locator(more).ToHaveCount(0))
 
 	// the older posts were appended to the list, not a second page pasted in
-	for _, sel := range []string{"nav.navbar", "h1.us-user-header", ".us-user-home"} {
+	for _, sel := range []string{"nav.nav", "h1.us-user-header", ".us-user-home"} {
 		require.NoError(t, browser.Expect.Locator(page.Locator(sel)).ToHaveCount(1), sel)
 	}
 
@@ -215,13 +215,13 @@ func TestExplore_CursorPages(t *testing.T) {
 	req.Header.Set("HX-Request", "true")
 	frag := c.Do(req).RequireStatus(http.StatusOK)
 	require.NotContains(t, frag.Body, "<html")
-	require.NotContains(t, frag.Body, "navbar")
+	require.NotContains(t, frag.Body, `class="nav"`)
 	require.Contains(t, frag.Body, "Explorepost 01")
 	require.NotContains(t, frag.Body, "Load more", "the last page has no button")
 
 	full := c.Get(href).RequireStatus(http.StatusOK)
 	require.Contains(t, full.Body, "<html")
-	require.Contains(t, full.Body, "navbar")
+	require.Contains(t, full.Body, `class="nav"`)
 	require.Contains(t, full.Body, "Explorepost 01")
 	require.NotContains(t, full.Body, "Explorepost 35", "the page starts at the cursor")
 

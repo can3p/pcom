@@ -266,3 +266,166 @@
     color: var(--text);
   }
 }
+
+// Navigation pieces around .nav: the menu that collapses on phones, the
+// account group, the footer and the toast stack.
+.nav-brand img {
+  border-radius: 6px;
+}
+
+.nav-phone {
+  display: none;
+  align-items: center;
+  margin-left: auto;
+}
+
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+    background: var(--sunken);
+  }
+}
+
+.nav-write {
+  color: var(--accent);
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.nav-menu {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+}
+
+.nav-account {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: auto;
+}
+
+.nav-user {
+  font: 600 15px var(--font-ui);
+  color: var(--text);
+}
+
+@media (max-width: 767.98px) {
+  .nav-phone {
+    display: flex;
+  }
+
+  .nav-menu {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+
+    &.show {
+      display: flex;
+    }
+  }
+
+  .nav-menu .nav-links {
+    flex-direction: column;
+  }
+
+  .nav-account {
+    margin-left: 0;
+  }
+
+  .nav-account .btn-primary {
+    display: none;
+  }
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) 20px;
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 40px var(--space-5) 56px;
+  box-sizing: border-box;
+  font: 400 13px var(--font-ui);
+  color: var(--muted);
+
+  a {
+    color: var(--muted);
+  }
+
+  svg {
+    vertical-align: -2px;
+  }
+}
+
+.toaster {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+// Markdown editor toolbar: a row at the top of the box that holds the
+// textarea. As the first child of a .box it spans the box edge to edge.
+.tb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0;
+  padding: 6px var(--space-3);
+  border-bottom: 1px solid var(--line);
+
+  [hidden] {
+    display: none;
+  }
+}
+
+.tbb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+// Bootstrap hides `.toast:not(.show)` while it is still loaded.
+.toast:not(.show) {
+  display: flex;
+}

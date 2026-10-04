@@ -1,14 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  connect() {
-    this.element.querySelector("[data-bs-dismiss]").addEventListener('click', (e) => {
-      this.element.parentNode.removeChild(this.element)
-    }, false)
+  static targets = ["close"]
 
-    this.timer = setTimeout(() => {
-      this.element.parentNode.removeChild(this.element)
-    }, 10_000)
+  connect() {
+    this.closeTarget.addEventListener('click', () => this.element.remove(), false)
+
+    this.timer = setTimeout(() => this.element.remove(), 10_000)
   }
 
   disconnect() {

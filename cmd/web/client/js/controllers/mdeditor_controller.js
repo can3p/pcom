@@ -142,7 +142,11 @@ export default class extends Controller {
         uploadFiles(upload.files ?? [])
       };
 
-      upload.addEventListener('change', handler, false);
+      upload.addEventListener('change', handler, false)
+
+      for (let btn of this.element.querySelectorAll("[data-upload]")) {
+        btn.addEventListener("click", () => upload.click(), false)
+      }
 
       this.element.addEventListener('dragenter', function(e) {
         e.stopPropagation()
@@ -180,7 +184,7 @@ export default class extends Controller {
 
     if (showPreview) {
       htmx.on("draft_saved", (ev) => {
-        showPreview.classList.remove("d-none");
+        showPreview.hidden = false;
         showPreview.href = ev.detail.url
       })
     }
