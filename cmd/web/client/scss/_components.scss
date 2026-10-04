@@ -1,0 +1,268 @@
+// Shared components (Foundations board). Until Bootstrap goes, these share
+// names with some of its classes and are imported after it, so they win.
+
+// Buttons: one size. Primary is the single main action of a form; every other
+// button is secondary; a destructive one is secondary in red.
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font: 600 15px var(--font-ui);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: none;
+  }
+
+  &:disabled {
+    opacity: .6;
+    cursor: default;
+  }
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--accent-hover);
+    color: var(--on-accent);
+  }
+}
+
+.btn-secondary,
+.btn-danger {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--muted);
+  }
+}
+
+.btn-danger,
+.btn-danger:hover,
+.btn-danger:focus-visible {
+  color: var(--err);
+}
+
+// Form fields: label, control, then help or the field's error.
+.field {
+  margin: 0 0 var(--space-5);
+
+  label {
+    display: block;
+    margin: 0 0 6px;
+    font: 600 14px var(--font-ui);
+  }
+
+  input:not([type="checkbox"], [type="radio"]),
+  select,
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 16px/1.5 var(--font-ui);
+
+    &:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: -1px;
+    }
+
+    &[aria-invalid="true"] {
+      border-color: var(--err);
+    }
+  }
+}
+
+.field-help,
+.field-error {
+  margin: 6px 0 0;
+  font: 400 13px/1.5 var(--font-ui);
+  color: var(--muted);
+}
+
+.field-error {
+  font-weight: 600;
+  color: var(--err);
+}
+
+// Byline: author, via, date; parts separated by .dot.
+.meta {
+  margin: 0;
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--muted);
+
+  a {
+    color: var(--title);
+    font-weight: 600;
+  }
+
+  .dot {
+    padding: 0 6px;
+    color: var(--faint);
+  }
+}
+
+// Actions on a post or comment: one row of quiet text links.
+.acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) 18px;
+  font: 600 13px/1.5 var(--font-mono);
+
+  a,
+  button {
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}
+
+// A feed entry: not boxed, separated by space and a hairline.
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 36px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+// Boxes are only for forms that open in place, such as the comment composer.
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+}
+
+// A form's result, next to its submit button.
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 14px var(--font-ui);
+  color: var(--muted);
+
+  &.ok {
+    color: var(--ok);
+  }
+
+  &.err {
+    color: var(--err);
+  }
+}
+
+// Site navigation.
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-5);
+}
+
+.nav-bar {
+  border-bottom: 1px solid var(--line);
+}
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 800 20px var(--font-read);
+  letter-spacing: -0.015em;
+  color: var(--title);
+
+  &:hover {
+    color: var(--title);
+    text-decoration: none;
+  }
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  font: 600 13px var(--font-mono);
+
+  a {
+    padding: var(--space-2) 0;
+    color: var(--muted);
+
+    &:hover {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    &[aria-current="page"] {
+      color: var(--text);
+      box-shadow: inset 0 -2px 0 var(--accent);
+    }
+  }
+}
+
+// Results of actions that have no form.
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 360px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 15px/1.5 var(--font-ui);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+
+  &.ok {
+    border-left: var(--space-1) solid var(--ok);
+  }
+
+  &.err {
+    border-left: var(--space-1) solid var(--err);
+  }
+}
+
+.toast-close {
+  margin-left: auto;
+  padding: var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+  }
+}

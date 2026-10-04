@@ -1,0 +1,100 @@
+// Reset and element defaults: type and color from the tokens, nothing more.
+// Layout and spacing belong to components and area partials.
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--text);
+  background-color: var(--ground);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-read);
+  color: var(--title);
+}
+
+h1,
+h2 {
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+}
+
+blockquote {
+  border-left-color: var(--line);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+// Reading text: posts and comments.
+.prose {
+  max-width: var(--prose-width);
+  font: 400 18px/1.65 var(--font-read);
+  color: var(--text);
+
+  > :first-child {
+    margin-top: 0;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+
+  p,
+  ul,
+  ol,
+  pre,
+  blockquote {
+    margin: 0 0 var(--space-4);
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  blockquote {
+    padding: 2px 0 2px 20px;
+    border-left: 2px solid var(--line);
+    color: var(--muted);
+    font-style: italic;
+  }
+}

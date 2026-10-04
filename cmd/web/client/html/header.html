@@ -11,6 +11,10 @@
     <meta property="og:site_name" content="Private communities">
     <meta property="og:type" content="website">
     <link rel="stylesheet" href="{{ static_asset "main.css" }}" />
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ static_asset "fonts/golos-text-latin-400-normal.woff2" }}">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ static_asset "fonts/golos-text-latin-800-normal.woff2" }}">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ static_asset "fonts/golos-text-cyrillic-400-normal.woff2" }}">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ static_asset "fonts/golos-text-cyrillic-800-normal.woff2" }}">
     {{ if .RSSFeed }}
     <link rel="alternate" type="application/rss+xml" title="RSS" href="{{ .RSSFeed }}" />
     {{ end }}
