@@ -14,8 +14,16 @@ const hasScrollEnd = typeof window !== "undefined" && "onscrollend" in window
 // the momentum and the snapping - we only need to know which slide is
 // showing and be able to jump to a given one.
 function snapScroller(track, onChange) {
+    // distance between two slides: the slide width plus the gap, which is
+    // less than the track's width when the next slide peeks in
+    const pitch = () => {
+        const [first, second] = track.children
+
+        return first && second ? second.offsetLeft - first.offsetLeft : track.clientWidth
+    }
+
     const index = () => {
-        const width = track.clientWidth
+        const width = pitch()
 
         return width > 0 ? Math.round(track.scrollLeft / width) : 0
     }
@@ -24,7 +32,7 @@ function snapScroller(track, onChange) {
         const clamped = Math.max(0, Math.min(i, track.children.length - 1))
 
         track.scrollTo({
-            left: clamped * track.clientWidth,
+            left: clamped * pitch(),
             behavior: smooth && !reduceMotion() ? "smooth" : "auto",
         })
     }
@@ -186,12 +194,18 @@ function collectSlides(inner, leading) {
     return slides
 }
 
+const GLYPHS = {
+    "chevron-left": '<path d="M15 18l-6-6 6-6"></path>',
+    "chevron-right": '<path d="M9 18l6-6-6-6"></path>',
+    "x-lg": '<path d="M6 6l12 12"></path><path d="M18 6L6 18"></path>',
+}
+
 function button(className, label, glyph) {
     const el = document.createElement("button")
     el.type = "button"
     el.className = className
     el.setAttribute("aria-label", label)
-    el.innerHTML = `<i class="bi bi-${glyph}" aria-hidden="true"></i>`
+    el.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[glyph]}</svg>`
     return el
 }
 

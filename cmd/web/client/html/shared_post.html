@@ -1,13 +1,14 @@
 {{ template "header.html" . }}
 
-<div class="container col-md-8">
-  <div class="row justify-content-md-center mt-lg-4 mt-2">
-    <h1><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; {{ .PostSubject }}</h1>
+<main class="posts-page">
+  <article class="post-view">
+    <h1 class="post-title">{{ .PostSubject }}</h1>
+    <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a></p>
 
-    <div class="mt-3 post-full">
+    <div class="prose prose-post">
       {{ markdown_single_post .Post.Body }}
     </div>
-  </div>
-</div>
+  </article>
+</main>
 
 {{ template "footer.html" . }}

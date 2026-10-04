@@ -85,7 +85,7 @@ this is not
 `),
 			out: `<p>this is test</p>
 <div class="block-container-spoiler" data-controller="spoiler">
-<div class="block-container-spoiler-summary">Open Spoiler</div>
+<button type="button" class="block-container-spoiler-summary" aria-expanded="false">Open Spoiler</button>
 <div class="block-container-spoiler-content">
 <p>this is hidden</p>
 </div>
@@ -119,7 +119,7 @@ this is hidden
 `),
 			out: `<p>this is test</p>
 <div class="block-container-spoiler" data-controller="spoiler">
-<div class="block-container-spoiler-summary">Open Spoiler</div>
+<button type="button" class="block-container-spoiler-summary" aria-expanded="false">Open Spoiler</button>
 <div class="block-container-spoiler-content">
 <div class="block-container-gallery" data-controller="gallery">
 <div class="block-container-gallery-content">

@@ -75,7 +75,7 @@ func (r *LazyLoadRenderer) renderImage(w util.BufWriter, source []byte, node ast
 	if r.view == types.ViewEmail || r.view == types.ViewRSS {
 		_, _ = w.WriteString("<img src=\"")
 	} else {
-		_, _ = w.WriteString("<img class=\"lazyload mx-auto d-block img standalone-img\" data-src=\"")
+		_, _ = w.WriteString("<img class=\"lazyload post-img standalone-img\" data-src=\"")
 	}
 	if r.Unsafe || !html.IsDangerousURL([]byte(imgUrl)) {
 		_, _ = w.Write(util.EscapeHTML(util.URLEscape([]byte(imgUrl), true)))

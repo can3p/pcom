@@ -70,7 +70,7 @@ func TestComments_LeaveTopLevelComment(t *testing.T) {
 
 // Replying to an existing comment nests the reply under it and indents it
 // one level; a reply to that reply nests two levels deep. The reply form is
-// collapsed until "Leave a comment" opens it, and its Close button collapses
+// collapsed until "Reply" opens it, and its Close button collapses
 // it again without submitting.
 func TestComments_ReplyNestsAndCollapses(t *testing.T) {
 	t.Parallel()
@@ -92,7 +92,7 @@ func TestComments_ReplyNestsAndCollapses(t *testing.T) {
 
 	commentCard := page.Locator("#comment" + post.ID + top.ID)
 	replyForm := page.Locator("#comment-wrapper" + post.ID + top.ID)
-	leaveAComment := commentCard.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Leave a comment"})
+	leaveAComment := commentCard.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Reply", Exact: new(true)})
 
 	require.NoError(t, browser.Expect.Locator(replyForm).ToBeHidden())
 

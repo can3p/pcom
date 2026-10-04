@@ -22,7 +22,7 @@ func TestImgLazyLoadRenderer_SimpleImage_EditPreview(t *testing.T) {
 	output := string(result)
 
 	// In non-email/RSS views, should use lazyload class
-	require.Contains(t, output, `class="lazyload mx-auto d-block img standalone-img"`)
+	require.Contains(t, output, `class="lazyload post-img standalone-img"`)
 	require.Contains(t, output, `data-src="https://example.com/image.jpg"`)
 	require.Contains(t, output, `alt="alt text"`)
 }

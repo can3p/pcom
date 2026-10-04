@@ -1,17 +1,17 @@
 {{ template "header.html" . }}
 
 <div class="user-styles-applied us-user-home user-home">
-<div class="container col-md-8">
-  <div class="row justify-content-md-center mt-lg-4 mt-2">
-    <h1 class="us-user-header user-header">Public posts <a href="{{ link "public_feed" }}" title="RSS feed" aria-label="RSS feed"><i class="bi bi-rss"></i></a></h1>
-
-    {{ if eq (len .Items) 0 }}
-    <p>There are no public posts yet.</p>
-    {{ else }}
-      {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL }}
-    {{ end }}
+<main class="posts-page">
+  <div class="posts-head">
+    <h1 class="us-user-header user-header page-title">Public posts<a class="page-title-icon" href="{{ link "public_feed" }}" title="RSS feed" aria-label="RSS feed"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><path d="M5 19h.01"></path></svg></a></h1>
   </div>
-</div>
+
+  {{ if eq (len .Items) 0 }}
+  <p class="empty">There are no public posts yet.</p>
+  {{ else }}
+    {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL }}
+  {{ end }}
+</main>
 </div>
 
 {{ template "footer.html" . }}

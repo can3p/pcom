@@ -106,7 +106,7 @@ func TestImgLazyLoadRenderer_LazyLoadInEditPreview(t *testing.T) {
 	output := string(result)
 
 	// Regular image in edit preview should use lazyload
-	require.Contains(t, output, `class="lazyload mx-auto d-block img standalone-img"`)
+	require.Contains(t, output, `class="lazyload post-img standalone-img"`)
 	require.Contains(t, output, `data-src="https://example.com/image.jpg"`)
 }
 

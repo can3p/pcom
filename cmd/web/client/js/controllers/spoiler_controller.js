@@ -15,6 +15,7 @@ export default class extends Controller {
 
   show() {
     this.content.classList.add("show")
-    this.target.classList.add("d-none")
+    this.target.setAttribute("aria-expanded", "true")
+    this.target.hidden = true
   }
 }

@@ -275,7 +275,7 @@ func TestActions_ShareCancelledCreatesNothing(t *testing.T) {
 	_, err = page.Goto("/posts/" + post.ID)
 	require.NoError(t, err)
 
-	require.NoError(t, page.Locator(".us-comment-stats a:has(i.bi-share)").Click())
+	require.NoError(t, page.Locator(".us-comment-stats").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Share"}).Click())
 
 	select {
 	case msg := <-asked:
@@ -287,8 +287,36 @@ func TestActions_ShareCancelledCreatesNothing(t *testing.T) {
 	// Nothing was sent, so a fresh load shows no link.
 	_, err = page.Goto("/posts/" + post.ID)
 	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(page.Locator(".us-comment-stats a:has(i.bi-share)")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-comment-stats").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Share"})).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(page.Locator(".us-public-link")).ToHaveCount(0))
+}
+
+// "Copy link" puts the full address of the public link on the clipboard, not
+// the relative path, and says "Copied" for a moment.
+func TestActions_ShareCopyLink(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	author := browser.NewUser(t, app)
+	post, err := factory.Post(context.Background(), app.DB, author.ID, factory.Published())
+	require.NoError(t, err)
+	share, err := factory.PostShare(context.Background(), app.DB, post.ID)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(author), browser.Configure(func(o *playwright.BrowserNewContextOptions) {
+		o.Permissions = []string{"clipboard-read", "clipboard-write"}
+	}))
+
+	_, err = page.Goto("/posts/" + post.ID)
+	require.NoError(t, err)
+
+	copyLink := page.Locator(".us-public-link").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Copy link"})
+	require.NoError(t, copyLink.Click())
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-public-link")).ToContainText("Copied"))
+
+	copied, err := page.Evaluate(`navigator.clipboard.readText()`)
+	require.NoError(t, err)
+	require.Equal(t, app.URL+"/shared/"+share.ID, copied)
 }
 
 // Sharing makes a private post readable through a public link, without
@@ -320,7 +348,7 @@ func TestActions_ShareLifecycle(t *testing.T) {
 	_, err = page.Goto("/posts/" + post.ID)
 	require.NoError(t, err)
 
-	require.NoError(t, page.Locator(".us-comment-stats a:has(i.bi-share)").Click())
+	require.NoError(t, page.Locator(".us-comment-stats").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Share"}).Click())
 
 	shareLink := page.Locator(`.us-public-link a[href^="/shared/"]`)
 	require.NoError(t, browser.Expect.Locator(shareLink).ToBeVisible())
@@ -342,9 +370,9 @@ func TestActions_ShareLifecycle(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(anon.GetByText(post.Body)).ToBeVisible())
 
 	// Deleting the share removes the link from the post page and disables it.
-	require.NoError(t, page.Locator(".us-public-link a:has(i.bi-trash)").Click())
+	require.NoError(t, page.Locator(".us-public-link").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Turn off"}).Click())
 	require.NoError(t, browser.Expect.Locator(page.Locator(".us-public-link")).ToHaveCount(0))
-	require.NoError(t, browser.Expect.Locator(page.Locator(".us-comment-stats a:has(i.bi-share)")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-comment-stats").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Share"})).ToBeVisible())
 
 	resp, err = anon.Goto(href)
 	require.NoError(t, err)
