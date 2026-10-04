@@ -12,7 +12,7 @@ The editor saves about two seconds after you stop typing and shows when it last 
 
 ## Preview
 
-The status next to the Draft badge shows when the draft was autosaved. The page icon in the toolbar opens the post as readers will see it, in a new tab. It appears once the post has been saved for the first time.
+The status next to the post's title ("Last Updated …") shows when it was last saved; an unpublished post also shows a Draft badge there. The page icon in the toolbar opens the post as readers will see it, in a new tab. It appears once the post has been saved for the first time.
 
 ## Visibility
 
