@@ -49,12 +49,16 @@ owner decides before or during the wave. A wave only ever edits its own file: no
 A wave file is a set of tasks a subagent can finish from its prompt alone. Before writing one:
 
 - **Check what the plan names.** `grep -n` the code a task is told to copy, extend or reuse; a plan that
-  points at a case or helper that doesn't exist costs a subagent's detour. Before a refactor, also grep the
-  tests for ones that read source files by path: they break on every move and look like behavior changes.
+  points at a case or helper that doesn't exist costs a subagent's detour. A task that changes what a route
+  or action does names the file its handler is in (`grep -rn '"<action name>"' pkg/web`), not the file
+  its area suggests. Before a refactor, also grep the tests for ones that read source files by path: they
+  break on every move and look like behavior changes.
 - **Own everything a change reaches.** A task that changes a signature owns its callers (LSP
   `findReferences`); one that adds a field a page shows owns the page constructor in `pkg/web/pages_*.go`
   between the service and the template; one told to reuse markup owns the file it lives in; one that changes
-  the test harness owns the routes the harness calls.
+  the test harness owns the routes the harness calls. One that changes shared markup (the header, a partial, a
+  Stimulus controller several templates use) owns every test that selects it: grep `e2e/` for its classes,
+  ids and texts, and every template for the controller's `data-controller` uses.
 - **Tasks that share a file are not parallel.** Run them in sequence rather than plan a merge. Split a mixed
   file by area in a step 0 before parallel work, so later merges conflict only in registries. A breaking
   library bump is sequential too: order its tasks by import graph, each with the packages that compile at
