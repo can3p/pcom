@@ -1,6 +1,6 @@
 # Settings
 
-Settings is where you manage your account: who can see your profile, invitations, feeds, API key and a backup of your posts.
+Settings is where you manage your account: who can see your profile, invitations, feeds, API key and a backup of your posts. Open it from the Settings link in the header menu.
 
 ![The settings page.](screenshots/settings.png)
 

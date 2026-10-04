@@ -57,7 +57,7 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   their posts, the feed and explore, inside `.user-styles-applied`. The `us-*` classes keep their names and the
   elements they mark (the list is under Styles in `docs/guide/settings.md`), so a redesign doesn't break
   people's styles; every other class may change. `TestTemplatesKeepUserStyleHooks` fails when one disappears.
-- **The username in the header opens settings**, not the journal.
+- **The username in the header opens your journal**; Settings has its own link in the menu, next to Controls.
 
 ## Interface
 
