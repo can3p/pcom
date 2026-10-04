@@ -129,8 +129,10 @@ Not part of the budget: reading every test file. Read a test only when the mutat
 Run `make check-q` and `make test-ui` once before each commit; `check-q` runs go fix and lint first, as CI
 does. If go fix rewrote anything, the rewrite goes into that task's commit. Commit per task.
 
-For each bug a subagent reports: check `gh issue list --label bug` and file an issue if it is new (security
-bugs go to the owner, not a public issue).
+For each bug a subagent reports outside its task: check `gh issue list --label bug` and file an issue if it
+is new (security bugs go to the owner, not a public issue). It is not fixed in the wave's diff. If the wave
+can't proceed without the fix, make it on its own branch from `origin/master`, open it as a separate PR, and
+rebase the wave onto it once it merges.
 
 ## 6. Session hygiene
 

@@ -28,6 +28,12 @@ Layering: handlers only bind input, call a service and render; services (`pkg/se
 business rules, authorization and transactions; all SQL and ORM calls live in repositories (`pkg/repo`).
 Don't add queries to a handler.
 
+**Stay in scope.** A diff holds the task it was made for, so it stays reviewable. A bug, a cleanup or a
+refactor you notice outside that task is not fixed in it: check `gh issue list` and file an issue
+(`--label bug` for a bug; a security bug goes to the owner, not a public issue). If the work can't wait,
+fix it on its own branch from `origin/master`, as its own PR. Subagents don't file or branch: they report
+it under `bugs:` and the coordinator does.
+
 **No magic numbers.** A limit or tunable value (a length cap, a page size, a timeout) is a setting in
 `pkg/config` with its default there, handed to the service as an option; the service exports the same default
 for callers built without configuration, and tests use that constant, not the literal. Pattern:
