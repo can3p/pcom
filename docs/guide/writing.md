@@ -6,13 +6,13 @@ You write posts in markdown, save them as drafts, preview them and publish when 
 
 ## The editor
 
-Open Write in the top bar. A post has an optional subject, an optional URL it is about, and a body in markdown. The toolbar above the body inserts bold and italic text, quotes, lists, code blocks and links. Three buttons are specific to pcom: a cut that hides the rest of the post from the feed, a spoiler block that hides text until it is opened, and a gallery that groups images.
+Open Write in the top bar. A post has an optional subject, an optional URL it is about, and a body in markdown. The toolbar at the top of the editor box inserts bold and italic text, quotes, lists, code blocks and links. Three buttons are specific to pcom: a cut that hides the rest of the post from the feed, a spoiler block that hides text until it is opened, and a gallery that groups images.
 
 The editor saves about two seconds after you stop typing and shows when it last did. On a published post these edits go live without pressing Save. A post you have not published stays a draft; your drafts are listed on the Controls page, where you can delete them. If a connection prompted you, the editor shows their question and your post is linked to it.
 
 ## Preview
 
-The page icon in the toolbar opens the post as readers will see it, in a new tab. It appears once the post has been saved for the first time.
+The status next to the Draft badge shows when the draft was autosaved. The page icon in the toolbar opens the post as readers will see it, in a new tab. It appears once the post has been saved for the first time.
 
 ## Visibility
 
@@ -24,7 +24,7 @@ Publishing makes the post visible according to its visibility and emails your di
 
 ## Images
 
-The camera button uploads one or more images and puts them into the post. Images can also be sent through the [API](api.md).
+The upload images button uploads one or more images and puts them into the post. Images can also be sent through the [API](api.md).
 
 ## Share links
 
