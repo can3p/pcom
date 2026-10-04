@@ -62,6 +62,13 @@ subagents, whose context is thrown away.
   branch>` (the only git command it may run). Merge each finished worktree by committing there and
   cherry-picking onto the wave branch; resolve shared files (a registry, an allowlist) by script, and
   conflicts in code by hand.
+  A worktree has no `cmd/web/node_modules` (it is untracked): when the task builds assets, its setup links
+  the main checkout's (`ln -s /home/user/pcom/cmd/web/node_modules cmd/web/node_modules`) and builds once.
+  With a worktree of its own, an agent may run `make test-ui` freely. After merging parallel tasks, run the
+  full browser suite once: two tasks can each pass alone and break together through a shared controller.
+- **Design references the subagents can't open** (a private claude.ai canvas, a mockup behind a login):
+  read them once yourself, save the boards as files in your scratchpad and name that path in every prompt,
+  with the decisions that override the board.
 - Parallel tasks that write files in **one package** (`e2e`, `e2e/browser`) each iterate under
   their own build tag (`//go:build browser && b3`, run with `-tags browser,b3`) and switch to the shared
   tag before reporting, so one agent's half-written file doesn't break the others' compile. Shared build
