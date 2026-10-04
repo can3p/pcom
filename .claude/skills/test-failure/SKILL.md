@@ -20,7 +20,7 @@ Goal: find the cause while reading as little as possible. Stop at the first step
    request or a 404/5xx response). Open the trace only if both leave it unclear. Re-run one test with
    `make test-ui RUN='^TestName$'`. Stale assets are a common cause, and `make test-ui` rebuilds them.
    A locator timeout usually means the markup changed, not that the app is slow; don't raise timeouts.
-   An `architecture` test failure (`pkg/arch`, from RS on) names the package and the forbidden import:
+   An `architecture` test failure (`pkg/arch`) names the package and the forbidden import:
    move the query into `pkg/repo` rather than extending the allowlist.
 5. **Go to the code under test with the LSP tool,** not by reading the file: `documentSymbol` for the
    outline, `goToDefinition` from the failing line, then `Read` with `offset`/`limit` around that function.
@@ -32,5 +32,5 @@ Goal: find the cause while reading as little as possible. Stop at the first step
    - Flaky (it passes with `-count=5` sometimes): look for wall-clock asserts, map ordering, shared DB
      state or missing `t.Parallel()` isolation. Report it; don't paper over it with retries.
    - Environment (Docker not running, port taken): say so in one line and stop.
-7. **Two attempts, then report.** If two fixes didn't work, stop and report what you tried in three lines,
+7. **Two attempts, then report.** If two fixes didn't work, stop and briefly report what you tried,
    rather than looping.

@@ -19,7 +19,7 @@ Defined in `pkg/types/types.go`:
 - `ViewRSS` - RSS feed output
 
 ## Template Functions
-Defined in `cmd/web/main.go` funcmap:
+Defined in `pkg/web/app/funcmap.go`:
 - `markdown_feed` - Renders feed items with `ViewFeed`
 - `markdown_single_post` - Renders posts with `ViewSinglePost`
 - `markdown_edit_preview` - Renders editor preview with `ViewEditPreview`

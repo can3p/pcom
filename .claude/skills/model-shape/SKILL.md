@@ -19,15 +19,13 @@ description: Look up the fields, relationships and query helpers of a pcom datab
 
 ## Where queries go
 
-Once RS has landed, a query is written in `pkg/repo` (one file per aggregate) and called from a service,
-never from a handler, form or template helper; `pkg/arch/arch_test.go` enforces it. Before RS, don't add
-new queries to handlers: put them into the domain package the handler already calls.
+A query is written in `pkg/repo` (one file per aggregate) and called from a service, never from a handler,
+form or template helper; `pkg/arch/arch_test.go` enforces it.
 
 ## In tests
 
-- Create and read back fixtures only through the test factories (`pkg/testutil/factory` from W0 on,
-  `pkg/feedops/testutil` before). A test body that calls `core.Posts(...)` directly is a test the bob
-  migration (R5) has to rewrite.
+- Create and read back fixtures only through the test factories (`pkg/testutil/factory`). A test body
+  that calls `core.Posts(...)` directly is a test the bob migration (R5) has to rewrite.
 - If the factory lacks a helper, **stop and report the exact signature you need** (for example
   `factory.Post(t, db, author, factory.WithVisibility(...))`). Don't write the ORM call in the test; the
   coordinator adds helpers in one place.
