@@ -48,9 +48,9 @@ type Saved struct {
 	Deleted bool
 }
 
-// ValidateSave checks the fields of a save and returns the message of every
-// field that is wrong, by field name. Field names match the form's inputs.
-func (s *Service) ValidateSave(in SaveInput) map[string]string {
+// checkSave enforces the fields of a save and returns the message of every
+// field that is wrong, by the field name Save reports in service.Invalid.
+func (s *Service) checkSave(in SaveInput) map[string]string {
 	errs := map[string]string{}
 
 	if err := validation.ValidateMinMax("subject", in.Subject, 0, s.limits.PostSubjectMaxLength); err != nil {
@@ -131,7 +131,7 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 
 	// the post is looked up first, so a stranger learns nothing from the
 	// validation of what they sent
-	errs := s.ValidateSave(in)
+	errs := s.checkSave(in)
 
 	for _, field := range []string{"subject", "url", "body", "save_action", "visibility"} {
 		if msg, ok := errs[field]; ok {

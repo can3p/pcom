@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/can3p/gogo/forms"
+	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
@@ -37,7 +38,7 @@ func SettingsUserStylesNew(accounts *accounts.Service, u *core.User) *SettingsUs
 }
 
 func (f *SettingsUserStyles) Validate(c *gin.Context) error {
-	if err := f.Accounts.ValidateUserStyles(f.Input.Styles); err != nil {
+	if err := validation.ValidateMinMax("styles", f.Input.Styles, 0, f.Accounts.TextLimits().UserStylesMaxLength); err != nil {
 		f.AddError("styles", err.Error())
 	}
 

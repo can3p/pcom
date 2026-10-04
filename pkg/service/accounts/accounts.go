@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/can3p/pcom/pkg/forms/validation"
 	"log"
 	"strings"
 	"time"
@@ -161,33 +160,30 @@ func (s *Service) UserStyles(ctx context.Context, username string) (string, erro
 	return strings.TrimSpace(style.Styles), nil
 }
 
-// SaveUserStyles replaces the actor's custom CSS.
+// TextLimits are the most characters the texts this service stores may
+// have. Forms read them to check their fields; the service enforces them on
+// save.
+type TextLimits struct {
+	ProfileAboutMaxLength int
+	UserStylesMaxLength   int
+}
+
+// TextLimits returns the service's text length limits.
+func (s *Service) TextLimits() TextLimits {
+	return TextLimits{ProfileAboutMaxLength: s.aboutMaxLength, UserStylesMaxLength: s.stylesMaxLength}
+}
+
+// SaveUserStyles replaces the actor's custom CSS. Empty styles remove it.
 func (s *Service) SaveUserStyles(ctx context.Context, actor *core.User, styles string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
 
-	if err := s.ValidateUserStyles(styles); err != nil {
-		return service.Invalid("styles", err.Error())
+	if utf8.RuneCountInString(strings.TrimSpace(styles)) > s.stylesMaxLength {
+		return service.Invalid("styles", fmt.Sprintf("The styles can have at most %d characters.", s.stylesMaxLength))
 	}
 
 	return s.store.SaveUserStyle(ctx, actor.ID, styles)
-}
-
-// ValidateUserStyles checks the length of the custom CSS. Empty styles are
-// valid: they remove the custom CSS.
-func (s *Service) ValidateUserStyles(styles string) error {
-	return validation.ValidateMinMax("styles", styles, 0, s.stylesMaxLength)
-}
-
-// ValidateProfileAbout checks the length of the "About" text. An empty text
-// is valid: it removes the section.
-func (s *Service) ValidateProfileAbout(about string) error {
-	if n := utf8.RuneCountInString(strings.TrimSpace(about)); n > s.aboutMaxLength {
-		return fmt.Errorf("about text can have at most %d characters, this one has %d", s.aboutMaxLength, n)
-	}
-
-	return nil
 }
 
 // SaveProfile replaces the actor's "About" text. An empty text, or one of
@@ -197,11 +193,11 @@ func (s *Service) SaveProfile(ctx context.Context, actor *core.User, about strin
 		return service.ErrNeedsLogin
 	}
 
-	if err := s.ValidateProfileAbout(about); err != nil {
+	about = strings.TrimSpace(about)
+	if utf8.RuneCountInString(about) > s.aboutMaxLength {
 		return service.Invalid("about", fmt.Sprintf("The About text can have at most %d characters.", s.aboutMaxLength))
 	}
 
-	about = strings.TrimSpace(about)
 	if about == "" {
 		return s.store.DeleteProfileAbout(ctx, actor.ID)
 	}
