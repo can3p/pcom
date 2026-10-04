@@ -3,10 +3,11 @@
   <a href="{{ link "default_authorized_home" }}">Feed</a>
   <a href="{{ link "explore" }}">Explore</a>
   <a href="{{ link "controls" }}">Controls</a>
+  <a href="{{ link "settings" }}">Settings</a>
 </div>
 <div class="nav-account">
   <a class="btn btn-primary" href="{{ link "write" }}">Write</a>
-  <a class="nav-user" href="{{ link "settings" }}">{{ .User.DBUser.Username }}</a>
+  <a class="nav-user" href="{{ link "user" .User.DBUser.Username }}" title="Your journal">{{ .User.DBUser.Username }}</a>
 </div>
 {{ else }}
 <div class="nav-links">

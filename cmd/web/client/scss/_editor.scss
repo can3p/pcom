@@ -4,9 +4,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  // the page body is a flex column, so without a width the editor would
+  // shrink to its content; long posts need the whole column
+  width: 100%;
   max-width: 776px;
   margin: 0 auto;
-  padding: var(--space-6) 0 var(--space-7);
+  padding: var(--space-6) var(--space-4) var(--space-7);
 }
 
 .ed-head {
@@ -94,7 +97,8 @@
   }
 }
 
-.ed-body {
+// .ed-box raises it above the comment box's `.box textarea` (_posts.scss)
+.ed-box .ed-body {
   display: block;
   width: 100%;
   min-height: 320px;
