@@ -98,3 +98,8 @@ blockquote {
     font-style: italic;
   }
 }
+
+// A component that sets its own display must still hide with the attribute.
+[hidden] {
+  display: none !important;
+}

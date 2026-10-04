@@ -96,7 +96,7 @@ ui-deps:
 	$(PLAYWRIGHT) install $(UI_DEPS_FLAGS) chromium
 
 test-ui:
-	@tools/qrun.sh ui-build yarn --cwd cmd/web build
+	@tools/qrun.sh ui-build yarn --cwd cmd/web production
 	@HEADED=$(HEADED) SLOWMO=$(SLOWMO) tools/qrun.sh test-ui go test -tags browser -count=$(COUNT) $(if $(RUN),-run '$(RUN)') ./e2e/browser/...
 
 # `make screenshots` regenerates docs/guide/screenshots/ (build tag `screenshots`,

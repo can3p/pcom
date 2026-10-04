@@ -178,3 +178,50 @@
     cursor: default;
   }
 }
+
+// The markdown editor wrapper (mdeditor_controller.js) and its loading veil.
+.mdeditor {
+  position: relative;
+}
+
+.mdeditor__loading {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ground) 60%, transparent);
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+}
+
+.mdeditor--loading .mdeditor__loading {
+  display: flex;
+}
+
+// How {cut} and {spoiler} blocks look in the editor preview.
+.block-container-edit-preview-cut,
+.block-container-edit-preview-spoiler {
+  border: 2px dashed var(--faint);
+  border-radius: var(--radius-control);
+  background: var(--sunken);
+  margin-top: var(--space-4);
+}
+
+.block-container-edit-preview-cut-summary,
+.block-container-edit-preview-spoiler-summary {
+  font: 400 12px var(--font-mono);
+  color: var(--muted);
+}
+
+.block-container-edit-preview-cut-summary::before {
+  content: "[cut]";
+}
+
+.block-container-edit-preview-spoiler-summary::before {
+  content: "[spoiler]";
+}
+
+.block-container-edit-preview-cut-content,
+.block-container-edit-preview-spoiler-content {
+  padding: var(--space-4);
+}

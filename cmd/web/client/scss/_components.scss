@@ -424,8 +424,3 @@
     display: none;
   }
 }
-
-// Bootstrap hides `.toast:not(.show)` while it is still loaded.
-.toast:not(.show) {
-  display: flex;
-}
