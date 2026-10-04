@@ -46,16 +46,13 @@ func TestMain(m *testing.M) {
 }
 
 // fixtureRepo writes a minimal repository containing every file docPages
-// names, so a test can break exactly one thing.
+// names, and the README the landing page quotes, so a test can break exactly one thing.
 func fixtureRepo(t *testing.T) string {
 	t.Helper()
 	repo := t.TempDir()
+	writeFixture(t, repo, "README.md", "# Fixture\n\nThe lede.\n\n## "+quickstartSection+"\n\nRun it.\n")
 	for _, d := range docPages {
-		body := "# " + d.Nav + "\n\nFirst paragraph of " + d.Nav + ".\n"
-		if d.Src == "README.md" {
-			body = "# Fixture\n\nThe lede.\n\n## " + quickstartSection + "\n\nRun it.\n"
-		}
-		writeFixture(t, repo, d.Src, body)
+		writeFixture(t, repo, d.Src, "# "+d.Nav+"\n\nFirst paragraph of "+d.Nav+".\n")
 	}
 	return repo
 }
@@ -89,10 +86,13 @@ func TestEveryInternalLinkResolves(t *testing.T) {
 
 // Repository files that are linked from the documentation but not published
 // as pages become links to GitHub. The set is asserted so that a new one
-// shows up here as a decision to make rather than as a 404.
+// shows up here as a decision to make rather than as a 404. The site holds
+// the guide only, so these are the developer docs the guide and the README's
+// quick start point at.
 func TestLinksToUnpublishedFilesAreKnown(t *testing.T) {
 	site, _ := build(t)
-	want := []string{}
+	want := []string{"README.md", "docs/api.md", "docs/architecture.md", "docs/implementation-plan.md",
+		"docs/running.md"}
 	var got []string
 	for repoPath := range site.Unpublished() {
 		got = append(got, repoPath)
@@ -105,14 +105,14 @@ func TestLinksToUnpublishedFilesAreKnown(t *testing.T) {
 	}
 }
 
-// Every docPages entry appears exactly once in the rendered sidebar, under
-// its own group, guide first.
+// Every docPages entry appears exactly once in the rendered sidebar, which
+// has the guide only.
 func TestSidebarListsEveryDocPageOnce(t *testing.T) {
 	site, dir := build(t)
-	if len(site.Nav) != 2 || site.Nav[0].Title != GroupGuide || site.Nav[1].Title != GroupDev {
+	if len(site.Nav) != 1 || site.Nav[0].Title != GroupGuide {
 		t.Fatalf("nav = %+v", site.Nav)
 	}
-	body, err := os.ReadFile(filepath.Join(dir, "readme.html"))
+	body, err := os.ReadFile(filepath.Join(dir, "docs", "guide", "feed.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,17 +120,14 @@ func TestSidebarListsEveryDocPageOnce(t *testing.T) {
 	i := strings.Index(sidebar, `<details class="sidebar">`)
 	j := strings.Index(sidebar, "</details>")
 	if i < 0 || j < i {
-		t.Fatal("no sidebar in readme.html")
+		t.Fatal("no sidebar in feed.html")
 	}
 	sidebar = sidebar[i:j]
 	for _, d := range docPages {
-		want := fmt.Sprintf(`href="%s"`, relPath("readme.html", d.Out))
+		want := fmt.Sprintf(`href="%s"`, relPath("docs/guide/feed.html", d.Out))
 		if n := strings.Count(sidebar, want); n != 1 {
 			t.Errorf("%s appears %d times in the sidebar, want 1", d.Out, n)
 		}
-	}
-	if g, d := strings.Index(sidebar, "<h2>"+GroupGuide), strings.Index(sidebar, "<h2>"+GroupDev); g < 0 || d < g {
-		t.Error("sidebar groups are not Guide then Developer docs")
 	}
 }
 
@@ -233,18 +230,18 @@ func TestLandingCardsWithAndWithoutImage(t *testing.T) {
 
 func TestBuildFailsForAMissingPage(t *testing.T) {
 	repo := fixtureRepo(t)
-	if err := os.Remove(filepath.Join(repo, "docs", "testing.md")); err != nil {
+	if err := os.Remove(filepath.Join(repo, "docs", "guide", "feed.md")); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Build(Config{Repo: repo, Out: t.TempDir()})
-	if err == nil || !strings.Contains(err.Error(), "testing.md") {
-		t.Fatalf("want an error naming testing.md, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "feed.md") {
+		t.Fatalf("want an error naming feed.md, got %v", err)
 	}
 }
 
 func TestBuildFailsForAMissingImage(t *testing.T) {
 	repo := fixtureRepo(t)
-	writeFixture(t, repo, "docs/running.md", "# Running\n\n![gone](nope/gone.png)\n")
+	writeFixture(t, repo, "docs/guide/feed.md", "# Feed\n\n![gone](nope/gone.png)\n")
 	_, err := Build(Config{Repo: repo, Out: t.TempDir()})
 	if err == nil || !strings.Contains(err.Error(), "gone.png") {
 		t.Fatalf("want an error naming gone.png, got %v", err)
@@ -390,7 +387,7 @@ func TestBuildFailsForBrokenLandingSources(t *testing.T) {
 		{"guide page without an H1", "docs/guide/overview.md", "Just a paragraph.\n", "H1"},
 		{"guide page without a paragraph", "docs/guide/overview.md", "# Overview\n", "paragraph"},
 		{"README without the quick start", "README.md", "# Fixture\n\nThe lede.\n", quickstartSection},
-		{"a link above the repository root", "docs/running.md", "# R\n\n[x](../../outside.md)\n", "climbs"},
+		{"a link above the repository root", "docs/guide/feed.md", "# R\n\n[x](../../../outside.md)\n", "climbs"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

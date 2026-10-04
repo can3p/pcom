@@ -53,3 +53,8 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 
 - **The About text is shown on the journal only**, under an "About" heading, capped by
   `PROFILE_ABOUT_MAX_LENGTH`.
+
+## Website
+
+- **The project website is the user guide.** It publishes `docs/guide/` and a landing page built from
+  them and the README's quick start; developer docs stay in the repository and are linked on GitHub.

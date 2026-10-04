@@ -20,38 +20,31 @@ func TestResolveLink(t *testing.T) {
 	s := newTestSite(t, "..")
 	const gh = "https://github.com/can3p/pcom"
 
+	const ov, ovPage = "docs/guide/overview.md", "docs/guide/overview.html"
 	cases := []struct {
 		name          string
 		src, page, in string
 		want          string
 	}{
-		{"external link is untouched", "README.md", "readme.html",
+		{"external link is untouched", ov, ovPage,
 			"https://github.com/can3p/blg", "https://github.com/can3p/blg"},
-		{"scheme-relative is untouched", "README.md", "readme.html", "//example.com/x", "//example.com/x"},
-		{"mailto is untouched", "README.md", "readme.html", "mailto:a@example.com", "mailto:a@example.com"},
-		{"in-page anchor is untouched", "README.md", "readme.html", "#ports", "#ports"},
-		{"empty is untouched", "README.md", "readme.html", "", ""},
+		{"scheme-relative is untouched", ov, ovPage, "//example.com/x", "//example.com/x"},
+		{"mailto is untouched", ov, ovPage, "mailto:a@example.com", "mailto:a@example.com"},
+		{"in-page anchor is untouched", ov, ovPage, "#ports", "#ports"},
+		{"empty is untouched", ov, ovPage, "", ""},
 
-		{"sibling document from the root", "README.md", "readme.html",
-			"docs/architecture.md", "docs/architecture.html"},
+		{"sibling guide page", ov, ovPage, "feed.md", "feed.html"},
 		{"a guide page from the landing page", "README.md", "index.html",
 			"docs/guide/overview.md", "docs/guide/overview.html"},
-		{"up and across from a guide page", "docs/guide/overview.md", "docs/guide/overview.html",
-			"../architecture.md", "../architecture.html"},
-		{"a fragment survives the rewrite", "README.md", "readme.html",
-			"docs/architecture.md#layers", "docs/architecture.html#layers"},
-		{"a query string survives the rewrite", "README.md", "readme.html",
-			"docs/architecture.md?x=1", "docs/architecture.html?x=1"},
-		{"a renamed document keeps its new home", "docs/architecture.md", "docs/architecture.html",
-			"../README.md", "../readme.html"},
+		{"a fragment survives the rewrite", ov, ovPage, "feed.md#the-public-index", "feed.html#the-public-index"},
+		{"a query string survives the rewrite", ov, ovPage, "feed.md?x=1", "feed.html?x=1"},
 
-		{"a file the site does not publish goes to GitHub", "README.md", "readme.html",
-			"cmd/web/client/articles/why.md", gh + "/blob/master/cmd/web/client/articles/why.md"},
-		{"a directory the site does not publish goes to GitHub's tree view",
-			"docs/architecture.md", "docs/architecture.html",
-			"../pkg", gh + "/tree/master/pkg"},
-		{"an unpublished target keeps its fragment", "docs/architecture.md", "docs/architecture.html",
-			"../Makefile#L10", gh + "/blob/master/Makefile#L10"},
+		{"a developer doc goes to GitHub", ov, ovPage,
+			"../architecture.md", gh + "/blob/master/docs/architecture.md"},
+		{"a directory the site does not publish goes to GitHub's tree view", ov, ovPage,
+			"../../pkg", gh + "/tree/master/pkg"},
+		{"an unpublished target keeps its fragment", ov, ovPage,
+			"../../Makefile#L10", gh + "/blob/master/Makefile#L10"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -64,7 +57,7 @@ func TestResolveLink(t *testing.T) {
 	if len(s.problems) != 0 {
 		t.Errorf("unexpected problems: %v", s.problems)
 	}
-	if from := s.Unpublished()["Makefile"]; len(from) != 1 || from[0] != "docs/architecture.md" {
+	if from := s.Unpublished()["Makefile"]; len(from) != 1 || from[0] != ov {
 		t.Errorf("unpublished links not recorded: %v", s.Unpublished())
 	}
 }
@@ -73,7 +66,7 @@ func TestResolveLink(t *testing.T) {
 // something to clamp to the root.
 func TestResolveLinkAboveRootIsAProblem(t *testing.T) {
 	s := newTestSite(t, "..")
-	if got := s.ResolveLink("README.md", "readme.html", "../outside.md"); got != "../outside.md" {
+	if got := s.ResolveLink("README.md", "index.html", "../outside.md"); got != "../outside.md" {
 		t.Errorf("got %q", got)
 	}
 	if got := s.ResolveLink("docs/running.md", "docs/running.html", "../../outside.md"); got != "../../outside.md" {
@@ -109,9 +102,9 @@ func TestRelPath(t *testing.T) {
 func TestMarkdownRendering(t *testing.T) {
 	repo := t.TempDir()
 	md := "# Overview\n\n" +
-		"See [the readme](../../README.md) and [the architecture](../architecture.md).\n\n" +
-		"| Flag | What |\n|---|---|\n| `--port` | see [arch][c] |\n\n" +
-		"[c]: ../architecture.md#layers\n\n" +
+		"See [the feed](feed.md) and [the architecture](../architecture.md).\n\n" +
+		"| Flag | What |\n|---|---|\n| `--port` | see [feed][c] |\n\n" +
+		"[c]: feed.md#the-public-index\n\n" +
 		"## What it is\n\nA network.\n\n" +
 		"## What it's for\n\n```bash\ncurl -s localhost\n```\n"
 	src := "docs/guide/overview.md"
@@ -129,10 +122,10 @@ func TestMarkdownRendering(t *testing.T) {
 	got := string(html)
 
 	for _, want := range []string{
-		`href="../../readme.html"`,
-		`href="../architecture.html"`,
-		`href="../architecture.html#layers"`, // a reference-style link with a fragment
-		"<table>", "<th>Flag</th>",           // GFM tables are enabled
+		`href="feed.html"`,
+		`href="https://github.com/can3p/pcom/blob/master/docs/architecture.md"`,
+		`href="feed.html#the-public-index"`, // a reference-style link with a fragment
+		"<table>", "<th>Flag</th>",          // GFM tables are enabled
 		`<code class="language-bash">`, // fenced code keeps its language
 		`<h2 id="what-it-is">`,         // headings get anchors
 	} {
@@ -160,7 +153,7 @@ func TestMarkdownRendering(t *testing.T) {
 		t.Error("Section() of a missing heading should fail the build")
 	}
 	pre, err := doc.Preamble()
-	if err != nil || !strings.Contains(string(pre), "the readme") || strings.Contains(string(pre), "A network") {
+	if err != nil || !strings.Contains(string(pre), "the feed") || strings.Contains(string(pre), "A network") {
 		t.Errorf("Preamble() = %q, %v", pre, err)
 	}
 	p, err := doc.FirstParagraph()
@@ -195,10 +188,10 @@ func TestImageLinks(t *testing.T) {
 	if got := s.ResolveImage("docs/guide/overview.md", "index.html", "screenshots/a.png"); got != "docs/guide/screenshots/a.png" {
 		t.Errorf("got %q", got)
 	}
-	if got := s.ResolveImage("README.md", "readme.html", "https://example.com/a.png"); got != "https://example.com/a.png" {
+	if got := s.ResolveImage("README.md", "index.html", "https://example.com/a.png"); got != "https://example.com/a.png" {
 		t.Errorf("got %q", got)
 	}
-	if got := s.ResolveImage("README.md", "readme.html", "../../etc/passwd.png"); got != "../../etc/passwd.png" || len(s.problems) != 1 {
+	if got := s.ResolveImage("README.md", "index.html", "../../etc/passwd.png"); got != "../../etc/passwd.png" || len(s.problems) != 1 {
 		t.Errorf("an image outside the repository should be a problem: %q %v", got, s.problems)
 	}
 }
@@ -236,12 +229,12 @@ func TestRawHTMLIsNotPassedThrough(t *testing.T) {
 
 	// And through a whole build.
 	repo = fixtureRepo(t)
-	writeFixture(t, repo, "docs/running.md", "# Running\n\n"+body)
+	writeFixture(t, repo, "docs/guide/feed.md", "# Feed\n\n"+body)
 	out := t.TempDir()
 	if _, err := Build(Config{Repo: repo, Out: out}); err != nil {
 		t.Fatal(err)
 	}
-	page, err := os.ReadFile(filepath.Join(out, "docs", "running.html"))
+	page, err := os.ReadFile(filepath.Join(out, "docs", "guide", "feed.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
