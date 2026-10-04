@@ -1,31 +1,23 @@
 {{ template "form--post-prompt.html" toMap "DirectConnections" .DirectConnections }}
 
 {{ range .OpenPrompts }}
-  <div class="mt-3">
-    <div class="card">
-      <h5 class="card-header fs-6">
-        <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> prompted you to write a post {{ renderHumanTime .Prompt.CreatedAt $.User.DBUser }}
-      </h5>
-      <div class="card-body">
-        <div class="d-flex">
-          <div class="p-2 flex-grow-1">{{ .Prompt.Message }}</div>
-          {{ if .Post }}
-          <div class="p-2"><a href="{{ link "edit_post" .Post.ID }}">Edit your post</a></div>
-          {{ else }}
-          <div class="p-2"><a href="{{ link "write" "prompt" .Prompt.ID }}">Write</a></div>
-          {{ end }}
-          <div class="p-2">
-            <button type="button"
-                    class="btn btn-sm btn-danger"
-                    data-controller="action"
-                    data-action="action#run"
-                    data-action-action-value="dismiss_prompt"
-                    data-prompt-id="{{ .Prompt.ID }}"
-                    data-action-prompt-value="Do you want to dismiss the prompt from  {{ .Author.Username }}?"
-                    >Dismiss</button>
-          </div>
-        </div>
-      </div>
+  <article class="item">
+    <span class="kind">Prompt</span>
+    <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> prompted you to write a post<span class="dot">&middot;</span>{{ renderHumanTime .Prompt.CreatedAt $.User.DBUser }}</p>
+    <div class="prose prose-sm"><p>{{ .Prompt.Message }}</p></div>
+    <div class="acts">
+      {{ if .Post }}
+      <a href="{{ link "edit_post" .Post.ID }}">Edit your post</a>
+      {{ else }}
+      <a href="{{ link "write" "prompt" .Prompt.ID }}">Write</a>
+      {{ end }}
+      <button type="button"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="dismiss_prompt"
+              data-prompt-id="{{ .Prompt.ID }}"
+              data-action-prompt-value="Do you want to dismiss the prompt from  {{ .Author.Username }}?"
+              >Dismiss</button>
     </div>
-  </div>
+  </article>
 {{ end }}

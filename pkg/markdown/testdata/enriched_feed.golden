@@ -10,7 +10,7 @@
 </ul>
 </li>
 </ul>
-<p>An image: <img class="lazyload mx-auto d-block img standalone-img" data-src="https://example.com/image.jpg" alt="alt text"></p>
+<p>An image: <img class="lazyload post-img standalone-img" data-src="https://example.com/image.jpg" alt="alt text"></p>
 <p>Here's some inline code: code example</p>
 <p>User handle: <a href="/user" class="user-handle">@john_doe</a></p>
 <blockquote>

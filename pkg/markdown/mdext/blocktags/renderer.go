@@ -110,7 +110,11 @@ func (r *BlockTagRenderer) renderBlockTag(w util.BufWriter, source []byte, node 
 		_, _ = w.WriteString(">\n")
 
 		if title != "" {
-			_, _ = w.WriteString(`<div class="block-container-` + add + n.BlockTagName + `-summary">` + string(util.EscapeHTML([]byte(title))) + "</div>\n")
+			summary := `<div class="block-container-` + add + n.BlockTagName + `-summary">` + string(util.EscapeHTML([]byte(title))) + "</div>\n"
+			if n.BlockTagName == "spoiler" && r.view != types.ViewEditPreview {
+				summary = `<button type="button" class="block-container-spoiler-summary" aria-expanded="false">` + string(util.EscapeHTML([]byte(title))) + "</button>\n"
+			}
+			_, _ = w.WriteString(summary)
 		}
 
 		_, _ = w.WriteString(`<div class="block-container-` + add + n.BlockTagName + `-content">` + "\n")

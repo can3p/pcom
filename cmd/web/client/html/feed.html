@@ -4,21 +4,22 @@
 {{ end }}
 
 <div class="user-styles-applied us-user-home user-home">
-<div class="container col-md-8">
-  <div class="row justify-content-md-center mt-lg-4 mt-2">
-    <h1 class="us-user-header user-header">{{ if .User.IsLoggedIn }}<a href="{{ link "user" .User.DBUser.Username }}">{{ .User.DBUser.Username }}</a>  &#8594; {{ end }}{{ .Name }}</h1>
-
-    {{ if .Capabilities.ShowPromptForm }}
-      {{ template "partial--feed-prompts.html" toMap "OpenPrompts" .OpenPrompts "DirectConnections" .DirectConnections }}
-    {{ end }}
-
-    {{ if eq (len .Items) 0 }}
-    <p>No posts yet</p>
-    {{ else }}
-      {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL }}
-    {{ end }}
+<main class="posts-page">
+  <div class="posts-head">
+    <h1 class="us-user-header user-header page-title">{{ .Name }}</h1>
+    <p class="meta">You and your connections, newest first</p>
   </div>
-</div>
+
+  {{ if .Capabilities.ShowPromptForm }}
+    {{ template "partial--feed-prompts.html" toMap "OpenPrompts" .OpenPrompts "DirectConnections" .DirectConnections "User" .User }}
+  {{ end }}
+
+  {{ if eq (len .Items) 0 }}
+  <p class="empty">No posts yet</p>
+  {{ else }}
+    {{ template "partial--feed-items.html" toMap "Items" .Items "User" .User "Next" .Next "URL" .LoadMoreURL }}
+  {{ end }}
+</main>
 </div>
 
 {{ template "footer.html" . }}

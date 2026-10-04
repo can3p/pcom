@@ -3,25 +3,15 @@
 {{ with .Post }}
 <link rel="stylesheet" href="{{ link "user_styles" .Author.Username }}" />
 <div class="user-styles-applied us-single-post">
-<div class="container col-md-8">
-  <div class="row justify-content-md-center mt-lg-4 mt-2">
-    <h1 class="us-post-header"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>  &#8594; {{ .PostSubject }}{{ if not .IsPublished }} <small class="text-muted">Draft</small>{{ end }}</h1>
-
-    {{ with $.PostShare }}
-    <p class="us-public-link">
-      Public link: <a href="{{ link "shared_post" .ID }}">{{ .ID }}</a>
-      <a
-        href="#"
-        data-controller="action"
-        data-action="action#run"
-        data-post-id="{{ .PostID }}"
-        data-action-action-value="delete_share"
-        data-action-prompt-value="Do you want to delete the public link for this post?"
-        ><i class="bi bi-trash"></i></a>
-    </p>
+<main class="posts-page">
+  <article class="post-view">
+    <h1 class="us-post-header post-title">{{ .PostSubject }}</h1>
+    <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>{{ if .IsPublished }}<span class="dot">&middot;</span><span class="us-post-date">{{ renderHumanTime .PublishedAt.Time $.User.DBUser }}</span>{{ else }}<span class="dot">&middot;</span><span class="status">Draft</span>{{ end }}</p>
+    {{ if .LinkedURL }}
+    <a class="src" href="{{ .LinkedURL.URL }}" target="_blank" rel="noopener noreferrer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"></path><path d="M8 7h9v9"></path></svg>{{ .LinkedURL.URL }}</a>
     {{ end }}
 
-    <div class="mt-3 post-full us-post-body">
+    <div class="prose prose-post us-post-body">
       {{ if .EditPreview }}
       {{ markdown_edit_preview .Body }}
       {{ else }}
@@ -29,15 +19,10 @@
       {{ end }}
     </div>
 
-    {{ if .LinkedURL }}
-    <div class="mt-2 text-center">
-      <a href="{{ .LinkedURL.URL }}" target="_blank" rel="noopener noreferrer">{{ .LinkedURL.URL }}</a>
-    </div>
-    {{ end }}
-  </div>
-  {{ if not .EditPreview }}
+    {{ if not .EditPreview }}
     {{ if .Capabilities.CanViewComments }}
-    <div class="text-center mt-2 us-comment-stats comment-stats">
+    <div class="post-foot">
+      <div class="acts us-comment-stats">
         {{ if .Capabilities.CanLeaveComments }}
           <a data-controller="toggle"
             href="#"
@@ -52,96 +37,99 @@
         {{- else -}}
           {{ .CommentsNumber }} comments
         {{- end -}}
-      {{- if .Capabilities.CanLeaveComments }}</a>{{ end }}
-      {{ end }}
+        {{- if .Capabilities.CanLeaveComments }}</a>{{ end }}
 
-      {{ if .Capabilities.CanEdit }}
-        <a href="{{ link "edit_post" .ID }}"><i class="bi bi-pencil-fill"></i></a>
-      {{ end }}
-      {{ if and .Capabilities.CanShare (not $.PostShare) }}
-        <a
-          href="#"
-          data-controller="action"
-          data-action="action#run"
-          data-post-id="{{ .ID }}"
-          data-action-action-value="create_share"
-          data-action-prompt-value="Do you want to create a public link for this post?"
-          ><i class="bi bi-share"></i></a>
+        {{ if .Capabilities.CanEdit }}
+        <a href="{{ link "edit_post" .ID }}">Edit</a>
+        {{ end }}
+        {{ if and .Capabilities.CanShare (not $.PostShare) }}
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-post-id="{{ .ID }}"
+                data-action-action-value="create_share"
+                data-action-prompt-value="Do you want to create a public link for this post?"
+                >Share</button>
+        {{ end }}
+      </div>
+
+      {{ with $.PostShare }}
+      <p class="share us-public-link">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"></path><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"></path></svg>
+        <span>Anyone with the link can read this post.</span>
+        <a href="{{ link "shared_post" .ID }}">Open link</a>
+        <span class="dot" aria-hidden="true">&middot;</span>
+        <button type="button"
+                data-controller="clipboard"
+                data-clipboard-copy-value="{{ link "shared_post" .ID }}"
+                >Copy link</button>
+        <span class="dot" aria-hidden="true">&middot;</span>
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-post-id="{{ .PostID }}"
+                data-action-action-value="delete_share"
+                data-action-prompt-value="Do you want to delete the public link for this post?"
+                >Turn off</button>
+      </p>
       {{ end }}
     </div>
+    {{ end }}
+    {{ end }}
+  </article>
+
+  {{ if not .EditPreview }}
+    <section class="comments us-comments-section" aria-label="Comments">
 
     {{ if .Capabilities.CanLeaveComments }}
-      <div class="card mt-2 collapse" id="post{{ .ID }}">
-        <div class="card-body bg-theme-surface">
-          {{ template "form--comment.html" toMap "PostID" .ID }}
-        </div>
+      <div class="inplace" id="post{{ .ID }}">
+        {{ template "form--comment.html" toMap "PostID" .ID }}
       </div>
     {{ end }}
-
-    <div class="us-comments-section">
 
     {{ $canLeaveComments := .Capabilities.CanLeaveComments }}
     {{ range $.Comments }}
     <div id="comment{{ .PostID }}{{ .ID }}"
-         class="us-single-comment mt-3 {{ if gt .Level 0 }}{{ if lt .Level 6 }}comment-{{ .Level }}{{ else }}comment-5{{ end }}{{ end }}">
-        <div class="card">
-          <h5 class="card-header fs-6">
-            [<a hx-boost="false" href="{{ link "comment" .PostID .ID }}">#</a>]
-            <a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> responded {{ renderHumanTime .CreatedAt $.User.DBUser }}
-            {{ if .EditedAt.Valid }}<small class="text-muted">(edited {{ renderHumanTime .EditedAt.Time $.User.DBUser }})</small>{{ end }}
-          </h5>
-          <div class="card-body">
-            <div class="mt-3 post-user-home">{{ markdown_comment .Body }}</div>
+         class="c us-single-comment {{ if gt .Level 0 }}{{ if lt .Level 6 }}comment-{{ .Level }}{{ else }}comment-5{{ end }}{{ end }}">
+      <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a><span class="dot">&middot;</span><a class="q" hx-boost="false" href="{{ link "comment" .PostID .ID }}">{{ renderHumanTime .CreatedAt $.User.DBUser }}</a>{{ if .EditedAt.Valid }}<span class="dot">&middot;</span>edited {{ renderHumanTime .EditedAt.Time $.User.DBUser }}{{ end }}</p>
+      <div class="prose prose-sm post-user-home">{{ markdown_comment .Body }}</div>
 
-            {{ if $canLeaveComments }}
-            <div class="text-center">
-              <button class="btn btn-sm btn-primary"
-                      type="button"
-                      data-controller="toggle"
-                      data-toggle-hide-target-value="true"
-                      data-toggle-target-value="#comment-wrapper{{ .PostID }}{{ .ID }}"
-                      data-toggle-focus-value="#comment-wrapper{{ .PostID }}{{ .ID }} textarea"
-                      data-toggle-close-others-value="true"
-                      data-toggle-close-others-selector-value='[id^="post"], [id^="comment-wrapper"]'
-                      >
-                Leave a comment
-              </button>
-              {{ if .Capabilities.CanEdit }}
-              <button class="btn btn-sm btn-outline-secondary"
-                      type="button"
-                      data-controller="toggle"
-                      data-toggle-hide-target-value="true"
-                      data-toggle-target-value="#comment-wrapper-edit{{ .PostID }}{{ .ID }}"
-                      data-toggle-focus-value="#comment-wrapper-edit{{ .PostID }}{{ .ID }} textarea"
-                      data-toggle-close-others-value="true"
-                      data-toggle-close-others-selector-value='[id^="post"], [id^="comment-wrapper"]'
-                      >
-                Edit
-              </button>
-              {{ end }}
-            </div>
-            {{ end }}
-          </div>
-        </div>
+      {{ if $canLeaveComments }}
+      <div class="acts">
+        <button type="button"
+                data-controller="toggle"
+                data-toggle-target-value="#comment-wrapper{{ .PostID }}{{ .ID }}"
+                data-toggle-focus-value="#comment-wrapper{{ .PostID }}{{ .ID }} textarea"
+                data-toggle-close-others-value="true"
+                data-toggle-close-others-selector-value='[id^="post"], [id^="comment-wrapper"]'
+                >Reply</button>
+        {{ if .Capabilities.CanEdit }}
+        <button type="button"
+                data-controller="toggle"
+                data-toggle-target-value="#comment-wrapper-edit{{ .PostID }}{{ .ID }}"
+                data-toggle-focus-value="#comment-wrapper-edit{{ .PostID }}{{ .ID }} textarea"
+                data-toggle-close-others-value="true"
+                data-toggle-close-others-selector-value='[id^="post"], [id^="comment-wrapper"]'
+                >Edit</button>
+        {{ end }}
       </div>
+      {{ end }}
+
       {{ if .Capabilities.CanEdit }}
-      <div class="card mt-2 collapse" id="comment-wrapper-edit{{ .PostID }}{{ .ID }}">
-        <div class="card-body bg-theme-surface">
-          {{ template "form--comment.html" toMap "PostID" .PostID "EditID" .ID "Body" .Body }}
-        </div>
+      <div class="inplace" id="comment-wrapper-edit{{ .PostID }}{{ .ID }}">
+        {{ template "form--comment.html" toMap "PostID" .PostID "EditID" .ID "Body" .Body }}
       </div>
       {{ end }}
       {{ if $canLeaveComments }}
-      <div class="card mt-2 collapse" id="comment-wrapper{{ .PostID }}{{ .ID }}">
-        <div class="card-body bg-theme-surface">
-          {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID "ReplyToAuthor" .Author.Username }}
-        </div>
+      <div class="inplace" id="comment-wrapper{{ .PostID }}{{ .ID }}">
+        {{ template "form--comment.html" toMap "PostID" .PostID "ReplyTo" .ID "ReplyToAuthor" .Author.Username }}
       </div>
       {{ end }}
-    {{ end }}
     </div>
+    {{ end }}
+    </section>
   {{ end }}
-</div>
+</main>
 </div>
 {{ end }}
 

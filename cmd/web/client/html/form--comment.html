@@ -9,16 +9,7 @@
       >
 
   {{ if .ReplyTo }}
-  <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
-    <i class="bi bi-reply-fill me-2"></i>
-    <div>
-      <strong>Replying to {{ .ReplyToAuthor }}</strong>
-    </div>
-  </div>
-  {{ end }}
-
-  {{ with .FormError }}
-  <div class="alert alert-danger">{{ . }}</div>
+  <p class="meta reply-to">Replying to <a href="{{ link "user" .ReplyToAuthor }}">{{ .ReplyToAuthor }}</a></p>
   {{ end }}
 
   {{ if not .EditID }}
@@ -28,21 +19,25 @@
   <input type="hidden" name="reply_to" value="{{ .ReplyTo }}" />
   {{ end }}
 
-  <div class="mb-3"
+  <div class="box"
        data-controller="mdeditor"
        data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
     >
-    <label for="commentBody{{ .PostID }}{{ .ReplyTo }}{{ .EditID }}" class="form-label">Your Comment</label>
-
     {{ template "partial--editor-toolbar.html" toMap "UploadID" (printf "file_upload%v%v%v" .PostID .ReplyTo .EditID) }}
 
-    <textarea class="form-control comment-textarea {{ if (.Errors.HasError "body") }}is-invalid{{ end }}" name="body" placeholder="" id="commentBody{{ .PostID }}{{ .ReplyTo }}{{ .EditID }}" autocomplete="off" required>{{ if .Input }}{{ .Input.Body }}{{ else }}{{ .Body }}{{ end }}</textarea>
+    <label class="sr-only" for="commentBody{{ .PostID }}{{ .ReplyTo }}{{ .EditID }}">Your Comment</label>
+    <textarea class="comment-textarea" name="body" rows="3" placeholder="Add a comment" id="commentBody{{ .PostID }}{{ .ReplyTo }}{{ .EditID }}" autocomplete="off" required{{ if (.Errors.HasError "body") }} aria-invalid="true" aria-describedby="commentError{{ .PostID }}{{ .ReplyTo }}{{ .EditID }}"{{ end }}>{{ if .Input }}{{ .Input.Body }}{{ else }}{{ .Body }}{{ end }}</textarea>
     {{ if (.Errors.HasError "body") }}
-    <div class="invalid-feedback">{{ .Errors.body }}</div>
+    <p class="field-error" id="commentError{{ .PostID }}{{ .ReplyTo }}{{ .EditID }}">{{ .Errors.body }}</p>
     {{ end }}
-  </div>
 
-  <button type="submit" class="btn btn-primary btn-sm">{{ if .EditID }}Save{{ else }}Post a comment{{ end }}</button>
-  <button type="button" role="close" class="btn btn-secondary btn-sm">Close</button>
-  <small class="form-text d-block d-md-inline">Ctrl/Cmd-Enter to submit</small>
+    <div class="box-foot">
+      <p class="field-help">Markdown works here. Ctrl/Cmd-Enter to submit.</p>
+      <div class="box-actions">
+        {{ with .FormError }}<span class="status err" role="alert">{{ . }}</span>{{ end }}
+        <button type="button" role="close" class="btn btn-secondary">Close</button>
+        <button type="submit" class="btn btn-primary">{{ if .EditID }}Save{{ else }}Post a comment{{ end }}</button>
+      </div>
+    </div>
+  </div>
 </form>

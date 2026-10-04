@@ -17,14 +17,35 @@ export default class extends Controller {
   copy() {
     clearTimeout(this.timer)
 
-    navigator.clipboard.writeText(this.copyValue)
+    // a relative value ("/shared/...") is copied as the full address
+    const value = new URL(this.copyValue, window.location.origin).href
 
-    this.element.classList.remove("bi-clipboard")
-    this.element.classList.add("bi-check2")
+    navigator.clipboard.writeText(value)
 
-    setTimeout(() => {
-      this.element.classList.remove("bi-check2")
-      this.element.classList.add("bi-clipboard")
-    }, 300)
+    // a labelled control says "Copied" for a moment; an icon-only one swaps
+    // its icon class
+    const hasIcon = this.element.classList.contains("bi-clipboard")
+
+    if (this.original === undefined && this.element.textContent.trim() !== "") {
+      this.original = this.element.textContent
+      this.element.textContent = "Copied"
+    }
+
+    if (hasIcon) {
+      this.element.classList.remove("bi-clipboard")
+      this.element.classList.add("bi-check2")
+    }
+
+    this.timer = setTimeout(() => {
+      if (this.original !== undefined) {
+        this.element.textContent = this.original
+        this.original = undefined
+      }
+
+      if (hasIcon) {
+        this.element.classList.remove("bi-check2")
+        this.element.classList.add("bi-clipboard")
+      }
+    }, 1500)
   }
 }

@@ -1,1 +1,808 @@
-// posts area styles.
+// Posts area: feed, journal, explore, index, the single post, comments, and the
+// rich content of a post body (headings, lists, code, images, gallery, spoiler,
+// cut link, YouTube). Everything reads the tokens; nothing here is boxed except
+// the forms that open in place.
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// Page column: 680px of text plus the gutters.
+.posts-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--prose-width) + 2 * var(--space-5));
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) 0;
+}
+
+.posts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding-bottom: var(--space-2);
+
+  .meta {
+    max-width: 100%;
+  }
+}
+
+.page-title {
+  margin: 0;
+  font: 800 36px/1.2 var(--font-read);
+  letter-spacing: -0.015em;
+  color: var(--title);
+
+  a {
+    color: inherit;
+    font-weight: inherit;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}
+
+.page-title-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: var(--space-2);
+  color: var(--muted);
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.sect-title {
+  margin: 0;
+  font: 800 22px/1.3 var(--font-read);
+  letter-spacing: -0.015em;
+  color: var(--title);
+}
+
+.empty {
+  margin: var(--space-5) 0 0;
+  font: 400 16px/1.5 var(--font-ui);
+  color: var(--muted);
+}
+
+// Feed entries (.item is the shared component).
+.ptitle {
+  margin: 0;
+  font: 800 26px/1.3 var(--font-read);
+  letter-spacing: -0.015em;
+
+  a {
+    color: var(--title);
+
+    &:hover {
+      color: var(--accent);
+      text-decoration: none;
+    }
+  }
+}
+
+.ptitle-sm {
+  font-size: 22px;
+}
+
+.kind {
+  font: 600 12px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+// Link to the page a post was written about.
+.src {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  font: 400 14px var(--font-mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+
+  &:hover {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  svg {
+    flex: none;
+  }
+}
+
+.item > .prose {
+  margin-top: 6px;
+}
+
+.item > .acts {
+  margin-top: 4px;
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0 0;
+}
+
+// The feed's prompt to write a post, and the prompts addressed to the reader.
+.prompt-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--line);
+
+  .field {
+    flex: 1 1 200px;
+    margin: 0;
+  }
+
+  .field:first-of-type {
+    flex-grow: 3;
+  }
+
+  .btn {
+    flex: none;
+  }
+}
+
+.prompt-form-foot {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 24px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+// Journal: who the reader is to this author, with the one action that fits.
+.conn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+  font: 400 15px/1.5 var(--font-ui);
+  color: var(--muted);
+
+  p {
+    margin: 0;
+  }
+}
+
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) 0 0;
+}
+
+// The single post.
+.post-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.post-title {
+  margin: 0;
+  font: 800 40px/1.2 var(--font-read);
+  letter-spacing: -0.015em;
+  color: var(--title);
+  overflow-wrap: anywhere;
+}
+
+// The accent bar under the title, drawn from --title-rule-width.
+.us-post-header {
+  padding-bottom: var(--space-4);
+  border-bottom: var(--title-rule-width) solid var(--accent);
+}
+
+.post-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--muted);
+
+  svg {
+    flex: none;
+  }
+
+  a,
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+
+  .dot {
+    color: var(--faint);
+  }
+}
+
+// Comments: a flat list, indented by depth, each with its own action row.
+.comments {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-7);
+}
+
+.c {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 0;
+
+  + .c {
+    border-top: 1px solid var(--line);
+  }
+
+  .meta a.q {
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  // the comment's id decides its depth, up to five levels
+  &[class*="comment-"] {
+    margin-left: calc(var(--depth) * 24px) !important;
+    padding-left: 22px;
+    border-left: 1px solid var(--line);
+  }
+}
+
+.comment-1 { --depth: 1; }
+.comment-2 { --depth: 2; }
+.comment-3 { --depth: 3; }
+.comment-4 { --depth: 4; }
+.comment-5 { --depth: 5; }
+
+// Reply, edit and the new-comment composer open in place and stay closed
+// until the toggle controller marks them shown.
+.inplace {
+  display: none;
+  margin-top: 6px;
+
+  &.show {
+    display: block;
+    margin-bottom: var(--space-3);
+  }
+}
+
+.reply-to {
+  margin: 0 0 var(--space-2);
+}
+
+.box textarea,
+.box textarea.comment-textarea,
+.box textarea.comment-textarea:focus {
+  display: block;
+  box-shadow: none;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: 400 17px/1.6 var(--font-read);
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.box:focus-within {
+  border-color: var(--muted);
+}
+
+.box-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  .field-help {
+    margin: 0;
+  }
+}
+
+.box-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+// Reading text: what a post, a comment or a feed summary renders.
+.prose-post {
+  font-size: 19px;
+  line-height: 1.7;
+
+  p,
+  ul,
+  ol,
+  pre,
+  blockquote {
+    margin-bottom: 18px;
+  }
+}
+
+.prose-sm {
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.prose {
+  overflow-wrap: anywhere;
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 32px 0 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.3;
+    color: var(--title);
+  }
+
+  h1,
+  h2 {
+    font-size: 24px;
+  }
+
+  h3 {
+    font-size: 20px;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-size: 18px;
+  }
+
+  ul,
+  ol {
+    padding-left: 24px;
+  }
+
+  li {
+    margin: 0 0 6px;
+  }
+
+  li > ul,
+  li > ol {
+    margin: 6px 0 0;
+  }
+
+  blockquote p {
+    margin: 0;
+  }
+
+  code {
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: var(--sunken);
+    font: 400 0.85em var(--font-mono);
+  }
+
+  pre code {
+    padding: 0;
+    background: none;
+    font: inherit;
+  }
+
+  hr {
+    margin: var(--space-5) 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  // standalone images; lazysizes fills in the src
+  .post-img {
+    display: block;
+    max-width: min(500px, 100%);
+    height: auto;
+    margin: 0 auto;
+    border-radius: 8px;
+  }
+
+  // the feed's cut: "See more" or the author's own title
+  .post-cut-link {
+    margin: 0 0 var(--space-4);
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--title);
+      font: 600 15px var(--font-ui);
+      text-decoration: underline;
+      text-decoration-color: var(--line);
+      text-underline-offset: 4px;
+
+      &::after {
+        content: "\2192";
+      }
+
+      &:hover {
+        color: var(--title);
+        text-decoration-color: currentcolor;
+      }
+    }
+  }
+
+  // YouTube embeds
+  lite-youtube {
+    display: block;
+    max-width: 100%;
+    margin: 0 auto var(--space-4);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .lite-youtube-fallback {
+    border-radius: 8px;
+  }
+
+  // the spoiler: a dashed pill that opens the block below it
+  .block-container-spoiler {
+    margin: 0 0 var(--space-4);
+  }
+
+  .block-container-spoiler-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px 8px 12px;
+    border: 1px dashed var(--muted);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: 600 15px var(--font-ui);
+    text-decoration: none;
+    cursor: pointer;
+
+    &::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-top: 2px solid currentcolor;
+      border-right: 2px solid currentcolor;
+      transform: rotate(45deg);
+    }
+
+    &[aria-expanded="true"]::before {
+      transform: rotate(135deg);
+    }
+
+    &:hover {
+      background: var(--sunken);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .block-container-spoiler-content {
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: 8px;
+    background: var(--sunken);
+
+    > :last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+// Photo gallery ({gallery} block tag, see gallery_controller.js): a track
+// with the next photo peeking, the caption under the photo, and round
+// previous and next buttons around the counter.
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: var(--space-2) 0 22px;
+}
+
+.gallery__track,
+.viewer__track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  // keep a horizontal swipe from triggering browser back navigation
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y pinch-zoom;
+  scrollbar-width: none;
+
+  &.is-dragging {
+    scroll-snap-type: none;
+    cursor: grabbing;
+  }
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  > * {
+    scroll-snap-align: start;
+    min-width: 0;
+    margin: 0;
+  }
+}
+
+.gallery__track {
+  grid-auto-columns: 88%;
+  align-items: start;
+  gap: 12px;
+
+  &:has(> :only-child) {
+    grid-auto-columns: 100%;
+  }
+}
+
+.gallery__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gallery__link {
+  display: block;
+  cursor: zoom-in;
+}
+
+.gallery__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--sunken);
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.gallery__caption {
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--muted);
+  text-align: center;
+
+  p {
+    margin: 0;
+  }
+}
+
+.gallery__bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.gallery__counter {
+  min-width: 40px;
+  font: 600 14px var(--font-ui);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.gallery__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--muted);
+  }
+
+  &:disabled {
+    color: var(--faint);
+    cursor: default;
+    opacity: 1;
+  }
+}
+
+// Fullscreen viewer. This deliberately does not use the Fullscreen API:
+// requestFullscreen on a non-video element is still unreliable on iPhone. A
+// modal dialog sized to the viewport is full bleed everywhere and gives us the
+// top layer, focus trapping and escape-to-close for free. It is a photo
+// lightbox, so it is black and white in both themes.
+.viewer {
+  width: 100dvw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: rgb(0 0 0);
+  color: rgb(255 255 255);
+  overflow: hidden;
+
+  &::backdrop {
+    background: rgb(0 0 0);
+  }
+}
+
+// a modal dialog does not stop the page behind it from scrolling
+html:has(.viewer[open]) {
+  overflow: clip;
+}
+
+.viewer__track {
+  height: 100%;
+}
+
+.viewer__item {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-2);
+}
+
+.viewer__img {
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.viewer__caption {
+  max-width: 60ch;
+  padding: var(--space-2) 0;
+  font: 400 14px/1.5 var(--font-ui);
+  text-align: center;
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.viewer__close,
+.viewer__nav {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+  color: rgb(255 255 255);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.25;
+  }
+}
+
+.viewer__close {
+  top: var(--space-4);
+  right: var(--space-4);
+}
+
+.viewer__nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.viewer__nav--prev {
+  left: var(--space-4);
+}
+
+.viewer__nav--next {
+  right: var(--space-4);
+}
+
+// touch devices get swipe, so the arrows are only in the way
+@media (hover: none) {
+  .viewer__nav {
+    display: none;
+  }
+}
+
+.viewer__counter {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  font: 600 14px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+@media (max-width: 575.98px) {
+  .posts-page {
+    padding-top: var(--space-6);
+  }
+
+  .page-title {
+    font-size: 30px;
+  }
+
+  .post-title {
+    font-size: 32px;
+  }
+
+  .ptitle {
+    font-size: 23px;
+  }
+
+  .item {
+    padding: var(--space-5) 0;
+  }
+}

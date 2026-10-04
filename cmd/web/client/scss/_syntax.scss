@@ -1,39 +1,74 @@
-// Syntax highlighting styles
-.chroma {
-  // Background
-  background-color: #f8f8f8;
-  padding: 1em;
-  border-radius: 4px;
-  margin: 1em 0;
+// Code blocks and syntax highlighting (chroma classes). Colors come from the
+// tokens, which dark mode redefines, so there is no separate dark palette.
+pre {
+  margin: 0 0 var(--space-4);
+  padding: 14px var(--space-4);
+  border-radius: 8px;
+  background: var(--sunken);
+  color: var(--text);
+  font: 400 14px/1.6 var(--font-mono);
   overflow-x: auto;
+}
 
+.chroma {
   // Line numbers
   .ln {
-    color: #505050;
     padding-right: 1em;
+    color: var(--faint);
   }
 
   // Keywords
-  .k, .kd, .kn { color: #0044e0; font-weight: bold; }
+  .k,
+  .kd,
+  .kn,
+  .kc,
+  .kp,
+  .kt {
+    color: var(--title);
+    font-weight: 600;
+  }
 
-  // Strings
-  .s, .s1, .s2 { color: #0a9122; }
+  // Strings, symbols, escapes
+  .s,
+  .s1,
+  .s2,
+  .se,
+  .ss {
+    color: var(--accent);
+  }
 
-  // Comments
-  .c, .c1, .cm { color: #686868; font-style: italic; }
+  // Comments, preprocessor
+  .c,
+  .c1,
+  .cm,
+  .cp {
+    color: var(--muted);
+    font-style: italic;
+  }
 
-  // Functions and types
-  .nf, .nx { color: #0077a0; }
+  // Functions, classes, built-ins
+  .nf,
+  .nc,
+  .nb,
+  .nx {
+    color: var(--ok);
+  }
 
-  // Numbers
-  .mi, .mf { color: #1750eb; }
+  // Numbers and literals
+  .mi,
+  .mf,
+  .l {
+    color: var(--ok);
+  }
 
   // Operators
-  .o { color: #000000; font-weight: bold; }
+  .o {
+    color: var(--title);
+    font-weight: 600;
+  }
 
-  // Built-ins
-  .nb { color: #0044e0; }
-
-  // Variables
-  .nv { color: #111111; }
+  // Errors
+  .err {
+    color: var(--err);
+  }
 }
