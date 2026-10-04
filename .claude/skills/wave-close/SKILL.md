@@ -1,6 +1,6 @@
 ---
 name: wave-close
-description: Finish a pcom modernization wave (W0-W6, WB, R1-R7, RS, F-waves) - update the plan and history, record the wave's token statistics, make split commits, open the PR and watch CI. Use when all tasks of a wave are done, or when asked to wrap up, close or ship a wave.
+description: Finish a pcom modernization wave (R-waves and F-waves) - update the plan and history, record the wave's token statistics, make split commits, open the PR and watch CI. Use when all tasks of a wave are done, or when asked to wrap up, close or ship a wave.
 ---
 
 # Closing a wave

@@ -87,8 +87,7 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
   one that breaks the page. Only server rules that don't need the page's JavaScript (access control,
   guards, API, RSS, headers) belong in the cheaper `e2e/` HTTP tests, which don't imitate htmx.
 - Locate by role, label and text (`page.GetByRole("button", …{Name: "Publish"})`). Where that's ambiguous,
-  add a `data-testid` to the template. That is fine in frontend work, but not in test waves, which don't
-  change templates.
+  add a `data-testid` to the template.
 - Wait with auto-waiting locator assertions, never sleeps. After an htmx action, assert on the swapped
   element, not on the network.
 

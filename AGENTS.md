@@ -22,12 +22,11 @@ the one for the area you touch:
 Ongoing work is planned in `docs/implementation-plan.md` (the index: status, ground rules, how waves run).
 Each wave's tasks are in `docs/plan/<id>.md`. Coordinators use the `wave-run` and `wave-close` skills and
 read the index, the one wave file they run and `docs/open-questions.md` (undecided questions; never resolve
-one in code). Subagents read only what their prompt names. Test waves (W0–W6) must not change
-production code; bugs are filed as GitHub issues and pinned with skipped tests.
+one in code). Subagents read only what their prompt names.
 
-Target layering (built by waves R1 and RS; new code follows it now): handlers only bind input, call a
-service and render; services (`pkg/service/<area>`) hold business rules, authorization and transactions;
-all SQL and ORM calls live in repositories (`pkg/repo`). Don't add queries to a handler.
+Layering: handlers only bind input, call a service and render; services (`pkg/service/<area>`) hold
+business rules, authorization and transactions; all SQL and ORM calls live in repositories (`pkg/repo`).
+Don't add queries to a handler.
 
 **No magic numbers.** A limit or tunable value (a length cap, a page size, a timeout) is a setting in
 `pkg/config` with its default there, handed to the service as an option; the service exports the same default
