@@ -1,1 +1,311 @@
-// settings area styles.
+// Settings page (Settings board): a section index on the side, sections on
+// the ground separated by hairlines, forms that report next to their button.
+
+.settings {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+.settings-title {
+  margin: 0 0 var(--space-5);
+  font: 800 36px/1.2 var(--font-read);
+  letter-spacing: -0.015em;
+}
+
+.settings-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-5) 56px;
+}
+
+.settings-side {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 220px;
+  padding-top: 30px;
+  font: 600 13px var(--font-mono);
+
+  a,
+  button {
+    padding: 7px var(--space-3);
+    border: 0;
+    border-radius: var(--radius-control);
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text);
+      background: var(--sunken);
+      text-decoration: none;
+    }
+  }
+}
+
+.settings-logout {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-3);
+}
+
+.settings-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  max-width: var(--prose-width);
+}
+
+.settings-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 36px 0;
+  border-bottom: 1px solid var(--line);
+
+  &:first-child {
+    padding-top: var(--space-5);
+  }
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  h2 {
+    margin: 0;
+    font: 800 22px/1.3 var(--font-read);
+    letter-spacing: -0.015em;
+  }
+
+  .field {
+    margin: 0;
+  }
+}
+
+.settings-lead {
+  max-width: 560px;
+  margin: -8px 0 0;
+  font: 400 15px/1.6 var(--font-ui);
+  color: var(--muted);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  .field input[readonly] {
+    background: var(--sunken);
+    color: var(--muted);
+  }
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+// Two fields side by side, stacked on phones.
+.settings-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+
+  @media (max-width: 575.98px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// A single field with its button beside it; the button lines up with the
+// control, not the label.
+.settings-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+
+  .field {
+    flex: 1 1 320px;
+  }
+
+  .settings-row {
+    margin-top: 26px;
+  }
+}
+
+// The About editor: toolbar and textarea in one box, as in the comment form.
+.settings-editor {
+  gap: 0;
+  padding: var(--space-3);
+
+  .tb {
+    margin-bottom: var(--space-2);
+  }
+}
+
+.field .settings-editor textarea {
+  min-height: 9em;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  resize: vertical;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+.settings-editor:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.field textarea.settings-code {
+  font: 400 14px/1.6 var(--font-mono);
+}
+
+.settings-hooks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+
+  code {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--sunken);
+    color: var(--text);
+    font-size: 13px;
+  }
+}
+
+.settings-lead code {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.settings-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-feed,
+.settings-invite {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  font: 400 15px/1.5 var(--font-ui);
+}
+
+.settings-feed {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.settings-feed-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-feed-title {
+  font: 600 15px/1.5 var(--font-ui);
+
+  .dot {
+    padding: 0 6px;
+    color: var(--faint);
+  }
+}
+
+.settings-quiet {
+  font-weight: 400;
+  color: var(--muted);
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.settings-feed-error {
+  margin: 2px 0 0;
+  font: 600 13px/1.5 var(--font-ui);
+  color: var(--err);
+
+  summary {
+    cursor: pointer;
+  }
+
+  code {
+    display: block;
+    margin-top: 6px;
+    padding: var(--space-2) 10px;
+    border-radius: 6px;
+    background: var(--sunken);
+    color: var(--text);
+    font: 400 13px/1.5 var(--font-mono);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
+
+// A destructive item action: a quiet text link in the error color.
+.settings-remove {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--err);
+  font: 600 13px/1.5 var(--font-mono);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.settings-secret {
+  padding: 9px var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--sunken);
+  color: var(--text);
+  font: 400 14px/1.6 var(--font-mono);
+}
+
+.settings-url {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-results:empty {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .settings {
+    padding: var(--space-5) var(--space-4) var(--space-7);
+  }
+
+  .settings-side {
+    flex-flow: row wrap;
+    max-width: none;
+    padding-top: 0;
+  }
+
+  .settings-logout {
+    margin-top: 0;
+  }
+}

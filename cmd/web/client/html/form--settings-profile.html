@@ -1,4 +1,4 @@
-<form
+<form class="settings-form"
       method="POST"
       action="{{ link "form_save_profile" }}"
       hx-post="{{ link "form_save_profile" }}"
@@ -6,24 +6,30 @@
       hx-disabled-elt="this"
       >
 
-  <div class="mb-3"
+  <div class="field"
        data-controller="mdeditor"
        data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
     >
-    <label for="profileAbout" class="form-label">About you</label>
+    <label for="profileAbout">About you</label>
 
-    {{ template "partial--editor-toolbar.html" toMap "UploadID" "profileFileUpload" }}
-
-    <textarea class="form-control comment-textarea {{ if (.Errors.HasError "about") }}is-invalid{{ end }}"
-              name="about"
-              id="profileAbout"
-              rows="6"
-              autocomplete="off"
-              >{{ if .Input }}{{ .Input.About }}{{ end }}</textarea>
+    <div class="box settings-editor">
+      {{ template "partial--editor-toolbar.html" toMap "UploadID" "profileFileUpload" }}
+      <textarea name="about"
+                id="profileAbout"
+                rows="6"
+                autocomplete="off"
+                aria-describedby="profileAboutHelp{{ if (.Errors.HasError "about") }} profileAboutError{{ end }}"
+                {{ if (.Errors.HasError "about") }}aria-invalid="true"{{ end }}
+                >{{ if .Input }}{{ .Input.About }}{{ end }}</textarea>
+    </div>
     {{ if (.Errors.HasError "about") }}
-    <div class="invalid-feedback">{{ .Errors.about }}</div>
+    <p class="field-error" id="profileAboutError">{{ .Errors.about }}</p>
     {{ end }}
+    <p class="field-help" id="profileAboutHelp">Markdown. Up to {{ .AboutMaxLength }} characters; leave empty to hide the section.</p>
   </div>
 
-  <button type="submit" class="btn btn-primary">Save profile</button>
+  <div class="settings-row">
+    <button type="submit" class="btn btn-primary">Save</button>
+    {{ template "partial--settings_status.html" . }}
+  </div>
 </form>

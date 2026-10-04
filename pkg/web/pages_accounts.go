@@ -19,6 +19,8 @@ type SettingsPage struct {
 	UserStyles       *forms.SettingsUserStyles
 	Profile          *forms.SettingsProfile
 	Feeds            []*feeds.RssFeed
+	FeedsSection     map[string]any // partial--settings_feeds.html
+	InvitesSection   map[string]any // partial--settings_invites.html
 }
 
 func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, view *accounts.SettingsView) *SettingsPage {
@@ -27,6 +29,10 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 
 	formProfile := forms.SettingsProfileNew(svc, userData.DBUser)
 	formProfile.Input.About = view.ProfileAbout
+
+	// the add feed form is only rendered here, so it needs no service
+	feedsSection := forms.FeedsSection(view.Feeds, userData.DBUser, forms.NewAddFeedForm(nil, userData.DBUser).TemplateData())
+	invitesSection := forms.InvitesSection(view.AvailableInvites, view.UsedInvites, forms.SendInviteFormNew(svc, userData.DBUser).TemplateData())
 
 	return &SettingsPage{
 		BasePage:         getBasePage(c, "Settings", userData),
@@ -38,6 +44,8 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 		UserStyles:       formUserStyles,
 		Profile:          formProfile,
 		Feeds:            view.Feeds,
+		FeedsSection:     feedsSection,
+		InvitesSection:   invitesSection,
 	}
 }
 

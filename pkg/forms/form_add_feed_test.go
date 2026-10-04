@@ -91,6 +91,8 @@ func TestAddFeedForm_Save(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, action)
+			require.True(t, form.FormSaved)
+			require.Empty(t, form.Input.URL, "the section comes back with an empty form")
 
 			subs := testutil.Must(svc.Subscriptions(ctx, user))(t)
 			require.Len(t, subs, 1)

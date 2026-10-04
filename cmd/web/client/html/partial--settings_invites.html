@@ -1,17 +1,20 @@
-<div class="card mt-2">
-  <h5 class="card-header">Invites</h5>
-  <div class="card-body">
-    {{ if or (gt .AvailableInvites 0) }}
-      {{ template "form--send-invite.html" }}
-    {{ end }}
+{{/* The invites section; sending an invite re-renders it in place.
+     Available: invites left. Used: sent invitations. Form: the send form's template data. */}}
+<section class="settings-sec" id="invites" aria-labelledby="invites-title">
+  <h2 id="invites-title">Invites</h2>
+  <p class="settings-lead">{{ if eq .Available 0 }}You have no invites left.{{ else if eq .Available 1 }}You have 1 invite left.{{ else }}You have {{ .Available }} invites left.{{ end }}</p>
 
-    {{ if gt (len .UsedInvites) 0 }}
-    <p>Used Invites</p>
-    <ul>
-      {{ range .UsedInvites }}
-      <li>{{ .InvitationEmail.String }}</li>
-      {{ end }}
-    </ul>
+  {{ if gt .Available 0 }}
+    {{ template "form--send-invite.html" .Form }}
+  {{ else if .Form.FormSaved }}
+    <p>{{ template "partial--settings_status.html" .Form }}</p>
+  {{ end }}
+
+  {{ if gt (len .Used) 0 }}
+  <ul class="settings-list" aria-label="Sent invites">
+    {{ range .Used }}
+    <li class="settings-invite">{{ .InvitationEmail.String }}</li>
     {{ end }}
-  </div>
-</div>
+  </ul>
+  {{ end }}
+</section>

@@ -1,28 +1,60 @@
 {{ template "header.html" . }}
 
-<div class="container mt-lg-4 mt-2">
-  <h1>Settings</h1>
+<main class="settings">
+  <h1 class="settings-title">Settings</h1>
 
-  <div class="row">
-    <div class="col-lg-6 mt-2">
+  <div class="settings-layout">
+    <nav class="settings-side" aria-label="Settings sections">
+      <a href="#general">General</a>
+      <a href="#profile">Profile</a>
+      <a href="#styles">Custom styles</a>
+      <a href="#feeds">RSS feeds</a>
+      {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
+      <a href="#invites">Invites</a>
+      {{ end }}
+      <a href="#data">Import and export</a>
+      <a href="#api">API key</a>
+      <a href="#private-feed">Private feed</a>
+      <form
+        class="settings-logout"
+        method="POST"
+        action="{{ link "action" "logout" }}"
+        hx-post="{{ link "action" "logout" }}"
+        hx-swap="none"
+        >
+        <button type="submit">Log out</button>
+      </form>
+    </nav>
 
-      <div class="card">
-        <h5 class="card-header">General</h5>
-        <div class="card-body">
-          {{ template "form--settings-general.html" .GeneralSettings.TemplateData }}
-        </div>
-      </div>
+    <div class="settings-main">
+      <section class="settings-sec" id="general" aria-labelledby="general-title">
+        <h2 id="general-title">General</h2>
+        {{ template "form--settings-general.html" .GeneralSettings.TemplateData }}
+      </section>
 
-      <div class="card mt-2">
-        <h5 class="card-header">Import/Export</h5>
-        <div class="card-body">
-          <p class="card-text">You can always get your posts out of the system and bring them back to another account if you like. Importing an archive into the account it came from updates the existing posts in place and skips images that are already uploaded. Importing into a different account creates new copies of the posts.</p>
-          <div id="import_export_results"></div>
-          <form class="d-inline" hx-boost="false" method="POST" action="{{ link "action" "settings/export" }}">
+      <section class="settings-sec" id="profile" aria-labelledby="profile-title">
+        <h2 id="profile-title">Profile</h2>
+        <p class="settings-lead">Shown under an About heading at the top of your journal, to everyone who can open it.</p>
+        {{ template "form--settings-profile.html" .Profile.TemplateData }}
+      </section>
+
+      {{ template "partial--settings_user_styles.html" .UserStyles.TemplateData }}
+
+      {{ template "partial--settings_feeds.html" .FeedsSection }}
+
+      {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
+        {{ template "partial--settings_invites.html" .InvitesSection }}
+      {{ end }}
+
+      <section class="settings-sec" id="data" aria-labelledby="data-title">
+        <h2 id="data-title">Import and export</h2>
+        <p class="settings-lead">Export downloads all your posts and images as a zip file. Import reads such a file back: into the account it came from, it updates the existing posts in place and skips images that are already uploaded; into another account, it creates new copies of the posts.</p>
+        <div class="settings-row">
+          <form hx-boost="false" method="POST" action="{{ link "action" "settings/export" }}">
             <input type="hidden" name="header_csrf" value="{{ .User.CSRFToken }}" />
-            <button type="submit" class="btn btn-primary">Export posts</button>
+            <button type="submit" class="btn btn-secondary">Export posts</button>
           </form>
-          <form class="d-inline"
+          <form
             method="POST"
             hx-post="{{ link "action" "settings/import" }}"
             hx-trigger="input from:#import_file"
@@ -31,99 +63,18 @@
             hx-target="#import_export_results"
             action="{{ link "action" "settings/import" }}"
             >
-            <label for="import_file" class="btn btn-warning">Import posts</label>
-            <input type="file" name="file" id="import_file" class="d-none" />
+            <label for="import_file" class="btn btn-secondary">Import posts</label>
+            <input type="file" name="file" id="import_file" hidden />
           </form>
         </div>
-      </div>
+        <div id="import_export_results" class="settings-results"></div>
+      </section>
 
-    </div>
+      {{ template "partial--settings_api.html" toMap "APIKey" .ActiveAPIKey }}
 
-
-    <div class="col-lg-6 mt-2">
-
-      <div class="card">
-        <h5 class="card-header">API Key</h5>
-        <div class="card-body">
-          {{ with .ActiveAPIKey }}
-            <p>Your API key, click to copy</p>
-            <code>****</code>
-            <i data-controller="clipboard"
-               data-clipboard-copy-value="{{ .APIKey }}"
-               class="bi bi-clipboard"
-               role="button"
-               ></i>
-          {{ else }}
-            <button type="button"
-                    class="btn btn-sm btn-primary"
-                    data-controller="action"
-                    data-action="action#run"
-                    data-action-action-value="generate_api_key"
-                    >Generate an API Key</button>
-          {{ end }}
-        </div>
-      </div>
-
-      <div class="card mt-2">
-        <h5 class="card-header">Private Feed</h5>
-        <div class="card-body">
-          <p>A read-only RSS feed of your posts feed. It is separate from your API key, and regenerating it stops the old URL from working.</p>
-          {{ with .FeedURL }}
-            <code>{{ . }}</code>
-            <i data-controller="clipboard"
-               data-clipboard-copy-value="{{ . }}"
-               class="bi bi-clipboard"
-               role="button"
-               ></i>
-            <div class="mt-2">
-              <button type="button"
-                      class="btn btn-sm btn-outline-secondary"
-                      data-controller="action"
-                      data-action="action#run"
-                      data-action-action-value="regenerate_feed_token"
-                      >Regenerate feed URL</button>
-            </div>
-          {{ else }}
-            <button type="button"
-                    class="btn btn-sm btn-primary"
-                    data-controller="action"
-                    data-action="action#run"
-                    data-action-action-value="regenerate_feed_token"
-                    >Generate feed URL</button>
-          {{ end }}
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-
-  <div class="card mt-2">
-    <h5 class="card-header">Public profile</h5>
-    <div class="card-body">
-      <p>The text is shown under an <em>About</em> heading at the top of your journal. Markdown is supported.</p>
-      {{ template "form--settings-profile.html" .Profile.TemplateData }}
+      {{ template "partial--settings_private_feed.html" toMap "FeedURL" .FeedURL }}
     </div>
   </div>
-
-  {{ template "partial--settings_user_styles.html"  .UserStyles.TemplateData }}
-
-  {{ template "partial--settings_feeds.html"  toMap "Feeds" .Feeds "User" .User }}
-
-  {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
-    {{ template "partial--settings_invites.html" . }}
-  {{ end }}
-
-  <div class="text-center">
-    <form
-      method="POST"
-      action="{{ link "action" "logout" }}"
-      hx-post="{{ link "action" "logout" }}"
-      hx-swap="none"
-      >
-      <button type="submit" class="btn btn-link">Log out</a>
-    </form>
-  </div>
-</div>
+</main>
 
 {{ template "footer.html" . }}

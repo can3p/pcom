@@ -1,7 +1,5 @@
-<div class="card mt-2">
-  <h5 class="card-header">User styles</h5>
-  <div class="card-body">
-    <p>Styles are applied to user home and user post pages under <em>.user-styles-applied</em>. You can use all <em>.us-*</em> classes.</p>
-    {{ template "form--settings-user-styles.html" . }}
-  </div>
-</div>
+<section class="settings-sec" id="styles" aria-labelledby="styles-title">
+  <h2 id="styles-title">Custom styles</h2>
+  <p class="settings-lead">Your CSS applies to your journal and your posts, under <code>.user-styles-applied</code>. Use the <code>.us-*</code> classes to target parts of a page.</p>
+  {{ template "form--settings-user-styles.html" . }}
+</section>

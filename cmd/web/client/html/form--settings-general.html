@@ -1,60 +1,54 @@
-{{ if .FormSaved }}
-  {{ template "partial--success-message.html" toMap "Message" "Settings have been saved" }}
-{{ end }}
-
-<form method="POST"
+<form class="settings-form"
+  method="POST"
   action="{{ link "form_save_settings" }}"
   hx-post="{{ link "form_save_settings" }}"
   hx-swap="outerHTML"
   hx-disabled-elt="this"
   >
 
-  <div class="mb-3">
-    <label for="settingsEmail" class="form-label">Email address</label>
-    <input name="email" type="email"
-                        value="{{ .User.Email }}"
-                        class="form-control"
-                        id="settingsEmail" aria-describedby="emailHelp"
-                                           disabled>
+  <div class="field">
+    <label for="settingsEmail">Email address</label>
+    <input name="email" type="email" value="{{ .User.Email }}" id="settingsEmail" readonly>
   </div>
 
-  <div class="mb-3">
-    <label for="settingsTimeZone" class="form-label">Time Zone</label>
-    <select name="timezone"
-            class="form-control {{ if (.Errors.HasError "timezone") }}is-invalid{{ end }}"
-            >
-        {{ $selected_tz := .User.Timezone }}
-        {{ if (and .Input .Input.Timezone) }}
-          {{ $selected_tz = .Input.Timezone }}
-        {{ end }}
-
+  <div class="settings-pair">
+    <div class="field">
+      <label for="settingsTimeZone">Time zone</label>
+      {{ $selected_tz := .User.Timezone }}
+      {{ if (and .Input .Input.Timezone) }}
+        {{ $selected_tz = .Input.Timezone }}
+      {{ end }}
+      <select name="timezone" id="settingsTimeZone"
+              {{ if (.Errors.HasError "timezone") }}aria-invalid="true" aria-describedby="settingsTimeZoneError"{{ end }}>
         {{ range tzlist }}
           <option value="{{ . }}" {{ if eq . $selected_tz }}selected{{ end }}>{{ . }}</option>
         {{ end }}
-    </select>
-    {{ if (.Errors.HasError "timezone") }}
-    <div class="invalid-feedback">{{ .Errors.timezone }}</div>
-    {{ end }}
-  </div>
+      </select>
+      {{ if (.Errors.HasError "timezone") }}
+      <p class="field-error" id="settingsTimeZoneError">{{ .Errors.timezone }}</p>
+      {{ end }}
+    </div>
 
-  <div class="mb-3">
-    <label for="settingsTimeZone" class="form-label">Profile Visibility</label>
-    <select name="profile_visibility"
-            class="form-control {{ if (.Errors.HasError "profile_visibility") }}is-invalid{{ end }}"
-            >
-        {{ $selected := .User.ProfileVisibility }}
-        {{ if (and .Input .Input.ProfileVisibility) }}
-          {{ $selected = .Input.ProfileVisibility }}
-        {{ end }}
-
+    <div class="field">
+      <label for="settingsProfileVisibility">Who can see your journal</label>
+      {{ $selected := .User.ProfileVisibility }}
+      {{ if (and .Input .Input.ProfileVisibility) }}
+        {{ $selected = .Input.ProfileVisibility }}
+      {{ end }}
+      <select name="profile_visibility" id="settingsProfileVisibility"
+              {{ if (.Errors.HasError "profile_visibility") }}aria-invalid="true" aria-describedby="settingsProfileVisibilityError"{{ end }}>
         {{ range .ProfileVisibility }}
           <option value="{{ .Value }}" {{ if eq .Value $selected }}selected{{ end }}>{{ .Label }}</option>
         {{ end }}
-    </select>
-    {{ if (.Errors.HasError "profile_visibility") }}
-    <div class="invalid-feedback">{{ .Errors.profile_visibility }}</div>
-    {{ end }}
+      </select>
+      {{ if (.Errors.HasError "profile_visibility") }}
+      <p class="field-error" id="settingsProfileVisibilityError">{{ .Errors.profile_visibility }}</p>
+      {{ end }}
+    </div>
   </div>
 
-  <button type="submit" class="btn btn-primary">Save Settings</button>
+  <div class="settings-row">
+    <button type="submit" class="btn btn-primary">Save</button>
+    {{ template "partial--settings_status.html" . }}
+  </div>
 </form>

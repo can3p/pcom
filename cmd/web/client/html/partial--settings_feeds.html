@@ -1,44 +1,44 @@
-<div class="card mt-2">
-  <h5 class="card-header">Feeds</h5>
-  <div class="card-body">
-    <p>Add RSS feeds that you'd like to follow there</p>
+{{/* The RSS feeds section; adding a feed re-renders it in place.
+     Feeds: the user's subscriptions. DBUser: the viewer, for times. Form: the add form's template data. */}}
+<section class="settings-sec" id="feeds" aria-labelledby="feeds-title">
+  <h2 id="feeds-title">RSS feeds</h2>
+  <p class="settings-lead">New entries from these feeds show up in your feed.</p>
 
-    {{ if gt (len .Feeds) 0}}
-    <ul class="list-group list-group-flush">
-      {{ range .Feeds }}
-      <li class="list-group-item px-2 py-1">
-        <div class="d-flex justify-content-between align-items-center gap-2">
-          <div class="overflow-hidden flex-grow-1">
-            <div class="d-flex align-items-baseline gap-1">
-              <a href="{{ .WebsiteURL }}" target="_blank" rel="noopener noreferrer">{{ with .Title }}{{ . }}{{ else }}{{ .WebsiteURL }}{{ end }}</a>
-              <a href="{{ .URL }}" target="_blank" rel="noopener noreferrer" class="ms-1 text-muted small" title="RSS Feed"><i class="bi bi-rss"></i></a>
-            </div>
-            <div class="d-flex flex-wrap small gap-2">
-              <span><span class="text-muted">Fetched:</span> {{ with .LastFetchedAt }}{{ renderHumanTime . $.User.DBUser }}{{ else }}Never{{ end }}</span>
-              <span><span class="text-muted">Post:</span> {{ with .LastImportedAt }}{{ renderHumanTime . $.User.DBUser }}{{ else }}None{{ end }}</span>
-              <span><span class="text-muted">Next:</span> {{ with .NextFetchAt }}{{ renderHumanTime . $.User.DBUser }}{{ else }}Now{{ end }}</span>
-            </div>
-            {{ with .LastError }}
-            <details class="small">
-              <summary class="text-danger" role="button">Error</summary>
-              <div class="text-danger mt-1">{{ . }}</div>
-            </details>
-            {{ end }}
-          </div>
-          <button type="button"
-                  class="btn btn-sm btn-outline-danger flex-shrink-0"
-                  data-controller="action"
-                  data-action="action#run"
-                  data-action-action-value="remove_rss_subscription"
-                  data-action-prompt-value="Do you want to unsubcribe from {{ .URL }}?"
-                  data-id="{{ .ID }}"
-                  ><i class="bi-trash"></i></button>
-        </div>
-      </li>
-      {{ end }}
-    </ul>
+  {{ if gt (len .Feeds) 0 }}
+  <ul class="settings-list" aria-label="Your feeds">
+    {{ range .Feeds }}
+    <li class="settings-feed">
+      <div class="settings-feed-main">
+        <span class="settings-feed-title"><a href="{{ .WebsiteURL }}" target="_blank" rel="noopener noreferrer">{{ with .Title }}{{ . }}{{ else }}{{ .WebsiteURL }}{{ end }}</a><span class="dot">·</span><a href="{{ .URL }}" target="_blank" rel="noopener noreferrer" class="settings-quiet">RSS</a></span>
+        <p class="meta">
+          {{- with .LastFetchedAt }}Fetched {{ renderHumanTime . $.DBUser }}{{ else }}Never fetched{{ end -}}
+          <span class="dot">·</span>
+          {{- with .LastImportedAt }}last post {{ renderHumanTime . $.DBUser }}{{ else }}no posts yet{{ end -}}
+          <span class="dot">·</span>
+          {{- with .NextFetchAt }}next fetch {{ renderHumanTime . $.DBUser }}{{ else }}next fetch now{{ end -}}
+        </p>
+        {{ with .LastError }}
+        <details class="settings-feed-error">
+          <summary>The last fetch failed</summary>
+          <code>{{ . }}</code>
+        </details>
+        {{ end }}
+      </div>
+      <button type="button"
+              class="settings-remove"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="remove_rss_subscription"
+              data-action-skip-reload-value="true"
+              hx-target="#feeds"
+              hx-swap="outerHTML"
+              data-action-prompt-value="Do you want to unsubscribe from {{ .URL }}?"
+              data-id="{{ .ID }}"
+              >Remove</button>
+    </li>
     {{ end }}
+  </ul>
+  {{ end }}
 
-    {{ template "form--settings-feeds.html" . }}
-  </div>
-</div>
+  {{ template "form--settings-feeds.html" .Form }}
+</section>

@@ -1,4 +1,4 @@
-<form
+<form class="settings-form"
       method="POST"
       action="{{ link "form_user_styles" }}"
       hx-post="{{ link "form_user_styles" }}"
@@ -6,16 +6,24 @@
       hx-disabled-elt="this"
       >
 
-  <div class="mb-3">
-    <label for="settingsStyles" class="form-label">Add your css below</label>
+  <div class="field">
+    <label for="settingsStyles">CSS</label>
     <textarea name="styles"
-              class="form-control {{ if (.Errors.HasError "styles") }}is-invalid{{ end }}"
+              class="settings-code"
               id="settingsStyles"
+              rows="8"
+              spellcheck="false"
+              aria-describedby="settingsStylesHelp{{ if (.Errors.HasError "styles") }} settingsStylesError{{ end }}"
+              {{ if (.Errors.HasError "styles") }}aria-invalid="true"{{ end }}
               >{{ if .Input }}{{ .Input.Styles }}{{ end }}</textarea>
     {{ if (.Errors.HasError "styles") }}
-    <div class="invalid-feedback">{{ .Errors.styles }}</div>
+    <p class="field-error" id="settingsStylesError">{{ .Errors.styles }}</p>
     {{ end }}
+    <p class="field-help settings-hooks" id="settingsStylesHelp">Stable hooks: <code>.us-feed-post</code><code>.us-post-header</code><code>.us-post-body</code><code>.us-single-comment</code><code>.us-comments-section</code></p>
   </div>
 
-  <button type="submit" class="btn btn-primary">Save styles</button>
+  <div class="settings-row">
+    <button type="submit" class="btn btn-primary">Save</button>
+    {{ template "partial--settings_status.html" . }}
+  </div>
 </form>

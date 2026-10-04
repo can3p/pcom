@@ -7,6 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -83,5 +84,34 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	sent := sender.Sent()
 	require.Len(t, sent, 1)
 	require.Equal(t, "user_invitation", sent[0].EmailType)
-	require.Equal(t, form.Input.Email, sent[0].Mail.To[0].Address)
+	require.Equal(t, "newinvitee@example.test", sent[0].Mail.To[0].Address)
+
+	invites := testutil.Must(repo.Using(db).SentInvitations(ctx, inviter.ID))(t)
+	require.Len(t, invites, 1)
+	require.Equal(t, "newinvitee@example.test", invites[0].InvitationEmail.String)
+	require.True(t, form.FormSaved)
+	require.Empty(t, form.Input.Email, "the section comes back with an empty form")
+}
+
+// A refusal from the service, such as no invite left, is shown under the
+// field rather than failing the request.
+func TestSendInviteForm_SaveRefusalIsAFieldError(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	sender := fakesender.New()
+	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
+
+	inviter := testutil.Must(factory.User(ctx, db))(t)
+
+	form := forms.SendInviteFormNew(accountsFor(db, sender), inviter).(*forms.SendInviteForm)
+	form.Input.Email = "newinvitee@example.test"
+
+	action, err := form.Save(c)
+	require.NoError(t, err)
+	require.NotNil(t, action)
+	require.True(t, form.Errors.HasError("email"))
+	require.False(t, form.FormSaved)
+	require.Empty(t, sender.Sent())
 }
