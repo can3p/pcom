@@ -94,6 +94,8 @@ Runs the real `cmd/web` binary against its own database and drives it with plain
 headers, HTML and the resulting database state. It is for server rules that don't depend on the frontend
 (see the layers table); the client does not imitate htmx, and user flows belong in the browser suite.
 `-short` (`make test-short`) skips E2E entirely.
+`TestGuards_RouteTableMatchesSource` reads the route files by name: a change that moves routes between files
+updates its `prefixes` map, and the route table it asserts stays the same.
 Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
 
 `e2e.Start(t, opts...)` returns `*App{URL, DB}`. `app.Client(t)` gives a cookie-carrying `*Client` with `Get`,
@@ -119,6 +121,7 @@ redirects, Stimulus controllers, confirmations, toasts, dark mode. The package i
 `browser`, so `make test` and `make check` need no browser. Run it with `make test-ui`, which builds the
 frontend first (`RUN=<regex>` narrows it, `COUNT=<n>` repeats it, `HEADED=1 SLOWMO=250` shows the browser);
 install Chromium once with `make ui-deps`. Compile it with `make vet-q PKG=./e2e/browser/... TAGS=browser`.
+There are no pixel snapshots: they need browsers pinned in the tools container, which they aren't.
 
 What a run does:
 
@@ -199,7 +202,8 @@ func TestSmoke_ActionButton(t *testing.T) {
 `cover-q`, `fix-q` and `lint-q` (see `AGENTS.md`) are for agents, narrow with `PKG=./pkg/links/...` and take build tags with
 `TAGS=browser`. The browser targets are `ui-deps`, `test-ui` and `ui-trace` (above).
 
-CI enforces a coverage ratchet: after `make cover`, `make cover-check` fails if total coverage (excluding
+CI runs `make cover` and sends the merged unit, package and E2E coverage, `cmd/web` included, to Codecov.
+It enforces a coverage ratchet: after `make cover`, `make cover-check` fails if total coverage (excluding
 `pkg/model/core`) or one of the critical packages drops below its floor in `tools/coverage-floors.txt`. Floors
 are the merged numbers minus 1% and only ever rise: after raising coverage, run `make cover` and set the new
 percentage minus 1.

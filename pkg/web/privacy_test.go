@@ -232,7 +232,7 @@ func TestPrivacyMatrix(t *testing.T) {
 	// doesn't matter here: only the post's own visibility does, so every row
 	// holds for all three profile visibilities. A public post of a
 	// connections-only profile is readable by anyone with its link, by
-	// decision (docs/open-questions.md, Q15), although Explore and the
+	// decision (docs/product.md, "A public post is public by URL"), although Explore and the
 	// profile page don't list it.
 	singlePostSpec := []struct {
 		viewer    viewer

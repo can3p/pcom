@@ -1,7 +1,7 @@
 # Architecture: layers
 
-pcom has three layers. `pkg/arch/arch_test.go` enforces them, and its
-allowlist names every file that doesn't follow them yet. Shares
+pcom has three layers. `pkg/arch/arch_test.go` enforces them; its allowlist
+is empty and stays so. Shares
 (`pkg/service/shares`, `pkg/repo/shares.go`, `pkg/web/app/actions_shares.go`,
 `/shared/:id` in `routes_public.go`) is the worked example: copy it.
 
@@ -53,11 +53,10 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   has no `ValidateX` for forms to call.
 - **Model types cross the boundary for now.** Repositories and services
   return the generated `core` structs, or small structs built from them, so
-  templates don't change (open question Q13).
+  templates don't change (Q13 in `docs/plan/r5.md` asks whether that stays).
 - **Page builders** in `pkg/web` (`pages_<area>.go`) take service results,
   not a database: `web.SharedPost(c, userData, shared)`.
-- **Legacy code.** RS is done: the arch test's allowlist is empty and stays
-  so. Code that still takes an executor gets `store.Exec()` only in tests
+- **Executors.** Code that still takes an executor gets `store.Exec()` only in tests
   and factories (`repo.Using(exec)` on their side).
 - **Panics stay panics.** Where the old code panicked (a confirmation mail
   that cannot be queued, the waiting list write), the accounts service returns
@@ -73,6 +72,20 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   tables and are exempt from the layering (see `pkg/arch`).
 - **One query, one method.** Repository files are per aggregate; a lookup
   another area needs is called, not copied (`UsersByIDs`, `OpenGrantExists`).
+
+## Configuration and tooling
+
+- **One setting per behavior.** Production behavior (secure cookies, HSTS, static caching, panic reports,
+  error pages) is each its own setting with a production-safe default; development, compose and tests
+  turn them off. There is no "production mode" switch: `FLY_APP_NAME` only makes `seed` refuse to run.
+  Limits and tunables are settings too ("No magic numbers" in `AGENTS.md`).
+- **Migrations run at deploy, outside the app.** There is no `migrate` subcommand and no migration library
+  in `go.mod`: the production image carries the `sql-migrate` binary, `dbconfig.yml` and `migrations/`, and
+  fly's `release_command` runs it before the new version takes traffic.
+- **Generators and migration tools stay out of `go.mod`.** sql-migrate and sqlboiler are installed in
+  `tools/Dockerfile`, pinned by `ARG`s, because `go tool` directives pull a tool's whole dependency tree into
+  the module graph. `generate.sh` refuses to run when the generator and the runtime library in `go.mod`
+  differ, so a dependency bump fails CI instead of shipping mismatched code.
 
 ## Logic in the database
 
@@ -105,9 +118,9 @@ The database does:
 The database does not:
 
 - **Compute business values** in functions, triggers, generated columns,
-  views or defaults. F5 first defined the mailbox rule as a Postgres
-  function only the app called; it is now `pgsession.CanonicalEmail`, with a
-  table test, stored on every insert.
+  views or defaults. The mailbox rule, for example, is
+  `pgsession.CanonicalEmail`, with a table test, and its result is stored on
+  every insert.
 - **Decide time.** No `now()` in a rule's predicate: the service passes its
   clock's time in, so tests move it (`accounts.WithClock`). `created_at`
   defaults are fine.

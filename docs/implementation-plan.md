@@ -35,8 +35,9 @@ Related documents:
 
 - `docs/gogo-extraction.md`: what can move into the shared library, noted
   while surveying.
-- `docs/open-questions.md`: decisions that are still open, and the ones
-  already made.
+- `docs/open-questions.md`: decisions that are still open and no wave owns.
+- `docs/product.md`: how pcom behaves on purpose; `docs/archive/decisions.md`
+  is the log of the decisions made up to 2026-10-04.
 - GitHub issues #108–#124: bugs and future work found during the survey.
   PR #118 fixes the API post-deletion hole.
 
