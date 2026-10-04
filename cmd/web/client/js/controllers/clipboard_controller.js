@@ -17,8 +17,11 @@ export default class extends Controller {
   copy() {
     clearTimeout(this.timer)
 
-    // a relative value ("/shared/...") is copied as the full address
-    const value = new URL(this.copyValue, window.location.origin).href
+    // a path ("/shared/...") is copied as the full address; any other value
+    // (an API key) is copied as it is
+    const value = this.copyValue.startsWith("/")
+      ? new URL(this.copyValue, window.location.origin).href
+      : this.copyValue
 
     navigator.clipboard.writeText(value)
 

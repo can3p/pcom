@@ -402,7 +402,7 @@ func TestActions_PostPromptAskAndDismiss(t *testing.T) {
 	require.NoError(t, pageAsker.GetByPlaceholder("%username%").Fill(recipient.Username))
 	require.NoError(t, pageAsker.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Prompt!"}).Click())
 
-	require.NoError(t, browser.Expect.Locator(pageAsker.GetByRole("alert")).ToContainText("Prompt has been sent"))
+	require.NoError(t, browser.Expect.Locator(pageAsker.GetByRole("status")).ToContainText("Prompt has been sent"))
 
 	pageRecipient := browser.Page(t, app, browser.As(recipient))
 	acceptDialogs(pageRecipient)
