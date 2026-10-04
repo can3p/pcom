@@ -24,6 +24,28 @@ Write a short text about yourself, in markdown. It appears under an "About" head
 
 You can add your own CSS, which is applied to your journal, your single-post pages, and your own feed and Explore pages.
 
+The `us-*` classes are the stable contract for your CSS; every other class may change when pcom's design changes. Each hook marks one element:
+
+| Class | Marks |
+|---|---|
+| `us-user-home` | the whole page of a journal, a feed or Explore |
+| `us-user-header` | the page heading |
+| `us-profile-about` | the "About" text of a journal |
+| `us-feed-post` | one post in a list |
+| `us-feed-post-stats` | the row of actions under a post in a list |
+| `us-feed-comment` | one comment in a feed |
+| `us-feed-rss-item` | one item of an RSS feed in your feed |
+| `us-post-date` | the date of a post or item |
+| `us-load-more` | the "load more" control at the end of a list |
+| `us-single-post` | the whole page of a single post |
+| `us-post-header` | the title of a single post |
+| `us-post-body` | the text of a single post |
+| `us-public-link` | the "Public link on" line of a shared post |
+| `us-comment-stats` | the row of actions under a post, above its comments |
+| `us-comments-section` | the comments of a single post |
+| `us-single-comment` | one comment of a single post |
+| `us-comment-form` | the form for writing a comment |
+
 ## Import and export
 
 Export downloads all your posts with their images as a zip file; import reads such a file back, into the same or another account. Importing into the same account updates the posts you already own and skips images already uploaded under the same name; importing into another account creates new copies.

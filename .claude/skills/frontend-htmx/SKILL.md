@@ -1,6 +1,6 @@
 ---
 name: frontend-htmx
-description: Conventions for pcom's frontend - Go HTML templates, htmx (hx-boost, json-enc, response headers), Stimulus controllers including the generic action controller, CSRF, Bootstrap dark-mode SCSS, the renderHumanTime helper, and checking a change with the browser test suite (make test-ui). Use before changing or adding anything under cmd/web/client/ (html, js, scss) or a handler that returns htmx responses.
+description: Conventions for pcom's frontend - Go HTML templates, htmx (hx-boost, json-enc, response headers), Stimulus controllers including the generic action controller, CSRF, the design system (tokens, components, dark mode), the renderHumanTime helper, and checking a change with the browser test suite (make test-ui). Use before changing or adding anything under cmd/web/client/ (html, js, scss) or a handler that returns htmx responses.
 ---
 
 # Frontend (templates, JS, styles)
@@ -11,7 +11,7 @@ description: Conventions for pcom's frontend - Go HTML templates, htmx (hx-boost
 - **htmx** - AJAX requests and page transitions
 - **Stimulus.js** - JavaScript controllers
 - **Go Templates** - Server-side HTML rendering
-- **Bootstrap** - CSS framework
+- **SCSS design system** - pcom's own tokens and components (no CSS framework; see "Design system")
 
 ### htmx Configuration
 Located in `cmd/web/client/js/index.js`:
@@ -94,24 +94,33 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
 Handlers behind htmx endpoints are thin (see the layering note in `AGENTS.md`): they call a service and set
 the response headers. Don't put queries into a handler to feed a template.
 
-## Dark Mode Styling
+## Design system
 
-### Architecture
-Located in `cmd/web/client/scss/_dark-mode.scss`:
-- Uses Bootstrap 5.3+ color modes with `data-bs-theme="dark"` and `prefers-color-scheme` media query
-- All styles defined in `@mixin dark-mode-styles` for reusability
+Source is `cmd/web/client/scss/`; `index.scss` imports the partials. There is no Bootstrap and no icon font.
 
-### CSS Variable Override Pattern
-**Override Bootstrap component variables by scoping them within component selectors:**
-```scss
-.list-group {
-  --bs-list-group-bg: #2d2d2d;
-  --bs-list-group-border-color: #404040;
-  --bs-list-group-color: var(--text-color);
-}
-```
-
-**Do NOT define ad-hoc colors directly on elements** - always use Bootstrap's CSS variables to ensure proper inheritance and theming.
+- **Tokens** live in `_tokens.scss`: colors, spacing, shape and type. A new rule reads a token, never a literal
+  color. Light (paper) is the default; the warm dark theme redefines the same tokens under
+  `prefers-color-scheme: dark` and under `data-theme="dark"`. Dark mode is only a token override, so a rule
+  that uses tokens needs no dark variant.
+- **Type**: Golos Text, self-hosted (`@fontsource/golos-text`), weights 400 (text), 600 (labels, buttons) and
+  800 (titles) only, Latin and Cyrillic subsets only. Navigation and actions use the system monospace stack.
+  Don't add a weight or a subset: the `@font-face` list in `_tokens.scss` and the `rel="preload"` links in
+  `header.html` (400 and 800, Latin and Cyrillic) change together.
+- **Components** are in `_components.scss`: `.btn` with `.btn-primary`, `.btn-secondary`, `.btn-danger`;
+  `.field`; `.meta`; `.acts`; `.item`; `.box`; `.status`; `.nav`; `.toast`; the editor toolbar. Reuse them
+  before adding a rule.
+- **Item actions**: items (posts, comments, feed items) are not boxed. One `.acts` row of text actions sits
+  under each item (comments, reply, edit, share, delete); don't add buttons elsewhere on an item.
+- **Form results**: a form saves in place. Its result (`Saved` / `Not saved`) shows in a `.status` next to
+  the form's button and field errors show under the field. A form result is never a toast; a toast is only
+  for an action without a form.
+- **Area styles** live in their own partial: `_posts`, `_settings`, `_editor`, `_auth`, `_controls`,
+  `_syntax`. Shared pieces go to `_components.scss`, element defaults to `_base.scss`.
+- **User style hooks**: the `us-*` classes in templates are the contract for users' own CSS (listed in
+  `docs/guide/settings.md`). Keep them on their elements; other classes may change freely.
+- **Guards**: `TestTemplatesAndControllersUseNoBootstrapClasses` and `TestTemplatesKeepUserStyleHooks`
+  (`pkg/web/app`) and `TestFirstVisitWeight` (`e2e/browser`: per page CSS 25 KB, fonts 70 KB, JS 50 KB
+  gzipped, on the production build that `make test-ui` makes).
 
 ## Date/Time Rendering
 
