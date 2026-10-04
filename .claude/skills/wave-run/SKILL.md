@@ -21,8 +21,9 @@ Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` un
 
 ## 2. Start
 
-1. Branch as the index's "Branching" section says. Every session of this wave must run on the wave's
-   branch: `tools/agent-stats.py --branch <branch>` measures the wave by it.
+1. Branch as the index's "Branching" section says, and set the wave file's `Status` to `running`. Every
+   session of this wave must run on the wave's branch: `tools/agent-stats.py --branch <branch>` measures the
+   wave by it.
 2. Tell yourself in one line what the previous session left ("L0 merged, L1 next"), not a summary.
 
 ## 3. Build prompts; don't write them
@@ -136,8 +137,8 @@ rebase the wave onto it once it merges.
 
 ## 6. Session hygiene
 
-- **One wave per session.** State lives in files, not in the conversation: the status table, the wave file,
-  `docs/archive/history.md`. Start the next wave in a fresh session (or after `/clear`).
+- **One wave per session.** State lives in files, not in the conversation: the wave file and its
+  `Status`, the commits on the wave branch. Start the next wave in a fresh session (or after `/clear`).
 - After each commit, if the conversation is long, `/compact` with the instruction
   "keep: current wave, task statuses, open bugs filed, next step".
 - Contract work the wave file gives the coordinator is its own; everything else is almost entirely dispatch:

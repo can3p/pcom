@@ -7,15 +7,16 @@ description: Finish a pcom modernization wave (R-waves and F-waves) - update the
 
 A wave is finished when the documents are accurate again and CI is green, not when the code lands.
 
-1. **Plan.** Delete `docs/plan/<id>.md` and set the wave's row in the status table of
-   `docs/implementation-plan.md` to done. Edit later wave files if what you learned changes them.
+1. **Plan.** Delete `docs/plan/<id>.md`; nothing else lists the waves. Edit a later wave's file only where
+   what you learned changes it, and drop its `Depends on` for this wave.
 2. **Measure.** Run `tools/agent-stats.py --branch <wave branch> --no-agents` for the summary, and without
    `--no-agents` if a subagent looks expensive. Keep the output out of your context beyond what you record.
-3. **History.** Append to `docs/archive/history.md` (create it on first use), under a heading for the wave:
+3. **History.** Write `docs/archive/history/<id>.md`, headed like the others (`# F7 — Translation (done
+   <date>, branch ..., #issue)`):
    - what was built, what turned out wrong, and what was deliberately left out;
    - a **Cost** line from step 2: sessions, subagents, total turns, the coordinator's peak context,
      tool-result volume (`res`), wasteful-call flags, and which skills were used how often. Compare with the
-     previous wave's line in one sentence. This is how the economy rules and skills are judged; if a skill
+     most recent history file's line in one sentence. This is how the economy rules and skills are judged; if a skill
      was never used or didn't help, say so.
 4. **Lessons.** Add generalizable lessons to `docs/lessons.md` (create it on first use). If a rule in
    `AGENTS.md` or a skill proved wrong or missing, fix it there, not only in the lessons.

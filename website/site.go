@@ -115,7 +115,6 @@ var docPages = []struct {
 	{GroupDev, "docs/implementation-plan.md", "docs/implementation-plan.html", "Implementation plan"},
 	{GroupDev, "docs/open-questions.md", "docs/open-questions.html", "Open questions"},
 	{GroupDev, "docs/lessons.md", "docs/lessons.html", "Lessons"},
-	{GroupDev, "docs/archive/history.md", "docs/history.html", "History"},
 }
 
 // newSite builds the page list and the repo->site path map.
