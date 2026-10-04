@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// b1NavLink locates a link by its accessible name inside the page's <nav>
+// navLink locates a link by its accessible name inside the page's <nav>
 // landmark, the way a user would find it in the top navigation.
-func b1NavLink(page playwright.Page, name string) playwright.Locator {
+func navLink(page playwright.Page, name string) playwright.Locator {
 	return page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: name, Exact: new(true)})
 }
 
@@ -58,11 +58,11 @@ func TestNavigation_BoostedTopNavAndHistory(t *testing.T) {
 		{"Explore", "Explore", `/explore/?$`},
 		{"Write", "New Post", `/write/?$`},
 		{"Controls", "Controls", `/controls/?$`},
-		{"Settings", "Settings", `/controls/settings/?$`},
+		{user.Username, "Settings", `/controls/settings/?$`},
 	}
 
 	for _, s := range steps {
-		require.NoError(t, b1NavLink(page, s.link).Click())
+		require.NoError(t, navLink(page, s.link).Click())
 
 		require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(s.path)))
 		b1ExpectTitleSuffix(t, page, s.title)
@@ -109,7 +109,7 @@ func TestNavigation_MobileMenuAt390(t *testing.T) {
 	_, err := page.Goto("/feed")
 	require.NoError(t, err)
 
-	feedLink := b1NavLink(page, "Feed")
+	feedLink := navLink(page, "Feed")
 	require.NoError(t, browser.Expect.Locator(feedLink).ToBeHidden())
 
 	toggler := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Toggle navigation"})
@@ -120,8 +120,8 @@ func TestNavigation_MobileMenuAt390(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "true", ariaExpanded)
 
-	settingsLink := b1NavLink(page, "Settings")
-	require.NoError(t, settingsLink.Click())
+	// the username is the link to settings
+	require.NoError(t, navLink(page, user.Username).Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/settings/?$`)))
 	b1ExpectTitleSuffix(t, page, "Settings")
@@ -137,7 +137,7 @@ func TestNavigation_DarkModeBackground(t *testing.T) {
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
 
-	const darkBackground = "rgb(26, 26, 26)"
+	const darkBackground = "rgb(31, 28, 23)"
 
 	darkPage := browser.Page(t, app, browser.As(user), browser.Configure(func(o *playwright.BrowserNewContextOptions) {
 		o.ColorScheme = playwright.ColorSchemeDark
@@ -250,6 +250,25 @@ func TestNavigation_ServerErrorTogglesToastAndDismiss(t *testing.T) {
 
 	require.NoError(t, toast.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Close"}).Click())
 	require.NoError(t, browser.Expect.Locator(toast).ToHaveCount(0))
+}
+
+// On desktop the footer carries the GitHub link, and Write is a button-styled
+// link in the navigation.
+func TestNavigation_FooterAndWriteButton(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err := page.Goto("/feed")
+	require.NoError(t, err)
+
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("contentinfo").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Source on GitHub"})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "GitHub"})).ToHaveCount(0))
+
+	require.NoError(t, navLink(page, "Write").Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/write/?$`)))
 }
 
 // A boosted navigation whose connection is dropped mid-flight (the request

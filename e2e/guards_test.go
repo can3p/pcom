@@ -218,7 +218,7 @@ func currentUsername(t *testing.T, c *e2e.Client) string {
 		return ""
 	}
 
-	return strings.TrimSpace(resp.Doc().Find(".navbar-text a").First().Text())
+	return strings.TrimSpace(resp.Doc().Find(".nav-user").First().Text())
 }
 
 // guardRoute is one mutating or EnforceAuth route, as registered in cmd/web.
