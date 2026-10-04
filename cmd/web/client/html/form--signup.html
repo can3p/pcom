@@ -8,38 +8,36 @@
 
   <input type="hidden" name="attribution" value="{{ if .Attribution }}{{ .Attribution }}{{ else if .Input }}{{ if .Input.Attribution }}{{ .Input.Attribution }}{{ end }}{{ end }}" />
 
-  <div class="mb-3">
-    <label for="createAccountEmail" class="form-label">Email address</label>
+  <div class="field">
+    <label for="createAccountEmail">Email address</label>
     <input name="email" type="email"
                         value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
-                        class="form-control {{ if (.Errors.HasError "email") }}is-invalid{{ end }}"
-                        id="createAccountEmail" aria-describedby="emailHelp"
+                        {{ if (.Errors.HasError "email") }}aria-invalid="true" aria-describedby="createAccountEmailError"{{ end }}
+                        id="createAccountEmail"
                         required>
     {{ if (.Errors.HasError "email") }}
-    <div class="invalid-feedback">{{ .Errors.email }}</div>
+    <p class="field-error" id="createAccountEmailError" data-testid="field-error-email">{{ .Errors.email }}</p>
     {{ end }}
   </div>
 
-  <div class="mb-3">
-    <label for="createAccountUsername" class="form-label">Username</label>
-    <input name="username" type="username"
+  <div class="field">
+    <label for="createAccountUsername">Username</label>
+    <input name="username" type="text"
                         value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
-                        class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
-                        id="createAccountUsername" aria-describedby="usernameHelp"
+                        aria-describedby="usernameHelp{{ if (.Errors.HasError "username") }} createAccountUsernameError{{ end }}"
+                        {{ if (.Errors.HasError "username") }}aria-invalid="true"{{ end }}
+                        id="createAccountUsername"
                         required>
-    <div id="usernameHelp" class="form-text">3-20 chars, first character is a letter, digits and underscores are allowed, multiple underscores in a row are not allowed</div>
+    <p id="usernameHelp" class="field-help">3-20 chars, first character is a letter, digits and underscores are allowed, multiple underscores in a row are not allowed</p>
     {{ if (.Errors.HasError "username") }}
-    <div class="invalid-feedback">{{ .Errors.username }}</div>
+    <p class="field-error" id="createAccountUsernameError" data-testid="field-error-username">{{ .Errors.username }}</p>
     {{ end }}
   </div>
 
-  <button type="submit" class="btn btn-primary w-100">Create an account</button>
-
-  <div class="col-12 mt-3 form-text">
-    <p class="mb-0">By signing up, you agree to our <a href="{{ link "terms_of_service" }}">terms of service</a> and <a href="{{ link "privacy_policy" }}">privacy policy.</a></p>
+  <div class="auth-submit">
+    <button type="submit" class="btn btn-primary">Create an account</button>
   </div>
 
-  <div class="col-12 mt-3 form-text">
-    <p class="mb-0">Have account? <a href="{{ link "login" }}">Log in!</a></p>
-  </div>
+  <p class="field-help auth-links">By signing up, you agree to our <a href="{{ link "terms_of_service" }}">terms of service</a> and <a href="{{ link "privacy_policy" }}">privacy policy.</a></p>
+  <p class="field-help auth-links">Have account? <a href="{{ link "login" }}">Log in!</a></p>
 </form>

@@ -6,26 +6,29 @@
   hx-disabled-elt="this"
   >
 
-  <div class="mb-3">
-    <label for="createAccountEmail" class="form-label">Email address</label>
+  <div class="field">
+    <label for="acceptInviteEmail">Email address</label>
     <input name="email" type="email"
                         value="{{ .Invite.InvitationEmail.String }}"
-                        class="form-control"
+                        id="acceptInviteEmail"
                         disabled>
   </div>
 
-  <div class="mb-3">
-    <label for="createAccountUsername" class="form-label">Username</label>
-    <input name="username" type="username"
+  <div class="field">
+    <label for="createAccountUsername">Username</label>
+    <input name="username" type="text"
                            value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
-                           class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
-                           id="createAccountUsername" aria-describedby="usernameHelp"
-                                                      required>
-    <div id="usernameHelp" class="form-text">3-20 characters, first character is a letter, digits and underscores are allowed, multiple underscores in a row are not allowed</div>
+                           aria-describedby="usernameHelp{{ if (.Errors.HasError "username") }} createAccountUsernameError{{ end }}"
+                           {{ if (.Errors.HasError "username") }}aria-invalid="true"{{ end }}
+                           id="createAccountUsername"
+                           required>
+    <p id="usernameHelp" class="field-help">3-20 characters, first character is a letter, digits and underscores are allowed, multiple underscores in a row are not allowed</p>
     {{ if (.Errors.HasError "username") }}
-    <div class="invalid-feedback">{{ .Errors.username }}</div>
+    <p class="field-error" id="createAccountUsernameError" data-testid="field-error-username">{{ .Errors.username }}</p>
     {{ end }}
   </div>
 
-  <button type="submit" class="btn btn-primary">Create an account</button>
+  <div class="auth-submit">
+    <button type="submit" class="btn btn-primary">Create an account</button>
+  </div>
 </form>

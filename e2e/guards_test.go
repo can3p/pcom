@@ -1075,12 +1075,12 @@ func TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail(t *testing.T) {
 
 		resp := client.PostForm("/form/login", url.Values{"email": {email}}).RequireStatus(http.StatusOK)
 		require.Equal(t, 1, resp.Doc().Find(`input[name="code"]`).Length(), email)
-		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
+		require.Zero(t, resp.Doc().Find(`[data-testid="form-error"]`).Length(), email)
 
 		// a guessed code is just wrong, whoever the address belongs to
 		resp = client.PostForm("/form/login/code", url.Values{"code": {"00000000"}}).RequireStatus(http.StatusOK)
-		require.Equal(t, 1, resp.Doc().Find(`input[name="code"].is-invalid`).Length(), email)
-		require.Zero(t, resp.Doc().Find(".alert-danger").Length(), email)
+		require.Equal(t, 1, resp.Doc().Find(`input[name="code"][aria-invalid="true"]`).Length(), email)
+		require.Zero(t, resp.Doc().Find(`[data-testid="form-error"]`).Length(), email)
 
 		client.Get("/feed").RequireStatus(http.StatusFound)
 	}

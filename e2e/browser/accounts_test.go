@@ -69,7 +69,7 @@ func TestAccounts_LoginWrongCodeShowsErrorInPlace(t *testing.T) {
 
 	browser.SubmitLoginCode(t, page, wrong)
 
-	require.NoError(t, browser.Expect.Locator(page.Locator(".invalid-feedback")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("field-error-code")).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Code")).ToBeVisible())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/login`)))
 }
