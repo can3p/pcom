@@ -1,16 +1,14 @@
 {{ template "header.html" . }}
 
-<div class="container mt-lg-4 mt-2">
+<main class="prose article">
   <h1>{{ .Name }}</h1>
 
   {{ markdown_article .Body }}
-</div>
+</main>
 
 {{ if not .User.IsLoggedIn }}
-<div class="container">
-  <div class="text-center my-5">
-    <a href="{{ link "signup" "attribution" .Attribution }}" class="btn btn-lg btn-primary">Get Started</a>
-  </div>
+<div class="article-cta">
+  <a href="{{ link "signup" "attribution" .Attribution }}" class="btn btn-primary">Get Started</a>
 </div>
 {{ end }}
 

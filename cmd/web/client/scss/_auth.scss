@@ -1,1 +1,41 @@
-// auth area styles.
+// Auth pages (login, signup, invite) and the article page: one narrow column
+// on the ground, no card.
+.auth {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.auth-title {
+  margin: 0 0 var(--space-5);
+  font: 800 28px/1.2 var(--font-read);
+  letter-spacing: -0.015em;
+  color: var(--title);
+}
+
+.auth-note {
+  margin: 0 0 var(--space-5);
+}
+
+.auth-submit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+
+.auth-links {
+  margin: var(--space-2) 0 0;
+}
+
+.article {
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.article-cta {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) var(--space-5);
+}

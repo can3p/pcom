@@ -6,21 +6,19 @@
       hx-disabled-elt="this"
       >
 
-  <div class="mb-3">
-    <div class="row">
-      <div class="col">
-        <input name="uname" type="uname"
-                              value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
-                              class="form-control {{ if (.Errors.HasError "username") }}is-invalid{{ end }}"
-                              placeholder="{{ .User.Username }}"
-                              id="newPostUsername" required>
-        {{ if (.Errors.HasError "username") }}
-        <div class="invalid-feedback">{{ .Errors.username }}</div>
-        {{ end }}
-      </div>
-      <div class="col">
-        <button type="submit" class="btn btn-primary w-100">Add</button>
-      </div>
-    </div>
+  <div class="field">
+    <label for="newPostUsername">Username</label>
+    <input name="uname" type="text"
+                        value="{{ if .Input }}{{ .Input.Username }}{{ end }}"
+                        {{ if (.Errors.HasError "username") }}aria-invalid="true" aria-describedby="newPostUsernameError"{{ end }}
+                        placeholder="{{ .User.Username }}"
+                        id="newPostUsername" required>
+    {{ if (.Errors.HasError "username") }}
+    <p class="field-error" id="newPostUsernameError" data-testid="field-error-username">{{ .Errors.username }}</p>
+    {{ end }}
+  </div>
+
+  <div class="auth-submit">
+    <button type="submit" class="btn btn-primary">Add</button>
   </div>
 </form>

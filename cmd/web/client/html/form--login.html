@@ -8,27 +8,24 @@
   <input type="hidden" name="return_url" value="{{ .ReturnURL }}" />
   <input type="hidden" name="sign" value="{{ .Sign }}" />
 
-  {{ with .FormError }}
-  <div class="alert alert-danger">{{ . }}</div>
-  {{ end }}
-
-  <div class="mb-3">
-    <label for="loginEmail" class="form-label">Email address</label>
+  <div class="field">
+    <label for="loginEmail">Email address</label>
     <input name="email" type="email"
                         value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
-                        class="form-control {{ if (.Errors.HasError "email") }}is-invalid{{ end }}"
-                        id="loginEmail" aria-describedby="emailHelp"
+                        {{ if (.Errors.HasError "email") }}aria-invalid="true" aria-describedby="loginEmailError"{{ end }}
+                        id="loginEmail"
                         required>
     {{ if (.Errors.HasError "email") }}
-    <div class="invalid-feedback">{{ .Errors.email }}</div>
+    <p class="field-error" id="loginEmailError" data-testid="field-error-email">{{ .Errors.email }}</p>
     {{ end }}
   </div>
 
-  <button type="submit" class="btn btn-primary w-100">Email me a code</button>
+  <div class="auth-submit">
+    <button type="submit" class="btn btn-primary">Email me a code</button>
+    {{ with .FormError }}<span class="status err" role="alert" data-testid="form-error">{{ . }}</span>{{ end }}
+  </div>
 
   {{ if not .HideSignupLink }}
-  <div class="col-12 mt-3 form-text">
-    <p class="mb-0">Don't have account? <a href="{{ link "signup" }}">Signup!</a></p>
-  </div>
+  <p class="field-help auth-links">Don't have account? <a href="{{ link "signup" }}">Signup!</a></p>
   {{ end }}
 </form>

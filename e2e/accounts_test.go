@@ -38,7 +38,7 @@ func TestAccounts_SignupRendersFormForRegistrationState(t *testing.T) {
 		doc := app.Client(t).Get("/signup").RequireStatus(http.StatusOK).Doc()
 		require.Equal(t, 1, doc.Find(tc.want).Length(), "registration open=%v", tc.open)
 		require.Zero(t, doc.Find(tc.notWant).Length(), "registration open=%v", tc.open)
-		require.Contains(t, doc.Find(".card-header").Text(), tc.wantHeaderText, "registration open=%v", tc.open)
+		require.Contains(t, doc.Find(`[data-testid="auth-title"]`).Text(), tc.wantHeaderText, "registration open=%v", tc.open)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestAccounts_InviteLinks(t *testing.T) {
 
 		doc := app.Client(t).Get("/invite/" + invite.ID).RequireStatus(http.StatusOK).Doc()
 		require.Equal(t, 1, doc.Find(`form[action="/form/accept_invite/`+invite.ID+`"]`).Length())
-		require.Contains(t, doc.Find(".card-header").Text(), inviter.Username)
+		require.Contains(t, doc.Find(`[data-testid="auth-title"]`).Text(), inviter.Username)
 	})
 
 	t.Run("used", func(t *testing.T) {
@@ -162,7 +162,7 @@ func TestAccounts_AcceptInviteStartsACodeLogin(t *testing.T) {
 		to := "e2e-invitee-taken@example.test"
 		resp := accept(t, to, inviter.Username)
 
-		require.Equal(t, 1, resp.Doc().Find(".invalid-feedback").Length())
+		require.Equal(t, 1, resp.Doc().Find(`[data-testid="field-error-username"]`).Length())
 
 		_, err := factory.GetUserByEmail(ctx, app.DB, to)
 		require.Error(t, err)

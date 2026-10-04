@@ -1,16 +1,6 @@
 {{ template "header.html" . }}
-<section class="section register min-vh-100 d-flex flex-column align-items-center justify-content-center py-4">
-  <div class="container">
-    <div class="row justify-content-md-center mt-4">
-      <div class="col-lg-6">
-        <div class="card mb-3">
-          <h5 class="card-header">Welcome back!</h5>
-          <div class="card-body mt-3">
-            {{ template "form--login.html" toMap "ReturnURL" .ReturnURL "Sign" .Sign }}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+<main class="auth">
+  <h1 class="auth-title" data-testid="auth-title">Welcome back!</h1>
+  {{ template "form--login.html" toMap "ReturnURL" .ReturnURL "Sign" .Sign }}
+</main>
 {{ template "footer.html" . }}
