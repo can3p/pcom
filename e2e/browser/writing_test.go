@@ -212,6 +212,13 @@ func TestWriting_SaveAsDraftShowsSaved(t *testing.T) {
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save as Draft", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Locator(saved).ToBeVisible())
+	// it sits on the buttons' line, centred with them
+	savedBox, err := saved.BoundingBox()
+	require.NoError(t, err)
+	buttonBox, err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save as Draft", Exact: new(true)}).BoundingBox()
+	require.NoError(t, err)
+	require.InDelta(t, buttonBox.Y+buttonBox.Height/2, savedBox.Y+savedBox.Height/2, 2, "the status is not centred with the buttons")
+
 	kept, err := body.Evaluate(`el => [el.keptAcrossSave === true, el.scrollTop]`, nil)
 	require.NoError(t, err)
 	require.Equal(t, []any{true, 400}, kept, "the textarea was replaced or scrolled back")

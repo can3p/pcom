@@ -4,7 +4,7 @@
   <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
 </div>
 {{ if .DraftSavedByUser }}
-<span id="ed-save-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
+<span id="ed-save-result" class="ed-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
 {{ end }}
 {{ else }}
 <div id="form-container" class="ed">
@@ -129,7 +129,7 @@
         <button type="submit" disabled data-postform-pending class="btn btn-primary" name="save_action" value="save_post">Save Post</button>
       {{ else }}
         {{/* "Save as Draft" reports here through an out-of-band swap */}}
-        <span id="ed-save-result"></span>
+        <span id="ed-save-result" class="ed-result"></span>
         <button type="submit" disabled data-postform-pending class="btn btn-secondary" name="save_action" value="save_post">Save as Draft</button>
         <button type="submit" disabled data-postform-pending
                 class="btn btn-primary"
