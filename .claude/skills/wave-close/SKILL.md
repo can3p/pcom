@@ -25,10 +25,10 @@ A wave is finished when the documents are accurate again and CI is green, not wh
    the site builds and its tests pass (`cd website && go test ./... && go run . -out ../site`).
 7. **Commits.** Logically split commits, with the docs commit last. Never a single "wave complete" commit.
 8. **PR and CI.** Before pushing, run `make cover` and then `make cover-check`: the check reads whatever
-   `.cover/` the last `make cover` left, so on its own it can pass on stale data (WB's first check did,
-   while `pkg/auth` had fallen below its floor). Then push, open the PR (with `--base <parent branch>` if the parent wave hasn't merged), and
+   `.cover/` the last `make cover` left, so on its own it can pass on stale data. Then push, open the PR
+   (with `--base <parent branch>` if the parent wave hasn't merged), and
    watch CI with `gh pr checks --watch`. On a failure, read `gh run view --log-failed | tail -n 60` and follow
-   the `test-failure` skill. From W6 on, that includes the `browser` job. **A wave with red or pending CI
+   the `test-failure` skill. That includes the `browser` job. **A wave with red or pending CI
    is not finished.**
-9. **Report and stop.** Four lines at most: PR link, coverage change, bugs filed, cost line. Merging is the
+9. **Report and stop.** Report the PR link, coverage change, bugs filed and cost line. Merging is the
    owner's call.

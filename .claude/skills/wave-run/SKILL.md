@@ -81,7 +81,7 @@ subagents, whose context is thrown away.
   The same applies to ordinary packages shared by several tasks (W2's `pkg/web`, `pkg/forms`). There, a
   task's coverage target is for its own files or functions: tell it to measure them with
   `go tool cover -func` on a profile. When a shared package suddenly fails to build, check first for an
-  agent that left its files untagged (W2's cheap D4b did).
+  agent that left its files untagged.
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
 - **Subagents run no git commands** and don't touch `go.mod` (only W0 and W4.S2 do, each as a single task).
@@ -120,10 +120,8 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
    not the behavior works: only a status on a page that always answers 200, "body exists", `NotNil` on a
    returned action, asserting the setup), duplicated within the wave, duplicated by another suite (W2 vs
    W3 vs W6), pinning wrong behavior, a skip that can't fail, or OK, with a concrete fix for each. Run it
-   per task as it reports, not once at the end, and send the fixes back before committing. W3 shipped two
-   identical tests and several that could not fail because this step was missing; W2 ran it only at the
-   end and found 35 weak tests, 18 duplicates and 5 skips that couldn't fail after every task had passed
-   its mutation check.
+   per task as it reports, not once at the end, and send the fixes back before committing: tasks that
+   pass their mutation check still ship weak, duplicated and unfailable tests that only this step finds.
 
 Variations by wave:
 
@@ -140,9 +138,8 @@ Not part of the budget: reading every test file. Read a test only when the mutat
 Run `make check-q` once before each commit; it runs go fix and lint first, as CI does. If go fix rewrote
 anything, the rewrite goes into that task's commit. Commit per task.
 
-For each bug a subagent reports: check `gh issue list --label bug` and the "Known bugs" list in
-`docs/plan/wb.md`, file an issue if it is new (security bugs go to the owner, not a public issue), and put
-the number into the test's `t.Skip`.
+For each bug a subagent reports: check `gh issue list --label bug`, file an issue if it is new (security
+bugs go to the owner, not a public issue), and put the number into the test's `t.Skip`.
 
 ## 6. Session hygiene
 
