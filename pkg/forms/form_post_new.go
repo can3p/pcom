@@ -210,6 +210,14 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	case saveAction == PostFormActionPublish:
 		// let's redirect to the post whenever we publish a post
 		action = forms.FormSaveRedirect(links.Link("post", post.ID))
+	case saveAction == PostFormActionSavePost && !post.PublishedAt.Valid:
+		// "Save as Draft" re-renders the whole form so the result shows next to
+		// its button; an autosave only refreshes the status by the title
+		f.AddTemplateData("DraftSavedByUser", true)
+
+		if saved.Created {
+			action = formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID))
+		}
 	case saved.Created:
 		action = draftSaved(formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)))
 	case saveAction == PostFormActionMakeDraft:

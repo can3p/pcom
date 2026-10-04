@@ -21,6 +21,11 @@
         class="ed-form"
         >
 
+    {{/* Enter in a field submits with the form's first submit button, so the
+         first one saves; Delete and the other confirmed actions come later. */}}
+    <button type="submit" disabled data-postform-pending class="sr-only" tabindex="-1" aria-hidden="true"
+            name="save_action" value="save_post">Save</button>
+
     <div class="ed-head">
       <h1 class="ed-title">{{ if .PostID }}Edit Post{{ if not .IsPublished }} <span class="ed-badge">Draft</span>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
       <div id="last_draft_save" class="ed-saved">
@@ -120,6 +125,7 @@
                 >Back to draft</button>
         <button type="submit" disabled data-postform-pending class="btn btn-primary" name="save_action" value="save_post">Save Post</button>
       {{ else }}
+        {{ if .DraftSavedByUser }}<span class="status ok" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Draft saved</span>{{ end }}
         <button type="submit" disabled data-postform-pending class="btn btn-secondary" name="save_action" value="save_post">Save as Draft</button>
         <button type="submit" disabled data-postform-pending
                 class="btn btn-primary"
