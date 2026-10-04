@@ -143,6 +143,75 @@ func TestWriting_PublishAndMakeDraftThroughEditor(t *testing.T) {
 	require.False(t, backToDraft.PublishedAt.Valid)
 }
 
+// Pressing Enter in the subject of a published post saves it: the form's
+// default button is Save, not the confirmed Delete or Back to draft before it.
+func TestWriting_EnterInSubjectSavesPublishedPost(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	post, err := factory.Post(ctx, app.DB, user.ID, factory.Published())
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	asked := make(chan string, 1)
+	page.OnDialog(func(d playwright.Dialog) {
+		asked <- d.Message()
+		_ = d.Dismiss()
+	})
+
+	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", post.ID))
+	require.NoError(t, err)
+
+	subject := page.GetByPlaceholder("Subject")
+	require.NoError(t, subject.Fill("Renamed with Enter"))
+	require.NoError(t, subject.Press("Enter"))
+
+	// saving a published post opens it
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+post.ID+`/?$`)))
+	require.Empty(t, asked, "Enter must not ask to delete or unpublish")
+
+	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+	require.Len(t, posts, 1)
+	require.Equal(t, "Renamed with Enter", posts[0].Subject.String)
+	require.True(t, posts[0].PublishedAt.Valid, "the post stays published")
+}
+
+// "Save as Draft" reports its result next to the buttons, so the click is
+// visibly answered even when an autosave already updated the status (#208).
+func TestWriting_SaveAsDraftShowsSaved(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	draft, err := factory.Post(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
+	require.NoError(t, err)
+
+	saved := page.GetByRole("status").Filter(playwright.LocatorFilterOptions{HasText: "Draft saved"})
+	require.NoError(t, browser.Expect.Locator(saved).ToHaveCount(0))
+
+	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Saved by hand"))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save as Draft", Exact: new(true)}).Click())
+
+	require.NoError(t, browser.Expect.Locator(saved).ToBeVisible())
+
+	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+	require.Len(t, posts, 1)
+	require.Equal(t, "Saved by hand", posts[0].Subject.String)
+	require.False(t, posts[0].PublishedAt.Valid, "Save as Draft keeps it a draft")
+}
+
 // Deleting a draft through the editor's own Delete button, confirmed
 // through a native dialog, redirects to /controls and removes the post.
 func TestWriting_DeleteThroughEditor(t *testing.T) {

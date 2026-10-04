@@ -217,9 +217,19 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 				return
 			}
 
-			// Every other action saves a draft and retargets the draft-saved
-			// indicator instead of redirecting.
+			// Every other action saves a draft without redirecting. "Save as
+			// Draft" re-renders the whole form to show its result by the
+			// buttons; the others retarget the draft-saved indicator.
 			require.False(t, post.PublishedAt.Valid)
+			require.Equal(t, links.Link("edit_post", post.ID), w.Header().Get("HX-Replace-Url"))
+			require.Empty(t, sender.Sent())
+
+			if action == forms.PostFormActionSavePost {
+				require.Empty(t, w.Header().Get("HX-Retarget"))
+
+				return
+			}
+
 			require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
 			require.Equal(t, links.Link("edit_post", post.ID), w.Header().Get("HX-Replace-Url"))
 			require.Contains(t, w.Header().Get("HX-Trigger"), "draft_saved")
@@ -320,7 +330,8 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 			name: "save on a published post redirects without re-notifying", published: true, action: forms.PostFormActionSavePost,
 			wantPublished: true, wantHeader: "HX-Redirect", wantLink: func(id string) string { return links.Link("post", id) },
 		},
-		{name: "save on a draft keeps it a draft", action: forms.PostFormActionSavePost, wantHeader: "HX-Retarget", wantLink: func(string) string { return "#last_draft_save" }},
+		// "Save as Draft" re-renders the whole form in place (no retarget) to show its result
+		{name: "save on a draft keeps it a draft", action: forms.PostFormActionSavePost, wantHeader: "HX-Retarget", wantLink: func(string) string { return "" }},
 		{name: "autosave on a draft keeps it a draft", action: forms.PostFormActionAutosave, wantHeader: "HX-Retarget", wantLink: func(string) string { return "#last_draft_save" }},
 		{
 			name: "delete removes the post", action: forms.PostFormActionDelete, wantDeleted: true,
