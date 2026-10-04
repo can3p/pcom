@@ -26,8 +26,10 @@ Goal: find the cause while reading as little as possible. Stop at the first step
    outline, `goToDefinition` from the failing line, then `Read` with `offset`/`limit` around that function.
 6. **Decide what kind of failure it is:**
    - The test is wrong: fix the test.
-   - The code is wrong: fix it if it is in your task's files; otherwise report a one-line repro. Check
-     `gh issue list --label bug --search '<keyword>'` first; it may be known.
+   - The code is wrong and it is what your task changes: fix it.
+   - The code is wrong elsewhere: don't fix it in this diff. Check
+     `gh issue list --label bug --search '<keyword>'` (it may be known) and report a one-line repro; it
+     becomes an issue or a separate PR (see "Stay in scope" in `AGENTS.md`).
    - Flaky (it passes with `-count=5` sometimes): look for wall-clock asserts, map ordering, shared DB
      state or missing `t.Parallel()` isolation. Report it; don't paper over it with retries.
    - Environment (Docker not running, port taken): say so in one line and stop.

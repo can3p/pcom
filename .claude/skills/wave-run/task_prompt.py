@@ -39,6 +39,7 @@ report it under needs:. Do not run git.
 Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
 Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
+A bug you notice outside your task is not yours to fix: report it under bugs: with a one-line repro.
 Behavior must not change: the E2E tests (e2e/), the browser tests (e2e/browser) and the seed crawl are not
 edited. A test you move may change its call site but not its assertions. If an assertion has to change,
 stop and report it.
@@ -68,6 +69,7 @@ Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model sha
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
 Before touching cmd/web/client or an htmx handler, follow the frontend-htmx skill.
 Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
+A bug you notice outside your task is not yours to fix: report it under bugs: with a one-line repro.
 Build exactly what the task describes; every decision in it is made, so don't reopen one. If something is
 undecided, stop and report it under needs:.
 Layering: handlers bind input, call one service method and render; services hold rules and authorization;
