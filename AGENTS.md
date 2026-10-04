@@ -20,7 +20,7 @@ the one for the area you touch:
 
 ## Modernization Plan
 
-Ongoing work is planned in `docs/implementation-plan.md` (the index: status, ground rules, how waves run).
+Ongoing work is planned in `docs/implementation-plan.md` (the index: wave files, parallel waves, branching).
 Each wave's tasks are in `docs/plan/<id>.md`. Coordinators use the `wave-run` and `wave-close` skills and
 read the index, the one wave file they run and `docs/open-questions.md` (undecided questions; never resolve
 one in code). Subagents read only what their prompt names.

@@ -42,8 +42,8 @@ func TestResolveLink(t *testing.T) {
 			"docs/architecture.md#layers", "docs/architecture.html#layers"},
 		{"a query string survives the rewrite", "README.md", "readme.html",
 			"docs/architecture.md?x=1", "docs/architecture.html?x=1"},
-		{"an archived document keeps its new home", "docs/architecture.md", "docs/architecture.html",
-			"archive/history.md", "history.html"},
+		{"a renamed document keeps its new home", "docs/architecture.md", "docs/architecture.html",
+			"../README.md", "../readme.html"},
 
 		{"a file the site does not publish goes to GitHub", "README.md", "readme.html",
 			"cmd/web/client/articles/why.md", gh + "/blob/master/cmd/web/client/articles/why.md"},

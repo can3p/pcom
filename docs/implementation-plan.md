@@ -1,212 +1,104 @@
-# Implementation plan: modernization
+# Implementation plan
 
-Forward-looking only. This file is the **index**: status, ground rules and how
-waves are run. Each wave's tasks live in their own file, `docs/plan/<wave>.md`
-(`w1.md`, … `wb.md`, `r1.md`, …). **Read this file and the one wave file
-you are working on; never the other wave files.**
+The index of planned work. Each planned wave has its own file, `docs/plan/<id>.md`, which exists while the
+wave is planned or running and is deleted when it closes: the files in `docs/plan/` are the status. **Read
+this file and the one wave file you work on; never the other wave files.**
 
-Running a wave (prompts, dispatch, verification) is the `wave-run` skill;
-finishing one (history, cost, PR) is the `wave-close` skill. Both live in
-`.claude/skills/<name>/SKILL.md`, which agents without skill support read
-directly. Rules for reading and verifying code cheaply are in `AGENTS.md` and
-apply to everyone.
+Running a wave (prompts, dispatch, verification) is the `wave-run` skill; finishing one (docs, history, cost,
+PR) is the `wave-close` skill. Both live in `.claude/skills/<name>/SKILL.md`, which agents without skill
+support read directly. Rules for reading and verifying code cheaply are in `AGENTS.md` and apply to everyone.
 
-The end state:
+Where the modernization is going:
 
-- [go-flags](https://github.com/jessevdk/go-flags) configuration and a single binary with subcommands;
-- [bob](https://github.com/stephenafamo/bob) instead of sqlboiler;
-- declared, golden-tested mailers;
-- structured logging through one [zap](https://github.com/uber-go/zap) logger, passed explicitly;
-- a decomposed router with **thin handlers**: every query lives in a
-  repository (`pkg/repo`), every business rule and authorization check in a
-  service (`pkg/service/<area>`), and handlers and CLI subcommands only
-  translate to and from service calls. An architecture test enforces it;
-- a browser test suite that specifies every user flow, so frontend changes and
-  frontend dependency upgrades (htmx, Stimulus) are checked in one command;
-- a docker-compose development stack (Postgres, and
-  [tommy](https://github.com/can3p/tommy) as the mail sink and S3-compatible
-  object store) with every build tool in a container;
-- shared plumbing in [gogo](https://github.com/can3p/gogo).
+- [bob](https://github.com/stephenafamo/bob) instead of sqlboiler (R5);
+- declared, golden-tested mailers (R4);
+- structured logging through one [zap](https://github.com/uber-go/zap) logger, passed explicitly (R7);
+- no unmaintained or duplicate dependencies (R6);
+- shared plumbing in [gogo](https://github.com/can3p/gogo) (`docs/gogo-extraction.md`).
 
-**None of that starts until the safety net exists.** Waves W0–W6 only add
-tests, test infrastructure, a seed command and developer tooling.
+F-waves are product features, planned from an issue; unlike R-waves they change behavior on purpose, as
+their wave file decides.
 
 Related documents:
 
-- `docs/gogo-extraction.md`: what can move into the shared library, noted
-  while surveying.
 - `docs/open-questions.md`: decisions that are still open and no wave owns.
-- `docs/product.md`: how pcom behaves on purpose; `docs/archive/decisions.md`
-  is the log of the decisions made up to 2026-10-04.
-- GitHub issues #108–#124: bugs and future work found during the survey.
-  PR #118 fixes the API post-deletion hole.
+- `docs/product.md`: how pcom behaves on purpose; `docs/architecture.md`: how it is built.
+- `docs/archive/history/<id>.md`: one record per finished wave; `docs/archive/decisions.md`: the decision
+  log up to 2026-10-04.
 
 ---
 
-## Status
+## Wave files
 
-| Wave | Name | Depends on | State | Branch |
-|---|---|---|---|---|
-| W0 | Test foundation | — (gogo `v0.0.2` released) | done | `test/w0-foundation` |
-| W1 | Unit tests, no database | W0 | done | `test/w1-unit` |
-| W2 | Package tests against Postgres | W0 | done | `test/w2-db` |
-| W3 | End-to-end HTTP tests: server rules | W0 | done | `test/w3-e2e` |
-| W4 | Local stack (Postgres, tommy for mail and S3), dev tooling container, app in compose, seed | W0 | done | `test/w4-local-stack` |
-| W5 | Coverage ratchet | W1–W4 | done | `test/w5-ratchet` |
-| W6 | Browser tests (playwright-go): user flows | W0 | done | `test/w6-browser` |
-| WB | Bug-fix wave (#108–#122, #139–#168) | W1–W3 | done | `fix/wb-survey-bugs` |
-| R1 | Router decomposition (move handlers) | W3, W6, WB | done | `refactor/r1-router` |
-| RS | Repositories and services, thin handlers | R1 | done | `refactor/rs-layers` |
-| R2 | go-flags config, single binary, tommy for mail and S3, object storage only | RS, R3 (mailjet BaseURL) | done | `refactor/r2-config` |
-| R3 | gogo convergence (gogo v0.1.0) | W5 | done | `refactor/r3-gogo` |
-| R4 | Mailers | W1 (mail goldens), R2 | planned | `refactor/r4-mailers` |
-| R5 | bob ORM, one repository at a time | RS, R3 | planned | `refactor/r5-bob` |
-| R6 | Dependency hygiene | any time after W5 | planned | `chore/r6-deps` |
-| R7 | Structured logging with zap | RS, R2 | planned | `refactor/r7-logging` |
-| F1 | Public post feed on the index page, `/rss/public` (#146) | RS | done | `feat/f1-public-feed` |
-| F2 | Comment editing, with notifications (#176) | — | done | `feat/f2-comment-edit` |
-| F3 | Public profile section on the blog page (#186) | — | done | `feat/f3-profile` |
-| F4 | Pagination of the feed, explore, index and journal; capped RSS outputs (#124) | — | done | `feat/f4-pagination` |
-| F5 | Login with an emailed code, passwords removed (#175) | — | done; M4 (drop `pwdhash`) waits for F5 to run in production | `feat/f5-login-codes`, then `feat/f5-drop-pwdhash` |
-| F6 | Public website on GitHub Pages, user guide, screenshots (#145) | Pages enabled (owner) | done | `feat/f6-website` |
-| F7 | Translating posts and RSS items to English (#144) | F4; an Azure Translator key | planned | `feat/f7-translation` |
+A wave is `R<n>` (refactor) or `F<n>` (feature), numbered on from the highest id in `docs/plan/` and
+`docs/archive/history/`. Its file starts with one line of state:
 
-```
-            ┌── W1 (12 tasks) ──┐
-            ├── W2 (9 tasks)  ──┤
-W0 ─────────┼── W3 (4 tasks)  ──┼── W5 ── WB ── R1 ── RS ── R2 ─┬─ R4
-(1 session) ├── W4 (5 tasks)  ──┘              │     │         └─ R7
-            └── W6 (8 tasks) ──────────────────┘     └─ R5 (also after R3)
-                                                  R3: after W5   R6: any time
+```markdown
+## R5 — bob ORM
+
+Status: planned · Depends on: — · Branch: `refactor/r5-bob`
 ```
 
-F-waves are product features, planned from an issue; unlike the other waves they change behavior on purpose, as their wave file decides.
+`Status` is `planned` or `running`; `Depends on` names only waves or outside events still pending. Then the
+wave's goal and constraints, its task table, the `###` task sections (the table comes first:
+`task_prompt.py` pastes a section up to the next heading), and an `### Open questions` section for what the
+owner decides before or during the wave. A wave only ever edits its own file: nothing else lists the waves.
 
-### Feature waves F2–F7
+## Parallel waves
 
-```
-F2 comment edit ──┐
-F3 profile ───────┤  any order, in parallel
-F4 pagination ────┼──────────────── F7 translation (also an Azure key)
-F5 login codes ───┤
-F6 website ───────┘  (Pages enabled first; afterwards every F-wave updates the guide)
-```
+Waves that don't depend on each other run at the same time, each in its own session, on its own branch from
+`origin/master`, merged in whatever order they finish. What keeps the merges small:
 
-Each wave file states the defaults it builds and names the open question
-the owner confirms first. They can run in parallel sessions, each on its own
-branch from `origin/master`; what they share:
+- **Records are per wave.** A wave writes its own wave file and, at close, its own history file. There is no
+  shared status table, log or lessons list to append to.
+- **Shared docs are edited in place.** A wave changes the section its finding concerns (`AGENTS.md`, a
+  skill, `docs/product.md`, `docs/architecture.md`, `docs/testing.md`, the guide) and doesn't reflow or
+  reorder text around it, so two waves' edits merge as two hunks.
+- **Migrations and generated models.** Generated code is never merged by hand: the wave that merges second
+  rebases, takes master's `pkg/model/core`, renames its migration to a timestamp after master's newest if
+  needed, and reruns `make generate`.
+- **`go.mod` and `go.sum`.** The wave that merges second rebases and reruns `go mod tidy`; within a wave the
+  coordinator gives them to one task at a time.
+- **Coverage floors.** On a conflict in `tools/coverage-floors.txt`, keep the higher floor of each line.
+- **Route table.** Every new route needs a row in `TestGuards_RouteTableMatchesSource`; rows from parallel
+  waves conflict only textually: keep both.
+- **Contracts other waves use.** A wave that changes one (an E2E harness function, a factory signature, a
+  shared template partial) says so in its wave file; a wave in flight adapts when it rebases, which shows up
+  as a compile error rather than a silent change.
+- **The guide.** A feature wave's last task is its docs task: it updates the pages in `docs/guide/` (a new
+  page also goes into `docPages` in `website/site.go`), adds new screens to the table in
+  `e2e/browser/screenshots/`, reruns `make screenshots` and builds the site; `wave-close` checks it.
 
-- **Migrations and generated models.** F2, F3, F5 and F7 add migrations
-  and regenerate `pkg/model/core`. Generated code is never merged by hand:
-  the wave that merges second rebases, takes master's `pkg/model/core`,
-  renames its migration to a timestamp after master's newest if needed, and
-  reruns `make generate`.
-- **`e2e/guards_test.go`.** Every new route needs a row in
-  `TestGuards_RouteTableMatchesSource`; rows from parallel waves conflict
-  only textually.
-- **`settings.html`.** F3 adds a card, F5 removes "Change Password", F7
-  adds "Translation"; independent blocks.
-- **`LoginAs`.** F5 changes `e2e.Client.LoginAs(email, password)` to
-  `LoginAs(email)`. A wave in flight that adds tests fixes its calls when it
-  rebases (a compile error).
-- **The feed templates.** F2 marks edited comments in the feed's comment
-  item, F4 moves that item into `partial--feed-items.html`, F7 adds
-  translation to the post and RSS items. F7 starts after F4.
-- **Website rule.** A feature wave's last task is its docs task: it
-  updates the pages in `docs/guide/` (a new page also goes into `docPages`
-  in `website/site.go`), adds new screens to the table in
-  `e2e/browser/screenshots/`, reruns `make screenshots` and builds the site;
-  `wave-close` checks it. F6 documented what had merged before it
-  (through F4); F5 and F7 document themselves. The generator
-  is its own module (`website/go.mod`), so it never touches the app's
-  `go.mod`.
-- **With the R-waves.** Every F-wave adds repository methods, so R5 (bob)
-  starts after the F-waves in flight merge, or they rebase onto it. F5 adds
-  a mail and changes two (`login_code`, `invite`, `confirm_signup`); F2
-  adds "edited" variants of the two comment mails. R4 declares all of
-  them with the rest. F7's worker logs; R7 converts it with the
-  others if it lands first.
-- **go.mod.** Only F7 adds dependencies: `go-wiremock` (TM, tests) and a
-  language detection library (T0). Its translation backends are plain HTTP
-  clients.
-- **Third-party API stubs.** F7's TM adds WireMock as a shared test
-  container (`pkg/testutil/wiremock`, JSON stubs next to each backend) for
-  APIs pcom calls; tommy stays for mail and storage. It changes
-  `e2e/harness.go` (a new option only) and `go.mod` (`go-wiremock`), and can
-  run before the rest of F7.
+## Branching
 
-Each wave's tasks are in `docs/plan/<id>.md` (lowercase: `w1.md`, `wb.md`, `r1.md`), with the task table ahead of the `###` task sections; a finished wave's file is deleted and its record moves to `docs/archive/history.md`.
+- **One wave, one branch, one reviewable PR.** Never put two waves on one branch.
+- `git fetch origin` first. If the wave you depend on has merged, or nothing is in flight, branch from
+  `origin/master`. If it is still open, branch from **that wave's branch** and pass the same base to
+  `gh pr create --base <parent-branch>`. A wrong base makes the PR show the parent's commits as its own.
+- When a parent merges, rebase the child onto `origin/master` and push with `--force-with-lease`.
+- Merge wave PRs with a merge or rebase merge, **not a squash**. Squashing rewrites commits that stacked
+  children already contain.
+- A fix outside the wave's task goes on its own branch from `origin/master`, as its own PR ("Stay in scope"
+  in `AGENTS.md`).
 
-**After W0 lands, W1, W2, W3, W4 and W6 are independent of each other** and
-can run at the same time: about 40 tasks in total, each owning disjoint files.
-Each of those waves branches from `test/w0-foundation` (or `master` once W0
-has merged), not from each other.
+## Coordinating a wave
 
-**Start W6.B0 first.** User flows are tested in the browser, not over plain
-HTTP: an HTTP test that imitates htmx keeps passing when an htmx upgrade
-breaks the pages. So the browser suite is the main safety net for R1 and RS,
-and W3 covers only the server rules that don't depend on the frontend.
-
-**Layering is two waves on purpose.** R1 moves handlers verbatim, so its diff
-is reviewable as a move. RS then extracts repositories and services area by
-area, reusing R1's per-area files. R5 comes after RS, so the ORM swap touches
-only `pkg/repo`.
-
-Baseline, measured on 2026-09-21 on `master` at 091484d: every test passes, and
-**17.2%** of statements are covered, excluding the generated `pkg/model/core`
-(3.4% including it). At 0% are `cmd/web`, `pkg/auth`, `pkg/forms`,
-`pkg/userops`, `pkg/web`, `pkg/mail`, `pkg/admin`, `pkg/links`, `pkg/pgsession`,
-`pkg/postops/rss`, `pkg/media` (upload), `pkg/media/server/storage/*`,
-`pkg/markdown/mdext/lazyload` and `pkg/util/ginhelpers/*`.
-
-After W1–W4 and W6, measured on 2026-09-29: **81.1%** excluding `pkg/model/core`
-(merged unit, package and E2E coverage; browser tests are not counted). W5's
-floors in `tools/coverage-floors.txt` hold it there: `make cover-check`, run
-in CI.
-
----
-
-## How waves are run
-
-### Branching
-
-- **One wave, one branch, one reviewable PR.** Never put two waves on one
-  branch.
-- `git fetch origin` first. If the wave you depend on has merged, or nothing
-  is in flight, branch from `origin/master`. If it is still open, branch from
-  **that wave's branch** and pass the same base to
-  `gh pr create --base <parent-branch>`. A wrong base makes the PR show the
-  parent's commits as its own.
-- W1–W4 and W6 all depend only on W0, so each branches from W0's branch (or from
-  `master` once W0 has merged). They are siblings, not a stack.
-- When a parent merges, rebase the child onto `origin/master` and push with
-  `--force-with-lease`.
-- Merge wave PRs with a merge or rebase merge, **not a squash**. Squashing
-  rewrites commits that stacked children already contain.
-
-### Coordinating a wave
-
-A coordinating session (strongest model) dispatches the wave's tasks as
-subagents; each task owns the files listed for it and nothing else. How, and
-how each task is verified, is the `wave-run` skill. When the wave is done, the
-`wave-close` skill updates this file and the history, records the wave's token
-cost, and opens the PR.
+A coordinating session (strongest model) dispatches the wave's tasks as subagents; each task owns the files
+listed for it and nothing else. How, and how each task is verified, is the `wave-run` skill.
 
 ### Model tiering
 
 | Tier | `model:` value for the Agent tool | Use for |
 |---|---|---|
-| strong | `opus` | W0; wave coordination; visibility/permission tests (W2.D2a, W3.E1, W3.E2); W6.B0 browser harness; R1 skeleton; RS contracts (step 0) and the visibility service (L1); R5 planning |
-| mid | `sonnet` | business-logic tests (connections, forms, feed composition), E2E and browser scenarios, WB fixes, RS area extractions |
-| cheap | `haiku` | pure-function unit tests, golden tests, factory-driven CRUD checks, docs, CI config |
+| strong | `opus` | wave coordination and planning; contract tasks (a harness, a shared interface, step 0 of a refactor); permission and visibility rules; assertion audits |
+| mid | `sonnet` | business logic and its tests, E2E and browser scenarios, area extractions in a refactor |
+| cheap | `haiku` | pure-function unit tests, golden tests, factory-driven CRUD checks, mechanical conversions, CI config |
 
-The rule of thumb: if a mistake would be caught by a test the task writes
-itself, the task can go cheap. If a mistake would go unnoticed,
-because a permission test passes when it should fail, the task needs a stronger
+The rule of thumb: if a mistake would be caught by a test the task writes itself, the task can go cheap. If a
+mistake would go unnoticed, because a permission test passes when it should fail, the task needs a stronger
 model.
 
 ### Task prompt template
 
-Built by `.claude/skills/wave-run/task_prompt.py <wave> <task>...`, which
-pastes the task's row or section into the standard preamble. Change the
-preamble there.
+Built by `.claude/skills/wave-run/task_prompt.py <wave> <task>...`, which pastes the task's row or section
+into the standard preamble. Change the preamble there.
