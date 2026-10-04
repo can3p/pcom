@@ -24,7 +24,9 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Mail** is sent with `tx.SendMail(ctx, sender, ...)` inside the
   transaction, so it is queued only if the change commits. Services get the
   queue, `repo.MailQueue`, in their constructor; it delivers through gogo's
-  `sender.Sender`.
+  `sender.Sender`. The queue drops a repeated (type, unique id), so a
+  feature that notifies again about the same object needs its own key, and
+  its test sends two events in a row.
 - **Errors** (`pkg/service`, which re-exports gogo's `apperr`; code uses the
   `service` names): `ErrNotFound` (also for "exists, but you may not see
   it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and
@@ -72,6 +74,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   tables and are exempt from the layering (see `pkg/arch`).
 - **One query, one method.** Repository files are per aggregate; a lookup
   another area needs is called, not copied (`UsersByIDs`, `OpenGrantExists`).
+- **Know a value's readers before changing it.** Before a migration rewrites
+  a column, or a change alters what a column, hash, key or function returns,
+  find everything derived from it (a hash salted with it, a signature, a
+  cache key) and change or name each reader. Lowercasing stored emails, for
+  example, would have broken the password hashes salted with them.
 
 ## Configuration and tooling
 

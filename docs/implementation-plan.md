@@ -44,6 +44,32 @@ wave's goal and constraints, its task table, the `###` task sections (the table 
 `task_prompt.py` pastes a section up to the next heading), and an `### Open questions` section for what the
 owner decides before or during the wave. A wave only ever edits its own file: nothing else lists the waves.
 
+## Planning a wave
+
+A wave file is a set of tasks a subagent can finish from its prompt alone. Before writing one:
+
+- **Check what the plan names.** `grep -n` the code a task is told to copy, extend or reuse; a plan that
+  points at a case or helper that doesn't exist costs a subagent's detour. Before a refactor, also grep the
+  tests for ones that read source files by path: they break on every move and look like behavior changes.
+- **Own everything a change reaches.** A task that changes a signature owns its callers (LSP
+  `findReferences`); one that adds a field a page shows owns the page constructor in `pkg/web/pages_*.go`
+  between the service and the template; one told to reuse markup owns the file it lives in; one that changes
+  the test harness owns the routes the harness calls.
+- **Tasks that share a file are not parallel.** Run them in sequence rather than plan a merge. Split a mixed
+  file by area in a step 0 before parallel work, so later merges conflict only in registries. A breaking
+  library bump is sequential too: order its tasks by import graph, each with the packages that compile at
+  its point.
+- **Name what parallel tasks share**: a constant, a limit, a helper, and which task defines it. Otherwise
+  each invents its own.
+- **A contract task leaves the tree runnable.** If it removes a fallback, the replacement's plumbing
+  belongs in the same task.
+- **Check a wrapper's fit before converting to it.** List which handlers match its exact shape; a wrapper
+  that rebinds input can add an error where none was.
+- **Deploy order is part of the plan.** fly's `release_command` runs every pending migration on deploy, so a
+  migration that must wait for a deploy goes on a stacked branch with its own PR.
+- **A dependency still in review** can be pinned by commit (a pseudo-version in `go.mod`) so the wave
+  proceeds; before closing, move to the tag and check that its tree equals the pinned commit.
+
 ## Parallel waves
 
 Waves that don't depend on each other run at the same time, each in its own session, on its own branch from

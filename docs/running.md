@@ -58,15 +58,14 @@ once first. The server listens on `$PORT` (8080), and `SITE_ROOT` has to match. 
 
 ## Mail and uploads
 
-tommy runs in the stack and is ready, but **the app doesn't use it yet**:
+tommy stands in for both outside services:
 
-* Mail: outside production the app prints mail to its console (the `make dev` logs, or the terminal running
-  `make watchexec`). tommy's inbox at http://localhost:8811/ui/ stays empty.
-* Uploads: outside production the app stores them in `cmd/web/user_media/`. tommy's S3 bucket `pcom-media` on
-  port 9555 stays empty.
+* Mail goes to tommy's fake Mailjet API (`MJ_API_BASE`); read it at http://localhost:8811/ui/.
+* Uploads go to tommy's S3 bucket `pcom-media` on port 9555, with path-style addressing
+  (`USER_MEDIA_PATH_STYLE=true`); list the objects at
+  http://localhost:8811/api/v1/s3/buckets/pcom-media/objects.
 
-Pointing the app at tommy needs code changes (S3 outside production with path-style addressing, and a
-configurable Mailjet base URL), planned for wave R2. The values it will use are in `.env.example`, commented out.
+The values are in `.env.example`; tommy keeps both on the `tommydata` volume across restarts.
 
 ## Seeding
 

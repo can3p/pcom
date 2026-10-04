@@ -35,6 +35,12 @@ refactor you notice outside that task is not fixed in it: check `gh issue list` 
 fix it on its own branch from `origin/master`, as its own PR. Subagents don't file or branch: they report
 it under `bugs:` and the coordinator does.
 
+**The docs describe the present.** A change that makes a doc, a skill or an area `AGENTS.md` untrue updates
+it in the same diff; that is in scope. A constraint or decision you learn goes where the next person doing
+that work will read it (the table above), stated once as the current rule with its reason. Delete what no
+longer holds rather than annotating it. Wave names, dates and incident stories belong in
+`docs/archive/history/`, not in the rules; the `wave-close` skill does this for every wave.
+
 **No magic numbers.** A limit or tunable value (a length cap, a page size, a timeout) is a setting in
 `pkg/config` with its default there, handed to the service as an option; the service exports the same default
 for callers built without configuration, and tests use that constant, not the literal. Pattern:
