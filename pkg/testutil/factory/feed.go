@@ -107,6 +107,21 @@ func WithItemTitle(title string) RSSItemOpt {
 	}
 }
 
+// WithItemLanguage sets the item's detected language, an ISO 639-1 code.
+func WithItemLanguage(lang string) RSSItemOpt {
+	return func(i *core.RSSItem) {
+		i.Language = null.StringFrom(lang)
+	}
+}
+
+// WithItemDescription sets the item's description and its sanitized text.
+func WithItemDescription(html string) RSSItemOpt {
+	return func(i *core.RSSItem) {
+		i.Description = html
+		i.SanitizedDescription = html
+	}
+}
+
 // RSSItem inserts an item published just now into feedID, making up a
 // NormalizedURL for it unless WithURLID overrides that.
 func RSSItem(ctx context.Context, exec boil.ContextExecutor, feedID string, opts ...RSSItemOpt) (*core.RSSItem, error) {

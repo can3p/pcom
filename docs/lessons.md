@@ -281,3 +281,24 @@ Generalizable lessons from running the waves. Wave-specific notes go in
 - **Plan file deletions for the coordinator.** The permission check refuses
   a subagent command that deletes tracked files; the coordinator removes
   them with `git rm` (with the owner's approval) before dispatching.
+- **Check the stored format before planning a transform of it.** F7's plan
+  said RSS items are sanitized HTML; the poller converts them to markdown on
+  import. A whole task (an HTML segmenter) was built and deleted. When a
+  plan processes stored content, name the column and the code that writes
+  it.
+- **Don't let a task call another task's stub in a transaction.** T3 had to
+  call `RetranslateStale`/`Forget` before T2 implemented them; calling the
+  stubs would have failed every save. Give the caller an interface and an
+  option, and have the implementing task wire it.
+- **Audit for authorization in every batch read.** T2's `Translate` checked
+  the reading rules but its batch `Cached` did not; only the audit, told to
+  look for read-rule holes, found it. A "for pages" helper is a read path
+  like any other.
+- **Ask what a page costs per item.** T4's first design fired an htmx
+  request per post just to decide whether to show a button. Prompts for UI
+  over lists should state the request budget: one lookup per page, requests
+  only where the reader asked for them.
+- **Never grep `make cover` output loosely.** Each package line carries the
+  whole `-coverpkg` list; a pattern that matches a package name pastes
+  kilobytes per line. Save it to a file and grep `^(--- FAIL|FAIL)` or read
+  `make cover-check`.

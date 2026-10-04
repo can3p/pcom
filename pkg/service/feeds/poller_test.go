@@ -329,6 +329,35 @@ func TestSaveFeedItem(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("Summary errors: %s", boom.Error()), items[0].SanitizedDescription, "the cleaning error should be recorded as the item's body")
 	})
 
+	t.Run("detects the language of a new item", func(t *testing.T) {
+		t.Parallel()
+
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
+
+		ctrl := NewMockController(t)
+		cleanerMock := Mock[cleaner](ctrl)
+		WhenDouble(cleanerMock.HTMLToMarkdown(Any[string]())).ThenAnswer(func(args []any) (string, error) {
+			return args[0].(string), nil
+		})
+
+		item := &reader.Item{URL: "https://example.com/lang", Title: "Hello", Summary: "The quick brown fox jumps over the lazy dog while the weather stays fine and everybody goes home."}
+		german := &reader.Item{URL: "https://example.com/de", Title: "Hallo", Summary: "Der schnelle braune Fuchs springt über den faulen Hund, während das Wetter schön bleibt und alle nach Hause gehen."}
+		unsure := &reader.Item{URL: "https://example.com/unsure", Title: "ok", Summary: "ok"}
+
+		for _, it := range []*reader.Item{item, german, unsure} {
+			testutil.Must(newService(repo.Using(testDB.DB), nil, cleanerMock, nil).saveFeedItem(ctx, repo.Using(testDB.DB), feedRow.ID, it, nil))(t)
+		}
+
+		byGUID := map[string]null.String{}
+		for _, it := range testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t) {
+			byGUID[it.GUID] = it.Language
+		}
+
+		require.Equal(t, null.StringFrom("en"), byGUID[item.URL])
+		require.Equal(t, null.StringFrom("de"), byGUID[german.URL])
+		require.False(t, byGUID[unsure.URL].Valid, "an unsure guess is stored as null")
+	})
+
 	t.Run("uploads referenced images", func(t *testing.T) {
 		t.Parallel()
 

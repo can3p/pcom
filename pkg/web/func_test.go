@@ -202,6 +202,20 @@ func TestEditPost(t *testing.T) {
 		require.Equal(t, prompt.ID, page.Prompt.Prompt.ID)
 	})
 
+	t.Run("prefills the translation toggle", func(t *testing.T) {
+		t.Parallel()
+
+		yes := true
+		saved := testutil.Must(postsService(db).Save(ctx, author, posts.SaveInput{
+			Body: "body", Visibility: core.PostVisibilityPublic, Action: posts.ActionSavePost, AllowTranslation: &yes,
+		}))(t)
+
+		c := newTestContext(t, http.MethodGet, "/posts/"+saved.Post.ID+"/edit")
+		page := testutil.Must(EditPost(c, postsService(db), userDataFor(author), saved.Post.ID).Get())(t)
+
+		require.True(t, page.Input.AllowTranslation)
+	})
+
 	errCases := []struct {
 		name   string
 		user   *core.User

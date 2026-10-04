@@ -1,0 +1,6 @@
+--- source
+Ping @alice_b about https://example.com/a?b=1 or <https://example.org> today.
+--- segments
+[0] "Ping <span class=\"notranslate\" data-i=\"0\">@alice_b</span> about <span class=\"notranslate\" data-i=\"1\">https://example.com/a?b=1</span> or <span class=\"notranslate\" data-i=\"2\">https://example.org</span> today."
+--- applied
+PING @alice_b ABOUT https://example.com/a?b=1 OR <https://example.org> TODAY.

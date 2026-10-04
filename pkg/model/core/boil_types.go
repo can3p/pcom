@@ -292,6 +292,86 @@ func (e NullRSSFeedDisableReason) Value() (driver.Value, error) {
 	return string(e.Val), nil
 }
 
+type TranslationJobStatus string
+
+// Enum values for TranslationJobStatus
+const (
+	TranslationJobStatusNew    TranslationJobStatus = "new"
+	TranslationJobStatusFailed TranslationJobStatus = "failed"
+)
+
+func AllTranslationJobStatus() []TranslationJobStatus {
+	return []TranslationJobStatus{
+		TranslationJobStatusNew,
+		TranslationJobStatusFailed,
+	}
+}
+
+func (e TranslationJobStatus) IsValid() error {
+	switch e {
+	case TranslationJobStatusNew, TranslationJobStatusFailed:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e TranslationJobStatus) String() string {
+	return string(e)
+}
+
+func (e TranslationJobStatus) Ordinal() int {
+	switch e {
+	case TranslationJobStatusNew:
+		return 0
+	case TranslationJobStatusFailed:
+		return 1
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
+}
+
+type TranslationSourceKind string
+
+// Enum values for TranslationSourceKind
+const (
+	TranslationSourceKindPost    TranslationSourceKind = "post"
+	TranslationSourceKindRSSItem TranslationSourceKind = "rss_item"
+)
+
+func AllTranslationSourceKind() []TranslationSourceKind {
+	return []TranslationSourceKind{
+		TranslationSourceKindPost,
+		TranslationSourceKindRSSItem,
+	}
+}
+
+func (e TranslationSourceKind) IsValid() error {
+	switch e {
+	case TranslationSourceKindPost, TranslationSourceKindRSSItem:
+		return nil
+	default:
+		return errors.New("enum is not valid")
+	}
+}
+
+func (e TranslationSourceKind) String() string {
+	return string(e)
+}
+
+func (e TranslationSourceKind) Ordinal() int {
+	switch e {
+	case TranslationSourceKindPost:
+		return 0
+	case TranslationSourceKindRSSItem:
+		return 1
+
+	default:
+		panic(errors.New("enum is not valid"))
+	}
+}
+
 type ConnectionRequestDecision string
 
 // Enum values for ConnectionRequestDecision

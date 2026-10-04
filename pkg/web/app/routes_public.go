@@ -41,6 +41,7 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 		if isLoadMore(c) {
 			c.HTML(http.StatusOK, "partial--feed-items.html", map[string]any{
 				"Items": indexPage.Items, "User": indexPage.User, "Next": indexPage.Next, "URL": indexPage.LoadMoreURL,
+				"Translation": indexPage.Translation,
 			})
 			return
 		}
@@ -87,9 +88,15 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 		}
 
 		home := web.UserHome(c, &userData, journal)
+		if err := home.Translate(c, d.Services.Translations); err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
 		if isLoadMore(c) {
 			c.HTML(http.StatusOK, "partial--post-list.html", map[string]any{
 				"Posts": home.Posts, "User": home.User, "Next": home.Next, "URL": links.Link("user", home.Author.Username),
+				"Translation": home.Translation,
 			})
 			return
 		}
@@ -118,7 +125,13 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "single_post.html", web.PostPage(c, &userData, post))
+		page := web.PostPage(c, &userData, post)
+		if err := page.Translate(c, d.Services.Translations); err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "single_post.html", page)
 	})
 
 	r.GET("/posts/:id/md", requireUUIDParam("id"), func(c *gin.Context) {
@@ -161,6 +174,12 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 
 		feedPage := web.Explore(c, &userData, page.Posts)
 		feedPage.Next = page.Next
+
+		if err := feedPage.Translate(c, d.Services.Translations); err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
 		renderFeed(c, feedPage)
 	})
 
@@ -176,6 +195,12 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 		page := web.Feed(c, &userData, feed)
 		// the prompts and connections come with the first page only
 		page.Capabilities.ShowPromptForm = c.Query("cursor") == ""
+
+		if err := page.Translate(c, d.Services.Translations); err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
 		renderFeed(c, page)
 	})
 }
@@ -192,6 +217,7 @@ func renderFeed(c *gin.Context, page *web.FeedPage) {
 	if isLoadMore(c) {
 		c.HTML(http.StatusOK, "partial--feed-items.html", map[string]any{
 			"Items": page.Items, "User": page.User, "Next": page.Next, "URL": page.LoadMoreURL,
+			"Translation": page.Translation,
 		})
 		return
 	}

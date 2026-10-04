@@ -92,6 +92,10 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
 - Wait with auto-waiting locator assertions, never sleeps. After an htmx action, assert on the swapped
   element, not on the network.
 
+On pages that list items, decide per page, not per item: one lookup for what the list needs (one query per
+kind), the controls rendered by the server, and `hx-trigger="load"` only where the reader asked for
+something that can't be rendered yet. A request per item just to decide whether to show a button is a bug.
+
 Handlers behind htmx endpoints are thin (see the layering note in `AGENTS.md`): they call a service and set
 the response headers. Don't put queries into a handler to feed a template.
 

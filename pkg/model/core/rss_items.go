@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -23,16 +24,17 @@ import (
 
 // RSSItem is an object representing the database table.
 type RSSItem struct {
-	ID                   string    `boil:"id" json:"id" toml:"id" yaml:"id"`
-	FeedID               string    `boil:"feed_id" json:"feed_id" toml:"feed_id" yaml:"feed_id"`
-	URLID                string    `boil:"url_id" json:"url_id" toml:"url_id" yaml:"url_id"`
-	GUID                 string    `boil:"guid" json:"guid" toml:"guid" yaml:"guid"`
-	Title                string    `boil:"title" json:"title" toml:"title" yaml:"title"`
-	Description          string    `boil:"description" json:"description" toml:"description" yaml:"description"`
-	SanitizedDescription string    `boil:"sanitized_description" json:"sanitized_description" toml:"sanitized_description" yaml:"sanitized_description"`
-	PublishedAt          time.Time `boil:"published_at" json:"published_at" toml:"published_at" yaml:"published_at"`
-	CreatedAt            time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt            time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID                   string      `boil:"id" json:"id" toml:"id" yaml:"id"`
+	FeedID               string      `boil:"feed_id" json:"feed_id" toml:"feed_id" yaml:"feed_id"`
+	URLID                string      `boil:"url_id" json:"url_id" toml:"url_id" yaml:"url_id"`
+	GUID                 string      `boil:"guid" json:"guid" toml:"guid" yaml:"guid"`
+	Title                string      `boil:"title" json:"title" toml:"title" yaml:"title"`
+	Description          string      `boil:"description" json:"description" toml:"description" yaml:"description"`
+	SanitizedDescription string      `boil:"sanitized_description" json:"sanitized_description" toml:"sanitized_description" yaml:"sanitized_description"`
+	PublishedAt          time.Time   `boil:"published_at" json:"published_at" toml:"published_at" yaml:"published_at"`
+	CreatedAt            time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt            time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	Language             null.String `boil:"language" json:"language,omitempty" toml:"language" yaml:"language,omitempty"`
 
 	R *rssItemR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L rssItemL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -49,6 +51,7 @@ var RSSItemColumns = struct {
 	PublishedAt          string
 	CreatedAt            string
 	UpdatedAt            string
+	Language             string
 }{
 	ID:                   "id",
 	FeedID:               "feed_id",
@@ -60,6 +63,7 @@ var RSSItemColumns = struct {
 	PublishedAt:          "published_at",
 	CreatedAt:            "created_at",
 	UpdatedAt:            "updated_at",
+	Language:             "language",
 }
 
 var RSSItemTableColumns = struct {
@@ -73,6 +77,7 @@ var RSSItemTableColumns = struct {
 	PublishedAt          string
 	CreatedAt            string
 	UpdatedAt            string
+	Language             string
 }{
 	ID:                   "rss_items.id",
 	FeedID:               "rss_items.feed_id",
@@ -84,6 +89,7 @@ var RSSItemTableColumns = struct {
 	PublishedAt:          "rss_items.published_at",
 	CreatedAt:            "rss_items.created_at",
 	UpdatedAt:            "rss_items.updated_at",
+	Language:             "rss_items.language",
 }
 
 // Generated where
@@ -99,6 +105,7 @@ var RSSItemWhere = struct {
 	PublishedAt          whereHelpertime_Time
 	CreatedAt            whereHelpertime_Time
 	UpdatedAt            whereHelpertime_Time
+	Language             whereHelpernull_String
 }{
 	ID:                   whereHelperstring{field: "\"rss_items\".\"id\""},
 	FeedID:               whereHelperstring{field: "\"rss_items\".\"feed_id\""},
@@ -110,6 +117,7 @@ var RSSItemWhere = struct {
 	PublishedAt:          whereHelpertime_Time{field: "\"rss_items\".\"published_at\""},
 	CreatedAt:            whereHelpertime_Time{field: "\"rss_items\".\"created_at\""},
 	UpdatedAt:            whereHelpertime_Time{field: "\"rss_items\".\"updated_at\""},
+	Language:             whereHelpernull_String{field: "\"rss_items\".\"language\""},
 }
 
 // RSSItemRels is where relationship names are stored.
@@ -117,11 +125,13 @@ var RSSItemRels = struct {
 	Feed          string
 	URL           string
 	Posts         string
+	Translations  string
 	UserFeedItems string
 }{
 	Feed:          "Feed",
 	URL:           "URL",
 	Posts:         "Posts",
+	Translations:  "Translations",
 	UserFeedItems: "UserFeedItems",
 }
 
@@ -130,6 +140,7 @@ type rssItemR struct {
 	Feed          *RSSFeed          `boil:"Feed" json:"Feed" toml:"Feed" yaml:"Feed"`
 	URL           *NormalizedURL    `boil:"URL" json:"URL" toml:"URL" yaml:"URL"`
 	Posts         PostSlice         `boil:"Posts" json:"Posts" toml:"Posts" yaml:"Posts"`
+	Translations  TranslationSlice  `boil:"Translations" json:"Translations" toml:"Translations" yaml:"Translations"`
 	UserFeedItems UserFeedItemSlice `boil:"UserFeedItems" json:"UserFeedItems" toml:"UserFeedItems" yaml:"UserFeedItems"`
 }
 
@@ -186,6 +197,22 @@ func (r *rssItemR) GetPosts() PostSlice {
 	return r.Posts
 }
 
+func (o *RSSItem) GetTranslations() TranslationSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetTranslations()
+}
+
+func (r *rssItemR) GetTranslations() TranslationSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.Translations
+}
+
 func (o *RSSItem) GetUserFeedItems() UserFeedItemSlice {
 	if o == nil {
 		return nil
@@ -206,9 +233,9 @@ func (r *rssItemR) GetUserFeedItems() UserFeedItemSlice {
 type rssItemL struct{}
 
 var (
-	rssItemAllColumns            = []string{"id", "feed_id", "url_id", "guid", "title", "description", "sanitized_description", "published_at", "created_at", "updated_at"}
+	rssItemAllColumns            = []string{"id", "feed_id", "url_id", "guid", "title", "description", "sanitized_description", "published_at", "created_at", "updated_at", "language"}
 	rssItemColumnsWithoutDefault = []string{"id", "feed_id", "url_id", "guid", "title", "description", "sanitized_description", "published_at", "created_at", "updated_at"}
-	rssItemColumnsWithDefault    = []string{}
+	rssItemColumnsWithDefault    = []string{"language"}
 	rssItemPrimaryKeyColumns     = []string{"id"}
 	rssItemGeneratedColumns      = []string{}
 )
@@ -378,6 +405,20 @@ func (o *RSSItem) Posts(mods ...qm.QueryMod) postQuery {
 	)
 
 	return Posts(queryMods...)
+}
+
+// Translations retrieves all the translation's Translations with an executor.
+func (o *RSSItem) Translations(mods ...qm.QueryMod) translationQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"translations\".\"rss_item_id\"=?", o.ID),
+	)
+
+	return Translations(queryMods...)
 }
 
 // UserFeedItems retrieves all the user_feed_item's UserFeedItems with an executor.
@@ -714,6 +755,112 @@ func (rssItemL) LoadPosts(ctx context.Context, e boil.ContextExecutor, singular 
 				local.R.Posts = append(local.R.Posts, foreign)
 				if foreign.R == nil {
 					foreign.R = &postR{}
+				}
+				foreign.R.RSSItem = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadTranslations allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (rssItemL) LoadTranslations(ctx context.Context, e boil.ContextExecutor, singular bool, maybeRSSItem interface{}, mods queries.Applicator) error {
+	var slice []*RSSItem
+	var object *RSSItem
+
+	if singular {
+		var ok bool
+		object, ok = maybeRSSItem.(*RSSItem)
+		if !ok {
+			object = new(RSSItem)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeRSSItem)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeRSSItem))
+			}
+		}
+	} else {
+		s, ok := maybeRSSItem.(*[]*RSSItem)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeRSSItem)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeRSSItem))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &rssItemR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &rssItemR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`translations`),
+		qm.WhereIn(`translations.rss_item_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load translations")
+	}
+
+	var resultSlice []*Translation
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice translations")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on translations")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for translations")
+	}
+
+	if singular {
+		object.R.Translations = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &translationR{}
+			}
+			foreign.R.RSSItem = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if queries.Equal(local.ID, foreign.RSSItemID) {
+				local.R.Translations = append(local.R.Translations, foreign)
+				if foreign.R == nil {
+					foreign.R = &translationR{}
 				}
 				foreign.R.RSSItem = local
 				break
@@ -1098,6 +1245,167 @@ func (o *RSSItem) RemovePosts(ctx context.Context, exec boil.ContextExecutor, re
 				o.R.Posts[i] = o.R.Posts[ln-1]
 			}
 			o.R.Posts = o.R.Posts[:ln-1]
+			break
+		}
+	}
+
+	return nil
+}
+
+// AddTranslationsP adds the given related objects to the existing relationships
+// of the rss_item, optionally inserting them as new records.
+// Appends related to o.R.Translations.
+// Sets related.R.RSSItem appropriately.
+// Panics on error.
+func (o *RSSItem) AddTranslationsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) {
+	if err := o.AddTranslations(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddTranslations adds the given related objects to the existing relationships
+// of the rss_item, optionally inserting them as new records.
+// Appends related to o.R.Translations.
+// Sets related.R.RSSItem appropriately.
+func (o *RSSItem) AddTranslations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			queries.Assign(&rel.RSSItemID, o.ID)
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"translations\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"rss_item_id"}),
+				strmangle.WhereClause("\"", "\"", 2, translationPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.RSSItemID, o.ID)
+		}
+	}
+
+	if o.R == nil {
+		o.R = &rssItemR{
+			Translations: related,
+		}
+	} else {
+		o.R.Translations = append(o.R.Translations, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &translationR{
+				RSSItem: o,
+			}
+		} else {
+			rel.R.RSSItem = o
+		}
+	}
+	return nil
+}
+
+// SetTranslationsP removes all previously related items of the
+// rss_item replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.RSSItem's Translations accordingly.
+// Replaces o.R.Translations with related.
+// Sets related.R.RSSItem's Translations accordingly.
+// Panics on error.
+func (o *RSSItem) SetTranslationsP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) {
+	if err := o.SetTranslations(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetTranslations removes all previously related items of the
+// rss_item replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.RSSItem's Translations accordingly.
+// Replaces o.R.Translations with related.
+// Sets related.R.RSSItem's Translations accordingly.
+func (o *RSSItem) SetTranslations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Translation) error {
+	query := "update \"translations\" set \"rss_item_id\" = null where \"rss_item_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.Translations {
+			queries.SetScanner(&rel.RSSItemID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.RSSItem = nil
+		}
+		o.R.Translations = nil
+	}
+
+	return o.AddTranslations(ctx, exec, insert, related...)
+}
+
+// RemoveTranslationsP relationships from objects passed in.
+// Removes related items from R.Translations (uses pointer comparison, removal does not keep order)
+// Sets related.R.RSSItem.
+// Panics on error.
+func (o *RSSItem) RemoveTranslationsP(ctx context.Context, exec boil.ContextExecutor, related ...*Translation) {
+	if err := o.RemoveTranslations(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveTranslations relationships from objects passed in.
+// Removes related items from R.Translations (uses pointer comparison, removal does not keep order)
+// Sets related.R.RSSItem.
+func (o *RSSItem) RemoveTranslations(ctx context.Context, exec boil.ContextExecutor, related ...*Translation) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.RSSItemID, nil)
+		if rel.R != nil {
+			rel.R.RSSItem = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("rss_item_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.Translations {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.Translations)
+			if ln > 1 && i < ln-1 {
+				o.R.Translations[i] = o.R.Translations[ln-1]
+			}
+			o.R.Translations = o.R.Translations[:ln-1]
 			break
 		}
 	}

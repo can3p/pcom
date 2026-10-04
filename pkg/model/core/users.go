@@ -174,6 +174,7 @@ var UserRels = struct {
 	AskerPostPrompts                          string
 	RecipientPostPrompts                      string
 	Posts                                     string
+	TranslationUsages                         string
 	TargetUserUserConnectionMediationRequests string
 	WhoUserUserConnectionMediationRequests    string
 	UserConnectionMediators                   string
@@ -184,6 +185,7 @@ var UserRels = struct {
 	CreatedUserUserInvitations                string
 	UserInvitations                           string
 	CreatedUserUserSignupRequests             string
+	UserTranslationLanguages                  string
 	AllowsWhoWhitelistedConnections           string
 	WhoWhitelistedConnections                 string
 }{
@@ -197,6 +199,7 @@ var UserRels = struct {
 	AskerPostPrompts:     "AskerPostPrompts",
 	RecipientPostPrompts: "RecipientPostPrompts",
 	Posts:                "Posts",
+	TranslationUsages:    "TranslationUsages",
 	TargetUserUserConnectionMediationRequests: "TargetUserUserConnectionMediationRequests",
 	WhoUserUserConnectionMediationRequests:    "WhoUserUserConnectionMediationRequests",
 	UserConnectionMediators:                   "UserConnectionMediators",
@@ -207,6 +210,7 @@ var UserRels = struct {
 	CreatedUserUserInvitations:                "CreatedUserUserInvitations",
 	UserInvitations:                           "UserInvitations",
 	CreatedUserUserSignupRequests:             "CreatedUserUserSignupRequests",
+	UserTranslationLanguages:                  "UserTranslationLanguages",
 	AllowsWhoWhitelistedConnections:           "AllowsWhoWhitelistedConnections",
 	WhoWhitelistedConnections:                 "WhoWhitelistedConnections",
 }
@@ -223,6 +227,7 @@ type userR struct {
 	AskerPostPrompts                          PostPromptSlice                     `boil:"AskerPostPrompts" json:"AskerPostPrompts" toml:"AskerPostPrompts" yaml:"AskerPostPrompts"`
 	RecipientPostPrompts                      PostPromptSlice                     `boil:"RecipientPostPrompts" json:"RecipientPostPrompts" toml:"RecipientPostPrompts" yaml:"RecipientPostPrompts"`
 	Posts                                     PostSlice                           `boil:"Posts" json:"Posts" toml:"Posts" yaml:"Posts"`
+	TranslationUsages                         TranslationUsageSlice               `boil:"TranslationUsages" json:"TranslationUsages" toml:"TranslationUsages" yaml:"TranslationUsages"`
 	TargetUserUserConnectionMediationRequests UserConnectionMediationRequestSlice `boil:"TargetUserUserConnectionMediationRequests" json:"TargetUserUserConnectionMediationRequests" toml:"TargetUserUserConnectionMediationRequests" yaml:"TargetUserUserConnectionMediationRequests"`
 	WhoUserUserConnectionMediationRequests    UserConnectionMediationRequestSlice `boil:"WhoUserUserConnectionMediationRequests" json:"WhoUserUserConnectionMediationRequests" toml:"WhoUserUserConnectionMediationRequests" yaml:"WhoUserUserConnectionMediationRequests"`
 	UserConnectionMediators                   UserConnectionMediatorSlice         `boil:"UserConnectionMediators" json:"UserConnectionMediators" toml:"UserConnectionMediators" yaml:"UserConnectionMediators"`
@@ -233,6 +238,7 @@ type userR struct {
 	CreatedUserUserInvitations                UserInvitationSlice                 `boil:"CreatedUserUserInvitations" json:"CreatedUserUserInvitations" toml:"CreatedUserUserInvitations" yaml:"CreatedUserUserInvitations"`
 	UserInvitations                           UserInvitationSlice                 `boil:"UserInvitations" json:"UserInvitations" toml:"UserInvitations" yaml:"UserInvitations"`
 	CreatedUserUserSignupRequests             UserSignupRequestSlice              `boil:"CreatedUserUserSignupRequests" json:"CreatedUserUserSignupRequests" toml:"CreatedUserUserSignupRequests" yaml:"CreatedUserUserSignupRequests"`
+	UserTranslationLanguages                  UserTranslationLanguageSlice        `boil:"UserTranslationLanguages" json:"UserTranslationLanguages" toml:"UserTranslationLanguages" yaml:"UserTranslationLanguages"`
 	AllowsWhoWhitelistedConnections           WhitelistedConnectionSlice          `boil:"AllowsWhoWhitelistedConnections" json:"AllowsWhoWhitelistedConnections" toml:"AllowsWhoWhitelistedConnections" yaml:"AllowsWhoWhitelistedConnections"`
 	WhoWhitelistedConnections                 WhitelistedConnectionSlice          `boil:"WhoWhitelistedConnections" json:"WhoWhitelistedConnections" toml:"WhoWhitelistedConnections" yaml:"WhoWhitelistedConnections"`
 }
@@ -402,6 +408,22 @@ func (r *userR) GetPosts() PostSlice {
 	return r.Posts
 }
 
+func (o *User) GetTranslationUsages() TranslationUsageSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetTranslationUsages()
+}
+
+func (r *userR) GetTranslationUsages() TranslationUsageSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.TranslationUsages
+}
+
 func (o *User) GetTargetUserUserConnectionMediationRequests() UserConnectionMediationRequestSlice {
 	if o == nil {
 		return nil
@@ -560,6 +582,22 @@ func (r *userR) GetCreatedUserUserSignupRequests() UserSignupRequestSlice {
 	}
 
 	return r.CreatedUserUserSignupRequests
+}
+
+func (o *User) GetUserTranslationLanguages() UserTranslationLanguageSlice {
+	if o == nil {
+		return nil
+	}
+
+	return o.R.GetUserTranslationLanguages()
+}
+
+func (r *userR) GetUserTranslationLanguages() UserTranslationLanguageSlice {
+	if r == nil {
+		return nil
+	}
+
+	return r.UserTranslationLanguages
 }
 
 func (o *User) GetAllowsWhoWhitelistedConnections() WhitelistedConnectionSlice {
@@ -864,6 +902,20 @@ func (o *User) Posts(mods ...qm.QueryMod) postQuery {
 	return Posts(queryMods...)
 }
 
+// TranslationUsages retrieves all the translation_usage's TranslationUsages with an executor.
+func (o *User) TranslationUsages(mods ...qm.QueryMod) translationUsageQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"translation_usage\".\"user_id\"=?", o.ID),
+	)
+
+	return TranslationUsages(queryMods...)
+}
+
 // TargetUserUserConnectionMediationRequests retrieves all the user_connection_mediation_request's UserConnectionMediationRequests with an executor via target_user_id column.
 func (o *User) TargetUserUserConnectionMediationRequests(mods ...qm.QueryMod) userConnectionMediationRequestQuery {
 	var queryMods []qm.QueryMod
@@ -1002,6 +1054,20 @@ func (o *User) CreatedUserUserSignupRequests(mods ...qm.QueryMod) userSignupRequ
 	)
 
 	return UserSignupRequests(queryMods...)
+}
+
+// UserTranslationLanguages retrieves all the user_translation_language's UserTranslationLanguages with an executor.
+func (o *User) UserTranslationLanguages(mods ...qm.QueryMod) userTranslationLanguageQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"user_translation_languages\".\"user_id\"=?", o.ID),
+	)
+
+	return UserTranslationLanguages(queryMods...)
 }
 
 // AllowsWhoWhitelistedConnections retrieves all the whitelisted_connection's WhitelistedConnections with an executor via allows_who_id column.
@@ -2104,6 +2170,112 @@ func (userL) LoadPosts(ctx context.Context, e boil.ContextExecutor, singular boo
 	return nil
 }
 
+// LoadTranslationUsages allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadTranslationUsages(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`translation_usage`),
+		qm.WhereIn(`translation_usage.user_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load translation_usage")
+	}
+
+	var resultSlice []*TranslationUsage
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice translation_usage")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on translation_usage")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for translation_usage")
+	}
+
+	if singular {
+		object.R.TranslationUsages = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &translationUsageR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if queries.Equal(local.ID, foreign.UserID) {
+				local.R.TranslationUsages = append(local.R.TranslationUsages, foreign)
+				if foreign.R == nil {
+					foreign.R = &translationUsageR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadTargetUserUserConnectionMediationRequests allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (userL) LoadTargetUserUserConnectionMediationRequests(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
@@ -3164,6 +3336,112 @@ func (userL) LoadCreatedUserUserSignupRequests(ctx context.Context, e boil.Conte
 	return nil
 }
 
+// LoadUserTranslationLanguages allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (userL) LoadUserTranslationLanguages(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
+	var slice []*User
+	var object *User
+
+	if singular {
+		var ok bool
+		object, ok = maybeUser.(*User)
+		if !ok {
+			object = new(User)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeUser))
+			}
+		}
+	} else {
+		s, ok := maybeUser.(*[]*User)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeUser))
+			}
+		}
+	}
+
+	args := make(map[interface{}]struct{})
+	if singular {
+		if object.R == nil {
+			object.R = &userR{}
+		}
+		args[object.ID] = struct{}{}
+	} else {
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &userR{}
+			}
+			args[obj.ID] = struct{}{}
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	argsSlice := make([]interface{}, len(args))
+	i := 0
+	for arg := range args {
+		argsSlice[i] = arg
+		i++
+	}
+
+	query := NewQuery(
+		qm.From(`user_translation_languages`),
+		qm.WhereIn(`user_translation_languages.user_id in ?`, argsSlice...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load user_translation_languages")
+	}
+
+	var resultSlice []*UserTranslationLanguage
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice user_translation_languages")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on user_translation_languages")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for user_translation_languages")
+	}
+
+	if singular {
+		object.R.UserTranslationLanguages = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &userTranslationLanguageR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.UserID {
+				local.R.UserTranslationLanguages = append(local.R.UserTranslationLanguages, foreign)
+				if foreign.R == nil {
+					foreign.R = &userTranslationLanguageR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // LoadAllowsWhoWhitelistedConnections allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (userL) LoadAllowsWhoWhitelistedConnections(ctx context.Context, e boil.ContextExecutor, singular bool, maybeUser interface{}, mods queries.Applicator) error {
@@ -4194,6 +4472,167 @@ func (o *User) AddPosts(ctx context.Context, exec boil.ContextExecutor, insert b
 	return nil
 }
 
+// AddTranslationUsagesP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.TranslationUsages.
+// Sets related.R.User appropriately.
+// Panics on error.
+func (o *User) AddTranslationUsagesP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*TranslationUsage) {
+	if err := o.AddTranslationUsages(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddTranslationUsages adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.TranslationUsages.
+// Sets related.R.User appropriately.
+func (o *User) AddTranslationUsages(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*TranslationUsage) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			queries.Assign(&rel.UserID, o.ID)
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"translation_usage\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, translationUsagePrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.UserID, o.ID)
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			TranslationUsages: related,
+		}
+	} else {
+		o.R.TranslationUsages = append(o.R.TranslationUsages, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &translationUsageR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
+	return nil
+}
+
+// SetTranslationUsagesP removes all previously related items of the
+// user replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.User's TranslationUsages accordingly.
+// Replaces o.R.TranslationUsages with related.
+// Sets related.R.User's TranslationUsages accordingly.
+// Panics on error.
+func (o *User) SetTranslationUsagesP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*TranslationUsage) {
+	if err := o.SetTranslationUsages(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// SetTranslationUsages removes all previously related items of the
+// user replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.User's TranslationUsages accordingly.
+// Replaces o.R.TranslationUsages with related.
+// Sets related.R.User's TranslationUsages accordingly.
+func (o *User) SetTranslationUsages(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*TranslationUsage) error {
+	query := "update \"translation_usage\" set \"user_id\" = null where \"user_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.TranslationUsages {
+			queries.SetScanner(&rel.UserID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.User = nil
+		}
+		o.R.TranslationUsages = nil
+	}
+
+	return o.AddTranslationUsages(ctx, exec, insert, related...)
+}
+
+// RemoveTranslationUsagesP relationships from objects passed in.
+// Removes related items from R.TranslationUsages (uses pointer comparison, removal does not keep order)
+// Sets related.R.User.
+// Panics on error.
+func (o *User) RemoveTranslationUsagesP(ctx context.Context, exec boil.ContextExecutor, related ...*TranslationUsage) {
+	if err := o.RemoveTranslationUsages(ctx, exec, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// RemoveTranslationUsages relationships from objects passed in.
+// Removes related items from R.TranslationUsages (uses pointer comparison, removal does not keep order)
+// Sets related.R.User.
+func (o *User) RemoveTranslationUsages(ctx context.Context, exec boil.ContextExecutor, related ...*TranslationUsage) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.UserID, nil)
+		if rel.R != nil {
+			rel.R.User = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("user_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.TranslationUsages {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.TranslationUsages)
+			if ln > 1 && i < ln-1 {
+				o.R.TranslationUsages[i] = o.R.TranslationUsages[ln-1]
+			}
+			o.R.TranslationUsages = o.R.TranslationUsages[:ln-1]
+			break
+		}
+	}
+
+	return nil
+}
+
 // AddTargetUserUserConnectionMediationRequestsP adds the given related objects to the existing relationships
 // of the user, optionally inserting them as new records.
 // Appends related to o.R.TargetUserUserConnectionMediationRequests.
@@ -5025,6 +5464,70 @@ func (o *User) RemoveCreatedUserUserSignupRequests(ctx context.Context, exec boi
 		}
 	}
 
+	return nil
+}
+
+// AddUserTranslationLanguagesP adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.UserTranslationLanguages.
+// Sets related.R.User appropriately.
+// Panics on error.
+func (o *User) AddUserTranslationLanguagesP(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserTranslationLanguage) {
+	if err := o.AddUserTranslationLanguages(ctx, exec, insert, related...); err != nil {
+		panic(boil.WrapErr(err))
+	}
+}
+
+// AddUserTranslationLanguages adds the given related objects to the existing relationships
+// of the user, optionally inserting them as new records.
+// Appends related to o.R.UserTranslationLanguages.
+// Sets related.R.User appropriately.
+func (o *User) AddUserTranslationLanguages(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*UserTranslationLanguage) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"user_translation_languages\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, userTranslationLanguagePrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.UserID, rel.SourceLang}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &userR{
+			UserTranslationLanguages: related,
+		}
+	} else {
+		o.R.UserTranslationLanguages = append(o.R.UserTranslationLanguages, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &userTranslationLanguageR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
 	return nil
 }
 

@@ -105,6 +105,19 @@
       {{ end }}
     </div>
 
+    {{ if .TranslationEnabled }}
+    <div class="form-check">
+      <input type="hidden" name="translation_shown" value="true">
+      <input class="form-check-input" type="checkbox" name="allow_translation" id="allowTranslation" value="true"
+      {{ if .Input }}{{ if .Input.AllowTranslation }}checked{{ end }}{{ end }}
+      >
+      <label class="form-check-label" for="allowTranslation">
+        Allow readers to translate this post
+      </label>
+      <div class="form-text">The text of the post is sent to an external translation service when a reader asks for a translation.</div>
+    </div>
+    {{ end }}
+
     <div class="d-flex gap-2">
       {{ if .IsPublished }}
         <button type="submit" disabled data-postform-pending class="btn btn-primary btn-sm" name="save_action"  value="save_post">Save Post</button>

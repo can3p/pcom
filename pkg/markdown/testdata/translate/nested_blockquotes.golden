@@ -1,0 +1,18 @@
+--- source
+> outer words
+>
+> > inner words
+> > more inner
+>
+> back outside
+--- segments
+[0] "outer words"
+[1] "inner words\nmore inner"
+[2] "back outside"
+--- applied
+> OUTER WORDS
+>
+> > INNER WORDS
+> > MORE INNER
+>
+> BACK OUTSIDE

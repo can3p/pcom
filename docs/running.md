@@ -68,6 +68,23 @@ tommy runs in the stack and is ready, but **the app doesn't use it yet**:
 Pointing the app at tommy needs code changes (S3 outside production with path-style addressing, and a
 configurable Mailjet base URL), planned for wave R2. The values it will use are in `.env.example`, commented out.
 
+## Translation
+
+Translating posts and RSS items to English is **off in development** unless you configure a real backend:
+there is no local stand-in (tests use WireMock stubs). To try it, create an Azure Translator resource (the
+free F0 tier is enough) and set in `cmd/web/.env`:
+
+```
+TRANSLATION_PROVIDER=azure
+TRANSLATION_AZURE_KEY=<resource key>
+TRANSLATION_AZURE_REGION=<resource region>   # only for a regional or multi-service resource
+```
+
+`TRANSLATION_AZURE_ENDPOINT` defaults to Azure's global endpoint. `TRANSLATION_USER_DAILY_CHARS` (50000) and
+`TRANSLATION_SITE_MONTHLY_CHARS` (2000000) cap what a reader may translate per day and the whole site per
+month. The app refuses to start when the selected provider's key is missing; an unselected provider's settings
+are ignored. `web serve --help` lists every setting.
+
 ## Seeding
 
 `make seed` runs `go run ./cmd/web seed` in the `app` container (the dev image: building `cmd/web` needs cgo

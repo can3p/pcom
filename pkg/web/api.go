@@ -21,6 +21,8 @@ type ApiPost struct {
 	PublishedAt int64               `json:"published_at,omitempty"`
 	UpdatedAt   int64               `json:"updated_at,omitempty"`
 	PublicURL   string              `json:"public_url"`
+	// AllowTranslation is a pointer so that leaving it out keeps the stored value.
+	AllowTranslation *bool `json:"allow_translation,omitempty"`
 }
 
 type ApiGetPostsResponse struct {
@@ -74,6 +76,8 @@ func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result
 				PublishedAt: publishedAt,
 				UpdatedAt:   p.UpdatedAt.Time.Unix(),
 				PublicURL:   svc.PostURL(p.ID),
+
+				AllowTranslation: &p.AllowTranslation,
 			}
 		}),
 		Cursor: listing.Cursor,
@@ -98,6 +102,8 @@ func ApiNewPost(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[
 		Body:       input.MdBody,
 		Visibility: input.Visibility,
 		Action:     action,
+
+		AllowTranslation: input.AllowTranslation,
 	})
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
@@ -128,6 +134,8 @@ func ApiEditPost(c *gin.Context, svc *posts.Service, actor *core.User, postID st
 		Body:       input.MdBody,
 		Visibility: input.Visibility,
 		Action:     action,
+
+		AllowTranslation: input.AllowTranslation,
 	})
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)

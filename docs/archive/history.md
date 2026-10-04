@@ -946,3 +946,83 @@ deletion block; M4 cheap; 3 strong audits), median 32 turns and 78k peak.
 Skills: wave-run×1, wave-close×1; the subagents used none by name. Costlier
 than F1 (76 turns, 5 subagents): four sequential tasks, three audit rounds,
 and two plan corrections made mid-wave.
+
+## F7 — Translating posts and RSS items to English (code done 2026-10-01, guide page pending; branch `feat/f7-translation`, #144)
+
+Stacked on F4 (`feat/f4-pagination`, #194), which had not merged.
+
+**Built.** A reader translates a post or an RSS item into English in place,
+sees "Automatically translated from <language> by <provider> · Show
+original" above it (with `lang="en"`; originals carry their detected
+language), and can pick languages to always translate in a new settings
+card. A post is translatable only if its author ticked "Allow readers to
+translate this post" (`posts.allow_translation`, default off; the API's
+optional `allow_translation` keeps the stored value when omitted); RSS items
+always are. Pieces:
+- `pkg/translate`: the `Backend` interface, a registry chosen by
+  `TRANSLATION_PROVIDER` (empty turns the feature off everywhere), and the
+  shared layer every backend gets: chunking under the backend's limits,
+  retries on 429/5xx honouring `Retry-After`, and shape checks (segment
+  count, `notranslate` spans by `data-i`) that reject rather than return a
+  partial translation. `pkg/translate/azure` is Text API v3.0 only.
+  Settings live under `TRANSLATION_*`, the backend's under its own
+  namespace; `Validate` requires only the selected backend's.
+- Language detection with `whatlanggo` (Q27), stored on every post save and
+  RSS import.
+- `pkg/markdown/translate.go`: `Segments`/`Apply` turn each block into one
+  HTML fragment (emphasis as tags, links as `<a data-i>` without the URL,
+  code, URLs and @handles as `notranslate` spans) and put translations back
+  by index, escaping provider text so it cannot inject markdown.
+- `pkg/service/translations`: `Translate` under the reading rules (drafts and
+  posts the reader can't see are not found; RSS items need a
+  subscription), a cache keyed on a hash of language, subject and body,
+  per-user daily and site-wide monthly character budgets
+  (`translation_usage`), one backend call per source for concurrent misses
+  (singleflight); `Cached` for pages under the same rules; `Slot` for the
+  fragment routes; `RetranslateStale`/`Forget` called from the post save
+  transaction through `posts.Translations`; a worker that claims jobs on a
+  lease, calls the provider outside any transaction and stores each job in
+  its own.
+- Pages build one `TranslationView` (one languages and one cache lookup per
+  kind); the Translate button is server-rendered, and only always-translate
+  languages auto-translate: cached ones inline, the rest with
+  `hx-trigger=load`.
+- `pkg/testutil/wiremock`: one WireMock container per test binary with JSON
+  stubs next to the code they serve, `Watch` (unmatched calls fail the test,
+  filtered by the test's own content) and `Verify`; `e2e.WithWireMock()`.
+- The privacy policy describes what is sent, to whom and when.
+
+**Wrong or surprising.** The plan said RSS items are sanitized HTML; the
+poller stores them as markdown, so T1's HTML segmenter was built, found
+unused by T4 and deleted, and RSS items go through the markdown path. T3
+could not call `RetranslateStale`/`Forget` directly while they were T0
+stubs returning errors, so it calls them through an interface T2 wired.
+The audits found real bugs every time: T3 never forgot translations of a
+post turned into a draft with the toggle off, nor re-translated a
+republished one; T1 translated RSS `@mention` links and dropped autolink
+brackets, and its identity round trip skipped every unchanged segment;
+T2's `Cached` applied no read rules (any logged-in user could read a
+translation of a post they couldn't see — never reachable, nothing called
+it yet) and its worker held one transaction across all provider calls;
+T4 first fired one request per item just to show a button, put rules in
+handlers and panicked on one error path. learn.microsoft.com is blocked in
+the sandbox; Azure's contract was checked against the
+`MicrosoftDocs/azure-ai-docs` repository on GitHub instead, which showed the
+region header is optional for global resources. Docker stopped once during
+the close; the session-start hook restarted it.
+
+**Left out.** The user guide page and screenshot: F6 merged while F7 was
+open, so under its rule they are still owed before F7 is done. The
+titles of `{cut}`/`{spoiler}` blocks are not translated, only their content.
+No test provokes one worker job's SQL failure or two concurrent cache
+misses; both are covered by reading the code. Only Azure is implemented.
+
+**Cost.** 1 coordinator session (164 turns, peak 293k context, 202k of tool
+results; flags: `cat`×7) and 11 subagents (TM, T1, T3 and T4 mid; T0 and T2
+strong; 5 strong audits), median 18 turns and 86k peak; across the wave
+`cat`×60, raw builds×14, full reads×2. T4 was resumed four times (RSS
+format, per-page view, audit, coverage) and T0–T3 once each for audit fixes.
+Skills: wave-run×1, wave-close×1. Far heavier than F4 (60 turns, peak 148k):
+six tasks instead of three, every audit sending work back, and one
+`make cover` output piped through a grep that matched its `-coverpkg` list
+added a large result to the coordinator's context.

@@ -1,0 +1,186 @@
+{
+  "mappings": [
+    {
+      "name": "translates two HTML segments from Russian, global resource (no region header)",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "ru"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Ocp-Apim-Subscription-Region": {
+            "absent": true
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Привет, <span class=\"notranslate\" data-i=\"0\">@azure-stub-alice</span>!"
+              },
+              {
+                "Text": "Мы <em>ходили</em> в лес."
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Hello, <span class=\"notranslate\" data-i=\"0\">@azure-stub-alice</span>!",
+                "to": "en"
+              }
+            ]
+          },
+          {
+            "translations": [
+              {
+                "text": "We <em>went</em> to the forest.",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "sends the region header when a region is set",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "de"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Ocp-Apim-Subscription-Region": {
+            "equalTo": "westeurope"
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "Guten Tag, azure-stub-region"
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "Good day, azure-stub-region",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "answers one element for two: a broken reply",
+      "request": {
+        "method": "POST",
+        "urlPath": "/azure-translator/translate",
+        "queryParameters": {
+          "api-version": {
+            "equalTo": "3.0"
+          },
+          "from": {
+            "equalTo": "ru"
+          },
+          "to": {
+            "equalTo": "en"
+          },
+          "textType": {
+            "equalTo": "html"
+          }
+        },
+        "headers": {
+          "Content-Type": {
+            "equalTo": "application/json; charset=UTF-8"
+          },
+          "Ocp-Apim-Subscription-Key": {
+            "equalTo": "azure-test-key"
+          },
+          "Ocp-Apim-Subscription-Region": {
+            "absent": true
+          }
+        },
+        "bodyPatterns": [
+          {
+            "equalToJson": [
+              {
+                "Text": "azure-stub-short: раз"
+              },
+              {
+                "Text": "azure-stub-short: два"
+              }
+            ]
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "jsonBody": [
+          {
+            "translations": [
+              {
+                "text": "azure-stub-short: one",
+                "to": "en"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -210,6 +210,8 @@ func (s *Service) rssItems(ctx context.Context, userID string, page repo.Page) (
 
 		return &FeedItem{FeedItem: &feeds.RssFeedItem{
 			ID:          item.ID,
+			RSSItemID:   item.RSSItemID,
+			Language:    item.R.RSSItem.Language,
 			URL:         item.R.URL.URL,
 			Title:       item.R.RSSItem.Title,
 			Summary:     item.R.RSSItem.SanitizedDescription,

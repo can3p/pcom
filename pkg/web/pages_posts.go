@@ -13,7 +13,8 @@ import (
 
 type WritePage struct {
 	*BasePage
-	Prompt *postops.PostPrompt
+	Prompt             *postops.PostPrompt
+	TranslationEnabled bool
 }
 
 // Write is the new post page. The prompt query parameter names the prompt the
@@ -33,6 +34,8 @@ func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Resul
 	return mo.Ok(&WritePage{
 		BasePage: getBasePage(c, "New Post", userData),
 		Prompt:   prompt,
+
+		TranslationEnabled: svc.TranslationEnabled(),
 	})
 }
 
@@ -43,6 +46,8 @@ type EditPostPage struct {
 	LastUpdatedAt time.Time
 	IsPublished   bool
 	Prompt        *postops.PostPrompt
+
+	TranslationEnabled bool
 }
 
 // EditPost is the edit page of a post the viewer may edit.
@@ -68,9 +73,13 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 			Body:       post.Body,
 			Visibility: post.VisibilityRadius,
 			URL:        url,
+
+			AllowTranslation: post.AllowTranslation,
 		},
 		LastUpdatedAt: post.UpdatedAt.Time,
 		IsPublished:   post.PublishedAt.Valid,
 		Prompt:        view.Prompt,
+
+		TranslationEnabled: svc.TranslationEnabled(),
 	})
 }
