@@ -21,7 +21,7 @@
   <button class="btn btn-primary">Prompt!</button>
   {{ if or .FormSaved .FormError }}
   <div class="prompt-form-foot">
-    {{ if .FormSaved }}<span class="status ok" role="alert">Prompt has been sent, thanks!</span>{{ end }}
+    {{ if .FormSaved }}<span class="status ok" role="status">Prompt has been sent, thanks!</span>{{ end }}
     {{ with .FormError }}<span class="status err" role="alert">{{ . }}</span>{{ end }}
   </div>
   {{ end }}
