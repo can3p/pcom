@@ -34,7 +34,7 @@ export default class extends Controller {
     }
 
     if (this.hideTargetValue) {
-      this.element.classList.add("d-none")
+      this.element.hidden = true
     }
 
     if (this.element.hasAttribute("aria-expanded")) {
@@ -53,8 +53,8 @@ export default class extends Controller {
 
         // Also show any hidden toggle buttons
         const toggleButton = document.querySelector(`[data-toggle-target-value="#${toggle.id}"]`)
-        if (toggleButton && toggleButton.classList.contains("d-none")) {
-          toggleButton.classList.remove("d-none")
+        if (toggleButton && toggleButton.hidden) {
+          toggleButton.hidden = false
         }
       }
     })
@@ -64,7 +64,7 @@ export default class extends Controller {
     this.target.classList.remove("show")
 
     if (this.hideTargetValue) {
-      this.element.classList.remove("d-none")
+      this.element.hidden = false
     }
 
     if (this.element.hasAttribute("aria-expanded")) {

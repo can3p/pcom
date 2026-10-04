@@ -12,8 +12,6 @@
     "@can3p/headless-mde": "^0.0.5",
     "@fontsource/golos-text": "~5.3",
     "@justinribeiro/lite-youtube": "^1.9.0",
-    "bootstrap": "^5.3.8",
-    "bootstrap-icons": "^1.13.1",
     "htmx-ext-head-support": "^2.0.5",
     "htmx.org": "^2.0.10",
     "lazysizes": "^5.3.2",

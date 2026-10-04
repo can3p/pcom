@@ -534,6 +534,10 @@
     }
   }
 
+  .block-container-spoiler-content:not(.show) {
+    display: none;
+  }
+
   .block-container-spoiler-content {
     margin-top: var(--space-3);
     padding: var(--space-3) var(--space-4);

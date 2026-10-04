@@ -308,7 +308,7 @@ func WithEnv(key, value string) Option {
 
 // WithRealAssets serves the frontend build in cmd/web/dist instead of the
 // stub assets, for tests that run the page's JavaScript and styles in a
-// browser. The build must exist: `make test-ui` runs `yarn build` first.
+// browser. The build must exist: `make test-ui` runs `yarn production` first.
 func WithRealAssets() Option {
 	return func(c *config) { c.realAssets = true }
 }
@@ -482,7 +482,7 @@ func workDir(t testing.TB, realAssets bool) string {
 	if realAssets {
 		dist := filepath.Join(repoRoot, "cmd", "web", "dist")
 		if _, err := os.Stat(filepath.Join(dist, "manifest.json")); err != nil {
-			t.Fatalf("e2e: no frontend build in %s; run `yarn build` in cmd/web (make test-ui does): %v", dist, err)
+			t.Fatalf("e2e: no frontend build in %s; run `yarn production` in cmd/web (make test-ui does): %v", dist, err)
 		}
 
 		if err := os.Symlink(dist, filepath.Join(work, "dist")); err != nil {

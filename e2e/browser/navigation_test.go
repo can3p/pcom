@@ -128,7 +128,7 @@ func TestNavigation_MobileMenuAt390(t *testing.T) {
 }
 
 // Under an emulated dark color scheme, the page picks up dark styling from
-// the `prefers-color-scheme` media query alone: no `data-bs-theme` override
+// the `prefers-color-scheme` media query alone: no `data-theme` override
 // is written, yet the body's computed background comes from the dark-mode
 // stylesheet. A page emulating light stays off that background.
 func TestNavigation_DarkModeBackground(t *testing.T) {
@@ -146,9 +146,9 @@ func TestNavigation_DarkModeBackground(t *testing.T) {
 	_, err := darkPage.Goto("/feed")
 	require.NoError(t, err)
 
-	theme, err := darkPage.Locator("html").GetAttribute("data-bs-theme")
+	theme, err := darkPage.Locator("html").GetAttribute("data-theme")
 	require.NoError(t, err)
-	require.Empty(t, theme, "dark styling must come from prefers-color-scheme, not a manual data-bs-theme override")
+	require.Empty(t, theme, "dark styling must come from prefers-color-scheme, not a manual data-theme override")
 
 	require.NoError(t, browser.Expect.Locator(darkPage.Locator("body")).ToHaveCSS("background-color", darkBackground))
 

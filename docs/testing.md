@@ -144,7 +144,7 @@ There are no pixel snapshots: they need browsers pinned in the tools container, 
 
 What a run does:
 
-1. `make test-ui` runs `yarn build`, so the suite tests the current frontend source, then
+1. `make test-ui` runs `yarn production`, so the suite tests the current frontend source, then
    `go test -tags browser ./e2e/browser/...` through the quiet runner. A passing run prints one line.
 2. `TestMain` starts the Playwright driver bundled with playwright-go and launches **one Chromium for
    the package**, headless unless `HEADED` is set (`SLOWMO=<ms>` delays every action). It uses the
