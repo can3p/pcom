@@ -40,7 +40,7 @@ The `us-*` classes are the stable contract for your CSS; every other class may c
 | `us-single-post` | the whole page of a single post |
 | `us-post-header` | the title of a single post |
 | `us-post-body` | the text of a single post |
-| `us-public-link` | the "Public link on" line of a shared post |
+| `us-public-link` | the public-link line of a shared post ("Anyone with the link can read this post", with Open link, Copy link and Turn off) |
 | `us-comment-stats` | the row of actions under a post, above its comments |
 | `us-comments-section` | the comments of a single post |
 | `us-single-comment` | one comment of a single post |
