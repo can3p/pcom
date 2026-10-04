@@ -158,8 +158,20 @@
 
 .ed-main {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
   margin-left: auto;
+}
+
+// the "Draft saved" slot (filled by an out-of-band swap, emptied when the
+// message fades out) takes no room and no gap while it is empty
+.ed-result {
+  display: flex;
+  align-items: center;
+
+  &:not(:has(.status)) {
+    display: none;
+  }
 }
 
 // Delete is a confirmed red link, never a button-looking control.
