@@ -165,12 +165,6 @@ in CI.
 
 ---
 
-## Ground rules for W0–W6
-
-They are in `docs/testing.md`, because that is the file every test-writing
-subagent reads. In short: no production code changes, bugs are pinned with
-skipped tests and filed, fixtures only through `pkg/testutil/factory`.
-
 ## How waves are run
 
 ### Branching

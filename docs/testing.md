@@ -7,64 +7,37 @@ The test layers, from cheapest to most expensive:
 | Layer | Where | Runs with | Checks |
 |---|---|---|---|
 | Unit | next to the code | `make test-short` | pure functions, goldens |
-| Package (DB) | next to the code; after RS, the service tests | `make test` (Docker) | business rules and queries against a fresh database |
-| E2E HTTP | `e2e/` | `make test` (Docker) | server rules that don't depend on the frontend: access control and visibility, statuses, CSRF and auth guards, API, RSS, security headers, resulting state. From R2, mail and S3 through tommy |
+| Package (DB) | next to the code; the service tests | `make test` (Docker) | business rules and queries against a fresh database |
+| E2E HTTP | `e2e/` | `make test` (Docker) | server rules that don't depend on the frontend: access control and visibility, statuses, CSRF and auth guards, API, RSS, security headers, resulting state; mail and S3 through tommy |
 | Browser | `e2e/browser` (build tag `browser`) | `make test-ui` | **everything a user does in a page**, in Chromium with the real assets: forms, buttons, htmx swaps and redirects, Stimulus controllers, dialogs, layout, no console or CSP errors |
 
 The split matters: an HTTP test that imitates htmx (sending its headers, pinning `HX-*` response headers)
 keeps passing when an htmx upgrade breaks every page. So a behavior that needs the page's JavaScript to
 happen is tested in the browser, never over plain HTTP.
 
-## Ground rules for W0–W6
+## Ground rules
 
-1. **No production code changes.** No file that is compiled into `cmd/web`
-   changes, and neither do its templates, JS or SCSS, apart from the three additive exceptions below. A wave that finds it
-   cannot test something without changing code stops and reports it; that is
-   input for R1, not a reason to refactor. Allowed:
-   - `_test.go` files, and `testdata/` directories.
-   - New packages that production code does not import:
-     `pkg/testutil/...`, `e2e/`, and `cmd/seed` (W4).
-   - `Makefile`, `.github/`, `docker-compose.yml`, `.env.example`, `tools/`
-     and `docs/`. The migration and codegen scripts (`dbconfig.yml`,
-     `sqlmigrate.sh`, `generate.sh`, `sqlboiler.toml`) may change **in W4
-     only**.
-   - `go.mod`/`go.sum`, **only in W0** (test dependencies), **W4.S2**
-     (the `tool` directives) and **W6.B0** (playwright-go).
-2. **Bugs are filed, not fixed.** If a test exposes a bug, write the test for
-   the *correct* behavior, skipped, and report it; the coordinator files the
-   GitHub issue (label `bug`) and fills in the number:
-
-   ```go
-   t.Skip("known bug: https://github.com/can3p/pcom/issues/NNN")
-   ```
-
-   WB removes the skips as it fixes the bugs. If the behavior is merely odd
-   rather than wrong, write a characterization test that pins the current
-   behavior, with a comment saying so. For a security bug, do not open a
-   public issue. Report it to the coordinator, who asks the owner.
-   Check `gh issue list --label bug` before filing, so the same bug isn't
-   filed twice.
-3. **Tests touch the ORM only through `pkg/testutil/factory`** to create
+1. **Tests touch the ORM only through `pkg/testutil/factory`** to create
    fixtures and read state back. A test body that calls `core.Posts(...)`
    directly is a test R5 has to rewrite. This rule is what makes the bob
    migration cheap. The code under test obviously still uses `core`. To learn
    a model's shape, run `make model T=<Model>`; never read `pkg/model/core`.
-4. **Prefer black-box tests.** Use `package foo_test` and the public API unless
+2. **Prefer black-box tests.** Use `package foo_test` and the public API unless
    an unexported function has logic worth pinning on its own, such as
    `ConstructComments` or `isURLMediaUpload`. Black-box tests survive
    refactors; tests of internals get rewritten by them.
-5. **Assertions use `testify/require`** (and `assert` where continuing after a
+3. **Assertions use `testify/require`** (and `assert` where continuing after a
    failure helps). Don't add new uses of `alecthomas/assert`, which R6 removes.
    Mocks use mockio v2 as shown below, but prefer the fakes in `pkg/testutil`.
-6. **Never assert on wall-clock time.** Nothing is injectable yet. Use
+4. **Never assert on wall-clock time.** Nothing is injectable yet. Use
    `require.WithinDuration(t, time.Now(), got, 5*time.Second)`, or compare
    ordering.
-7. **Every test gets its own database** (`testdb.New(t)`), and tests may run
+5. **Every test gets its own database** (`testdb.New(t)`), and tests may run
    in parallel (`t.Parallel()` is encouraged for DB tests).
-8. **Mail content is golden-tested** under `testdata/*.golden`, with the
+6. **Mail content is golden-tested** under `testdata/*.golden`, with the
    convention `UPDATE_GOLDEN=1 go test ./pkg/mail/...` to rewrite.
    These goldens are the safety net for R4.
-9. **Keep tests compact.** Cases that differ only in inputs and expectations
+7. **Keep tests compact.** Cases that differ only in inputs and expectations
    are rows of one table-driven test with `t.Run`, not one function each. A
    table test opens one database at the top, and each row makes its own
    users with the factory, so rows can run in parallel. Create fixtures in
@@ -72,14 +45,14 @@ happen is tested in the browser, never over plain HTTP.
    several tests of a file repeat goes into one small helper in that file.
    No comments that restate the test name, and no separate tests for trivial
    variations.
-10. **An ordering test inserts rows in the opposite order to the one it
-    expects.** A query without a working `ORDER BY` returns rows in insertion
-    order, so rows inserted in the expected order pass whether or not the
-    query sorts (#108 hid this way twice).
-11. **A test that compares stored times must fail under UTC too.** Timestamp
-    columns have no time zone (#171), so on a host ahead of UTC every stored
-    time reads back in the future, and a rate-limit or "older than" test can
-    pass for the wrong reason. Run such a test's mutation check with `TZ=UTC`.
+8. **An ordering test inserts rows in the opposite order to the one it
+   expects.** A query without a working `ORDER BY` returns rows in insertion
+   order, so rows inserted in the expected order pass whether or not the
+   query sorts (#108 hid this way twice).
+9. **A test that compares stored times must fail under UTC too.** Timestamp
+   columns have no time zone (#171), so on a host ahead of UTC every stored
+   time reads back in the future, and a rate-limit or "older than" test can
+   pass for the wrong reason. Run such a test's mutation check with `TZ=UTC`.
 
 ## Libraries
 
@@ -104,7 +77,7 @@ back through the same `exec`: `factory.GetUser`, `factory.GetPost`, `factory.Lis
 `factory.ListOutgoingEmails`, `factory.ConnectionExists`.
 
 The package imports no `testing`, so it also works from e2e's subprocess-backed database. Tests reach the ORM
-only through it (ground rule 3); a missing builder or reader is requested from the coordinator, not
+only through it (ground rule 1); a missing builder or reader is requested from the coordinator, not
 improvised inline. `pkg/feedops/testutil` is legacy: don't use it in new tests.
 
 ## Fakes and other helpers
@@ -182,7 +155,7 @@ Reliability rules, because a red run must mean a real regression:
    request headers or call `window.htmx`, so the tests survive an htmx upgrade and catch one that breaks a page.
 2. **Wait by assertion only:** `browser.Expect` (Playwright's auto-waiting assertions), never a sleep or
    `WaitForTimeout`. A "nothing happened" check asserts on a state the action would have changed.
-3. **Locate by role, label and text**, then by existing CSS classes. Test waves don't add `data-testid`.
+3. **Locate by role, label and text**, then by existing CSS classes.
 4. **Isolation:** no shared fixtures; every test may call `t.Parallel()`.
 5. **No retries:** a flaky test is fixed, or skipped with an issue number. A new test must pass
    `make test-ui RUN=<it> COUNT=3` before it is accepted.
@@ -248,20 +221,20 @@ step fails:
 
 `make generate` builds the tools image, which needs the network, so it fails in the sandbox. Run
 `generate.sh` on the host instead, with `sqlboiler` and `sql-migrate` installed by `go install` at the versions
-the tools image pins (F3 did).
+the tools image pins.
 
 The image's Chromium is older than the one CI installs, and the sandbox has no general outbound network, so a
 few browser tests fail only there (an embedded external resource, inline-style CSP reports):
 `TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility` and `TestActions_ShareLifecycle` (2026-10-01). Trust CI's
-`browser` job for those; W6 and refactor waves run the full suite there.
+`browser` job for those.
 
 The tools image may not build in the sandbox (Docker Hub rate limits, package mirrors blocked). Then run
 `PCOM_ALLOW_HOST_TOOLS=1 ./generate.sh` on the host with the sql-migrate and sqlboiler versions `tools/Dockerfile`
-pins, against a throwaway `postgres:16-alpine` container (F5 did, twice).
+pins, against a throwaway `postgres:16-alpine` container.
 
 ## Worked examples
 
-A unit test, pinning an unexported function's logic (ground rule 4):
+A unit test, pinning an unexported function's logic (ground rule 2):
 
 ```go
 package postops
