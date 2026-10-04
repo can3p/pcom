@@ -344,7 +344,7 @@ type postKey struct {
 //
 // The profile's visibility plays no part at /posts/:id (unlike the journal,
 // RSS and explore): a public post is visible to everybody, by decision
-// (docs/open-questions.md, 2026-09-28).
+// (docs/product.md, "A public post is public by URL").
 func TestVisibility_SinglePostMatrix(t *testing.T) {
 	t.Parallel()
 

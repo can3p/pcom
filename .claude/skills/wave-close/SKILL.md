@@ -19,7 +19,9 @@ A wave is finished when the documents are accurate again and CI is green, not wh
      was never used or didn't help, say so.
 4. **Lessons.** Add generalizable lessons to `docs/lessons.md` (create it on first use). If a rule in
    `AGENTS.md` or a skill proved wrong or missing, fix it there, not only in the lessons.
-5. **Questions.** Move answered items in `docs/open-questions.md` to "Decided".
+5. **Decisions.** Write each decision the wave made or relied on where it applies: `docs/product.md` for how
+   pcom behaves, `docs/architecture.md` for how it is built, `docs/testing.md` or `docs/running.md`. Delete
+   answered questions from `docs/open-questions.md`; the reasoning goes into the wave's history.
 6. **Documentation (F-waves only).** Check that the guide pages the wave changed are updated, that new
    screens are in the screenshot table, that `make screenshots` was rerun and its PNGs committed, and that
    the site builds and its tests pass (`cd website && go test ./... && go run . -out ../site`).

@@ -109,6 +109,7 @@ var docPages = []struct {
 	{GroupDev, "README.md", "readme.html", "README"},
 	{GroupDev, "docs/running.md", "docs/running.html", "Running locally"},
 	{GroupDev, "docs/api.md", "docs/api.html", "HTTP API"},
+	{GroupDev, "docs/product.md", "docs/product.html", "Product rules"},
 	{GroupDev, "docs/architecture.md", "docs/architecture.html", "Architecture"},
 	{GroupDev, "docs/testing.md", "docs/testing.html", "Testing"},
 	{GroupDev, "docs/implementation-plan.md", "docs/implementation-plan.html", "Implementation plan"},
