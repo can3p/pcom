@@ -36,7 +36,9 @@ happen is tested in the browser, never over plain HTTP.
    in parallel (`t.Parallel()` is encouraged for DB tests).
 6. **Mail content is golden-tested** under `testdata/*.golden`, with the
    convention `UPDATE_GOLDEN=1 go test ./pkg/mail/...` to rewrite.
-   These goldens are the safety net for R4.
+   These goldens are the safety net for R4. Golden fixtures use fixed values,
+   never factory emails or usernames, which come from a counter that parallel
+   tests share and would make the golden depend on test order.
 7. **Keep tests compact.** Cases that differ only in inputs and expectations
    are rows of one table-driven test with `t.Run`, not one function each. A
    table test opens one database at the top, and each row makes its own
@@ -48,11 +50,25 @@ happen is tested in the browser, never over plain HTTP.
 8. **An ordering test inserts rows in the opposite order to the one it
    expects.** A query without a working `ORDER BY` returns rows in insertion
    order, so rows inserted in the expected order pass whether or not the
-   query sorts (#108 hid this way twice).
+   query sorts.
 9. **A test that compares stored times must fail under UTC too.** Timestamp
    columns have no time zone (#171), so on a host ahead of UTC every stored
    time reads back in the future, and a rate-limit or "older than" test can
    pass for the wrong reason. Run such a test's mutation check with `TZ=UTC`.
+10. **A race test makes the race deterministic** by acting inside the exact
+    window (an `htmx:afterSwap` listener, a hook in the code), and is shown to
+    fail with the fix removed. A race test that passes three times proves
+    nothing.
+11. **A setting is tested where it takes effect**: on and off at its point of
+    use, and the composition root's mapping one setting at a time. A table
+    that only parses every variable catches a rename, not a setting that is
+    parsed and then ignored or wired into the wrong field.
+12. **A visibility rule is tested at the function that queries**, in the
+    package's privacy matrix, not only through a page. A template that shows
+    nothing hides a leaked row from HTTP and browser tests alike.
+13. **A test of a secret uses it.** A printed login code is used to log in,
+    not checked for its shape: a code made with the wrong key has the right
+    shape too.
 
 ## Libraries
 
@@ -64,7 +80,8 @@ happen is tested in the browser, never over plain HTTP.
 
 `db := testdb.New(t)` returns a fresh, fully migrated Postgres database, dropped when the test ends. `db.DB`
 is a `*sqlx.DB` and also a `boil.ContextExecutor`, so it goes directly into sqlboiler and factory calls.
-`db.URL` is its connection string, for handing to a subprocess (this is how `e2e.Start` gives the real binary
+`testdb.New` skips the test under `-short`, so a test meant to need no database must not call it: under
+`make test-short` it would pass by not running. `db.URL` is its connection string, for handing to a subprocess (this is how `e2e.Start` gives the real binary
 its own database). Every test gets its own database, so `t.Parallel()` is safe and encouraged.
 
 ## Fixtures: pkg/testutil/factory
@@ -94,6 +111,8 @@ Runs the real `cmd/web` binary against its own database and drives it with plain
 headers, HTML and the resulting database state. It is for server rules that don't depend on the frontend
 (see the layers table); the client does not imitate htmx, and user flows belong in the browser suite.
 `-short` (`make test-short`) skips E2E entirely.
+The harness stats the binary's sources so that go test's cache notices a production edit; any other test
+that runs a binary built from the repository needs the same, or a cached "ok" survives the change.
 `TestGuards_RouteTableMatchesSource` reads the route files by name: a change that moves routes between files
 updates its `prefixes` map, and the route table it asserts stays the same.
 Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
@@ -158,7 +177,9 @@ Reliability rules, because a red run must mean a real regression:
    request headers or call `window.htmx`, so the tests survive an htmx upgrade and catch one that breaks a page.
 2. **Wait by assertion only:** `browser.Expect` (Playwright's auto-waiting assertions), never a sleep or
    `WaitForTimeout`. A "nothing happened" check asserts on a state the action would have changed.
-3. **Locate by role, label and text**, then by existing CSS classes.
+3. **Locate by role, label and text**, then by existing CSS classes. Scope a text assertion to the
+   rendered element: a hidden prefilled form (a comment's edit box) holds the same text, so a page-wide
+   search passes without the rendering.
 4. **Isolation:** no shared fixtures; every test may call `t.Parallel()`.
 5. **No retries:** a flaky test is fixed, or skipped with an issue number. A new test must pass
    `make test-ui RUN=<it> COUNT=3` before it is accepted.
@@ -222,6 +243,9 @@ step fails:
   refuses to lint this module);
 - installs the playwright-go driver and sets `CHROMIUM_PATH=/opt/pw-browsers/chromium`, because the
   network policy blocks Playwright's CDN, so `make ui-deps` can't download Chromium.
+
+When Docker Hub rate-limits the sandbox (429), pull the image from `mirror.gcr.io/<image>` and `docker tag`
+it back rather than skipping the suite.
 
 `make generate` builds the tools image, which needs the network, so it fails in the sandbox. Run
 `generate.sh` on the host instead, with `sqlboiler` and `sql-migrate` installed by `go install` at the versions

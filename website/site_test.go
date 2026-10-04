@@ -233,12 +233,12 @@ func TestLandingCardsWithAndWithoutImage(t *testing.T) {
 
 func TestBuildFailsForAMissingPage(t *testing.T) {
 	repo := fixtureRepo(t)
-	if err := os.Remove(filepath.Join(repo, "docs", "lessons.md")); err != nil {
+	if err := os.Remove(filepath.Join(repo, "docs", "testing.md")); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Build(Config{Repo: repo, Out: t.TempDir()})
-	if err == nil || !strings.Contains(err.Error(), "lessons.md") {
-		t.Fatalf("want an error naming lessons.md, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "testing.md") {
+		t.Fatalf("want an error naming testing.md, got %v", err)
 	}
 }
 

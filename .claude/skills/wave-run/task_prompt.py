@@ -40,8 +40,8 @@ Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model sha
 skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
 Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
 A bug you notice outside your task is not yours to fix: report it under bugs: with a one-line repro.
-Behavior must not change: the E2E tests (e2e/), the browser tests (e2e/browser) and the seed crawl are not
-edited. A test you move may change its call site but not its assertions. If an assertion has to change,
+Behavior must not change, failure paths included: a panic stays a panic and an error keeps its message.
+The E2E tests (e2e/), the browser tests (e2e/browser) and the seed crawl are not edited. A test you move may change its call site but not its assertions. If an assertion has to change,
 stop and report it.
 {layering}
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
