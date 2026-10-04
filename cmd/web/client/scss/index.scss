@@ -467,3 +467,14 @@ body {
   color: var(--muted-text);
   font-weight: normal;
 }
+
+// Design system: tokens, element defaults and components, then one partial per
+// area. Imported last so they win over Bootstrap and the rules above.
+@import "tokens";
+@import "base";
+@import "components";
+@import "posts";
+@import "settings";
+@import "editor";
+@import "auth";
+@import "controls";

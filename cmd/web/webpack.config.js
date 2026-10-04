@@ -82,15 +82,22 @@ module.exports = (env, argv) => {
         {
           test: /\.(sa|sc|c)ss$/,
           use: [
-            MiniCssExtractPlugin.loader,
+            // asset urls relative to css/, so they resolve wherever dist is
+            // served from: /static/ by the app or STATIC_CDN's origin
+            {loader: MiniCssExtractPlugin.loader, options: {publicPath: "../"}},
             "css-loader",
             "sass-loader"
           ],
         },
 
+        // fonts (Golos Text, bootstrap-icons) under content-hashed names; the
+        // manifest lists each under its source file name, for preloads
         {
             test: /\.woff2?$/,
             type: "asset/resource",
+            generator: {
+              filename: "fonts/[name].[contenthash][ext]",
+            },
         }
       ]
     },

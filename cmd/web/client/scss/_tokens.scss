@@ -1,0 +1,117 @@
+// Design tokens: colors, spacing, shape and type. Every new rule reads these;
+// dark mode only redefines them.
+
+// Golos Text, self-hosted from @fontsource/golos-text (static woff2). Only the
+// weights the design uses (400 text, 600 labels and buttons, 800 titles) and the
+// latin and cyrillic subsets; the browser fetches a subset only when a page
+// uses a character in its unicode-range. The package's own CSS is not imported
+// because it declares every weight and a woff fallback.
+$golos-subsets: (
+  "latin": "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
+  "latin-ext": "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF",
+  "cyrillic": "U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+  "cyrillic-ext": "U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+);
+
+@each $weight in (400, 600, 800) {
+  @each $subset, $range in $golos-subsets {
+    @font-face {
+      font-family: "Golos Text";
+      font-style: normal;
+      font-weight: $weight;
+      font-display: swap;
+      src: url("~@fontsource/golos-text/files/golos-text-#{$subset}-#{$weight}-normal.woff2") format("woff2");
+      unicode-range: #{$range};
+    }
+  }
+}
+
+// Metric-matched fallback, shown until Golos Text arrives, so the swap does not
+// move the text. From Golos Text (unitsPerEm 1000, hhea ascent 980, descent
+// -220, line gap 0, average width of English text 480.4) and Arial (average
+// width 904 / 2048 = 441.4 per 1000): size-adjust 480.4 / 441.4 = 108.83%,
+// ascent-override 98 / 1.0883 = 90.05%, descent-override 22 / 1.0883 = 20.22%.
+@font-face {
+  font-family: "Golos Text Fallback";
+  src: local("Arial"), local("Helvetica");
+  size-adjust: 108.83%;
+  ascent-override: 90.05%;
+  descent-override: 20.22%;
+  line-gap-override: 0%;
+}
+
+:root {
+  color-scheme: light;
+
+  --ground: #faf6ee;
+  --surface: #fffdf8;
+  --sunken: #f2ebdd;
+  --line: #e7dfcf;
+  --text: #3a3526;
+  --title: #2b2719;
+  --muted: #6e6754;
+  --faint: #b5ac97;
+  --accent: #4f6328;
+  --accent-hover: #3a4a1c;
+  --on-accent: #fff;
+  --ok: #3f6b2e;
+  --err: #a8321e;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-control: 8px;
+  --radius-box: 12px;
+
+  // the accent bar under the single post's title
+  --title-rule-width: 4px;
+
+  --page-width: 1040px;
+  --prose-width: 680px;
+
+  --font-read: "Golos Text", "Golos Text Fallback", system-ui, sans-serif;
+  --font-ui: var(--font-read);
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  // Legacy names the not yet migrated rules in index.scss read; they go with
+  // those rules.
+  --primary-color: var(--accent);
+  --secondary-color: var(--title);
+  --background-color: var(--ground);
+  --text-color: var(--text);
+  --muted-text: var(--muted);
+}
+
+@mixin dark-tokens {
+  color-scheme: dark;
+
+  --ground: #1f1c17;
+  --surface: #26221c;
+  --sunken: #2d2922;
+  --line: #35302a;
+  --text: #e3dccc;
+  --title: #f4ecdd;
+  --muted: #a79e8b;
+  --faint: #5e574a;
+  --accent: #c5d38a;
+  --accent-hover: #d8e3a8;
+  --on-accent: #1f1c17;
+  --ok: #a9cf8e;
+  --err: #f0937e;
+}
+
+[data-bs-theme="dark"] {
+  @include dark-tokens;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-bs-theme="light"]) {
+    @include dark-tokens;
+  }
+}
