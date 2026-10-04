@@ -3,6 +3,9 @@
   <input type="hidden" name="post_id" value="{{ .PostID }}" />
   <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
 </div>
+{{ if .DraftSavedByUser }}
+<span id="ed-save-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
+{{ end }}
 {{ else }}
 <div id="form-container" class="ed">
   {{ with .Prompt }}
@@ -125,7 +128,8 @@
                 >Back to draft</button>
         <button type="submit" disabled data-postform-pending class="btn btn-primary" name="save_action" value="save_post">Save Post</button>
       {{ else }}
-        {{ if .DraftSavedByUser }}<span class="status ok" role="status"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Draft saved</span>{{ end }}
+        {{/* "Save as Draft" reports here through an out-of-band swap */}}
+        <span id="ed-save-result"></span>
         <button type="submit" disabled data-postform-pending class="btn btn-secondary" name="save_action" value="save_post">Save as Draft</button>
         <button type="submit" disabled data-postform-pending
                 class="btn btn-primary"

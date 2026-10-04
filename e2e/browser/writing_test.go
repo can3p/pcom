@@ -201,9 +201,25 @@ func TestWriting_SaveAsDraftShowsSaved(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(saved).ToHaveCount(0))
 
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Saved by hand"))
+
+	// a long body scrolled down: saving must not replace the textarea, which
+	// would lose the writer's place
+	body := page.GetByPlaceholder("Your post goes there")
+	require.NoError(t, body.Fill(strings.Repeat("A line of a long post.\n", 200)))
+	_, err = body.Evaluate(`el => { el.scrollTop = 400; el.keptAcrossSave = true }`, nil)
+	require.NoError(t, err)
+
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save as Draft", Exact: new(true)}).Click())
 
 	require.NoError(t, browser.Expect.Locator(saved).ToBeVisible())
+	kept, err := body.Evaluate(`el => [el.keptAcrossSave === true, el.scrollTop]`, nil)
+	require.NoError(t, err)
+	require.Equal(t, []any{true, 400}, kept, "the textarea was replaced or scrolled back")
+
+	// like every form result, it goes away on its own
+	require.NoError(t, browser.Expect.Locator(saved).ToHaveCount(0, playwright.LocatorAssertionsToHaveCountOptions{
+		Timeout: playwright.Float(6000),
+	}))
 
 	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
 	require.NoError(t, err)
