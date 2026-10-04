@@ -58,7 +58,8 @@ func TestNavigation_BoostedTopNavAndHistory(t *testing.T) {
 		{"Explore", "Explore", `/explore/?$`},
 		{"Write", "New Post", `/write/?$`},
 		{"Controls", "Controls", `/controls/?$`},
-		{user.Username, "Settings", `/controls/settings/?$`},
+		{"Settings", "Settings", `/controls/settings/?$`},
+		{user.Username, "Journal", `/users/` + user.Username + `$`},
 	}
 
 	for _, s := range steps {
@@ -73,7 +74,7 @@ func TestNavigation_BoostedTopNavAndHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "kept", marker, "a boosted link reloaded the whole page")
 
-	backTitles := []string{"Controls", "New Post", "Explore", "Your Feed"}
+	backTitles := []string{"Settings", "Controls", "New Post", "Explore", "Your Feed"}
 	for _, title := range backTitles {
 		_, err := page.GoBack()
 		require.NoError(t, err)
@@ -120,8 +121,8 @@ func TestNavigation_MobileMenuAt390(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "true", ariaExpanded)
 
-	// the username is the link to settings
-	require.NoError(t, navLink(page, user.Username).Click())
+	// settings has its own link in the menu
+	require.NoError(t, navLink(page, "Settings").Click())
 
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/settings/?$`)))
 	b1ExpectTitleSuffix(t, page, "Settings")

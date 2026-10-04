@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +76,34 @@ func TestWriting_NewDraftAutosaveAndToolbar(t *testing.T) {
 
 // Publishing an existing draft redirects to the post, and turning it back
 // into a draft re-renders the editor in place.
+// The editor takes the whole content column on a desktop screen, so long posts
+// are not written in a strip; its text keeps a margin from the box edge.
+func TestWriting_EditorUsesTheColumn(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user), browser.Configure(func(o *playwright.BrowserNewContextOptions) {
+		o.Viewport = &playwright.Size{Width: 1280, Height: 800}
+	}))
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+
+	body := page.GetByPlaceholder("Your post goes there")
+	box, err := body.BoundingBox()
+	require.NoError(t, err)
+	// the column is 776px wide less its 16px gutters; an editor that shrinks to
+	// its content (the toolbar) is about 420px
+	require.GreaterOrEqual(t, box.Width, 700.0)
+
+	padding, err := body.Evaluate(`el => getComputedStyle(el).paddingLeft`, nil)
+	require.NoError(t, err)
+	px, err := strconv.ParseFloat(strings.TrimSuffix(padding.(string), "px"), 64)
+	require.NoError(t, err)
+	require.Greater(t, px, 8.0, "the post text must not touch the box edge")
+}
+
 func TestWriting_PublishAndMakeDraftThroughEditor(t *testing.T) {
 	t.Parallel()
 

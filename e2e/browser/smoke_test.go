@@ -37,7 +37,13 @@ func TestSmoke_LoginAndBoostedNavigation(t *testing.T) {
 
 	require.NoError(t, page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: user.Username, Exact: new(true)}).Click())
 
-	// the username in the navigation links to the settings
+	// the username in the navigation links to the user's journal, which shows its RSS link
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/users/`+user.Username+`$`)))
+	require.NoError(t, browser.Expect.Page(page).ToHaveTitle(regexp.MustCompile(`Journal$`)))
+	require.NoError(t, browser.Expect.Locator(rss).ToHaveCount(1))
+
+	require.NoError(t, page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Settings", Exact: new(true)}).Click())
+
 	require.NoError(t, browser.Expect.Page(page).ToHaveTitle(regexp.MustCompile(`Settings$`)))
 	require.NoError(t, browser.Expect.Locator(rss).ToHaveCount(0))
 
@@ -51,11 +57,6 @@ func TestSmoke_LoginAndBoostedNavigation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "kept", marker, "a boosted link reloaded the whole page")
 
-	// the journal shows its RSS link
-	_, err = page.Goto("/users/" + user.Username)
-	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Page(page).ToHaveTitle(regexp.MustCompile(`Journal$`)))
-	require.NoError(t, browser.Expect.Locator(rss).ToHaveCount(1))
 }
 
 // An action button posts its payload as JSON through htmx and reloads the
