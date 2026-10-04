@@ -53,6 +53,19 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 
 - **The About text is shown on the journal only**, under an "About" heading, capped by
   `PROFILE_ABOUT_MAX_LENGTH`.
+- **User CSS targets the `us-*` classes, and they are a contract.** A user's styles load on their journal,
+  their posts, the feed and explore, inside `.user-styles-applied`. The `us-*` classes keep their names and the
+  elements they mark (the list is under Styles in `docs/guide/settings.md`), so a redesign doesn't break
+  people's styles; every other class may change. `TestTemplatesKeepUserStyleHooks` fails when one disappears.
+- **The username in the header opens settings**, not the journal.
+
+## Interface
+
+- **Every form saves in place** and reports next to its submit button (saved / not saved), with field errors
+  under the field: no page reload after a form, and no toast for a form's result. Toasts are only for the
+  results of actions without a form. Destructive actions are red and always ask first.
+- **A first visit stays light**: CSS, fonts and JS have byte budgets that `TestFirstVisitWeight` enforces,
+  because the site must open fast on a phone. pcom uses no CSS framework.
 
 ## Website
 
