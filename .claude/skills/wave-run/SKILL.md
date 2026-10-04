@@ -1,6 +1,6 @@
 ---
 name: wave-run
-description: Coordinate one wave of the pcom modernization plan (W0-W6, WB, R1-R7, RS, F-waves) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run W1" or similar.
+description: Coordinate one wave of the pcom modernization plan (R-waves and F-waves) - what to read, how to build subagent prompts with task_prompt.py, dispatch at the right model tier, and verify each task cheaply. Use when starting, resuming or dispatching tasks of a wave, or when asked to "run R5" or similar.
 ---
 
 # Running a wave
@@ -14,7 +14,7 @@ adds what only a coordinator needs. When the wave is done, use the `wave-close` 
 | Role | Reads |
 |---|---|
 | Coordinator | `docs/implementation-plan.md` (the index), the one wave file `docs/plan/<id>.md`, `docs/open-questions.md` |
-| Subagent | `docs/testing.md`, its prompt (which carries the task excerpt), and the source files it owns or tests. In RS and later refactor waves, also `docs/architecture.md` |
+| Subagent | `docs/architecture.md`, `docs/testing.md`, its prompt (which carries the task excerpt), and the source files it owns or tests |
 
 `AGENTS.md` is loaded automatically into every session and every subagent, as are the skill descriptions.
 Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` unless the task says so.
@@ -23,34 +23,25 @@ Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` un
 
 1. Branch as the index's "Branching" section says. Every session of this wave must run on the wave's
    branch: `tools/agent-stats.py --branch <branch>` measures the wave by it.
-2. Tell yourself in one line what the previous session left ("W0 merged, W1 next"), not a summary.
+2. Tell yourself in one line what the previous session left ("L0 merged, L1 next"), not a summary.
 
 ## 3. Build prompts; don't write them
 
 ```bash
-.claude/skills/wave-run/task_prompt.py w1 U1 U2 U3     # one prompt per task, separated by =====
+.claude/skills/wave-run/task_prompt.py r7 L1 L2 L3     # one prompt per task, separated by =====
 ```
 
 It pastes the task's table row or `###` section into a preamble and prints the `model` to use on the first
 line. Replace every `<FILL: ...>`, above all the owned files, before dispatching. If the excerpt names
 something a subagent can't read (another wave's matrix, an issue by number, an open question), paste its
 definition or a one-line summary into the prompt: subagents read no other wave files and have no GitHub
-access. There are four preambles,
-chosen by wave:
+access. The preamble is chosen by wave:
 
-- **Test waves** (W0–W5): read only `docs/testing.md`; LSP, the `model-shape` and `test-failure` skills;
-  quiet `make` targets; the 12-line report.
-- **W6**: the same, but tests run through `make test-ui` and compile with `TAGS=browser`.
-- **R-waves and RS**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
+- **R-waves**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
   their assertions, and the layering rules apply.
 - **F-waves**: a feature preamble. Behavior changes as the wave file decides; tests prove the feature
   (browser tests for what users do); an existing assertion changes only where the task changes it. A feature
   wave's last task is its docs task (guide, screenshot table, `make screenshots`, site build).
-- **WB**: a bug-fix preamble. Each task fixes the issues in its row, removes their `t.Skip`s (in `e2e/` too)
-  and changes no other assertion. The builder pastes each issue's title and body from `gh`, so subagents
-  need no GitHub access.
-
-W4's tooling tasks use the test preamble with its first line and "Test only" line adjusted by hand.
 
 ## 4. Dispatch; don't do
 
@@ -61,7 +52,7 @@ subagents, whose context is thrown away.
   (`haiku` for cheap, `sonnet` for mid, `opus` for strong). The coordinator writes code itself only when
   the plan says so (contract-defining work), or after a task has failed twice.
   One more exception: a verbatim move of top-level blocks is a script, not a task. Cut by line range and
-  prove it by diffing the old and new files' line multisets (R1 step 2).
+  prove it by diffing the old and new files' line multisets.
 - Tasks that own disjoint files go out in **one message** with several `Agent` calls,
   `subagent_type: "general-purpose"`. Never `fork`: a fork drags the coordinator's context along.
 - Tasks whose tests build the whole tree (E2E, the arch test) run with `isolation: "worktree"`, so one
@@ -69,8 +60,8 @@ subagents, whose context is thrown away.
   wave branch: push the branch first, or make the agent's first command `git merge --ff-only <wave
   branch>` (the only git command it may run). Merge each finished worktree by committing there and
   cherry-picking onto the wave branch; resolve shared files (a registry, an allowlist) by script, and
-  conflicts in code by hand (RS).
-- Parallel tasks that write files in **one package** (W3's `e2e`, W6's `e2e/browser`) each iterate under
+  conflicts in code by hand.
+- Parallel tasks that write files in **one package** (`e2e`, `e2e/browser`) each iterate under
   their own build tag (`//go:build browser && b3`, run with `-tags browser,b3`) and switch to the shared
   tag before reporting, so one agent's half-written file doesn't break the others' compile. Shared build
   steps such as `yarn build` run once in the coordinator before dispatch, never in each agent.
@@ -78,13 +69,13 @@ subagents, whose context is thrown away.
   them, and the prefix is noise once merged. Name helpers for what they do; a name clash at merge time is
   the signal that a helper belongs in a shared `helpers_test.go`, which the coordinator writes once.
   Test names take the area, as in `TestActions_ShareLifecycle`.
-  The same applies to ordinary packages shared by several tasks (W2's `pkg/web`, `pkg/forms`). There, a
+  The same applies to ordinary packages shared by several tasks. There, a
   task's coverage target is for its own files or functions: tell it to measure them with
   `go tool cover -func` on a profile. When a shared package suddenly fails to build, check first for an
   agent that left its files untagged.
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
-- **Subagents run no git commands** and don't touch `go.mod` (only W0 and W4.S2 do, each as a single task).
+- **Subagents run no git commands** and don't touch `go.mod` unless it is among the task's owned files.
   They report gaps in the test factories instead of patching around them. Add missing helpers in one place,
   then re-dispatch. If two tasks independently ask for the same helper, it is real.
 - **Escalate once, don't loop.** A task that fails its "done when" twice is bumped one tier, once, with the
@@ -107,39 +98,37 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
 
 ## 5. Verify each task on a budget
 
-1. `make cover-q PKG=<task packages>`: the number is right and the tests pass. Lines marked `(cached)` did
-   not re-run; after an edit to the code under test they must not be cached.
+1. The tests pass:
+   - **R-waves:** `make test-q PKG=<task packages>` plus `git diff --stat -- e2e/`, which must be empty, and
+     the `pkg/arch` allowlist is still empty.
+   - **F-waves:** `make test-q PKG=<task packages>`; for browser tests, `make test-ui RUN=<the task's tests>`,
+     then again with `COUNT=3` (a flaky test is sent back, not accepted).
+
+   Lines marked `(cached)` did not re-run; after an edit to the code under test they must not be cached.
 2. `git status --short`, to confirm only the owned files changed and no stray files appeared (`git diff
    --stat` misses untracked files, such as the `<file>-E` backups BSD `sed -i -E` leaves).
-3. **One** mutation check: break the code under the test whose failure would matter most, watch it fail
-   through `make test-q`, revert from a copy you made first (`cp` aside and back; never `git checkout`, which
-   erases a subagent's uncommitted work in its worktree). Never while an audit agent is reading the same worktree: it will
-   report your mutation as a regression. A test that doesn't fail when you break the code under it covers nothing.
-4. **Audit the assertions**, because one mutation samples one test. For every test task (package, E2E and
-   browser), have a read-only `Explore` agent (strong tier) classify every test as weak (passes whether or
-   not the behavior works: only a status on a page that always answers 200, "body exists", `NotNil` on a
-   returned action, asserting the setup), duplicated within the wave, duplicated by another suite (W2 vs
-   W3 vs W6), pinning wrong behavior, a skip that can't fail, or OK, with a concrete fix for each. Run it
-   per task as it reports, not once at the end, and send the fixes back before committing: tasks that
-   pass their mutation check still ship weak, duplicated and unfailable tests that only this step finds.
+3. **One** mutation check: break the code the task changed where a failure would matter most (for a
+   browser test, a Stimulus controller or an htmx attribute it covers), watch a test fail, and revert from a
+   copy you made first (`cp` aside and back; never `git checkout`, which erases a subagent's uncommitted work
+   in its worktree). Never while an audit agent is reading the same worktree: it will report your mutation
+   as a regression. A test that doesn't fail when you break the code under it covers nothing.
+4. **Audit the assertions** of every task that writes tests, because one mutation samples one test. Have a
+   read-only `Explore` agent (strong tier) classify every new test as weak (passes whether or not the
+   behavior works: only a status on a page that always answers 200, "body exists", `NotNil` on a returned
+   action, asserting the setup), duplicated within the wave, duplicated by another suite (package, E2E,
+   browser), a skip that can't fail, or OK, with a concrete fix for each. Run it per task as it reports, not
+   once at the end, and send the fixes back before committing: tasks that pass their mutation check still
+   ship weak, duplicated and unfailable tests that only this step finds.
 
-Variations by wave:
-
-- **W6 (browser):** step 1 is `make test-ui RUN=<the task's tests>`, then again with `COUNT=3` (a flaky
-  test is sent back, not accepted). The mutation check breaks a Stimulus
-  controller or an htmx attribute the task covers. At the end of the wave, empty each controller's
-  `connect()` in turn and run the suite: a controller that survives is untested, whatever the reports say.
-- **R-waves and RS (refactors):** replace step 1 with `make test-q PKG=<task packages>` plus
-  `git diff --stat -- e2e/`, which must be empty. Also check that the task shrank the `pkg/arch` allowlist
-  and didn't grow it. The mutation check becomes: break the service method the task extracted and watch an
-  E2E or service test fail. Run `make test-ui` once per commit, next to `make check-q`.
+A wave that adds Stimulus controllers ends with one more check: empty each new controller's `connect()` in
+turn and run the browser suite. A controller that survives is untested, whatever the reports say.
 
 Not part of the budget: reading every test file. Read a test only when the mutation check fails to fail.
-Run `make check-q` once before each commit; it runs go fix and lint first, as CI does. If go fix rewrote
-anything, the rewrite goes into that task's commit. Commit per task.
+Run `make check-q` and `make test-ui` once before each commit; `check-q` runs go fix and lint first, as CI
+does. If go fix rewrote anything, the rewrite goes into that task's commit. Commit per task.
 
-For each bug a subagent reports: check `gh issue list --label bug`, file an issue if it is new (security
-bugs go to the owner, not a public issue), and put the number into the test's `t.Skip`.
+For each bug a subagent reports: check `gh issue list --label bug` and file an issue if it is new (security
+bugs go to the owner, not a public issue).
 
 ## 6. Session hygiene
 
@@ -147,6 +136,5 @@ bugs go to the owner, not a public issue), and put the number into the test's `t
   `docs/archive/history.md`. Start the next wave in a fresh session (or after `/clear`).
 - After each commit, if the conversation is long, `/compact` with the instruction
   "keep: current wave, task statuses, open bugs filed, next step".
-- W0, W6.B0 and RS step 0 are the coordinator's own contract work; their delegable parts are marked in
-  their wave files. Everything else is almost entirely dispatch: expect a few thousand coordinator tokens per
-  task, not tens of thousands.
+- Contract work the wave file gives the coordinator is its own; everything else is almost entirely dispatch:
+  expect a few thousand coordinator tokens per task, not tens of thousands.

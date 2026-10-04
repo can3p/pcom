@@ -26,8 +26,7 @@ Goal: find the cause while reading as little as possible. Stop at the first step
    outline, `goToDefinition` from the failing line, then `Read` with `offset`/`limit` around that function.
 6. **Decide what kind of failure it is:**
    - The test is wrong: fix the test.
-   - The code is wrong and you are in a test wave (W0–W6): don't fix it. Write the test for the correct
-     behavior, add `t.Skip("known bug: <describe>")`, and report a one-line repro. Check
+   - The code is wrong: fix it if it is in your task's files; otherwise report a one-line repro. Check
      `gh issue list --label bug --search '<keyword>'` first; it may be known.
    - Flaky (it passes with `-count=5` sometimes): look for wall-clock asserts, map ordering, shared DB
      state or missing `t.Parallel()` isolation. Report it; don't paper over it with retries.
