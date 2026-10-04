@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/can3p/gogo/forms"
+	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/postops"
@@ -130,8 +131,35 @@ func (f *PostForm) saveInput() posts.SaveInput {
 }
 
 func (f *PostForm) Validate(c *gin.Context) error {
-	for field, message := range f.Posts.ValidateSave(f.saveInput()) {
-		f.AddError(field, message)
+	limits := f.Posts.TextLimits()
+
+	if err := validation.ValidateMinMax("subject", f.Input.Subject, 0, limits.PostSubjectMaxLength); err != nil {
+		f.AddError("subject", err.Error())
+	}
+
+	if err := validation.ValidateURL(f.Input.URL); err != nil {
+		f.AddError("url", err.Error())
+	}
+
+	if err := validation.ValidateMinMax("body", f.Input.Body, 0, limits.PostBodyMaxLength); err != nil {
+		f.AddError("body", err.Error())
+	}
+
+	action := posts.Action(f.Input.SaveAction)
+	if action == "" {
+		action = posts.ActionAutosave
+	}
+
+	if err := validation.ValidateEnum(action,
+		[]posts.Action{posts.ActionSavePost, posts.ActionMakeDraft, posts.ActionPublish, posts.ActionDelete, posts.ActionAutosave},
+		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
+		f.AddError("save_action", err.Error())
+	}
+
+	if err := validation.ValidateEnum(f.Input.Visibility,
+		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic},
+		[]string{"direct only", "their connections as well", "public"}); err != nil {
+		f.AddError("visibility", err.Error())
 	}
 
 	// this sounds like too much, but this way

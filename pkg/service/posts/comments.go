@@ -25,9 +25,13 @@ type CommentInput struct {
 	Body    string
 }
 
-// ValidateCommentBody checks the length of a comment.
-func (s *Service) ValidateCommentBody(body string) error {
-	return validation.ValidateMinMax("body", body, commentMinLength, s.limits.CommentMaxLength)
+// checkCommentBody enforces the length of a comment.
+func (s *Service) checkCommentBody(body string) error {
+	if err := validation.ValidateMinMax("body", body, CommentMinLength, s.limits.CommentMaxLength); err != nil {
+		return service.Invalid("body", err.Error())
+	}
+
+	return nil
 }
 
 // CheckComment reports whether the actor may leave a comment on the post,
@@ -79,8 +83,8 @@ func (s *Service) AddComment(ctx context.Context, actor *core.User, in CommentIn
 		return err
 	}
 
-	if err := s.ValidateCommentBody(in.Body); err != nil {
-		return service.Invalid("body", err.Error())
+	if err := s.checkCommentBody(in.Body); err != nil {
+		return err
 	}
 
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
@@ -141,8 +145,8 @@ func (s *Service) EditComment(ctx context.Context, actor *core.User, commentID, 
 		return err
 	}
 
-	if err := s.ValidateCommentBody(body); err != nil {
-		return service.Invalid("body", err.Error())
+	if err := s.checkCommentBody(body); err != nil {
+		return err
 	}
 
 	return s.store.Tx(ctx, func(tx *repo.Store) error {

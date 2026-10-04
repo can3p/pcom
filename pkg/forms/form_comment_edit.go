@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/can3p/gogo/forms"
+	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ func EditCommentFormNew(svc *posts.Service, u *core.User, commentID string) form
 }
 
 func (f *EditCommentForm) Validate(c *gin.Context) error {
-	if err := f.Posts.ValidateCommentBody(f.Input.Body); err != nil {
+	if err := validation.ValidateMinMax("body", f.Input.Body, posts.CommentMinLength, f.Posts.TextLimits().CommentMaxLength); err != nil {
 		f.AddError("body", err.Error())
 	}
 

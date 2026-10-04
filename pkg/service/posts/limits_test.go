@@ -1,32 +1,35 @@
-package posts_test
+package posts
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/can3p/pcom/pkg/service/posts"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/stretchr/testify/require"
 )
 
+// The service reports its limits for forms and enforces them on save.
 func TestTextLimits(t *testing.T) {
 	t.Parallel()
 
-	def := posts.New(repo.New(nil), nil, nil)
-	small := posts.New(repo.New(nil), nil, nil, posts.WithTextLimits(posts.TextLimits{
-		CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7, PromptMaxLength: 8,
-	}))
+	require.Equal(t, DefaultTextLimits, New(repo.New(nil), nil, nil).TextLimits())
 
-	require.NoError(t, def.ValidateCommentBody(strings.Repeat("a", posts.DefaultCommentMaxLength)))
-	require.Error(t, def.ValidateCommentBody(strings.Repeat("a", posts.DefaultCommentMaxLength+1)))
-	require.Error(t, def.ValidatePrompt(strings.Repeat("a", posts.DefaultPromptMaxLength+1)))
-	require.NoError(t, def.ValidatePrompt(strings.Repeat("a", posts.DefaultPromptMaxLength)))
+	small := New(repo.New(nil), nil, nil, WithTextLimits(TextLimits{CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7}))
+	require.Equal(t, TextLimits{CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7, PromptMaxLength: DefaultPromptMaxLength},
+		small.TextLimits(), "a zero limit keeps its default")
 
-	require.NoError(t, small.ValidateCommentBody("abcde"))
-	require.ErrorContains(t, small.ValidateCommentBody("abcdef"), "between 3 and 5")
-	require.ErrorContains(t, small.ValidatePrompt("abcdefghi"), "between 3 and 8")
+	var invalid *service.ValidationError
 
-	errs := small.ValidateSave(posts.SaveInput{Subject: "12345678", Body: "1234567"})
+	require.NoError(t, small.checkCommentBody("abcde"))
+	require.ErrorAs(t, small.checkCommentBody("abcdef"), &invalid)
+	require.Equal(t, "body", invalid.Field)
+	require.ErrorAs(t, small.checkCommentBody("ab"), &invalid, "shorter than CommentMinLength")
+
+	require.NoError(t, small.checkPrompt("abc"))
+	require.ErrorAs(t, New(repo.New(nil), nil, nil, WithTextLimits(TextLimits{PromptMaxLength: 8})).checkPrompt("abcdefghi"), &invalid)
+	require.Equal(t, "message", invalid.Field)
+
+	errs := small.checkSave(SaveInput{Subject: "12345678", Body: "1234567", Visibility: "public"})
 	require.Contains(t, errs["subject"], "between 0 and 7")
 	require.Contains(t, errs["body"], "between 0 and 6")
 }

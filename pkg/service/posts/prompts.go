@@ -96,9 +96,13 @@ func canPrompt(ctx context.Context, store *repo.Store, actor *core.User) error {
 	return service.Invalid("", fmt.Sprintf("you cannot send prompts for another %s", util.FormatDuration(time.Until(last.CreatedAt.Add(promptTimeout)))))
 }
 
-// ValidatePrompt checks the length of a prompt message.
-func (s *Service) ValidatePrompt(message string) error {
-	return validation.ValidateMinMax("message", message, promptMinLength, s.limits.PromptMaxLength)
+// checkPrompt enforces the length of a prompt message.
+func (s *Service) checkPrompt(message string) error {
+	if err := validation.ValidateMinMax("message", message, PromptMinLength, s.limits.PromptMaxLength); err != nil {
+		return service.Invalid("message", err.Error())
+	}
+
+	return nil
 }
 
 // SendPrompt asks a user to write a post on a subject, and tells them by
@@ -109,8 +113,8 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, m
 		return err
 	}
 
-	if err := s.ValidatePrompt(message); err != nil {
-		return service.Invalid("message", err.Error())
+	if err := s.checkPrompt(message); err != nil {
+		return err
 	}
 
 	return s.store.Tx(ctx, func(tx *repo.Store) error {

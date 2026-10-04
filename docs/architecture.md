@@ -47,6 +47,10 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Forms.** gogo's forms take no executor. `Save` calls a service (at most
   one that writes, as `DefaultHandler` opens no transaction); `Validate`
   keeps the field checks. Form constructors take the service they need.
+  A form's field names, messages and checks stay in the form and its
+  template: a service exposes the numbers a check needs (a `TextLimits()`
+  accessor, exported minimums) and enforces them in its write methods, but
+  has no `ValidateX` for forms to call.
 - **Model types cross the boundary for now.** Repositories and services
   return the generated `core` structs, or small structs built from them, so
   templates don't change (open question Q13).

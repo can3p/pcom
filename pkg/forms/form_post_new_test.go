@@ -145,7 +145,7 @@ func TestPostForm_Validate(t *testing.T) {
 		{name: "empty save action defaults to autosave", edit: func(f *forms.PostForm) { f.Input.SaveAction = "" }},
 		{name: "valid url", edit: func(f *forms.PostForm) { f.Input.URL = "https://example.test/article" }},
 		{name: "subject too long", edit: func(f *forms.PostForm) { f.Input.Subject = strings.Repeat("a", 101) }, wantErr: "subject"},
-		{name: "body too long", edit: func(f *forms.PostForm) { f.Input.Body = strings.Repeat("a", 20_001) }, wantErr: "body"},
+		{name: "body too long", edit: func(f *forms.PostForm) { f.Input.Body = strings.Repeat("a", posts.DefaultPostBodyMaxLength+1) }, wantErr: "body"},
 		{name: "invalid url", edit: func(f *forms.PostForm) { f.Input.URL = "not-a-url" }, wantErr: "url"},
 		{name: "invalid visibility", edit: func(f *forms.PostForm) { f.Input.Visibility = "bogus" }, wantErr: "visibility"},
 		{

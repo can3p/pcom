@@ -8,6 +8,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -29,7 +30,7 @@ func TestSettingsUserStyles_Validate(t *testing.T) {
 	}{
 		{"empty styles", "", false},
 		{"valid styles", ".profile { color: red; }", false},
-		{"too long styles fails validation", strings.Repeat("a", 10_001), true},
+		{"too long styles fails validation", strings.Repeat("a", accounts.DefaultUserStylesMaxLength+1), true},
 	}
 
 	for _, tt := range tests {

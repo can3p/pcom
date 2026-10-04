@@ -2,6 +2,9 @@ package forms
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/model/core"
@@ -36,8 +39,9 @@ func SettingsProfileNew(accounts *accounts.Service, u *core.User) *SettingsProfi
 }
 
 func (f *SettingsProfile) Validate(c *gin.Context) error {
-	if err := f.Accounts.ValidateProfileAbout(f.Input.About); err != nil {
-		f.AddError("about", err.Error())
+	maxLength := f.Accounts.TextLimits().ProfileAboutMaxLength
+	if n := utf8.RuneCountInString(strings.TrimSpace(f.Input.About)); n > maxLength {
+		f.AddError("about", fmt.Sprintf("about text can have at most %d characters, this one has %d", maxLength, n))
 	}
 
 	return f.Errors.PassedValidation()

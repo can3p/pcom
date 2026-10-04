@@ -156,6 +156,14 @@ func TestUserStyles(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "d { e: f }", css, "saving replaces the styles and the css comes back trimmed")
 
+	short := accounts.New(repo.New(db), nil, nil, accounts.WithUserStylesMaxLength(5))
+	require.Equal(t, 5, short.TextLimits().UserStylesMaxLength)
+	require.NoError(t, short.SaveUserStyles(ctx, user, " a{b} "))
+
+	var invalid *service.ValidationError
+	require.ErrorAs(t, short.SaveUserStyles(ctx, user, "a{bc}d"), &invalid, "the configured limit applies")
+	require.Equal(t, "styles", invalid.Field)
+
 	css, err = svc.UserStyles(ctx, "nobody-has-this-name")
 	require.NoError(t, err)
 	require.Empty(t, css)

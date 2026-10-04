@@ -33,8 +33,8 @@ const (
 
 // Minimum lengths are not tunable.
 const (
-	commentMinLength = 3
-	promptMinLength  = 3
+	CommentMinLength = 3
+	PromptMinLength  = 3
 )
 
 // TextLimits are the most characters the texts of this service may have.
@@ -72,6 +72,12 @@ func WithTextLimits(l TextLimits) Option {
 			s.limits.PromptMaxLength = l.PromptMaxLength
 		}
 	}
+}
+
+// TextLimits returns the service's text length limits. Forms read them to
+// check their fields; the service enforces them on save.
+func (s *Service) TextLimits() TextLimits {
+	return s.limits
 }
 
 // Option changes how New builds the service.
