@@ -10,7 +10,8 @@ support read directly. Rules for reading and verifying code cheaply are in `AGEN
 
 Where the modernization is going:
 
-- [bob](https://github.com/stephenafamo/bob) instead of sqlboiler (R5);
+- [bun](https://github.com/uptrace/bun) over [pgx](https://github.com/jackc/pgx) instead of sqlboiler, with model
+  structs pcom writes itself and no code generation (R5);
 - declared, golden-tested mailers (R4);
 - structured logging through one [zap](https://github.com/uber-go/zap) logger, passed explicitly (R7);
 - no unmaintained or duplicate dependencies (R6);
@@ -34,9 +35,9 @@ A wave is `R<n>` (refactor) or `F<n>` (feature), numbered on from the highest id
 `docs/archive/history/`. Its file starts with one line of state:
 
 ```markdown
-## R5 — bob ORM
+## R5 — bun and pgx instead of sqlboiler
 
-Status: planned · Depends on: — · Branch: `refactor/r5-bob`
+Status: planned · Depends on: — · Branch: `refactor/r5-bun`
 ```
 
 `Status` is `planned` or `running`; `Depends on` names only waves or outside events still pending. Then the
