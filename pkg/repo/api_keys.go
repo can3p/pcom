@@ -4,14 +4,13 @@ import (
 	"context"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // UserByAPIKey returns the user an API key belongs to, or ErrNotFound.
 func (s *Store) UserByAPIKey(ctx context.Context, key string) (*model.User, error) {
-	k, err := core.UserAPIKeys(core.UserAPIKeyWhere.APIKey.EQ(key)).One(ctx, s.exec)
+	k := new(model.UserAPIKey)
+	err := s.query().NewSelect().Model(k).Where("api_key = ?", key).Limit(1).Scan(ctx)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -21,12 +20,10 @@ func (s *Store) UserByAPIKey(ctx context.Context, key string) (*model.User, erro
 
 // APIKeyForUser returns the user's API key, or nil when they have none.
 func (s *Store) APIKeyForUser(ctx context.Context, userID string) (*model.UserAPIKey, error) {
-	k, err := core.UserAPIKeys(core.UserAPIKeyWhere.UserID.EQ(userID)).One(ctx, s.exec)
-	if err = notFound(err); err == ErrNotFound {
-		return nil, nil
-	}
+	k := new(model.UserAPIKey)
+	err := s.query().NewSelect().Model(k).Where("user_id = ?", userID).Limit(1).Scan(ctx)
 
-	return toModel[model.UserAPIKey](k), err
+	return orNil(k, err)
 }
 
 // CreateAPIKey gives the user an API key. A user has at most one, and
@@ -42,7 +39,9 @@ func (s *Store) CreateAPIKey(ctx context.Context, userID string) error {
 		return err
 	}
 
-	record := core.UserAPIKey{ID: id.String(), APIKey: key.String(), UserID: userID}
+	record := &model.UserAPIKey{ID: id.String(), APIKey: key.String(), UserID: userID}
 
-	return record.Upsert(ctx, s.exec, false, []string{core.UserAPIKeyColumns.UserID}, boil.Infer(), boil.Infer())
+	_, err = s.query().NewInsert().Model(record).On("CONFLICT (user_id) DO NOTHING").Exec(ctx)
+
+	return err
 }
