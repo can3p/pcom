@@ -10,7 +10,6 @@ import (
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/jessevdk/go-flags"
 	_ "github.com/joho/godotenv/autoload" // fills the environment from .env before parsing
-	_ "github.com/lib/pq"                 // postgres db driver
 )
 
 func main() {

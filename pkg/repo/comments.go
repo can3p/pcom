@@ -7,8 +7,8 @@ import (
 
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib" // registers the pgx database/sql driver
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq" // postgres db driver
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -107,7 +107,7 @@ func (s *Store) CommentForMail(ctx context.Context, id string) (*core.PostCommen
 // ConnectPostgres opens a store on the database at dsn, for commands that
 // run outside the web server. Close it with the returned function.
 func ConnectPostgres(dsn string) (*Store, func() error, error) {
-	db, err := sqlx.Connect("postgres", dsn)
+	db, err := sqlx.Connect("pgx", dsn)
 	if err != nil {
 		return nil, nil, err
 	}
