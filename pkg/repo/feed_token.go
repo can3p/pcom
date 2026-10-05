@@ -5,12 +5,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 // The free functions predate Store; e2e/ calls them, so they stay until RS
@@ -36,25 +35,30 @@ func RegenerateFeedToken(ctx context.Context, exec boil.ContextExecutor, userID 
 // FeedTokenOwner returns the user a private RSS feed token belongs to, or
 // ErrNotFound when the token is unknown.
 func (s *Store) FeedTokenOwner(ctx context.Context, token string) (*model.User, error) {
-	t, err := core.UserFeedTokens(
-		core.UserFeedTokenWhere.Token.EQ(token),
-		qm.Load(core.UserFeedTokenRels.User),
-	).One(ctx, s.exec)
+	t := new(model.UserFeedToken)
+
+	err := s.query().NewSelect().Model(t).
+		Relation("User").
+		Where("?TableAlias.token = ?", token).
+		Limit(1).
+		Scan(ctx)
 	if err != nil {
 		return nil, notFound(err)
 	}
 
-	return toModel[model.User](t.R.User), nil
+	return t.User, nil
 }
 
 // FeedTokenForUser returns the user's feed token, or nil when they have none.
 func (s *Store) FeedTokenForUser(ctx context.Context, userID string) (*model.UserFeedToken, error) {
-	t, err := core.UserFeedTokens(core.UserFeedTokenWhere.UserID.EQ(userID)).One(ctx, s.exec)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+	t := new(model.UserFeedToken)
 
-	return toModel[model.UserFeedToken](t), err
+	err := s.query().NewSelect().Model(t).
+		Where("user_id = ?", userID).
+		Limit(1).
+		Scan(ctx)
+
+	return orNil(t, err)
 }
 
 // RegenerateFeedToken creates the user's feed token or replaces the existing
@@ -70,13 +74,17 @@ func (s *Store) RegenerateFeedToken(ctx context.Context, userID string) (*model.
 		return nil, err
 	}
 
-	record := &core.UserFeedToken{ID: id.String(), UserID: userID, Token: token.String()}
+	record := &model.UserFeedToken{ID: id.String(), UserID: userID, Token: token.String(), UpdatedAt: time.Now()}
 
-	err = record.Upsert(ctx, s.exec, true, []string{core.UserFeedTokenColumns.UserID},
-		boil.Whitelist(core.UserFeedTokenColumns.Token, core.UserFeedTokenColumns.UpdatedAt), boil.Infer())
+	_, err = s.query().NewInsert().Model(record).
+		On("CONFLICT (user_id) DO UPDATE").
+		Set("token = EXCLUDED.token").
+		Set("updated_at = EXCLUDED.updated_at").
+		Returning("*").
+		Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return toModel[model.UserFeedToken](record), nil
+	return record, nil
 }

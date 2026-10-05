@@ -34,4 +34,17 @@ func TestRegenerateFeedToken_ReplacesOldToken(t *testing.T) {
 
 	current := testutil.Must(repo.FeedTokenForUser(ctx, db, user.ID))(t)
 	require.Equal(t, second.Token, current.Token)
+	require.Equal(t, first.ID, second.ID)
+}
+
+func TestFeedTokenForUser_NoneIsNil(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	user := testutil.Must(factory.User(ctx, db))(t)
+
+	tok, err := repo.FeedTokenForUser(ctx, db, user.ID)
+	require.NoError(t, err)
+	require.Nil(t, tok)
 }
