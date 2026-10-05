@@ -4,15 +4,13 @@ import (
 	"context"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // RegistrationOpen reports the system setting that lets anybody sign up.
 func (s *Store) RegistrationOpen(ctx context.Context) (bool, error) {
-	settings, err := core.SystemSettings().One(ctx, s.exec)
-	if err != nil {
+	settings := new(model.SystemSetting)
+	if err := s.query().NewSelect().Model(settings).Limit(1).Scan(ctx); err != nil {
 		return false, err
 	}
 
@@ -21,13 +19,13 @@ func (s *Store) RegistrationOpen(ctx context.Context) (bool, error) {
 
 // SetRegistrationOpen flips the system setting that lets anybody sign up.
 func (s *Store) SetRegistrationOpen(ctx context.Context, open bool) error {
-	settings, err := core.SystemSettings().One(ctx, s.exec)
-	if err != nil {
+	settings := new(model.SystemSetting)
+	if err := s.query().NewSelect().Model(settings).Limit(1).Scan(ctx); err != nil {
 		return err
 	}
 
 	settings.RegistrationOpen = open
-	_, err = settings.Update(ctx, s.exec, boil.Whitelist(core.SystemSettingColumns.RegistrationOpen))
+	_, err := s.query().NewUpdate().Model(settings).Column("registration_open").WherePK().Exec(ctx)
 
 	return err
 }
@@ -35,18 +33,17 @@ func (s *Store) SetRegistrationOpen(ctx context.Context, open bool) error {
 // UserStyleForUser returns the user's custom CSS row, or nil when they have
 // none.
 func (s *Store) UserStyleForUser(ctx context.Context, userID string) (*model.UserStyle, error) {
-	st, err := core.UserStyles(core.UserStyleWhere.UserID.EQ(userID)).One(ctx, s.exec)
-	if err = notFound(err); err == ErrNotFound {
-		return nil, nil
-	}
+	st := new(model.UserStyle)
+	err := s.query().NewSelect().Model(st).Where("user_id = ?", userID).Limit(1).Scan(ctx)
 
-	return toModel[model.UserStyle](st), err
+	return orNil(st, err)
 }
 
 // UserStyleByUsername returns the custom CSS row of the user with the
 // username, or nil when the user or the row does not exist.
 func (s *Store) UserStyleByUsername(ctx context.Context, username string) (*model.UserStyle, error) {
-	user, err := core.Users(core.UserWhere.Username.EQ(username)).One(ctx, s.exec)
+	user := new(model.User)
+	err := s.query().NewSelect().Model(user).Where("username = ?", username).Limit(1).Scan(ctx)
 	if err = notFound(err); err == ErrNotFound {
 		return nil, nil
 	} else if err != nil {
@@ -63,11 +60,13 @@ func (s *Store) SaveUserStyle(ctx context.Context, userID, styles string) error 
 		return err
 	}
 
-	style := core.UserStyle{ID: id.String(), UserID: userID, Styles: styles}
+	style := &model.UserStyle{ID: id.String(), UserID: userID, Styles: styles}
 
-	return style.Upsert(
-		ctx, s.exec, true, []string{core.UserStyleColumns.UserID},
-		boil.Whitelist(core.UserStyleColumns.UpdatedAt, core.UserStyleColumns.Styles),
-		boil.Infer(),
-	)
+	_, err = s.query().NewInsert().Model(style).
+		On("CONFLICT (user_id) DO UPDATE").
+		Set("updated_at = EXCLUDED.updated_at").
+		Set("styles = EXCLUDED.styles").
+		Exec(ctx)
+
+	return err
 }

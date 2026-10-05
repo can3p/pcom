@@ -2,61 +2,62 @@ package repo
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 // InsertLoginAttempt stores a new login attempt.
 func (s *Store) InsertLoginAttempt(ctx context.Context, a *model.LoginAttempt) error {
-	return write(a, func(c *core.LoginAttempt) error {
-		return c.Insert(ctx, s.exec, boil.Infer())
-	})
+	_, err := s.query().NewInsert().Model(a).Exec(ctx)
+
+	return err
 }
 
 // LockLoginAttempt returns the attempt locked for update, or ErrNotFound.
 func (s *Store) LockLoginAttempt(ctx context.Context, id string) (*model.LoginAttempt, error) {
-	a, err := core.LoginAttempts(core.LoginAttemptWhere.ID.EQ(id), qm.For("update")).One(ctx, s.exec)
+	a := new(model.LoginAttempt)
+	err := s.query().NewSelect().Model(a).Where("id = ?", id).For("UPDATE").Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.LoginAttempt](a), notFound(err)
+	return a, nil
 }
 
 // SaveLoginAttempt writes the given columns of the attempt (all when none).
 func (s *Store) SaveLoginAttempt(ctx context.Context, a *model.LoginAttempt, columns ...string) error {
-	cols := boil.Infer()
+	q := s.query().NewUpdate().Model(a).WherePK()
 	if len(columns) > 0 {
-		cols = boil.Whitelist(append(columns, core.LoginAttemptColumns.UpdatedAt)...)
+		q = q.Column(append(slices.Clone(columns), "updated_at")...)
 	}
 
-	return write(a, func(c *core.LoginAttempt) error {
-		_, err := c.Update(ctx, s.exec, cols)
+	_, err := q.Exec(ctx)
 
-		return err
-	})
+	return err
 }
 
 // LoginCodesSince counts the user's attempts created after since that were
 // issued a code.
 func (s *Store) LoginCodesSince(ctx context.Context, userID string, since time.Time) (int64, error) {
-	return core.LoginAttempts(
-		core.LoginAttemptWhere.UserID.EQ(null.StringFrom(userID)),
-		core.LoginAttemptWhere.CodeHash.IsNotNull(),
-		core.LoginAttemptWhere.CreatedAt.GT(since),
-	).Count(ctx, s.exec)
+	n, err := s.query().NewSelect().Model((*model.LoginAttempt)(nil)).
+		Where("user_id = ?", userID).
+		Where("code_hash IS NOT NULL").
+		Where("created_at > ?", since).
+		Count(ctx)
+
+	return int64(n), err
 }
 
 // WrongLoginTriesSince sums the wrong codes tried on the user's attempts
 // created after since.
 func (s *Store) WrongLoginTriesSince(ctx context.Context, userID string, since time.Time) (int64, error) {
 	var n int64
-	err := s.exec.QueryRowContext(ctx, `
+	err := s.query().NewRaw(`
 		select coalesce(sum(wrong_tries), 0)
 		from login_attempts
-		where user_id = $1 and created_at > $2`, userID, since).Scan(&n)
+		where user_id = ? and created_at > ?`, userID, since).Scan(ctx, &n)
 
 	return n, err
 }
@@ -64,15 +65,23 @@ func (s *Store) WrongLoginTriesSince(ctx context.Context, userID string, since t
 // DeleteLoginAttemptsExpiredBefore deletes the attempts that expired before t
 // and returns how many there were.
 func (s *Store) DeleteLoginAttemptsExpiredBefore(ctx context.Context, t time.Time) (int64, error) {
-	return core.LoginAttempts(core.LoginAttemptWhere.ExpiresAt.LT(t)).DeleteAll(ctx, s.exec)
+	res, err := s.query().NewDelete().Model((*model.LoginAttempt)(nil)).Where("expires_at < ?", t).Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }
 
 // UnexpiredLoginAttempts returns the user's attempts that expire after now,
 // newest first; the service decides which of them can still log in.
 func (s *Store) UnexpiredLoginAttempts(ctx context.Context, userID string, now time.Time) ([]*model.LoginAttempt, error) {
-	return all[model.LoginAttempt](core.LoginAttempts(
-		core.LoginAttemptWhere.UserID.EQ(null.StringFrom(userID)),
-		core.LoginAttemptWhere.ExpiresAt.GT(now),
-		qm.OrderBy(core.LoginAttemptColumns.CreatedAt+" desc, "+core.LoginAttemptColumns.ID+" desc"),
-	).All(ctx, s.exec))
+	var attempts []*model.LoginAttempt
+	err := s.query().NewSelect().Model(&attempts).
+		Where("user_id = ?", userID).
+		Where("expires_at > ?", now).
+		OrderExpr("created_at desc, id desc").
+		Scan(ctx)
+
+	return attempts, err
 }

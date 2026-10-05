@@ -39,7 +39,7 @@ func (s *Store) lock(ctx context.Context, scope LockScope, key string) error {
 		return errLockOutsideTx
 	}
 
-	_, err := s.exec.ExecContext(ctx, `select pg_advisory_xact_lock(hashtextextended($1, 0))`, string(scope)+":"+key)
+	_, err := s.query().NewRaw(`select pg_advisory_xact_lock(hashtextextended(?, 0))`, string(scope)+":"+key).Exec(ctx)
 
 	return err
 }
