@@ -14,11 +14,12 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/image/webp"
 )
@@ -92,7 +93,7 @@ func TestAPI_GetPosts_Empty(t *testing.T) {
 
 	other, err := factory.User(ctx, app.DB)
 	require.NoError(t, err)
-	_, err = factory.Post(ctx, app.DB, other.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	_, err = factory.Post(ctx, app.DB, other.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	client := app.Client(t)
@@ -244,11 +245,11 @@ func TestAPI_NewPost(t *testing.T) {
 
 	post, err := factory.GetPost(ctx, app.DB, result.ID)
 	require.NoError(t, err)
-	require.Equal(t, "Test Subject", post.Subject.String)
+	require.Equal(t, "Test Subject", lo.FromPtr(post.Subject))
 	require.Equal(t, "# Test Body", post.Body)
 	require.Equal(t, user.ID, post.UserID)
-	require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
-	require.False(t, post.PublishedAt.Valid)
+	require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
+	require.Nil(t, post.PublishedAt)
 
 	publishedData := map[string]any{
 		"subject":      "Test Subject Published",
@@ -272,7 +273,7 @@ func TestAPI_NewPost(t *testing.T) {
 
 	publishedPost, err := factory.GetPost(ctx, app.DB, publishedResult.ID)
 	require.NoError(t, err)
-	require.True(t, publishedPost.PublishedAt.Valid)
+	require.NotNil(t, publishedPost.PublishedAt)
 }
 
 // TestAPI_EditPost tests POST /api/v1/posts/:id to edit an existing post.
@@ -313,7 +314,7 @@ func TestAPI_EditPost(t *testing.T) {
 
 	got, err := factory.GetPost(ctx, app.DB, post.ID)
 	require.NoError(t, err)
-	require.Equal(t, "Updated Subject", got.Subject.String)
+	require.Equal(t, "Updated Subject", lo.FromPtr(got.Subject))
 	require.Equal(t, "# Updated Body", got.Body)
 }
 
@@ -357,7 +358,7 @@ func TestAPI_EditPost_Foreign(t *testing.T) {
 
 	got, err := factory.GetPost(ctx, app.DB, post.ID)
 	require.NoError(t, err)
-	require.Equal(t, post.Subject.String, got.Subject.String)
+	require.Equal(t, lo.FromPtr(post.Subject), lo.FromPtr(got.Subject))
 	require.Equal(t, post.Body, got.Body)
 	require.Equal(t, post.VisibilityRadius, got.VisibilityRadius)
 }
@@ -553,7 +554,7 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 
 	unrelated, err := factory.User(ctx, app.DB)
 	require.NoError(t, err)
-	unrelatedPost, err := factory.Post(ctx, app.DB, unrelated.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	unrelatedPost, err := factory.Post(ctx, app.DB, unrelated.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	client := app.Client(t)
@@ -563,8 +564,8 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 
 	require.Contains(t, resp.Body, "<?xml")
 	require.Contains(t, resp.Body, "<rss")
-	require.Contains(t, resp.Body, directPost.Subject.String)
-	require.NotContains(t, resp.Body, unrelatedPost.Subject.String)
+	require.Contains(t, resp.Body, lo.FromPtr(directPost.Subject))
+	require.NotContains(t, resp.Body, lo.FromPtr(unrelatedPost.Subject))
 }
 
 // TestAPI_RSSPrivate_Refused: what /rss/private/:token refuses. The API key can

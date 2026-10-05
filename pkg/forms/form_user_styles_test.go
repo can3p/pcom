@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -101,7 +101,7 @@ func TestSettingsUserStyles_SaveFailsForUnknownUser(t *testing.T) {
 
 	// A user id with no matching row violates the styles table's foreign
 	// key, reaching Save's own Upsert error path.
-	user := &core.User{ID: uuid.NewString()}
+	user := &model.User{ID: uuid.NewString()}
 
 	form := forms.SettingsUserStylesNew(accountsFor(db, nil), user)
 	form.Input.Styles = ".profile { color: blue; }"

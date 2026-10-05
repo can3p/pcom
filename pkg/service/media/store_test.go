@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -125,13 +126,13 @@ func TestStoreUpload_StoresRowAndObject(t *testing.T) {
 
 			row := testutil.Must(factory.GetMediaUploadByFname(ctx, db, fname))(t)
 			if userID != nil {
-				require.True(t, row.UserID.Valid)
-				require.Equal(t, *userID, row.UserID.String)
-				require.False(t, row.RSSFeedID.Valid, "a user upload must not also be linked to a feed")
+				require.NotNil(t, row.UserID)
+				require.Equal(t, *userID, lo.FromPtr(row.UserID))
+				require.Nil(t, row.RSSFeedID, "a user upload must not also be linked to a feed")
 			} else {
-				require.True(t, row.RSSFeedID.Valid)
-				require.Equal(t, *feedID, row.RSSFeedID.String)
-				require.False(t, row.UserID.Valid, "a feed upload must not also be linked to a user")
+				require.NotNil(t, row.RSSFeedID)
+				require.Equal(t, *feedID, lo.FromPtr(row.RSSFeedID))
+				require.Nil(t, row.UserID, "a feed upload must not also be linked to a user")
 			}
 		})
 	}

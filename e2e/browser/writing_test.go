@@ -19,9 +19,10 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -68,10 +69,10 @@ func TestWriting_NewDraftAutosaveAndToolbar(t *testing.T) {
 
 	post, err := factory.GetPost(context.Background(), app.DB, postID)
 	require.NoError(t, err)
-	require.Equal(t, "My draft post", post.Subject.String)
+	require.Equal(t, "My draft post", lo.FromPtr(post.Subject))
 	require.Contains(t, post.Body, "Hello world")
 	require.Contains(t, post.Body, "**bold**")
-	require.False(t, post.PublishedAt.Valid)
+	require.Nil(t, post.PublishedAt)
 }
 
 // Publishing an existing draft redirects to the post, and turning it back
@@ -124,11 +125,11 @@ func TestWriting_PublishAndMakeDraftThroughEditor(t *testing.T) {
 
 	postURLRe := regexp.MustCompile(`/posts/` + regexp.QuoteMeta(draft.ID) + `$`)
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
-	require.NoError(t, browser.Expect.Locator(page.Locator(".us-post-header")).ToContainText(draft.Subject.String))
+	require.NoError(t, browser.Expect.Locator(page.Locator(".us-post-header")).ToContainText(lo.FromPtr(draft.Subject)))
 
 	published, err := factory.GetPost(ctx, app.DB, draft.ID)
 	require.NoError(t, err)
-	require.True(t, published.PublishedAt.Valid)
+	require.NotNil(t, published.PublishedAt)
 
 	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", draft.ID))
 	require.NoError(t, err)
@@ -140,7 +141,7 @@ func TestWriting_PublishAndMakeDraftThroughEditor(t *testing.T) {
 
 	backToDraft, err := factory.GetPost(ctx, app.DB, draft.ID)
 	require.NoError(t, err)
-	require.False(t, backToDraft.PublishedAt.Valid)
+	require.Nil(t, backToDraft.PublishedAt)
 }
 
 // Pressing Enter in the subject of a published post saves it: the form's
@@ -176,8 +177,8 @@ func TestWriting_EnterInSubjectSavesPublishedPost(t *testing.T) {
 	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 	require.Len(t, posts, 1)
-	require.Equal(t, "Renamed with Enter", posts[0].Subject.String)
-	require.True(t, posts[0].PublishedAt.Valid, "the post stays published")
+	require.Equal(t, "Renamed with Enter", lo.FromPtr(posts[0].Subject))
+	require.NotNil(t, posts[0].PublishedAt, "the post stays published")
 }
 
 // "Save as Draft" reports its result next to the buttons, so the click is
@@ -231,8 +232,8 @@ func TestWriting_SaveAsDraftShowsSaved(t *testing.T) {
 	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 	require.Len(t, posts, 1)
-	require.Equal(t, "Saved by hand", posts[0].Subject.String)
-	require.False(t, posts[0].PublishedAt.Valid, "Save as Draft keeps it a draft")
+	require.Equal(t, "Saved by hand", lo.FromPtr(posts[0].Subject))
+	require.Nil(t, posts[0].PublishedAt, "Save as Draft keeps it a draft")
 }
 
 // Deleting a draft through the editor's own Delete button, confirmed
@@ -363,7 +364,7 @@ func TestWriting_DeleteDraftFromControls(t *testing.T) {
 	_, err = page.Goto("/controls")
 	require.NoError(t, err)
 
-	row := page.GetByRole("row").Filter(playwright.LocatorFilterOptions{HasText: draft.Subject.String})
+	row := page.GetByRole("row").Filter(playwright.LocatorFilterOptions{HasText: lo.FromPtr(draft.Subject)})
 	require.NoError(t, row.GetByRole("button").Click())
 
 	require.NoError(t, browser.Expect.Locator(row).ToHaveCount(0))
@@ -392,7 +393,7 @@ func TestWriting_EditExistingPost(t *testing.T) {
 	require.NoError(t, err)
 
 	subject := page.GetByPlaceholder("Subject")
-	require.NoError(t, browser.Expect.Locator(subject).ToHaveValue(post.Subject.String))
+	require.NoError(t, browser.Expect.Locator(subject).ToHaveValue(lo.FromPtr(post.Subject)))
 
 	body := page.GetByPlaceholder("Your post goes there")
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(post.Body))
@@ -406,8 +407,8 @@ func TestWriting_EditExistingPost(t *testing.T) {
 
 	updated, err := factory.GetPost(ctx, app.DB, post.ID)
 	require.NoError(t, err)
-	require.Equal(t, "Updated subject", updated.Subject.String)
-	require.True(t, updated.PublishedAt.Valid)
+	require.Equal(t, "Updated subject", lo.FromPtr(updated.Subject))
+	require.NotNil(t, updated.PublishedAt)
 }
 
 // b2BodyLimit is the post body limit PostForm.Validate enforces.
@@ -504,7 +505,7 @@ type b2Viewers struct {
 	direct, secondDegree, stranger, anonymous playwright.Page
 }
 
-func b2NewViewers(t *testing.T, app *e2e.App, author *core.User) b2Viewers {
+func b2NewViewers(t *testing.T, app *e2e.App, author *model.User) b2Viewers {
 	t.Helper()
 
 	ctx := context.Background()
@@ -583,13 +584,13 @@ func TestWriting_PostVisibility(t *testing.T) {
 
 	steps := []struct {
 		choose   playwright.Locator
-		want     core.PostVisibility
+		want     model.PostVisibility
 		audience [4]bool // direct, second degree, stranger, anonymous
 	}{
-		{nil, core.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
-		{secondDegree, core.PostVisibilitySecondDegree, [4]bool{true, true, false, false}},
-		{public, core.PostVisibilityPublic, [4]bool{true, true, true, true}},
-		{direct, core.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
+		{nil, model.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
+		{secondDegree, model.PostVisibilitySecondDegree, [4]bool{true, true, false, false}},
+		{public, model.PostVisibilityPublic, [4]bool{true, true, true, true}},
+		{direct, model.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
 	}
 
 	for _, step := range steps {

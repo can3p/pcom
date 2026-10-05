@@ -13,8 +13,9 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +27,7 @@ const (
 	unknownID = "00000000-0000-0000-0000-000000000000"
 )
 
-func newPost(t *testing.T, app *e2e.App, authorID string, opts ...factory.PostOpt) *core.Post {
+func newPost(t *testing.T, app *e2e.App, authorID string, opts ...factory.PostOpt) *model.Post {
 	t.Helper()
 
 	p, err := factory.Post(context.Background(), app.DB, authorID, opts...)
@@ -35,7 +36,7 @@ func newPost(t *testing.T, app *e2e.App, authorID string, opts ...factory.PostOp
 	return p
 }
 
-func connectUsers(t *testing.T, app *e2e.App, a, b *core.User) {
+func connectUsers(t *testing.T, app *e2e.App, a, b *model.User) {
 	t.Helper()
 
 	_, _, err := factory.Connect(context.Background(), app.DB, a.ID, b.ID)
@@ -80,11 +81,11 @@ func requireLoginRedirect(t *testing.T, resp *e2e.Response, path string) {
 }
 
 // requirePostPage asserts the single post page of p.
-func requirePostPage(t *testing.T, resp *e2e.Response, p *core.Post) {
+func requirePostPage(t *testing.T, resp *e2e.Response, p *model.Post) {
 	t.Helper()
 
 	requireStatus(t, resp, http.StatusOK)
-	require.Contains(t, resp.Doc().Find("h1.us-post-header").Text(), p.Subject.String)
+	require.Contains(t, resp.Doc().Find("h1.us-post-header").Text(), lo.FromPtr(p.Subject))
 }
 
 func zipNames(t *testing.T, body string) []string {
@@ -108,14 +109,14 @@ func TestVisibility_Index(t *testing.T) {
 
 	app := e2e.Start(t)
 
-	pubAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	regAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers))
-	included := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	excluded := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	pubAuthor := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	regAuthor := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityRegisteredUsers))
+	included := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	excluded := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 
 	text := requireStatus(t, app.Client(t).Get("/"), http.StatusOK).Doc().Text()
-	require.Contains(t, text, included.Subject.String)
-	require.NotContains(t, text, excluded.Subject.String)
+	require.Contains(t, text, lo.FromPtr(included.Subject))
+	require.NotContains(t, text, lo.FromPtr(excluded.Subject))
 
 	resp := requireStatus(t, loginAs(t, app, pubAuthor).Get("/"), http.StatusFound)
 	require.Equal(t, "/feed", resp.Location())
@@ -165,26 +166,26 @@ func TestVisibility_UserHome(t *testing.T) {
 		"direct":    loginAs(t, app, direct),
 	}
 
-	authors := map[core.ProfileVisibility]*core.User{}
-	for _, v := range []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers, core.ProfileVisibilityConnections} {
+	authors := map[model.ProfileVisibility]*model.User{}
+	for _, v := range []model.ProfileVisibility{model.ProfileVisibilityPublic, model.ProfileVisibilityRegisteredUsers, model.ProfileVisibilityConnections} {
 		authors[v] = newUser(t, app, factory.WithVisibility(v))
 		connectUsers(t, app, authors[v], direct)
 	}
 
 	cases := []struct {
-		profile core.ProfileVisibility
+		profile model.ProfileVisibility
 		viewer  string
 		want    int
 	}{
-		{core.ProfileVisibilityPublic, "anonymous", http.StatusOK},
-		{core.ProfileVisibilityPublic, "unrelated", http.StatusOK},
-		{core.ProfileVisibilityPublic, "direct", http.StatusOK},
-		{core.ProfileVisibilityRegisteredUsers, "anonymous", http.StatusNotFound},
-		{core.ProfileVisibilityRegisteredUsers, "unrelated", http.StatusOK},
-		{core.ProfileVisibilityRegisteredUsers, "direct", http.StatusOK},
-		{core.ProfileVisibilityConnections, "anonymous", http.StatusNotFound},
-		{core.ProfileVisibilityConnections, "unrelated", http.StatusNotFound},
-		{core.ProfileVisibilityConnections, "direct", http.StatusOK},
+		{model.ProfileVisibilityPublic, "anonymous", http.StatusOK},
+		{model.ProfileVisibilityPublic, "unrelated", http.StatusOK},
+		{model.ProfileVisibilityPublic, "direct", http.StatusOK},
+		{model.ProfileVisibilityRegisteredUsers, "anonymous", http.StatusNotFound},
+		{model.ProfileVisibilityRegisteredUsers, "unrelated", http.StatusOK},
+		{model.ProfileVisibilityRegisteredUsers, "direct", http.StatusOK},
+		{model.ProfileVisibilityConnections, "anonymous", http.StatusNotFound},
+		{model.ProfileVisibilityConnections, "unrelated", http.StatusNotFound},
+		{model.ProfileVisibilityConnections, "direct", http.StatusOK},
 	}
 
 	for _, tc := range cases {
@@ -208,23 +209,23 @@ func TestVisibility_UserHomePostsByRadius(t *testing.T) {
 
 	app := e2e.Start(t)
 
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
 	direct := newUser(t, app)
 	connectUsers(t, app, author, direct)
 
-	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-	draft := newPost(t, app, author.ID, factory.Visibility(core.PostVisibilityPublic))
+	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
+	draft := newPost(t, app, author.ID, factory.Visibility(model.PostVisibilityPublic))
 
 	anonText := requireStatus(t, app.Client(t).Get("/users/"+author.Username), http.StatusOK).Doc().Text()
-	require.Contains(t, anonText, public.Subject.String)
-	require.NotContains(t, anonText, directOnly.Subject.String)
-	require.NotContains(t, anonText, draft.Subject.String)
+	require.Contains(t, anonText, lo.FromPtr(public.Subject))
+	require.NotContains(t, anonText, lo.FromPtr(directOnly.Subject))
+	require.NotContains(t, anonText, lo.FromPtr(draft.Subject))
 
 	directText := requireStatus(t, loginAs(t, app, direct).Get("/users/"+author.Username), http.StatusOK).Doc().Text()
-	require.Contains(t, directText, public.Subject.String)
-	require.Contains(t, directText, directOnly.Subject.String)
-	require.NotContains(t, directText, draft.Subject.String)
+	require.Contains(t, directText, lo.FromPtr(public.Subject))
+	require.Contains(t, directText, lo.FromPtr(directOnly.Subject))
+	require.NotContains(t, directText, lo.FromPtr(draft.Subject))
 }
 
 // TestVisibility_PublicRSS: only public profiles have a public feed, and it carries
@@ -235,21 +236,21 @@ func TestVisibility_PublicRSS(t *testing.T) {
 	app := e2e.Start(t)
 	c := app.Client(t)
 
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
-	draft := newPost(t, app, author.ID, factory.Visibility(core.PostVisibilityPublic))
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
+	draft := newPost(t, app, author.ID, factory.Visibility(model.PostVisibilityPublic))
 
 	resp := requireStatus(t, c.Get("/rss/public/"+author.Username), http.StatusOK)
 	require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "text/xml"), resp.Header.Get("Content-Type"))
 	require.Contains(t, resp.Body, "<rss")
-	require.Contains(t, resp.Body, public.Subject.String)
-	require.NotContains(t, resp.Body, directOnly.Subject.String)
-	require.NotContains(t, resp.Body, draft.Subject.String)
+	require.Contains(t, resp.Body, lo.FromPtr(public.Subject))
+	require.NotContains(t, resp.Body, lo.FromPtr(directOnly.Subject))
+	require.NotContains(t, resp.Body, lo.FromPtr(draft.Subject))
 
-	for _, v := range []core.ProfileVisibility{core.ProfileVisibilityRegisteredUsers, core.ProfileVisibilityConnections} {
+	for _, v := range []model.ProfileVisibility{model.ProfileVisibilityRegisteredUsers, model.ProfileVisibilityConnections} {
 		hidden := newUser(t, app, factory.WithVisibility(v))
-		newPost(t, app, hidden.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+		newPost(t, app, hidden.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 
 		requireStatus(t, c.Get("/rss/public/"+hidden.Username), http.StatusNotFound)
 	}
@@ -330,8 +331,8 @@ const (
 )
 
 type postKey struct {
-	profile core.ProfileVisibility
-	post    core.PostVisibility
+	profile model.ProfileVisibility
+	post    model.PostVisibility
 	draft   bool
 }
 
@@ -362,15 +363,15 @@ func TestVisibility_SinglePostMatrix(t *testing.T) {
 		viewerDirect:    loginAs(t, app, direct),
 	}
 
-	authorClients := map[core.ProfileVisibility]*e2e.Client{}
-	posts := map[postKey]*core.Post{}
+	authorClients := map[model.ProfileVisibility]*e2e.Client{}
+	posts := map[postKey]*model.Post{}
 
-	for _, pv := range []core.ProfileVisibility{core.ProfileVisibilityPublic, core.ProfileVisibilityRegisteredUsers, core.ProfileVisibilityConnections} {
+	for _, pv := range []model.ProfileVisibility{model.ProfileVisibilityPublic, model.ProfileVisibilityRegisteredUsers, model.ProfileVisibilityConnections} {
 		author := newUser(t, app, factory.WithVisibility(pv))
 		connectUsers(t, app, author, direct)
 		authorClients[pv] = loginAs(t, app, author)
 
-		for _, v := range []core.PostVisibility{core.PostVisibilityPublic, core.PostVisibilitySecondDegree, core.PostVisibilityDirectOnly} {
+		for _, v := range []model.PostVisibility{model.PostVisibilityPublic, model.PostVisibilitySecondDegree, model.PostVisibilityDirectOnly} {
 			posts[postKey{pv, v, asPublished}] = newPost(t, app, author.ID, factory.Visibility(v), factory.Published())
 			posts[postKey{pv, v, asDraft}] = newPost(t, app, author.ID, factory.Visibility(v))
 		}
@@ -378,109 +379,109 @@ func TestVisibility_SinglePostMatrix(t *testing.T) {
 
 	cases := []struct {
 		viewer  viewerKind
-		profile core.ProfileVisibility
-		post    core.PostVisibility
+		profile model.ProfileVisibility
+		post    model.PostVisibility
 		draft   bool
 		want    outcome
 	}{
 		// Published posts
 		// public profile
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
+		{viewerUnrelated, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerUnrelated, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerSecond, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerSecond, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerDirect, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerDirect, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asPublished, outcomeVisible},
 		// registered profile
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
+		{viewerAnon, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
+		{viewerUnrelated, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerUnrelated, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerSecond, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerSecond, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerDirect, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerDirect, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asPublished, outcomeVisible},
 		// connections profile
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asPublished, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
+		{viewerAnon, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asPublished, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asPublished, outcomeNeedsLogin},
+		{viewerUnrelated, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asPublished, outcomeVisible}, // a public post is public whatever the profile visibility
+		{viewerUnrelated, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asPublished, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerSecond, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerSecond, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asPublished, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerDirect, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerDirect, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asPublished, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asPublished, outcomeVisible},
 		// Draft posts
 		// public profile
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityPublic, asDraft, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilitySecondDegree, asDraft, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityPublic, core.PostVisibilityDirectOnly, asDraft, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
+		{viewerUnrelated, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerAuthor, model.ProfileVisibilityPublic, model.PostVisibilityPublic, asDraft, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityPublic, model.PostVisibilitySecondDegree, asDraft, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityPublic, model.PostVisibilityDirectOnly, asDraft, outcomeVisible},
 		// registered profile
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityPublic, asDraft, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilitySecondDegree, asDraft, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityRegisteredUsers, core.PostVisibilityDirectOnly, asDraft, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
+		{viewerUnrelated, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerAuthor, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityPublic, asDraft, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityRegisteredUsers, model.PostVisibilitySecondDegree, asDraft, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityRegisteredUsers, model.PostVisibilityDirectOnly, asDraft, outcomeVisible},
 		// connections profile
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
-		{viewerAnon, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerUnrelated, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerSecond, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
-		{viewerDirect, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityPublic, asDraft, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilitySecondDegree, asDraft, outcomeVisible},
-		{viewerAuthor, core.ProfileVisibilityConnections, core.PostVisibilityDirectOnly, asDraft, outcomeVisible},
+		{viewerAnon, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asDraft, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asDraft, outcomeNeedsLogin},
+		{viewerAnon, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asDraft, outcomeNeedsLogin},
+		{viewerUnrelated, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerUnrelated, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerSecond, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asDraft, outcomeNotFound},
+		{viewerDirect, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asDraft, outcomeNotFound},
+		{viewerAuthor, model.ProfileVisibilityConnections, model.PostVisibilityPublic, asDraft, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityConnections, model.PostVisibilitySecondDegree, asDraft, outcomeVisible},
+		{viewerAuthor, model.ProfileVisibilityConnections, model.PostVisibilityDirectOnly, asDraft, outcomeVisible},
 	}
 
 	for _, tc := range cases {
@@ -524,14 +525,14 @@ func TestVisibility_PostMarkdown(t *testing.T) {
 	author := newUser(t, app)
 	unrelated := newUser(t, app)
 
-	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	directOnly := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 
 	resp := requireStatus(t, loginAs(t, app, author).Get("/posts/"+directOnly.ID+"/md"), http.StatusOK)
 	require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain"), resp.Header.Get("Content-Type"))
 	require.True(t, strings.HasPrefix(resp.Body, "---\n"), resp.Body)
 	require.Contains(t, resp.Body, directOnly.ID)
-	require.Contains(t, resp.Body, directOnly.Subject.String)
+	require.Contains(t, resp.Body, lo.FromPtr(directOnly.Subject))
 	require.Contains(t, resp.Body, directOnly.Body)
 
 	anon := app.Client(t)
@@ -567,31 +568,31 @@ func TestVisibility_PostZip(t *testing.T) {
 		viewerAuthor:    loginAs(t, app, author),
 	}
 
-	posts := map[core.PostVisibility]*core.Post{}
-	for _, v := range []core.PostVisibility{core.PostVisibilityPublic, core.PostVisibilitySecondDegree, core.PostVisibilityDirectOnly} {
+	posts := map[model.PostVisibility]*model.Post{}
+	for _, v := range []model.PostVisibility{model.PostVisibilityPublic, model.PostVisibilitySecondDegree, model.PostVisibilityDirectOnly} {
 		posts[v] = newPost(t, app, author.ID, factory.Visibility(v), factory.Published())
 	}
 
 	cases := []struct {
 		viewer viewerKind
-		post   core.PostVisibility
+		post   model.PostVisibility
 		want   int
 	}{
-		{viewerAuthor, core.PostVisibilityPublic, http.StatusOK},
-		{viewerAuthor, core.PostVisibilitySecondDegree, http.StatusOK},
-		{viewerAuthor, core.PostVisibilityDirectOnly, http.StatusOK},
-		{viewerAnon, core.PostVisibilityPublic, http.StatusOK},
-		{viewerAnon, core.PostVisibilitySecondDegree, http.StatusFound},
-		{viewerAnon, core.PostVisibilityDirectOnly, http.StatusFound},
-		{viewerUnrelated, core.PostVisibilityPublic, http.StatusOK},
-		{viewerUnrelated, core.PostVisibilitySecondDegree, http.StatusNotFound},
-		{viewerUnrelated, core.PostVisibilityDirectOnly, http.StatusNotFound},
-		{viewerDirect, core.PostVisibilityPublic, http.StatusOK},
-		{viewerDirect, core.PostVisibilitySecondDegree, http.StatusOK},
-		{viewerDirect, core.PostVisibilityDirectOnly, http.StatusOK},
-		{viewerSecond, core.PostVisibilityPublic, http.StatusOK},
-		{viewerSecond, core.PostVisibilitySecondDegree, http.StatusOK},
-		{viewerSecond, core.PostVisibilityDirectOnly, http.StatusNotFound},
+		{viewerAuthor, model.PostVisibilityPublic, http.StatusOK},
+		{viewerAuthor, model.PostVisibilitySecondDegree, http.StatusOK},
+		{viewerAuthor, model.PostVisibilityDirectOnly, http.StatusOK},
+		{viewerAnon, model.PostVisibilityPublic, http.StatusOK},
+		{viewerAnon, model.PostVisibilitySecondDegree, http.StatusFound},
+		{viewerAnon, model.PostVisibilityDirectOnly, http.StatusFound},
+		{viewerUnrelated, model.PostVisibilityPublic, http.StatusOK},
+		{viewerUnrelated, model.PostVisibilitySecondDegree, http.StatusNotFound},
+		{viewerUnrelated, model.PostVisibilityDirectOnly, http.StatusNotFound},
+		{viewerDirect, model.PostVisibilityPublic, http.StatusOK},
+		{viewerDirect, model.PostVisibilitySecondDegree, http.StatusOK},
+		{viewerDirect, model.PostVisibilityDirectOnly, http.StatusOK},
+		{viewerSecond, model.PostVisibilityPublic, http.StatusOK},
+		{viewerSecond, model.PostVisibilitySecondDegree, http.StatusOK},
+		{viewerSecond, model.PostVisibilityDirectOnly, http.StatusNotFound},
 	}
 
 	for _, tc := range cases {
@@ -643,7 +644,7 @@ func TestVisibility_PostEdit(t *testing.T) {
 	unrelated := newUser(t, app)
 	connectUsers(t, app, author, direct)
 
-	post := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	post := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	path := "/posts/" + post.ID + "/edit"
 
 	requireLoginRedirect(t, app.Client(t).Get(path), path)
@@ -661,7 +662,7 @@ func TestVisibility_SharedPost(t *testing.T) {
 	ctx := context.Background()
 	anon := app.Client(t)
 
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityConnections))
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityConnections))
 
 	t.Run("share of a draft", func(t *testing.T) {
 		draft := newPost(t, app, author.ID)
@@ -683,26 +684,26 @@ func TestVisibility_Explore(t *testing.T) {
 
 	app := e2e.Start(t)
 
-	pubAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	regAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers))
-	connAuthor := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityConnections))
+	pubAuthor := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	regAuthor := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityRegisteredUsers))
+	connAuthor := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityConnections))
 	viewer := newUser(t, app)
 
-	pubPost := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	regPost := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	connPost := newPost(t, app, connAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	secondDegree := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(core.PostVisibilitySecondDegree))
-	draft := newPost(t, app, pubAuthor.ID, factory.Visibility(core.PostVisibilityPublic))
+	pubPost := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	regPost := newPost(t, app, regAuthor.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	connPost := newPost(t, app, connAuthor.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	secondDegree := newPost(t, app, pubAuthor.ID, factory.Published(), factory.Visibility(model.PostVisibilitySecondDegree))
+	draft := newPost(t, app, pubAuthor.ID, factory.Visibility(model.PostVisibilityPublic))
 
 	resp := requireStatus(t, app.Client(t).Get("/explore"), http.StatusFound)
 	require.Equal(t, "/", resp.Location())
 
 	userText := requireStatus(t, loginAs(t, app, viewer).Get("/explore"), http.StatusOK).Doc().Text()
-	require.Contains(t, userText, pubPost.Subject.String)
-	require.Contains(t, userText, regPost.Subject.String)
-	require.NotContains(t, userText, connPost.Subject.String)
-	require.NotContains(t, userText, secondDegree.Subject.String)
-	require.NotContains(t, userText, draft.Subject.String)
+	require.Contains(t, userText, lo.FromPtr(pubPost.Subject))
+	require.Contains(t, userText, lo.FromPtr(regPost.Subject))
+	require.NotContains(t, userText, lo.FromPtr(connPost.Subject))
+	require.NotContains(t, userText, lo.FromPtr(secondDegree.Subject))
+	require.NotContains(t, userText, lo.FromPtr(draft.Subject))
 }
 
 // TestVisibility_UserMediaSpecialFiles: the media route answers robots.txt itself
@@ -754,8 +755,8 @@ func TestVisibility_SecurityHeaders(t *testing.T) {
 
 	app := e2e.Start(t)
 
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	post := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	post := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 
 	c := app.Client(t)
 

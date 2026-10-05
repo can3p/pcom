@@ -15,7 +15,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ import (
 
 // feedWithTwoItems subscribes a new user to a feed with two items in their
 // feed and returns the user and the items.
-func feedWithTwoItems(t *testing.T, app *e2e.App) (*core.User, *core.RSSItem, *core.RSSItem) {
+func feedWithTwoItems(t *testing.T, app *e2e.App) (*model.User, *model.RSSItem, *model.RSSItem) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -34,7 +34,7 @@ func feedWithTwoItems(t *testing.T, app *e2e.App) (*core.User, *core.RSSItem, *c
 	_, err = factory.Subscription(ctx, app.DB, user.ID, feed.ID)
 	require.NoError(t, err)
 
-	var items []*core.RSSItem
+	var items []*model.RSSItem
 	for range 2 {
 		item, err := factory.RSSItem(ctx, app.DB, feed.ID)
 		require.NoError(t, err)
@@ -46,7 +46,7 @@ func feedWithTwoItems(t *testing.T, app *e2e.App) (*core.User, *core.RSSItem, *c
 	return user, items[0], items[1]
 }
 
-func feedItem(page playwright.Page, item *core.RSSItem) playwright.Locator {
+func feedItem(page playwright.Page, item *model.RSSItem) playwright.Locator {
 	return page.Locator(".us-feed-rss-item").Filter(playwright.LocatorFilterOptions{HasText: item.Title})
 }
 
@@ -120,7 +120,7 @@ const pagedPosts = 35 // more than one page (reading.DefaultPageSize is 30)
 
 // publishPosts publishes n posts by author, oldest first, with the subjects
 // "<prefix> 01", "<prefix> 02", ...; the lowest numbers end up on the last page.
-func publishPosts(t *testing.T, app *e2e.App, authorID, prefix string, vis core.PostVisibility, n int) {
+func publishPosts(t *testing.T, app *e2e.App, authorID, prefix string, vis model.PostVisibility, n int) {
 	t.Helper()
 
 	for i := 1; i <= n; i++ {
@@ -176,7 +176,7 @@ func TestFeed_LoadMore(t *testing.T) {
 	author := browser.NewUser(t, app)
 	_, _, err := factory.Connect(context.Background(), app.DB, user.ID, author.ID)
 	require.NoError(t, err)
-	publishPosts(t, app, author.ID, "Feedpost", core.PostVisibilityDirectOnly, pagedPosts)
+	publishPosts(t, app, author.ID, "Feedpost", model.PostVisibilityDirectOnly, pagedPosts)
 
 	expectLoadsMore(t, browser.Page(t, app, browser.As(user)), "/feed", "Feedpost")
 }
@@ -188,7 +188,7 @@ func TestExplore_LoadMore(t *testing.T) {
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
 	author := browser.NewUser(t, app)
-	publishPosts(t, app, author.ID, "Explorepost", core.PostVisibilityPublic, pagedPosts)
+	publishPosts(t, app, author.ID, "Explorepost", model.PostVisibilityPublic, pagedPosts)
 
 	expectLoadsMore(t, browser.Page(t, app, browser.As(user)), "/explore", "Explorepost")
 }
@@ -201,7 +201,7 @@ func TestExplore_CursorPages(t *testing.T) {
 	app := e2e.Start(t)
 	user := browser.NewUser(t, app)
 	author := browser.NewUser(t, app)
-	publishPosts(t, app, author.ID, "Explorepost", core.PostVisibilityPublic, pagedPosts)
+	publishPosts(t, app, author.ID, "Explorepost", model.PostVisibilityPublic, pagedPosts)
 
 	c := app.Client(t)
 	c.LoginAs(user.Email)

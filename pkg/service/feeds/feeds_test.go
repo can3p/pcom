@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -134,7 +135,7 @@ func TestSubscriptions_LastImportedMap(t *testing.T) {
 
 	withItems, ok := byURL[feedWithItems.URL]
 	require.True(t, ok)
-	require.Equal(t, feedWithItems.Title.String, withItems.Title)
+	require.Equal(t, lo.FromPtr(feedWithItems.Title), withItems.Title)
 	require.NotNil(t, withItems.LastImportedAt, "a feed with items should have a last-imported time")
 	require.WithinDuration(t, time.Now(), *withItems.LastImportedAt, 5*time.Second)
 
@@ -161,7 +162,7 @@ func TestItems_ReturnsItemFields(t *testing.T) {
 	got := items[0]
 	require.Equal(t, item.Title, got.Title)
 	require.Equal(t, item.SanitizedDescription, got.Summary)
-	require.Equal(t, feed.Title.String, got.FeedTitle)
+	require.Equal(t, lo.FromPtr(feed.Title), got.FeedTitle)
 	require.Equal(t, feed.URL, got.FeedURL)
 	require.False(t, got.PublishedAt.IsZero())
 }

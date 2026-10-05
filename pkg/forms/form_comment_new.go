@@ -5,7 +5,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 )
@@ -18,11 +18,11 @@ type NewCommentFormInput struct {
 
 type NewCommentForm struct {
 	*forms.FormBase[NewCommentFormInput]
-	User  *core.User
+	User  *model.User
 	Posts *posts.Service
 }
 
-func NewCommentFormNew(svc *posts.Service, u *core.User, postID string) forms.Form {
+func NewCommentFormNew(svc *posts.Service, u *model.User, postID string) forms.Form {
 	var form forms.Form = &NewCommentForm{
 		FormBase: &forms.FormBase[NewCommentFormInput]{
 			Name:                "new_comment",

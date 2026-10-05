@@ -10,7 +10,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,7 +64,7 @@ func newCtx(t *testing.T) (*gin.Context, *httptest.ResponseRecorder) {
 func fillPost(form *forms.PostForm, action forms.PostFormAction) *forms.PostForm {
 	form.Input.Subject = "A subject"
 	form.Input.Body = "A body"
-	form.Input.Visibility = core.PostVisibilityDirectOnly
+	form.Input.Visibility = model.PostVisibilityDirectOnly
 	form.Input.SaveAction = action
 
 	return form
@@ -207,7 +208,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			post := posts[0]
 
 			if action == forms.PostFormActionPublish {
-				require.True(t, post.PublishedAt.Valid)
+				require.NotNil(t, post.PublishedAt)
 				require.Equal(t, links.Link("post", post.ID), w.Header().Get("HX-Redirect"))
 				sent := sender.Sent()
 				require.Len(t, sent, 1)
@@ -219,7 +220,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 
 			// Every other action saves a draft and retargets the draft-saved
 			// indicator instead of redirecting.
-			require.False(t, post.PublishedAt.Valid)
+			require.Nil(t, post.PublishedAt)
 			require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
 			require.Equal(t, links.Link("edit_post", post.ID), w.Header().Get("HX-Replace-Url"))
 			require.Contains(t, w.Header().Get("HX-Trigger"), "draft_saved")
@@ -247,7 +248,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 
 			posts := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
 			require.Len(t, posts, 1)
-			require.Equal(t, url != "", posts[0].URLID.Valid)
+			require.Equal(t, url != "", posts[0].URLID != nil)
 		})
 	}
 
@@ -273,8 +274,8 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			posts := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
 			require.Len(t, posts, 1)
 			stored := testutil.Must(factory.GetPostPrompt(ctx, db, prompt.ID))(t)
-			require.Equal(t, posts[0].ID, stored.PostID.String)
-			require.Equal(t, publish, stored.DismissedAt.Valid)
+			require.Equal(t, posts[0].ID, lo.FromPtr(stored.PostID))
+			require.Equal(t, publish, stored.DismissedAt != nil)
 
 			var answeredTo []string
 			for _, s := range sender.Sent() {
@@ -352,9 +353,9 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 				require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, author.ID))(t))
 			} else {
 				stored := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
-				require.Equal(t, tc.wantPublished, stored.PublishedAt.Valid)
+				require.Equal(t, tc.wantPublished, stored.PublishedAt != nil)
 				if tc.published && tc.wantPublished {
-					require.True(t, before.PublishedAt.Time.Equal(stored.PublishedAt.Time), "publish date must not move")
+					require.True(t, lo.FromPtr(before.PublishedAt).Equal(lo.FromPtr(stored.PublishedAt)), "publish date must not move")
 				}
 			}
 			if tc.wantMail {

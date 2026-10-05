@@ -38,7 +38,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 )
 
@@ -77,9 +77,9 @@ type Options struct {
 
 type seededUser struct {
 	Name       string
-	Visibility core.ProfileVisibility
+	Visibility model.ProfileVisibility
 	Role       string
-	user       *core.User
+	user       *model.User
 }
 
 // Run seeds the database behind db and prints a summary to out. Everything
@@ -170,14 +170,14 @@ func truncateAll(ctx context.Context, tx *sql.Tx) error {
 
 func build(ctx context.Context, tx *sql.Tx) ([]*seededUser, string, error) {
 	users := []*seededUser{
-		{Name: "alice", Visibility: core.ProfileVisibilityConnections, Role: "connected to bob; second degree to carol; owns the API key"},
-		{Name: "bob", Visibility: core.ProfileVisibilityRegisteredUsers, Role: "connected to alice and carol"},
-		{Name: "carol", Visibility: core.ProfileVisibilityPublic, Role: "connected to bob"},
-		{Name: "dave", Visibility: core.ProfileVisibilityConnections, Role: "unrelated to everyone"},
-		{Name: "eve", Visibility: core.ProfileVisibilityRegisteredUsers, Role: "has an unaccepted invite"},
+		{Name: "alice", Visibility: model.ProfileVisibilityConnections, Role: "connected to bob; second degree to carol; owns the API key"},
+		{Name: "bob", Visibility: model.ProfileVisibilityRegisteredUsers, Role: "connected to alice and carol"},
+		{Name: "carol", Visibility: model.ProfileVisibilityPublic, Role: "connected to bob"},
+		{Name: "dave", Visibility: model.ProfileVisibilityConnections, Role: "unrelated to everyone"},
+		{Name: "eve", Visibility: model.ProfileVisibilityRegisteredUsers, Role: "has an unaccepted invite"},
 	}
 
-	byName := map[string]*core.User{}
+	byName := map[string]*model.User{}
 
 	for _, su := range users {
 		u, err := factory.User(ctx, tx,
@@ -211,7 +211,7 @@ func build(ctx context.Context, tx *sql.Tx) ([]*seededUser, string, error) {
 	return users, k.APIKey, nil
 }
 
-func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *core.User) error {
+func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *model.User) error {
 	if _, _, err := factory.Connect(ctx, tx, alice.ID, bob.ID); err != nil {
 		return err
 	}
@@ -225,16 +225,16 @@ func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *core.User) e
 	}
 
 	// Posts: every visibility, a draft, a URL post, a share link.
-	var pub *core.Post
+	var pub *model.Post
 
-	for _, v := range []core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic} {
+	for _, v := range []model.PostVisibility{model.PostVisibilityDirectOnly, model.PostVisibilitySecondDegree, model.PostVisibilityPublic} {
 		p, err := factory.Post(ctx, tx, alice.ID, factory.Published(), factory.Visibility(v),
 			factory.WithSubject("Alice, "+v.String()), factory.WithBody("A "+v.String()+" post by Alice."))
 		if err != nil {
 			return err
 		}
 
-		if v == core.PostVisibilityPublic {
+		if v == model.PostVisibilityPublic {
 			pub = p
 		}
 	}
@@ -248,7 +248,7 @@ func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *core.User) e
 		return err
 	}
 
-	if _, err := factory.Post(ctx, tx, bob.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly),
+	if _, err := factory.Post(ctx, tx, bob.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly),
 		factory.WithURL(u.ID), factory.WithSubject("Bob, link"), factory.WithBody("Worth a read.")); err != nil {
 		return err
 	}
@@ -312,19 +312,19 @@ func world(ctx context.Context, tx *sql.Tx, alice, bob, carol, eve *core.User) e
 // index, Carol's journal and RSS feed, and Alice's feed, second degree),
 // Bob's comments on a thread of Alice's and the items of a feed Alice
 // follows (Alice's feed).
-func pages(ctx context.Context, tx *sql.Tx, alice, bob, carol *core.User) error {
+func pages(ctx context.Context, tx *sql.Tx, alice, bob, carol *model.User) error {
 	start := time.Now().Add(-time.Hour)
 
 	for i := range PagingPosts {
 		if _, err := factory.Post(ctx, tx, carol.ID, factory.PublishedAt(start.Add(-time.Duration(2*i)*time.Hour)),
-			factory.Visibility(core.PostVisibilityPublic), factory.WithSubject(fmt.Sprintf("%sCarol's post %02d", PagingPrefix, PagingPosts-i)),
+			factory.Visibility(model.PostVisibilityPublic), factory.WithSubject(fmt.Sprintf("%sCarol's post %02d", PagingPrefix, PagingPosts-i)),
 			factory.WithBody(fmt.Sprintf("Carol's post %d of %d, seeded to page the lists.", PagingPosts-i, PagingPosts))); err != nil {
 			return err
 		}
 	}
 
 	thread, err := factory.Post(ctx, tx, alice.ID, factory.PublishedAt(start.Add(-time.Duration(2*PagingPosts)*time.Hour)),
-		factory.Visibility(core.PostVisibilityDirectOnly), factory.WithSubject(PagingPrefix+"Alice's busy thread"),
+		factory.Visibility(model.PostVisibilityDirectOnly), factory.WithSubject(PagingPrefix+"Alice's busy thread"),
 		factory.WithBody("Bob comments here a lot, so Alice's feed has comments on every page."))
 	if err != nil {
 		return err

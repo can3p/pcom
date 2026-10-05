@@ -2,6 +2,7 @@ package mail
 
 import (
 	"fmt"
+	"github.com/samber/lo"
 	"html"
 	"net/mail"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/pkg/errors"
@@ -19,7 +20,7 @@ import (
 // PostCommentParticipants formats the notification about a new comment for a
 // user who commented on the post earlier. It returns nil when there is nobody
 // to notify. With edited set it is about an edited comment instead.
-func PostCommentParticipants(site links.Site, from string, mediaReplacer types.Replacer[string], commentAuthor *core.User, participant *core.User, post *core.Post, comment *core.PostComment, edited bool) (*Outgoing, error) {
+func PostCommentParticipants(site links.Site, from string, mediaReplacer types.Replacer[string], commentAuthor *model.User, participant *model.User, post *model.Post, comment *model.PostComment, edited bool) (*Outgoing, error) {
 	// we're not sending email notifications to ourselves
 	if commentAuthor.ID == participant.ID {
 		return nil, nil
@@ -38,9 +39,9 @@ func PostCommentParticipants(site links.Site, from string, mediaReplacer types.R
 	// Get linked URL if available
 	var urlText string
 	var htmlUrlSection string
-	if post.R != nil && post.R.URL != nil {
-		urlText = fmt.Sprintf("\nLinked URL: %s", post.R.URL.URL)
-		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, html.EscapeString(post.R.URL.URL), html.EscapeString(post.R.URL.URL))
+	if post.URL != nil {
+		urlText = fmt.Sprintf("\nLinked URL: %s", post.URL.URL)
+		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, html.EscapeString(post.URL.URL), html.EscapeString(post.URL.URL))
 	}
 
 	verb, subjectLine := "has left a comment in", "New comment in the post"
@@ -48,7 +49,7 @@ func PostCommentParticipants(site links.Site, from string, mediaReplacer types.R
 	if edited {
 		verb, subjectLine = "has edited a comment in", "Edited comment in the post"
 		// every edit is a new mail, the queue drops a repeated unique id
-		uniqueID += comment.EditedAt.Time.UTC().Format(time.RFC3339Nano)
+		uniqueID += lo.FromPtr(comment.EditedAt).UTC().Format(time.RFC3339Nano)
 	}
 
 	mail := &sender.Mail{

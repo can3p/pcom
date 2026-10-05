@@ -9,7 +9,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
@@ -29,7 +29,7 @@ func New(store *repo.Store) *Service {
 }
 
 // RemoveFromWhitelist withdraws the actor's open grant for userID.
-func (s *Service) RemoveFromWhitelist(ctx context.Context, actor *core.User, userID string) error {
+func (s *Service) RemoveFromWhitelist(ctx context.Context, actor *model.User, userID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -39,14 +39,14 @@ func (s *Service) RemoveFromWhitelist(ctx context.Context, actor *core.User, use
 
 // CheckWhitelist says whether the actor may whitelist username. Every
 // problem is a validation error on the "username" field.
-func (s *Service) CheckWhitelist(ctx context.Context, actor *core.User, username string) error {
+func (s *Service) CheckWhitelist(ctx context.Context, actor *model.User, username string) error {
 	_, err := s.whitelistTarget(ctx, s.store, actor, username)
 
 	return err
 }
 
 // Whitelist lets the user called username connect to the actor without mediation.
-func (s *Service) Whitelist(ctx context.Context, actor *core.User, username string) error {
+func (s *Service) Whitelist(ctx context.Context, actor *model.User, username string) error {
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
 		target, err := s.whitelistTarget(ctx, tx, actor, username)
 		if err != nil {
@@ -57,7 +57,7 @@ func (s *Service) Whitelist(ctx context.Context, actor *core.User, username stri
 	})
 }
 
-func (s *Service) whitelistTarget(ctx context.Context, store *repo.Store, actor *core.User, username string) (*core.User, error) {
+func (s *Service) whitelistTarget(ctx context.Context, store *repo.Store, actor *model.User, username string) (*model.User, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -102,7 +102,7 @@ func (s *Service) whitelistTarget(ctx context.Context, store *repo.Store, actor 
 
 // IsConnectionAllowed says whether the actor may connect to targetID: the
 // target whitelisted the actor and the grant is still unused.
-func (s *Service) IsConnectionAllowed(ctx context.Context, actor *core.User, targetID string) (bool, error) {
+func (s *Service) IsConnectionAllowed(ctx context.Context, actor *model.User, targetID string) (bool, error) {
 	if actor == nil {
 		return false, service.ErrNeedsLogin
 	}
@@ -112,7 +112,7 @@ func (s *Service) IsConnectionAllowed(ctx context.Context, actor *core.User, tar
 
 // Connect turns a whitelist grant of targetID into a connection with the
 // actor. A pending mediation request between the two is dropped.
-func (s *Service) Connect(ctx context.Context, actor *core.User, targetID string) error {
+func (s *Service) Connect(ctx context.Context, actor *model.User, targetID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -140,7 +140,7 @@ func (s *Service) Connect(ctx context.Context, actor *core.User, targetID string
 
 // Drop ends the connection between the actor and targetID, with everything
 // that led to it. Without a connection it does nothing.
-func (s *Service) Drop(ctx context.Context, actor *core.User, targetID string) error {
+func (s *Service) Drop(ctx context.Context, actor *model.User, targetID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -151,7 +151,7 @@ func (s *Service) Drop(ctx context.Context, actor *core.User, targetID string) e
 }
 
 // MediationRequest returns the actor's mediation request to targetID, or nil.
-func (s *Service) MediationRequest(ctx context.Context, actor *core.User, targetID string) (*core.UserConnectionMediationRequest, error) {
+func (s *Service) MediationRequest(ctx context.Context, actor *model.User, targetID string) (*model.UserConnectionMediationRequest, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -166,7 +166,7 @@ func (s *Service) MediationRequest(ctx context.Context, actor *core.User, target
 
 // RequestMediation asks the actor's common connections to vouch for a
 // connection with targetID, a second-degree connection.
-func (s *Service) RequestMediation(ctx context.Context, actor *core.User, targetID, note string) error {
+func (s *Service) RequestMediation(ctx context.Context, actor *model.User, targetID, note string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -198,7 +198,7 @@ func (s *Service) RequestMediation(ctx context.Context, actor *core.User, target
 }
 
 // RevokeMediation withdraws the actor's mediation request to targetID.
-func (s *Service) RevokeMediation(ctx context.Context, actor *core.User, targetID string) error {
+func (s *Service) RevokeMediation(ctx context.Context, actor *model.User, targetID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -215,7 +215,7 @@ func (s *Service) RevokeMediation(ctx context.Context, actor *core.User, targetI
 
 // DecideMediation lets the actor, a direct connection of both sides of the
 // request, sign or dismiss it.
-func (s *Service) DecideMediation(ctx context.Context, actor *core.User, requestID string, decision core.ConnectionMediationDecision, note string) error {
+func (s *Service) DecideMediation(ctx context.Context, actor *model.User, requestID string, decision model.ConnectionMediationDecision, note string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -237,7 +237,7 @@ func (s *Service) DecideMediation(ctx context.Context, actor *core.User, request
 
 // DecideRequest lets the actor, the target of a request, approve or dismiss it.
 // Approving creates the connection.
-func (s *Service) DecideRequest(ctx context.Context, actor *core.User, requestID string, decision core.ConnectionRequestDecision, note string) error {
+func (s *Service) DecideRequest(ctx context.Context, actor *model.User, requestID string, decision model.ConnectionRequestDecision, note string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -252,7 +252,7 @@ func (s *Service) DecideRequest(ctx context.Context, actor *core.User, requestID
 
 		var connectionID string
 
-		if decision == core.ConnectionRequestDecisionApproved {
+		if decision == model.ConnectionRequestDecisionApproved {
 			conn, _, err := tx.CreateConnection(ctx, req.WhoUserID, actor.ID)
 			if err != nil {
 				return err

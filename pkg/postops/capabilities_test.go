@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
 // TestCanSeePost covers CanSeePost over the full radius x visibility matrix,
@@ -25,38 +24,38 @@ func TestCanSeePost(t *testing.T) {
 		graph.RadiusUnknown,
 	}
 
-	visibilities := []core.PostVisibility{
-		core.PostVisibilityDirectOnly,
-		core.PostVisibilitySecondDegree,
-		core.PostVisibilityPublic,
+	visibilities := []model.PostVisibility{
+		model.PostVisibilityDirectOnly,
+		model.PostVisibilitySecondDegree,
+		model.PostVisibilityPublic,
 	}
 
 	// want[radius][visibility]
-	want := map[graph.Radius]map[core.PostVisibility]bool{
+	want := map[graph.Radius]map[model.PostVisibility]bool{
 		graph.RadiusSameUser: {
-			core.PostVisibilityDirectOnly:   true,
-			core.PostVisibilitySecondDegree: true,
-			core.PostVisibilityPublic:       true,
+			model.PostVisibilityDirectOnly:   true,
+			model.PostVisibilitySecondDegree: true,
+			model.PostVisibilityPublic:       true,
 		},
 		graph.RadiusDirect: {
-			core.PostVisibilityDirectOnly:   true,
-			core.PostVisibilitySecondDegree: true,
-			core.PostVisibilityPublic:       true,
+			model.PostVisibilityDirectOnly:   true,
+			model.PostVisibilitySecondDegree: true,
+			model.PostVisibilityPublic:       true,
 		},
 		graph.RadiusSecondDegree: {
-			core.PostVisibilityDirectOnly:   false,
-			core.PostVisibilitySecondDegree: true,
-			core.PostVisibilityPublic:       true,
+			model.PostVisibilityDirectOnly:   false,
+			model.PostVisibilitySecondDegree: true,
+			model.PostVisibilityPublic:       true,
 		},
 		graph.RadiusUnrelated: {
-			core.PostVisibilityDirectOnly:   false,
-			core.PostVisibilitySecondDegree: false,
-			core.PostVisibilityPublic:       true,
+			model.PostVisibilityDirectOnly:   false,
+			model.PostVisibilitySecondDegree: false,
+			model.PostVisibilityPublic:       true,
 		},
 		graph.RadiusUnknown: {
-			core.PostVisibilityDirectOnly:   false,
-			core.PostVisibilitySecondDegree: false,
-			core.PostVisibilityPublic:       true,
+			model.PostVisibilityDirectOnly:   false,
+			model.PostVisibilitySecondDegree: false,
+			model.PostVisibilityPublic:       true,
 		},
 	}
 
@@ -66,11 +65,11 @@ func TestCanSeePost(t *testing.T) {
 			t.Run(fmt.Sprintf("radius=%d/visibility=%s", radius, vis), func(t *testing.T) {
 				t.Parallel()
 
-				post := &core.Post{VisibilityRadius: vis, PublishedAt: null.TimeFrom(time.Now())}
+				post := &model.Post{VisibilityRadius: vis, PublishedAt: new(time.Now())}
 				require.Equal(t, want[radius][vis], postops.CanSeePost(post, radius))
 
 				// a draft is the author's only, whatever its visibility
-				draft := &core.Post{VisibilityRadius: vis}
+				draft := &model.Post{VisibilityRadius: vis}
 				require.Equal(t, radius == graph.RadiusSameUser, postops.CanSeePost(draft, radius))
 			})
 		}

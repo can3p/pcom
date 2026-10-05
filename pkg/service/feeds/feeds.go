@@ -12,7 +12,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/util"
@@ -60,7 +60,7 @@ type RssFeedItem struct {
 }
 
 // Subscribe follows a feed for the actor. Following it again does nothing.
-func (s *Service) Subscribe(ctx context.Context, actor *core.User, rawURL string) error {
+func (s *Service) Subscribe(ctx context.Context, actor *model.User, rawURL string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -82,7 +82,7 @@ func (s *Service) Subscribe(ctx context.Context, actor *core.User, rawURL string
 
 // Unsubscribe removes one of the actor's subscriptions. The feed itself stays,
 // and the poller skips feeds nobody follows.
-func (s *Service) Unsubscribe(ctx context.Context, actor *core.User, subscriptionID string) error {
+func (s *Service) Unsubscribe(ctx context.Context, actor *model.User, subscriptionID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -102,7 +102,7 @@ func (s *Service) Unsubscribe(ctx context.Context, actor *core.User, subscriptio
 }
 
 // Dismiss hides one of the actor's feed items from their reading list.
-func (s *Service) Dismiss(ctx context.Context, actor *core.User, itemID string) error {
+func (s *Service) Dismiss(ctx context.Context, actor *model.User, itemID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -129,7 +129,7 @@ func (s *Service) Dismiss(ctx context.Context, actor *core.User, itemID string) 
 }
 
 // Subscriptions lists the actor's feeds, oldest subscription first.
-func (s *Service) Subscriptions(ctx context.Context, actor *core.User) ([]*RssFeed, error) {
+func (s *Service) Subscriptions(ctx context.Context, actor *model.User) ([]*RssFeed, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -139,7 +139,7 @@ func (s *Service) Subscriptions(ctx context.Context, actor *core.User) ([]*RssFe
 		return nil, err
 	}
 
-	feedIDs := lo.Map(subs, func(sub *core.UserFeedSubscription, _ int) string {
+	feedIDs := lo.Map(subs, func(sub *model.UserFeedSubscription, _ int) string {
 		return sub.FeedID
 	})
 
@@ -148,8 +148,8 @@ func (s *Service) Subscriptions(ctx context.Context, actor *core.User) ([]*RssFe
 		return nil, err
 	}
 
-	return lo.Map(subs, func(sub *core.UserFeedSubscription, _ int) *RssFeed {
-		feed := sub.R.Feed
+	return lo.Map(subs, func(sub *model.UserFeedSubscription, _ int) *RssFeed {
+		feed := sub.Feed
 
 		var importedAt *time.Time
 		if t, ok := lastImported[sub.FeedID]; ok {
@@ -160,17 +160,17 @@ func (s *Service) Subscriptions(ctx context.Context, actor *core.User) ([]*RssFe
 			ID:             sub.ID,
 			URL:            feed.URL,
 			WebsiteURL:     extractWebsiteURL(feed.URL),
-			Title:          feed.Title.String,
-			NextFetchAt:    feed.NextFetchAt.Ptr(),
-			LastFetchedAt:  feed.LastFetchedAt.Ptr(),
+			Title:          lo.FromPtr(feed.Title),
+			NextFetchAt:    feed.NextFetchAt,
+			LastFetchedAt:  feed.LastFetchedAt,
 			LastImportedAt: importedAt,
-			LastError:      feed.LastFetchError.String,
+			LastError:      lo.FromPtr(feed.LastFetchError),
 		}
 	}), nil
 }
 
 // Items is the actor's reading list: undismissed items, newest first.
-func (s *Service) Items(ctx context.Context, actor *core.User) ([]*RssFeedItem, error) {
+func (s *Service) Items(ctx context.Context, actor *model.User) ([]*RssFeedItem, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -180,22 +180,22 @@ func (s *Service) Items(ctx context.Context, actor *core.User) ([]*RssFeedItem, 
 		return nil, err
 	}
 
-	return lo.Map(dbItems, func(item *core.UserFeedItem, _ int) *RssFeedItem {
+	return lo.Map(dbItems, func(item *model.UserFeedItem, _ int) *RssFeedItem {
 		publishedAt := item.CreatedAt
 
-		if !item.R.RSSItem.PublishedAt.IsZero() {
-			publishedAt = item.R.RSSItem.PublishedAt
+		if !item.RSSItem.PublishedAt.IsZero() {
+			publishedAt = item.RSSItem.PublishedAt
 		}
 
 		return &RssFeedItem{
 			ID:          item.ID,
-			URL:         item.R.URL.URL,
-			Title:       item.R.RSSItem.Title,
-			Summary:     item.R.RSSItem.SanitizedDescription,
+			URL:         item.URL.URL,
+			Title:       item.RSSItem.Title,
+			Summary:     item.RSSItem.SanitizedDescription,
 			PublishedAt: publishedAt,
 			AddedAt:     item.CreatedAt,
-			FeedTitle:   item.R.RSSItem.R.Feed.Title.String,
-			FeedURL:     item.R.RSSItem.R.Feed.URL,
+			FeedTitle:   lo.FromPtr(item.RSSItem.Feed.Title),
+			FeedURL:     item.RSSItem.Feed.URL,
 		}
 	}), nil
 }

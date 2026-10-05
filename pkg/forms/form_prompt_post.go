@@ -6,7 +6,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -20,11 +20,11 @@ type PostPromptFormInput struct {
 type PostPromptForm struct {
 	*forms.FormBase[PostPromptFormInput]
 	Posts             *posts.Service
-	User              *core.User
-	DirectConnections []*core.User
+	User              *model.User
+	DirectConnections []*model.User
 }
 
-func PostPromptFormNew(svc *posts.Service, u *core.User, directConnections []*core.User) forms.Form {
+func PostPromptFormNew(svc *posts.Service, u *model.User, directConnections []*model.User) forms.Form {
 	var form forms.Form = &PostPromptForm{
 		FormBase: &forms.FormBase[PostPromptFormInput]{
 			Name:                "new_comment",
@@ -59,8 +59,8 @@ func (f *PostPromptForm) Validate(c *gin.Context) error {
 }
 
 // recipient is the direct connection the prompt is for.
-func (f *PostPromptForm) recipient() (*core.User, bool) {
-	return lo.Find(f.DirectConnections, func(u *core.User) bool {
+func (f *PostPromptForm) recipient() (*model.User, bool) {
+	return lo.Find(f.DirectConnections, func(u *model.User) bool {
 		return u.Username == f.Input.RecipientHandle
 	})
 }

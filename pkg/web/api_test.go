@@ -13,7 +13,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -26,6 +26,7 @@ import (
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -216,14 +217,14 @@ func TestApiGetPosts_UpdatedSince_Boundary(t *testing.T) {
 
 	newCtx := requestContext(http.MethodGet)
 
-	before := saved.UpdatedAt.Time.Add(-time.Minute).Unix()
+	before := lo.FromPtr(saved.UpdatedAt).Add(-time.Minute).Unix()
 	res := web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(before)), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp := res.MustGet()
 	require.Len(t, resp.Posts, 1)
 	require.Equal(t, post.ID, resp.Posts[0].ID)
 
-	after := saved.UpdatedAt.Time.Add(time.Minute).Unix()
+	after := lo.FromPtr(saved.UpdatedAt).Add(time.Minute).Unix()
 	res = web.ApiGetPosts(newCtx("/api/v1/posts?updated_since="+formatUnix(after)), postsService(testDB.DB, nil), user)
 	require.True(t, res.IsOk())
 	resp = res.MustGet()
@@ -257,7 +258,7 @@ func TestApiNewPost(t *testing.T) {
 			c := jsonContext(t, "/api/v1/posts", &web.ApiPost{
 				Subject:     "Hello world",
 				MdBody:      "some **body**",
-				Visibility:  core.PostVisibilityPublic,
+				Visibility:  model.PostVisibilityPublic,
 				IsPublished: tc.isPublished,
 			})
 
@@ -267,12 +268,12 @@ func TestApiNewPost(t *testing.T) {
 			require.NotEmpty(t, resp.ID)
 
 			post := testutil.Must(factory.GetPost(ctx, testDB.DB, resp.ID))(t)
-			require.Equal(t, tc.isPublished, post.PublishedAt.Valid)
+			require.Equal(t, tc.isPublished, post.PublishedAt != nil)
 			require.Equal(t, "some **body**", post.Body)
 
 			if tc.isPublished {
 				require.Equal(t, testSite.Abs("post", resp.ID), resp.PublicURL)
-				require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
+				require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
 
 				sent := sender.Sent()
 				require.Len(t, sent, 1, "publishing should notify the author's direct connections")
@@ -301,7 +302,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	c := jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
 		MdBody:      "edited body",
-		Visibility:  core.PostVisibilityPublic,
+		Visibility:  model.PostVisibilityPublic,
 		IsPublished: true,
 	})
 
@@ -311,7 +312,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	require.Equal(t, post.ID, resp.ID)
 
 	got := testutil.Must(factory.GetPost(ctx, testDB.DB, post.ID))(t)
-	require.True(t, got.PublishedAt.Valid, "publish must set the post live")
+	require.NotNil(t, got.PublishedAt, "publish must set the post live")
 	require.Equal(t, "edited body", got.Body)
 
 	sent := sender.Sent()
@@ -323,7 +324,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	c = jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
 		MdBody:      "edited body",
-		Visibility:  core.PostVisibilityPublic,
+		Visibility:  model.PostVisibilityPublic,
 		IsPublished: false,
 	})
 
@@ -331,7 +332,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	require.True(t, res.IsOk())
 
 	got = testutil.Must(factory.GetPost(ctx, testDB.DB, post.ID))(t)
-	require.False(t, got.PublishedAt.Valid, "is_published=false must move the post back to draft")
+	require.Nil(t, got.PublishedAt, "is_published=false must move the post back to draft")
 	require.Len(t, sender.Sent(), 1, "moving back to draft must not send another notification")
 }
 

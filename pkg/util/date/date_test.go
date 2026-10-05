@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +14,7 @@ func TestLocalizeTime(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		user     *core.User
+		user     *model.User
 		input    time.Time
 		expected time.Time
 	}{
@@ -26,19 +26,19 @@ func TestLocalizeTime(t *testing.T) {
 		},
 		{
 			name:     "user with UTC timezone",
-			user:     &core.User{Timezone: "UTC"},
+			user:     &model.User{Timezone: "UTC"},
 			input:    baseTime,
 			expected: baseTime,
 		},
 		{
 			name:     "user with America/New_York timezone",
-			user:     &core.User{Timezone: "America/New_York"},
+			user:     &model.User{Timezone: "America/New_York"},
 			input:    baseTime,
 			expected: baseTime.In(mustLoadLocation("America/New_York")),
 		},
 		{
 			name:     "user with invalid timezone returns original time",
-			user:     &core.User{Timezone: "Invalid/Timezone"},
+			user:     &model.User{Timezone: "Invalid/Timezone"},
 			input:    baseTime,
 			expected: baseTime,
 		},
@@ -57,7 +57,7 @@ func TestFormatTimestamp(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		user     *core.User
+		user     *model.User
 		input    time.Time
 		expected string
 	}{
@@ -69,7 +69,7 @@ func TestFormatTimestamp(t *testing.T) {
 		},
 		{
 			name:     "user with timezone formats in local time",
-			user:     &core.User{Timezone: "America/New_York"},
+			user:     &model.User{Timezone: "America/New_York"},
 			input:    baseTime,
 			expected: "Mon, 15 Jan 2024 07:30",
 		},

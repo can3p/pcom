@@ -12,10 +12,10 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 const (
@@ -85,7 +85,7 @@ func (s *Service) refreshFeeds(ctx context.Context) (err error) {
 	return nil
 }
 
-func (s *Service) tryFetchFeed(ctx context.Context, tx *repo.Store, feed *core.RSSFeed) error {
+func (s *Service) tryFetchFeed(ctx context.Context, tx *repo.Store, feed *model.RSSFeed) error {
 	rssFeed, fetchErr := s.fetcher.Fetch(ctx, feed.URL)
 	if fetchErr != nil {
 		return saveFetchFailure(ctx, tx, feed, fetchErr)
@@ -94,24 +94,24 @@ func (s *Service) tryFetchFeed(ctx context.Context, tx *repo.Store, feed *core.R
 	return s.saveFeed(ctx, tx, feed, rssFeed)
 }
 
-func saveFetchFailure(ctx context.Context, tx *repo.Store, feed *core.RSSFeed, fetchErr error) error {
-	feed.LastFetchError = null.StringFrom(fetchErr.Error())
+func saveFetchFailure(ctx context.Context, tx *repo.Store, feed *model.RSSFeed, fetchErr error) error {
+	feed.LastFetchError = new(fetchErr.Error())
 	feed.LastItemsCount = 0
-	feed.NextFetchAt = null.TimeFrom(time.Now().Add(reader.ErrorFetchInterval))
-	feed.LastFetchedAt = null.TimeFrom(time.Now())
+	feed.NextFetchAt = new(time.Now().Add(reader.ErrorFetchInterval))
+	feed.LastFetchedAt = new(time.Now())
 
 	return tx.SaveFeed(ctx, feed)
 }
 
-func (s *Service) saveFeed(ctx context.Context, tx *repo.Store, feed *core.RSSFeed, rssFeed *reader.Feed) error {
-	if feed.Title.IsZero() {
+func (s *Service) saveFeed(ctx context.Context, tx *repo.Store, feed *model.RSSFeed, rssFeed *reader.Feed) error {
+	if feed.Title == nil {
 		cleaned := s.cleaner.CleanField(rssFeed.Title)
-		feed.Title = null.NewString(cleaned, cleaned != "")
+		feed.Title = lo.EmptyableToPtr(cleaned)
 	}
 
-	if feed.Description.IsZero() {
+	if feed.Description == nil {
 		cleaned := s.cleaner.CleanField(rssFeed.Description)
-		feed.Description = null.NewString(cleaned, cleaned != "")
+		feed.Description = lo.EmptyableToPtr(cleaned)
 	}
 
 	// Check if this is an initial fetch by seeing if any items exist for this feed
@@ -196,20 +196,20 @@ func (s *Service) saveFeed(ctx context.Context, tx *repo.Store, feed *core.RSSFe
 	wasManual := false
 
 	// Calculate next fetch time
-	feed.NextFetchAt = null.TimeFrom(reader.CalculateNextFetchTime(feed.ConsecutiveEmptyFetches, feed.AvgItemsPerDay, wasManual))
+	feed.NextFetchAt = new(reader.CalculateNextFetchTime(feed.ConsecutiveEmptyFetches, feed.AvgItemsPerDay, wasManual))
 
 	// Update last manual refresh time if this was a manual fetch
 	if wasManual {
-		feed.LastManualRefreshAt = null.TimeFrom(time.Now())
+		feed.LastManualRefreshAt = new(time.Now())
 	}
 
-	feed.LastFetchedAt = null.TimeFrom(time.Now())
-	feed.LastFetchError = null.String{}
+	feed.LastFetchedAt = new(time.Now())
+	feed.LastFetchError = nil
 
 	return tx.SaveFeed(ctx, feed)
 }
 
-func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID string, rssFeedItem *reader.Item, subscribers core.UserFeedSubscriptionSlice) (bool, error) {
+func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID string, rssFeedItem *reader.Item, subscribers []*model.UserFeedSubscription) (bool, error) {
 	if rssFeedItem.URL == "" {
 		return false, fmt.Errorf("refuse to save an rss item without URL")
 	}
@@ -267,7 +267,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 		publishedAt = *rssFeedItem.PublishedAt
 	}
 
-	feedItem := &core.RSSItem{
+	feedItem := &model.RSSItem{
 		ID:                   feedItemID,
 		FeedID:               feedID,
 		URLID:                url.ID,

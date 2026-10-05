@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/service/reading"
@@ -14,8 +14,8 @@ import (
 
 type SharedPostPage struct {
 	*BasePage
-	Author      *core.User
-	Post        *core.Post
+	Author      *model.User
+	Post        *model.Post
 	PostSubject string
 }
 
@@ -34,7 +34,7 @@ func SharedPost(c *gin.Context, userData *auth.UserData, shared *shares.Shared) 
 type SinglePostPage struct {
 	*BasePage
 	Post      *postops.Post
-	PostShare *core.PostShare
+	PostShare *model.PostShare
 	Comments  []*postops.Comment
 }
 
@@ -50,10 +50,10 @@ func PostPage(c *gin.Context, userData *auth.UserData, post *reading.Post) *Sing
 
 type UserHomePage struct {
 	*BasePage
-	Author            *core.User
+	Author            *model.User
 	ConnectionRadius  graph.Radius
 	ConnectionAllowed bool
-	MediationRequest  *core.UserConnectionMediationRequest
+	MediationRequest  *model.UserConnectionMediationRequest
 	Posts             []*postops.Post
 	About             string
 	Next              string // cursor of the next page, empty on the last
@@ -64,7 +64,7 @@ type UserHomePage struct {
 func UserHome(c *gin.Context, userData *auth.UserData, journal *reading.Journal) *UserHomePage {
 	basePage := getBasePage(c, "Journal", userData)
 
-	if journal.Author.ProfileVisibility == core.ProfileVisibilityPublic {
+	if journal.Author.ProfileVisibility == model.ProfileVisibilityPublic {
 		basePage.RSSFeed = links.Link("public_blog_feed", journal.Author.Username)
 	}
 
@@ -88,7 +88,7 @@ type FeedPageCapabilities struct {
 
 type FeedPage struct {
 	*BasePage
-	DirectConnections []*core.User
+	DirectConnections []*model.User
 	OpenPrompts       []*postops.PostPrompt
 	Items             []*FeedItem
 	Next              string // cursor of the next page, empty on the last

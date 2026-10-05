@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -12,17 +13,17 @@ import (
 )
 
 // UserByID returns the user, or ErrNotFound.
-func (s *Store) UserByID(ctx context.Context, id string) (*core.User, error) {
+func (s *Store) UserByID(ctx context.Context, id string) (*model.User, error) {
 	u, err := core.FindUser(ctx, s.exec, id)
 
-	return u, notFound(err)
+	return toModel[model.User](u), notFound(err)
 }
 
 // UserByEmail returns the user whose stored email is email, or ErrNotFound.
-func (s *Store) UserByEmail(ctx context.Context, email string) (*core.User, error) {
+func (s *Store) UserByEmail(ctx context.Context, email string) (*model.User, error) {
 	u, err := core.Users(core.UserWhere.Email.EQ(email)).One(ctx, s.exec)
 
-	return u, notFound(err)
+	return toModel[model.User](u), notFound(err)
 }
 
 // UserEmailExists reports whether an account uses the (normalized) email.
@@ -71,38 +72,42 @@ func (s *Store) UsernameExists(ctx context.Context, username string) (bool, erro
 }
 
 // InsertUser inserts a new account.
-func (s *Store) InsertUser(ctx context.Context, u *core.User) error {
-	return u.Insert(ctx, s.exec, boil.Infer())
+func (s *Store) InsertUser(ctx context.Context, u *model.User) error {
+	return write(u, func(c *core.User) error {
+		return c.Insert(ctx, s.exec, boil.Infer())
+	})
 }
 
 // SaveUser writes the named columns of u, or all of them when none is named.
-func (s *Store) SaveUser(ctx context.Context, u *core.User, columns ...string) error {
+func (s *Store) SaveUser(ctx context.Context, u *model.User, columns ...string) error {
 	cols := boil.Infer()
 	if len(columns) > 0 {
 		cols = boil.Whitelist(columns...)
 	}
 
-	_, err := u.Update(ctx, s.exec, cols)
+	return write(u, func(c *core.User) error {
+		_, err := c.Update(ctx, s.exec, cols)
 
-	return err
+		return err
+	})
 }
 
 // UserByUsername returns the user with that username.
-func (s *Store) UserByUsername(ctx context.Context, username string) (*core.User, error) {
+func (s *Store) UserByUsername(ctx context.Context, username string) (*model.User, error) {
 	user, err := core.Users(core.UserWhere.Username.EQ(username)).One(ctx, s.exec)
-	return user, notFound(err)
+	return toModel[model.User](user), notFound(err)
 }
 
 // UsersByIDs returns the users with those IDs, in no particular order.
-func (s *Store) UsersByIDs(ctx context.Context, ids []string) (core.UserSlice, error) {
-	return core.Users(core.UserWhere.ID.IN(ids)).All(ctx, s.exec)
+func (s *Store) UsersByIDs(ctx context.Context, ids []string) ([]*model.User, error) {
+	return all[model.User](core.Users(core.UserWhere.ID.IN(ids)).All(ctx, s.exec))
 }
 
 // UsersByIDsNewestFirst returns the users with those IDs, the most recently
 // signed up first.
-func (s *Store) UsersByIDsNewestFirst(ctx context.Context, ids []string) (core.UserSlice, error) {
-	return core.Users(
+func (s *Store) UsersByIDsNewestFirst(ctx context.Context, ids []string) ([]*model.User, error) {
+	return all[model.User](core.Users(
 		core.UserWhere.ID.IN(ids),
 		qm.OrderBy(fmt.Sprintf("%s DESC", core.UserColumns.CreatedAt)),
-	).All(ctx, s.exec)
+	).All(ctx, s.exec))
 }

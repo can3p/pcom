@@ -3,7 +3,7 @@ package reading_test
 import (
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/stretchr/testify/require"
@@ -14,14 +14,14 @@ func TestCanSeeProfile(t *testing.T) {
 	t.Parallel()
 
 	// Create test users
-	alice := &core.User{ProfileVisibility: core.ProfileVisibilityPublic}
-	bob := &core.User{ProfileVisibility: core.ProfileVisibilityRegisteredUsers}
-	charlie := &core.User{ProfileVisibility: core.ProfileVisibilityConnections}
+	alice := &model.User{ProfileVisibility: model.ProfileVisibilityPublic}
+	bob := &model.User{ProfileVisibility: model.ProfileVisibilityRegisteredUsers}
+	charlie := &model.User{ProfileVisibility: model.ProfileVisibilityConnections}
 
 	testCases := []struct {
 		name        string
-		profile     *core.User
-		visitor     *core.User
+		profile     *model.User
+		visitor     *model.User
 		connRadius  graph.Radius
 		expectSee   bool
 		description string
@@ -38,7 +38,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "PublicProfile_RegisteredVisitor",
 			profile:     alice,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusUnrelated,
 			expectSee:   true,
 			description: "Public profiles visible to registered users",
@@ -46,7 +46,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "PublicProfile_SameUserRadius",
 			profile:     alice,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusSameUser,
 			expectSee:   true,
 			description: "Public profiles always visible regardless of radius",
@@ -64,7 +64,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "RegisteredUsersProfile_HasVisitor_Unrelated",
 			profile:     bob,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusUnrelated,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to any registered user",
@@ -72,7 +72,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "RegisteredUsersProfile_HasVisitor_Direct",
 			profile:     bob,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusDirect,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to connected users",
@@ -80,7 +80,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "RegisteredUsersProfile_HasVisitor_SecondDegree",
 			profile:     bob,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusSecondDegree,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to second-degree connections",
@@ -88,7 +88,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "RegisteredUsersProfile_HasVisitor_SameUser",
 			profile:     bob,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusSameUser,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible to self",
@@ -96,7 +96,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "RegisteredUsersProfile_HasVisitor_Unknown",
 			profile:     bob,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusUnknown,
 			expectSee:   true,
 			description: "RegisteredUsers profiles visible even when radius unknown",
@@ -114,7 +114,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "ConnectionsProfile_HasVisitor_Unrelated",
 			profile:     charlie,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusUnrelated,
 			expectSee:   false,
 			description: "Connections profiles hidden from unrelated users",
@@ -122,7 +122,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "ConnectionsProfile_HasVisitor_Unknown",
 			profile:     charlie,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusUnknown,
 			expectSee:   false,
 			description: "Connections profiles hidden when radius unknown",
@@ -130,7 +130,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "ConnectionsProfile_HasVisitor_Direct",
 			profile:     charlie,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusDirect,
 			expectSee:   true,
 			description: "Connections profiles visible to direct connections",
@@ -138,7 +138,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "ConnectionsProfile_HasVisitor_SecondDegree",
 			profile:     charlie,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusSecondDegree,
 			expectSee:   true,
 			description: "Connections profiles visible to second-degree connections",
@@ -146,7 +146,7 @@ func TestCanSeeProfile(t *testing.T) {
 		{
 			name:        "ConnectionsProfile_HasVisitor_SameUser",
 			profile:     charlie,
-			visitor:     &core.User{},
+			visitor:     &model.User{},
 			connRadius:  graph.RadiusSameUser,
 			expectSee:   true,
 			description: "Users can see their own Connections profile",
@@ -168,23 +168,23 @@ func TestCannotSeeProfileLite(t *testing.T) {
 
 	testCases := []struct {
 		name              string
-		profileVisibility core.ProfileVisibility
-		visitor           *core.User
+		profileVisibility model.ProfileVisibility
+		visitor           *model.User
 		expectCannotSee   bool
 		description       string
 	}{
 		// Public profiles: never blocked by lite check
 		{
 			name:              "PublicProfile_NoVisitor",
-			profileVisibility: core.ProfileVisibilityPublic,
+			profileVisibility: model.ProfileVisibilityPublic,
 			visitor:           nil,
 			expectCannotSee:   false,
 			description:       "Public profiles are always visible, lite check returns false",
 		},
 		{
 			name:              "PublicProfile_HasVisitor",
-			profileVisibility: core.ProfileVisibilityPublic,
-			visitor:           &core.User{},
+			profileVisibility: model.ProfileVisibilityPublic,
+			visitor:           &model.User{},
 			expectCannotSee:   false,
 			description:       "Public profiles are always visible",
 		},
@@ -192,15 +192,15 @@ func TestCannotSeeProfileLite(t *testing.T) {
 		// RegisteredUsers profiles: blocked only for anonymous
 		{
 			name:              "RegisteredUsersProfile_NoVisitor",
-			profileVisibility: core.ProfileVisibilityRegisteredUsers,
+			profileVisibility: model.ProfileVisibilityRegisteredUsers,
 			visitor:           nil,
 			expectCannotSee:   true,
 			description:       "RegisteredUsers profiles blocked for anonymous users",
 		},
 		{
 			name:              "RegisteredUsersProfile_HasVisitor",
-			profileVisibility: core.ProfileVisibilityRegisteredUsers,
-			visitor:           &core.User{},
+			profileVisibility: model.ProfileVisibilityRegisteredUsers,
+			visitor:           &model.User{},
 			expectCannotSee:   false,
 			description:       "RegisteredUsers profiles visible to registered users",
 		},
@@ -208,15 +208,15 @@ func TestCannotSeeProfileLite(t *testing.T) {
 		// Connections profiles: blocked only for anonymous
 		{
 			name:              "ConnectionsProfile_NoVisitor",
-			profileVisibility: core.ProfileVisibilityConnections,
+			profileVisibility: model.ProfileVisibilityConnections,
 			visitor:           nil,
 			expectCannotSee:   true,
 			description:       "Connections profiles blocked for anonymous users",
 		},
 		{
 			name:              "ConnectionsProfile_HasVisitor",
-			profileVisibility: core.ProfileVisibilityConnections,
-			visitor:           &core.User{},
+			profileVisibility: model.ProfileVisibilityConnections,
+			visitor:           &model.User{},
 			expectCannotSee:   false,
 			description:       "Connections profiles visible to registered users at lite level",
 		},
@@ -225,7 +225,7 @@ func TestCannotSeeProfileLite(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			profile := &core.User{ProfileVisibility: tc.profileVisibility}
+			profile := &model.User{ProfileVisibility: tc.profileVisibility}
 			got := reading.CannotSeeProfileLite(profile, tc.visitor)
 			require.Equal(t, tc.expectCannotSee, got, tc.description)
 		})

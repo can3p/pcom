@@ -5,19 +5,20 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
 // as is the acting user of a service call, known by id only.
-func as(id string) *core.User {
-	return &core.User{ID: id}
+func as(id string) *model.User {
+	return &model.User{ID: id}
 }
 
 // connect wraps factory.Connect, whose three return values (both directions
@@ -31,7 +32,7 @@ func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
 // secondDegreeTrio builds source -- mediator -- target, both edges direct,
 // with no direct edge between source and target: source and target are
 // second-degree connections of one another, through mediator.
-func secondDegreeTrio(t *testing.T, ctx context.Context, db *sqlx.DB) (source, mediator, target *core.User) {
+func secondDegreeTrio(t *testing.T, ctx context.Context, db *sqlx.DB) (source, mediator, target *model.User) {
 	t.Helper()
 
 	source = testutil.Must(factory.User(ctx, db))(t)
@@ -156,9 +157,9 @@ func TestDropConnection(t *testing.T) {
 		source, target, mediator := testutil.Must(factory.User(ctx, db))(t), testutil.Must(factory.User(ctx, db))(t), testutil.Must(factory.User(ctx, db))(t)
 
 		req := testutil.Must(factory.MediationRequest(ctx, db, source.ID, target.ID))(t)
-		testutil.Must(factory.MediatorDecision(ctx, db, req.ID, mediator.ID, core.ConnectionMediationDecisionSigned))(t)
+		testutil.Must(factory.MediatorDecision(ctx, db, req.ID, mediator.ID, model.ConnectionMediationDecisionSigned))(t)
 
-		require.NoError(t, svc.DecideRequest(ctx, as(target.ID), req.ID, core.ConnectionRequestDecisionApproved, ""))
+		require.NoError(t, svc.DecideRequest(ctx, as(target.ID), req.ID, model.ConnectionRequestDecisionApproved, ""))
 		require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, source.ID, target.ID))(t))
 
 		// user_connection_mediators.mediation_id and the mediation request's
@@ -187,7 +188,7 @@ func TestRequestMediation(t *testing.T) {
 
 		req := testutil.Must(svc.MediationRequest(ctx, as(source.ID), target.ID))(t)
 		require.NotNil(t, req)
-		require.Equal(t, "please introduce us", req.SourceNote.String)
+		require.Equal(t, "please introduce us", lo.FromPtr(req.SourceNote))
 	})
 
 	guardCases := []struct {
@@ -258,7 +259,7 @@ func TestRevokeMediationRequest(t *testing.T) {
 		who, target, mediator := testutil.Must(factory.User(ctx, db))(t), testutil.Must(factory.User(ctx, db))(t), testutil.Must(factory.User(ctx, db))(t)
 
 		req := testutil.Must(factory.MediationRequest(ctx, db, who.ID, target.ID))(t)
-		testutil.Must(factory.MediatorDecision(ctx, db, req.ID, mediator.ID, core.ConnectionMediationDecisionSigned))(t)
+		testutil.Must(factory.MediatorDecision(ctx, db, req.ID, mediator.ID, model.ConnectionMediationDecisionSigned))(t)
 
 		// user_connection_mediators.mediation_id references the request, so
 		// revoking would fail with a foreign key violation instead of
@@ -292,27 +293,27 @@ func TestDecideForwardMediationRequest(t *testing.T) {
 
 		req := testutil.Must(svc.MediationRequest(ctx, as(source.ID), target.ID))(t)
 
-		require.NoError(t, svc.DecideMediation(ctx, as(mediator.ID), req.ID, core.ConnectionMediationDecisionSigned, "vouching"))
+		require.NoError(t, svc.DecideMediation(ctx, as(mediator.ID), req.ID, model.ConnectionMediationDecisionSigned, "vouching"))
 
 		// the (mediation_id, user_id) pair is unique, so signing again for the
 		// same mediator would fail if the first decision were not recorded.
-		err := svc.DecideMediation(ctx, as(mediator.ID), req.ID, core.ConnectionMediationDecisionSigned, "vouching")
+		err := svc.DecideMediation(ctx, as(mediator.ID), req.ID, model.ConnectionMediationDecisionSigned, "vouching")
 		require.Error(t, err)
 	})
 
 	guardCases := []struct {
 		name  string
-		actor func(t *testing.T, source *core.User) string
+		actor func(t *testing.T, source *model.User) string
 	}{
 		{
 			name: "a user with no connection to either side cannot decide",
-			actor: func(t *testing.T, source *core.User) string {
+			actor: func(t *testing.T, source *model.User) string {
 				return testutil.Must(factory.User(ctx, db))(t).ID
 			},
 		},
 		{
 			name: "a connection to only one side of the request cannot decide",
-			actor: func(t *testing.T, source *core.User) string {
+			actor: func(t *testing.T, source *model.User) string {
 				halfConnected := testutil.Must(factory.User(ctx, db))(t)
 				connect(t, ctx, db, source.ID, halfConnected.ID)
 				return halfConnected.ID
@@ -330,7 +331,7 @@ func TestDecideForwardMediationRequest(t *testing.T) {
 
 			actorID := tc.actor(t, source)
 
-			err := svc.DecideMediation(ctx, as(actorID), req.ID, core.ConnectionMediationDecisionSigned, "")
+			err := svc.DecideMediation(ctx, as(actorID), req.ID, model.ConnectionMediationDecisionSigned, "")
 			require.ErrorContains(t, err, "No such request")
 		})
 	}
@@ -345,21 +346,21 @@ func TestDecideConnectionRequest(t *testing.T) {
 
 	outcomes := []struct {
 		name          string
-		decision      core.ConnectionRequestDecision
+		decision      model.ConnectionRequestDecision
 		note          string
 		wantExists    bool
 		wantConnValid bool
 	}{
 		{
 			name:          "approving creates the connection and records the decision",
-			decision:      core.ConnectionRequestDecisionApproved,
+			decision:      model.ConnectionRequestDecisionApproved,
 			note:          "welcome",
 			wantExists:    true,
 			wantConnValid: true,
 		},
 		{
 			name:     "dismissing does not create a connection",
-			decision: core.ConnectionRequestDecisionDismissed,
+			decision: model.ConnectionRequestDecisionDismissed,
 		},
 	}
 
@@ -375,10 +376,10 @@ func TestDecideConnectionRequest(t *testing.T) {
 
 			got := testutil.Must(svc.MediationRequest(ctx, as(source.ID), target.ID))(t)
 			require.NotNil(t, got)
-			require.True(t, got.TargetDecision.Valid)
-			require.Equal(t, tc.decision, got.TargetDecision.Val)
-			require.Equal(t, tc.wantConnValid, got.ConnectionID.Valid)
-			require.Equal(t, tc.note, got.TargetNote.String)
+			require.NotNil(t, got.TargetDecision)
+			require.Equal(t, tc.decision, *got.TargetDecision)
+			require.Equal(t, tc.wantConnValid, got.ConnectionID != nil)
+			require.Equal(t, tc.note, lo.FromPtr(got.TargetNote))
 		})
 	}
 
@@ -387,7 +388,7 @@ func TestDecideConnectionRequest(t *testing.T) {
 
 		target := testutil.Must(factory.User(ctx, db))(t)
 
-		err := svc.DecideRequest(ctx, as(target.ID), "00000000-0000-0000-0000-000000000000", core.ConnectionRequestDecisionApproved, "")
+		err := svc.DecideRequest(ctx, as(target.ID), "00000000-0000-0000-0000-000000000000", model.ConnectionRequestDecisionApproved, "")
 		require.ErrorContains(t, err, "No such request")
 	})
 
@@ -398,7 +399,7 @@ func TestDecideConnectionRequest(t *testing.T) {
 
 		req := testutil.Must(factory.MediationRequest(ctx, db, source.ID, target.ID))(t)
 
-		err := svc.DecideRequest(ctx, as(someoneElse.ID), req.ID, core.ConnectionRequestDecisionApproved, "")
+		err := svc.DecideRequest(ctx, as(someoneElse.ID), req.ID, model.ConnectionRequestDecisionApproved, "")
 		require.ErrorContains(t, err, "No such request")
 	})
 }
@@ -411,14 +412,14 @@ func TestDecideRequest_CannotBeDecidedTwice(t *testing.T) {
 	svc := connections.New(repo.New(db))
 	ctx := context.Background()
 
-	approve := core.ConnectionRequestDecisionApproved
-	dismiss := core.ConnectionRequestDecisionDismissed
+	approve := model.ConnectionRequestDecisionApproved
+	dismiss := model.ConnectionRequestDecisionDismissed
 
 	cases := []struct {
 		name  string
-		first core.ConnectionRequestDecision
+		first model.ConnectionRequestDecision
 		// second decision by the target, or a mediator's signature when nil
-		second *core.ConnectionRequestDecision
+		second *model.ConnectionRequestDecision
 	}{
 		{"approve then dismiss", approve, &dismiss},
 		{"dismiss then approve", dismiss, &approve},
@@ -442,15 +443,15 @@ func TestDecideRequest_CannotBeDecidedTwice(t *testing.T) {
 			if tc.second != nil {
 				err = svc.DecideRequest(ctx, as(target.ID), req.ID, *tc.second, "")
 			} else {
-				err = svc.DecideMediation(ctx, as(mediator.ID), req.ID, core.ConnectionMediationDecisionSigned, "")
+				err = svc.DecideMediation(ctx, as(mediator.ID), req.ID, model.ConnectionMediationDecisionSigned, "")
 			}
 			require.ErrorContains(t, err, "No such request")
 
 			after := testutil.Must(factory.GetMediationRequest(ctx, db, req.ID))(t)
-			require.Equal(t, tc.first, after.TargetDecision.Val)
+			require.Equal(t, tc.first, *after.TargetDecision)
 			require.Equal(t, before.TargetDecidedAt, after.TargetDecidedAt)
 			require.Equal(t, before.ConnectionID, after.ConnectionID)
-			require.Equal(t, tc.first == approve, after.ConnectionID.Valid)
+			require.Equal(t, tc.first == approve, after.ConnectionID != nil)
 
 			connected := testutil.Must(factory.ConnectionExists(ctx, db, source.ID, target.ID))(t)
 			require.Equal(t, tc.first == approve, connected)
@@ -479,7 +480,7 @@ func TestDecideConnectionRequest_ConcurrentDecisionsAreSerialized(t *testing.T) 
 		var wg sync.WaitGroup
 		// approve and dismiss race: the duplicate-connection unique index would
 		// mask two approvals, but two different decisions must not both win.
-		for _, decision := range []core.ConnectionRequestDecision{core.ConnectionRequestDecisionApproved, core.ConnectionRequestDecisionDismissed} {
+		for _, decision := range []model.ConnectionRequestDecision{model.ConnectionRequestDecisionApproved, model.ConnectionRequestDecisionDismissed} {
 			wg.Go(func() {
 				<-start
 				errs <- svc.DecideRequest(ctx, as(target.ID), req.ID, decision, "")
@@ -499,8 +500,8 @@ func TestDecideConnectionRequest_ConcurrentDecisionsAreSerialized(t *testing.T) 
 		require.Equal(t, 1, failures, "exactly one of two racing decisions must be refused")
 
 		got := testutil.Must(factory.GetMediationRequest(ctx, db, req.ID))(t)
-		approved := got.TargetDecision.Val == core.ConnectionRequestDecisionApproved
-		require.Equal(t, approved, got.ConnectionID.Valid)
+		approved := *got.TargetDecision == model.ConnectionRequestDecisionApproved
+		require.Equal(t, approved, got.ConnectionID != nil)
 
 		connected := testutil.Must(factory.ConnectionExists(ctx, db, source.ID, target.ID))(t)
 		require.Equal(t, approved, connected)
@@ -561,10 +562,10 @@ func TestMalformedUserID_SurfacesAsError(t *testing.T) {
 		{"RequestMediation", func() error { return svc.RequestMediation(ctx, as(malformed), user.ID, "") }},
 		{"RevokeMediationRequest", func() error { return svc.RevokeMediation(ctx, as(malformed), user.ID) }},
 		{"DecideForwardMediationRequest", func() error {
-			return svc.DecideMediation(ctx, as(malformed), "00000000-0000-0000-0000-000000000000", core.ConnectionMediationDecisionSigned, "")
+			return svc.DecideMediation(ctx, as(malformed), "00000000-0000-0000-0000-000000000000", model.ConnectionMediationDecisionSigned, "")
 		}},
 		{"DecideConnectionRequest", func() error {
-			return svc.DecideRequest(ctx, as(user.ID), malformed, core.ConnectionRequestDecisionApproved, "")
+			return svc.DecideRequest(ctx, as(user.ID), malformed, model.ConnectionRequestDecisionApproved, "")
 		}},
 		{"EstablishConnection", func() error { return svc.Connect(ctx, as(malformed), user.ID) }},
 		{"DropConnection", func() error { return svc.Drop(ctx, as(malformed), user.ID) }},

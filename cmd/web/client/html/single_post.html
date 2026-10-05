@@ -6,7 +6,7 @@
 <main class="posts-page">
   <article class="post-view">
     <h1 class="us-post-header post-title">{{ .PostSubject }}</h1>
-    <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>{{ if .IsPublished }}<span class="dot">&middot;</span><span class="us-post-date">{{ renderHumanTime .PublishedAt.Time $.User.DBUser }}</span>{{ else }}<span class="dot">&middot;</span><span class="status">Draft</span>{{ end }}</p>
+    <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a>{{ if .IsPublished }}<span class="dot">&middot;</span><span class="us-post-date">{{ renderHumanTime (timeVal .PublishedAt) $.User.DBUser }}</span>{{ else }}<span class="dot">&middot;</span><span class="status">Draft</span>{{ end }}</p>
     {{ if .LinkedURL }}
     <a class="src" href="{{ .LinkedURL.URL }}" target="_blank" rel="noopener noreferrer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"></path><path d="M8 7h9v9"></path></svg>{{ .LinkedURL.URL }}</a>
     {{ end }}
@@ -91,7 +91,7 @@
     {{ range $.Comments }}
     <div id="comment{{ .PostID }}{{ .ID }}"
          class="c us-single-comment {{ if gt .Level 0 }}{{ if lt .Level 6 }}comment-{{ .Level }}{{ else }}comment-5{{ end }}{{ end }}">
-      <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a><span class="dot">&middot;</span><a class="q" hx-boost="false" href="{{ link "comment" .PostID .ID }}">{{ renderHumanTime .CreatedAt $.User.DBUser }}</a>{{ if .EditedAt.Valid }}<span class="dot">&middot;</span>edited {{ renderHumanTime .EditedAt.Time $.User.DBUser }}{{ end }}</p>
+      <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a><span class="dot">&middot;</span><a class="q" hx-boost="false" href="{{ link "comment" .PostID .ID }}">{{ renderHumanTime .CreatedAt $.User.DBUser }}</a>{{ if .EditedAt }}<span class="dot">&middot;</span>edited {{ renderHumanTime (timeVal .EditedAt) $.User.DBUser }}{{ end }}</p>
       <div class="prose prose-sm post-user-home">{{ markdown_comment .Body }}</div>
 
       {{ if $canLeaveComments }}

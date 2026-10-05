@@ -7,7 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -16,12 +16,13 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
 // newInvite creates an inviter and returns an invitation addressed to
 // a unique address (pending invitations are unique per address), for tests that accept it.
-func newInvite(t *testing.T, ctx context.Context, db *sqlx.DB) *core.UserInvitation {
+func newInvite(t *testing.T, ctx context.Context, db *sqlx.DB) *model.UserInvitation {
 	t.Helper()
 	inviter := testutil.Must(factory.User(ctx, db))(t)
 	return testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee-"+uuid.NewString()+"@example.test")))(t)
@@ -84,7 +85,7 @@ func TestAcceptInviteForm_SaveStartsTheCodeLogin(t *testing.T) {
 	_, err := form.Save(c)
 	require.NoError(t, err)
 
-	require.True(t, invite.CreatedUserID.Valid)
+	require.NotNil(t, invite.CreatedUserID)
 	require.NotEmpty(t, auth.LoginAttempt(c), "the visitor's session carries the attempt the code form finishes")
 	require.Nil(t, sessions.Default(c).Get("user"), "nobody is logged in before the code is typed")
 }
@@ -108,9 +109,9 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 
 	_, err := form.Save(c)
 	require.NoError(t, err)
-	require.True(t, invite.CreatedUserID.Valid)
+	require.NotNil(t, invite.CreatedUserID)
 
-	newUser := testutil.Must(factory.GetUser(ctx, db, invite.CreatedUserID.String))(t)
+	newUser := testutil.Must(factory.GetUser(ctx, db, lo.FromPtr(invite.CreatedUserID)))(t)
 
 	sendInvite := forms.SendInviteFormNew(accountsFor(db, sender), newUser).(*forms.SendInviteForm)
 	sendInvite.Input.Email = "invitee-of-invitee@example.test"

@@ -9,7 +9,7 @@
   <div class="field">
     <label for="acceptInviteEmail">Email address</label>
     <input name="email" type="email"
-                        value="{{ .Invite.InvitationEmail.String }}"
+                        value="{{ with .Invite.InvitationEmail }}{{ . }}{{ end }}"
                         id="acceptInviteEmail"
                         disabled>
   </div>

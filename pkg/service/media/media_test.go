@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	mediapkg "github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/media"
@@ -16,6 +16,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,11 +33,11 @@ func TestUpload(t *testing.T) {
 
 	cases := []struct {
 		name         string
-		actor        *core.User
+		actor        *model.User
 		data         []byte
 		wantErr      bool
 		checkStorage bool
-		checkRow     func(*testing.T, *core.MediaUpload)
+		checkRow     func(*testing.T, *model.MediaUpload)
 	}{
 		{
 			name:         "success",
@@ -44,10 +45,10 @@ func TestUpload(t *testing.T) {
 			data:         pngBytes,
 			wantErr:      false,
 			checkStorage: true,
-			checkRow: func(t *testing.T, row *core.MediaUpload) {
-				require.True(t, row.UserID.Valid)
-				require.Equal(t, user.ID, row.UserID.String)
-				require.False(t, row.RSSFeedID.Valid, "a user upload must not also be linked to a feed")
+			checkRow: func(t *testing.T, row *model.MediaUpload) {
+				require.NotNil(t, row.UserID)
+				require.Equal(t, user.ID, lo.FromPtr(row.UserID))
+				require.Nil(t, row.RSSFeedID, "a user upload must not also be linked to a feed")
 			},
 		},
 		{

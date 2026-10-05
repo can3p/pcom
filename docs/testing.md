@@ -89,9 +89,9 @@ its own database). Every test gets its own database, so `t.Parallel()` is safe a
 Builders such as `factory.User(ctx, exec, opts...)`, `factory.Post(ctx, exec, authorID, opts...)`,
 `factory.Comment(ctx, exec, postID, authorID, opts...)` and `factory.RSSFeed(ctx, exec, opts...)` insert one
 row with sane defaults. Functional options override specific fields, e.g. `factory.WithEmail("a@b.test")`,
-`factory.Published()`, `factory.Visibility(core.PostVisibilityPublic)`. Readers, in `read.go`, fetch state
+`factory.Published()`, `factory.Visibility(model.PostVisibilityPublic)`. Readers, in `read.go`, fetch state
 back through the same `exec`: `factory.GetUser`, `factory.GetPost`, `factory.ListPosts`, `factory.ListComments`,
-`factory.ListOutgoingEmails`, `factory.ConnectionExists`.
+`factory.ListOutgoingEmails` (filtered by `factory.EmailType("login_code")`), `factory.ConnectionExists`.
 
 The package imports no `testing`, so it also works from e2e's subprocess-backed database. Tests reach the ORM
 only through it (ground rule 1); a missing builder or reader is requested from the coordinator, not

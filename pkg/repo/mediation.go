@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/volatiletech/null/v8"
@@ -16,13 +17,13 @@ import (
 
 // MediationRequestBetween returns the request of who to target. ErrNotFound
 // when there is none.
-func (s *Store) MediationRequestBetween(ctx context.Context, whoID, targetID string) (*core.UserConnectionMediationRequest, error) {
+func (s *Store) MediationRequestBetween(ctx context.Context, whoID, targetID string) (*model.UserConnectionMediationRequest, error) {
 	req, err := core.UserConnectionMediationRequests(
 		core.UserConnectionMediationRequestWhere.WhoUserID.EQ(whoID),
 		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetID),
 	).One(ctx, s.exec)
 
-	return req, notFound(err)
+	return toModel[model.UserConnectionMediationRequest](req), notFound(err)
 }
 
 // MediationRequestExists reports whether who has a request to target.
@@ -76,7 +77,7 @@ func (s *Store) DeleteMediationRequestBetween(ctx context.Context, whoID, target
 
 // UndecidedRequestBetween returns request requestID when both its sides are
 // among userIDs and the target has not decided yet. ErrNotFound otherwise.
-func (s *Store) UndecidedRequestBetween(ctx context.Context, requestID string, userIDs []string) (*core.UserConnectionMediationRequest, error) {
+func (s *Store) UndecidedRequestBetween(ctx context.Context, requestID string, userIDs []string) (*model.UserConnectionMediationRequest, error) {
 	req, err := core.UserConnectionMediationRequests(
 		core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
 		core.UserConnectionMediationRequestWhere.WhoUserID.IN(userIDs),
@@ -84,11 +85,11 @@ func (s *Store) UndecidedRequestBetween(ctx context.Context, requestID string, u
 		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
 	).One(ctx, s.exec)
 
-	return req, notFound(err)
+	return toModel[model.UserConnectionMediationRequest](req), notFound(err)
 }
 
 // AddMediatorDecision records the decision of a mediator on a request.
-func (s *Store) AddMediatorDecision(ctx context.Context, requestID, mediatorID string, decision core.ConnectionMediationDecision, note string) error {
+func (s *Store) AddMediatorDecision(ctx context.Context, requestID, mediatorID string, decision model.ConnectionMediationDecision, note string) error {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return err
@@ -98,7 +99,7 @@ func (s *Store) AddMediatorDecision(ctx context.Context, requestID, mediatorID s
 		ID:           id.String(),
 		MediationID:  requestID,
 		UserID:       mediatorID,
-		Decision:     decision,
+		Decision:     core.ConnectionMediationDecision(decision),
 		DecidedAt:    time.Now(),
 		MediatorNote: null.NewString(note, note != ""),
 	}
@@ -109,7 +110,7 @@ func (s *Store) AddMediatorDecision(ctx context.Context, requestID, mediatorID s
 // LockUndecidedRequest returns request requestID addressed to targetID, if the
 // target has not decided yet, and locks it until the transaction ends.
 // ErrNotFound otherwise.
-func (s *Store) LockUndecidedRequest(ctx context.Context, requestID, targetID string) (*core.UserConnectionMediationRequest, error) {
+func (s *Store) LockUndecidedRequest(ctx context.Context, requestID, targetID string) (*model.UserConnectionMediationRequest, error) {
 	req, err := core.UserConnectionMediationRequests(
 		core.UserConnectionMediationRequestWhere.ID.EQ(requestID),
 		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetID),
@@ -117,29 +118,34 @@ func (s *Store) LockUndecidedRequest(ctx context.Context, requestID, targetID st
 		qm.For("UPDATE"),
 	).One(ctx, s.exec)
 
-	return req, notFound(err)
+	return toModel[model.UserConnectionMediationRequest](req), notFound(err)
 }
 
 // RecordTargetDecision stores the decision of the request's target. A
 // connectionID (empty for none) links the connection an approval created.
-func (s *Store) RecordTargetDecision(ctx context.Context, req *core.UserConnectionMediationRequest, decision core.ConnectionRequestDecision, connectionID, note string) error {
+func (s *Store) RecordTargetDecision(ctx context.Context, req *model.UserConnectionMediationRequest, decision model.ConnectionRequestDecision, connectionID, note string) error {
 	if connectionID != "" {
-		req.ConnectionID = null.StringFrom(connectionID)
+		req.ConnectionID = new(connectionID)
 	}
 
-	req.TargetDecision = core.NullConnectionRequestDecisionFrom(decision)
-	req.TargetDecidedAt = null.TimeFrom(time.Now())
-	req.TargetNote = null.NewString(note, note != "")
+	req.TargetDecision = new(decision)
+	req.TargetDecidedAt = new(time.Now())
+	req.TargetNote = nil
+	if note != "" {
+		req.TargetNote = new(note)
+	}
 
-	_, err := req.Update(ctx, s.exec, boil.Infer())
+	return write(req, func(c *core.UserConnectionMediationRequest) error {
+		_, err := c.Update(ctx, s.exec, boil.Infer())
 
-	return err
+		return err
+	})
 }
 
 // RequestsToDecide returns the undecided requests addressed to targetID that
 // at least one mediator signed, with the requester and the signing mediators
 // loaded.
-func (s *Store) RequestsToDecide(ctx context.Context, targetID string) ([]*core.UserConnectionMediationRequest, error) {
+func (s *Store) RequestsToDecide(ctx context.Context, targetID string) ([]*model.UserConnectionMediationRequest, error) {
 	reqs, err := core.UserConnectionMediationRequests(
 		core.UserConnectionMediationRequestWhere.TargetUserID.EQ(targetID),
 		core.UserConnectionMediationRequestWhere.TargetDecision.IsNull(),
@@ -163,12 +169,12 @@ func (s *Store) RequestsToDecide(ctx context.Context, targetID string) ([]*core.
 		}
 	}
 
-	return signed, nil
+	return toModels[model.UserConnectionMediationRequest](signed), nil
 }
 
 // RequestsToMediate returns the undecided requests between users of userIDs
 // that mediatorID has not answered yet, with both sides loaded.
-func (s *Store) RequestsToMediate(ctx context.Context, userIDs []string, mediatorID string) ([]*core.UserConnectionMediationRequest, error) {
+func (s *Store) RequestsToMediate(ctx context.Context, userIDs []string, mediatorID string) ([]*model.UserConnectionMediationRequest, error) {
 	reqs, err := core.UserConnectionMediationRequests(
 		core.UserConnectionMediationRequestWhere.WhoUserID.IN(userIDs),
 		core.UserConnectionMediationRequestWhere.TargetUserID.IN(userIDs),
@@ -191,5 +197,5 @@ func (s *Store) RequestsToMediate(ctx context.Context, userIDs []string, mediato
 		}
 	}
 
-	return open, nil
+	return toModels[model.UserConnectionMediationRequest](open), nil
 }

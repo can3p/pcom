@@ -10,11 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
-	"github.com/volatiletech/null/v8"
 )
 
 var headerRe = regexp.MustCompile(`^(\w+)\s*:\s*(.+)?$`)
@@ -66,18 +65,18 @@ type AdditionalFields struct {
 }
 
 type PostWithMeta struct {
-	Post       *core.Post
+	Post       *model.Post
 	Additional *AdditionalFields
 }
 
-func DeserializePost(b []byte) (*core.Post, *AdditionalFields, error) {
+func DeserializePost(b []byte) (*model.Post, *AdditionalFields, error) {
 	headers, body, err := parseExportedPost(b)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
-	post := &core.Post{
+	post := &model.Post{
 		Body: body,
 	}
 
@@ -94,14 +93,17 @@ func DeserializePost(b []byte) (*core.Post, *AdditionalFields, error) {
 
 			post.ID = value
 		case string(Subject):
-			post.Subject = null.NewString(value, value != "")
+			post.Subject = nil
+			if value != "" {
+				post.Subject = &value
+			}
 		case string(Url):
 			additionalFields = &AdditionalFields{URL: value}
 		case string(Visibility):
-			vis := core.PostVisibility(value)
+			vis := model.PostVisibility(value)
 
 			if err := vis.IsValid(); err != nil {
-				allVis := lo.Map(core.AllPostVisibility(), func(v core.PostVisibility, idx int) string { return v.String() })
+				allVis := lo.Map(model.AllPostVisibility(), func(v model.PostVisibility, idx int) string { return v.String() })
 				return nil, nil, errors.Errorf("Invalid visibility value, possible values are: %s", strings.Join(allVis, ", "))
 			}
 
@@ -113,7 +115,7 @@ func DeserializePost(b []byte) (*core.Post, *AdditionalFields, error) {
 				return nil, nil, errors.Errorf("Invalid publish date")
 			}
 
-			post.PublishedAt = null.TimeFrom(d)
+			post.PublishedAt = new(d)
 		default:
 			return nil, nil, errors.Errorf("Unknown header: %s", name)
 		}

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/gin-gonic/gin"
@@ -17,11 +17,11 @@ type WhitelistConnectionInput struct {
 
 type WhitelistConnection struct {
 	*forms.FormBase[WhitelistConnectionInput]
-	User        *core.User
+	User        *model.User
 	Connections *connections.Service
 }
 
-func WhitelistConnectionNew(u *core.User, conns *connections.Service) forms.Form {
+func WhitelistConnectionNew(u *model.User, conns *connections.Service) forms.Form {
 	var form forms.Form = &WhitelistConnection{
 		FormBase: &forms.FormBase[WhitelistConnectionInput]{
 			Name:                "whitelist_connection",

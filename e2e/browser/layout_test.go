@@ -9,7 +9,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -56,10 +56,10 @@ func TestLayout_Pages(t *testing.T) {
 
 	// A public profile and post, so an anonymous visitor and a second,
 	// unrelated logged-in user can both reach them.
-	publicUser, err := factory.User(ctx, app.DB, factory.WithVisibility(core.ProfileVisibilityPublic))
+	publicUser, err := factory.User(ctx, app.DB, factory.WithVisibility(model.ProfileVisibilityPublic))
 	require.NoError(t, err)
 
-	publicPost, err := factory.Post(ctx, app.DB, publicUser.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	publicPost, err := factory.Post(ctx, app.DB, publicUser.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	share, err := factory.PostShare(ctx, app.DB, publicPost.ID)
@@ -129,7 +129,7 @@ func TestLayout_Pages(t *testing.T) {
 // nil), and asserts no horizontal overflow and every image loaded. Guard
 // violations (console errors, CSP violations, failed/404/5xx requests) fail
 // the test through browser.Page's own cleanup.
-func b6CheckPage(t *testing.T, app *e2e.App, path string, user *core.User, width, height int) {
+func b6CheckPage(t *testing.T, app *e2e.App, path string, user *model.User, width, height int) {
 	t.Helper()
 
 	opts := []browser.PageOption{

@@ -6,9 +6,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/graph"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 type CommentCapabilities struct {
@@ -19,8 +19,8 @@ type CommentCapabilities struct {
 }
 
 type Comment struct {
-	*core.PostComment
-	Author       *core.User
+	*model.PostComment
+	Author       *model.User
 	Post         *Post
 	Capabilities *CommentCapabilities
 	Level        int64
@@ -28,13 +28,13 @@ type Comment struct {
 
 func (c *Comment) String() string {
 	return fmt.Sprintf("Comment{id:%s, parent_id: %s, date: %s, username: %s}",
-		c.ID, c.ParentCommentID.String, c.CreatedAt.Format(time.ANSIC), c.Author.Username)
+		c.ID, lo.FromPtr(c.ParentCommentID), c.CreatedAt.Format(time.ANSIC), c.Author.Username)
 }
 
 // CanSeePost reports whether a visitor at the given radius from the author may
 // read the post. A draft is visible to its author only, whatever its visibility.
-func CanSeePost(p *core.Post, radius graph.Radius) bool {
-	if !p.PublishedAt.Valid && !radius.IsSameUser() {
+func CanSeePost(p *model.Post, radius graph.Radius) bool {
+	if p.PublishedAt == nil && !radius.IsSameUser() {
 		return false
 	}
 
@@ -43,9 +43,9 @@ func CanSeePost(p *core.Post, radius graph.Radius) bool {
 		fallthrough
 	case radius.IsDirect():
 		fallthrough
-	case radius.IsSecondDegree() && p.VisibilityRadius == core.PostVisibilitySecondDegree:
+	case radius.IsSecondDegree() && p.VisibilityRadius == model.PostVisibilitySecondDegree:
 		fallthrough
-	case p.VisibilityRadius == core.PostVisibilityPublic:
+	case p.VisibilityRadius == model.PostVisibilityPublic:
 		return true
 	}
 
@@ -70,15 +70,15 @@ func GetPostCapabilities(radius graph.Radius) *PostCapabilities {
 	}
 }
 
-func PostSubject(subject null.String) string {
-	return cmp.Or(subject.String, "No Subject")
+func PostSubject(subject *string) string {
+	return cmp.Or(lo.FromPtr(subject), "No Subject")
 }
 
 type Post struct {
-	*core.Post
-	LinkedURL      *core.NormalizedURL
-	Author         *core.User
-	Via            []*core.User
+	*model.Post
+	LinkedURL      *model.NormalizedURL
+	Author         *model.User
+	Via            []*model.User
 	Capabilities   *PostCapabilities
 	CommentsNumber int64
 	Comments       []*Comment
@@ -87,29 +87,29 @@ type Post struct {
 }
 
 func (p *Post) IsPublished() bool {
-	return p.PublishedAt.Valid
+	return p.PublishedAt != nil
 }
 
 func (p *Post) PostSubject() string {
 	return PostSubject(p.Subject)
 }
 
-func ConstructPost(user *core.User, post *core.Post, radius graph.Radius, via []*core.User, editPreview bool) *Post {
+func ConstructPost(user *model.User, post *model.Post, radius graph.Radius, via []*model.User, editPreview bool) *Post {
 	var commentsNum int64
 
-	if (radius.IsDirect() || radius.IsSameUser()) && post.R.PostStat != nil {
-		commentsNum = post.R.PostStat.CommentsNumber
+	if (radius.IsDirect() || radius.IsSameUser()) && post.PostStat != nil {
+		commentsNum = post.PostStat.CommentsNumber
 	}
 
-	var linkedURL *core.NormalizedURL
-	if post.R != nil && post.R.URL != nil {
-		linkedURL = post.R.URL
+	var linkedURL *model.NormalizedURL
+	if post.URL != nil {
+		linkedURL = post.URL
 	}
 
 	return &Post{
 		Post:           post,
 		LinkedURL:      linkedURL,
-		Author:         post.R.User,
+		Author:         post.User,
 		Via:            via,
 		Capabilities:   GetPostCapabilities(radius),
 		CommentsNumber: commentsNum,
@@ -118,12 +118,12 @@ func ConstructPost(user *core.User, post *core.Post, radius graph.Radius, via []
 	}
 }
 
-func ConstructComments(user *core.User, comments core.PostCommentSlice, radius graph.Radius) []*Comment {
+func ConstructComments(user *model.User, comments []*model.PostComment, radius graph.Radius) []*Comment {
 	if len(comments) == 0 {
 		return nil
 	}
 
-	slices.SortStableFunc(comments, func(left *core.PostComment, right *core.PostComment) int {
+	slices.SortStableFunc(comments, func(left *model.PostComment, right *model.PostComment) int {
 		return left.CreatedAt.Compare(right.CreatedAt)
 	})
 
@@ -133,7 +133,7 @@ func ConstructComments(user *core.User, comments core.PostCommentSlice, radius g
 	for _, dbComment := range comments {
 		comment := &Comment{
 			PostComment: dbComment,
-			Author:      dbComment.R.User,
+			Author:      dbComment.User,
 			Capabilities: &CommentCapabilities{
 				CanRespond: radius.IsSameUser() || radius.IsDirect(),
 				CanEdit:    user != nil && user.ID == dbComment.UserID && GetPostCapabilities(radius).CanLeaveComments,
@@ -141,12 +141,12 @@ func ConstructComments(user *core.User, comments core.PostCommentSlice, radius g
 			Level: 0,
 		}
 
-		if comment.ParentCommentID.String != "" {
-			if _, ok := nested[comment.ParentCommentID.String]; !ok {
-				nested[comment.ParentCommentID.String] = []*Comment{}
+		if lo.FromPtr(comment.ParentCommentID) != "" {
+			if _, ok := nested[lo.FromPtr(comment.ParentCommentID)]; !ok {
+				nested[lo.FromPtr(comment.ParentCommentID)] = []*Comment{}
 			}
 
-			nested[comment.ParentCommentID.String] = append(nested[comment.ParentCommentID.String], comment)
+			nested[lo.FromPtr(comment.ParentCommentID)] = append(nested[lo.FromPtr(comment.ParentCommentID)], comment)
 			continue
 		}
 

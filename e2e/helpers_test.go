@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/stretchr/testify/require"
 )
 
 // newUser creates a confirmed user.
-func newUser(t *testing.T, app *e2e.App, opts ...factory.UserOpt) *core.User {
+func newUser(t *testing.T, app *e2e.App, opts ...factory.UserOpt) *model.User {
 	t.Helper()
 
 	u, err := factory.User(context.Background(), app.DB, opts...)
@@ -21,7 +21,7 @@ func newUser(t *testing.T, app *e2e.App, opts ...factory.UserOpt) *core.User {
 }
 
 // loginAs returns a client logged in as u.
-func loginAs(t *testing.T, app *e2e.App, u *core.User) *e2e.Client {
+func loginAs(t *testing.T, app *e2e.App, u *model.User) *e2e.Client {
 	t.Helper()
 
 	c := app.Client(t)
@@ -31,7 +31,7 @@ func loginAs(t *testing.T, app *e2e.App, u *core.User) *e2e.Client {
 }
 
 // newLoggedIn creates a user and a client logged in as them.
-func newLoggedIn(t *testing.T, app *e2e.App) (*core.User, *e2e.Client) {
+func newLoggedIn(t *testing.T, app *e2e.App) (*model.User, *e2e.Client) {
 	t.Helper()
 
 	u := newUser(t, app)

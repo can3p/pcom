@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -13,7 +14,7 @@ import (
 // form an undirected graph, the ids go in in both combinations to simplify
 // queries, at the cost of twice the rows. It is meant to run in a
 // transaction. The (user1, user2) row is returned first.
-func (s *Store) CreateConnection(ctx context.Context, user1ID, user2ID string) (*core.UserConnection, *core.UserConnection, error) {
+func (s *Store) CreateConnection(ctx context.Context, user1ID, user2ID string) (*model.UserConnection, *model.UserConnection, error) {
 	id1, err := uuid.NewV7()
 	if err != nil {
 		return nil, nil, err
@@ -34,7 +35,7 @@ func (s *Store) CreateConnection(ctx context.Context, user1ID, user2ID string) (
 		return nil, nil, err
 	}
 
-	return conn1, conn2, nil
+	return toModel[model.UserConnection](conn1), toModel[model.UserConnection](conn2), nil
 }
 
 // DeleteConnectionsBetween removes the connection of two users, in both

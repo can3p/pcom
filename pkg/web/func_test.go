@@ -10,7 +10,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -73,7 +73,7 @@ func postsService(db *sqlx.DB) *posts.Service {
 
 // userDataFor wraps u as a logged-in *auth.UserData, the way auth.Auth
 // would for a signed-in request.
-func userDataFor(u *core.User) *auth.UserData {
+func userDataFor(u *model.User) *auth.UserData {
 	return &auth.UserData{DBUser: u, IsLoggedIn: true}
 }
 
@@ -105,7 +105,7 @@ func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 
 // settingsPage builds the settings page the way its route does: the service
 // gathers what it shows, the page builder shapes it.
-func settingsPage(c *gin.Context, exec boil.ContextExecutor, user *core.User) (*SettingsPage, error) {
+func settingsPage(c *gin.Context, exec boil.ContextExecutor, user *model.User) (*SettingsPage, error) {
 	svc := accounts.New(repo.Using(exec), nil, feeds.New(repo.Using(exec), nil))
 
 	view, err := svc.Settings(c, user)
@@ -147,7 +147,7 @@ func TestWrite(t *testing.T) {
 
 	cases := []struct {
 		name       string
-		user       *core.User
+		user       *model.User
 		target     string
 		wantPrompt bool
 	}{
@@ -182,7 +182,7 @@ func TestEditPost(t *testing.T) {
 	author := testutil.Must(factory.User(ctx, db))(t)
 	stranger := testutil.Must(factory.User(ctx, db))(t)
 	url := testutil.Must(factory.NormalizedURL(ctx, db))(t)
-	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.WithURL(url.ID), factory.Visibility(core.PostVisibilitySecondDegree)))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.WithURL(url.ID), factory.Visibility(model.PostVisibilitySecondDegree)))(t)
 	asker := testutil.Must(factory.User(ctx, db))(t)
 	prompt := testutil.Must(factory.PostPrompt(ctx, db, asker.ID, author.ID, factory.WithPost(post.ID)))(t)
 
@@ -193,9 +193,9 @@ func TestEditPost(t *testing.T) {
 		page := testutil.Must(EditPost(c, postsService(db), userDataFor(author), post.ID).Get())(t)
 
 		require.Equal(t, post.ID, page.PostID)
-		require.Equal(t, post.Subject.String, page.Input.Subject)
+		require.Equal(t, lo.FromPtr(post.Subject), page.Input.Subject)
 		require.Equal(t, post.Body, page.Input.Body)
-		require.Equal(t, core.PostVisibilitySecondDegree, page.Input.Visibility)
+		require.Equal(t, model.PostVisibilitySecondDegree, page.Input.Visibility)
 		require.Equal(t, url.URL, page.Input.URL)
 		require.False(t, page.IsPublished)
 		require.NotNil(t, page.Prompt)
@@ -204,7 +204,7 @@ func TestEditPost(t *testing.T) {
 
 	errCases := []struct {
 		name   string
-		user   *core.User
+		user   *model.User
 		postID string
 		want   error
 	}{
@@ -226,7 +226,7 @@ func TestEditPost(t *testing.T) {
 
 // controlsPage runs what the /controls route does: the service gathers the
 // data, the page builder shapes it.
-func controlsPage(t *testing.T, db *sqlx.DB, user *core.User) *ControlsPage {
+func controlsPage(t *testing.T, db *sqlx.DB, user *model.User) *ControlsPage {
 	t.Helper()
 
 	view := testutil.Must(connections.New(repo.New(db)).Controls(context.Background(), user))(t)
@@ -266,13 +266,13 @@ func TestControls(t *testing.T) {
 	// a second mediation request the user has already signed off on: it
 	// must not show up among the pending ones anymore.
 	decidedMediation := testutil.Must(factory.MediationRequest(ctx, db, alice.ID, carol.ID))(t)
-	testutil.Must(factory.MediatorDecision(ctx, db, decidedMediation.ID, user.ID, core.ConnectionMediationDecisionSigned))(t)
+	testutil.Must(factory.MediatorDecision(ctx, db, decidedMediation.ID, user.ID, model.ConnectionMediationDecisionSigned))(t)
 
 	// connection requests: a stranger asking to connect to the user,
 	// vouched for by alice.
 	stranger := testutil.Must(factory.User(ctx, db))(t)
 	connRequest := testutil.Must(factory.MediationRequest(ctx, db, stranger.ID, user.ID))(t)
-	testutil.Must(factory.MediatorDecision(ctx, db, connRequest.ID, alice.ID, core.ConnectionMediationDecisionSigned))(t)
+	testutil.Must(factory.MediatorDecision(ctx, db, connRequest.ID, alice.ID, model.ConnectionMediationDecisionSigned))(t)
 
 	// a second request targeting the user where nobody has signed yet:
 	// it must not appear as a connection request.
@@ -341,7 +341,7 @@ func TestSettings(t *testing.T) {
 
 	require.Equal(t, int64(2), page.AvailableInvites, "3 slots minus 1 already sent")
 	require.Len(t, page.UsedInvites, 1)
-	require.Equal(t, "invitee@example.test", page.UsedInvites[0].InvitationEmail.String)
+	require.Equal(t, "invitee@example.test", lo.FromPtr(page.UsedInvites[0].InvitationEmail))
 
 	require.NotNil(t, page.ActiveAPIKey)
 	require.Equal(t, apiKey.APIKey, page.ActiveAPIKey.APIKey)
@@ -368,10 +368,10 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 	connect(t, db, ctx, user.ID, direct.ID)
 	connect(t, db, ctx, direct.ID, secondDegree.ID)
 
-	directPost := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly)))(t)
-	publicPost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic)))(t)
-	secondDegreeVisiblePost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilitySecondDegree)))(t)
-	hiddenPost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly)))(t)
+	directPost := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly)))(t)
+	publicPost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic)))(t)
+	secondDegreeVisiblePost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(model.PostVisibilitySecondDegree)))(t)
+	hiddenPost := testutil.Must(factory.Post(ctx, db, secondDegree.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly)))(t)
 	strangerPost := testutil.Must(factory.Post(ctx, db, stranger.ID, factory.Published()))(t)
 
 	c := newTestContext(t, http.MethodGet, "/feed")
@@ -391,8 +391,8 @@ func TestFeed_PostVisibilityAndVia(t *testing.T) {
 	require.NotContains(t, byID, strangerPost.ID, "a post from an unconnected user never shows up")
 
 	require.Empty(t, byID[directPost.ID].Post.Via, "a direct connection's post has no via users")
-	require.Equal(t, []string{direct.ID}, lo.Map(byID[publicPost.ID].Post.Via, func(u *core.User, _ int) string { return u.ID }))
-	require.Equal(t, []string{direct.ID}, lo.Map(byID[secondDegreeVisiblePost.ID].Post.Via, func(u *core.User, _ int) string { return u.ID }))
+	require.Equal(t, []string{direct.ID}, lo.Map(byID[publicPost.ID].Post.Via, func(u *model.User, _ int) string { return u.ID }))
+	require.Equal(t, []string{direct.ID}, lo.Map(byID[secondDegreeVisiblePost.ID].Post.Via, func(u *model.User, _ int) string { return u.ID }))
 }
 
 func TestFeed_RSSCommentsOrderingAndLinks(t *testing.T) {

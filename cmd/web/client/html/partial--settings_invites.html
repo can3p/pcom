@@ -13,7 +13,7 @@
   {{ if gt (len .Used) 0 }}
   <ul class="settings-list" aria-label="Sent invites">
     {{ range .Used }}
-    <li class="settings-invite">{{ .InvitationEmail.String }}</li>
+    <li class="settings-invite">{{ with .InvitationEmail }}{{ . }}{{ end }}</li>
     {{ end }}
   </ul>
   {{ end }}

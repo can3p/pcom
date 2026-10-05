@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 )
 
@@ -23,12 +23,12 @@ type ListInput struct {
 
 // Listing is a page of posts, newest first. Cursor is empty on the last page.
 type Listing struct {
-	Posts  []*core.Post
+	Posts  []*model.Post
 	Cursor string
 }
 
 // List returns a page of the actor's posts, drafts included.
-func (s *Service) List(ctx context.Context, actor *core.User, in ListInput) (*Listing, error) {
+func (s *Service) List(ctx context.Context, actor *model.User, in ListInput) (*Listing, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}

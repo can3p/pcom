@@ -6,7 +6,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,7 +43,7 @@ func mountRSSActions(d *Deps, r *gin.RouterGroup) {
 		c.HTML(http.StatusOK, forms.FeedsSectionTemplate, forms.FeedsSection(subs, user, addForm))
 	})
 
-	r.POST("/dissmiss_rss_item", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
+	r.POST("/dissmiss_rss_item", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		SubscriptionItemID string `json:"id"`
 	}) error {
 		return feeds.Dismiss(c, u, in.SubscriptionItemID)

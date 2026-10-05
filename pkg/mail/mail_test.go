@@ -4,45 +4,22 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/golden"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
 const testFrom = "noreply@pcom.test"
 
-// setPostURL sets the URL relation on a post using reflection.
-// This is necessary because the R field is unexported in sqlboiler models,
-// but we need to test the mail code path that uses post.R.URL.
-func setPostURL(post *core.Post, url *core.NormalizedURL) {
-	postVal := reflect.ValueOf(post).Elem()
-
-	// Get the type of the R field
-	rField, ok := reflect.TypeFor[core.Post]().FieldByName("R")
-	if !ok {
-		return
-	}
-
-	// Create a new instance of the R type
-	rType := rField.Type
-	if rType.Kind() == reflect.Pointer {
-		rType = rType.Elem()
-	}
-	rVal := reflect.New(rType).Elem()
-
-	// Set the URL field
-	rVal.FieldByName("URL").Set(reflect.ValueOf(url))
-
-	// Set the R field on the post
-	postVal.FieldByName("R").Set(rVal.Addr())
+// setPostURL sets the URL relation on a post, as if it had been loaded.
+func setPostURL(post *model.Post, url *model.NormalizedURL) {
+	post.URL = url
 }
 
 // deliver queues out on s, the way the posts service does, so the tests read
@@ -109,19 +86,19 @@ func TestConfirmSignup(t *testing.T) {
 func TestNewPost(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	connection := &core.User{
+	connection := &model.User{
 		ID:       "user-2",
 		Email:    "connection@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Test Post"),
+		Subject: new("Test Post"),
 		Body:    "This is a test post body",
 		UserID:  user.ID,
 	}
@@ -142,14 +119,14 @@ func TestNewPost(t *testing.T) {
 func TestNewPost_NotToMyself(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Test Post"),
+		Subject: new("Test Post"),
 		Body:    "This is a test post body",
 		UserID:  user.ID,
 	}
@@ -169,23 +146,23 @@ func TestNewPost_NotToMyself(t *testing.T) {
 func TestPostCommentAuthor(t *testing.T) {
 	t.Parallel()
 
-	commenter := &core.User{
+	commenter := &model.User{
 		ID:       "user-1",
 		Email:    "commenter@example.test",
 		Username: "alice",
 	}
-	author := &core.User{
+	author := &model.User{
 		ID:       "user-2",
 		Email:    "author@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Original Post"),
+		Subject: new("Original Post"),
 		Body:    "Post body",
 		UserID:  author.ID,
 	}
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:     "comment-1",
 		PostID: post.ID,
 		UserID: commenter.ID,
@@ -208,18 +185,18 @@ func TestPostCommentAuthor(t *testing.T) {
 func TestPostCommentAuthor_NotToMyself(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Original Post"),
+		Subject: new("Original Post"),
 		Body:    "Post body",
 		UserID:  user.ID,
 	}
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:     "comment-1",
 		PostID: post.ID,
 		UserID: user.ID,
@@ -241,23 +218,23 @@ func TestPostCommentAuthor_NotToMyself(t *testing.T) {
 func TestPostCommentParticipants(t *testing.T) {
 	t.Parallel()
 
-	commenter := &core.User{
+	commenter := &model.User{
 		ID:       "user-1",
 		Email:    "commenter@example.test",
 		Username: "alice",
 	}
-	participant := &core.User{
+	participant := &model.User{
 		ID:       "user-2",
 		Email:    "participant@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Original Post"),
+		Subject: new("Original Post"),
 		Body:    "Post body",
 		UserID:  "user-3",
 	}
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:     "comment-1",
 		PostID: post.ID,
 		UserID: commenter.ID,
@@ -280,18 +257,18 @@ func TestPostCommentParticipants(t *testing.T) {
 func TestPostCommentParticipants_NotToMyself(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Original Post"),
+		Subject: new("Original Post"),
 		Body:    "Post body",
 		UserID:  "user-3",
 	}
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:     "comment-1",
 		PostID: post.ID,
 		UserID: user.ID,
@@ -313,17 +290,17 @@ func TestPostCommentParticipants_NotToMyself(t *testing.T) {
 func TestPostPrompt(t *testing.T) {
 	t.Parallel()
 
-	asker := &core.User{
+	asker := &model.User{
 		ID:       "user-1",
 		Email:    "asker@example.test",
 		Username: "alice",
 	}
-	recipient := &core.User{
+	recipient := &model.User{
 		ID:       "user-2",
 		Email:    "recipient@example.test",
 		Username: "bob",
 	}
-	prompt := &core.PostPrompt{
+	prompt := &model.PostPrompt{
 		ID:          "prompt-1",
 		AskerID:     asker.ID,
 		RecipientID: recipient.ID,
@@ -345,12 +322,12 @@ func TestPostPrompt(t *testing.T) {
 func TestPostPrompt_NotToMyself(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	prompt := &core.PostPrompt{
+	prompt := &model.PostPrompt{
 		ID:          "prompt-1",
 		AskerID:     user.ID,
 		RecipientID: user.ID,
@@ -371,28 +348,28 @@ func TestPostPrompt_NotToMyself(t *testing.T) {
 func TestPostPromptAnswer(t *testing.T) {
 	t.Parallel()
 
-	asker := &core.User{
+	asker := &model.User{
 		ID:       "user-1",
 		Email:    "asker@example.test",
 		Username: "alice",
 	}
-	responder := &core.User{
+	responder := &model.User{
 		ID:       "user-2",
 		Email:    "responder@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("My Answer"),
+		Subject: new("My Answer"),
 		Body:    "Here is my answer to the prompt",
 		UserID:  responder.ID,
 	}
-	prompt := &core.PostPrompt{
+	prompt := &model.PostPrompt{
 		ID:          "prompt-1",
 		AskerID:     asker.ID,
 		RecipientID: responder.ID,
 		Message:     "What is your favorite hobby?",
-		PostID:      null.StringFrom(post.ID),
+		PostID:      new(post.ID),
 	}
 
 	sender := fakesender.New()
@@ -410,19 +387,19 @@ func TestPostPromptAnswer(t *testing.T) {
 func TestNewPost_NoSubject(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	connection := &core.User{
+	connection := &model.User{
 		ID:       "user-2",
 		Email:    "connection@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.String{}, // No subject
+		Subject: nil, // No subject
 		Body:    "This is a test post body",
 		UserID:  user.ID,
 	}
@@ -443,25 +420,25 @@ func TestNewPost_NoSubject(t *testing.T) {
 func TestNewPost_WithLinkedURL(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	connection := &core.User{
+	connection := &model.User{
 		ID:       "user-2",
 		Email:    "connection@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Check out this article"),
+		Subject: new("Check out this article"),
 		Body:    "This is a test post body",
 		UserID:  user.ID,
-		URLID:   null.StringFrom("url-1"),
+		URLID:   new("url-1"),
 	}
 	// Post has a linked URL relation loaded
-	setPostURL(post, &core.NormalizedURL{
+	setPostURL(post, &model.NormalizedURL{
 		ID:  "url-1",
 		URL: "https://example.com/article",
 	})
@@ -482,19 +459,19 @@ func TestNewPost_WithLinkedURL(t *testing.T) {
 func TestNewPost_SubjectWithSpecialChars(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	connection := &core.User{
+	connection := &model.User{
 		ID:       "user-2",
 		Email:    "connection@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom(`Test <b>bold</b> and "quotes"`),
+		Subject: new(`Test <b>bold</b> and "quotes"`),
 		Body:    "This is a test post body",
 		UserID:  user.ID,
 	}
@@ -515,19 +492,19 @@ func TestNewPost_SubjectWithSpecialChars(t *testing.T) {
 func TestNewPost_EmptyBody(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "user@example.test",
 		Username: "alice",
 	}
-	connection := &core.User{
+	connection := &model.User{
 		ID:       "user-2",
 		Email:    "connection@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Test Post"),
+		Subject: new("Test Post"),
 		Body:    "", // Empty body
 		UserID:  user.ID,
 	}
@@ -548,28 +525,28 @@ func TestNewPost_EmptyBody(t *testing.T) {
 func TestPostCommentAuthor_WithURL(t *testing.T) {
 	t.Parallel()
 
-	commenter := &core.User{
+	commenter := &model.User{
 		ID:       "user-1",
 		Email:    "commenter@example.test",
 		Username: "alice",
 	}
-	author := &core.User{
+	author := &model.User{
 		ID:       "user-2",
 		Email:    "author@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Original Post"),
+		Subject: new("Original Post"),
 		Body:    "Post body",
 		UserID:  author.ID,
-		URLID:   null.StringFrom("url-1"),
+		URLID:   new("url-1"),
 	}
-	setPostURL(post, &core.NormalizedURL{
+	setPostURL(post, &model.NormalizedURL{
 		ID:  "url-1",
 		URL: "https://example.com/article",
 	})
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:     "comment-1",
 		PostID: post.ID,
 		UserID: commenter.ID,
@@ -592,28 +569,28 @@ func TestPostCommentAuthor_WithURL(t *testing.T) {
 func TestPostCommentParticipants_WithURL(t *testing.T) {
 	t.Parallel()
 
-	commenter := &core.User{
+	commenter := &model.User{
 		ID:       "user-1",
 		Email:    "commenter@example.test",
 		Username: "alice",
 	}
-	participant := &core.User{
+	participant := &model.User{
 		ID:       "user-2",
 		Email:    "participant@example.test",
 		Username: "bob",
 	}
-	post := &core.Post{
+	post := &model.Post{
 		ID:      "post-1",
-		Subject: null.StringFrom("Original Post"),
+		Subject: new("Original Post"),
 		Body:    "Post body",
 		UserID:  "user-3",
-		URLID:   null.StringFrom("url-1"),
+		URLID:   new("url-1"),
 	}
-	setPostURL(post, &core.NormalizedURL{
+	setPostURL(post, &model.NormalizedURL{
 		ID:  "url-1",
 		URL: "https://example.com/article",
 	})
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:     "comment-1",
 		PostID: post.ID,
 		UserID: commenter.ID,
@@ -636,15 +613,15 @@ func TestPostCommentParticipants_WithURL(t *testing.T) {
 func TestPostCommentEdited(t *testing.T) {
 	t.Parallel()
 
-	commenter := &core.User{ID: "user-1", Email: "commenter@example.test", Username: "alice"}
-	recipient := &core.User{ID: "user-2", Email: "recipient@example.test", Username: "bob"}
-	post := &core.Post{ID: "post-1", Subject: null.StringFrom("Original Post"), Body: "Post body", UserID: recipient.ID}
-	comment := &core.PostComment{
+	commenter := &model.User{ID: "user-1", Email: "commenter@example.test", Username: "alice"}
+	recipient := &model.User{ID: "user-2", Email: "recipient@example.test", Username: "bob"}
+	post := &model.Post{ID: "post-1", Subject: new("Original Post"), Body: "Post body", UserID: recipient.ID}
+	comment := &model.PostComment{
 		ID:       "comment-1",
 		PostID:   post.ID,
 		UserID:   commenter.ID,
 		Body:     "Nice post, edited!",
-		EditedAt: null.TimeFrom(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+		EditedAt: new(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
 	}
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 

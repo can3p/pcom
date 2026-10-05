@@ -2,7 +2,7 @@
         {{ with .Comment }}
           <article class="item us-feed-comment">
             <span class="kind">New comment</span>
-            <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> on {{ if eq $.User.DBUser.ID .Post.UserID }}your post{{ else }}a post you've commented on{{ end }} <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a><span class="dot">&middot;</span>{{ renderHumanTime .CreatedAt $.User.DBUser }}{{ if .EditedAt.Valid }} (edited {{ renderHumanTime .EditedAt.Time $.User.DBUser }}){{ end }}</p>
+            <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> on {{ if eq $.User.DBUser.ID .Post.UserID }}your post{{ else }}a post you've commented on{{ end }} <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a><span class="dot">&middot;</span>{{ renderHumanTime .CreatedAt $.User.DBUser }}{{ if .EditedAt }} (edited {{ renderHumanTime (timeVal .EditedAt) $.User.DBUser }}){{ end }}</p>
             <div class="prose prose-sm">{{ markdown_feed .Body }}</div>
             <div class="acts"><a hx-boost="false" href="{{ link "comment" .PostID .ID }}">Open comment</a></div>
           </article>

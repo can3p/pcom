@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -26,11 +26,11 @@ func TestSettingsGeneralForm_Validate(t *testing.T) {
 		visibility   string
 		wantErrField string
 	}{
-		{"empty timezone", "", string(core.ProfileVisibilityPublic), "timezone"},
-		{"invalid timezone", "Invalid/Timezone", string(core.ProfileVisibilityPublic), "timezone"},
+		{"empty timezone", "", string(model.ProfileVisibilityPublic), "timezone"},
+		{"invalid timezone", "Invalid/Timezone", string(model.ProfileVisibilityPublic), "timezone"},
 		{"empty profile visibility", "America/New_York", "", "profile_visibility"},
 		{"invalid profile visibility", "America/New_York", "invalid", "profile_visibility"},
-		{"success", "America/New_York", string(core.ProfileVisibilityConnections), ""},
+		{"success", "America/New_York", string(model.ProfileVisibilityConnections), ""},
 	}
 
 	for _, tt := range tests {
@@ -66,7 +66,7 @@ func TestSettingsGeneralForm_SaveUpdatesSettings(t *testing.T) {
 
 	form := forms.SettingsGeneralFormNew(accountsFor(db, nil), user)
 	form.Input.Timezone = "America/Los_Angeles"
-	form.Input.ProfileVisibility = string(core.ProfileVisibilityRegisteredUsers)
+	form.Input.ProfileVisibility = string(model.ProfileVisibilityRegisteredUsers)
 
 	action, err := form.Save(c)
 	require.NoError(t, err)
@@ -74,5 +74,5 @@ func TestSettingsGeneralForm_SaveUpdatesSettings(t *testing.T) {
 
 	updatedUser := testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
 	require.Equal(t, "America/Los_Angeles", updatedUser.Timezone)
-	require.Equal(t, core.ProfileVisibilityRegisteredUsers, updatedUser.ProfileVisibility)
+	require.Equal(t, model.ProfileVisibilityRegisteredUsers, updatedUser.ProfileVisibility)
 }

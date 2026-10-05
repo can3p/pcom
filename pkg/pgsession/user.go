@@ -1,7 +1,11 @@
 package pgsession
 
 import (
-	"github.com/can3p/pcom/pkg/model/core"
+	"database/sql"
+	"errors"
+
+	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -17,7 +21,7 @@ const (
 )
 
 type User struct {
-	DBUser *core.User
+	DBUser *model.User
 }
 
 func GetUser(c *gin.Context) *User {
@@ -31,7 +35,10 @@ func GetUser(c *gin.Context) *User {
 }
 
 func SetUser(c *gin.Context, db *sqlx.DB, userID string) error {
-	u, err := core.FindUser(c.Request.Context(), db, userID)
+	u, err := repo.New(db).UserByID(c.Request.Context(), userID)
+	if errors.Is(err, repo.ErrNotFound) {
+		return sql.ErrNoRows
+	}
 
 	if err != nil {
 		return err
@@ -44,6 +51,6 @@ func SetUser(c *gin.Context, db *sqlx.DB, userID string) error {
 
 // SetLoadedUser makes an already loaded user the request's user, as SetUser
 // does after loading one.
-func SetLoadedUser(c *gin.Context, u *core.User) {
+func SetLoadedUser(c *gin.Context, u *model.User) {
 	c.Set(userContextKey.String(), &User{u})
 }
