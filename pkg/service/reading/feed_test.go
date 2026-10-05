@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -207,14 +206,14 @@ func TestFeedPages(t *testing.T) {
 				switch e.kind {
 				case repo.KindPost:
 					entries[i].id = testutil.Must(factory.Post(ctx, db, direct.ID,
-						func(p *core.Post) { p.PublishedAt = null.TimeFrom(e.at) }))(t).ID
+						func(p *model.Post) { p.PublishedAt = new(e.at) }))(t).ID
 				case repo.KindRSSItem:
 					item := testutil.Must(factory.RSSItem(ctx, db, feed.ID))(t)
 					entries[i].id = testutil.Must(factory.UserFeedItem(ctx, db, reader.ID, item.ID,
-						func(i *core.UserFeedItem) { i.CreatedAt = e.at }))(t).ID
+						func(i *model.UserFeedItem) { i.CreatedAt = e.at }))(t).ID
 				default:
 					entries[i].id = testutil.Must(factory.Comment(ctx, db, ownPost.ID, direct.ID,
-						func(c *core.PostComment) { c.CreatedAt = e.at }))(t).ID
+						func(c *model.PostComment) { c.CreatedAt = e.at }))(t).ID
 				}
 			}
 			slices.SortFunc(entries, byFeedOrder)

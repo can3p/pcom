@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
@@ -23,9 +23,9 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 	alice, err := factory.User(ctx, db)
 	require.NoError(t, err)
 
-	bob, err := factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic))
+	bob, err := factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic))
 	require.NoError(t, err)
-	require.Equal(t, core.ProfileVisibilityPublic, bob.ProfileVisibility)
+	require.Equal(t, model.ProfileVisibilityPublic, bob.ProfileVisibility)
 
 	carol, err := factory.User(ctx, db)
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = factory.MediatorDecision(ctx, db, mediationRequest.ID, alice.ID, core.ConnectionMediationDecisionSigned)
+	_, err = factory.MediatorDecision(ctx, db, mediationRequest.ID, alice.ID, model.ConnectionMediationDecisionSigned)
 	require.NoError(t, err)
 
 	// Posts.
@@ -52,17 +52,17 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 
 	post, err := factory.Post(ctx, db, alice.ID,
 		factory.Published(),
-		factory.Visibility(core.PostVisibilityPublic),
+		factory.Visibility(model.PostVisibilityPublic),
 		factory.WithURL(url.ID),
 	)
 	require.NoError(t, err)
-	require.True(t, post.PublishedAt.Valid)
-	require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
-	require.True(t, post.URLID.Valid)
+	require.NotNil(t, post.PublishedAt)
+	require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
+	require.NotNil(t, post.URLID)
 
 	draft, err := factory.Post(ctx, db, bob.ID)
 	require.NoError(t, err)
-	require.False(t, draft.PublishedAt.Valid)
+	require.Nil(t, draft.PublishedAt)
 
 	topComment, err := factory.Comment(ctx, db, post.ID, bob.ID)
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, comments, 2)
 
-	emails, err := factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("test_email"))
+	emails, err := factory.ListOutgoingEmails(ctx, db, factory.EmailType("test_email"))
 	require.NoError(t, err)
 	require.Len(t, emails, 1)
 

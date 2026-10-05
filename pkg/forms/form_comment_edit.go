@@ -5,7 +5,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 )
@@ -16,12 +16,12 @@ type EditCommentFormInput struct {
 
 type EditCommentForm struct {
 	*forms.FormBase[EditCommentFormInput]
-	User      *core.User
+	User      *model.User
 	Posts     *posts.Service
 	CommentID string
 }
 
-func EditCommentFormNew(svc *posts.Service, u *core.User, commentID string) forms.Form {
+func EditCommentFormNew(svc *posts.Service, u *model.User, commentID string) forms.Form {
 	var form forms.Form = &EditCommentForm{
 		FormBase: &forms.FormBase[EditCommentFormInput]{
 			Name:                "edit_comment",

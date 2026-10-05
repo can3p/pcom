@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -24,24 +24,24 @@ func TestWhitelistConnection_Validate(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		username     func(t *testing.T, user1 *core.User) string
+		username     func(t *testing.T, user1 *model.User) string
 		wantErrField string
 	}{
-		{"empty username", func(t *testing.T, user1 *core.User) string { return "" }, "username"},
-		{"own username", func(t *testing.T, user1 *core.User) string { return user1.Username }, "username"},
-		{"nonexistent user", func(t *testing.T, user1 *core.User) string { return "nonexistent" }, "username"},
-		{"existing connection", func(t *testing.T, user1 *core.User) string {
+		{"empty username", func(t *testing.T, user1 *model.User) string { return "" }, "username"},
+		{"own username", func(t *testing.T, user1 *model.User) string { return user1.Username }, "username"},
+		{"nonexistent user", func(t *testing.T, user1 *model.User) string { return "nonexistent" }, "username"},
+		{"existing connection", func(t *testing.T, user1 *model.User) string {
 			user2 := testutil.Must(factory.User(ctx, db))(t)
 			_, _, err := factory.Connect(ctx, db, user1.ID, user2.ID)
 			require.NoError(t, err)
 			return user2.Username
 		}, "username"},
-		{"already whitelisted", func(t *testing.T, user1 *core.User) string {
+		{"already whitelisted", func(t *testing.T, user1 *model.User) string {
 			user2 := testutil.Must(factory.User(ctx, db))(t)
 			testutil.Must(factory.Whitelist(ctx, db, user1.ID, user2.ID))(t)
 			return user2.Username
 		}, "username"},
-		{"success", func(t *testing.T, user1 *core.User) string {
+		{"success", func(t *testing.T, user1 *model.User) string {
 			return testutil.Must(factory.User(ctx, db))(t).Username
 		}, ""},
 	}

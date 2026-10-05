@@ -10,6 +10,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,8 +154,8 @@ func TestAccounts_AcceptInviteStartsACodeLogin(t *testing.T) {
 
 		user, err := factory.GetUserByEmail(ctx, app.DB, to)
 		require.NoError(t, err)
-		require.True(t, user.EmailConfirmedAt.Valid)
-		require.False(t, user.Pwdhash.Valid)
+		require.NotNil(t, user.EmailConfirmedAt)
+		require.Nil(t, user.Pwdhash)
 		require.Len(t, app.Mails(t, to, func(m tommy.Mail) bool { return m.Subject == "Your pcom login code" }), 1)
 	})
 
@@ -195,8 +196,8 @@ func TestAccounts_SignupStartsACodeLogin(t *testing.T) {
 
 	user, err := factory.GetUserByEmail(ctx, app.DB, to)
 	require.NoError(t, err)
-	require.False(t, user.EmailConfirmedAt.Valid)
-	require.False(t, user.Pwdhash.Valid)
+	require.Nil(t, user.EmailConfirmedAt)
+	require.Nil(t, user.Pwdhash)
 	require.Len(t, app.Mails(t, to, func(m tommy.Mail) bool { return strings.Contains(m.Text, "confirmation code is") }), 1)
 }
 
@@ -214,7 +215,7 @@ func TestAccounts_ConfirmWaitingList(t *testing.T) {
 
 		signup, err = factory.GetSignupRequest(ctx, app.DB, signup.ID)
 		require.NoError(t, err)
-		require.True(t, signup.EmailConfirmedAt.Valid)
+		require.NotNil(t, signup.EmailConfirmedAt)
 	})
 
 	t.Run("already confirmed", func(t *testing.T) {
@@ -227,7 +228,7 @@ func TestAccounts_ConfirmWaitingList(t *testing.T) {
 
 		after, err := factory.GetSignupRequest(ctx, app.DB, signup.ID)
 		require.NoError(t, err)
-		require.True(t, signup.EmailConfirmedAt.Time.Equal(after.EmailConfirmedAt.Time), "the confirmation time must not move")
+		require.True(t, lo.FromPtr(signup.EmailConfirmedAt).Equal(lo.FromPtr(after.EmailConfirmedAt)), "the confirmation time must not move")
 	})
 
 	t.Run("unknown", func(t *testing.T) {

@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -81,10 +80,10 @@ func (m *dbSender) sendEmails(ctx context.Context) (err error) {
 	})
 }
 
-func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *core.OutgoingEmail) error {
+func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *model.OutgoingEmail) error {
 	var payload sender.Mail
 
-	if err := outgoing.Payload.Unmarshal(&payload); err != nil {
+	if err := json.Unmarshal(outgoing.Payload, &payload); err != nil {
 		return err
 	}
 
@@ -92,14 +91,14 @@ func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *c
 	sendErr := m.realSender.Send(ctx, &payload)
 
 	if sendErr == nil {
-		outgoing.Status = core.OutgoingEmailStatusSent
-		outgoing.SentAt = null.TimeFrom(time.Now())
+		outgoing.Status = model.OutgoingEmailStatusSent
+		outgoing.SentAt = new(time.Now())
 	} else {
 		if outgoing.AttemptsNumber < attemptsNumber {
 			outgoing.TryAt = time.Now().Add(retryIntervals[outgoing.AttemptsNumber])
 			outgoing.AttemptsNumber = outgoing.AttemptsNumber + 1
 		} else {
-			outgoing.Status = core.OutgoingEmailStatusFailed
+			outgoing.Status = model.OutgoingEmailStatusFailed
 		}
 	}
 
@@ -122,11 +121,11 @@ func (m *dbSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID
 		return err
 	}
 
-	outgoing := core.OutgoingEmail{
+	outgoing := model.OutgoingEmail{
 		ID:        id.String(),
 		UniqueID:  uniqueUUID.String(),
 		Payload:   b,
-		Status:    core.OutgoingEmailStatusNew,
+		Status:    model.OutgoingEmailStatusNew,
 		TryAt:     time.Now(),
 		EmailType: emailType,
 	}

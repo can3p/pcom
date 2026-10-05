@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,19 +21,19 @@ func failedAction(prefix string, err error) error {
 func mountConnectionActions(d *Deps, r *gin.RouterGroup) {
 	conns := d.Services.Connections
 
-	r.POST("/remove_from_whitelist", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
+	r.POST("/remove_from_whitelist", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		UserID string `json:"userId"`
 	}) error {
 		return failedAction("Failed operation", conns.RemoveFromWhitelist(c, u, in.UserID))
 	}))
 
-	r.POST("/create_connection", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
+	r.POST("/create_connection", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		TargetUserID string `json:"userId"`
 	}) error {
 		return failedAction("Failed operation", conns.Connect(c, u, in.TargetUserID))
 	}))
 
-	r.POST("/drop_connection", jsonAction(d, func(c *gin.Context, u *core.User, in struct {
+	r.POST("/drop_connection", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		TargetUserID string `json:"userId"`
 	}) error {
 		return failedAction("Failed operation", conns.Drop(c, u, in.TargetUserID))
@@ -44,11 +44,11 @@ func mountConnectionActions(d *Deps, r *gin.RouterGroup) {
 		Note      string `json:"note"`
 	}
 
-	r.POST("/reject_connection", jsonAction(d, func(c *gin.Context, u *core.User, in decision) error {
-		return failedAction("Operation Failed", conns.DecideRequest(c, u, in.RequestID, core.ConnectionRequestDecisionDismissed, in.Note))
+	r.POST("/reject_connection", jsonAction(d, func(c *gin.Context, u *model.User, in decision) error {
+		return failedAction("Operation Failed", conns.DecideRequest(c, u, in.RequestID, model.ConnectionRequestDecisionDismissed, in.Note))
 	}))
 
-	r.POST("/accept_connection", jsonAction(d, func(c *gin.Context, u *core.User, in decision) error {
-		return failedAction("Operation Failed", conns.DecideRequest(c, u, in.RequestID, core.ConnectionRequestDecisionApproved, in.Note))
+	r.POST("/accept_connection", jsonAction(d, func(c *gin.Context, u *model.User, in decision) error {
+		return failedAction("Operation Failed", conns.DecideRequest(c, u, in.RequestID, model.ConnectionRequestDecisionApproved, in.Note))
 	}))
 }

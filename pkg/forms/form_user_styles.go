@@ -5,7 +5,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 )
@@ -17,10 +17,10 @@ type SettingsUserStylesInput struct {
 type SettingsUserStyles struct {
 	*forms.FormBase[SettingsUserStylesInput]
 	Accounts *accounts.Service
-	User     *core.User
+	User     *model.User
 }
 
-func SettingsUserStylesNew(accounts *accounts.Service, u *core.User) *SettingsUserStyles {
+func SettingsUserStylesNew(accounts *accounts.Service, u *model.User) *SettingsUserStyles {
 	form := &SettingsUserStyles{
 		FormBase: &forms.FormBase[SettingsUserStylesInput]{
 			Name:                "settings_user_styles",

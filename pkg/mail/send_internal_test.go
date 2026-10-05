@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/golden"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func mailsToGoldenInternal(sent []fakesender.Recorded) []byte {
 func TestSendActualConfirmWaitingList(t *testing.T) {
 	t.Parallel()
 
-	waitingList := &core.UserSignupRequest{
+	waitingList := &model.UserSignupRequest{
 		ID:    "request-1",
 		Email: "newuser@example.test",
 	}
@@ -59,12 +59,12 @@ func TestSendActualConfirmWaitingList(t *testing.T) {
 func TestSendActualInvitation(t *testing.T) {
 	t.Parallel()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "user-1",
 		Email:    "sender@example.test",
 		Username: "alice",
 	}
-	invite := &core.UserInvitation{
+	invite := &model.UserInvitation{
 		ID:     "invite-1",
 		UserID: user.ID,
 	}

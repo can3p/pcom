@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 )
@@ -21,8 +21,8 @@ func New(store *repo.Store) *Service {
 
 // Shared is what a share link shows.
 type Shared struct {
-	Post   *core.Post
-	Author *core.User
+	Post   *model.Post
+	Author *model.User
 }
 
 // Get resolves a share link. Anybody may follow one, so there is no actor.
@@ -35,23 +35,23 @@ func (s *Service) Get(ctx context.Context, shareID string) (*Shared, error) {
 		return nil, err
 	}
 
-	post := share.R.Post
-	if post.PublishedAt.IsZero() {
+	post := share.Post
+	if post.PublishedAt == nil {
 		return nil, service.ErrNotFound
 	}
 
-	return &Shared{Post: post, Author: post.R.User}, nil
+	return &Shared{Post: post, Author: post.User}, nil
 }
 
 // Create gives the actor's published post a share link, or keeps the one it
 // has.
-func (s *Service) Create(ctx context.Context, actor *core.User, postID string) error {
+func (s *Service) Create(ctx context.Context, actor *model.User, postID string) error {
 	post, err := s.authorsPost(ctx, actor, postID)
 	if err != nil {
 		return err
 	}
 
-	if post.PublishedAt.IsZero() {
+	if post.PublishedAt == nil {
 		return service.Invalid("postId", "Cannot share a link for draft")
 	}
 
@@ -60,7 +60,7 @@ func (s *Service) Create(ctx context.Context, actor *core.User, postID string) e
 
 // Delete removes the share link of the actor's post, so the old URL stops
 // working.
-func (s *Service) Delete(ctx context.Context, actor *core.User, postID string) error {
+func (s *Service) Delete(ctx context.Context, actor *model.User, postID string) error {
 	post, err := s.authorsPost(ctx, actor, postID)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (s *Service) Delete(ctx context.Context, actor *core.User, postID string) e
 
 // authorsPost loads a post the actor may manage the share link of: only its
 // author may, as postops.GetPostCapabilities' CanShare says.
-func (s *Service) authorsPost(ctx context.Context, actor *core.User, postID string) (*core.Post, error) {
+func (s *Service) authorsPost(ctx context.Context, actor *model.User, postID string) (*model.Post, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}

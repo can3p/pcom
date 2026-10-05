@@ -3,9 +3,9 @@ package repo
 import (
 	"context"
 
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -14,14 +14,14 @@ import (
 // It is open until the connection is made, then it points at the connection.
 
 // WhitelistTarget finds the user a whitelist grant is about, by username.
-func (s *Store) WhitelistTarget(ctx context.Context, username string) (*core.User, error) {
+func (s *Store) WhitelistTarget(ctx context.Context, username string) (*model.User, error) {
 	user, err := core.Users(core.UserWhere.Username.EQ(username)).One(ctx, s.exec)
 
-	return user, notFound(err)
+	return toModel[model.User](user), notFound(err)
 }
 
 // WhitelistedUsers returns the users whoID has an open grant for.
-func (s *Store) WhitelistedUsers(ctx context.Context, whoID string) ([]*core.User, error) {
+func (s *Store) WhitelistedUsers(ctx context.Context, whoID string) ([]*model.User, error) {
 	grants, err := core.WhitelistedConnections(
 		core.WhitelistedConnectionWhere.WhoID.EQ(whoID),
 		core.WhitelistedConnectionWhere.ConnectionID.IsNull(),
@@ -31,9 +31,9 @@ func (s *Store) WhitelistedUsers(ctx context.Context, whoID string) ([]*core.Use
 		return nil, err
 	}
 
-	users := make([]*core.User, len(grants))
-	for i, g := range grants {
-		users[i] = g.R.AllowsWho
+	users := make([]*model.User, len(grants))
+	for i, g := range toModels[model.WhitelistedConnection](grants) {
+		users[i] = g.AllowsWho
 	}
 
 	return users, nil
@@ -58,7 +58,7 @@ func (s *Store) GrantExists(ctx context.Context, whoID, allowsWhoID string) (boo
 
 // LockOpenGrant returns the open grant of who for allowsWho and locks it
 // until the transaction ends. ErrNotFound when there is none.
-func (s *Store) LockOpenGrant(ctx context.Context, whoID, allowsWhoID string) (*core.WhitelistedConnection, error) {
+func (s *Store) LockOpenGrant(ctx context.Context, whoID, allowsWhoID string) (*model.WhitelistedConnection, error) {
 	grant, err := core.WhitelistedConnections(
 		core.WhitelistedConnectionWhere.WhoID.EQ(whoID),
 		core.WhitelistedConnectionWhere.AllowsWhoID.EQ(allowsWhoID),
@@ -66,15 +66,18 @@ func (s *Store) LockOpenGrant(ctx context.Context, whoID, allowsWhoID string) (*
 		qm.For("UPDATE"),
 	).One(ctx, s.exec)
 
-	return grant, notFound(err)
+	return toModel[model.WhitelistedConnection](grant), notFound(err)
 }
 
 // UseGrant marks a grant as used by the connection.
-func (s *Store) UseGrant(ctx context.Context, grant *core.WhitelistedConnection, connectionID string) error {
-	grant.ConnectionID = null.StringFrom(connectionID)
-	_, err := grant.Update(ctx, s.exec, boil.Infer())
+func (s *Store) UseGrant(ctx context.Context, grant *model.WhitelistedConnection, connectionID string) error {
+	grant.ConnectionID = new(connectionID)
 
-	return err
+	return write(grant, func(c *core.WhitelistedConnection) error {
+		_, err := c.Update(ctx, s.exec, boil.Infer())
+
+		return err
+	})
 }
 
 // CreateGrant lets allowsWho connect to who without mediation.

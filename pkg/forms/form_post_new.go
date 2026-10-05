@@ -7,27 +7,28 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 )
 
 type PostFormInput struct {
-	Subject    string              `form:"subject"`
-	URL        string              `form:"url"`
-	Body       string              `form:"body"`
-	Visibility core.PostVisibility `form:"visibility"`
-	SaveAction PostFormAction      `form:"save_action"`
+	Subject    string               `form:"subject"`
+	URL        string               `form:"url"`
+	Body       string               `form:"body"`
+	Visibility model.PostVisibility `form:"visibility"`
+	SaveAction PostFormAction       `form:"save_action"`
 }
 
 type PostForm struct {
 	*forms.FormBase[PostFormInput]
-	User   *core.User
+	User   *model.User
 	Posts  *posts.Service
-	Post   *core.Post
+	Post   *model.Post
 	Prompt *postops.PostPrompt
 }
 
@@ -45,7 +46,7 @@ const (
 	PostFormActionAutosave  PostFormAction = "autosave"
 )
 
-func NewPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, promptID string) (*PostForm, error) {
+func NewPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, promptID string) (*PostForm, error) {
 	var prompt *postops.PostPrompt
 
 	if promptID != "" {
@@ -76,7 +77,7 @@ func NewPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, promp
 	return form, nil
 }
 
-func EditPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, postID string) (*PostForm, error) {
+func EditPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, postID string) (*PostForm, error) {
 	view, err := svc.ForEdit(ctx, u, postID)
 	if errors.Is(err, service.ErrForbidden) {
 		// somebody else's post is none of the actor's business
@@ -96,8 +97,8 @@ func EditPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, post
 			ExtraTemplateData: map[string]any{
 				"User":          u,
 				"PostID":        post.ID,
-				"IsPublished":   post.PublishedAt.Valid,
-				"LastUpdatedAt": post.UpdatedAt.Time,
+				"IsPublished":   post.PublishedAt != nil,
+				"LastUpdatedAt": lo.FromPtr(post.UpdatedAt),
 				"Prompt":        view.Prompt,
 			},
 		},
@@ -157,7 +158,7 @@ func (f *PostForm) Validate(c *gin.Context) error {
 	}
 
 	if err := validation.ValidateEnum(f.Input.Visibility,
-		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic},
+		[]model.PostVisibility{model.PostVisibilityDirectOnly, model.PostVisibilitySecondDegree, model.PostVisibilityPublic},
 		[]string{"direct only", "their connections as well", "public"}); err != nil {
 		f.AddError("visibility", err.Error())
 	}
@@ -210,7 +211,7 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	case saveAction == PostFormActionPublish:
 		// let's redirect to the post whenever we publish a post
 		action = forms.FormSaveRedirect(links.Link("post", post.ID))
-	case saveAction == PostFormActionSavePost && !post.PublishedAt.Valid:
+	case saveAction == PostFormActionSavePost && post.PublishedAt == nil:
 		// "Save as Draft" swaps only the status, like an autosave, so the
 		// textarea keeps its scroll and caret; the response also reports the
 		// result next to the buttons (an out-of-band swap)
@@ -224,15 +225,15 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	case saved.Created:
 		action = draftSaved(formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)))
 	case saveAction == PostFormActionMakeDraft:
-	case saveAction != PostFormActionAutosave && post.PublishedAt.Valid:
+	case saveAction != PostFormActionAutosave && post.PublishedAt != nil:
 		action = forms.FormSaveRedirect(links.Link("post", post.ID))
 	default:
 		action = draftSaved(action)
 	}
 
 	f.AddTemplateData("PostID", post.ID)
-	f.AddTemplateData("IsPublished", post.PublishedAt.Valid)
-	f.AddTemplateData("LastUpdatedAt", post.UpdatedAt.Time)
+	f.AddTemplateData("IsPublished", post.PublishedAt != nil)
+	f.AddTemplateData("LastUpdatedAt", lo.FromPtr(post.UpdatedAt))
 
 	return action, nil
 }

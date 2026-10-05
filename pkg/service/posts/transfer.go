@@ -8,17 +8,16 @@ import (
 	mediasvc "github.com/can3p/pcom/pkg/service/media"
 
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/volatiletech/null/v8"
 )
 
 // ExportBlog is every post of the actor, with the images they embed, as a zip
 // archive.
-func (s *Service) ExportBlog(ctx context.Context, actor *core.User) ([]byte, error) {
+func (s *Service) ExportBlog(ctx context.Context, actor *model.User) ([]byte, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -43,7 +42,7 @@ func (s *Service) export(ctx context.Context, authorID, postID string) ([]byte, 
 
 // Import adds the posts and images of an exported archive to the actor's
 // blog. A post that is the actor's own already is updated in place.
-func (s *Service) Import(ctx context.Context, actor *core.User, archive []byte) (*postops.InjectStats, error) {
+func (s *Service) Import(ctx context.Context, actor *model.User, archive []byte) (*postops.InjectStats, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -60,7 +59,7 @@ func (s *Service) Import(ctx context.Context, actor *core.User, archive []byte) 
 // transaction. A post the actor owns already is updated in place, any other
 // is created. An image the actor uploaded under that name before is not
 // uploaded again.
-func (s *Service) InjectPosts(ctx context.Context, actor *core.User, posts []*postops.PostWithMeta, images map[string][]byte) (*postops.InjectStats, error) {
+func (s *Service) InjectPosts(ctx context.Context, actor *model.User, posts []*postops.PostWithMeta, images map[string][]byte) (*postops.InjectStats, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -157,7 +156,7 @@ func (s *Service) inject(ctx context.Context, tx *repo.Store, userID string, pos
 				return nil, err
 			}
 
-			p.URLID = null.StringFrom(url.ID)
+			p.URLID = new(url.ID)
 		}
 
 		if insertPost {
@@ -180,7 +179,7 @@ func (s *Service) inject(ctx context.Context, tx *repo.Store, userID string, pos
 
 // UploadImage stores an image for the actor and returns its file name. The
 // file lands in the media storage, so it is not part of a transaction.
-func (s *Service) UploadImage(ctx context.Context, actor *core.User, r io.Reader) (string, error) {
+func (s *Service) UploadImage(ctx context.Context, actor *model.User, r io.Reader) (string, error) {
 	if err := requireActor(actor); err != nil {
 		return "", err
 	}

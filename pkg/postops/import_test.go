@@ -6,16 +6,15 @@ import (
 	"time"
 
 	"github.com/alecthomas/assert/v2"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 )
 
 func TestImport(t *testing.T) {
 	testCases := []struct {
 		name             string
 		content          string
-		post             *core.Post
+		post             *model.Post
 		additionalFields *AdditionalFields
 		wantErr          bool
 	}{
@@ -31,14 +30,14 @@ visibility: direct_only
 This is a test *post*
 
 with some *markdown* in it`,
-			post: &core.Post{
+			post: &model.Post{
 				ID:      "018f45ef-b63a-7426-a444-3957146ca700",
-				Subject: null.StringFrom("test subject"),
+				Subject: new("test subject"),
 				Body: `This is a test *post*
 
 with some *markdown* in it`,
-				PublishedAt:      null.TimeFrom(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+				PublishedAt:      new(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
+				VisibilityRadius: model.PostVisibilityDirectOnly,
 			},
 		},
 		{
@@ -53,13 +52,13 @@ visibility: direct_only
 This is a test *post*
 
 with some *markdown* in it`,
-			post: &core.Post{
+			post: &model.Post{
 				ID: "018f45ef-b63a-7426-a444-3957146ca700",
 				Body: `This is a test *post*
 
 with some *markdown* in it`,
-				PublishedAt:      null.TimeFrom(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+				PublishedAt:      new(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
+				VisibilityRadius: model.PostVisibilityDirectOnly,
 			},
 		},
 		{
@@ -74,13 +73,13 @@ visibility: direct_only
 This is a test *post*
 
 with some *markdown* in it`,
-			post: &core.Post{
+			post: &model.Post{
 				ID: "018f45ef-b63a-7426-a444-3957146ca700",
 				Body: `This is a test *post*
 
 with some *markdown* in it`,
-				PublishedAt:      null.TimeFrom(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+				PublishedAt:      new(time.Date(2024, time.May, 4, 23, 28, 8, 0, time.UTC)),
+				VisibilityRadius: model.PostVisibilityDirectOnly,
 			},
 			additionalFields: &AdditionalFields{
 				URL: "https://test.url",
@@ -106,48 +105,47 @@ with some *markdown* in it`,
 func TestExportImport(t *testing.T) {
 	testCases := []struct {
 		name             string
-		post             *core.Post
+		post             *model.Post
 		additionalFields *AdditionalFields
 		wantErr          bool
 	}{
 		{
 			name: "post with subject",
-			post: &core.Post{
+			post: &model.Post{
 				ID:      uuid.NewString(),
-				Subject: null.StringFrom("test subject"),
+				Subject: new("test subject"),
 				Body: `This is a test *post*
 
 with some *markdown* in it`,
-				PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+				PublishedAt:      new(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
+				VisibilityRadius: model.PostVisibilityDirectOnly,
 			},
 		},
 		{
 			name: "post without subject",
-			post: &core.Post{
+			post: &model.Post{
 				ID:      uuid.NewString(),
-				Subject: null.String{},
+				Subject: nil,
 				Body: `This is a test *post*
 
 with some *markdown* in it`,
-				PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
-				VisibilityRadius: core.PostVisibilityDirectOnly,
+				PublishedAt:      new(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
+				VisibilityRadius: model.PostVisibilityDirectOnly,
 			},
 		},
 		{
 			name: "post with URL",
-			post: func() *core.Post {
-				p := &core.Post{
+			post: func() *model.Post {
+				p := &model.Post{
 					ID:               uuid.NewString(),
-					Subject:          null.StringFrom("test subject with URL"),
+					Subject:          new("test subject with URL"),
 					Body:             `This is a test *post* with URL`,
-					PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
-					VisibilityRadius: core.PostVisibilityDirectOnly,
-					URLID:            null.StringFrom("test-url-id"),
+					PublishedAt:      new(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
+					VisibilityRadius: model.PostVisibilityDirectOnly,
+					URLID:            new("test-url-id"),
 				}
 
-				p.R = p.R.NewStruct()
-				p.R.URL = &core.NormalizedURL{
+				p.URL = &model.NormalizedURL{
 					URL: "https://example.com",
 				}
 
@@ -170,9 +168,9 @@ with some *markdown* in it`,
 			}
 
 			assert.NoError(t, err)
-			tc.post.R = nil
+			tc.post.URL = nil
 			// url id is never filled in in imported post
-			tc.post.URLID = null.String{}
+			tc.post.URLID = nil
 			assert.Equal(t, tc.post, imported)
 			assert.Equal(t, tc.additionalFields, additionalFields)
 		})
@@ -180,23 +178,22 @@ with some *markdown* in it`,
 }
 
 func TestDeserializeArchive(t *testing.T) {
-	post := &core.Post{
+	post := &model.Post{
 		ID:      uuid.NewString(),
-		Subject: null.StringFrom("test subject"),
+		Subject: new("test subject"),
 		Body: `This is a test *post*
 
 with some *markdown* in it`,
-		PublishedAt:      null.TimeFrom(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
-		VisibilityRadius: core.PostVisibilityDirectOnly,
-		URLID:            null.StringFrom("test-url-id"),
+		PublishedAt:      new(time.Date(2025, time.January, 3, 1, 46, 49, 0, time.UTC)),
+		VisibilityRadius: model.PostVisibilityDirectOnly,
+		URLID:            new("test-url-id"),
 	}
 
-	post.R = post.R.NewStruct()
-	post.R.URL = &core.NormalizedURL{
+	post.URL = &model.NormalizedURL{
 		URL: "https://example.com",
 	}
 
-	b, err := SerializeBlogSlice(context.Background(), []*core.Post{post}, nil)
+	b, err := SerializeBlogSlice(context.Background(), []*model.Post{post}, nil)
 	assert.NoError(t, err)
 
 	posts, images, err := DeserializeArchive(b)
@@ -205,8 +202,8 @@ with some *markdown* in it`,
 	assert.Equal(t, 0, len(images))
 
 	// Clear R field before comparison as it's not part of serialization
-	post.R = nil
-	post.URLID = null.String{}
+	post.URL = nil
+	post.URLID = nil
 	assert.Equal(t, post, posts[0].Post)
 	assert.Equal(t, "https://example.com", posts[0].Additional.URL)
 }

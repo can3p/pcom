@@ -5,69 +5,68 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/volatiletech/null/v8"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // PostOpt customizes a Post before it is inserted.
-type PostOpt func(*core.Post)
+type PostOpt func(*model.Post)
 
 // Published marks the post as published now. A Post is an unpublished draft
 // by default.
 func Published() PostOpt {
-	return func(p *core.Post) {
-		p.PublishedAt = null.TimeFrom(time.Now())
+	return func(p *model.Post) {
+		p.PublishedAt = new(time.Now())
 	}
 }
 
 // PublishedAt marks the post as published at t, for data that depends on
 // the order of posts.
 func PublishedAt(t time.Time) PostOpt {
-	return func(p *core.Post) {
-		p.PublishedAt = null.TimeFrom(t)
+	return func(p *model.Post) {
+		p.PublishedAt = new(t)
 	}
 }
 
 // Visibility overrides the post's visibility radius (direct_only by
 // default).
-func Visibility(v core.PostVisibility) PostOpt {
-	return func(p *core.Post) {
+func Visibility(v model.PostVisibility) PostOpt {
+	return func(p *model.Post) {
 		p.VisibilityRadius = v
 	}
 }
 
 // WithSubject overrides the made-up subject.
 func WithSubject(subject string) PostOpt {
-	return func(p *core.Post) {
-		p.Subject = null.StringFrom(subject)
+	return func(p *model.Post) {
+		p.Subject = new(subject)
 	}
 }
 
 // WithBody overrides the made-up body.
 func WithBody(body string) PostOpt {
-	return func(p *core.Post) {
+	return func(p *model.Post) {
 		p.Body = body
 	}
 }
 
 // WithURL attaches the post to an already-created NormalizedURL.
 func WithURL(urlID string) PostOpt {
-	return func(p *core.Post) {
-		p.URLID = null.StringFrom(urlID)
+	return func(p *model.Post) {
+		p.URLID = new(urlID)
 	}
 }
 
 // PostUpdatedAt backdates the post's UpdatedAt timestamp, for tests that
 // depend on post order.
 func PostUpdatedAt(t time.Time) PostOpt {
-	return func(p *core.Post) {
-		p.UpdatedAt = null.TimeFrom(t)
+	return func(p *model.Post) {
+		p.UpdatedAt = new(t)
 	}
 }
 
 // Post inserts a draft, direct_only post owned by authorID.
-func Post(ctx context.Context, exec boil.ContextExecutor, authorID string, opts ...PostOpt) (*core.Post, error) {
+func Post(ctx context.Context, exec boil.ContextExecutor, authorID string, opts ...PostOpt) (*model.Post, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -75,39 +74,35 @@ func Post(ctx context.Context, exec boil.ContextExecutor, authorID string, opts 
 
 	n := next()
 
-	p := &core.Post{
+	p := &model.Post{
 		ID:               id,
-		Subject:          null.StringFrom(fmt.Sprintf("Test post %d", n)),
+		Subject:          new(fmt.Sprintf("Test post %d", n)),
 		Body:             fmt.Sprintf("Test post body %d", n),
 		UserID:           authorID,
-		VisibilityRadius: core.PostVisibilityDirectOnly,
+		VisibilityRadius: model.PostVisibilityDirectOnly,
 	}
 
 	for _, opt := range opts {
 		opt(p)
 	}
 
-	if err := p.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return p, nil
+	return insertRow(ctx, exec, p)
 }
 
 // CommentOpt customizes a PostComment before it is inserted.
-type CommentOpt func(*core.PostComment)
+type CommentOpt func(*model.PostComment)
 
 // ReplyTo makes the new comment a reply to the existing comment commentID,
 // inheriting its thread's top comment the way the comment form does.
 func ReplyTo(commentID string) CommentOpt {
-	return func(c *core.PostComment) {
-		c.ParentCommentID = null.StringFrom(commentID)
+	return func(c *model.PostComment) {
+		c.ParentCommentID = new(commentID)
 	}
 }
 
 // WithCommentBody overrides the made-up comment body.
 func WithCommentBody(body string) CommentOpt {
-	return func(c *core.PostComment) {
+	return func(c *model.PostComment) {
 		c.Body = body
 	}
 }
@@ -115,14 +110,14 @@ func WithCommentBody(body string) CommentOpt {
 // CommentCreatedAt backdates the comment, for data that depends on the order
 // of comments.
 func CommentCreatedAt(t time.Time) CommentOpt {
-	return func(c *core.PostComment) {
+	return func(c *model.PostComment) {
 		c.CreatedAt = t
 	}
 }
 
 // Comment inserts a top-level comment on postID by authorID, or a reply
 // when ReplyTo is given.
-func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID string, opts ...CommentOpt) (*core.PostComment, error) {
+func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID string, opts ...CommentOpt) (*model.PostComment, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -130,7 +125,7 @@ func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID st
 
 	n := next()
 
-	c := &core.PostComment{
+	c := &model.PostComment{
 		ID:           id,
 		UserID:       authorID,
 		PostID:       postID,
@@ -142,8 +137,8 @@ func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID st
 		opt(c)
 	}
 
-	if c.ParentCommentID.Valid {
-		parent, err := core.FindPostComment(ctx, exec, c.ParentCommentID.String)
+	if c.ParentCommentID != nil {
+		parent, err := find(ctx, exec, &model.PostComment{ID: *c.ParentCommentID})
 		if err != nil {
 			return nil, err
 		}
@@ -151,85 +146,73 @@ func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID st
 		c.TopCommentID = parent.TopCommentID
 	}
 
-	if err := c.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	return insertRow(ctx, exec, c)
 }
 
 // PostStat inserts the cached stats row (one per post) for postID.
-func PostStat(ctx context.Context, exec boil.ContextExecutor, postID string) (*core.PostStat, error) {
+func PostStat(ctx context.Context, exec boil.ContextExecutor, postID string) (*model.PostStat, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
 	}
 
-	s := &core.PostStat{
+	s := &model.PostStat{
 		ID:     id,
 		PostID: postID,
 	}
 
-	if err := s.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return s, nil
+	return insertRow(ctx, exec, s)
 }
 
 // PostShare marks postID as shared (one row per post).
-func PostShare(ctx context.Context, exec boil.ContextExecutor, postID string) (*core.PostShare, error) {
+func PostShare(ctx context.Context, exec boil.ContextExecutor, postID string) (*model.PostShare, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
 	}
 
-	s := &core.PostShare{
+	s := &model.PostShare{
 		ID:     id,
 		PostID: postID,
 	}
 
-	if err := s.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return s, nil
+	return insertRow(ctx, exec, s)
 }
 
 // PostPromptOpt customizes a PostPrompt before it is inserted.
-type PostPromptOpt func(*core.PostPrompt)
+type PostPromptOpt func(*model.PostPrompt)
 
 // WithPost attaches the prompt to the post written in answer to it.
 func WithPost(postID string) PostPromptOpt {
-	return func(p *core.PostPrompt) {
-		p.PostID = null.StringFrom(postID)
+	return func(p *model.PostPrompt) {
+		p.PostID = new(postID)
 	}
 }
 
 // WithPromptMessage overrides the made-up prompt message.
 func WithPromptMessage(msg string) PostPromptOpt {
-	return func(p *core.PostPrompt) {
+	return func(p *model.PostPrompt) {
 		p.Message = msg
 	}
 }
 
 // Dismissed marks the prompt as dismissed by its recipient.
 func Dismissed() PostPromptOpt {
-	return func(p *core.PostPrompt) {
-		p.DismissedAt = null.TimeFrom(time.Now())
+	return func(p *model.PostPrompt) {
+		p.DismissedAt = new(time.Now())
 	}
 }
 
 // PromptCreatedAt backdates the prompt, for tests that depend on prompt order.
 func PromptCreatedAt(t time.Time) PostPromptOpt {
-	return func(p *core.PostPrompt) {
+	return func(p *model.PostPrompt) {
 		p.CreatedAt = t
 	}
 }
 
 // PostPrompt inserts askerID's prompt asking recipientID to write about
 // something.
-func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipientID string, opts ...PostPromptOpt) (*core.PostPrompt, error) {
+func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipientID string, opts ...PostPromptOpt) (*model.PostPrompt, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -237,7 +220,7 @@ func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipie
 
 	n := next()
 
-	p := &core.PostPrompt{
+	p := &model.PostPrompt{
 		ID:          id,
 		AskerID:     askerID,
 		RecipientID: recipientID,
@@ -248,15 +231,11 @@ func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipie
 		opt(p)
 	}
 
-	if err := p.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return p, nil
+	return insertRow(ctx, exec, p)
 }
 
 // NormalizedURL inserts a made-up, unique URL.
-func NormalizedURL(ctx context.Context, exec boil.ContextExecutor) (*core.NormalizedURL, error) {
+func NormalizedURL(ctx context.Context, exec boil.ContextExecutor) (*model.NormalizedURL, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -264,14 +243,10 @@ func NormalizedURL(ctx context.Context, exec boil.ContextExecutor) (*core.Normal
 
 	n := next()
 
-	u := &core.NormalizedURL{
+	u := &model.NormalizedURL{
 		ID:  id,
 		URL: fmt.Sprintf("https://example.test/url/%d", n),
 	}
 
-	if err := u.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return u, nil
+	return insertRow(ctx, exec, u)
 }

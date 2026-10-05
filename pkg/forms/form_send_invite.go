@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
@@ -24,10 +24,10 @@ type SendInviteFormInput struct {
 type SendInviteForm struct {
 	*forms.FormBase[SendInviteFormInput]
 	Accounts *accounts.Service
-	User     *core.User
+	User     *model.User
 }
 
-func SendInviteFormNew(accounts *accounts.Service, u *core.User) forms.Form {
+func SendInviteFormNew(accounts *accounts.Service, u *model.User) forms.Form {
 	var form forms.Form = &SendInviteForm{
 		FormBase: &forms.FormBase[SendInviteFormInput]{
 			Name:         "send_invite",
@@ -47,7 +47,7 @@ func SendInviteFormNew(accounts *accounts.Service, u *core.User) forms.Form {
 
 // InvitesSection is the data of InvitesSectionTemplate: the invites left, the
 // ones sent and the send form's template data.
-func InvitesSection(available int64, used core.UserInvitationSlice, form map[string]any) map[string]any {
+func InvitesSection(available int64, used []*model.UserInvitation, form map[string]any) map[string]any {
 	return map[string]any{
 		"Available": available,
 		"Used":      used,

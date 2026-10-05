@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -19,14 +19,14 @@ import (
 // world is an author with a direct connection, a second-degree user (through
 // the connection) and a stranger.
 type world struct {
-	author, direct, second, stranger *core.User
+	author, direct, second, stranger *model.User
 }
 
 func newWorld(t *testing.T, ctx context.Context, db *sqlx.DB) world {
 	t.Helper()
 
 	w := world{}
-	for _, u := range []**core.User{&w.author, &w.direct, &w.second, &w.stranger} {
+	for _, u := range []**model.User{&w.author, &w.direct, &w.second, &w.stranger} {
 		*u = testutil.Must(factory.User(ctx, db))(t)
 	}
 
@@ -45,14 +45,14 @@ func TestDelete_OnlyTheAuthor(t *testing.T) {
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
 	s := svc(db, nil)
-	del := func(actor *core.User, id string) error { return s.Delete(ctx, actor, id) }
-	delDraft := func(actor *core.User, id string) error { return s.DeleteDraft(ctx, actor, id) }
+	del := func(actor *model.User, id string) error { return s.Delete(ctx, actor, id) }
+	delDraft := func(actor *model.User, id string) error { return s.DeleteDraft(ctx, actor, id) }
 
 	for _, tc := range []struct {
 		name      string
-		act       func(actor *core.User, postID string) error
+		act       func(actor *model.User, postID string) error
 		published bool
-		actor     *core.User
+		actor     *model.User
 		want      error
 	}{
 		{"delete: connection", del, true, w.direct, service.ErrNotFound},
@@ -96,7 +96,7 @@ func TestEditAndSave_OnlyTheAuthor(t *testing.T) {
 
 	for _, tc := range []struct {
 		name  string
-		actor *core.User
+		actor *model.User
 		want  error // for ForEdit and CheckEdit
 	}{
 		{"connection", w.direct, service.ErrForbidden},
@@ -121,7 +121,7 @@ func TestEditAndSave_OnlyTheAuthor(t *testing.T) {
 			for _, action := range []posts.Action{posts.ActionSavePost, posts.ActionPublish, posts.ActionMakeDraft, posts.ActionDelete} {
 				_, err = s.Save(ctx, tc.actor, posts.SaveInput{
 					PostID: post.ID, Subject: "hijacked", Body: "hijacked",
-					Visibility: core.PostVisibilityPublic, Action: action,
+					Visibility: model.PostVisibilityPublic, Action: action,
 				})
 				require.ErrorIs(t, err, wantSave, string(action))
 			}
@@ -129,7 +129,7 @@ func TestEditAndSave_OnlyTheAuthor(t *testing.T) {
 			got := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
 			require.Equal(t, post.Body, got.Body)
 			require.Equal(t, post.Subject, got.Subject)
-			require.Equal(t, post.PublishedAt.Valid, got.PublishedAt.Valid)
+			require.Equal(t, post.PublishedAt != nil, got.PublishedAt != nil)
 		})
 	}
 
@@ -156,7 +156,7 @@ func TestComment_ByRadius(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
-		actor   *core.User
+		actor   *model.User
 		replyTo string
 		want    error
 	}{
@@ -204,7 +204,7 @@ func TestDismissPrompt_OnlyTheRecipient(t *testing.T) {
 
 	for _, tc := range []struct {
 		name  string
-		actor *core.User
+		actor *model.User
 		ok    bool
 	}{
 		{"asker", w.author, false},
@@ -222,13 +222,13 @@ func TestDismissPrompt_OnlyTheRecipient(t *testing.T) {
 
 			if tc.ok {
 				require.NoError(t, err)
-				require.True(t, got.DismissedAt.Valid)
+				require.NotNil(t, got.DismissedAt)
 
 				return
 			}
 
 			require.Error(t, err)
-			require.False(t, got.DismissedAt.Valid, "the prompt stays undismissed")
+			require.Nil(t, got.DismissedAt, "the prompt stays undismissed")
 		})
 	}
 }

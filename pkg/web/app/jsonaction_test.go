@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/gin-gonic/gin"
@@ -44,7 +44,7 @@ func TestJSONAction(t *testing.T) {
 
 			var got string
 			var called bool
-			h := jsonAction(&Deps{}, func(_ *gin.Context, _ *core.User, in input) error {
+			h := jsonAction(&Deps{}, func(_ *gin.Context, _ *model.User, in input) error {
 				called = true
 				got = in.Name
 				return tc.fnErr

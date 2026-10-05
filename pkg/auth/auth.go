@@ -11,7 +11,7 @@ import (
 	"github.com/can3p/gogo/apperr"
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -29,7 +29,7 @@ const (
 	loginAttemptKey = "login_attempt"
 )
 
-func setUser(c *gin.Context, u *core.User) {
+func setUser(c *gin.Context, u *model.User) {
 	pgsession.SetLoadedUser(c, u)
 }
 
@@ -143,7 +143,7 @@ func LoginAttempt(c *gin.Context) string {
 
 // StartSession logs user in: the session gets a new ID, a CSRF token and the
 // user.
-func StartSession(c *gin.Context, user *core.User) error {
+func StartSession(c *gin.Context, user *model.User) error {
 	session := sessions.Default(c)
 
 	if err := pgsession.Regenerate(session); err != nil {
@@ -183,7 +183,7 @@ func Logout(c *gin.Context) {
 
 type UserData struct {
 	User       *pgsession.User
-	DBUser     *core.User
+	DBUser     *model.User
 	IsLoggedIn bool
 	CSRFToken  string
 }

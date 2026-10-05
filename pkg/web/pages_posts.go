@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
@@ -56,21 +57,21 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 
 	var url string
 
-	if post.R.URL != nil {
-		url = post.R.URL.URL
+	if post.URL != nil {
+		url = post.URL.URL
 	}
 
 	return mo.Ok(&EditPostPage{
 		BasePage: getBasePage(c, "Edit Post", userData),
 		PostID:   post.ID,
 		Input: forms.PostFormInput{
-			Subject:    post.Subject.String,
+			Subject:    lo.FromPtr(post.Subject),
 			Body:       post.Body,
 			Visibility: post.VisibilityRadius,
 			URL:        url,
 		},
-		LastUpdatedAt: post.UpdatedAt.Time,
-		IsPublished:   post.PublishedAt.Valid,
+		LastUpdatedAt: lo.FromPtr(post.UpdatedAt),
+		IsPublished:   post.PublishedAt != nil,
 		Prompt:        view.Prompt,
 	})
 }

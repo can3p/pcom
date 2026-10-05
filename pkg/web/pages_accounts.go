@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/gin-gonic/gin"
@@ -12,8 +12,8 @@ import (
 type SettingsPage struct {
 	*BasePage
 	AvailableInvites int64
-	UsedInvites      core.UserInvitationSlice
-	ActiveAPIKey     *core.UserAPIKey
+	UsedInvites      []*model.UserInvitation
+	ActiveAPIKey     *model.UserAPIKey
 	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
@@ -51,16 +51,16 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 
 type InvitePage struct {
 	*BasePage
-	Invite  *core.UserInvitation
-	Inviter *core.User
+	Invite  *model.UserInvitation
+	Inviter *model.User
 }
 
 // Invite is the page of an invitation, which has its inviter loaded.
-func Invite(c *gin.Context, invite *core.UserInvitation, userData *auth.UserData) *InvitePage {
+func Invite(c *gin.Context, invite *model.UserInvitation, userData *auth.UserData) *InvitePage {
 	return &InvitePage{
 		BasePage: getBasePage(c, "Accept Invitation", userData),
 		Invite:   invite,
-		Inviter:  invite.R.User,
+		Inviter:  invite.User,
 	}
 }
 

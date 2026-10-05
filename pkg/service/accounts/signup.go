@@ -10,12 +10,12 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 // emailRE and testEmailRE decide what signup accepts as an address.
@@ -116,12 +116,12 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 			return service.Invalid("", "Not enough data")
 		}
 
-		u := &core.User{
+		u := &model.User{
 			ID:                uuid.NewString(),
 			Email:             pgsession.NormalizeEmail(email),
 			EmailCanonical:    pgsession.CanonicalEmail(email),
 			Username:          username,
-			SignupAttribution: null.NewString(attribution, attribution != ""),
+			SignupAttribution: lo.EmptyableToPtr(attribution),
 		}
 
 		if err := tx.LockMailbox(ctx, repo.LockSignupMailbox, u.EmailCanonical); err != nil {
@@ -159,11 +159,11 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 // JoinWaitingList adds an address to the waiting list, asks it to confirm
 // and tells the admin.
 func (s *Service) JoinWaitingList(ctx context.Context, email, reason, attribution string) error {
-	request := &core.UserSignupRequest{
+	request := &model.UserSignupRequest{
 		ID:                uuid.NewString(),
 		Email:             pgsession.NormalizeEmail(email),
-		Reason:            null.NewString(reason, reason != ""),
-		SignupAttribution: null.NewString(attribution, attribution != ""),
+		Reason:            lo.EmptyableToPtr(reason),
+		SignupAttribution: lo.EmptyableToPtr(attribution),
 	}
 
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
@@ -171,7 +171,7 @@ func (s *Service) JoinWaitingList(ctx context.Context, email, reason, attributio
 			return fatal(err)
 		}
 
-		request.VerificationSentAt = null.TimeFrom(time.Now())
+		request.VerificationSentAt = new(time.Now())
 
 		if err := tx.SaveSignupRequest(ctx, request); err != nil {
 			return fatal(err)
@@ -194,11 +194,11 @@ func (s *Service) ConfirmWaitingList(ctx context.Context, id string) error {
 			return err
 		}
 
-		if request.EmailConfirmedAt.Valid {
+		if request.EmailConfirmedAt != nil {
 			return nil
 		}
 
-		request.EmailConfirmedAt = null.TimeFrom(time.Now())
+		request.EmailConfirmedAt = new(time.Now())
 
 		return tx.SaveSignupRequest(ctx, request)
 	})

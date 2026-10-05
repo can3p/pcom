@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,7 +11,7 @@ import (
 func mountPromptActions(d *Deps, r *gin.RouterGroup) {
 	posts := d.Services.Posts
 
-	r.POST("/dismiss_prompt", jsonAction(d, func(c *gin.Context, dbUser *core.User, input struct {
+	r.POST("/dismiss_prompt", jsonAction(d, func(c *gin.Context, dbUser *model.User, input struct {
 		PromptID string `json:"promptId"`
 	}) error {
 		if err := posts.DismissPrompt(c, dbUser, input.PromptID); err != nil {

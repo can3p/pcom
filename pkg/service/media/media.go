@@ -8,7 +8,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/google/uuid"
@@ -29,7 +29,7 @@ func New(store *repo.Store, mediaStorage server.MediaStorage) *Service {
 // Upload validates, reads, stores, and records a media upload for a user.
 // It returns the filename. The record is inserted on the store's executor
 // (which may be a transaction).
-func (s *Service) Upload(ctx context.Context, actor *core.User, reader io.Reader) (string, error) {
+func (s *Service) Upload(ctx context.Context, actor *model.User, reader io.Reader) (string, error) {
 	if actor == nil {
 		return "", service.ErrNeedsLogin
 	}
@@ -63,16 +63,16 @@ func StoreUpload(ctx context.Context, store *repo.Store, storage server.MediaSto
 
 	fname := id.String() + ext
 
-	mediaUpload := &core.MediaUpload{
+	mediaUpload := &model.MediaUpload{
 		ID:            id.String(),
 		UploadedFname: fname,
 		ContentType:   ftype,
 	}
 
 	if userID != nil {
-		mediaUpload.UserID.SetValid(*userID)
+		mediaUpload.UserID = new(*userID)
 	} else {
-		mediaUpload.RSSFeedID.SetValid(*rssFeedID)
+		mediaUpload.RSSFeedID = new(*rssFeedID)
 	}
 
 	if err := store.CreateMediaUpload(ctx, mediaUpload); err != nil {

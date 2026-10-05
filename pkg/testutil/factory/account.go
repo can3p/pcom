@@ -5,38 +5,38 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // InvitationOpt customizes a UserInvitation before it is inserted.
-type InvitationOpt func(*core.UserInvitation)
+type InvitationOpt func(*model.UserInvitation)
 
 // Sent marks the invitation as already emailed to the given address.
 func Sent(email string) InvitationOpt {
-	return func(i *core.UserInvitation) {
-		i.InvitationEmail = null.StringFrom(email)
-		i.InvitationSentAt = null.TimeFrom(time.Now())
+	return func(i *model.UserInvitation) {
+		i.InvitationEmail = new(email)
+		i.InvitationSentAt = new(time.Now())
 	}
 }
 
 // UsedBy marks the invitation as accepted by createdUserID.
 func UsedBy(createdUserID string) InvitationOpt {
-	return func(i *core.UserInvitation) {
-		i.CreatedUserID = null.StringFrom(createdUserID)
+	return func(i *model.UserInvitation) {
+		i.CreatedUserID = new(createdUserID)
 	}
 }
 
 // Invitation inserts one of userID's invitation slots.
-func Invitation(ctx context.Context, exec boil.ContextExecutor, userID string, opts ...InvitationOpt) (*core.UserInvitation, error) {
+func Invitation(ctx context.Context, exec boil.ContextExecutor, userID string, opts ...InvitationOpt) (*model.UserInvitation, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
 	}
 
-	i := &core.UserInvitation{
+	i := &model.UserInvitation{
 		ID:     id,
 		UserID: userID,
 	}
@@ -45,26 +45,22 @@ func Invitation(ctx context.Context, exec boil.ContextExecutor, userID string, o
 		opt(i)
 	}
 
-	if err := i.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return i, nil
+	return insertRow(ctx, exec, i)
 }
 
 // SignupRequestOpt customizes a UserSignupRequest before it is inserted.
-type SignupRequestOpt func(*core.UserSignupRequest)
+type SignupRequestOpt func(*model.UserSignupRequest)
 
 // EmailConfirmed marks the request's email as already confirmed through
 // /confirm_waiting_list/:id.
 func EmailConfirmed() SignupRequestOpt {
-	return func(r *core.UserSignupRequest) {
-		r.EmailConfirmedAt = null.TimeFrom(time.Now())
+	return func(r *model.UserSignupRequest) {
+		r.EmailConfirmedAt = new(time.Now())
 	}
 }
 
 // SignupRequest inserts a pending request to join, with a unique email.
-func SignupRequest(ctx context.Context, exec boil.ContextExecutor, opts ...SignupRequestOpt) (*core.UserSignupRequest, error) {
+func SignupRequest(ctx context.Context, exec boil.ContextExecutor, opts ...SignupRequestOpt) (*model.UserSignupRequest, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -72,7 +68,7 @@ func SignupRequest(ctx context.Context, exec boil.ContextExecutor, opts ...Signu
 
 	n := next()
 
-	r := &core.UserSignupRequest{
+	r := &model.UserSignupRequest{
 		ID:    id,
 		Email: fmt.Sprintf("signup%d@example.test", n),
 	}
@@ -81,25 +77,21 @@ func SignupRequest(ctx context.Context, exec boil.ContextExecutor, opts ...Signu
 		opt(r)
 	}
 
-	if err := r.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return r, nil
+	return insertRow(ctx, exec, r)
 }
 
 // APIKeyOpt customizes a UserAPIKey before it is inserted.
-type APIKeyOpt func(*core.UserAPIKey)
+type APIKeyOpt func(*model.UserAPIKey)
 
 // WithAPIKey sets a fixed key value instead of a random one.
 func WithAPIKey(key string) APIKeyOpt {
-	return func(k *core.UserAPIKey) {
+	return func(k *model.UserAPIKey) {
 		k.APIKey = key
 	}
 }
 
 // APIKey issues userID a fresh API key, or the one WithAPIKey gives.
-func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string, opts ...APIKeyOpt) (*core.UserAPIKey, error) {
+func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string, opts ...APIKeyOpt) (*model.UserAPIKey, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -110,7 +102,7 @@ func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string, opts 
 		return nil, err
 	}
 
-	k := &core.UserAPIKey{
+	k := &model.UserAPIKey{
 		ID:     id,
 		APIKey: key.String(),
 		UserID: userID,
@@ -120,43 +112,35 @@ func APIKey(ctx context.Context, exec boil.ContextExecutor, userID string, opts 
 		opt(k)
 	}
 
-	if err := k.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return k, nil
+	return insertRow(ctx, exec, k)
 }
 
 // UserStyle sets userID's custom profile CSS.
-func UserStyle(ctx context.Context, exec boil.ContextExecutor, userID string, css string) (*core.UserStyle, error) {
+func UserStyle(ctx context.Context, exec boil.ContextExecutor, userID string, css string) (*model.UserStyle, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
 	}
 
-	s := &core.UserStyle{
+	s := &model.UserStyle{
 		ID:     id,
 		UserID: userID,
 		Styles: css,
 	}
 
-	if err := s.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return s, nil
+	return insertRow(ctx, exec, s)
 }
 
 // SetRegistrationOpen flips the singleton system setting that gates signup.
 func SetRegistrationOpen(ctx context.Context, exec boil.ContextExecutor, open bool) error {
-	settings, err := core.SystemSettings().One(ctx, exec)
-	if err != nil {
+	settings := new(model.SystemSetting)
+	if err := repo.Query(exec).NewSelect().Model(settings).Limit(1).Scan(ctx); err != nil {
 		return err
 	}
 
 	settings.RegistrationOpen = open
 
-	_, err = settings.Update(ctx, exec, boil.Whitelist(core.SystemSettingColumns.RegistrationOpen))
+	_, err := repo.Query(exec).NewUpdate().Model(settings).Column("registration_open").WherePK().Exec(ctx)
 
 	return err
 }

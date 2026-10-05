@@ -7,7 +7,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/util/formhelpers"
 	"github.com/gin-gonic/gin"
@@ -23,11 +23,11 @@ type AddFeedFormInput struct {
 
 type AddFeedForm struct {
 	*forms.FormBase[AddFeedFormInput]
-	User  *core.User
+	User  *model.User
 	feeds *feeds.Service
 }
 
-func NewAddFeedForm(feeds *feeds.Service, u *core.User) *AddFeedForm {
+func NewAddFeedForm(feeds *feeds.Service, u *model.User) *AddFeedForm {
 	return &AddFeedForm{
 		FormBase: &forms.FormBase[AddFeedFormInput]{
 			Name:         "add_rss_feed",
@@ -44,7 +44,7 @@ func NewAddFeedForm(feeds *feeds.Service, u *core.User) *AddFeedForm {
 
 // FeedsSection is the data of FeedsSectionTemplate: the user's subscriptions,
 // the user the times are shown for, and the add form's template data.
-func FeedsSection(subs []*feeds.RssFeed, u *core.User, form map[string]any) map[string]any {
+func FeedsSection(subs []*feeds.RssFeed, u *model.User, form map[string]any) map[string]any {
 	return map[string]any{
 		"Feeds":  subs,
 		"DBUser": u,

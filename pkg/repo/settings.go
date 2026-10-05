@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -33,18 +34,18 @@ func (s *Store) SetRegistrationOpen(ctx context.Context, open bool) error {
 
 // UserStyleForUser returns the user's custom CSS row, or nil when they have
 // none.
-func (s *Store) UserStyleForUser(ctx context.Context, userID string) (*core.UserStyle, error) {
+func (s *Store) UserStyleForUser(ctx context.Context, userID string) (*model.UserStyle, error) {
 	st, err := core.UserStyles(core.UserStyleWhere.UserID.EQ(userID)).One(ctx, s.exec)
 	if err = notFound(err); err == ErrNotFound {
 		return nil, nil
 	}
 
-	return st, err
+	return toModel[model.UserStyle](st), err
 }
 
 // UserStyleByUsername returns the custom CSS row of the user with the
 // username, or nil when the user or the row does not exist.
-func (s *Store) UserStyleByUsername(ctx context.Context, username string) (*core.UserStyle, error) {
+func (s *Store) UserStyleByUsername(ctx context.Context, username string) (*model.UserStyle, error) {
 	user, err := core.Users(core.UserWhere.Username.EQ(username)).One(ctx, s.exec)
 	if err = notFound(err); err == ErrNotFound {
 		return nil, nil

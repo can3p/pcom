@@ -8,7 +8,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/pkg/errors"
@@ -127,7 +127,7 @@ func (s *Service) queueE(ctx context.Context, tx *repo.Store, out *mail.Outgoing
 }
 
 // requireActor turns an anonymous actor into ErrNeedsLogin.
-func requireActor(actor *core.User) error {
+func requireActor(actor *model.User) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}

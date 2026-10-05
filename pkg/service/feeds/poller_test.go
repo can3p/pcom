@@ -14,21 +14,21 @@ import (
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	feedutil "github.com/can3p/pcom/pkg/feedops/testutil"
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	. "github.com/ovechkin-dm/mockio/v2/mock"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // readItems is the user's reading list, read through the service.
-func readItems(ctx context.Context, db boil.ContextExecutor, user *core.User) ([]*RssFeedItem, error) {
+func readItems(ctx context.Context, db boil.ContextExecutor, user *model.User) ([]*RssFeedItem, error) {
 	return newService(repo.Using(db), nil, nil, nil).Items(ctx, user)
 }
 
@@ -86,9 +86,9 @@ func TestTryFetchFeed(t *testing.T) {
 		// rather than propagated, so one bad feed doesn't stop the poller
 		// from trying the rest.
 		require.NoError(t, f.tryFetchFeed(ctx, repo.Using(testDB.DB), feedRow))
-		require.NoError(t, feedRow.Reload(ctx, testDB.DB))
-		require.Equal(t, fetchErr.Error(), feedRow.LastFetchError.String)
-		require.True(t, feedRow.NextFetchAt.Valid)
+		feedRow = testutil.Must(feedutil.GetRSSFeed(ctx, testDB.DB, feedRow.ID))(t)
+		require.Equal(t, fetchErr.Error(), lo.FromPtr(feedRow.LastFetchError))
+		require.NotNil(t, feedRow.NextFetchAt)
 	})
 
 	t.Run("fetch success saves feed", func(t *testing.T) {
@@ -112,11 +112,11 @@ func TestTryFetchFeed(t *testing.T) {
 		// LockFeed doubles as the feed reader here: pkg/testutil/factory has
 		// no RSSFeed reader.
 		reloaded := testutil.Must(repo.Using(testDB.DB).LockFeed(ctx, feedRow.ID))(t)
-		require.Empty(t, reloaded.LastFetchError.String)
-		require.False(t, reloaded.LastFetchedAt.IsZero())
-		require.True(t, reloaded.NextFetchAt.Valid, "a successful fetch schedules the next one")
-		require.True(t, reloaded.NextFetchAt.Time.After(time.Now()), "the next fetch is scheduled in the future")
-		require.Equal(t, "fetched title", reloaded.Title.String, "a feed with no title yet should get the fetched title persisted")
+		require.Empty(t, lo.FromPtr(reloaded.LastFetchError))
+		require.NotNil(t, reloaded.LastFetchedAt)
+		require.NotNil(t, reloaded.NextFetchAt, "a successful fetch schedules the next one")
+		require.True(t, lo.FromPtr(reloaded.NextFetchAt).After(time.Now()), "the next fetch is scheduled in the future")
+		require.Equal(t, "fetched title", lo.FromPtr(reloaded.Title), "a feed with no title yet should get the fetched title persisted")
 	})
 }
 
@@ -187,11 +187,11 @@ func TestRefreshFeeds(t *testing.T) {
 		// feed must come out rescheduled into the future, not left at (or
 		// near) that past due time.
 		reloaded := testutil.Must(repo.Using(testDB.DB).LockFeed(ctx, feedRow.ID))(t)
-		require.Empty(t, reloaded.LastFetchError.String)
-		require.False(t, reloaded.LastFetchedAt.IsZero())
-		require.True(t, reloaded.NextFetchAt.Valid)
-		require.True(t, reloaded.NextFetchAt.Time.After(time.Now()), "a processed feed is rescheduled into the future")
-		require.Equal(t, "fetched title", reloaded.Title.String, "a feed with no title yet should get the fetched title persisted")
+		require.Empty(t, lo.FromPtr(reloaded.LastFetchError))
+		require.NotNil(t, reloaded.LastFetchedAt)
+		require.NotNil(t, reloaded.NextFetchAt)
+		require.True(t, lo.FromPtr(reloaded.NextFetchAt).After(time.Now()), "a processed feed is rescheduled into the future")
+		require.Equal(t, "fetched title", lo.FromPtr(reloaded.Title), "a feed with no title yet should get the fetched title persisted")
 	})
 
 	t.Run("recovers from a panic in per-feed processing", func(t *testing.T) {
@@ -360,8 +360,8 @@ func TestSaveFeedItem(t *testing.T) {
 		require.True(t, exists, "the uploaded image should exist in storage")
 
 		upload := testutil.Must(factory.GetMediaUploadByFname(ctx, testDB.DB, fname))(t)
-		require.True(t, upload.RSSFeedID.Valid)
-		require.Equal(t, feedRow.ID, upload.RSSFeedID.String, "the upload should be attributed to the feed it was fetched for")
+		require.NotNil(t, upload.RSSFeedID)
+		require.Equal(t, feedRow.ID, lo.FromPtr(upload.RSSFeedID), "the upload should be attributed to the feed it was fetched for")
 
 		items := testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t)
 		require.Len(t, items, 1)
@@ -385,10 +385,10 @@ func TestSaveFetchFailure(t *testing.T) {
 	updatedFeed, err := feedutil.GetRSSFeed(ctx, testDB.DB, feed.ID)
 	require.NoError(t, err)
 
-	assert.Equal(t, testError.Error(), updatedFeed.LastFetchError.String)
+	assert.Equal(t, testError.Error(), lo.FromPtr(updatedFeed.LastFetchError))
 	assert.Equal(t, 0, updatedFeed.LastItemsCount)
-	assert.False(t, updatedFeed.NextFetchAt.IsZero())
-	assert.False(t, updatedFeed.LastFetchedAt.IsZero())
+	assert.NotNil(t, updatedFeed.NextFetchAt)
+	assert.NotNil(t, updatedFeed.LastFetchedAt)
 }
 
 func TestLockFeed(t *testing.T) {
@@ -434,8 +434,8 @@ func TestSaveFeed(t *testing.T) {
 
 	feed1, err := feedutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed1", "Feed 1")
 	require.NoError(t, err)
-	feed1.NextFetchAt = null.TimeFrom(pastTime)
-	_, err = feed1.Update(ctx, testDB.DB, boil.Infer())
+	feed1.NextFetchAt = new(pastTime)
+	err = repo.Using(testDB.DB).SaveFeed(ctx, feed1)
 	require.NoError(t, err)
 
 	_, err = feedutil.CreateUserFeedSubscription(ctx, testDB.DB, user.ID, feed1.ID)
@@ -483,9 +483,9 @@ func TestSaveFeedInitialAndFollowUp(t *testing.T) {
 
 	feed1, err := feedutil.CreateRSSFeed(ctx, testDB.DB, "https://example.com/feed1", "Feed 1")
 	require.NoError(t, err)
-	feed1.LastFetchError = null.StringFrom("error fetching")
-	feed1.NextFetchAt = null.TimeFrom(pastTime)
-	_, err = feed1.Update(ctx, testDB.DB, boil.Infer())
+	feed1.LastFetchError = new("error fetching")
+	feed1.NextFetchAt = new(pastTime)
+	err = repo.Using(testDB.DB).SaveFeed(ctx, feed1)
 	require.NoError(t, err)
 
 	_, err = feedutil.CreateUserFeedSubscription(ctx, testDB.DB, user.ID, feed1.ID)
@@ -509,10 +509,10 @@ func TestSaveFeedInitialAndFollowUp(t *testing.T) {
 	err = newService(repo.Using(testDB.DB), fetcher, cleaner, nil).saveFeed(ctx, repo.Using(testDB.DB), feed1, feedContent)
 	require.NoError(t, err)
 
-	err = feed1.Reload(ctx, testDB.DB)
+	feed1, err = feedutil.GetRSSFeed(ctx, testDB.DB, feed1.ID)
 	require.NoError(t, err)
 
-	assert.Empty(t, feed1.LastFetchError.String, "successful fetch should erase any previous error")
+	assert.Empty(t, lo.FromPtr(feed1.LastFetchError), "successful fetch should erase any previous error")
 
 	fetchedFeeds, err := readItems(ctx, testDB.DB, user)
 	require.NoError(t, err)

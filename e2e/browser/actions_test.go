@@ -10,9 +10,10 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,7 +86,7 @@ func TestActions_ConnectionStory(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, browser.Expect.Locator(pageA.GetByText("You're connected with "+c.Username)).ToBeVisible())
-	require.NoError(t, browser.Expect.Locator(pageA.GetByRole("link", playwright.PageGetByRoleOptions{Name: post.Subject.String})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pageA.GetByRole("link", playwright.PageGetByRoleOptions{Name: lo.FromPtr(post.Subject)})).ToBeVisible())
 }
 
 // Whitelisting lets a user connect without mediation; removing the
@@ -331,7 +332,7 @@ func TestActions_ShareLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	author := browser.NewUser(t, app)
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
 	anon := browser.Page(t, app, browser.Allow(`404`))
@@ -366,7 +367,7 @@ func TestActions_ShareLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 200, resp.Status())
 	require.NoError(t, browser.Expect.Page(anon).ToHaveURL(regexp.MustCompile(regexp.QuoteMeta(href)+`$`)))
-	require.NoError(t, browser.Expect.Locator(anon.GetByRole("heading", playwright.PageGetByRoleOptions{Name: post.Subject.String})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(anon.GetByRole("heading", playwright.PageGetByRoleOptions{Name: lo.FromPtr(post.Subject)})).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(anon.GetByText(post.Body)).ToBeVisible())
 
 	// Deleting the share removes the link from the post page and disables it.

@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
@@ -32,11 +31,11 @@ type pagedSource struct {
 }
 
 func publishedAt(at time.Time) factory.PostOpt {
-	return func(p *core.Post) { p.PublishedAt = null.TimeFrom(at) }
+	return func(p *model.Post) { p.PublishedAt = new(at) }
 }
 
-func posts(ps core.PostSlice, err error) ([]pagedItem, error) {
-	return lo.Map(ps, func(p *core.Post, _ int) pagedItem { return pagedItem{p.PublishedAt.Time, p.ID} }), err
+func posts(ps []*model.Post, err error) ([]pagedItem, error) {
+	return lo.Map(ps, func(p *model.Post, _ int) pagedItem { return pagedItem{*p.PublishedAt, p.ID} }), err
 }
 
 // pagedSources builds each source on its own users. Only the
@@ -44,16 +43,16 @@ func posts(ps core.PostSlice, err error) ([]pagedItem, error) {
 // author's.
 func pagedSources(t *testing.T, ctx context.Context, db boil.ContextExecutor) map[string]pagedSource {
 	store := repo.Using(db)
-	addPost := func(vis core.PostVisibility) (string, func(time.Time) string) {
-		author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
+	addPost := func(vis model.PostVisibility) (string, func(time.Time) string) {
+		author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic)))(t)
 		return author.ID, func(at time.Time) string {
 			return testutil.Must(factory.Post(ctx, db, author.ID, publishedAt(at), factory.Visibility(vis)))(t).ID
 		}
 	}
 
-	ofID, ofAdd := addPost(core.PostVisibilityDirectOnly)
-	usersID, usersAdd := addPost(core.PostVisibilityDirectOnly)
-	_, profileAdd := addPost(core.PostVisibilityPublic)
+	ofID, ofAdd := addPost(model.PostVisibilityDirectOnly)
+	usersID, usersAdd := addPost(model.PostVisibilityDirectOnly)
+	_, profileAdd := addPost(model.PostVisibilityPublic)
 
 	reader := testutil.Must(factory.User(ctx, db))(t)
 	feed := testutil.Must(factory.RSSFeed(ctx, db))(t)
@@ -69,23 +68,23 @@ func pagedSources(t *testing.T, ctx context.Context, db boil.ContextExecutor) ma
 			return posts(store.PublishedPostsOfUsers(ctx, []string{usersID}, nil, nil, p))
 		}},
 		"PublishedPostsByProfile": {repo.KindPost, profileAdd, func(p repo.Page) ([]pagedItem, error) {
-			return posts(store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic,
-				[]core.ProfileVisibility{core.ProfileVisibilityPublic}, p))
+			return posts(store.PublishedPostsByProfile(ctx, model.PostVisibilityPublic,
+				[]model.ProfileVisibility{model.ProfileVisibilityPublic}, p))
 		}},
 		"UndismissedFeedItems": {repo.KindRSSItem, func(at time.Time) string {
 			item := testutil.Must(factory.RSSItem(ctx, db, feed.ID))(t)
 			return testutil.Must(factory.UserFeedItem(ctx, db, reader.ID, item.ID,
-				func(i *core.UserFeedItem) { i.CreatedAt = at }))(t).ID
+				func(i *model.UserFeedItem) { i.CreatedAt = at }))(t).ID
 		}, func(p repo.Page) ([]pagedItem, error) {
 			items, err := store.UndismissedFeedItems(ctx, reader.ID, p)
-			return lo.Map(items, func(i *core.UserFeedItem, _ int) pagedItem { return pagedItem{i.CreatedAt, i.ID} }), err
+			return lo.Map(items, func(i *model.UserFeedItem, _ int) pagedItem { return pagedItem{i.CreatedAt, i.ID} }), err
 		}},
 		"CommentsOnPostsNotBy": {repo.KindComment, func(at time.Time) string {
 			return testutil.Must(factory.Comment(ctx, db, commented.ID, commenter.ID,
-				func(c *core.PostComment) { c.CreatedAt = at }))(t).ID
+				func(c *model.PostComment) { c.CreatedAt = at }))(t).ID
 		}, func(p repo.Page) ([]pagedItem, error) {
 			comments, err := store.CommentsOnPostsNotBy(ctx, []string{commented.ID}, reader.ID, p)
-			return lo.Map(comments, func(c *core.PostComment, _ int) pagedItem { return pagedItem{c.CreatedAt, c.ID} }), err
+			return lo.Map(comments, func(c *model.PostComment, _ int) pagedItem { return pagedItem{c.CreatedAt, c.ID} }), err
 		}},
 	}
 }

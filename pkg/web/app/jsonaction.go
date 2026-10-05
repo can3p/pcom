@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +15,7 @@ import (
 // the logged-in user and answer with reportSuccess. A body that doesn't bind
 // is reported as "Bad input: ...", and an error from fn as actionMessage
 // words it. fn is usually one service call.
-func jsonAction[T any](_ *Deps, fn func(c *gin.Context, u *core.User, in T) error) gin.HandlerFunc {
+func jsonAction[T any](_ *Deps, fn func(c *gin.Context, u *model.User, in T) error) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var in T
 

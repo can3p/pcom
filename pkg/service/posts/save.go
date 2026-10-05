@@ -8,13 +8,13 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 // Action is what the author asked to do when saving.
@@ -37,13 +37,13 @@ type SaveInput struct {
 	Subject    string
 	URL        string
 	Body       string
-	Visibility core.PostVisibility
+	Visibility model.PostVisibility
 	Action     Action
 }
 
 // Saved is what a save left behind. Post is nil after a delete.
 type Saved struct {
-	Post    *core.Post
+	Post    *model.Post
 	Created bool
 	Deleted bool
 }
@@ -78,7 +78,7 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 	}
 
 	if err := validation.ValidateEnum(in.Visibility,
-		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic},
+		[]model.PostVisibility{model.PostVisibilityDirectOnly, model.PostVisibilitySecondDegree, model.PostVisibilityPublic},
 		[]string{"direct only", "their connections as well", "public"}); err != nil {
 		errs["visibility"] = err.Error()
 	}
@@ -89,7 +89,7 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 // Save creates or changes the actor's post, or deletes it. Publishing
 // notifies the author's direct connections, and the asker of the prompt the
 // post answers, in the same transaction.
-func (s *Service) Save(ctx context.Context, actor *core.User, in SaveInput) (*Saved, error) {
+func (s *Service) Save(ctx context.Context, actor *model.User, in SaveInput) (*Saved, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -109,14 +109,14 @@ func (s *Service) Save(ctx context.Context, actor *core.User, in SaveInput) (*Sa
 	return saved, nil
 }
 
-func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in SaveInput) (*Saved, error) {
+func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, in SaveInput) (*Saved, error) {
 	action := in.Action
 
 	if action == "" {
 		action = ActionAutosave
 	}
 
-	var existing *core.Post
+	var existing *model.Post
 
 	if in.PostID != "" {
 		var err error
@@ -155,8 +155,8 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 		return nil, err
 	}
 
-	post := &core.Post{
-		Subject:          null.NewString(strings.TrimSpace(in.Subject), strings.TrimSpace(in.Subject) != ""),
+	post := &model.Post{
+		Subject:          lo.EmptyableToPtr(strings.TrimSpace(in.Subject)),
 		Body:             strings.TrimSpace(in.Body),
 		UserID:           actor.ID,
 		VisibilityRadius: in.Visibility,
@@ -168,10 +168,9 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 			return nil, err
 		}
 
-		post.URLID = null.StringFrom(storedURL.ID)
+		post.URLID = new(storedURL.ID)
 		// the relation is at hand, so the mails don't need to load it
-		post.R = post.R.NewStruct()
-		post.R.URL = storedURL
+		post.URL = storedURL
 	}
 
 	publishing := false
@@ -186,7 +185,7 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 
 		if action == ActionPublish {
 			// not null value means a published post
-			post.PublishedAt = null.TimeFrom(time.Now())
+			post.PublishedAt = new(time.Now())
 			publishing = true
 		}
 
@@ -195,7 +194,7 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 		}
 
 		if prompt != nil {
-			prompt.Prompt.PostID = null.StringFrom(post.ID)
+			prompt.Prompt.PostID = new(post.ID)
 
 			if err := tx.UpdatePrompt(ctx, prompt.Prompt); err != nil {
 				return nil, err
@@ -206,14 +205,14 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 
 		switch action {
 		case ActionMakeDraft:
-			post.PublishedAt = null.Time{}
+			post.PublishedAt = nil
 		case ActionPublish:
 			// publishing a published post is a plain save: it keeps its
 			// date and doesn't notify anybody again
-			if existing.PublishedAt.Valid {
+			if existing.PublishedAt != nil {
 				post.PublishedAt = existing.PublishedAt
 			} else {
-				post.PublishedAt = null.TimeFrom(time.Now())
+				post.PublishedAt = new(time.Now())
 				publishing = true
 			}
 		default:
@@ -236,7 +235,7 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *core.User, in
 
 // promptOf finds the prompt a post answers: the one being answered by a new
 // post, or the one an existing post is linked to.
-func (s *Service) promptOf(ctx context.Context, tx *repo.Store, actor *core.User, existing *core.Post, promptID string) (*postops.PostPrompt, error) {
+func (s *Service) promptOf(ctx context.Context, tx *repo.Store, actor *model.User, existing *model.Post, promptID string) (*postops.PostPrompt, error) {
 	if existing != nil {
 		return promptByPost(ctx, tx, existing.ID)
 	}
@@ -250,12 +249,12 @@ func (s *Service) promptOf(ctx context.Context, tx *repo.Store, actor *core.User
 
 // notifyPublished tells the asker of the prompt the post answers, then every
 // direct connection of the author.
-func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *core.User, post *core.Post, prompt *postops.PostPrompt) error {
-	if prompt != nil && prompt.Prompt.DismissedAt.IsZero() {
+func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *model.User, post *model.Post, prompt *postops.PostPrompt) error {
+	if prompt != nil && prompt.Prompt.DismissedAt == nil {
 		dbPrompt := prompt.Prompt
 
-		dbPrompt.PostID = null.StringFrom(post.ID)
-		dbPrompt.DismissedAt = null.TimeFrom(time.Now())
+		dbPrompt.PostID = new(post.ID)
+		dbPrompt.DismissedAt = new(time.Now())
 
 		if err := tx.UpdatePrompt(ctx, dbPrompt); err != nil {
 			return err
@@ -288,13 +287,13 @@ func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *co
 // EditView is a post as the edit page shows it.
 type EditView struct {
 	// Post has its author, stats and linked URL loaded.
-	Post   *core.Post
+	Post   *model.Post
 	Prompt *postops.PostPrompt
 }
 
 // ForEdit loads the actor's post for the edit page: ErrNotFound if there is
 // no such post, ErrForbidden if it is somebody else's.
-func (s *Service) ForEdit(ctx context.Context, actor *core.User, postID string) (*EditView, error) {
+func (s *Service) ForEdit(ctx context.Context, actor *model.User, postID string) (*EditView, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -320,7 +319,7 @@ func (s *Service) ForEdit(ctx context.Context, actor *core.User, postID string) 
 
 // CheckEdit reports whether the actor may edit the post: only its author may,
 // as postops.GetPostCapabilities says. Anybody else gets ErrForbidden.
-func (s *Service) CheckEdit(ctx context.Context, actor *core.User, post *core.Post) error {
+func (s *Service) CheckEdit(ctx context.Context, actor *model.User, post *model.Post) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}
@@ -339,14 +338,14 @@ func (s *Service) CheckEdit(ctx context.Context, actor *core.User, post *core.Po
 
 // Delete removes the actor's post, draft or published. Somebody else's post
 // is not found.
-func (s *Service) Delete(ctx context.Context, actor *core.User, postID string) error {
+func (s *Service) Delete(ctx context.Context, actor *model.User, postID string) error {
 	return s.deleteOwn(ctx, actor, postID, false)
 }
 
 // DeleteDraft removes the actor's post if it is still a draft. What the
 // author sees when there is no such draft is the database's own words, as it
 // always was.
-func (s *Service) DeleteDraft(ctx context.Context, actor *core.User, postID string) error {
+func (s *Service) DeleteDraft(ctx context.Context, actor *model.User, postID string) error {
 	err := s.deleteOwn(ctx, actor, postID, true)
 	if errors.Is(err, service.ErrNotFound) {
 		return service.Invalid("postId", "sql: no rows in result set")
@@ -355,7 +354,7 @@ func (s *Service) DeleteDraft(ctx context.Context, actor *core.User, postID stri
 	return err
 }
 
-func (s *Service) deleteOwn(ctx context.Context, actor *core.User, postID string, draftOnly bool) error {
+func (s *Service) deleteOwn(ctx context.Context, actor *model.User, postID string, draftOnly bool) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}

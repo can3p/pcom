@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
@@ -18,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
 // The private RSS feed is read without a session: the token stands for its
@@ -38,19 +37,19 @@ func TestPrivateFeed(t *testing.T) {
 	connect(t, db, ctx, reader.ID, direct.ID)
 	connect(t, db, ctx, direct.ID, second.ID)
 
-	post := func(authorID string, vis core.PostVisibility) string {
+	post := func(authorID string, vis model.PostVisibility) string {
 		return testutil.Must(factory.Post(ctx, db, authorID, factory.Published(), factory.Visibility(vis)))(t).ID
 	}
 
 	want := []string{
-		post(direct.ID, core.PostVisibilityDirectOnly),
-		post(direct.ID, core.PostVisibilitySecondDegree),
-		post(direct.ID, core.PostVisibilityPublic),
-		post(second.ID, core.PostVisibilitySecondDegree),
-		post(second.ID, core.PostVisibilityPublic),
+		post(direct.ID, model.PostVisibilityDirectOnly),
+		post(direct.ID, model.PostVisibilitySecondDegree),
+		post(direct.ID, model.PostVisibilityPublic),
+		post(second.ID, model.PostVisibilitySecondDegree),
+		post(second.ID, model.PostVisibilityPublic),
 	}
-	post(second.ID, core.PostVisibilityDirectOnly)
-	testutil.Must(factory.Post(ctx, db, direct.ID, factory.Visibility(core.PostVisibilityPublic)))(t) // a draft
+	post(second.ID, model.PostVisibilityDirectOnly)
+	testutil.Must(factory.Post(ctx, db, direct.ID, factory.Visibility(model.PostVisibilityPublic)))(t) // a draft
 
 	token := testutil.Must(repo.RegenerateFeedToken(ctx, db, reader.ID))(t)
 
@@ -83,13 +82,13 @@ func TestPublicPosts(t *testing.T) {
 	}
 
 	var rows []row
-	var public *core.User
-	for _, profile := range core.AllProfileVisibility() {
+	var public *model.User
+	for _, profile := range model.AllProfileVisibility() {
 		author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(profile)))(t)
-		if profile == core.ProfileVisibilityPublic {
+		if profile == model.ProfileVisibilityPublic {
 			public = author
 		}
-		for _, vis := range core.AllPostVisibility() {
+		for _, vis := range model.AllPostVisibility() {
 			for _, published := range []bool{true, false} {
 				opts := []factory.PostOpt{factory.Visibility(vis)}
 				if published {
@@ -98,14 +97,14 @@ func TestPublicPosts(t *testing.T) {
 				rows = append(rows, row{
 					name: fmt.Sprintf("%s profile, %s post, published %v", profile, vis, published),
 					id:   testutil.Must(factory.Post(ctx, db, author.ID, opts...))(t).ID,
-					want: published && vis == core.PostVisibilityPublic && profile == core.ProfileVisibilityPublic,
+					want: published && vis == model.PostVisibilityPublic && profile == model.ProfileVisibilityPublic,
 				})
 			}
 		}
 	}
 
-	newer := testutil.Must(factory.Post(ctx, db, public.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic)))(t).ID
-	newest := testutil.Must(factory.Post(ctx, db, public.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic)))(t).ID
+	newer := testutil.Must(factory.Post(ctx, db, public.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic)))(t).ID
+	newest := testutil.Must(factory.Post(ctx, db, public.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic)))(t).ID
 
 	page, err := svc.PublicPosts(ctx, "")
 	require.NoError(t, err)
@@ -152,8 +151,8 @@ func TestPostPages(t *testing.T) {
 			ctx := context.Background()
 			svc := New(repo.Using(db))
 
-			author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
-			registered := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers)))(t)
+			author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic)))(t)
+			registered := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityRegisteredUsers)))(t)
 			reader := testutil.Must(factory.User(ctx, db))(t)
 			connect(t, db, ctx, reader.ID, author.ID)
 
@@ -164,8 +163,8 @@ func TestPostPages(t *testing.T) {
 			}
 			add := func(authorID string, ago int) entry {
 				at := base.Add(-time.Duration(ago) * time.Microsecond)
-				post := testutil.Must(factory.Post(ctx, db, authorID, factory.Visibility(core.PostVisibilityPublic),
-					func(p *core.Post) { p.PublishedAt = null.TimeFrom(at) }))(t)
+				post := testutil.Must(factory.Post(ctx, db, authorID, factory.Visibility(model.PostVisibilityPublic),
+					func(p *model.Post) { p.PublishedAt = new(at) }))(t)
 				return entry{at, post.ID}
 			}
 			var public, all []entry
@@ -196,7 +195,7 @@ func TestPostPages(t *testing.T) {
 			ids := func(posts []*postops.Post) []string {
 				return lo.Map(posts, func(p *postops.Post, _ int) string { return p.ID })
 			}
-			journal := func(actor *core.User) func(string) ([]*postops.Post, string, error) {
+			journal := func(actor *model.User) func(string) ([]*postops.Post, string, error) {
 				return func(c string) ([]*postops.Post, string, error) {
 					j, err := svc.Journal(ctx, actor, author.Username, c)
 					if err != nil {
@@ -273,9 +272,9 @@ func TestJournalAbout(t *testing.T) {
 	ctx := context.Background()
 	svc := New(repo.Using(db))
 
-	public := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic), factory.WithProfileAbout("About **me**")))(t)
-	hidden := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityConnections), factory.WithProfileAbout("secret")))(t)
-	none := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
+	public := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic), factory.WithProfileAbout("About **me**")))(t)
+	hidden := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityConnections), factory.WithProfileAbout("secret")))(t)
+	none := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic)))(t)
 	visitor := testutil.Must(factory.User(ctx, db))(t)
 	connect(t, db, ctx, visitor.ID, hidden.ID)
 
@@ -306,9 +305,9 @@ func TestWithLimits(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(core.ProfileVisibilityPublic)))(t)
+	author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic)))(t)
 	for range 4 {
-		testutil.Must(factory.Post(ctx, db, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic)))(t)
+		testutil.Must(factory.Post(ctx, db, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic)))(t)
 	}
 
 	svc := New(repo.Using(db), WithLimits(2, 3))

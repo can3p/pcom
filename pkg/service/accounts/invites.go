@@ -7,17 +7,17 @@ import (
 
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 // Invitation returns an invitation nobody has accepted yet, with its inviter
-// loaded (invite.R.User).
-func (s *Service) Invitation(ctx context.Context, id string) (*core.UserInvitation, error) {
+// loaded (invite.User).
+func (s *Service) Invitation(ctx context.Context, id string) (*model.UserInvitation, error) {
 	return notFound(s.store.OpenInvitationByID(ctx, id))
 }
 
@@ -45,7 +45,7 @@ func (s *Service) CheckInviteEmail(ctx context.Context, email string) error {
 
 // SendInvite spends one of the actor's invitations on the address and mails
 // the invitation link.
-func (s *Service) SendInvite(ctx context.Context, actor *core.User, to string) error {
+func (s *Service) SendInvite(ctx context.Context, actor *model.User, to string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -72,8 +72,8 @@ func (s *Service) SendInvite(ctx context.Context, actor *core.User, to string) e
 			return fmt.Errorf("failed to lock the invite: %w", err)
 		}
 
-		invite.InvitationEmail = null.StringFrom(to)
-		invite.InvitationSentAt = null.TimeFrom(time.Now())
+		invite.InvitationEmail = new(to)
+		invite.InvitationSentAt = new(time.Now())
 
 		if err := tx.SaveInvitation(ctx, invite); err != nil {
 			return fmt.Errorf("failed to save the invite: %w", err)
@@ -88,18 +88,18 @@ func (s *Service) SendInvite(ctx context.Context, actor *core.User, to string) e
 // spread. The account is confirmed, since the invitation reached its email,
 // and has no password: it logs in with a code. AcceptInvite starts that login
 // in the same transaction, mails its code and returns the attempt's id.
-func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation, username string) (string, error) {
+func (s *Service) AcceptInvite(ctx context.Context, invite *model.UserInvitation, username string) (string, error) {
 	if username == "" {
 		return "", service.Invalid("", "Not enough data")
 	}
 
-	u := &core.User{
+	u := &model.User{
 		ID:                uuid.NewString(),
-		Email:             pgsession.NormalizeEmail(invite.InvitationEmail.String),
-		EmailCanonical:    pgsession.CanonicalEmail(invite.InvitationEmail.String),
+		Email:             pgsession.NormalizeEmail(lo.FromPtr(invite.InvitationEmail)),
+		EmailCanonical:    pgsession.CanonicalEmail(lo.FromPtr(invite.InvitationEmail)),
 		Username:          username,
-		EmailConfirmedAt:  null.TimeFrom(time.Now()),
-		SignupAttribution: null.StringFrom("accepted_invite"),
+		EmailConfirmedAt:  new(time.Now()),
+		SignupAttribution: new("accepted_invite"),
 	}
 
 	var attemptID string
@@ -109,7 +109,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 			return err
 		}
 
-		invite.CreatedUserID = null.StringFrom(u.ID)
+		invite.CreatedUserID = new(u.ID)
 
 		if err := tx.SaveInvitation(ctx, invite); err != nil {
 			return err
@@ -123,7 +123,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 			return err
 		}
 
-		if err := tx.InsertInvitation(ctx, &core.UserInvitation{ID: uuid.NewString(), UserID: u.ID}); err != nil {
+		if err := tx.InsertInvitation(ctx, &model.UserInvitation{ID: uuid.NewString(), UserID: u.ID}); err != nil {
 			return err
 		}
 
@@ -134,7 +134,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *core.UserInvitation,
 		return err
 	})
 	if err != nil {
-		invite.CreatedUserID = null.String{}
+		invite.CreatedUserID = nil
 
 		return "", err
 	}

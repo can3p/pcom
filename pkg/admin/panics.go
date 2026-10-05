@@ -15,7 +15,7 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	pcommail "github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -28,7 +28,7 @@ var (
 )
 
 // PageFailure tells the admin that a page panicked.
-func PageFailure(from, adminAddress string, c *gin.Context, err any, user *core.User) *pcommail.Envelope {
+func PageFailure(from, adminAddress string, c *gin.Context, err any, user *model.User) *pcommail.Envelope {
 	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
 
 	userInfo := "Anonymous"

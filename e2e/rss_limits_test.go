@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -39,7 +39,7 @@ func rssTitles(t *testing.T, app *e2e.App, path string) []string {
 // publishRSSPosts publishes more posts than the cap, oldest first, titled
 // "Rss 01", "Rss 02", ...; it returns the subject of the newest post and of
 // the oldest one the cap still admits.
-func publishRSSPosts(t *testing.T, app *e2e.App, authorID string, vis core.PostVisibility) (newest, oldestKept string) {
+func publishRSSPosts(t *testing.T, app *e2e.App, authorID string, vis model.PostVisibility) (newest, oldestKept string) {
 	t.Helper()
 
 	n := reading.DefaultRSSLimit + 5
@@ -64,7 +64,7 @@ func TestRSSPrivate_Limit(t *testing.T) {
 	require.NoError(t, err)
 	token, err := repo.RegenerateFeedToken(ctx, app.DB, user.ID)
 	require.NoError(t, err)
-	newest, oldest := publishRSSPosts(t, app, author.ID, core.PostVisibilityDirectOnly)
+	newest, oldest := publishRSSPosts(t, app, author.ID, model.PostVisibilityDirectOnly)
 
 	titles := rssTitles(t, app, "/rss/private/"+token.Token)
 	require.Len(t, titles, reading.DefaultRSSLimit)
@@ -77,8 +77,8 @@ func TestRSSPublicJournal_Limit(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	newest, oldest := publishRSSPosts(t, app, author.ID, core.PostVisibilityPublic)
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	newest, oldest := publishRSSPosts(t, app, author.ID, model.PostVisibilityPublic)
 
 	titles := rssTitles(t, app, "/rss/public/"+author.Username)
 	require.Len(t, titles, reading.DefaultRSSLimit)

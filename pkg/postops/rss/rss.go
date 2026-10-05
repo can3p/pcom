@@ -3,10 +3,11 @@ package rss
 import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/gorilla/feeds"
+	"github.com/samber/lo"
 )
 
 func ToFeed(site links.Site, title string, link string, posts []*postops.Post) *feeds.Feed {
@@ -20,7 +21,7 @@ func ToFeed(site links.Site, title string, link string, posts []*postops.Post) *
 	for _, post := range posts {
 		content := "Post is not public, follow the link to read the text"
 
-		if post.VisibilityRadius == core.PostVisibilityPublic {
+		if post.VisibilityRadius == model.PostVisibilityPublic {
 			content = string(markdown.ToEnrichedTemplate(post.Body, types.ViewRSS, site.MediaReplacer, func(in string, add2 ...string) string {
 				return site.Abs(in, add2...)
 			}))
@@ -43,7 +44,7 @@ func ToFeed(site links.Site, title string, link string, posts []*postops.Post) *
 			},
 			Link:        &feeds.Link{Href: site.Abs("post", post.ID)},
 			Description: content,
-			Created:     post.PublishedAt.Time.UTC(),
+			Created:     lo.FromPtr(post.PublishedAt).UTC(),
 		})
 	}
 

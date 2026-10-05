@@ -1,6 +1,6 @@
 package values
 
-import "github.com/can3p/pcom/pkg/model/core"
+import "github.com/can3p/pcom/pkg/model"
 
 type SelectValue struct {
 	Label string
@@ -10,7 +10,7 @@ type SelectValue struct {
 type ValueList []SelectValue
 
 var ProfileVisibilityValues = ValueList{
-	{Label: "All registered users", Value: string(core.ProfileVisibilityRegisteredUsers)},
-	{Label: "Direct and indirect connections", Value: string(core.ProfileVisibilityConnections)},
-	{Label: "Public", Value: string(core.ProfileVisibilityPublic)},
+	{Label: "All registered users", Value: string(model.ProfileVisibilityRegisteredUsers)},
+	{Label: "Direct and indirect connections", Value: string(model.ProfileVisibilityConnections)},
+	{Label: "Public", Value: string(model.ProfileVisibilityPublic)},
 }

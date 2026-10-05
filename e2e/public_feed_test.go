@@ -8,8 +8,9 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,10 +21,10 @@ func TestPublicFeed(t *testing.T) {
 
 	app := e2e.Start(t)
 
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
-	other := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityRegisteredUsers))
-	newPost(t, app, other.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	public := newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
+	other := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityRegisteredUsers))
+	newPost(t, app, other.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 
 	resp := requireStatus(t, app.Client(t).Get("/rss/public"), http.StatusOK)
 	require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "text/xml"), resp.Header.Get("Content-Type"))
@@ -43,7 +44,7 @@ func TestPublicFeed(t *testing.T) {
 
 	require.Len(t, doc.Channel.Items, 1, "the registered-users profile's post is left out")
 	it := doc.Channel.Items[0]
-	require.Equal(t, public.Subject.String, it.Title)
+	require.Equal(t, lo.FromPtr(public.Subject), it.Title)
 	require.True(t, strings.HasSuffix(it.Link, "/posts/"+public.ID), it.Link)
 }
 
@@ -54,9 +55,9 @@ func TestPublicLists_CursorPages(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
-	author := newUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
+	author := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
 	for i := 1; i <= 35; i++ { // more than one page (reading.DefaultPageSize is 30)
-		newPost(t, app, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic),
+		newPost(t, app, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic),
 			factory.WithSubject(fmt.Sprintf("Paged %02d", i)))
 	}
 

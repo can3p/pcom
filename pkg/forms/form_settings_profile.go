@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/can3p/gogo/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 )
@@ -20,10 +20,10 @@ type SettingsProfileInput struct {
 type SettingsProfile struct {
 	*forms.FormBase[SettingsProfileInput]
 	Accounts *accounts.Service
-	User     *core.User
+	User     *model.User
 }
 
-func SettingsProfileNew(accounts *accounts.Service, u *core.User) *SettingsProfile {
+func SettingsProfileNew(accounts *accounts.Service, u *model.User) *SettingsProfile {
 	return &SettingsProfile{
 		FormBase: &forms.FormBase[SettingsProfileInput]{
 			Name:                "settings_profile",

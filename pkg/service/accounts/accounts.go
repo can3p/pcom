@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/can3p/pcom/pkg/mail"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
@@ -128,12 +129,12 @@ func (s *Service) SendAdminMail(ctx context.Context, e *mail.Envelope) error {
 }
 
 // UserByID loads the user a session belongs to.
-func (s *Service) UserByID(ctx context.Context, id string) (*core.User, error) {
+func (s *Service) UserByID(ctx context.Context, id string) (*model.User, error) {
 	return notFound(s.store.UserByID(ctx, id))
 }
 
 // UserByAPIKey loads the user an API key belongs to.
-func (s *Service) UserByAPIKey(ctx context.Context, key string) (*core.User, error) {
+func (s *Service) UserByAPIKey(ctx context.Context, key string) (*model.User, error) {
 	return notFound(s.store.UserByAPIKey(ctx, key))
 }
 
@@ -174,7 +175,7 @@ func (s *Service) TextLimits() TextLimits {
 }
 
 // SaveUserStyles replaces the actor's custom CSS. Empty styles remove it.
-func (s *Service) SaveUserStyles(ctx context.Context, actor *core.User, styles string) error {
+func (s *Service) SaveUserStyles(ctx context.Context, actor *model.User, styles string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -188,7 +189,7 @@ func (s *Service) SaveUserStyles(ctx context.Context, actor *core.User, styles s
 
 // SaveProfile replaces the actor's "About" text. An empty text, or one of
 // whitespace only, removes it.
-func (s *Service) SaveProfile(ctx context.Context, actor *core.User, about string) error {
+func (s *Service) SaveProfile(ctx context.Context, actor *model.User, about string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -206,7 +207,7 @@ func (s *Service) SaveProfile(ctx context.Context, actor *core.User, about strin
 }
 
 // SaveGeneralSettings changes the actor's timezone and profile visibility.
-func (s *Service) SaveGeneralSettings(ctx context.Context, actor *core.User, timezone string, visibility core.ProfileVisibility) error {
+func (s *Service) SaveGeneralSettings(ctx context.Context, actor *model.User, timezone string, visibility model.ProfileVisibility) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -223,7 +224,7 @@ func (s *Service) SaveGeneralSettings(ctx context.Context, actor *core.User, tim
 
 // GenerateAPIKey gives the actor an API key. There is no rotation: a user
 // who has a key keeps it.
-func (s *Service) GenerateAPIKey(ctx context.Context, actor *core.User) error {
+func (s *Service) GenerateAPIKey(ctx context.Context, actor *model.User) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -235,7 +236,7 @@ func (s *Service) GenerateAPIKey(ctx context.Context, actor *core.User) error {
 
 // RegenerateFeedToken creates the actor's private feed token or replaces it;
 // the old feed URL stops working.
-func (s *Service) RegenerateFeedToken(ctx context.Context, actor *core.User) error {
+func (s *Service) RegenerateFeedToken(ctx context.Context, actor *model.User) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
 	}
@@ -248,8 +249,8 @@ func (s *Service) RegenerateFeedToken(ctx context.Context, actor *core.User) err
 // SettingsView is what the settings page shows besides the forms.
 type SettingsView struct {
 	AvailableInvites int64
-	UsedInvites      core.UserInvitationSlice
-	APIKey           *core.UserAPIKey
+	UsedInvites      []*model.UserInvitation
+	APIKey           *model.UserAPIKey
 	FeedURL          string // private RSS feed URL, empty until a feed token exists
 	UserStyles       string
 	ProfileAbout     string
@@ -257,7 +258,7 @@ type SettingsView struct {
 }
 
 // Settings gathers the actor's settings page.
-func (s *Service) Settings(ctx context.Context, actor *core.User) (*SettingsView, error) {
+func (s *Service) Settings(ctx context.Context, actor *model.User) (*SettingsView, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -339,7 +340,7 @@ func (s *Service) AddInvites(ctx context.Context, email string, n int) error {
 		}
 
 		for ; n > 0; n-- {
-			if err := tx.InsertInvitation(ctx, &core.UserInvitation{ID: uuid.NewString(), UserID: u.ID}); err != nil {
+			if err := tx.InsertInvitation(ctx, &model.UserInvitation{ID: uuid.NewString(), UserID: u.ID}); err != nil {
 				return err
 			}
 		}

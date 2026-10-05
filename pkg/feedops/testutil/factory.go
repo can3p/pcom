@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func CreateUser(ctx context.Context, exec boil.ContextExecutor, email string) (*core.User, error) {
-	user := &core.User{
+func CreateUser(ctx context.Context, exec boil.ContextExecutor, email string) (*model.User, error) {
+	user := &model.User{
 		ID:             uuid.New().String(),
 		Email:          email,
 		EmailCanonical: pgsession.CanonicalEmail(email),
@@ -20,44 +20,32 @@ func CreateUser(ctx context.Context, exec boil.ContextExecutor, email string) (*
 		Timezone:       "UTC",
 	}
 
-	if err := user.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return user, nil
+	return insert(ctx, exec, user)
 }
 
-func CreateRSSFeed(ctx context.Context, exec boil.ContextExecutor, url string, title string) (*core.RSSFeed, error) {
-	feed := &core.RSSFeed{
+func CreateRSSFeed(ctx context.Context, exec boil.ContextExecutor, url string, title string) (*model.RSSFeed, error) {
+	feed := &model.RSSFeed{
 		ID:          uuid.New().String(),
 		URL:         url,
-		Title:       null.StringFrom(title),
-		Description: null.StringFrom("Test feed description"),
+		Title:       new(title),
+		Description: new("Test feed description"),
 	}
 
-	if err := feed.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return feed, nil
+	return insert(ctx, exec, feed)
 }
 
-func CreateUserFeedSubscription(ctx context.Context, exec boil.ContextExecutor, userID string, feedID string) (*core.UserFeedSubscription, error) {
-	subscription := &core.UserFeedSubscription{
+func CreateUserFeedSubscription(ctx context.Context, exec boil.ContextExecutor, userID string, feedID string) (*model.UserFeedSubscription, error) {
+	subscription := &model.UserFeedSubscription{
 		ID:     uuid.New().String(),
 		UserID: userID,
 		FeedID: feedID,
 	}
 
-	if err := subscription.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return subscription, nil
+	return insert(ctx, exec, subscription)
 }
 
-func CreateRSSItem(ctx context.Context, exec boil.ContextExecutor, feedID string, urlID string, title string, publishedAt time.Time) (*core.RSSItem, error) {
-	item := &core.RSSItem{
+func CreateRSSItem(ctx context.Context, exec boil.ContextExecutor, feedID string, urlID string, title string, publishedAt time.Time) (*model.RSSItem, error) {
+	item := &model.RSSItem{
 		ID:                   uuid.New().String(),
 		FeedID:               feedID,
 		URLID:                urlID,
@@ -68,28 +56,20 @@ func CreateRSSItem(ctx context.Context, exec boil.ContextExecutor, feedID string
 		PublishedAt:          publishedAt,
 	}
 
-	if err := item.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return item, nil
+	return insert(ctx, exec, item)
 }
 
-func CreateURL(ctx context.Context, exec boil.ContextExecutor, url string) (*core.NormalizedURL, error) {
-	urlRecord := &core.NormalizedURL{
+func CreateURL(ctx context.Context, exec boil.ContextExecutor, url string) (*model.NormalizedURL, error) {
+	urlRecord := &model.NormalizedURL{
 		ID:  uuid.New().String(),
 		URL: url,
 	}
 
-	if err := urlRecord.Insert(ctx, exec, boil.Infer()); err != nil {
-		return nil, err
-	}
-
-	return urlRecord, nil
+	return insert(ctx, exec, urlRecord)
 }
 
-func CreateUserFeedItem(ctx context.Context, exec boil.ContextExecutor, userID string, rssItemID string, urlID string, createdAt time.Time) (*core.UserFeedItem, error) {
-	item := &core.UserFeedItem{
+func CreateUserFeedItem(ctx context.Context, exec boil.ContextExecutor, userID string, rssItemID string, urlID string, createdAt time.Time) (*model.UserFeedItem, error) {
+	item := &model.UserFeedItem{
 		ID:          uuid.New().String(),
 		UserID:      userID,
 		RSSItemID:   rssItemID,
@@ -98,21 +78,41 @@ func CreateUserFeedItem(ctx context.Context, exec boil.ContextExecutor, userID s
 		CreatedAt:   createdAt,
 	}
 
-	if err := item.Insert(ctx, exec, boil.Infer()); err != nil {
+	return insert(ctx, exec, item)
+}
+
+func GetRSSFeed(ctx context.Context, exec boil.ContextExecutor, feedID string) (*model.RSSFeed, error) {
+	feed := &model.RSSFeed{ID: feedID}
+	if err := repo.Query(exec).NewSelect().Model(feed).WherePK().Scan(ctx); err != nil {
 		return nil, err
 	}
 
-	return item, nil
+	return feed, nil
 }
 
-func GetRSSFeed(ctx context.Context, exec boil.ContextExecutor, feedID string) (*core.RSSFeed, error) {
-	return core.FindRSSFeed(ctx, exec, feedID)
+func GetRSSItemsByFeed(ctx context.Context, exec boil.ContextExecutor, feedID string) ([]*model.RSSItem, error) {
+	var items []*model.RSSItem
+	if err := repo.Query(exec).NewSelect().Model(&items).Where("feed_id = ?", feedID).Scan(ctx); err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
-func GetRSSItemsByFeed(ctx context.Context, exec boil.ContextExecutor, feedID string) (core.RSSItemSlice, error) {
-	return core.RSSItems(core.RSSItemWhere.FeedID.EQ(feedID)).All(ctx, exec)
+func GetUserFeedItemsByUser(ctx context.Context, exec boil.ContextExecutor, userID string) ([]*model.UserFeedItem, error) {
+	var items []*model.UserFeedItem
+	if err := repo.Query(exec).NewSelect().Model(&items).Where("user_id = ?", userID).Scan(ctx); err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
-func GetUserFeedItemsByUser(ctx context.Context, exec boil.ContextExecutor, userID string) (core.UserFeedItemSlice, error) {
-	return core.UserFeedItems(core.UserFeedItemWhere.UserID.EQ(userID)).All(ctx, exec)
+// insert stores a new row and returns it.
+func insert[M any](ctx context.Context, exec boil.ContextExecutor, m *M) (*M, error) {
+	if _, err := repo.Query(exec).NewInsert().Model(m).Exec(ctx); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }

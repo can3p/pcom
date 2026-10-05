@@ -12,7 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/google/uuid"
 )
@@ -27,20 +27,20 @@ const (
 	PublishDate ExportField = "published"
 )
 
-func SerializePost(post *core.Post) []byte {
+func SerializePost(post *model.Post) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteString("---\n")
 	fmt.Fprintf(&buf, "%s: %s\n", OriginalID, post.ID)
-	if post.Subject.Valid {
-		fmt.Fprintf(&buf, "%s: %s\n", Subject, post.Subject.String)
+	if post.Subject != nil {
+		fmt.Fprintf(&buf, "%s: %s\n", Subject, *post.Subject)
 	}
-	if post.URLID.Valid {
-		fmt.Fprintf(&buf, "%s: %s\n", Url, post.R.URL.URL)
+	if post.URLID != nil {
+		fmt.Fprintf(&buf, "%s: %s\n", Url, post.URL.URL)
 	}
 	fmt.Fprintf(&buf, "%s: %s\n", Visibility, post.VisibilityRadius.String())
-	if post.PublishedAt.Valid {
-		fmt.Fprintf(&buf, "%s: %s\n", PublishDate, post.PublishedAt.Time.Format(time.RFC3339))
+	if post.PublishedAt != nil {
+		fmt.Fprintf(&buf, "%s: %s\n", PublishDate, post.PublishedAt.Format(time.RFC3339))
 	}
 	buf.WriteString("---\n")
 
@@ -57,7 +57,7 @@ func isURLMediaUpload(url string) bool {
 	return err == nil
 }
 
-func SerializeBlogSlice(ctx context.Context, posts []*core.Post, mediaStorage server.MediaStorage) ([]byte, error) {
+func SerializeBlogSlice(ctx context.Context, posts []*model.Post, mediaStorage server.MediaStorage) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 

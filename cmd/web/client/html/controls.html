@@ -65,7 +65,7 @@
         <h2>Mediation Requests</h2>
         {{ range .MediationRequests }}
         <div class="controls-request">
-          <p>User {{ .Requester.Username }} has asked you to introduce them to {{ .Target.Username }} {{ with .Request.SourceNote.Ptr }} with note <b>{{ . }}</b>{{ end }}</p>
+          <p>User {{ .Requester.Username }} has asked you to introduce them to {{ .Target.Username }} {{ with .Request.SourceNote }} with note <b>{{ . }}</b>{{ end }}</p>
           <div class="controls-btns">
             <button type="button"
                     class="btn btn-secondary"
@@ -100,7 +100,7 @@
           <p>User <a href="{{ link "user" .Requester.Username }}">{{ .Requester.Username }}</a> for a connection with you and the following users have signed for him</p>
           <ul>
             {{ range .Mediations }}
-            <li>{{ .Mediator.Username }} {{ with .Mediation.MediatorNote.Ptr }}({{ . }}){{ end }}</li>
+            <li>{{ .Mediator.Username }} {{ with .Mediation.MediatorNote }}({{ . }}){{ end }}</li>
             {{ end }}
           </ul>
           <div class="controls-btns">

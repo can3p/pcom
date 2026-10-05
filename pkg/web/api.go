@@ -1,7 +1,7 @@
 package web
 
 import (
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
@@ -13,14 +13,14 @@ import (
 const GetPostsLimitMax = posts.ListMax
 
 type ApiPost struct {
-	ID          string              `json:"id"`
-	Subject     string              `json:"subject"`
-	MdBody      string              `json:"md_body"`
-	Visibility  core.PostVisibility `json:"visibility"`
-	IsPublished bool                `json:"is_published"`
-	PublishedAt int64               `json:"published_at,omitempty"`
-	UpdatedAt   int64               `json:"updated_at,omitempty"`
-	PublicURL   string              `json:"public_url"`
+	ID          string               `json:"id"`
+	Subject     string               `json:"subject"`
+	MdBody      string               `json:"md_body"`
+	Visibility  model.PostVisibility `json:"visibility"`
+	IsPublished bool                 `json:"is_published"`
+	PublishedAt int64                `json:"published_at,omitempty"`
+	UpdatedAt   int64                `json:"updated_at,omitempty"`
+	PublicURL   string               `json:"public_url"`
 }
 
 type ApiGetPostsResponse struct {
@@ -37,7 +37,7 @@ type ApiUploadImageResponse struct {
 	ImageID string `json:"image_id"`
 }
 
-func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[*ApiGetPostsResponse] {
+func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *model.User) mo.Result[*ApiGetPostsResponse] {
 	var form struct {
 		UpdatedSince int64  `form:"updated_since"`
 		Cursor       string `form:"cursor"`
@@ -58,11 +58,11 @@ func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result
 	}
 
 	return mo.Ok(&ApiGetPostsResponse{
-		Posts: lo.Map(listing.Posts, func(p *core.Post, idx int) *ApiPost {
+		Posts: lo.Map(listing.Posts, func(p *model.Post, idx int) *ApiPost {
 			var publishedAt int64
 
-			if p.PublishedAt.Valid {
-				publishedAt = p.PublishedAt.Time.Unix()
+			if p.PublishedAt != nil {
+				publishedAt = p.PublishedAt.Unix()
 			}
 
 			return &ApiPost{
@@ -70,9 +70,9 @@ func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result
 				Subject:     postops.PostSubject(p.Subject),
 				MdBody:      p.Body,
 				Visibility:  p.VisibilityRadius,
-				IsPublished: p.PublishedAt.Valid,
+				IsPublished: p.PublishedAt != nil,
 				PublishedAt: publishedAt,
-				UpdatedAt:   p.UpdatedAt.Time.Unix(),
+				UpdatedAt:   lo.FromPtr(p.UpdatedAt).Unix(),
 				PublicURL:   svc.PostURL(p.ID),
 			}
 		}),
@@ -80,7 +80,7 @@ func ApiGetPosts(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result
 	})
 }
 
-func ApiNewPost(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[*ApiNewPostResponse] {
+func ApiNewPost(c *gin.Context, svc *posts.Service, actor *model.User) mo.Result[*ApiNewPostResponse] {
 	var input ApiPost
 
 	if err := c.BindJSON(&input); err != nil {
@@ -109,7 +109,7 @@ func ApiNewPost(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[
 	})
 }
 
-func ApiEditPost(c *gin.Context, svc *posts.Service, actor *core.User, postID string) mo.Result[*ApiNewPostResponse] {
+func ApiEditPost(c *gin.Context, svc *posts.Service, actor *model.User, postID string) mo.Result[*ApiNewPostResponse] {
 	var input ApiPost
 
 	if err := c.BindJSON(&input); err != nil {
@@ -139,7 +139,7 @@ func ApiEditPost(c *gin.Context, svc *posts.Service, actor *core.User, postID st
 	})
 }
 
-func ApiDeletePost(c *gin.Context, svc *posts.Service, actor *core.User, postID string) mo.Result[any] {
+func ApiDeletePost(c *gin.Context, svc *posts.Service, actor *model.User, postID string) mo.Result[any] {
 	if err := svc.Delete(c, actor, postID); err != nil {
 		return mo.Err[any](err)
 	}
@@ -147,7 +147,7 @@ func ApiDeletePost(c *gin.Context, svc *posts.Service, actor *core.User, postID 
 	return mo.Ok[any](nil)
 }
 
-func ApiUploadImageWith(c *gin.Context, svc *posts.Service, actor *core.User) mo.Result[*ApiUploadImageResponse] {
+func ApiUploadImageWith(c *gin.Context, svc *posts.Service, actor *model.User) mo.Result[*ApiUploadImageResponse] {
 	file, err := c.FormFile("file")
 	if err != nil {
 		return mo.Err[*ApiUploadImageResponse](err)

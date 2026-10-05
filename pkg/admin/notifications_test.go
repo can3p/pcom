@@ -9,7 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/links"
 	pcommail "github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/golden"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestNotifyNewUser(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "0190a3b4-0000-7000-8000-000000000001",
 		Email:    "alice@example.test",
 		Username: "alice",
@@ -65,7 +65,7 @@ func TestNotifyNewWaitingListMember(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	signup := &core.UserSignupRequest{
+	signup := &model.UserSignupRequest{
 		ID:    "0190a3b4-0000-7000-8000-000000000002",
 		Email: "signup@example.test",
 	}
@@ -91,7 +91,7 @@ func TestNotifySignupConfirmed(t *testing.T) {
 	ctx := context.Background()
 	sender := fakesender.New()
 
-	user := &core.User{
+	user := &model.User{
 		ID:       "0190a3b4-0000-7000-8000-000000000001",
 		Email:    "alice@example.test",
 		Username: "alice",
@@ -140,9 +140,9 @@ func notifiers() map[string]func(s *fakesender.Sender) error {
 	const hostile = `"><b>x</b>`
 
 	ctx := context.Background()
-	user := &core.User{ID: "user-1", Email: hostile, Username: hostile}
-	signup := &core.UserSignupRequest{ID: "signup-1", Email: hostile}
-	signup.Reason.SetValid(hostile)
+	user := &model.User{ID: "user-1", Email: hostile, Username: hostile}
+	signup := &model.UserSignupRequest{ID: "signup-1", Email: hostile}
+	signup.Reason = new(hostile)
 
 	return map[string]func(s *fakesender.Sender) error{
 		"NewUser": func(s *fakesender.Sender) error {

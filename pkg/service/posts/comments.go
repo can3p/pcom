@@ -8,13 +8,13 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 // CommentInput is a comment as its author submitted it.
@@ -38,7 +38,7 @@ func (s *Service) checkCommentBody(body string) error {
 // as a reply to replyTo if it is not empty: ErrNotFound for a post or a
 // comment that is not there, ErrForbidden for a post the actor is not
 // connected to.
-func (s *Service) CheckComment(ctx context.Context, actor *core.User, postID, replyTo string) error {
+func (s *Service) CheckComment(ctx context.Context, actor *model.User, postID, replyTo string) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (s *Service) CheckComment(ctx context.Context, actor *core.User, postID, re
 	return err
 }
 
-func (s *Service) checkComment(ctx context.Context, store *repo.Store, actor *core.User, postID, replyTo string) (*core.Post, error) {
+func (s *Service) checkComment(ctx context.Context, store *repo.Store, actor *model.User, postID, replyTo string) (*model.Post, error) {
 	post, err := store.PostByID(ctx, postID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.ErrNotFound
@@ -78,7 +78,7 @@ func (s *Service) checkComment(ctx context.Context, store *repo.Store, actor *co
 
 // AddComment leaves a comment on a post the actor is connected to, and tells
 // the post's author and everybody else who commented on it.
-func (s *Service) AddComment(ctx context.Context, actor *core.User, in CommentInput) error {
+func (s *Service) AddComment(ctx context.Context, actor *model.User, in CommentInput) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (s *Service) AddComment(ctx context.Context, actor *core.User, in CommentIn
 	})
 }
 
-func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.User, in CommentInput) error {
+func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *model.User, in CommentInput) error {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return err
@@ -116,12 +116,12 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.Us
 		topCommentID = parent.TopCommentID
 	}
 
-	comment := &core.PostComment{
+	comment := &model.PostComment{
 		ID:              commentID,
 		UserID:          actor.ID,
 		Body:            strings.TrimSpace(in.Body),
 		PostID:          in.PostID,
-		ParentCommentID: null.NewString(in.ReplyTo, in.ReplyTo != ""),
+		ParentCommentID: lo.EmptyableToPtr(in.ReplyTo),
 		TopCommentID:    topCommentID,
 	}
 
@@ -140,7 +140,7 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *core.Us
 // post's author and the other participants about it. The actor must still be
 // connected to the post's author. The comment stays as it is, and nobody is
 // told, when the body does not change.
-func (s *Service) EditComment(ctx context.Context, actor *core.User, commentID, body string) error {
+func (s *Service) EditComment(ctx context.Context, actor *model.User, commentID, body string) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}
@@ -180,14 +180,14 @@ func (s *Service) EditComment(ctx context.Context, actor *core.User, commentID, 
 
 // notifyComment tells the post's author and everybody else who commented on
 // the post about a new comment, or an edited one.
-func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *core.User, comment *core.PostComment, edited bool) error {
+func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *model.User, comment *model.PostComment, edited bool) error {
 	post, err := tx.PostWithAuthorAndURL(ctx, comment.PostID)
 	if err != nil {
 		return err
 	}
 
 	// notify post author about discussion
-	out, err := mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.R.User, post, comment, edited)
+	out, err := mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.User, post, comment, edited)
 	if err := s.queueE(ctx, tx, out, err); err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *core
 	slog.Debug("comment in the post", "participants", len(participants))
 
 	for _, cmt := range participants {
-		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.R.User, post, comment, edited)
+		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.User, post, comment, edited)
 		if err := s.queueE(ctx, tx, out, err); err != nil {
 			return err
 		}

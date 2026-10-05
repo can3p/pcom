@@ -36,7 +36,7 @@
     {{- else if .ConnectionRadius.IsSecondDegree }}
       <p>One of your direct connections has a connection with {{ .Author.Username }}</p>
       {{ with .MediationRequest }}
-      <p>You've requested mediation request{{ with .SourceNote.Ptr }} with note <b>{{ . }}</b>{{ end }}</p>
+      <p>You've requested mediation request{{ with .SourceNote }} with note <b>{{ . }}</b>{{ end }}</p>
       <button type="button"
               class="btn btn-secondary"
               data-controller="action"

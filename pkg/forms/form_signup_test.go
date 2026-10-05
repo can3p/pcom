@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -101,7 +102,7 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 
 	newUser := testutil.Must(factory.GetUserByEmail(ctx, db, "newuser@example.test"))(t)
 	require.Equal(t, "newuser", newUser.Username)
-	require.Equal(t, "unknown", newUser.SignupAttribution.String)
+	require.Equal(t, "unknown", lo.FromPtr(newUser.SignupAttribution))
 
 	sent := sender.Sent()
 	require.Len(t, sent, 2)
