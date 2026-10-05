@@ -19,8 +19,8 @@ happen is tested in the browser, never over plain HTTP.
 
 1. **Tests touch the ORM only through `pkg/testutil/factory`** to create
    fixtures and read state back. A test body that calls `core.Posts(...)`
-   directly is a test R5 has to rewrite. This rule is what makes the bob
-   migration cheap. The code under test obviously still uses `core`. To learn
+   directly is a test R5 has to rewrite. This rule is what makes the move
+   to bun cheap. The code under test obviously still uses `core`. To learn
    a model's shape, run `make model T=<Model>`; never read `pkg/model/core`.
 2. **Prefer black-box tests.** Use `package foo_test` and the public API unless
    an unexported function has logic worth pinning on its own, such as

@@ -25,7 +25,7 @@ form or template helper; `pkg/arch/arch_test.go` enforces it.
 ## In tests
 
 - Create and read back fixtures only through the test factories (`pkg/testutil/factory`). A test body
-  that calls `core.Posts(...)` directly is a test the bob migration (R5) has to rewrite.
+  that calls `core.Posts(...)` directly is a test the move to bun (R5) has to rewrite.
 - If the factory lacks a helper, **stop and report the exact signature you need** (for example
   `factory.Post(t, db, author, factory.WithVisibility(...))`). Don't write the ORM call in the test; the
   coordinator adds helpers in one place.
