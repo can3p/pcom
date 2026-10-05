@@ -48,8 +48,6 @@ func (q Queries) NewRaw(query string, args ...any) *bun.RawQuery {
 }
 
 // query returns the builders for the Store's executor.
-//
-//nolint:unused // the repositories start using it as R5's pass C rewrites them
 func (s *Store) query() Queries {
 	return Query(s.exec)
 }
