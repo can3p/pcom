@@ -10,8 +10,6 @@ support read directly. Rules for reading and verifying code cheaply are in `AGEN
 
 Where the modernization is going:
 
-- [bun](https://github.com/uptrace/bun) over [pgx](https://github.com/jackc/pgx) instead of sqlboiler, with model
-  structs pcom writes itself and no code generation (R5);
 - declared, golden-tested mailers (R4);
 - structured logging through one [zap](https://github.com/uber-go/zap) logger, passed explicitly (R7);
 - no unmaintained or duplicate dependencies (R6);
@@ -35,9 +33,9 @@ A wave is `R<n>` (refactor) or `F<n>` (feature), numbered on from the highest id
 `docs/archive/history/`. Its file starts with one line of state:
 
 ```markdown
-## R5 — bun and pgx instead of sqlboiler
+## R6 — Dependency hygiene
 
-Status: planned · Depends on: — · Branch: `refactor/r5-bun`
+Status: planned · Depends on: — · Branch: `chore/r6-deps`
 ```
 
 `Status` is `planned` or `running`; `Depends on` names only waves or outside events still pending. Then the
@@ -68,6 +66,10 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   each invents its own.
 - **A contract task leaves the tree runnable.** If it removes a fallback, the replacement's plumbing
   belongs in the same task.
+- **A library swap lists what the old library did implicitly** before planning the new code: auto
+  timestamps, a `LIMIT 1` on single-row reads, which columns an upsert updates and returns, how a type name
+  is matched by a check (`pkg/arch` matched the old executor's package path). Each becomes a rule the tasks
+  follow or a test that pins it.
 - **Check a wrapper's fit before converting to it.** List which handlers match its exact shape; a wrapper
   that rebinds input can add an error where none was.
 - **Deploy order is part of the plan.** fly's `release_command` runs every pending migration on deploy, so a
