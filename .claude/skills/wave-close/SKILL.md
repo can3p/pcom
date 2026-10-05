@@ -19,7 +19,7 @@ comes out.
    your own detours). For each finding, ask whether it would have helped most sessions doing that kind of
    work, or only this one:
    - **General:** add it as a rule, with its reason, where that work's reader looks: `AGENTS.md` (everyone),
-     a skill (`wave-run` for coordination, `test-failure`, `frontend-htmx`, `model-shape`), the "Planning
+     a skill (`wave-run` for coordination, `test-failure`, `frontend-htmx`), the "Planning
      a wave" section of `docs/implementation-plan.md`, `docs/testing.md`, `docs/architecture.md`, or the
      subagent preambles in `task_prompt.py`. Say it once, in the place it applies; if a rule there already
      covers it, sharpen that rule instead of adding a second.

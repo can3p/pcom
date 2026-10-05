@@ -11,7 +11,6 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // compile-time check that Sender implements repo.MailQueue.
@@ -49,7 +48,7 @@ func (s *Sender) FailWith(err error) {
 
 // Send implements repo.MailQueue. exec is accepted, to match the
 // interface, but is not used: this fake never touches the database.
-func (s *Sender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *sender.Mail) error {
+func (s *Sender) Send(ctx context.Context, exec repo.Executor, uniqueID string, emailType string, mail *sender.Mail) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

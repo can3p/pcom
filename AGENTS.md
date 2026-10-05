@@ -1,6 +1,6 @@
 # Agent Context for PCOM Project
 
-Go (gin, sqlboiler, Postgres) server rendering Go templates, with htmx, Stimulus.js and pcom's own design
+Go (gin, bun over pgx, Postgres) server rendering Go templates, with htmx, Stimulus.js and pcom's own design
 system (SCSS tokens and components, no CSS framework) on the client. This file is loaded into every session, so it holds only what every task needs. Area notes live next to
 the code or in skills (`.claude/skills/<name>/SKILL.md`; agents without skill support read that file); read
 the one for the area you touch:
@@ -8,7 +8,7 @@ the one for the area you touch:
 | Area | Notes |
 |---|---|
 | Templates, JS, SCSS, design system and dark mode, htmx, action controller, `renderHumanTime` | skill `frontend-htmx` |
-| A model's fields, relationships, query helpers | skill `model-shape` |
+| A model's fields and relations; writing queries | `pkg/model` (one file per area), "Writing bun queries" in `docs/architecture.md` |
 | A failing test or build | skill `test-failure` |
 | Running a modernization wave / finishing one | skills `wave-run` / `wave-close` |
 | How pcom behaves on purpose: accounts, login, visibility, feeds, comments | `docs/product.md` |
@@ -48,9 +48,6 @@ for callers built without configuration, and tests use that constant, not the li
 
 ## Reading code economically
 
-- **Generated code is never read.** `pkg/model/core` is 1 MB of sqlboiler output. `make model` lists the
-  models and `make model T=User` prints one model's fields, relationships, query helpers and methods in a few
-  KB. Reach for `go doc ./pkg/model/core <Symbol>` only for a symbol that summary doesn't cover.
 - **Navigate with the LSP tool (gopls)**, not by reading files. It is a deferred tool: load it once with
   `ToolSearch` query `select:LSP`.
   - `documentSymbol` gives a file's outline; then `Read` only the lines you need (`offset`/`limit`). This is how
@@ -59,7 +56,7 @@ for callers built without configuration, and tests use that constant, not the li
   - `hover` and `goToDefinition` give a type or signature; `findReferences`, `incomingCalls` and
     `goToImplementation` answer "who uses this". Positions are 1-based line and column; get them from
     `documentSymbol` or `grep -n`.
-  - Don't run `findReferences` on the core model types (`core.User`, `core.Post`): the result is huge.
+  - Don't run `findReferences` on the central model types (`model.User`, `model.Post`): the result is huge.
 - Don't re-read a file you just wrote or edited.
 
 ## Verifying economically

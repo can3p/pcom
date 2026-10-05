@@ -20,18 +20,17 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // errFeedInjectedQuery is the error a failingExecutor reports once its query
 // budget runs out.
 var errFeedInjectedQuery = errors.New("feed: injected query failure")
 
-// failingExecutor wraps a boil.ContextExecutor and lets exactly failAfter
+// failingExecutor wraps a repo.Executor and lets exactly failAfter
 // queries through before failing every one after that, to reach the error
 // branches a real database only takes on an actual failure.
 type failingExecutor struct {
-	boil.ContextExecutor
+	repo.Executor
 	calls     int
 	failAfter int
 }
@@ -41,20 +40,20 @@ func (e *failingExecutor) QueryContext(ctx context.Context, query string, args .
 	if e.calls > e.failAfter {
 		return nil, errFeedInjectedQuery
 	}
-	return e.ContextExecutor.QueryContext(ctx, query, args...)
+	return e.Executor.QueryContext(ctx, query, args...)
 }
 
 func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	e.calls++
 	if e.calls > e.failAfter {
 		// *sql.Row can't carry an injected error, so run a query that fails
-		return e.ContextExecutor.QueryRowContext(ctx, "select 1/0")
+		return e.Executor.QueryRowContext(ctx, "select 1/0")
 	}
-	return e.ContextExecutor.QueryRowContext(ctx, query, args...)
+	return e.Executor.QueryRowContext(ctx, query, args...)
 }
 
 // connect creates a direct connection between a and b, or fails the test.
-func connect(t *testing.T, db boil.ContextExecutor, ctx context.Context, aID, bID string) {
+func connect(t *testing.T, db repo.Executor, ctx context.Context, aID, bID string) {
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)
@@ -122,7 +121,7 @@ func TestGetComments_QueryErrorsPropagate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
+			exec := &failingExecutor{Executor: db, failAfter: tc.failAfter}
 			_, err := New(repo.Using(exec)).feedComments(ctx, user.ID, repo.Page{})
 			require.ErrorIs(t, err, errFeedInjectedQuery)
 		})

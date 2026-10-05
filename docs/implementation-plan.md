@@ -85,9 +85,9 @@ Waves that don't depend on each other run at the same time, each in its own sess
 - **Shared docs are edited in place.** A wave changes the section its finding concerns (`AGENTS.md`, a
   skill, `docs/product.md`, `docs/architecture.md`, `docs/testing.md`, the guide) and doesn't reflow or
   reorder text around it, so two waves' edits merge as two hunks.
-- **Migrations and generated models.** Generated code is never merged by hand: the wave that merges second
-  rebases, takes master's `pkg/model/core`, renames its migration to a timestamp after master's newest if
-  needed, and reruns `make generate`.
+- **Migrations and models.** The wave that merges second rebases, renames its migration to a timestamp
+  after master's newest if needed, and keeps both waves' fields in the `pkg/model` structs;
+  `TestModels_MatchTheSchema` shows what's missing.
 - **`go.mod` and `go.sum`.** The wave that merges second rebases and reruns `go mod tidy`; within a wave the
   coordinator gives them to one task at a time.
 - **Coverage floors.** On a conflict in `tools/coverage-floors.txt`, keep the higher floor of each line.

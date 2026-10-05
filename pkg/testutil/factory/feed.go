@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/can3p/pcom/pkg/repo"
+
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // RSSFeedOpt customizes an RSSFeed before it is inserted.
@@ -41,7 +42,7 @@ func WithoutTitle() RSSFeedOpt {
 }
 
 // RSSFeed inserts a feed with a unique URL.
-func RSSFeed(ctx context.Context, exec boil.ContextExecutor, opts ...RSSFeedOpt) (*model.RSSFeed, error) {
+func RSSFeed(ctx context.Context, exec repo.Executor, opts ...RSSFeedOpt) (*model.RSSFeed, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -65,7 +66,7 @@ func RSSFeed(ctx context.Context, exec boil.ContextExecutor, opts ...RSSFeedOpt)
 }
 
 // Subscription subscribes userID to feedID.
-func Subscription(ctx context.Context, exec boil.ContextExecutor, userID, feedID string) (*model.UserFeedSubscription, error) {
+func Subscription(ctx context.Context, exec repo.Executor, userID, feedID string) (*model.UserFeedSubscription, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -100,7 +101,7 @@ func WithItemTitle(title string) RSSItemOpt {
 
 // RSSItem inserts an item published just now into feedID, making up a
 // NormalizedURL for it unless WithURLID overrides that.
-func RSSItem(ctx context.Context, exec boil.ContextExecutor, feedID string, opts ...RSSItemOpt) (*model.RSSItem, error) {
+func RSSItem(ctx context.Context, exec repo.Executor, feedID string, opts ...RSSItemOpt) (*model.RSSItem, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -154,7 +155,7 @@ func FeedItemCreatedAt(t time.Time) UserFeedItemOpt {
 
 // UserFeedItem inserts rssItemID into userID's feed, looking up the item's
 // URL so a caller does not have to pass it separately.
-func UserFeedItem(ctx context.Context, exec boil.ContextExecutor, userID, rssItemID string, opts ...UserFeedItemOpt) (*model.UserFeedItem, error) {
+func UserFeedItem(ctx context.Context, exec repo.Executor, userID, rssItemID string, opts ...UserFeedItemOpt) (*model.UserFeedItem, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err

@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -46,15 +45,11 @@ var exempt = []string{
 // ormPackages are the database libraries. Importing one, calling into one, or
 // calling anything whose signature carries one of their types is database work.
 var ormPackages = []string{
-	"github.com/volatiletech/sqlboiler/v4/",
 	"github.com/uptrace/bun/",
 	"github.com/jackc/pgx/",
 	"github.com/jmoiron/sqlx",
 	"database/sql",
 }
-
-// coreQuery matches the generated query types (core.postQuery, ...).
-var coreQuery = regexp.MustCompile(regexp.QuoteMeta(module+"/pkg/model/core.") + `[a-z]\w*Query\b`)
 
 // callTargets may be handed a database handle from anywhere: they are the
 // composition root's building blocks.
@@ -212,7 +207,8 @@ func mentionsORM(sig *types.Signature) bool {
 		}
 	}
 
-	return coreQuery.MatchString(all)
+	// An executor is a database handle, whatever package names its type.
+	return strings.Contains(all, module+"/pkg/repo.Executor")
 }
 
 func isExempt(rel string) bool {

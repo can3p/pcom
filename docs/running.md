@@ -1,6 +1,6 @@
 # Running pcom locally
 
-Docker is the only dependency for development. Everything else (Go, Postgres client, sqlboiler, sql-migrate,
+Docker is the only dependency for development. Everything else (Go, Postgres client, sql-migrate,
 Node, libvips) lives in containers. `docker-compose.yml` is the source of truth for ports and services; use the
 make targets instead of typing `docker compose` by hand.
 
@@ -17,7 +17,7 @@ on `localhost:5442`.
 
 `make dev-up` starts Postgres and tommy (mail sink and S3 stand-in), waits until they are healthy and prints
 their addresses. `make migrate` applies the migrations, `make seed` fills the database with a small named world (see
-[Seeding](#seeding)). The first run builds the tools image (sql-migrate, sqlboiler, psql), which is slow once.
+[Seeding](#seeding)). The first run builds the tools image (sql-migrate, psql), which is slow once.
 
 Then pick one way to run the app.
 
@@ -160,8 +160,7 @@ host mode and `.env.example` assume the default ports; if you override one, upda
 | `make migrate` | Apply pending migrations to the compose database. |
 | `make migrate-status` | Show which migrations are applied. |
 | `make migrate-down` | Roll back the last migration. |
-| `make migration name=add_foo` | Create `migrations/<timestamp>-add_foo.sql`; edit it, then `make migrate`. |
-| `make generate` | Regenerate `pkg/model/core` from the migrations alone, using a throwaway `pcom_codegen` database that is dropped afterwards. CI checks the models are current, so run it after every migration. |
+| `make migration name=add_foo` | Create `migrations/<timestamp>-add_foo.sql`; edit it, then `make migrate`. A new table or column also goes into its struct in `pkg/model`: `TestModels_MatchTheSchema` fails until it does. |
 | `make psql` | psql on the compose database. Pass arguments with `ARGS`: `make psql ARGS="-c 'select count(*) from users'"`. |
 | `make tools-shell` | Bash in the tools container; run one command with `make tools-shell CMD='go version'`. |
 | `make db-reset` | Drop, recreate and migrate the dev database. |
@@ -197,13 +196,11 @@ images built from `golang:1.26-alpine`) have arm64 variants, so nothing runs und
 
 * Postgres is on 5442, not 5432, so a native Postgres on 5432 cannot silently take the app's connections. Use
   `localhost:5442` from the host.
-* Files written by the containers (migrations, generated models, `cmd/web/dist`) belong to your UID/GID: make
+* Files written by the containers (migrations, `cmd/web/dist`) belong to your UID/GID: make
   passes `HOST_UID` and `HOST_GID` to compose. Run the make targets rather than `docker compose` directly, or
   set those variables yourself.
-* The first make target builds the tools image; sql-migrate and sqlboiler are installed in it
+* The first make target builds the tools image; sql-migrate is installed in it
   (`tools/Dockerfile`), not in `go.mod`. The first `make seed` builds the dev image and compiles `cmd/web`; the Go caches live in
   the `gomod` and `gobuild` volumes, which `docker compose down -v` clears.
-* `make generate` says the sqlboiler versions differ: `go.mod` moved the sqlboiler library, so bump
-  `SQLBOILER_VERSION` in `tools/Dockerfile` to match and run `docker compose build tools`.
 * `make seed` says users already exist: use `make seed-reset`.
 * A port is already in use: override it, see [Ports](#ports).

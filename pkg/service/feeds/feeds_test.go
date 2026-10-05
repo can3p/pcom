@@ -17,10 +17,9 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
-func svc(db boil.ContextExecutor) *feeds.Service {
+func svc(db repo.Executor) *feeds.Service {
 	return feeds.New(repo.Using(db), fakestorage.New())
 }
 

@@ -18,10 +18,10 @@ happen is tested in the browser, never over plain HTTP.
 ## Ground rules
 
 1. **Tests touch the ORM only through `pkg/testutil/factory`** to create
-   fixtures and read state back. A test body that calls `core.Posts(...)`
-   directly is a test R5 has to rewrite. This rule is what makes the move
-   to bun cheap. The code under test obviously still uses `core`. To learn
-   a model's shape, run `make model T=<Model>`; never read `pkg/model/core`.
+   fixtures and read state back, or through a repository method. A test body
+   that builds its own query ties the test to the query library; when the
+   factory lacks a helper, add it there. A model's fields and relations are
+   in `pkg/model`.
 2. **Prefer black-box tests.** Use `package foo_test` and the public API unless
    an unexported function has logic worth pinning on its own, such as
    `ConstructComments` or `isURLMediaUpload`. Black-box tests survive
@@ -79,7 +79,8 @@ happen is tested in the browser, never over plain HTTP.
 ## Database: pkg/testutil/testdb
 
 `db := testdb.New(t)` returns a fresh, fully migrated Postgres database, dropped when the test ends. `db.DB`
-is a `*sqlx.DB` and also a `boil.ContextExecutor`, so it goes directly into sqlboiler and factory calls.
+is a `*sqlx.DB` and also a `repo.Executor`, so it goes directly into `repo.New`, `repo.Using` and factory calls.
+It connects through pgx, the driver the server uses.
 `testdb.New` skips the test under `-short`, so a test meant to need no database must not call it: under
 `make test-short` it would pass by not running. `db.URL` is its connection string, for handing to a subprocess (this is how `e2e.Start` gives the real binary
 its own database). Every test gets its own database, so `t.Parallel()` is safe and encouraged.
@@ -224,8 +225,7 @@ func TestSmoke_ActionButton(t *testing.T) {
 `TAGS=browser`. The browser targets are `ui-deps`, `test-ui` and `ui-trace` (above).
 
 CI runs `make cover` and sends the merged unit, package and E2E coverage, `cmd/web` included, to Codecov.
-It enforces a coverage ratchet: after `make cover`, `make cover-check` fails if total coverage (excluding
-`pkg/model/core`) or one of the critical packages drops below its floor in `tools/coverage-floors.txt`. Floors
+It enforces a coverage ratchet: after `make cover`, `make cover-check` fails if total coverage or one of the critical packages drops below its floor in `tools/coverage-floors.txt`. Floors
 are the merged numbers minus 1% and only ever rise: after raising coverage, run `make cover` and set the new
 percentage minus 1.
 
@@ -247,18 +247,13 @@ step fails:
 When Docker Hub rate-limits the sandbox (429), pull the image from `mirror.gcr.io/<image>` and `docker tag`
 it back rather than skipping the suite.
 
-`make generate` builds the tools image, which needs the network, so it fails in the sandbox. Run
-`generate.sh` on the host instead, with `sqlboiler` and `sql-migrate` installed by `go install` at the versions
-the tools image pins.
-
 The image's Chromium is older than the one CI installs, and the sandbox has no general outbound network, so a
 few browser tests fail only there (an embedded external resource, inline-style CSP reports):
 `TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility` and `TestActions_ShareLifecycle` (2026-10-01). Trust CI's
 `browser` job for those.
 
-The tools image may not build in the sandbox (Docker Hub rate limits, package mirrors blocked). Then run
-`PCOM_ALLOW_HOST_TOOLS=1 ./generate.sh` on the host with the sql-migrate and sqlboiler versions `tools/Dockerfile`
-pins, against a throwaway `postgres:16-alpine` container.
+The tools image may not build in the sandbox (Docker Hub rate limits, package mirrors blocked); no test
+needs it.
 
 ## Worked examples
 

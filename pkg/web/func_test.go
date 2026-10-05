@@ -29,20 +29,19 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // errFeedInjectedQuery is the error a failingExecutor reports once its query
 // budget runs out.
 var errFeedInjectedQuery = errors.New("feed: injected query failure")
 
-// failingExecutor wraps a boil.ContextExecutor and lets exactly
+// failingExecutor wraps a repo.Executor and lets exactly
 // failAfter queries through before failing every one after that. It exists
 // to reach a handler's "return mo.Err(err)" branches, which a real database
 // only takes on an actual failure, without the test body calling the ORM
 // directly.
 type failingExecutor struct {
-	boil.ContextExecutor
+	repo.Executor
 	calls     int
 	failAfter int
 }
@@ -52,7 +51,7 @@ func (e *failingExecutor) QueryContext(ctx context.Context, query string, args .
 	if e.calls > e.failAfter {
 		return nil, errFeedInjectedQuery
 	}
-	return e.ContextExecutor.QueryContext(ctx, query, args...)
+	return e.Executor.QueryContext(ctx, query, args...)
 }
 
 func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
@@ -61,9 +60,9 @@ func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, arg
 		// *sql.Row carries no exported way to inject an error directly, so
 		// run a query that is guaranteed to fail instead: the error still
 		// surfaces the normal way, on Scan.
-		return e.ContextExecutor.QueryRowContext(ctx, "select 1/0")
+		return e.Executor.QueryRowContext(ctx, "select 1/0")
 	}
-	return e.ContextExecutor.QueryRowContext(ctx, query, args...)
+	return e.Executor.QueryRowContext(ctx, query, args...)
 }
 
 // postsService is the posts service over db.
@@ -86,7 +85,7 @@ func newTestContext(t *testing.T, method, target string) *gin.Context {
 }
 
 // connect creates a direct connection between a and b, or fails the test.
-func connect(t *testing.T, db boil.ContextExecutor, ctx context.Context, aID, bID string) {
+func connect(t *testing.T, db repo.Executor, ctx context.Context, aID, bID string) {
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)
@@ -94,7 +93,7 @@ func connect(t *testing.T, db boil.ContextExecutor, ctx context.Context, aID, bI
 
 // feedPage builds the feed page the way /feed does: the reading service's
 // feed, rendered by Feed.
-func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) mo.Result[*FeedPage] {
+func feedPage(c *gin.Context, db repo.Executor, userData *auth.UserData) mo.Result[*FeedPage] {
 	feed, err := reading.New(repo.Using(db)).Feed(c, userData.DBUser, "")
 	if err != nil {
 		return mo.Err[*FeedPage](err)
@@ -105,7 +104,7 @@ func feedPage(c *gin.Context, db boil.ContextExecutor, userData *auth.UserData) 
 
 // settingsPage builds the settings page the way its route does: the service
 // gathers what it shows, the page builder shapes it.
-func settingsPage(c *gin.Context, exec boil.ContextExecutor, user *model.User) (*SettingsPage, error) {
+func settingsPage(c *gin.Context, exec repo.Executor, user *model.User) (*SettingsPage, error) {
 	svc := accounts.New(repo.Using(exec), nil, feeds.New(repo.Using(exec), nil))
 
 	view, err := svc.Settings(c, user)
@@ -460,7 +459,7 @@ func TestSettings_QueryErrorsPropagate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			exec := &failingExecutor{ContextExecutor: db, failAfter: tc.failAfter}
+			exec := &failingExecutor{Executor: db, failAfter: tc.failAfter}
 			_, err := settingsPage(c, exec, user)
 			require.Error(t, err)
 		})

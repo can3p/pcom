@@ -121,7 +121,7 @@ func TestBun_ListWithAnEmptySliceMatchesNothing(t *testing.T) {
 }
 
 // A zero value in a column with a default inserts DEFAULT and the value
-// comes back; created_at and updated_at are stamped as sqlboiler did.
+// comes back; created_at and updated_at are stamped by the model.
 func TestBun_InsertReturnsDefaultsAndStampsTimes(t *testing.T) {
 	t.Parallel()
 
@@ -176,7 +176,7 @@ func TestBun_EnumsAndJSONRoundTrip(t *testing.T) {
 }
 
 // A limit on a has-many relation limits the one query that loads it for
-// every parent, not each parent's rows, as sqlboiler's qm.Load did.
+// every parent, not each parent's rows.
 func TestBun_LimitOnAHasManyRelationIsShared(t *testing.T) {
 	t.Parallel()
 

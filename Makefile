@@ -1,5 +1,5 @@
-.PHONY: shell tunnel lint test test-short cover cover-check build check fix check-q test-q vet-q cover-q model ui-deps test-ui ui-trace screenshots \
-	dev-up dev dev-logs dev-down migrate migrate-status migrate-down migration generate psql db-reset seed seed-reset \
+.PHONY: shell tunnel lint test test-short cover cover-check build check fix check-q test-q vet-q cover-q ui-deps test-ui ui-trace screenshots \
+	dev-up dev dev-logs dev-down migrate migrate-status migrate-down migration psql db-reset seed seed-reset \
 	tools-shell migrate-prod
 
 PKG ?= ./...
@@ -34,8 +34,8 @@ cover:
 	@mkdir -p $(COVDIR)
 	@# -coverpkg: a test covers every pcom package it runs, not only its own, so
 	@# code a service test reaches in pkg/repo counts (RS moved queries there).
-	@GOCOVERDIR=$(COVDIR) go test -cover -coverpkg=$$(go list ./... | grep -v /pkg/model/core | paste -sd, -) ./... -args -test.gocoverdir=$(COVDIR)
-	@go tool covdata percent -i=$(COVDIR) | perl -pe 's/\t\t\t/\n/g' | grep "coverage:" | grep -v github.com/can3p/pcom/pkg/model/core
+	@GOCOVERDIR=$(COVDIR) go test -cover -coverpkg=$$(go list ./... | paste -sd, -) ./... -args -test.gocoverdir=$(COVDIR)
+	@go tool covdata percent -i=$(COVDIR) | perl -pe 's/\t\t\t/\n/g' | grep "coverage:"
 	@go tool covdata textfmt -i=$(COVDIR) -o coverage.out
 
 cover-check:
@@ -108,11 +108,6 @@ screenshots:
 ui-trace:
 	$(PLAYWRIGHT) show-trace $(F)
 
-# Shape of a generated model without reading pkg/model/core:
-# `make model` lists the models, `make model T=User` prints one.
-model:
-	@tools/model.sh $(T)
-
 # Local stack (docker-compose.yml): Postgres on localhost:5442 and tommy (mail
 # sink on http://localhost:8811/ui/, S3 on localhost:9555). The database
 # targets run in the `tools` container against the compose database, as your
@@ -120,7 +115,6 @@ model:
 #   make dev-up / dev-down          start or stop postgres and tommy
 #   make migrate                    apply migrations (migrate-status, migrate-down)
 #   make migration name=add_foo     create migrations/<timestamp>-add_foo.sql
-#   make generate                   regenerate pkg/model/core from the migrations (throwaway DB)
 #   make psql [ARGS="-c '...'"]     psql on the compose database
 #   make db-reset                   drop, recreate and migrate the dev database
 #   make seed / seed-reset          go run ./cmd/web seed [--reset]
@@ -158,9 +152,6 @@ migrate-down:
 migration:
 	@test -n "$(name)" || { echo "usage: make migration name=add_foo" >&2; exit 1; }
 	$(TOOLS) ./sqlmigrate.sh new $(name)
-
-generate:
-	$(TOOLS) ./generate.sh
 
 psql:
 	$(TOOLS) bash -c 'exec psql "$$DATABASE_URL" "$$@"' psql $(ARGS)

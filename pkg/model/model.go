@@ -15,8 +15,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// stampTimes does what sqlboiler did on every write: an insert sets
-// created_at and updated_at when they are zero, an update sets updated_at.
+// stampTimes stamps a row's times on every write: an insert sets created_at
+// and updated_at when they are zero, an update sets updated_at.
 // Each argument is a *time.Time, a **time.Time or nil.
 func stampTimes(query bun.Query, createdAt, updatedAt any) {
 	now := time.Now().UTC()

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/can3p/pcom/pkg/repo"
+
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // MediaUpload records an image uploaded by userID.
-func MediaUpload(ctx context.Context, exec boil.ContextExecutor, userID string) (*model.MediaUpload, error) {
+func MediaUpload(ctx context.Context, exec repo.Executor, userID string) (*model.MediaUpload, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -29,7 +30,7 @@ func MediaUpload(ctx context.Context, exec boil.ContextExecutor, userID string) 
 }
 
 // OutgoingEmail schedules a queued email of the given type.
-func OutgoingEmail(ctx context.Context, exec boil.ContextExecutor, emailType string) (*model.OutgoingEmail, error) {
+func OutgoingEmail(ctx context.Context, exec repo.Executor, emailType string) (*model.OutgoingEmail, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err

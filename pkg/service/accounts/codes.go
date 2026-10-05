@@ -16,7 +16,6 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
@@ -274,10 +273,10 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*mod
 			wrong = wrongTries >= int64(s.login.WrongTries) || !hmac.Equal([]byte(lo.FromPtr(a.CodeHash)), []byte(s.codeHash(a.ID, code)))
 		}
 
-		col := core.LoginAttemptColumns.UsedAt
+		col := model.LoginAttemptColumns.UsedAt
 		if wrong {
 			a.WrongTries++
-			col = core.LoginAttemptColumns.WrongTries
+			col = model.LoginAttemptColumns.WrongTries
 		} else {
 			a.UsedAt = new(now)
 		}
@@ -346,7 +345,7 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 		a.CodeHash = new(s.codeHash(a.ID, code))
 		a.ExpiresAt = now.Add(s.login.CodeLifetime)
 
-		return tx.SaveLoginAttempt(ctx, a, core.LoginAttemptColumns.CodeHash, core.LoginAttemptColumns.ExpiresAt)
+		return tx.SaveLoginAttempt(ctx, a, model.LoginAttemptColumns.CodeHash, model.LoginAttemptColumns.ExpiresAt)
 	})
 	if err != nil {
 		return "", err

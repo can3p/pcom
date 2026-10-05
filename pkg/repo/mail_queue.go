@@ -6,14 +6,13 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // MailQueue stores a mail on the caller's executor, so the mail goes out only
 // if the transaction commits. It is not a delivery channel: delivery is gogo's
 // sender.Sender, which the queue's poller calls later.
 type MailQueue interface {
-	Send(ctx context.Context, exec boil.ContextExecutor, uniqueID, emailType string, mail *sender.Mail) error
+	Send(ctx context.Context, exec Executor, uniqueID, emailType string, mail *sender.Mail) error
 }
 
 // SendMail hands a mail to the queue on the store's executor, so a service
