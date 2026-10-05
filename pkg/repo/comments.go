@@ -2,40 +2,43 @@ package repo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the pgx database/sql driver
 	"github.com/jmoiron/sqlx"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"github.com/uptrace/bun"
 )
 
 // CommentInPost returns a comment of the given post, or ErrNotFound.
 func (s *Store) CommentInPost(ctx context.Context, commentID, postID string) (*model.PostComment, error) {
-	comment, err := core.PostComments(
-		core.PostCommentWhere.ID.EQ(commentID),
-		core.PostCommentWhere.PostID.EQ(postID),
-	).One(ctx, s.exec)
+	comment := new(model.PostComment)
+	err := s.query().NewSelect().Model(comment).
+		Where("id = ?", commentID).
+		Where("post_id = ?", postID).
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostComment](comment), notFound(err)
+	return comment, nil
 }
 
 // CommentByID returns a comment, or ErrNotFound.
 func (s *Store) CommentByID(ctx context.Context, id string) (*model.PostComment, error) {
-	comment, err := core.PostComments(core.PostCommentWhere.ID.EQ(id)).One(ctx, s.exec)
+	comment := new(model.PostComment)
+	if err := s.query().NewSelect().Model(comment).Where("id = ?", id).Limit(1).Scan(ctx); err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostComment](comment), notFound(err)
+	return comment, nil
 }
 
 // InsertComment stores a new comment.
 func (s *Store) InsertComment(ctx context.Context, comment *model.PostComment) error {
-	return write(comment, func(c *core.PostComment) error {
-		return c.Insert(ctx, s.exec, boil.Infer())
-	})
+	_, err := s.query().NewInsert().Model(comment).Exec(ctx)
+	return err
 }
 
 // UpdateCommentBody stores a new body of a comment and marks it as edited.
@@ -43,35 +46,41 @@ func (s *Store) UpdateCommentBody(ctx context.Context, comment *model.PostCommen
 	comment.Body = body
 	comment.EditedAt = new(time.Now())
 
-	return write(comment, func(c *core.PostComment) error {
-		_, err := c.Update(ctx, s.exec, boil.Whitelist(core.PostCommentColumns.Body, core.PostCommentColumns.EditedAt))
+	_, err := s.query().NewUpdate().Model(comment).Column("body", "edited_at").WherePK().Exec(ctx)
 
-		return err
-	})
+	return err
 }
 
 // PostWithAuthorAndURL returns a post with its author and linked URL loaded
 // (post.User, post.URL).
 func (s *Store) PostWithAuthorAndURL(ctx context.Context, id string) (*model.Post, error) {
-	post, err := core.Posts(
-		core.PostWhere.ID.EQ(id),
-		qm.Load(core.PostRels.User),
-		qm.Load(core.PostRels.URL),
-	).One(ctx, s.exec)
+	post := new(model.Post)
+	err := s.query().NewSelect().Model(post).
+		Relation("User").
+		Relation("URL").
+		Where("?TableAlias.id = ?", id).
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.Post](post), notFound(err)
+	return post, nil
 }
 
 // CommentParticipants returns one comment of every user, other than the
 // post's author, who commented on the post, with the commenter loaded
-// (comment.User).
+// (comment.User). Only the comment's user_id is read.
 func (s *Store) CommentParticipants(ctx context.Context, postID, authorID string) ([]*model.PostComment, error) {
-	return all[model.PostComment](core.PostComments(
-		core.PostCommentWhere.PostID.EQ(postID),
-		core.PostCommentWhere.UserID.NEQ(authorID),
-		qm.Distinct(core.PostCommentColumns.UserID),
-		qm.Load(core.PostCommentRels.User),
-	).All(ctx, s.exec))
+	var comments []*model.PostComment
+	err := s.query().NewSelect().Model(&comments).
+		DistinctOn("?TableAlias.user_id").
+		Column("user_id").
+		Relation("User").
+		Where("?TableAlias.post_id = ?", postID).
+		Where("?TableAlias.user_id <> ?", authorID).
+		Scan(ctx)
+
+	return comments, err
 }
 
 // CountNewComment adds one to the comment counter of a post.
@@ -81,31 +90,36 @@ func (s *Store) CountNewComment(ctx context.Context, postID string) error {
 		return err
 	}
 
-	postStat := &core.PostStat{
+	postStat := &model.PostStat{
 		ID:             statID.String(),
 		PostID:         postID,
 		CommentsNumber: 1,
 	}
 
-	return postStat.Upsert(
-		ctx, s.exec, true, []string{core.PostStatColumns.PostID},
-		boil.Whitelist(core.PostStatColumns.UpdatedAt, core.PostStatColumns.CommentsNumber),
-		boil.Infer(),
-		core.UpsertUpdateSet("comments_number = post_stats.comments_number + excluded.comments_number"),
-	)
+	// On conflict only the counter changes; updated_at keeps its value.
+	_, err = s.query().NewInsert().Model(postStat).
+		On("CONFLICT (post_id) DO UPDATE").
+		Set("comments_number = ?TableAlias.comments_number + EXCLUDED.comments_number").
+		Exec(ctx)
+
+	return err
 }
 
 // CommentForMail returns a comment with its author, its post and the post's
 // author and linked URL loaded.
 func (s *Store) CommentForMail(ctx context.Context, id string) (*model.PostComment, error) {
-	comment, err := core.PostComments(
-		core.PostCommentWhere.ID.EQ(id),
-		qm.Load(qm.Rels(core.PostCommentRels.Post, core.PostRels.URL)),
-		qm.Load(qm.Rels(core.PostCommentRels.Post, core.PostRels.User)),
-		qm.Load(core.PostCommentRels.User),
-	).One(ctx, s.exec)
+	comment := new(model.PostComment)
+	err := s.query().NewSelect().Model(comment).
+		Relation("Post.URL").
+		Relation("Post.User").
+		Relation("User").
+		Where("?TableAlias.id = ?", id).
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostComment](comment), notFound(err)
+	return comment, nil
 }
 
 // ConnectPostgres opens a store on the database at dsn, for commands that
@@ -122,26 +136,27 @@ func ConnectPostgres(dsn string) (*Store, func() error, error) {
 // CommentsOfPost returns a post's comments, oldest first, with their authors
 // loaded.
 func (s *Store) CommentsOfPost(ctx context.Context, postID string) ([]*model.PostComment, error) {
-	return all[model.PostComment](core.PostComments(
-		core.PostCommentWhere.PostID.EQ(postID),
-		qm.Load(core.PostCommentRels.User),
-		qm.OrderBy(fmt.Sprintf("%s ASC", core.PostCommentColumns.CreatedAt)),
-	).All(ctx, s.exec))
+	var comments []*model.PostComment
+	err := s.query().NewSelect().Model(&comments).
+		Relation("User").
+		Where("?TableAlias.post_id = ?", postID).
+		OrderExpr("?TableAlias.created_at ASC").
+		Scan(ctx)
+
+	return comments, err
 }
 
 // CommentedPostIDs returns the IDs of the posts userID has commented on.
 func (s *Store) CommentedPostIDs(ctx context.Context, userID string) ([]string, error) {
-	comments, err := core.PostComments(
-		core.PostCommentWhere.UserID.EQ(userID),
-		qm.Distinct(core.PostCommentColumns.PostID),
-	).All(ctx, s.exec)
+	ids := []string{}
+
+	err := s.query().NewSelect().Model((*model.PostComment)(nil)).
+		Distinct().
+		Column("post_id").
+		Where("user_id = ?", userID).
+		Scan(ctx, &ids)
 	if err != nil {
 		return nil, err
-	}
-
-	ids := make([]string, 0, len(comments))
-	for _, c := range comments {
-		ids = append(ids, c.PostID)
 	}
 
 	return ids, nil
@@ -150,12 +165,14 @@ func (s *Store) CommentedPostIDs(ctx context.Context, userID string) ([]string, 
 // CommentsOnPostsNotBy returns a page of the comments on postIDs that
 // someone other than userID left, newest first, with their authors loaded.
 func (s *Store) CommentsOnPostsNotBy(ctx context.Context, postIDs []string, userID string, page Page) ([]*model.PostComment, error) {
-	m := []qm.QueryMod{
-		core.PostCommentWhere.UserID.NEQ(userID),
-		core.PostCommentWhere.PostID.IN(postIDs),
-		qm.Load(core.PostCommentRels.User),
-	}
+	var comments []*model.PostComment
 
-	return all[model.PostComment](core.PostComments(append(m, page.mods(KindComment,
-		core.PostCommentTableColumns.CreatedAt, core.PostCommentTableColumns.ID)...)...).All(ctx, s.exec))
+	q := s.query().NewSelect().Model(&comments).
+		Relation("User").
+		Where("?TableAlias.user_id <> ?", userID).
+		Where("?TableAlias.post_id IN (?)", bun.List(postIDs))
+
+	err := page.apply(q, KindComment, "?TableAlias.created_at", "?TableAlias.id").Scan(ctx)
+
+	return comments, err
 }

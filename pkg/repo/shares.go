@@ -4,21 +4,22 @@ import (
 	"context"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 // ShareByID returns a share with its post and the post's author loaded
 // (share.Post, share.Post.User).
 func (s *Store) ShareByID(ctx context.Context, id string) (*model.PostShare, error) {
-	share, err := core.PostShares(
-		core.PostShareWhere.ID.EQ(id),
-		qm.Load(qm.Rels(core.PostShareRels.Post, core.PostRels.User)),
-	).One(ctx, s.exec)
+	share := new(model.PostShare)
+	err := s.query().NewSelect().Model(share).
+		Relation("Post.User").
+		Where("?TableAlias.id = ?", id).
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostShare](share), notFound(err)
+	return share, nil
 }
 
 // CreateShare gives a post its share link. A post has at most one, so
@@ -29,19 +30,25 @@ func (s *Store) CreateShare(ctx context.Context, postID string) error {
 		return err
 	}
 
-	share := &core.PostShare{ID: id.String(), PostID: postID}
+	share := &model.PostShare{ID: id.String(), PostID: postID}
 
-	return share.Upsert(ctx, s.exec, false, []string{core.PostShareColumns.PostID}, boil.Infer(), boil.Infer())
+	_, err = s.query().NewInsert().Model(share).On("CONFLICT (post_id) DO NOTHING").Exec(ctx)
+
+	return err
 }
 
 // DeleteShares removes a post's share link, if it has one.
 func (s *Store) DeleteShares(ctx context.Context, postID string) error {
-	_, err := core.PostShares(core.PostShareWhere.PostID.EQ(postID)).DeleteAll(ctx, s.exec)
+	_, err := s.query().NewDelete().Model((*model.PostShare)(nil)).Where("post_id = ?", postID).Exec(ctx)
 	return err
 }
 
 // ShareOfPost returns a post's share link, or nil when it has none.
 func (s *Store) ShareOfPost(ctx context.Context, postID string) (*model.PostShare, error) {
-	share, err := core.PostShares(core.PostShareWhere.PostID.EQ(postID)).One(ctx, s.exec)
-	return orNil(toModel[model.PostShare](share), err)
+	share := new(model.PostShare)
+	if err := s.query().NewSelect().Model(share).Where("post_id = ?", postID).Limit(1).Scan(ctx); err != nil {
+		return orNil[model.PostShare](nil, err)
+	}
+
+	return share, nil
 }
