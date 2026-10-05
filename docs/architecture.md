@@ -166,7 +166,8 @@ pinned by a test in `pkg/repo/bun_test.go`.
 - **Timestamps are stamped by the model.** Each model's `BeforeAppendModel` sets `created_at` and
   `updated_at` on insert when they are zero and `updated_at` on every update, as sqlboiler did. An update
   with `.Column(...)` writes only those columns, so list `updated_at` wherever the sqlboiler code updated
-  with `boil.Infer()` or listed it. To bun an upsert is an insert: set `updated_at` in its `DO UPDATE`.
+  with `boil.Infer()` or listed it. To bun an upsert is an insert: set `UpdatedAt` before it, and its `DO UPDATE` sets exactly the columns
+  the old upsert updated (`updated_at` only if they included it).
 - **A limit on a has-many relation is shared.** `Relation("X", func(q) { return q.Limit(1) })` limits the
   one query that loads the rows of every parent, as sqlboiler's `qm.Load(..., qm.Limit(1))` did.
 - **Paging.** A paged list ends with `page.apply(q, KindPost, "?TableAlias.published_at", "?TableAlias.id")`
