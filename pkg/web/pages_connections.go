@@ -2,7 +2,7 @@ package web
 
 import (
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/gin-gonic/gin"
 )
@@ -16,9 +16,9 @@ type (
 
 type ControlsPage struct {
 	*BasePage
-	DirectConnections       core.UserSlice
-	SecondDegreeConnections core.UserSlice
-	WhitelistedConnections  core.UserSlice
+	DirectConnections       []*model.User
+	SecondDegreeConnections []*model.User
+	WhitelistedConnections  []*model.User
 	MediationRequests       []*MediationRequest
 	ConnectionRequests      []*ConnectionRequest
 	Drafts                  []*Draft

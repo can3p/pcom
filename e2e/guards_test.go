@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/google/uuid"
@@ -28,19 +28,19 @@ import (
 type guardWorld struct {
 	app *e2e.App
 
-	owner, friend, stranger, requester *core.User
+	owner, friend, stranger, requester *model.User
 
 	// the addresses the send_invite, signup and signup_waiting_list routes
 	// take, unique to the world: every test shares one tommy
 	inviteeEmail, newcomerEmail, waiterEmail string
 
-	draft, published   *core.Post
-	comment            *core.PostComment
-	request            *core.UserConnectionMediationRequest
-	invitation         *core.UserInvitation
-	subscription       *core.UserFeedSubscription
-	feedItem           *core.UserFeedItem
-	prompt             *core.PostPrompt
+	draft, published   *model.Post
+	comment            *model.PostComment
+	request            *model.UserConnectionMediationRequest
+	invitation         *model.UserInvitation
+	subscription       *model.UserFeedSubscription
+	feedItem           *model.UserFeedItem
+	prompt             *model.PostPrompt
 	ownerClient        *e2e.Client
 	ownerSessionCookie []*http.Cookie
 }
@@ -152,7 +152,7 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 
 	var s dbSnapshot
 
-	for _, u := range []*core.User{w.owner, w.friend, w.stranger, w.requester} {
+	for _, u := range []*model.User{w.owner, w.friend, w.stranger, w.requester} {
 		got, err := factory.GetUser(ctx, db, u.ID)
 		require.NoError(t, err)
 		s.Users = append(s.Users, fmt.Sprintf("%s|%s|%s|%s|%s|%v",
@@ -301,7 +301,7 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string {
 			return map[string]string{
 				"post_id": w.published.ID, "subject": "hijacked", "body": "hijacked body",
-				"visibility": string(core.PostVisibilityDirectOnly), "save_action": "save_post",
+				"visibility": string(model.PostVisibilityDirectOnly), "save_action": "save_post",
 			}
 		}},
 	{http.MethodPost, "/controls/form/new_comment", staticPath("/controls/form/new_comment"),
@@ -631,7 +631,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 
 	// attackerPair is an attacker, logged in, and a victim with their own session.
 	type attackerPair struct {
-		attacker, victim             *core.User
+		attacker, victim             *model.User
 		attackerClient, victimClient *e2e.Client
 	}
 
@@ -658,7 +658,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 
 			p.attackerClient.PostForm("/controls/form/edit_post", url.Values{
 				"post_id": {post.ID}, "subject": {"hijacked"}, "body": {"hijacked body"},
-				"visibility": {string(core.PostVisibilityDirectOnly)}, "save_action": {"save_post"},
+				"visibility": {string(model.PostVisibilityDirectOnly)}, "save_action": {"save_post"},
 			}).RequireStatus(http.StatusNotFound)
 
 			p.attackerClient.PostForm("/controls/form/edit_post", url.Values{
@@ -750,7 +750,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		post, err := factory.Post(ctx, db, p.victim.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+		post, err := factory.Post(ctx, db, p.victim.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 		require.NoError(t, err)
 
 		p.attackerClient.PostJSON("/controls/action/create_share", map[string]string{"postId": post.ID}).
@@ -765,7 +765,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		t.Parallel()
 
 		p := newPair(t)
-		post, err := factory.Post(ctx, db, p.victim.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+		post, err := factory.Post(ctx, db, p.victim.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 		require.NoError(t, err)
 		share, err := factory.PostShare(ctx, db, post.ID)
 		require.NoError(t, err)
@@ -1062,7 +1062,7 @@ func TestGuards_LoginUnknownAddressGetsSamePagesAndNoMail(t *testing.T) {
 
 	app := e2e.Start(t)
 	ctx := context.Background()
-	unconfirmed, err := factory.User(ctx, app.DB, func(u *core.User) {
+	unconfirmed, err := factory.User(ctx, app.DB, func(u *model.User) {
 		u.EmailConfirmedAt = null.Time{}
 	})
 	require.NoError(t, err)

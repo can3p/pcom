@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
@@ -24,7 +24,7 @@ type FeedItem struct {
 
 func (i *FeedItem) AddedToFeedAt() time.Time {
 	if i.Post != nil {
-		return i.Post.PublishedAt.Time
+		return lo.FromPtr(i.Post.PublishedAt)
 	}
 
 	if i.FeedItem != nil {
@@ -40,17 +40,17 @@ func (i *FeedItem) AddedToFeedAt() time.Time {
 type Feed struct {
 	Items             []*FeedItem
 	Next              string
-	DirectConnections []*core.User
+	DirectConnections []*model.User
 	OpenPrompts       []*postops.PostPrompt
 	// FeedToken is the actor's private RSS feed token, nil when they have none.
-	FeedToken *core.UserFeedToken
+	FeedToken *model.UserFeedToken
 }
 
 // Feed is the page after cursor (empty for the first) of what the actor
 // reads at /feed, newest first: the published posts of their direct
 // connections, the posts of second-degree connections shared that far, their
 // RSS items and the comments on posts they take part in.
-func (s *Service) Feed(ctx context.Context, actor *core.User, cursor string) (*Feed, error) {
+func (s *Service) Feed(ctx context.Context, actor *model.User, cursor string) (*Feed, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -105,8 +105,8 @@ func (s *Service) Feed(ctx context.Context, actor *core.User, cursor string) (*F
 		return nil, err
 	}
 
-	out.OpenPrompts = lo.Map(prompts, func(p *core.PostPrompt, _ int) *postops.PostPrompt {
-		return &postops.PostPrompt{Prompt: p, Author: p.R.Asker, Post: p.R.Post}
+	out.OpenPrompts = lo.Map(prompts, func(p *model.PostPrompt, _ int) *postops.PostPrompt {
+		return &postops.PostPrompt{Prompt: p, Author: p.Asker, Post: p.Post}
 	})
 
 	out.FeedToken, err = s.store.FeedTokenForUser(ctx, actor.ID)
@@ -119,7 +119,7 @@ func (s *Service) Feed(ctx context.Context, actor *core.User, cursor string) (*F
 
 // PrivateFeed is what a private RSS feed lists: the posts of its owner's feed.
 type PrivateFeed struct {
-	Owner *core.User
+	Owner *model.User
 	Posts []*postops.Post
 }
 
@@ -148,14 +148,14 @@ func (s *Service) PrivateFeed(ctx context.Context, token string) (*PrivateFeed, 
 // feedPosts is a page of the published posts of the actor's direct
 // connections, and of the second-degree connections those shared that far,
 // each with the direct connections it came through.
-func (s *Service) feedPosts(ctx context.Context, actor *core.User, page repo.Page) ([]*FeedItem, error) {
+func (s *Service) feedPosts(ctx context.Context, actor *model.User, page repo.Page) ([]*FeedItem, error) {
 	direct, secondDegree, via, err := graph.DirectAndSecondDegree(ctx, s.store, actor.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	posts, err := s.store.PublishedPostsOfUsers(ctx, direct, secondDegree,
-		[]core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}, page)
+		[]model.PostVisibility{model.PostVisibilitySecondDegree, model.PostVisibilityPublic}, page)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (s *Service) feedPosts(ctx context.Context, actor *core.User, page repo.Pag
 	secondDegreeMap := lo.KeyBy(secondDegree, func(u string) string { return u })
 
 	seenUserIDs := lo.Filter(lo.Uniq(
-		lo.Map(posts, func(p *core.Post, _ int) string { return p.UserID }),
+		lo.Map(posts, func(p *model.Post, _ int) string { return p.UserID }),
 	), func(id string, _ int) bool {
 		_, ok := secondDegreeMap[id]
 		return ok
@@ -177,16 +177,16 @@ func (s *Service) feedPosts(ctx context.Context, actor *core.User, page repo.Pag
 		return nil, err
 	}
 
-	viaUserMap := lo.KeyBy(viaUsers, func(u *core.User) string { return u.ID })
+	viaUserMap := lo.KeyBy(viaUsers, func(u *model.User) string { return u.ID })
 
-	return lo.Map(posts, func(p *core.Post, _ int) *FeedItem {
+	return lo.Map(posts, func(p *model.Post, _ int) *FeedItem {
 		radius := graph.RadiusSecondDegree
-		var viaUsers []*core.User
+		var viaUsers []*model.User
 
 		if _, ok := directMap[p.UserID]; ok {
 			radius = graph.RadiusDirect
 		} else {
-			viaUsers = lo.Map(via[p.UserID], func(id string, _ int) *core.User { return viaUserMap[id] })
+			viaUsers = lo.Map(via[p.UserID], func(id string, _ int) *model.User { return viaUserMap[id] })
 		}
 
 		return &FeedItem{Post: postops.ConstructPost(actor, p, radius, viaUsers, false)}
@@ -201,22 +201,22 @@ func (s *Service) rssItems(ctx context.Context, userID string, page repo.Page) (
 		return nil, err
 	}
 
-	return lo.Map(dbItems, func(item *core.UserFeedItem, _ int) *FeedItem {
+	return lo.Map(dbItems, func(item *model.UserFeedItem, _ int) *FeedItem {
 		publishedAt := item.CreatedAt
 
-		if !item.R.RSSItem.PublishedAt.IsZero() {
-			publishedAt = item.R.RSSItem.PublishedAt
+		if !item.RSSItem.PublishedAt.IsZero() {
+			publishedAt = item.RSSItem.PublishedAt
 		}
 
 		return &FeedItem{FeedItem: &feeds.RssFeedItem{
 			ID:          item.ID,
-			URL:         item.R.URL.URL,
-			Title:       item.R.RSSItem.Title,
-			Summary:     item.R.RSSItem.SanitizedDescription,
+			URL:         item.URL.URL,
+			Title:       item.RSSItem.Title,
+			Summary:     item.RSSItem.SanitizedDescription,
 			PublishedAt: publishedAt,
 			AddedAt:     item.CreatedAt,
-			FeedTitle:   item.R.RSSItem.R.Feed.Title.String,
-			FeedURL:     item.R.RSSItem.R.Feed.URL,
+			FeedTitle:   lo.FromPtr(item.RSSItem.Feed.Title),
+			FeedURL:     item.RSSItem.Feed.URL,
 		}}
 	}), nil
 }
@@ -240,21 +240,21 @@ func (s *Service) feedComments(ctx context.Context, userID string, page repo.Pag
 		return nil, err
 	}
 
-	postMap := lo.KeyBy(posts, func(p *core.Post) string { return p.ID })
+	postMap := lo.KeyBy(posts, func(p *model.Post) string { return p.ID })
 
-	comments, err := s.store.CommentsOnPostsNotBy(ctx, lo.Map(posts, func(p *core.Post, _ int) string { return p.ID }), userID, page)
+	comments, err := s.store.CommentsOnPostsNotBy(ctx, lo.Map(posts, func(p *model.Post, _ int) string { return p.ID }), userID, page)
 	if err != nil {
 		return nil, err
 	}
 
-	return lo.Map(comments, func(c *core.PostComment, _ int) *FeedItem {
+	return lo.Map(comments, func(c *model.PostComment, _ int) *FeedItem {
 		post := postMap[c.PostID]
 
 		return &FeedItem{
 			Comment: &postops.Comment{
 				PostComment: c,
-				Author:      c.R.User,
-				Post:        &postops.Post{Author: post.R.User, Post: post},
+				Author:      c.User,
+				Post:        &postops.Post{Author: post.User, Post: post},
 			},
 		}
 	}), nil

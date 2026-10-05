@@ -2,6 +2,7 @@ package accounts_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -14,7 +15,7 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -23,6 +24,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,9 +57,9 @@ func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
 	t.Helper()
 
 	var codes []string
-	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, core.OutgoingEmailWhere.EmailType.EQ("login_code")))(t) {
+	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, factory.EmailType("login_code")))(t) {
 		var m sender.Mail
-		require.NoError(t, e.Payload.Unmarshal(&m))
+		require.NoError(t, json.Unmarshal(e.Payload, &m))
 		if m.To[0].Address == to {
 			codes = append(codes, codeRe.FindStringSubmatch(m.Text)[1])
 		}
@@ -68,7 +70,7 @@ func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
 
 // start starts a login for the user's address and returns the attempt and
 // the one code it mailed.
-func start(t *testing.T, ctx context.Context, db *sqlx.DB, svc *accounts.Service, u *core.User, returnURL string) (string, string) {
+func start(t *testing.T, ctx context.Context, db *sqlx.DB, svc *accounts.Service, u *model.User, returnURL string) (string, string) {
 	t.Helper()
 
 	before := mailedCodes(t, db, u.Email)
@@ -89,9 +91,9 @@ func signupConfirmed(t *testing.T, db *sqlx.DB, email string) int {
 	t.Helper()
 
 	n := 0
-	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, core.OutgoingEmailWhere.EmailType.EQ("signup_confirmed")))(t) {
+	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, factory.EmailType("signup_confirmed")))(t) {
 		var m sender.Mail
-		require.NoError(t, e.Payload.Unmarshal(&m))
+		require.NoError(t, json.Unmarshal(e.Payload, &m))
 		if strings.Contains(m.Text, email) {
 			n++
 		}
@@ -124,7 +126,7 @@ func TestLoginCodes(t *testing.T) {
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
-	newUser := func(t *testing.T) *core.User { return testutil.Must(factory.User(ctx, db))(t) }
+	newUser := func(t *testing.T) *model.User { return testutil.Must(factory.User(ctx, db))(t) }
 
 	t.Run("a confirmed user's code logs in once, with the address lowercased", func(t *testing.T) {
 		t.Parallel()
@@ -157,9 +159,9 @@ func TestLoginCodes(t *testing.T) {
 		before := signupConfirmed(t, db, email)
 
 		var code string
-		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("confirm_signup")))(t) {
+		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, factory.EmailType("confirm_signup")))(t) {
 			var m sender.Mail
-			require.NoError(t, e.Payload.Unmarshal(&m))
+			require.NoError(t, json.Unmarshal(e.Payload, &m))
 			if m.To[0].Address == email {
 				code = regexp.MustCompile(`confirmation code is (\d{8})`).FindStringSubmatch(m.Text)[1]
 			}
@@ -168,13 +170,13 @@ func TestLoginCodes(t *testing.T) {
 
 		_, _, err := svc.FinishLogin(ctx, id, otherCode(code))
 		requireWrongCode(t, err)
-		require.False(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+		require.Nil(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt)
 		require.Equal(t, before, signupConfirmed(t, db, email))
 
 		got, _, err := svc.FinishLogin(ctx, id, code)
 		require.NoError(t, err)
 		require.Equal(t, "signupcode", got.Username)
-		require.True(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+		require.NotNil(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt)
 		require.Equal(t, before+1, signupConfirmed(t, db, email), "the admin hears of the confirmation once")
 	})
 
@@ -194,7 +196,7 @@ func TestLoginCodes(t *testing.T) {
 		got, _, err := svc.FinishLogin(ctx, id, code)
 		require.NoError(t, err)
 		require.Equal(t, "latesignup", got.Username)
-		require.True(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt.Valid)
+		require.NotNil(t, testutil.Must(factory.GetUserByEmail(ctx, db, email))(t).EmailConfirmedAt)
 		require.Equal(t, 1, signupConfirmed(t, db, email))
 	})
 
@@ -211,7 +213,7 @@ func TestLoginCodes(t *testing.T) {
 
 		got, _, err := svc.FinishLogin(ctx, id, codes[0])
 		require.NoError(t, err)
-		require.Equal(t, invite.CreatedUserID.String, got.ID)
+		require.Equal(t, lo.FromPtr(invite.CreatedUserID), got.ID)
 		require.Zero(t, signupConfirmed(t, db, "invitee-code@example.test"), "an invited address was confirmed from the start")
 	})
 
@@ -333,7 +335,7 @@ func TestLoginCodes(t *testing.T) {
 		// pruning sweeps the whole table, so it gets a database of its own
 		db := testdb.New(t).DB
 		svc := codeSvc(db, &clock{time.Now()}, "test-key")
-		user := func(t *testing.T, age time.Duration, opts ...factory.UserOpt) *core.User {
+		user := func(t *testing.T, age time.Duration, opts ...factory.UserOpt) *model.User {
 			u := testutil.Must(factory.User(ctx, db, opts...))(t)
 			_, err := db.ExecContext(ctx, `update users set created_at = $1 where id = $2`, time.Now().UTC().Add(-age), u.ID)
 			require.NoError(t, err)
@@ -356,7 +358,7 @@ func TestLoginCodes(t *testing.T) {
 
 		_, err := factory.GetUserByEmail(ctx, db, stale.Email)
 		require.Error(t, err)
-		for _, u := range []*core.User{fresh, confirmed, held} {
+		for _, u := range []*model.User{fresh, confirmed, held} {
 			testutil.Must(factory.GetUserByEmail(ctx, db, u.Email))(t)
 		}
 	})
@@ -503,8 +505,8 @@ func TestLoginCodes(t *testing.T) {
 		id, code := start(t, ctx, db, svc, u, "")
 
 		stored := testutil.Must(repo.New(db).LockLoginAttempt(ctx, id))(t)
-		require.True(t, stored.CodeHash.Valid)
-		require.NotContains(t, stored.CodeHash.String, code)
+		require.NotNil(t, stored.CodeHash)
+		require.NotContains(t, lo.FromPtr(stored.CodeHash), code)
 
 		_, _, err := codeSvc(db, c, "other-key").FinishLogin(ctx, id, code)
 		requireWrongCode(t, err)

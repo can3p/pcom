@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -15,7 +15,7 @@ import (
 )
 
 // newUser wraps the factory call this file repeats.
-func newUser(t *testing.T, ctx context.Context, db *sqlx.DB) *core.User {
+func newUser(t *testing.T, ctx context.Context, db *sqlx.DB) *model.User {
 	t.Helper()
 
 	return testutil.Must(factory.User(ctx, db))(t)
@@ -66,7 +66,7 @@ func TestEmailConstraints(t *testing.T) {
 			return err
 		},
 		"signup request": func(email string) error {
-			_, err := factory.SignupRequest(ctx, db, func(r *core.UserSignupRequest) { r.Email = email })
+			_, err := factory.SignupRequest(ctx, db, func(r *model.UserSignupRequest) { r.Email = email })
 			return err
 		},
 	}

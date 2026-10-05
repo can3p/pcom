@@ -7,12 +7,12 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 )
 
 // Invitation is the mail that carries an invitation link to the address it
 // was sent to.
-func Invitation(site links.Site, from string, invite *core.UserInvitation, to string) *Envelope {
+func Invitation(site links.Site, from string, invite *model.UserInvitation, to string) *Envelope {
 	link := site.Abs("invite", invite.ID)
 
 	mail := &sender.Mail{

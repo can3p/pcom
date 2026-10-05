@@ -1,26 +1,26 @@
 package rss_test
 
 import (
-	"github.com/can3p/pcom/pkg/links"
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/links"
+
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/postops/rss"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
-func mkPost(id string, body string, vis core.PostVisibility, author *core.User) *postops.Post {
+func mkPost(id string, body string, vis model.PostVisibility, author *model.User) *postops.Post {
 	return &postops.Post{
-		Post: &core.Post{
+		Post: &model.Post{
 			ID:               id,
-			Subject:          null.StringFrom("A subject"),
+			Subject:          new("A subject"),
 			Body:             body,
 			VisibilityRadius: vis,
-			CreatedAt:        null.TimeFrom(time.Date(2025, time.March, 1, 10, 0, 0, 0, time.UTC)),
-			PublishedAt:      null.TimeFrom(time.Date(2025, time.March, 4, 10, 0, 0, 0, time.UTC)),
+			CreatedAt:        new(time.Date(2025, time.March, 1, 10, 0, 0, 0, time.UTC)),
+			PublishedAt:      new(time.Date(2025, time.March, 4, 10, 0, 0, 0, time.UTC)),
 		},
 		Author: author,
 	}
@@ -29,8 +29,8 @@ func mkPost(id string, body string, vis core.PostVisibility, author *core.User) 
 func TestToFeed_PublicPostIsRendered(t *testing.T) {
 	t.Parallel()
 
-	author := &core.User{Username: "alice"}
-	post := mkPost("post-1", "Some *markdown* body", core.PostVisibilityPublic, author)
+	author := &model.User{Username: "alice"}
+	post := mkPost("post-1", "Some *markdown* body", model.PostVisibilityPublic, author)
 
 	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{post})
 
@@ -51,11 +51,11 @@ func TestToFeed_PublicPostIsRendered(t *testing.T) {
 func TestToFeed_NonPublicPostHidesBody(t *testing.T) {
 	t.Parallel()
 
-	author := &core.User{Username: "alice"}
+	author := &model.User{Username: "alice"}
 
-	testCases := []core.PostVisibility{
-		core.PostVisibilityDirectOnly,
-		core.PostVisibilitySecondDegree,
+	testCases := []model.PostVisibility{
+		model.PostVisibilityDirectOnly,
+		model.PostVisibilitySecondDegree,
 	}
 
 	for _, vis := range testCases {
@@ -75,7 +75,7 @@ func TestToFeed_NonPublicPostHidesBody(t *testing.T) {
 func TestToFeed_AnonymousAuthorFallsBack(t *testing.T) {
 	t.Parallel()
 
-	post := mkPost("post-3", "body", core.PostVisibilityPublic, nil)
+	post := mkPost("post-3", "body", model.PostVisibilityPublic, nil)
 
 	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{post})
 
@@ -86,18 +86,18 @@ func TestToFeed_AnonymousAuthorFallsBack(t *testing.T) {
 func TestToFeed_PreservesOrderAndSubjectFallback(t *testing.T) {
 	t.Parallel()
 
-	author := &core.User{Username: "alice"}
+	author := &model.User{Username: "alice"}
 
 	noSubject := &postops.Post{
-		Post: &core.Post{
+		Post: &model.Post{
 			ID:               "post-a",
 			Body:             "a",
-			VisibilityRadius: core.PostVisibilityPublic,
-			PublishedAt:      null.TimeFrom(time.Now()),
+			VisibilityRadius: model.PostVisibilityPublic,
+			PublishedAt:      new(time.Now()),
 		},
 		Author: author,
 	}
-	withSubject := mkPost("post-b", "b", core.PostVisibilityPublic, author)
+	withSubject := mkPost("post-b", "b", model.PostVisibilityPublic, author)
 
 	feed := rss.ToFeed(links.Site{}, "My Blog", "https://example.com", []*postops.Post{noSubject, withSubject})
 
@@ -121,8 +121,8 @@ func TestToFeed_SiteRootAndMediaCDN(t *testing.T) {
 
 	const media = "3fa85f64-5717-4562-b3fc-2c963f66afa6.png"
 
-	author := &core.User{Username: "alice"}
-	post := mkPost("post-1", "look ![pic]("+media+")", core.PostVisibilityPublic, author)
+	author := &model.User{Username: "alice"}
+	post := mkPost("post-1", "look ![pic]("+media+")", model.PostVisibilityPublic, author)
 
 	for _, tc := range []struct {
 		name      string

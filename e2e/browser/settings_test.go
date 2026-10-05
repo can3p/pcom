@@ -18,7 +18,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	feedsvc "github.com/can3p/pcom/pkg/service/feeds"
@@ -115,7 +115,7 @@ func TestSettings_GeneralSavesInPlace(t *testing.T) {
 
 	stored, err := factory.GetUser(context.Background(), app.DB, user.ID)
 	require.NoError(t, err)
-	require.Equal(t, core.ProfileVisibilityPublic, stored.ProfileVisibility)
+	require.Equal(t, model.ProfileVisibilityPublic, stored.ProfileVisibility)
 }
 
 // Styles over the limit are not saved and the field says why; valid styles
@@ -284,7 +284,7 @@ func TestSettings_PrivateFeedURL(t *testing.T) {
 
 // requireShownFeedToken returns the private feed URL the page shows and
 // requires it to end with the token stored for user.
-func requireShownFeedToken(t *testing.T, app *e2e.App, user *core.User, url playwright.Locator) string {
+func requireShownFeedToken(t *testing.T, app *e2e.App, user *model.User, url playwright.Locator) string {
 	t.Helper()
 
 	shown, err := url.TextContent()
@@ -424,7 +424,7 @@ func TestSettings_AddFeedInPlace(t *testing.T) {
 }
 
 // subscribedURLs are the URLs of the feeds user is subscribed to.
-func subscribedURLs(t *testing.T, app *e2e.App, user *core.User) []string {
+func subscribedURLs(t *testing.T, app *e2e.App, user *model.User) []string {
 	t.Helper()
 
 	subs, err := feedsvc.New(repo.New(app.DB), nil).Subscriptions(context.Background(), user)

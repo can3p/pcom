@@ -9,7 +9,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/date"
@@ -47,7 +47,7 @@ func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 
 		"abslink": site.Abs,
 
-		"renderHumanTime": func(t time.Time, user *core.User) template.HTML {
+		"renderHumanTime": func(t time.Time, user *model.User) template.HTML {
 			return date.RenderTimeHTML(t, user, time.Now())
 		},
 

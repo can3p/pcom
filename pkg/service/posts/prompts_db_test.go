@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -24,7 +24,7 @@ func TestSendPrompt_DirectConnectionsOnly(t *testing.T) {
 
 	for _, tc := range []struct {
 		name      string
-		recipient *core.User
+		recipient *model.User
 		ok        bool
 	}{
 		{"direct connection", w.direct, true},
@@ -33,8 +33,9 @@ func TestSendPrompt_DirectConnectionsOnly(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := s.SendPrompt(ctx, w.author, tc.recipient, "Tell us about your week!")
-			n, cerr := core.PostPrompts(core.PostPromptWhere.RecipientID.EQ(tc.recipient.ID)).Count(ctx, db)
+			open, cerr := repo.Using(db).OpenPromptsFor(ctx, tc.recipient.ID)
 			require.NoError(t, cerr)
+			n := len(open)
 
 			if tc.ok {
 				require.NoError(t, err)

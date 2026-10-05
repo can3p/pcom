@@ -8,7 +8,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
 )
@@ -23,7 +23,7 @@ type Outgoing struct {
 
 // NewPost formats the notification about a new post for one connection of its
 // author. It returns nil when there is nobody to notify.
-func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string], user *core.User, connection *core.User, post *core.Post) *Outgoing {
+func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string], user *model.User, connection *model.User, post *model.Post) *Outgoing {
 	// we're not sending email notifications to ourselves
 	if user.ID == connection.ID {
 		return nil
@@ -49,9 +49,9 @@ func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string],
 	var urlText string
 	var htmlUrlSection string
 
-	if post.R != nil && post.R.URL != nil {
-		urlText = fmt.Sprintf("\nLinked URL: %s", post.R.URL.URL)
-		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, html.EscapeString(post.R.URL.URL), html.EscapeString(post.R.URL.URL))
+	if post.URL != nil {
+		urlText = fmt.Sprintf("\nLinked URL: %s", post.URL.URL)
+		htmlUrlSection = fmt.Sprintf(`<p>Linked URL: <a href="%s">%s</a></p>`, html.EscapeString(post.URL.URL), html.EscapeString(post.URL.URL))
 	}
 
 	mail := &sender.Mail{

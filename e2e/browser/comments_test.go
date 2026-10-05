@@ -10,7 +10,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
@@ -20,7 +20,7 @@ import (
 // b3ConnectedPair creates two users who are direct connections of each
 // other, the way the app requires before either may comment on the other's
 // posts.
-func b3ConnectedPair(t testing.TB, app *e2e.App) (*core.User, *core.User) {
+func b3ConnectedPair(t testing.TB, app *e2e.App) (*model.User, *model.User) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -46,7 +46,7 @@ func TestComments_LeaveTopLevelComment(t *testing.T) {
 	ctx := context.Background()
 
 	author, friend := b3ConnectedPair(t, app)
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
 	page := browser.Page(t, app, browser.As(friend))
@@ -79,7 +79,7 @@ func TestComments_ReplyNestsAndCollapses(t *testing.T) {
 	ctx := context.Background()
 
 	author, friend := b3ConnectedPair(t, app)
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
 	top, err := factory.Comment(ctx, app.DB, post.ID, friend.ID)
@@ -119,7 +119,7 @@ func TestComments_ReplyNestsAndCollapses(t *testing.T) {
 	comments, err := factory.ListComments(ctx, app.DB, post.ID)
 	require.NoError(t, err)
 
-	var replyComment *core.PostComment
+	var replyComment *model.PostComment
 	for _, c := range comments {
 		if c.Body == replyBody {
 			replyComment = c
@@ -147,7 +147,7 @@ func TestComments_ViewerWithoutAccessGetsNoForm(t *testing.T) {
 
 	author := browser.NewUser(t, app)
 	stranger := browser.NewUser(t, app)
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	page := browser.Page(t, app, browser.As(stranger))
@@ -172,7 +172,7 @@ func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 	author, commenter := b3ConnectedPair(t, app)
 	participant := browser.NewUser(t, app)
 
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
 	_, err = factory.Comment(ctx, app.DB, post.ID, participant.ID)
@@ -220,7 +220,7 @@ func TestComments_AuthorEditsOwnComment(t *testing.T) {
 	ctx := context.Background()
 
 	author, friend := b3ConnectedPair(t, app)
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
 	comment, err := factory.Comment(ctx, app.DB, post.ID, friend.ID, factory.WithCommentBody("A comment with a typpo"))

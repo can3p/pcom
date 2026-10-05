@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +23,7 @@ import (
 func commentsNumber(t *testing.T, ctx context.Context, db *sqlx.DB, postID string) int64 {
 	t.Helper()
 
-	stat, err := core.PostStats(core.PostStatWhere.PostID.EQ(postID)).One(ctx, db)
+	stat, err := factory.GetPostStat(ctx, db, postID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0
 	}
@@ -46,14 +47,14 @@ func TestEditComment(t *testing.T) {
 	// w.second has commented on the post before, so it follows the discussion
 	testutil.Must(factory.Comment(ctx, db, post.ID, w.second.ID))(t)
 
-	stored := func() *core.PostComment {
-		return testutil.Must(core.FindPostComment(ctx, db, comment.ID))(t)
+	stored := func() *model.PostComment {
+		return testutil.Must(repo.New(db).CommentByID(ctx, comment.ID))(t)
 	}
 
 	// the comment has never been edited, the same body with spaces around changes nothing
 	counter := commentsNumber(t, ctx, db, post.ID)
 	require.NoError(t, s.EditComment(ctx, w.direct, comment.ID, "  "+comment.Body+" \n"))
-	require.False(t, stored().EditedAt.Valid)
+	require.Nil(t, stored().EditedAt)
 	require.Empty(t, out.Sent())
 
 	// two successive edits mail once per recipient each, the queue dedups on the unique id
@@ -64,8 +65,8 @@ func TestEditComment(t *testing.T) {
 
 		got := stored()
 		require.Equal(t, body, got.Body)
-		require.True(t, got.EditedAt.Valid)
-		require.True(t, got.EditedAt.Time.After(prevEditedAt.Time), "edited_at moves on every edit")
+		require.NotNil(t, got.EditedAt)
+		require.True(t, lo.FromPtr(got.EditedAt).After(lo.FromPtr(prevEditedAt)), "edited_at moves on every edit")
 		prevEditedAt = got.EditedAt
 
 		recipients := map[string]int{}
@@ -112,7 +113,7 @@ func TestEditComment_Refused(t *testing.T) {
 
 	for _, tc := range []struct {
 		name  string
-		actor *core.User
+		actor *model.User
 		id    string
 		body  string
 		want  error
@@ -129,9 +130,9 @@ func TestEditComment_Refused(t *testing.T) {
 	require.ErrorAs(t, s.EditComment(ctx, w.direct, comment.ID, "x"), &ve)
 	require.Equal(t, "body", ve.Field)
 
-	got := testutil.Must(core.FindPostComment(ctx, db, comment.ID))(t)
+	got := testutil.Must(repo.New(db).CommentByID(ctx, comment.ID))(t)
 	require.Equal(t, comment.Body, got.Body)
-	require.False(t, got.EditedAt.Valid)
+	require.Nil(t, got.EditedAt)
 	require.Empty(t, out.Sent())
 }
 
@@ -150,8 +151,8 @@ func TestEditComment_LostConnection(t *testing.T) {
 	require.NoError(t, repo.New(db).DeleteConnectionsBetween(ctx, w.direct.ID, w.author.ID))
 	require.ErrorIs(t, s.EditComment(ctx, w.direct, comment.ID, "new body"), service.ErrForbidden)
 
-	got := testutil.Must(core.FindPostComment(ctx, db, comment.ID))(t)
+	got := testutil.Must(repo.New(db).CommentByID(ctx, comment.ID))(t)
 	require.Equal(t, comment.Body, got.Body)
-	require.False(t, got.EditedAt.Valid)
+	require.Nil(t, got.EditedAt)
 	require.Empty(t, out.Sent())
 }

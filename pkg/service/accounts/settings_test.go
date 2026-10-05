@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,12 +42,12 @@ func TestJoinWaitingList(t *testing.T) {
 
 	row := testutil.Must(factory.GetSignupRequest(ctx, db, sent[0].UniqueID))(t)
 	require.Equal(t, "waiter@example.test", row.Email)
-	require.Equal(t, "curious", row.Reason.String)
-	require.True(t, row.VerificationSentAt.Valid, "the confirmation is marked as sent")
+	require.Equal(t, "curious", lo.FromPtr(row.Reason))
+	require.NotNil(t, row.VerificationSentAt, "the confirmation is marked as sent")
 	// the column has no time zone: it reads back as the wall clock time it was written at
 	now := time.Now()
 	wall := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.UTC)
-	require.WithinDuration(t, wall, row.VerificationSentAt.Time, 5*time.Second)
+	require.WithinDuration(t, wall, lo.FromPtr(row.VerificationSentAt), 5*time.Second)
 }
 
 func TestConfirmations(t *testing.T) {
@@ -63,7 +64,7 @@ func TestConfirmations(t *testing.T) {
 		req := testutil.Must(factory.SignupRequest(ctx, db))(t)
 		require.NoError(t, svc.ConfirmWaitingList(ctx, req.ID))
 		require.NoError(t, svc.ConfirmWaitingList(ctx, req.ID))
-		require.True(t, testutil.Must(factory.GetSignupRequest(ctx, db, req.ID))(t).EmailConfirmedAt.Valid)
+		require.NotNil(t, testutil.Must(factory.GetSignupRequest(ctx, db, req.ID))(t).EmailConfirmedAt)
 	})
 
 	t.Run("unknown links are not found", func(t *testing.T) {
@@ -86,7 +87,7 @@ func TestInvitation_OnlyOpenOnesResolve(t *testing.T) {
 
 	got, err := svc.Invitation(ctx, open.ID)
 	require.NoError(t, err)
-	require.Equal(t, inviter.ID, got.R.User.ID, "the inviter comes with it")
+	require.Equal(t, inviter.ID, got.User.ID, "the inviter comes with it")
 
 	_, err = svc.Invitation(ctx, used.ID)
 	require.ErrorIs(t, err, service.ErrNotFound)
@@ -126,12 +127,14 @@ func TestAPIKeyAndFeedToken(t *testing.T) {
 	second := testutil.Must(repo.FeedTokenForUser(ctx, db, user.ID))(t)
 	require.NotEqual(t, first.Token, second.Token, "the old feed URL stops working")
 
-	for name, act := range map[string]func(*core.User) error{
-		"GenerateAPIKey":      func(u *core.User) error { return svc.GenerateAPIKey(ctx, u) },
-		"RegenerateFeedToken": func(u *core.User) error { return svc.RegenerateFeedToken(ctx, u) },
-		"SaveUserStyles":      func(u *core.User) error { return svc.SaveUserStyles(ctx, u, "x") },
-		"SaveGeneralSettings": func(u *core.User) error { return svc.SaveGeneralSettings(ctx, u, "UTC", core.ProfileVisibilityPublic) },
-		"SendInvite":          func(u *core.User) error { return svc.SendInvite(ctx, u, "a@example.test") },
+	for name, act := range map[string]func(*model.User) error{
+		"GenerateAPIKey":      func(u *model.User) error { return svc.GenerateAPIKey(ctx, u) },
+		"RegenerateFeedToken": func(u *model.User) error { return svc.RegenerateFeedToken(ctx, u) },
+		"SaveUserStyles":      func(u *model.User) error { return svc.SaveUserStyles(ctx, u, "x") },
+		"SaveGeneralSettings": func(u *model.User) error {
+			return svc.SaveGeneralSettings(ctx, u, "UTC", model.ProfileVisibilityPublic)
+		},
+		"SendInvite": func(u *model.User) error { return svc.SendInvite(ctx, u, "a@example.test") },
 	} {
 		require.ErrorIs(t, act(nil), service.ErrNeedsLogin, name)
 	}
@@ -177,10 +180,10 @@ func TestSettingsChanges(t *testing.T) {
 	svc := svcWith(db, nil)
 	user := testutil.Must(factory.User(ctx, db))(t)
 
-	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "Europe/Berlin", core.ProfileVisibilityPublic))
+	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "Europe/Berlin", model.ProfileVisibilityPublic))
 	got := testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
 	require.Equal(t, "Europe/Berlin", got.Timezone)
-	require.Equal(t, core.ProfileVisibilityPublic, got.ProfileVisibility)
+	require.Equal(t, model.ProfileVisibilityPublic, got.ProfileVisibility)
 }
 
 func TestRegistrationOpenAndInvites(t *testing.T) {
@@ -220,9 +223,9 @@ func TestProfileAbout(t *testing.T) {
 		return v.ProfileAbout
 	}
 	rows := func() int64 {
-		n, err := core.UserProfiles(core.UserProfileWhere.UserID.EQ(user.ID)).Count(ctx, db)
+		n, err := repo.Query(db).NewSelect().Model((*model.UserProfile)(nil)).Where("user_id = ?", user.ID).Count(ctx)
 		require.NoError(t, err)
-		return n
+		return int64(n)
 	}
 
 	require.Empty(t, about())

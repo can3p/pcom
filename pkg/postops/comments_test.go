@@ -4,28 +4,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
-// mkComment builds an in-memory *core.PostComment, the way a pure unit test
+// mkComment builds an in-memory *model.PostComment, the way a pure unit test
 // (no database) has to: comments_test.go never touches the ORM, so
 // pkg/testutil/factory (which inserts) does not apply here.
-func mkComment(id, parentID string, createdAt time.Time, username string) *core.PostComment {
-	c := &core.PostComment{
+func mkComment(id, parentID string, createdAt time.Time, username string) *model.PostComment {
+	c := &model.PostComment{
 		ID:        id,
 		CreatedAt: createdAt,
 	}
 
 	if parentID != "" {
-		c.ParentCommentID = null.StringFrom(parentID)
+		c.ParentCommentID = new(parentID)
 	}
 
-	c.R = c.R.NewStruct()
-	c.R.User = &core.User{Username: username}
+	c.User = &model.User{Username: username}
 
 	return c
 }
@@ -63,7 +61,7 @@ func TestConstructComments(t *testing.T) {
 
 	testCases := []struct {
 		name     string
-		comments core.PostCommentSlice
+		comments []*model.PostComment
 		want     []struct {
 			ID    string
 			Level int64
@@ -76,7 +74,7 @@ func TestConstructComments(t *testing.T) {
 		},
 		{
 			name: "flat list is ordered by creation time regardless of input order",
-			comments: core.PostCommentSlice{
+			comments: []*model.PostComment{
 				mkComment("c3", "", t0.Add(3*time.Minute), "carol"),
 				mkComment("c1", "", t0.Add(1*time.Minute), "alice"),
 				mkComment("c2", "", t0.Add(2*time.Minute), "bob"),
@@ -90,7 +88,7 @@ func TestConstructComments(t *testing.T) {
 		},
 		{
 			name: "a reply chain is nested depth-first with increasing levels",
-			comments: core.PostCommentSlice{
+			comments: []*model.PostComment{
 				mkComment("c1", "", t0, "alice"),
 				mkComment("c2", "c1", t0.Add(1*time.Minute), "bob"),
 				mkComment("c3", "c2", t0.Add(2*time.Minute), "carol"),
@@ -104,7 +102,7 @@ func TestConstructComments(t *testing.T) {
 		},
 		{
 			name: "siblings under the same parent keep their own creation order",
-			comments: core.PostCommentSlice{
+			comments: []*model.PostComment{
 				mkComment("p", "", t0, "alice"),
 				mkComment("child2", "p", t0.Add(2*time.Minute), "carol"),
 				mkComment("child1", "p", t0.Add(1*time.Minute), "bob"),
@@ -118,7 +116,7 @@ func TestConstructComments(t *testing.T) {
 		},
 		{
 			name: "a whole thread is fully visited before the next top-level thread starts",
-			comments: core.PostCommentSlice{
+			comments: []*model.PostComment{
 				mkComment("a", "", t0, "alice"),
 				mkComment("b", "", t0.Add(4*time.Minute), "dave"),
 				mkComment("a1", "a", t0.Add(1*time.Minute), "bob"),
@@ -140,7 +138,7 @@ func TestConstructComments(t *testing.T) {
 			// result. This pins the current behavior; it is not necessarily
 			// the intended one.
 			name: "a reply to a missing parent is dropped, not shown top-level",
-			comments: core.PostCommentSlice{
+			comments: []*model.PostComment{
 				mkComment("visible", "", t0, "alice"),
 				mkComment("orphan", "does-not-exist", t0.Add(1*time.Minute), "bob"),
 			},
@@ -173,7 +171,7 @@ func TestConstructComments_Capabilities(t *testing.T) {
 	t.Parallel()
 
 	t0 := base(t)
-	comments := core.PostCommentSlice{
+	comments := []*model.PostComment{
 		mkComment("c1", "", t0, "alice"),
 	}
 
@@ -193,14 +191,14 @@ func TestConstructComments_CanEdit(t *testing.T) {
 	t0 := base(t)
 	comment := mkComment("c1", "", t0, "alice")
 	comment.UserID = "alice-id"
-	comments := core.PostCommentSlice{comment}
-	alice := &core.User{ID: "alice-id"}
+	comments := []*model.PostComment{comment}
+	alice := &model.User{ID: "alice-id"}
 
 	require.True(t, postops.ConstructComments(alice, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
 	require.True(t, postops.ConstructComments(alice, comments, graph.RadiusSameUser)[0].Capabilities.CanEdit)
 	// lost the connection to the post's author
 	require.False(t, postops.ConstructComments(alice, comments, graph.RadiusUnrelated)[0].Capabilities.CanEdit)
-	require.False(t, postops.ConstructComments(&core.User{ID: "bob-id"}, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
+	require.False(t, postops.ConstructComments(&model.User{ID: "bob-id"}, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
 	require.False(t, postops.ConstructComments(nil, comments, graph.RadiusDirect)[0].Capabilities.CanEdit)
 }
 
@@ -208,7 +206,7 @@ func TestConstructComments_AuthorIsCarriedThrough(t *testing.T) {
 	t.Parallel()
 
 	t0 := base(t)
-	comments := core.PostCommentSlice{
+	comments := []*model.PostComment{
 		mkComment("c1", "", t0, "alice"),
 	}
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -198,8 +198,8 @@ func TestNavigation_CommentToggleAndSpoiler(t *testing.T) {
 
 	post, err := factory.Post(context.Background(), app.DB, user.ID,
 		factory.Published(),
-		factory.Visibility(core.PostVisibilityPublic),
-		func(p *core.Post) {
+		factory.Visibility(model.PostVisibilityPublic),
+		func(p *model.Post) {
 			p.Body = "Intro paragraph.\n\n{cut}\n\n{spoiler}\nSecret content here.\n{/spoiler}\n\n{/cut}\n\nOutro paragraph."
 		},
 	)

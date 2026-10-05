@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/web"
@@ -92,7 +92,7 @@ func TestAPI_GetPosts_Empty(t *testing.T) {
 
 	other, err := factory.User(ctx, app.DB)
 	require.NoError(t, err)
-	_, err = factory.Post(ctx, app.DB, other.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	_, err = factory.Post(ctx, app.DB, other.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	client := app.Client(t)
@@ -247,7 +247,7 @@ func TestAPI_NewPost(t *testing.T) {
 	require.Equal(t, "Test Subject", post.Subject.String)
 	require.Equal(t, "# Test Body", post.Body)
 	require.Equal(t, user.ID, post.UserID)
-	require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
+	require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
 	require.False(t, post.PublishedAt.Valid)
 
 	publishedData := map[string]any{
@@ -553,7 +553,7 @@ func TestAPI_RSSPrivate_Valid(t *testing.T) {
 
 	unrelated, err := factory.User(ctx, app.DB)
 	require.NoError(t, err)
-	unrelatedPost, err := factory.Post(ctx, app.DB, unrelated.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	unrelatedPost, err := factory.Post(ctx, app.DB, unrelated.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	client := app.Client(t)

@@ -8,12 +8,13 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	pcommail "github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 // NewUser tells the admin about a new account.
-func NewUser(site links.Site, from, adminAddress string, user *core.User) *pcommail.Envelope {
+func NewUser(site links.Site, from, adminAddress string, user *model.User) *pcommail.Envelope {
 	blogURL := site.Abs("user", user.Username)
 
 	mail := &sender.Mail{
@@ -51,8 +52,8 @@ func NewUser(site links.Site, from, adminAddress string, user *core.User) *pcomm
 }
 
 // NewWaitingListMember tells the admin about a new waiting list entry.
-func NewWaitingListMember(site links.Site, from, adminAddress string, waitingList *core.UserSignupRequest) *pcommail.Envelope {
-	r := waitingList.Reason.String
+func NewWaitingListMember(site links.Site, from, adminAddress string, waitingList *model.UserSignupRequest) *pcommail.Envelope {
+	r := lo.FromPtr(waitingList.Reason)
 
 	if r == "" {
 		r = "Not specified"
@@ -93,7 +94,7 @@ func NewWaitingListMember(site links.Site, from, adminAddress string, waitingLis
 }
 
 // SignupConfirmed tells the admin that an account confirmed its email.
-func SignupConfirmed(site links.Site, from, adminAddress string, user *core.User) *pcommail.Envelope {
+func SignupConfirmed(site links.Site, from, adminAddress string, user *model.User) *pcommail.Envelope {
 	mail := &sender.Mail{
 		From: mail.Address{
 			Address: from,

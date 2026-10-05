@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/shares"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/null/v8"
@@ -15,14 +15,14 @@ import (
 func TestSharedPost(t *testing.T) {
 	t.Parallel()
 
-	author := &core.User{ID: "author", Username: "alice"}
+	author := &model.User{ID: "author", Username: "alice"}
 
 	cases := []struct {
 		name    string
 		subject null.String
 		want    string
 	}{
-		{"subject", null.StringFrom("Hello"), "Hello"},
+		{"subject", new("Hello"), "Hello"},
 		{"no subject", null.String{}, "No Subject"},
 	}
 
@@ -30,7 +30,7 @@ func TestSharedPost(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			post := &core.Post{ID: "post", Subject: tc.subject}
+			post := &model.Post{ID: "post", Subject: tc.subject}
 			page := SharedPost(newTestContext(t, http.MethodGet, "/shared/x"), nil, &shares.Shared{Post: post, Author: author})
 
 			require.Same(t, post, page.Post)

@@ -5,15 +5,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/testutil"
+	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/gin-contrib/sessions"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 func TestNew_SessionWorks(t *testing.T) {
@@ -40,15 +39,7 @@ func TestNew_WithUser(t *testing.T) {
 	testDB := testdb.New(t)
 	ctx := context.Background()
 
-	// Inserted directly with the generated model: pkg/testutil/factory is
-	// being written in parallel and this package must not depend on it.
-	user := &core.User{
-		ID:       uuid.NewString(),
-		Email:    "ginctx-user@example.com",
-		Username: "ginctx-user",
-		Timezone: "UTC",
-	}
-	require.NoError(t, user.Insert(ctx, testDB.DB, boil.Infer()))
+	user := testutil.Must(factory.User(ctx, testDB.DB))(t)
 
 	c, _ := ginctx.New(t, http.MethodGet, "/", nil, ginctx.WithUser(t, testDB.DB, user.ID))
 

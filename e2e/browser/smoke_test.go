@@ -9,7 +9,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ func TestSmoke_LoginAndBoostedNavigation(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
-	user := browser.NewUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
+	user := browser.NewUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
 	page := browser.Page(t, app, browser.As(user))
 	rss := page.Locator(`head link[rel="alternate"][type="application/rss+xml"]`)
 

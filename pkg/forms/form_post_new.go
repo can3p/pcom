@@ -7,7 +7,7 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -16,18 +16,18 @@ import (
 )
 
 type PostFormInput struct {
-	Subject    string              `form:"subject"`
-	URL        string              `form:"url"`
-	Body       string              `form:"body"`
-	Visibility core.PostVisibility `form:"visibility"`
-	SaveAction PostFormAction      `form:"save_action"`
+	Subject    string               `form:"subject"`
+	URL        string               `form:"url"`
+	Body       string               `form:"body"`
+	Visibility model.PostVisibility `form:"visibility"`
+	SaveAction PostFormAction       `form:"save_action"`
 }
 
 type PostForm struct {
 	*forms.FormBase[PostFormInput]
-	User   *core.User
+	User   *model.User
 	Posts  *posts.Service
-	Post   *core.Post
+	Post   *model.Post
 	Prompt *postops.PostPrompt
 }
 
@@ -45,7 +45,7 @@ const (
 	PostFormActionAutosave  PostFormAction = "autosave"
 )
 
-func NewPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, promptID string) (*PostForm, error) {
+func NewPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, promptID string) (*PostForm, error) {
 	var prompt *postops.PostPrompt
 
 	if promptID != "" {
@@ -76,7 +76,7 @@ func NewPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, promp
 	return form, nil
 }
 
-func EditPostFormNew(ctx context.Context, svc *posts.Service, u *core.User, postID string) (*PostForm, error) {
+func EditPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, postID string) (*PostForm, error) {
 	view, err := svc.ForEdit(ctx, u, postID)
 	if errors.Is(err, service.ErrForbidden) {
 		// somebody else's post is none of the actor's business
@@ -157,7 +157,7 @@ func (f *PostForm) Validate(c *gin.Context) error {
 	}
 
 	if err := validation.ValidateEnum(f.Input.Visibility,
-		[]core.PostVisibility{core.PostVisibilityDirectOnly, core.PostVisibilitySecondDegree, core.PostVisibilityPublic},
+		[]model.PostVisibility{model.PostVisibilityDirectOnly, model.PostVisibilitySecondDegree, model.PostVisibilityPublic},
 		[]string{"direct only", "their connections as well", "public"}); err != nil {
 		f.AddError("visibility", err.Error())
 	}

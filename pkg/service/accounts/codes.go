@@ -15,12 +15,13 @@ import (
 
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/mail"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v8"
+	"github.com/samber/lo"
 )
 
 // codeDigits is the length of a code, part of its format (the mail, the
@@ -93,8 +94,8 @@ func (s *Service) codeHash(attemptID, code string) string {
 // open reports whether an attempt still takes tries at now. An attempt with
 // no user takes them too, so it answers like any other until it is used up;
 // it just never matches.
-func (s *Service) open(a *core.LoginAttempt, now time.Time) bool {
-	return !a.UsedAt.Valid && a.ExpiresAt.After(now) && a.WrongTries < s.login.CodeTries
+func (s *Service) open(a *model.LoginAttempt, now time.Time) bool {
+	return a.UsedAt == nil && a.ExpiresAt.After(now) && a.WrongTries < s.login.CodeTries
 }
 
 // lockLoginCodes serializes everything that counts a user's codes and tries,
@@ -105,7 +106,7 @@ func lockLoginCodes(ctx context.Context, tx *repo.Store, userID string) error {
 
 // lockOpenAttempt locks the attempt and returns it when it can still log in,
 // ErrNotFound otherwise.
-func (s *Service) lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now time.Time) (*core.LoginAttempt, error) {
+func (s *Service) lockOpenAttempt(ctx context.Context, tx *repo.Store, attemptID string, now time.Time) (*model.LoginAttempt, error) {
 	if _, err := uuid.Parse(attemptID); err != nil {
 		return nil, service.ErrNotFound
 	}
@@ -139,7 +140,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 	}
 
 	now := s.clock()
-	attempt := &core.LoginAttempt{
+	attempt := &model.LoginAttempt{
 		ID:        id.String(),
 		ReturnURL: returnURL,
 		ExpiresAt: now.Add(s.login.CodeLifetime),
@@ -155,7 +156,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 			return err
 		}
 
-		attempt.UserID = null.StringFrom(user.ID)
+		attempt.UserID = new(user.ID)
 
 		if err := lockLoginCodes(ctx, tx, user.ID); err != nil {
 			return err
@@ -180,7 +181,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 			return err
 		}
 
-		attempt.CodeHash = null.StringFrom(s.codeHash(attempt.ID, code))
+		attempt.CodeHash = new(s.codeHash(attempt.ID, code))
 
 		if err := tx.InsertLoginAttempt(ctx, attempt); err != nil {
 			return err
@@ -199,7 +200,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 // queues the mail build makes for its code, so the user, the attempt and the
 // mail exist together or not at all. It does not look at the mail limit: the
 // user is new.
-func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.User, build func(attemptID, code string) *mail.Envelope) (string, error) {
+func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *model.User, build func(attemptID, code string) *mail.Envelope) (string, error) {
 	if len(s.codeKey) == 0 {
 		return "", errNoCodeKey
 	}
@@ -215,10 +216,10 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 	}
 
 	now := s.clock()
-	attempt := &core.LoginAttempt{
+	attempt := &model.LoginAttempt{
 		ID:        id.String(),
-		UserID:    null.StringFrom(user.ID),
-		CodeHash:  null.StringFrom(s.codeHash(id.String(), code)),
+		UserID:    new(user.ID),
+		CodeHash:  new(s.codeHash(id.String(), code)),
 		ExpiresAt: now.Add(s.login.CodeLifetime),
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -238,13 +239,13 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *core.U
 // from a wrong guess; an attempt that is used, expired or out of tries is
 // ErrNotFound. Finishing an attempt also confirms the user's email address
 // when it is not confirmed yet: the code proves it.
-func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*core.User, string, error) {
+func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*model.User, string, error) {
 	if len(s.codeKey) == 0 {
 		return nil, "", errNoCodeKey
 	}
 
 	var (
-		user      *core.User
+		user      *model.User
 		returnURL string
 		wrong     bool
 		confirmed bool
@@ -258,19 +259,19 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 			return err
 		}
 
-		wrong = !a.UserID.Valid || !a.CodeHash.Valid
+		wrong = a.UserID == nil || a.CodeHash == nil
 		if !wrong {
 			// every try of the user waits here, so the count is exact
-			if err := lockLoginCodes(ctx, tx, a.UserID.String); err != nil {
+			if err := lockLoginCodes(ctx, tx, lo.FromPtr(a.UserID)); err != nil {
 				return err
 			}
 
-			wrongTries, err := tx.WrongLoginTriesSince(ctx, a.UserID.String, now.Add(-s.login.WrongTriesWindow))
+			wrongTries, err := tx.WrongLoginTriesSince(ctx, lo.FromPtr(a.UserID), now.Add(-s.login.WrongTriesWindow))
 			if err != nil {
 				return err
 			}
 
-			wrong = wrongTries >= int64(s.login.WrongTries) || !hmac.Equal([]byte(a.CodeHash.String), []byte(s.codeHash(a.ID, code)))
+			wrong = wrongTries >= int64(s.login.WrongTries) || !hmac.Equal([]byte(lo.FromPtr(a.CodeHash)), []byte(s.codeHash(a.ID, code)))
 		}
 
 		col := core.LoginAttemptColumns.UsedAt
@@ -278,7 +279,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 			a.WrongTries++
 			col = core.LoginAttemptColumns.WrongTries
 		} else {
-			a.UsedAt = null.TimeFrom(now)
+			a.UsedAt = new(now)
 		}
 
 		if err := tx.SaveLoginAttempt(ctx, a, col); err != nil {
@@ -291,12 +292,12 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*cor
 		}
 
 		returnURL = a.ReturnURL
-		user, err = notFound(tx.UserByID(ctx, a.UserID.String))
-		if err != nil || user.EmailConfirmedAt.Valid {
+		user, err = notFound(tx.UserByID(ctx, lo.FromPtr(a.UserID)))
+		if err != nil || user.EmailConfirmedAt != nil {
 			return err
 		}
 
-		user.EmailConfirmedAt = null.TimeFrom(now)
+		user.EmailConfirmedAt = new(now)
 		confirmed = true
 
 		return tx.SaveUser(ctx, user)
@@ -334,7 +335,7 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 			return err
 		}
 
-		if !a.UserID.Valid {
+		if a.UserID == nil {
 			return service.ErrNotFound
 		}
 
@@ -342,7 +343,7 @@ func (s *Service) IssueLoginCode(ctx context.Context, attemptID string) (string,
 			return err
 		}
 
-		a.CodeHash = null.StringFrom(s.codeHash(a.ID, code))
+		a.CodeHash = new(s.codeHash(a.ID, code))
 		a.ExpiresAt = now.Add(s.login.CodeLifetime)
 
 		return tx.SaveLoginAttempt(ctx, a, core.LoginAttemptColumns.CodeHash, core.LoginAttemptColumns.ExpiresAt)

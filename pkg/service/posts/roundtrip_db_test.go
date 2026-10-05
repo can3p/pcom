@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/null/v8"
 )
 
 // TestSerializeBlog_RoundTripAcrossUsers exports one user's blog and imports
@@ -32,12 +32,12 @@ func TestSerializeBlog_RoundTripAcrossUsers(t *testing.T) {
 
 	withLink := testutil.Must(factory.Post(ctx, db, author.ID,
 		factory.Published(),
-		factory.Visibility(core.PostVisibilityPublic),
+		factory.Visibility(model.PostVisibilityPublic),
 		factory.WithURL(link.ID),
 	))(t)
 	plain := testutil.Must(factory.Post(ctx, db, author.ID,
 		factory.Published(),
-		factory.Visibility(core.PostVisibilityDirectOnly),
+		factory.Visibility(model.PostVisibilityDirectOnly),
 	))(t)
 
 	// Posts with a "timestamp without time zone" column round-trip through
@@ -59,26 +59,26 @@ func TestSerializeBlog_RoundTripAcrossUsers(t *testing.T) {
 	imported := testutil.Must(factory.ListPosts(ctx, db, newOwner.ID))(t)
 	require.Len(t, imported, 2)
 
-	bySubject := map[string]*core.Post{}
+	bySubject := map[string]*model.Post{}
 	for _, p := range imported {
-		bySubject[p.Subject.String] = p
+		bySubject[lo.FromPtr(p.Subject)] = p
 	}
 
-	gotWithLink, ok := bySubject[withLink.Subject.String]
+	gotWithLink, ok := bySubject[lo.FromPtr(withLink.Subject)]
 	require.True(t, ok)
 	require.Equal(t, withLink.Body, gotWithLink.Body)
-	require.Equal(t, core.PostVisibilityPublic, gotWithLink.VisibilityRadius)
+	require.Equal(t, model.PostVisibilityPublic, gotWithLink.VisibilityRadius)
 	require.NotEqual(t, withLink.ID, gotWithLink.ID, "the imported post gets a new id")
 	require.Equal(t, newOwner.ID, gotWithLink.UserID)
-	require.True(t, gotWithLink.URLID.Valid)
-	require.Equal(t, link.ID, gotWithLink.URLID.String, "the normalized url row is shared, not duplicated")
-	require.WithinDuration(t, dbWithLink.PublishedAt.Time, gotWithLink.PublishedAt.Time, time.Second)
+	require.NotNil(t, gotWithLink.URLID)
+	require.Equal(t, link.ID, lo.FromPtr(gotWithLink.URLID), "the normalized url row is shared, not duplicated")
+	require.WithinDuration(t, lo.FromPtr(dbWithLink.PublishedAt), lo.FromPtr(gotWithLink.PublishedAt), time.Second)
 
-	gotPlain, ok := bySubject[plain.Subject.String]
+	gotPlain, ok := bySubject[lo.FromPtr(plain.Subject)]
 	require.True(t, ok)
 	require.Equal(t, plain.Body, gotPlain.Body)
-	require.Equal(t, core.PostVisibilityDirectOnly, gotPlain.VisibilityRadius)
-	require.False(t, gotPlain.URLID.Valid)
+	require.Equal(t, model.PostVisibilityDirectOnly, gotPlain.VisibilityRadius)
+	require.Nil(t, gotPlain.URLID)
 }
 
 // TestInjectPostsInDB exercises the import side on its own: updating an
@@ -123,10 +123,10 @@ func TestInjectPostsInDB(t *testing.T) {
 		pngBytes := []byte("\x89PNG\r\n\x1a\nrest-of-file")
 		posts := []*postops.PostWithMeta{
 			{
-				Post: &core.Post{
-					Subject:          null.StringFrom("with image"),
+				Post: &model.Post{
+					Subject:          new("with image"),
 					Body:             "![alt](original-name.png)",
-					VisibilityRadius: core.PostVisibilityDirectOnly,
+					VisibilityRadius: model.PostVisibilityDirectOnly,
 				},
 			},
 		}
@@ -151,10 +151,10 @@ func TestInjectPostsInDB(t *testing.T) {
 
 		posts := []*postops.PostWithMeta{
 			{
-				Post: &core.Post{
-					Subject:          null.StringFrom("no new images"),
+				Post: &model.Post{
+					Subject:          new("no new images"),
 					Body:             "plain text, no image references",
-					VisibilityRadius: core.PostVisibilityDirectOnly,
+					VisibilityRadius: model.PostVisibilityDirectOnly,
 				},
 			},
 		}

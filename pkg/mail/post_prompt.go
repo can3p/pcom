@@ -7,12 +7,12 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 )
 
 // PostPrompt formats the notification about a prompt for its recipient. It
 // returns nil when there is nobody to notify.
-func PostPrompt(site links.Site, from string, asker *core.User, recipient *core.User, postPrompt *core.PostPrompt) *Outgoing {
+func PostPrompt(site links.Site, from string, asker *model.User, recipient *model.User, postPrompt *model.PostPrompt) *Outgoing {
 	// we're not sending email notifications to ourselves
 	if asker.ID == recipient.ID {
 		return nil

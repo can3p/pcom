@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
@@ -137,7 +137,7 @@ func LogInWithCode(t testing.TB, app *e2e.App, page playwright.Page, email strin
 }
 
 // NewUser creates a confirmed user.
-func NewUser(t testing.TB, app *e2e.App, opts ...factory.UserOpt) *core.User {
+func NewUser(t testing.TB, app *e2e.App, opts ...factory.UserOpt) *model.User {
 	t.Helper()
 
 	u, err := factory.User(context.Background(), app.DB, opts...)
@@ -152,14 +152,14 @@ func NewUser(t testing.TB, app *e2e.App, opts ...factory.UserOpt) *core.User {
 type PageOption func(*pageConfig)
 
 type pageConfig struct {
-	user    *core.User
+	user    *model.User
 	allow   []*regexp.Regexp
 	context playwright.BrowserNewContextOptions
 }
 
 // As logs the page in as user, who must have been made by NewUser. It reuses
 // the session of an HTTP login rather than filling in the login form.
-func As(user *core.User) PageOption {
+func As(user *model.User) PageOption {
 	return func(c *pageConfig) { c.user = user }
 }
 
@@ -244,7 +244,7 @@ func Page(t testing.TB, app *e2e.App, opts ...PageOption) playwright.Page {
 	return page
 }
 
-func login(t testing.TB, app *e2e.App, ctx playwright.BrowserContext, user *core.User) {
+func login(t testing.TB, app *e2e.App, ctx playwright.BrowserContext, user *model.User) {
 	t.Helper()
 
 	client := app.Client(t)

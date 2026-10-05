@@ -8,11 +8,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
+	"github.com/samber/lo"
 )
 
 type Service struct {
@@ -52,14 +53,14 @@ func New(store *repo.Store, opts ...Option) *Service {
 type Post struct {
 	Post      *postops.Post
 	Comments  []*postops.Comment
-	PostShare *core.PostShare
+	PostShare *model.PostShare
 }
 
 // Post opens a post for the actor, nil for an anonymous visitor. A post the
 // actor may not see is not found, so its existence isn't revealed, except
 // that an anonymous visitor is asked to log in. editPreview marks the page
 // the author previews while editing.
-func (s *Service) Post(ctx context.Context, actor *core.User, postID string, editPreview bool) (*Post, error) {
+func (s *Service) Post(ctx context.Context, actor *model.User, postID string, editPreview bool) (*Post, error) {
 	post, err := s.store.PostToRead(ctx, postID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.ErrNotFound
@@ -67,7 +68,7 @@ func (s *Service) Post(ctx context.Context, actor *core.User, postID string, edi
 		return nil, err
 	}
 
-	radius, err := s.radius(ctx, actor, post.R.User.ID)
+	radius, err := s.radius(ctx, actor, post.User.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +104,10 @@ func (s *Service) Post(ctx context.Context, actor *core.User, postID string, edi
 
 // Journal is a user's profile page as the actor may see it.
 type Journal struct {
-	Author            *core.User
+	Author            *model.User
 	ConnectionRadius  graph.Radius
 	ConnectionAllowed bool
-	MediationRequest  *core.UserConnectionMediationRequest
+	MediationRequest  *model.UserConnectionMediationRequest
 	Posts             []*postops.Post
 	About             string // the author's "About" text, empty when there is none
 	// Next is the cursor of the next page of posts, empty on the last one.
@@ -118,7 +119,7 @@ type Journal struct {
 // of the published posts the actor may read, and how the actor could connect
 // to the author. A profile the actor may not see is not found, so whether it
 // exists isn't revealed.
-func (s *Service) Journal(ctx context.Context, actor *core.User, username, cursor string) (*Journal, error) {
+func (s *Service) Journal(ctx context.Context, actor *model.User, username, cursor string) (*Journal, error) {
 	after, err := ParseCursor(cursor)
 	if err != nil {
 		return nil, err
@@ -127,7 +128,7 @@ func (s *Service) Journal(ctx context.Context, actor *core.User, username, curso
 	return s.journal(ctx, actor, username, after, s.pageSize)
 }
 
-func (s *Service) journal(ctx context.Context, actor *core.User, username string, after Cursor, limit int) (*Journal, error) {
+func (s *Service) journal(ctx context.Context, actor *model.User, username string, after Cursor, limit int) (*Journal, error) {
 	author, err := s.store.UserByUsername(ctx, username)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.ErrNotFound
@@ -148,17 +149,17 @@ func (s *Service) journal(ctx context.Context, actor *core.User, username string
 		return nil, service.ErrNotFound
 	}
 
-	var visibilities []core.PostVisibility
+	var visibilities []model.PostVisibility
 
 	switch radius {
 	case graph.RadiusDirect, graph.RadiusSameUser:
 		// direct connections and the author see every post
 	case graph.RadiusSecondDegree:
-		visibilities = []core.PostVisibility{core.PostVisibilitySecondDegree, core.PostVisibilityPublic}
+		visibilities = []model.PostVisibility{model.PostVisibilitySecondDegree, model.PostVisibilityPublic}
 	default:
 		// anonymous and unrelated visitors, and any radius added later, get
 		// public posts only
-		visibilities = []core.PostVisibility{core.PostVisibilityPublic}
+		visibilities = []model.PostVisibility{model.PostVisibilityPublic}
 	}
 
 	rawPosts, err := s.store.PublishedPostsOf(ctx, author.ID, visibilities, visibilities == nil, after.page(limit))
@@ -206,7 +207,7 @@ func (s *Service) PublicFeed(ctx context.Context, username string) (*Journal, er
 		return nil, err
 	}
 
-	if author.ProfileVisibility != core.ProfileVisibilityPublic {
+	if author.ProfileVisibility != model.ProfileVisibilityPublic {
 		return nil, service.ErrNotFound
 	}
 
@@ -224,13 +225,13 @@ type Posts struct {
 // public posts of the profiles the actor could open without a connection:
 // public ones, and for a logged in actor those open to registered users.
 // Nobody gets comments or actions there.
-func (s *Service) Explore(ctx context.Context, actor *core.User, cursor string) (*Posts, error) {
-	profiles := []core.ProfileVisibility{core.ProfileVisibilityPublic}
+func (s *Service) Explore(ctx context.Context, actor *model.User, cursor string) (*Posts, error) {
+	profiles := []model.ProfileVisibility{model.ProfileVisibilityPublic}
 
 	if actor != nil {
 		// connections-only profiles are left out: their posts are in the
 		// feed of those who may read them anyway
-		profiles = append(profiles, core.ProfileVisibilityRegisteredUsers)
+		profiles = append(profiles, model.ProfileVisibilityRegisteredUsers)
 	}
 
 	return s.publicPosts(ctx, actor, profiles, cursor, s.pageSize)
@@ -242,13 +243,13 @@ func (s *Service) Explore(ctx context.Context, actor *core.User, cursor string) 
 // users or connections only stays readable at its own page but is not listed
 // here. Posts are built for nobody: no actor, no comments, no actions.
 func (s *Service) PublicPosts(ctx context.Context, cursor string) (*Posts, error) {
-	return s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, cursor, s.pageSize)
+	return s.publicPosts(ctx, nil, []model.ProfileVisibility{model.ProfileVisibilityPublic}, cursor, s.pageSize)
 }
 
 // PublicPostsRSS is the newest rss limit posts of the public feed, for its
 // RSS output.
 func (s *Service) PublicPostsRSS(ctx context.Context) ([]*postops.Post, error) {
-	page, err := s.publicPosts(ctx, nil, []core.ProfileVisibility{core.ProfileVisibilityPublic}, "", s.rssLimit)
+	page, err := s.publicPosts(ctx, nil, []model.ProfileVisibility{model.ProfileVisibilityPublic}, "", s.rssLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -256,13 +257,13 @@ func (s *Service) PublicPostsRSS(ctx context.Context) ([]*postops.Post, error) {
 	return page.Posts, nil
 }
 
-func (s *Service) publicPosts(ctx context.Context, actor *core.User, profiles []core.ProfileVisibility, cursor string, limit int) (*Posts, error) {
+func (s *Service) publicPosts(ctx context.Context, actor *model.User, profiles []model.ProfileVisibility, cursor string, limit int) (*Posts, error) {
 	after, err := ParseCursor(cursor)
 	if err != nil {
 		return nil, err
 	}
 
-	rawPosts, err := s.store.PublishedPostsByProfile(ctx, core.PostVisibilityPublic, profiles, after.page(limit))
+	rawPosts, err := s.store.PublishedPostsByProfile(ctx, model.PostVisibilityPublic, profiles, after.page(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -275,20 +276,20 @@ func (s *Service) publicPosts(ctx context.Context, actor *core.User, profiles []
 
 // postsPage builds the first limit posts of a repository page for the actor,
 // and the cursor of the next page.
-func postsPage(actor *core.User, rawPosts core.PostSlice, radius graph.Radius, limit int) ([]*postops.Post, string) {
+func postsPage(actor *model.User, rawPosts []*model.Post, radius graph.Radius, limit int) ([]*postops.Post, string) {
 	posts := make([]*postops.Post, 0, len(rawPosts))
 	for _, p := range rawPosts {
 		posts = append(posts, postops.ConstructPost(actor, p, radius, nil, false))
 	}
 
 	return cut(posts, limit, func(p *postops.Post) Cursor {
-		return Cursor{Time: p.PublishedAt.Time, Kind: repo.KindPost, ID: p.ID}
+		return Cursor{Time: lo.FromPtr(p.PublishedAt), Kind: repo.KindPost, ID: p.ID}
 	})
 }
 
 // radius is how far the author is from the actor; RadiusUnknown for an
 // anonymous actor.
-func (s *Service) radius(ctx context.Context, actor *core.User, authorID string) (graph.Radius, error) {
+func (s *Service) radius(ctx context.Context, actor *model.User, authorID string) (graph.Radius, error) {
 	var actorID string
 	if actor != nil {
 		actorID = actor.ID

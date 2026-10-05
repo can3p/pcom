@@ -13,7 +13,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/media"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -257,7 +257,7 @@ func TestApiNewPost(t *testing.T) {
 			c := jsonContext(t, "/api/v1/posts", &web.ApiPost{
 				Subject:     "Hello world",
 				MdBody:      "some **body**",
-				Visibility:  core.PostVisibilityPublic,
+				Visibility:  model.PostVisibilityPublic,
 				IsPublished: tc.isPublished,
 			})
 
@@ -272,7 +272,7 @@ func TestApiNewPost(t *testing.T) {
 
 			if tc.isPublished {
 				require.Equal(t, testSite.Abs("post", resp.ID), resp.PublicURL)
-				require.Equal(t, core.PostVisibilityPublic, post.VisibilityRadius)
+				require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
 
 				sent := sender.Sent()
 				require.Len(t, sent, 1, "publishing should notify the author's direct connections")
@@ -301,7 +301,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	c := jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
 		MdBody:      "edited body",
-		Visibility:  core.PostVisibilityPublic,
+		Visibility:  model.PostVisibilityPublic,
 		IsPublished: true,
 	})
 
@@ -323,7 +323,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	c = jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
 		MdBody:      "edited body",
-		Visibility:  core.PostVisibilityPublic,
+		Visibility:  model.PostVisibilityPublic,
 		IsPublished: false,
 	})
 

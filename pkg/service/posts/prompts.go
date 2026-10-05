@@ -9,7 +9,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
@@ -21,14 +21,14 @@ import (
 // promptTimeout is how long a user has to wait between two prompts.
 const promptTimeout = 5 * time.Minute
 
-func wrapPrompt(prompt *core.PostPrompt, err error) (*postops.PostPrompt, error) {
+func wrapPrompt(prompt *model.PostPrompt, err error) (*postops.PostPrompt, error) {
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
 
-	return &postops.PostPrompt{Prompt: prompt, Author: prompt.R.Asker}, nil
+	return &postops.PostPrompt{Prompt: prompt, Author: prompt.Asker}, nil
 }
 
 // promptForRecipient is the prompt addressed to recipientID, nil if there is
@@ -48,7 +48,7 @@ func promptByPost(ctx context.Context, store *repo.Store, postID string) (*posto
 
 // PromptFor returns the prompt with the given ID if it is addressed to the
 // actor, and nil otherwise.
-func (s *Service) PromptFor(ctx context.Context, actor *core.User, promptID string) (*postops.PostPrompt, error) {
+func (s *Service) PromptFor(ctx context.Context, actor *model.User, promptID string) (*postops.PostPrompt, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (s *Service) PromptFor(ctx context.Context, actor *core.User, promptID stri
 
 // DirectConnections lists the actor's direct connections, the users they may
 // prompt.
-func (s *Service) DirectConnections(ctx context.Context, actor *core.User) ([]*core.User, error) {
+func (s *Service) DirectConnections(ctx context.Context, actor *model.User) ([]*model.User, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *Service) DirectConnections(ctx context.Context, actor *core.User) ([]*c
 
 // CanPrompt reports whether the actor may send a prompt right now: prompts
 // are rate limited. The error reads as a sentence.
-func (s *Service) CanPrompt(ctx context.Context, actor *core.User) error {
+func (s *Service) CanPrompt(ctx context.Context, actor *model.User) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (s *Service) CanPrompt(ctx context.Context, actor *core.User) error {
 	return canPrompt(ctx, s.store, actor)
 }
 
-func canPrompt(ctx context.Context, store *repo.Store, actor *core.User) error {
+func canPrompt(ctx context.Context, store *repo.Store, actor *model.User) error {
 	last, err := store.LastPromptBy(ctx, actor.ID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil
@@ -108,7 +108,7 @@ func (s *Service) checkPrompt(message string) error {
 // SendPrompt asks a user to write a post on a subject, and tells them by
 // mail. The recipient must be a direct connection of the actor; anyone else
 // is refused with the wording the prompt form always used.
-func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, message string) error {
+func (s *Service) SendPrompt(ctx context.Context, actor, recipient *model.User, message string) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, m
 			return err
 		}
 
-		prompt := &core.PostPrompt{
+		prompt := &model.PostPrompt{
 			ID:          id.String(),
 			AskerID:     actor.ID,
 			Message:     strings.TrimSpace(message),
@@ -153,7 +153,7 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *core.User, m
 
 // DismissPrompt hides a prompt addressed to the actor. What the actor sees
 // when there is no such prompt is the database's own words, as it always was.
-func (s *Service) DismissPrompt(ctx context.Context, actor *core.User, promptID string) error {
+func (s *Service) DismissPrompt(ctx context.Context, actor *model.User, promptID string) error {
 	if err := requireActor(actor); err != nil {
 		return err
 	}

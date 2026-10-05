@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -21,7 +21,7 @@ func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
 	require.NoError(t, err)
 }
 
-func newCommentForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *core.User, postID, replyTo string) *forms.NewCommentForm {
+func newCommentForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *model.User, postID, replyTo string) *forms.NewCommentForm {
 	t.Helper()
 	form, ok := forms.NewCommentFormNew(postsService(db, sender), u, postID).(*forms.NewCommentForm)
 	require.True(t, ok)
@@ -59,7 +59,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 
 	for _, tc := range []struct {
 		name    string
-		user    *core.User
+		user    *model.User
 		postID  string
 		replyTo string
 		body    string
@@ -142,7 +142,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		_, err := factory.GetPostStat(ctx, db, post.ID)
 		require.Error(t, err, "no stat row before the first comment")
 
-		for i, u := range []*core.User{commenter, author} {
+		for i, u := range []*model.User{commenter, author} {
 			saveComment(t, ctx, db, newCommentForm(t, db, fakesender.New(), u, post.ID, ""))
 			stat := testutil.Must(factory.GetPostStat(ctx, db, post.ID))(t)
 			require.Equal(t, int64(i+1), stat.CommentsNumber)

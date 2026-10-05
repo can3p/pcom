@@ -10,7 +10,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -331,7 +331,7 @@ func TestActions_ShareLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	author := browser.NewUser(t, app)
-	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityDirectOnly))
+	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)
 
 	anon := browser.Page(t, app, browser.Allow(`404`))

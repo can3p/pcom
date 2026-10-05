@@ -10,7 +10,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -63,7 +63,7 @@ func newCtx(t *testing.T) (*gin.Context, *httptest.ResponseRecorder) {
 func fillPost(form *forms.PostForm, action forms.PostFormAction) *forms.PostForm {
 	form.Input.Subject = "A subject"
 	form.Input.Body = "A body"
-	form.Input.Visibility = core.PostVisibilityDirectOnly
+	form.Input.Visibility = model.PostVisibilityDirectOnly
 	form.Input.SaveAction = action
 
 	return form

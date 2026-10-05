@@ -9,7 +9,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -21,8 +21,8 @@ func TestIndex_AnonymousVisitor(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
-	author := browser.NewUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	post, err := factory.Post(t.Context(), app.DB, author.ID, factory.Published(), factory.Visibility(core.PostVisibilityPublic))
+	author := browser.NewUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	post, err := factory.Post(t.Context(), app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic))
 	require.NoError(t, err)
 
 	page := browser.Page(t, app)
@@ -70,8 +70,8 @@ func TestIndex_LoadMore(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
-	author := browser.NewUser(t, app, factory.WithVisibility(core.ProfileVisibilityPublic))
-	publishPosts(t, app, author.ID, "Indexpost", core.PostVisibilityPublic, pagedPosts)
+	author := browser.NewUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	publishPosts(t, app, author.ID, "Indexpost", model.PostVisibilityPublic, pagedPosts)
 
 	expectLoadsMore(t, browser.Page(t, app), "/", "Indexpost")
 }

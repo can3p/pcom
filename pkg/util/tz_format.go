@@ -4,10 +4,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 )
 
-func LocalizeTime(user *core.User, t time.Time) time.Time {
+func LocalizeTime(user *model.User, t time.Time) time.Time {
 	l, err := time.LoadLocation(user.Timezone)
 
 	if err != nil {

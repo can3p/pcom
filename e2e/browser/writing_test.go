@@ -19,7 +19,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -504,7 +504,7 @@ type b2Viewers struct {
 	direct, secondDegree, stranger, anonymous playwright.Page
 }
 
-func b2NewViewers(t *testing.T, app *e2e.App, author *core.User) b2Viewers {
+func b2NewViewers(t *testing.T, app *e2e.App, author *model.User) b2Viewers {
 	t.Helper()
 
 	ctx := context.Background()
@@ -583,13 +583,13 @@ func TestWriting_PostVisibility(t *testing.T) {
 
 	steps := []struct {
 		choose   playwright.Locator
-		want     core.PostVisibility
+		want     model.PostVisibility
 		audience [4]bool // direct, second degree, stranger, anonymous
 	}{
-		{nil, core.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
-		{secondDegree, core.PostVisibilitySecondDegree, [4]bool{true, true, false, false}},
-		{public, core.PostVisibilityPublic, [4]bool{true, true, true, true}},
-		{direct, core.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
+		{nil, model.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
+		{secondDegree, model.PostVisibilitySecondDegree, [4]bool{true, true, false, false}},
+		{public, model.PostVisibilityPublic, [4]bool{true, true, true, true}},
+		{direct, model.PostVisibilityDirectOnly, [4]bool{true, false, false, false}},
 	}
 
 	for _, step := range steps {

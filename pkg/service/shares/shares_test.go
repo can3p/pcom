@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/shares"
@@ -27,12 +27,13 @@ func TestShares(t *testing.T) {
 	_, _, err := factory.Connect(ctx, db, author.ID, friend.ID)
 	require.NoError(t, err)
 
-	newPost := func(t *testing.T, opts ...factory.PostOpt) *core.Post {
+	newPost := func(t *testing.T, opts ...factory.PostOpt) *model.Post {
 		return testutil.Must(factory.Post(ctx, db, author.ID, opts...))(t)
 	}
-	shareOf := func(t *testing.T, postID string) *core.PostShare {
-		share, err := core.PostShares(core.PostShareWhere.PostID.EQ(postID)).One(ctx, db)
+	shareOf := func(t *testing.T, postID string) *model.PostShare {
+		share, err := repo.Using(db).ShareOfPost(ctx, postID)
 		require.NoError(t, err)
+		require.NotNil(t, share)
 		return share
 	}
 
@@ -67,7 +68,7 @@ func TestShares(t *testing.T) {
 
 	refused := []struct {
 		name    string
-		actor   *core.User
+		actor   *model.User
 		postID  func(t *testing.T) string
 		wantErr error
 	}{

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/samber/lo"
@@ -13,22 +13,22 @@ import (
 // MediationRequest is a request between two of the user's connections that
 // the user may sign or dismiss.
 type MediationRequest struct {
-	Requester *core.User
-	Target    *core.User
-	Request   *core.UserConnectionMediationRequest
+	Requester *model.User
+	Target    *model.User
+	Request   *model.UserConnectionMediationRequest
 }
 
 // MediationResult is one mediator's decision on a request.
 type MediationResult struct {
-	Mediation *core.UserConnectionMediator
-	Mediator  *core.User
+	Mediation *model.UserConnectionMediator
+	Mediator  *model.User
 }
 
 // ConnectionRequest is a request addressed to the user that at least one
 // mediator signed.
 type ConnectionRequest struct {
-	Requester  *core.User
-	Request    *core.UserConnectionMediationRequest
+	Requester  *model.User
+	Request    *model.UserConnectionMediationRequest
 	Mediations []*MediationResult
 }
 
@@ -41,16 +41,16 @@ type Draft struct {
 
 // Controls is what the controls page shows.
 type Controls struct {
-	DirectConnections       core.UserSlice
-	SecondDegreeConnections core.UserSlice
-	WhitelistedConnections  core.UserSlice
+	DirectConnections       []*model.User
+	SecondDegreeConnections []*model.User
+	WhitelistedConnections  []*model.User
 	MediationRequests       []*MediationRequest
 	ConnectionRequests      []*ConnectionRequest
 	Drafts                  []*Draft
 }
 
 // Controls gathers the actor's connections, whitelist, pending requests and drafts.
-func (s *Service) Controls(ctx context.Context, actor *core.User) (*Controls, error) {
+func (s *Service) Controls(ctx context.Context, actor *model.User) (*Controls, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
@@ -80,12 +80,12 @@ func (s *Service) Controls(ctx context.Context, actor *core.User) (*Controls, er
 		return nil, err
 	}
 
-	connectionRequests := lo.Map(toDecide, func(req *core.UserConnectionMediationRequest, _ int) *ConnectionRequest {
+	connectionRequests := lo.Map(toDecide, func(req *model.UserConnectionMediationRequest, _ int) *ConnectionRequest {
 		return &ConnectionRequest{
-			Requester: req.R.WhoUser,
+			Requester: req.WhoUser,
 			Request:   req,
-			Mediations: lo.Map(req.R.MediationUserConnectionMediators, func(m *core.UserConnectionMediator, _ int) *MediationResult {
-				return &MediationResult{Mediator: m.R.User, Mediation: m}
+			Mediations: lo.Map(req.MediationUserConnectionMediators, func(m *model.UserConnectionMediator, _ int) *MediationResult {
+				return &MediationResult{Mediator: m.User, Mediation: m}
 			}),
 		}
 	})
@@ -95,8 +95,8 @@ func (s *Service) Controls(ctx context.Context, actor *core.User) (*Controls, er
 		return nil, err
 	}
 
-	mediationRequests := lo.Map(toMediate, func(req *core.UserConnectionMediationRequest, _ int) *MediationRequest {
-		return &MediationRequest{Requester: req.R.WhoUser, Target: req.R.TargetUser, Request: req}
+	mediationRequests := lo.Map(toMediate, func(req *model.UserConnectionMediationRequest, _ int) *MediationRequest {
+		return &MediationRequest{Requester: req.WhoUser, Target: req.TargetUser, Request: req}
 	})
 
 	rawDrafts, err := s.store.DraftPosts(ctx, actor.ID)
@@ -104,8 +104,8 @@ func (s *Service) Controls(ctx context.Context, actor *core.User) (*Controls, er
 		return nil, err
 	}
 
-	drafts := lo.Map(rawDrafts, func(d *core.Post, _ int) *Draft {
-		return &Draft{PostID: d.ID, Subject: d.Subject.String, LastUpdatedAt: d.UpdatedAt.Time}
+	drafts := lo.Map(rawDrafts, func(d *model.Post, _ int) *Draft {
+		return &Draft{PostID: d.ID, Subject: lo.FromPtr(d.Subject), LastUpdatedAt: lo.FromPtr(d.UpdatedAt)}
 	})
 
 	return &Controls{

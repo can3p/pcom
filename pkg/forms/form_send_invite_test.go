@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -24,19 +24,19 @@ func TestSendInviteForm_Validate(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		email        func(t *testing.T, inviter *core.User) string
+		email        func(t *testing.T, inviter *model.User) string
 		wantErrField string
 	}{
-		{"empty email", func(t *testing.T, inviter *core.User) string { return "" }, "email"},
-		{"invalid format", func(t *testing.T, inviter *core.User) string { return "not-an-email" }, "email"},
-		{"existing user", func(t *testing.T, inviter *core.User) string {
+		{"empty email", func(t *testing.T, inviter *model.User) string { return "" }, "email"},
+		{"invalid format", func(t *testing.T, inviter *model.User) string { return "not-an-email" }, "email"},
+		{"existing user", func(t *testing.T, inviter *model.User) string {
 			return testutil.Must(factory.User(ctx, db))(t).Email
 		}, "email"},
-		{"success", func(t *testing.T, inviter *core.User) string {
+		{"success", func(t *testing.T, inviter *model.User) string {
 			testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
 			return "newinvitee@example.test"
 		}, ""},
-		{"address with a pending invitation", func(t *testing.T, inviter *core.User) string {
+		{"address with a pending invitation", func(t *testing.T, inviter *model.User) string {
 			testutil.Must(factory.Invitation(ctx, db, inviter.ID))(t)
 			testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("pending@example.test")))(t)
 			return " Pending@Example.test "

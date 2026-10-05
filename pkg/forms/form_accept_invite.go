@@ -7,7 +7,7 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 )
@@ -19,10 +19,10 @@ type AcceptInviteFormInput struct {
 type AcceptInviteForm struct {
 	*forms.FormBase[AcceptInviteFormInput]
 	Accounts *accounts.Service
-	Invite   *core.UserInvitation
+	Invite   *model.UserInvitation
 }
 
-func AcceptInviteFormNew(accounts *accounts.Service, invite *core.UserInvitation) forms.Form {
+func AcceptInviteFormNew(accounts *accounts.Service, invite *model.UserInvitation) forms.Form {
 	var form forms.Form = &AcceptInviteForm{
 		FormBase: &forms.FormBase[AcceptInviteFormInput]{
 			Name:         "accept_invite",

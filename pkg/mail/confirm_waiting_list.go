@@ -7,12 +7,12 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 )
 
 // ConfirmWaitingList is the mail with the link that confirms a waiting list
 // entry's email address.
-func ConfirmWaitingList(site links.Site, from string, waitingList *core.UserSignupRequest) *Envelope {
+func ConfirmWaitingList(site links.Site, from string, waitingList *model.UserSignupRequest) *Envelope {
 	link := site.Abs("confirm_waiting_list", waitingList.ID)
 	to := waitingList.Email
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newPromptForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *core.User, directConnections []*core.User, message, recipientHandle string) *forms.PostPromptForm {
+func newPromptForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *model.User, directConnections []*model.User, message, recipientHandle string) *forms.PostPromptForm {
 	t.Helper()
 	form, ok := forms.PostPromptFormNew(postsService(db, sender), u, directConnections).(*forms.PostPromptForm)
 	require.True(t, ok)
@@ -41,18 +41,18 @@ func TestPostPromptForm_Validate(t *testing.T) {
 
 	for _, tc := range []struct {
 		name      string
-		asker     *core.User
-		direct    []*core.User
+		asker     *model.User
+		direct    []*model.User
 		message   string
-		recipient *core.User
+		recipient *model.User
 		ok        bool
 	}{
-		{"a normal message to a direct connection", asker, []*core.User{bob}, msg, bob, true},
-		{"message too short", asker, []*core.User{bob}, "hi", bob, false},
+		{"a normal message to a direct connection", asker, []*model.User{bob}, msg, bob, true},
+		{"message too short", asker, []*model.User{bob}, "hi", bob, false},
 		// Validate consults only the list it was built with, not the database.
-		{"recipient outside the direct connections", asker, []*core.User{bob}, msg, carol, false},
+		{"recipient outside the direct connections", asker, []*model.User{bob}, msg, carol, false},
 		{"no direct connections", asker, nil, msg, bob, false},
-		{"rate limited", recentAsker, []*core.User{bob, carol}, msg, carol, false},
+		{"rate limited", recentAsker, []*model.User{bob, carol}, msg, carol, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -81,7 +81,7 @@ func TestPostPromptForm_Save(t *testing.T) {
 	require.NoError(t, err)
 
 	sender := fakesender.New()
-	form := newPromptForm(t, db, sender, asker, []*core.User{recipient}, "Tell us about your week!", recipient.Username)
+	form := newPromptForm(t, db, sender, asker, []*model.User{recipient}, "Tell us about your week!", recipient.Username)
 
 	c, _ := newCtx(t)
 	require.NoError(t, form.Validate(c))

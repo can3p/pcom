@@ -7,7 +7,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -21,7 +21,7 @@ import (
 
 // newInvite creates an inviter and returns an invitation addressed to
 // a unique address (pending invitations are unique per address), for tests that accept it.
-func newInvite(t *testing.T, ctx context.Context, db *sqlx.DB) *core.UserInvitation {
+func newInvite(t *testing.T, ctx context.Context, db *sqlx.DB) *model.UserInvitation {
 	t.Helper()
 	inviter := testutil.Must(factory.User(ctx, db))(t)
 	return testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee-"+uuid.NewString()+"@example.test")))(t)

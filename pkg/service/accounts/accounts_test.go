@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
-	"github.com/can3p/pcom/pkg/model/core"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -19,6 +19,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,13 +29,13 @@ func svcWith(db *sqlx.DB, snd repo.MailQueue) *accounts.Service {
 	return accounts.New(repo.New(db), snd, nil, accounts.WithCodeKey("test-key"))
 }
 
-func acceptInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, invite *core.UserInvitation, username string) error {
+func acceptInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, invite *model.UserInvitation, username string) error {
 	_, err := svcWith(db, s).AcceptInvite(ctx, invite, username)
 
 	return err
 }
 
-func sendInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, inviter *core.User, to string) error {
+func sendInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, inviter *model.User, to string) error {
 	return svcWith(db, s).SendInvite(ctx, inviter, to)
 }
 
@@ -53,7 +54,7 @@ func problem(err error) (string, bool) {
 	return "", true
 }
 
-func newUser(t *testing.T, ctx context.Context, db *sqlx.DB) *core.User {
+func newUser(t *testing.T, ctx context.Context, db *sqlx.DB) *model.User {
 	t.Helper()
 
 	return testutil.Must(factory.User(ctx, db))(t)
@@ -82,9 +83,9 @@ func TestRegister(t *testing.T) {
 
 		got := testutil.Must(factory.GetUserByEmail(ctx, db, "new-signup@example.test"))(t)
 		require.Equal(t, "newsignup", got.Username)
-		require.False(t, got.EmailConfirmedAt.Valid, "the email is unconfirmed until the code is typed")
-		require.False(t, got.Pwdhash.Valid)
-		require.Equal(t, "some-campaign", got.SignupAttribution.String)
+		require.Nil(t, got.EmailConfirmedAt, "the email is unconfirmed until the code is typed")
+		require.Nil(t, got.Pwdhash)
+		require.Equal(t, "some-campaign", lo.FromPtr(got.SignupAttribution))
 
 		sent := sender.Sent()
 		require.Len(t, sent, 2)
@@ -154,7 +155,7 @@ func TestAcceptInvite(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
-	newInvite := func(t *testing.T, to string) (*core.User, *core.UserInvitation) {
+	newInvite := func(t *testing.T, to string) (*model.User, *model.UserInvitation) {
 		inviter := newUser(t, ctx, db)
 
 		return inviter, testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent(to)))(t)
@@ -172,15 +173,15 @@ func TestAcceptInvite(t *testing.T) {
 
 		// AcceptInvite mutates the invite it was given: CreatedUserID is set
 		// to the freshly inserted user's ID.
-		require.True(t, invite.CreatedUserID.Valid)
-		newUserID := invite.CreatedUserID.String
+		require.NotNil(t, invite.CreatedUserID)
+		newUserID := lo.FromPtr(invite.CreatedUserID)
 
 		got := testutil.Must(factory.GetUser(ctx, db, newUserID))(t)
 		require.Equal(t, "invitee", got.Username)
 		require.Equal(t, "invitee@example.test", got.Email)
-		require.True(t, got.EmailConfirmedAt.Valid, "accepting an invite confirms the email right away")
-		require.False(t, got.Pwdhash.Valid)
-		require.Equal(t, "accepted_invite", got.SignupAttribution.String)
+		require.NotNil(t, got.EmailConfirmedAt, "accepting an invite confirms the email right away")
+		require.Nil(t, got.Pwdhash)
+		require.Equal(t, "accepted_invite", lo.FromPtr(got.SignupAttribution))
 
 		require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t))
 
@@ -198,7 +199,7 @@ func TestAcceptInvite(t *testing.T) {
 		_, invite := newInvite(t, "invitee2@example.test")
 
 		require.Error(t, acceptInvite(ctx, db, sender, invite, ""))
-		require.False(t, invite.CreatedUserID.Valid)
+		require.Nil(t, invite.CreatedUserID)
 		require.Empty(t, sender.Sent())
 	})
 
@@ -209,7 +210,7 @@ func TestAcceptInvite(t *testing.T) {
 		_, invite := newInvite(t, newUser(t, ctx, db).Email)
 
 		require.Error(t, acceptInvite(ctx, db, sender, invite, "someoneelse"), "the email column is unique")
-		require.False(t, invite.CreatedUserID.Valid)
+		require.Nil(t, invite.CreatedUserID)
 		require.Empty(t, sender.Sent())
 	})
 }
@@ -224,13 +225,13 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 	cases := []struct {
 		name  string
 		email string
-		run   func(s *fakesender.Sender) (*core.UserInvitation, error)
+		run   func(s *fakesender.Sender) (*model.UserInvitation, error)
 	}{
-		{name: "signup", email: "fail-signup@x.test", run: func(s *fakesender.Sender) (*core.UserInvitation, error) {
+		{name: "signup", email: "fail-signup@x.test", run: func(s *fakesender.Sender) (*model.UserInvitation, error) {
 			_, err := svcWith(db, s).Register(ctx, "fail-signup@x.test", "failsignup", "")
 			return nil, err
 		}},
-		{name: "accept invite", email: "fail-invitee@x.test", run: func(s *fakesender.Sender) (*core.UserInvitation, error) {
+		{name: "accept invite", email: "fail-invitee@x.test", run: func(s *fakesender.Sender) (*model.UserInvitation, error) {
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("fail-invitee@x.test")))(t)
 
@@ -252,7 +253,7 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 			require.Error(t, err, "no user is left behind")
 
 			if invite != nil {
-				require.False(t, invite.CreatedUserID.Valid)
+				require.Nil(t, invite.CreatedUserID)
 			}
 		})
 	}
@@ -276,7 +277,7 @@ func TestRegisterAndAcceptInvite_AreAtomic(t *testing.T) {
 
 	_, err = svc.AcceptInvite(ctx, invite, "atomicinvitee")
 	require.Error(t, err)
-	require.False(t, invite.CreatedUserID.Valid)
+	require.Nil(t, invite.CreatedUserID)
 
 	for _, email := range []string{"atomic-signup@x.test", "atomic-invitee@x.test"} {
 		_, err := factory.GetUserByEmail(ctx, db, email)
@@ -296,7 +297,7 @@ func TestSendInvite_Queue(t *testing.T) {
 	queued := func(t *testing.T, db *sqlx.DB) []string {
 		t.Helper()
 		var to []string
-		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, core.OutgoingEmailWhere.EmailType.EQ("user_invitation")))(t) {
+		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, factory.EmailType("user_invitation")))(t) {
 			to = append(to, string(e.Payload))
 		}
 
