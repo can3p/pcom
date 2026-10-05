@@ -169,6 +169,8 @@ pinned by a test in `pkg/repo/bun_test.go`.
   with `boil.Infer()` or listed it. To bun an upsert is an insert: set `updated_at` in its `DO UPDATE`.
 - **A limit on a has-many relation is shared.** `Relation("X", func(q) { return q.Limit(1) })` limits the
   one query that loads the rows of every parent, as sqlboiler's `qm.Load(..., qm.Limit(1))` did.
+- **Paging.** A paged list ends with `page.apply(q, KindPost, "?TableAlias.published_at", "?TableAlias.id")`
+  (`pkg/repo/paging.go`), which sorts newest first and keeps the rows after the page's item.
 - **Errors.** A single-row `Scan` that finds nothing returns `sql.ErrNoRows`, which `notFound` turns into
   `ErrNotFound`. A unique violation is a `*pgconn.PgError` with code `23505`.
 
