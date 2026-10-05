@@ -57,6 +57,15 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libvips-dev
 
+      - name: sql-migrate is pinned to one version
+        run: |
+          tools=$(grep -m1 'SQL_MIGRATE_VERSION=' tools/Dockerfile | sed 's/.*SQL_MIGRATE_VERSION=//')
+          prod=$(grep -m1 'SQL_MIGRATE_VERSION=' Dockerfile | sed 's/.*SQL_MIGRATE_VERSION=//')
+          if [ "$tools" != "$prod" ]; then
+            echo "SQL_MIGRATE_VERSION is $tools in tools/Dockerfile but $prod in Dockerfile: keep them equal." >&2
+            exit 1
+          fi
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -179,24 +188,6 @@ jobs:
       - name: Build frontend
         run: yarn build
         working-directory: cmd/web
-
-  models:
-    name: Generated models are current
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Build tools image
-        run: docker compose --profile tools build tools
-
-      - name: Start Postgres
-        run: docker compose up -d --wait postgres
-
-      - name: Generate models
-        run: make generate
-
-      - name: Check for a diff
-        run: git diff --exit-code -- pkg/model
 
   dev-image:
     name: Dev image

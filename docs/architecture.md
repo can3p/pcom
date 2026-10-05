@@ -53,9 +53,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   template: a service exposes the numbers a check needs (a `TextLimits()`
   accessor, exported minimums) and enforces them in its write methods, but
   has no `ValidateX` for forms to call.
-- **Model types cross the boundary for now.** Repositories and services
-  return the generated `core` structs, or small structs built from them, so
-  templates don't change (Q13 in `docs/plan/r5.md` asks whether that stays).
+- **Repositories return pcom's own types.** The structs in `pkg/model` are
+  the rows, written by hand, and they are also the bun models: their `bun`
+  tags mean nothing outside `pkg/repo`. Services, handlers and templates use
+  them directly; only `pkg/repo`, `pkg/model` and the test factories import
+  bun (`pkg/arch` enforces it), so there is no mapping layer.
 - **Page builders** in `pkg/web` (`pages_<area>.go`) take service results,
   not a database: `web.SharedPost(c, userData, shared)`.
 - **Executors.** Code that still takes an executor gets `store.Exec()` only in tests
@@ -89,10 +91,13 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Migrations run at deploy, outside the app.** There is no `migrate` subcommand and no migration library
   in `go.mod`: the production image carries the `sql-migrate` binary, `dbconfig.yml` and `migrations/`, and
   fly's `release_command` runs it before the new version takes traffic.
-- **Generators and migration tools stay out of `go.mod`.** sql-migrate and sqlboiler are installed in
-  `tools/Dockerfile`, pinned by `ARG`s, because `go tool` directives pull a tool's whole dependency tree into
-  the module graph. `generate.sh` refuses to run when the generator and the runtime library in `go.mod`
-  differ, so a dependency bump fails CI instead of shipping mismatched code.
+- **Migration tools stay out of `go.mod`.** sql-migrate is installed in `tools/Dockerfile` and the production
+  `Dockerfile`, pinned by an `ARG` that CI's lint job keeps equal in both, because `go tool` directives pull
+  a tool's whole dependency tree into the module graph.
+- **One driver, no code generation.** Everything connects through pgx's `database/sql` driver: the server,
+  the CLI commands and the test databases (`testdb` reopens gogo's lib/pq connection with pgx). The models
+  are not generated; `TestModels_MatchTheSchema` (`pkg/model`) checks them against the migrated database,
+  so a migration that adds or changes a column fails it until the struct follows.
 
 ## Logic in the database
 
@@ -147,9 +152,9 @@ The database does not:
 
 ## Writing bun queries
 
-Repositories are moving from sqlboiler to [bun](https://bun.uptrace.dev) over pgx (`docs/plan/r5.md`). The
-models are the structs in `pkg/model`; their conventions are in its package comment. Each rule below is
-pinned by a test in `pkg/repo/bun_test.go`.
+Repositories query through [bun](https://bun.uptrace.dev). The models are the structs in `pkg/model`; their
+conventions are in its package comment. Code that takes an executor takes a `repo.Executor` (the database or
+a transaction). Each rule below is pinned by a test in `pkg/repo/bun_test.go`.
 
 - **Every query runs on the Store's executor.** Start it with `s.query()` in a Store method, or
   `repo.Query(exec)` in a test factory. Both point bun at the executor with `.Conn`, so a query inside a
@@ -164,12 +169,12 @@ pinned by a test in `pkg/repo/bun_test.go`.
   `DEFAULT` and the value comes back through `RETURNING`. `nullzero` would also write NULL for a zero
   value on update (a `false` bool).
 - **Timestamps are stamped by the model.** Each model's `BeforeAppendModel` sets `created_at` and
-  `updated_at` on insert when they are zero and `updated_at` on every update, as sqlboiler did. An update
-  with `.Column(...)` writes only those columns, so list `updated_at` wherever the sqlboiler code updated
-  with `boil.Infer()` or listed it. To bun an upsert is an insert: set `UpdatedAt` before it, and its `DO UPDATE` sets exactly the columns
-  the old upsert updated (`updated_at` only if they included it).
+  `updated_at` on insert when they are zero and `updated_at` on every update. An update with `.Column(...)`
+  writes only those columns, so list `updated_at` when the update should bump it. To bun an upsert is an
+  insert: set `UpdatedAt` before it, and name in its `DO UPDATE` every column the conflict should change,
+  `updated_at` included if it should move.
 - **A limit on a has-many relation is shared.** `Relation("X", func(q) { return q.Limit(1) })` limits the
-  one query that loads the rows of every parent, as sqlboiler's `qm.Load(..., qm.Limit(1))` did.
+  one query that loads the rows of every parent, not each parent's rows.
 - **Paging.** A paged list ends with `page.apply(q, KindPost, "?TableAlias.published_at", "?TableAlias.id")`
   (`pkg/repo/paging.go`), which sorts newest first and keeps the rows after the page's item.
 - **Errors.** A single-row `Scan` that finds nothing returns `sql.ErrNoRows`, which `notFound` turns into

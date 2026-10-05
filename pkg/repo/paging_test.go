@@ -14,7 +14,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type pagedItem struct {
@@ -41,7 +40,7 @@ func posts(ps []*model.Post, err error) ([]pagedItem, error) {
 // pagedSources builds each source on its own users. Only the
 // PublishedPostsByProfile one writes public posts, as that query lists every
 // author's.
-func pagedSources(t *testing.T, ctx context.Context, db boil.ContextExecutor) map[string]pagedSource {
+func pagedSources(t *testing.T, ctx context.Context, db repo.Executor) map[string]pagedSource {
 	store := repo.Using(db)
 	addPost := func(vis model.PostVisibility) (string, func(time.Time) string) {
 		author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(model.ProfileVisibilityPublic)))(t)

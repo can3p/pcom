@@ -16,7 +16,6 @@ import (
 
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
@@ -216,9 +215,9 @@ func (s *Service) SaveGeneralSettings(ctx context.Context, actor *model.User, ti
 	actor.ProfileVisibility = visibility
 
 	return s.store.SaveUser(ctx, actor,
-		core.UserColumns.Timezone,
-		core.UserColumns.ProfileVisibility,
-		core.UserColumns.UpdatedAt,
+		model.UserColumns.Timezone,
+		model.UserColumns.ProfileVisibility,
+		model.UserColumns.UpdatedAt,
 	)
 }
 

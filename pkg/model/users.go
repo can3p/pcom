@@ -3,9 +3,10 @@ package model
 import (
 	"context"
 	"fmt"
-	"github.com/uptrace/bun"
 	"slices"
 	"time"
+
+	"github.com/uptrace/bun"
 )
 
 // ProfileVisibility is the Postgres enum profile_visibility.
@@ -151,4 +152,25 @@ func (m *UserStyle) BeforeAppendModel(_ context.Context, query bun.Query) error 
 	}
 
 	return nil
+}
+
+// UserColumns names the users columns a caller may list in a partial save
+// (repo.SaveUser).
+var UserColumns = struct {
+	Timezone, ProfileVisibility, UpdatedAt string
+}{
+	Timezone:          "timezone",
+	ProfileVisibility: "profile_visibility",
+	UpdatedAt:         "updated_at",
+}
+
+// LoginAttemptColumns names the login_attempts columns a caller may list in
+// a partial save (repo.SaveLoginAttempt).
+var LoginAttemptColumns = struct {
+	UsedAt, WrongTries, CodeHash, ExpiresAt string
+}{
+	UsedAt:     "used_at",
+	WrongTries: "wrong_tries",
+	CodeHash:   "code_hash",
+	ExpiresAt:  "expires_at",
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 const attemptsNumber = 3
@@ -106,7 +105,7 @@ func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *m
 }
 
 // Send schedules an email for sending. Email with duplicate (emailType, uniqueID) tuple will be skipped
-func (m *dbSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *sender.Mail) error {
+func (m *dbSender) Send(ctx context.Context, exec repo.Executor, uniqueID string, emailType string, mail *sender.Mail) error {
 	id, err := uuid.NewV7()
 
 	if err != nil {

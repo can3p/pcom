@@ -9,13 +9,12 @@ import (
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // The free functions predate Store; e2e/ calls them, so they stay until RS
 // may edit e2e/.
 
-func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string) (*model.User, error) {
+func FeedTokenOwner(ctx context.Context, exec Executor, token string) (*model.User, error) {
 	u, err := Using(exec).FeedTokenOwner(ctx, token)
 	if errors.Is(err, ErrNotFound) {
 		return nil, sql.ErrNoRows
@@ -24,11 +23,11 @@ func FeedTokenOwner(ctx context.Context, exec boil.ContextExecutor, token string
 	return u, err
 }
 
-func FeedTokenForUser(ctx context.Context, exec boil.ContextExecutor, userID string) (*model.UserFeedToken, error) {
+func FeedTokenForUser(ctx context.Context, exec Executor, userID string) (*model.UserFeedToken, error) {
 	return Using(exec).FeedTokenForUser(ctx, userID)
 }
 
-func RegenerateFeedToken(ctx context.Context, exec boil.ContextExecutor, userID string) (*model.UserFeedToken, error) {
+func RegenerateFeedToken(ctx context.Context, exec Executor, userID string) (*model.UserFeedToken, error) {
 	return Using(exec).RegenerateFeedToken(ctx, userID)
 }
 

@@ -26,7 +26,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // The privacy matrix of pcom, a private social network. It answers, for every
@@ -196,7 +195,7 @@ func (w *world) userData(t *testing.T, viewer viewer, profile model.ProfileVisib
 // postPage, userHome and explore build the pages the way their routes do:
 // the reading service decides what the visitor sees, the page builder
 // renders it.
-func postPage(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, postID string) mo.Result[*web.SinglePostPage] {
+func postPage(c *gin.Context, exec repo.Executor, u *auth.UserData, postID string) mo.Result[*web.SinglePostPage] {
 	post, err := reading.New(repo.Using(exec)).Post(c, u.DBUser, postID, false)
 	if err != nil {
 		return mo.Err[*web.SinglePostPage](err)
@@ -205,7 +204,7 @@ func postPage(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, postI
 	return mo.Ok(web.PostPage(c, u, post))
 }
 
-func userHome(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, username string) mo.Result[*web.UserHomePage] {
+func userHome(c *gin.Context, exec repo.Executor, u *auth.UserData, username string) mo.Result[*web.UserHomePage] {
 	journal, err := reading.New(repo.Using(exec)).Journal(c, u.DBUser, username, "")
 	if err != nil {
 		return mo.Err[*web.UserHomePage](err)
@@ -214,7 +213,7 @@ func userHome(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData, usern
 	return mo.Ok(web.UserHome(c, u, journal))
 }
 
-func explore(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) mo.Result[*web.FeedPage] {
+func explore(c *gin.Context, exec repo.Executor, u *auth.UserData) mo.Result[*web.FeedPage] {
 	page, err := reading.New(repo.Using(exec)).Explore(c, u.DBUser, "")
 	if err != nil {
 		return mo.Err[*web.FeedPage](err)
@@ -574,37 +573,37 @@ func TestPrivacyMatrix_DatabaseFailuresAreErrors(t *testing.T) {
 	cases := []struct {
 		name   string
 		viewer viewer
-		call   func(c *gin.Context, exec boil.ContextExecutor, userData *auth.UserData) error
+		call   func(c *gin.Context, exec repo.Executor, userData *auth.UserData) error
 	}{
-		{"SinglePost/author", asAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"SinglePost/author", asAuthor, func(c *gin.Context, exec repo.Executor, u *auth.UserData) error {
 			return postPage(c, exec, u, post.ID).Error()
 		}},
-		{"SinglePost/second", asSecondDegree, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"SinglePost/second", asSecondDegree, func(c *gin.Context, exec repo.Executor, u *auth.UserData) error {
 			return postPage(c, exec, u, post.ID).Error()
 		}},
-		{"UserHome/author", asAuthor, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"UserHome/author", asAuthor, func(c *gin.Context, exec repo.Executor, u *auth.UserData) error {
 			return userHome(c, exec, u, publicAuthor.Username).Error()
 		}},
-		{"UserHome/second", asSecondDegree, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"UserHome/second", asSecondDegree, func(c *gin.Context, exec repo.Executor, u *auth.UserData) error {
 			return userHome(c, exec, u, publicAuthor.Username).Error()
 		}},
-		{"Explore/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"Explore/anon", asAnonymous, func(c *gin.Context, exec repo.Executor, u *auth.UserData) error {
 			return explore(c, exec, u).Error()
 		}},
-		{"SharedPost/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
+		{"SharedPost/anon", asAnonymous, func(c *gin.Context, exec repo.Executor, _ *auth.UserData) error {
 			_, err := shares.New(repo.Using(exec)).Get(c, share.ID)
 			return err
 		}},
-		{"Feed/direct", asDirect, func(c *gin.Context, exec boil.ContextExecutor, u *auth.UserData) error {
+		{"Feed/direct", asDirect, func(c *gin.Context, exec repo.Executor, u *auth.UserData) error {
 			_, err := reading.New(repo.Using(exec)).Feed(c, u.DBUser, "")
 			return err
 		}},
 		// a failure after the author is found is an error, not a missing feed
-		{"PublicFeed/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
+		{"PublicFeed/anon", asAnonymous, func(c *gin.Context, exec repo.Executor, _ *auth.UserData) error {
 			_, err := reading.New(repo.Using(exec)).PublicFeed(c, publicAuthor.Username)
 			return err
 		}},
-		{"PrivateFeed/anon", asAnonymous, func(c *gin.Context, exec boil.ContextExecutor, _ *auth.UserData) error {
+		{"PrivateFeed/anon", asAnonymous, func(c *gin.Context, exec repo.Executor, _ *auth.UserData) error {
 			_, err := reading.New(repo.Using(exec)).PrivateFeed(c, feedToken.Token)
 			return err
 		}},

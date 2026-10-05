@@ -55,7 +55,7 @@ services:
     volumes:
       - tommydata:/data
 
-  # Dev tooling: sql-migrate, sqlboiler, psql, go run. Run through make
+  # Dev tooling: sql-migrate, psql, go run. Run through make
   # (`make tools-shell`, `make migrate`, ...), which sets HOST_UID/HOST_GID so
   # the files it writes belong to you.
   tools:

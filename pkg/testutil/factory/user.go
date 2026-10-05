@@ -9,7 +9,6 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // aboutTexts carries WithProfileAbout's text from the option to User, which
@@ -57,7 +56,7 @@ func Unconfirmed() UserOpt {
 
 // User inserts a confirmed user with a unique email/username pair
 // (e.g. user7@example.test / user7) in the UTC timezone.
-func User(ctx context.Context, exec boil.ContextExecutor, opts ...UserOpt) (*model.User, error) {
+func User(ctx context.Context, exec repo.Executor, opts ...UserOpt) (*model.User, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -94,12 +93,12 @@ func User(ctx context.Context, exec boil.ContextExecutor, opts ...UserOpt) (*mod
 
 // Connect makes aID and bID direct connections, inserting both directed
 // rows the way repo.CreateConnection does.
-func Connect(ctx context.Context, exec boil.ContextExecutor, aID, bID string) (*model.UserConnection, *model.UserConnection, error) {
+func Connect(ctx context.Context, exec repo.Executor, aID, bID string) (*model.UserConnection, *model.UserConnection, error) {
 	return repo.Using(exec).CreateConnection(ctx, aID, bID)
 }
 
 // Whitelist lets allowsWhoID connect to whoID without mediation.
-func Whitelist(ctx context.Context, exec boil.ContextExecutor, whoID, allowsWhoID string) (*model.WhitelistedConnection, error) {
+func Whitelist(ctx context.Context, exec repo.Executor, whoID, allowsWhoID string) (*model.WhitelistedConnection, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -126,7 +125,7 @@ func WithSourceNote(note string) MediationRequestOpt {
 
 // MediationRequest records whoID asking to be connected to targetID through
 // a common connection.
-func MediationRequest(ctx context.Context, exec boil.ContextExecutor, whoID, targetID string, opts ...MediationRequestOpt) (*model.UserConnectionMediationRequest, error) {
+func MediationRequest(ctx context.Context, exec repo.Executor, whoID, targetID string, opts ...MediationRequestOpt) (*model.UserConnectionMediationRequest, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -147,7 +146,7 @@ func MediationRequest(ctx context.Context, exec boil.ContextExecutor, whoID, tar
 
 // MediatorDecision records mediatorID's decision on the mediation request
 // requestID.
-func MediatorDecision(ctx context.Context, exec boil.ContextExecutor, requestID, mediatorID string, decision model.ConnectionMediationDecision) (*model.UserConnectionMediator, error) {
+func MediatorDecision(ctx context.Context, exec repo.Executor, requestID, mediatorID string, decision model.ConnectionMediationDecision) (*model.UserConnectionMediator, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err

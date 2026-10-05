@@ -24,11 +24,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // readItems is the user's reading list, read through the service.
-func readItems(ctx context.Context, db boil.ContextExecutor, user *model.User) ([]*RssFeedItem, error) {
+func readItems(ctx context.Context, db repo.Executor, user *model.User) ([]*RssFeedItem, error) {
 	return newService(repo.Using(db), nil, nil, nil).Items(ctx, user)
 }
 

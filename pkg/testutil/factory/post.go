@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/can3p/pcom/pkg/repo"
+
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // PostOpt customizes a Post before it is inserted.
@@ -66,7 +67,7 @@ func PostUpdatedAt(t time.Time) PostOpt {
 }
 
 // Post inserts a draft, direct_only post owned by authorID.
-func Post(ctx context.Context, exec boil.ContextExecutor, authorID string, opts ...PostOpt) (*model.Post, error) {
+func Post(ctx context.Context, exec repo.Executor, authorID string, opts ...PostOpt) (*model.Post, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -117,7 +118,7 @@ func CommentCreatedAt(t time.Time) CommentOpt {
 
 // Comment inserts a top-level comment on postID by authorID, or a reply
 // when ReplyTo is given.
-func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID string, opts ...CommentOpt) (*model.PostComment, error) {
+func Comment(ctx context.Context, exec repo.Executor, postID, authorID string, opts ...CommentOpt) (*model.PostComment, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -150,7 +151,7 @@ func Comment(ctx context.Context, exec boil.ContextExecutor, postID, authorID st
 }
 
 // PostStat inserts the cached stats row (one per post) for postID.
-func PostStat(ctx context.Context, exec boil.ContextExecutor, postID string) (*model.PostStat, error) {
+func PostStat(ctx context.Context, exec repo.Executor, postID string) (*model.PostStat, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -165,7 +166,7 @@ func PostStat(ctx context.Context, exec boil.ContextExecutor, postID string) (*m
 }
 
 // PostShare marks postID as shared (one row per post).
-func PostShare(ctx context.Context, exec boil.ContextExecutor, postID string) (*model.PostShare, error) {
+func PostShare(ctx context.Context, exec repo.Executor, postID string) (*model.PostShare, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -212,7 +213,7 @@ func PromptCreatedAt(t time.Time) PostPromptOpt {
 
 // PostPrompt inserts askerID's prompt asking recipientID to write about
 // something.
-func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipientID string, opts ...PostPromptOpt) (*model.PostPrompt, error) {
+func PostPrompt(ctx context.Context, exec repo.Executor, askerID, recipientID string, opts ...PostPromptOpt) (*model.PostPrompt, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -235,7 +236,7 @@ func PostPrompt(ctx context.Context, exec boil.ContextExecutor, askerID, recipie
 }
 
 // NormalizedURL inserts a made-up, unique URL.
-func NormalizedURL(ctx context.Context, exec boil.ContextExecutor) (*model.NormalizedURL, error) {
+func NormalizedURL(ctx context.Context, exec repo.Executor) (*model.NormalizedURL, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err

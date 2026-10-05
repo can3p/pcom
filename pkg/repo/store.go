@@ -7,18 +7,25 @@ import (
 
 	"github.com/can3p/gogo/util/transact"
 	"github.com/jmoiron/sqlx"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 // ErrNotFound replaces sql.ErrNoRows at the repository boundary.
 var ErrNotFound = errors.New("not found")
+
+// Executor runs queries: the database or a transaction. *sql.DB, *sql.Tx
+// and *sqlx.DB all satisfy it.
+type Executor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
 
 // Store is the entry point to every query. Methods live one file per
 // aggregate (shares.go, posts.go, ...). They take no executor: the Store
 // carries it, either the database or the transaction it was handed by Tx.
 type Store struct {
 	db   *sqlx.DB // nil inside a transaction
-	exec boil.ContextExecutor
+	exec Executor
 }
 
 // New returns a Store over db.
@@ -30,7 +37,7 @@ func New(db *sqlx.DB) *Store {
 // opened elsewhere, or the executor a legacy function or a test factory
 // holds. Tx on such a Store joins the executor instead of opening a
 // transaction.
-func Using(exec boil.ContextExecutor) *Store {
+func Using(exec Executor) *Store {
 	return &Store{exec: exec}
 }
 
@@ -49,7 +56,7 @@ func (s *Store) Tx(ctx context.Context, fn func(tx *Store) error) error {
 
 // Exec is the executor, for code that still takes one: forms' Save and the
 // packages RS has not converted yet. Every call is a step RS removes.
-func (s *Store) Exec() boil.ContextExecutor {
+func (s *Store) Exec() Executor {
 	return s.exec
 }
 

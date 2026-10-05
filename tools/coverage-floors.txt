@@ -1,5 +1,5 @@
 # Coverage floors, checked by `make cover-check` after `make cover`: one per line,
-# <import path or "total"> <percent>. "total" excludes pkg/model/core.
+# <import path or "total"> <percent>.
 # A floor is the achieved level minus 1. Floors only ever rise: to raise one, run
 # `make cover` and set the floor to the new merged percentage minus 1.
 

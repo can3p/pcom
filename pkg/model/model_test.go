@@ -136,4 +136,13 @@ func TestModels_MatchTheSchema(t *testing.T) {
 			t.Errorf("table %s has no struct in pkg/model", table)
 		}
 	}
+
+	for table, names := range map[string]any{"users": model.UserColumns, "login_attempts": model.LoginAttemptColumns} {
+		v := reflect.ValueOf(names)
+		for i := range v.NumField() {
+			if _, ok := schema[table][v.Field(i).String()]; !ok {
+				t.Errorf("%s: %s is not a column of %s", v.Type().Field(i).Name, v.Field(i).String(), table)
+			}
+		}
+	}
 }

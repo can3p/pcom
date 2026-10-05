@@ -34,12 +34,11 @@ while IFS= read -r line; do
 
 	# Compute actual coverage
 	if [[ "$name" == "total" ]]; then
-		# Total coverage excluding pkg/model/core
-		# Parse coverage.out: each line is <file>:<start>.<col>,<end>.<col> <num_stmts> <count>
-		# Count statements and covered statements, excluding pkg/model/core
+		# Total coverage. Parse coverage.out: each line is
+		# <file>:<start>.<col>,<end>.<col> <num_stmts> <count>
 		actual=$(awk '
 			NR == 1 { next }  # skip mode line
-			$0 !~ /pkg\/model\/core/ {
+			{
 				# Split on whitespace; last field is coverage count
 				stmts = $(NF-1)
 				count = $NF

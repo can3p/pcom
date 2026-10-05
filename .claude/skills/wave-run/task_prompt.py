@@ -36,8 +36,8 @@ Task: {task}.
 
 You own exactly these files: {owns}. Do not edit any other file; if another file must change, stop and
 report it under needs:. Do not run git.
-Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
-skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
+Navigate with the LSP tool (load it with ToolSearch "select:LSP"); a model's fields and relations are in
+pkg/model (one file per area). On a failing test, follow the test-failure skill.
 Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
 A bug you notice outside your task is not yours to fix: report it under bugs: with a one-line repro.
 Behavior must not change, failure paths included: a panic stays a panic and an error keeps its message.
@@ -65,8 +65,8 @@ Task: {task}.
 
 You own exactly these files: {owns}. Do not edit any other file; if another file must change, stop and
 report it under needs:. Do not run git.
-Navigate with the LSP tool (load it with ToolSearch "select:LSP"); get model shapes with the model-shape
-skill (`make model T=<Model>`); never read pkg/model/core. On a failing test, follow the test-failure skill.
+Navigate with the LSP tool (load it with ToolSearch "select:LSP"); a model's fields and relations are in
+pkg/model (one file per area). On a failing test, follow the test-failure skill.
 Before touching cmd/web/client or an htmx handler, follow the frontend-htmx skill.
 Never cat a whole file: grep -n or LSP documentSymbol first, then Read only the lines you need.
 A bug you notice outside your task is not yours to fix: report it under bugs: with a one-line repro.

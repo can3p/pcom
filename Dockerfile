@@ -1,7 +1,7 @@
 ARG VERSION
 
 FROM golang:alpine AS builder
-# Keep equal to tools/Dockerfile's; generate.sh checks it.
+# Keep equal to tools/Dockerfile's; CI's lint job checks it.
 ARG SQL_MIGRATE_VERSION=v1.8.1
 WORKDIR /build
 RUN apk add --no-cache --update ca-certificates make git bash less vim yarn vips-dev gcc musl-dev

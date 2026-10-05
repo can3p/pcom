@@ -2,24 +2,18 @@
 # `app`/`assets` later). Build context is the repository root, but nothing is
 # copied in: the repository is mounted at /src at run time.
 #
-# sql-migrate, sqlboiler and sqlboiler-psql are installed here, pinned by the
-# ARGs below, and never appear in go.mod. SQLBOILER_VERSION must equal the
-# sqlboiler library version in go.mod (generated code has to match the library
-# it runs against): generate.sh refuses to run otherwise, so a go.mod bump
-# fails CI's "Generated models are current" job until this ARG follows it.
+# sql-migrate is installed here, pinned by the ARG below, and never appears in
+# go.mod. SQL_MIGRATE_VERSION must equal the one in the production Dockerfile:
+# CI's lint job checks it.
 
-# --- tools: migrations, codegen, psql, seed ---------------------------------
+# --- tools: migrations, psql, seed ---------------------------------
 FROM golang:1.26-alpine AS tools
 
-# psql/pg_dump for `make psql` and dumps; bash for the scripts; gettext for
-# envsubst (generate.sh renders sqlboiler.toml with it).
-RUN apk add --no-cache bash postgresql16-client gettext
+# psql/pg_dump for `make psql` and dumps; bash for the scripts.
+RUN apk add --no-cache bash postgresql16-client
 
 ARG SQL_MIGRATE_VERSION=v1.8.1
-ARG SQLBOILER_VERSION=v4.19.1
 RUN GOBIN=/usr/local/bin go install github.com/rubenv/sql-migrate/sql-migrate@${SQL_MIGRATE_VERSION} \
- && GOBIN=/usr/local/bin go install github.com/volatiletech/sqlboiler/v4@${SQLBOILER_VERSION} \
- && GOBIN=/usr/local/bin go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@${SQLBOILER_VERSION} \
  && rm -rf /root/go /root/.cache
 
 # The container runs as the host UID/GID (compose `user:`), which has no
