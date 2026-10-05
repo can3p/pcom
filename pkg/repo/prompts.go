@@ -2,78 +2,83 @@ package repo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/model/core"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 // PromptForRecipient returns a prompt addressed to the recipient, with the
 // asker loaded (prompt.Asker).
 func (s *Store) PromptForRecipient(ctx context.Context, recipientID, id string) (*model.PostPrompt, error) {
-	prompt, err := core.PostPrompts(
-		qm.Load(core.PostPromptRels.Asker),
-		core.PostPromptWhere.RecipientID.EQ(recipientID),
-		core.PostPromptWhere.ID.EQ(id),
-	).One(ctx, s.exec)
+	prompt := new(model.PostPrompt)
+	err := s.query().NewSelect().Model(prompt).
+		Relation("Asker").
+		Where("?TableAlias.recipient_id = ?", recipientID).
+		Where("?TableAlias.id = ?", id).
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostPrompt](prompt), notFound(err)
+	return prompt, nil
 }
 
 // PromptForPost returns the prompt a post answers, with the asker loaded.
 func (s *Store) PromptForPost(ctx context.Context, postID string) (*model.PostPrompt, error) {
-	prompt, err := core.PostPrompts(
-		qm.Load(core.PostPromptRels.Asker),
-		core.PostPromptWhere.PostID.EQ(null.StringFrom(postID)),
-	).One(ctx, s.exec)
+	prompt := new(model.PostPrompt)
+	err := s.query().NewSelect().Model(prompt).
+		Relation("Asker").
+		Where("?TableAlias.post_id = ?", postID).
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostPrompt](prompt), notFound(err)
+	return prompt, nil
 }
 
 // LastPromptBy returns the newest prompt the user sent, or ErrNotFound.
 func (s *Store) LastPromptBy(ctx context.Context, askerID string) (*model.PostPrompt, error) {
-	prompt, err := core.PostPrompts(
-		core.PostPromptWhere.AskerID.EQ(askerID),
-		qm.OrderBy(core.PostPromptColumns.CreatedAt+" DESC"),
-		qm.Limit(1),
-	).One(ctx, s.exec)
+	prompt := new(model.PostPrompt)
+	err := s.query().NewSelect().Model(prompt).
+		Where("asker_id = ?", askerID).
+		OrderExpr("created_at DESC").
+		Limit(1).Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
 
-	return toModel[model.PostPrompt](prompt), notFound(err)
+	return prompt, nil
 }
 
 // InsertPrompt stores a new prompt.
 func (s *Store) InsertPrompt(ctx context.Context, prompt *model.PostPrompt) error {
-	return write(prompt, func(c *core.PostPrompt) error {
-		return c.Insert(ctx, s.exec, boil.Infer())
-	})
+	_, err := s.query().NewInsert().Model(prompt).Exec(ctx)
+	return err
 }
 
 // UpdatePrompt writes every column of an existing prompt.
 func (s *Store) UpdatePrompt(ctx context.Context, prompt *model.PostPrompt) error {
-	return write(prompt, func(c *core.PostPrompt) error {
-		_, err := c.Update(ctx, s.exec, boil.Infer())
-		return err
-	})
+	_, err := s.query().NewUpdate().Model(prompt).WherePK().Exec(ctx)
+	return err
 }
 
 // DismissPrompt marks a prompt addressed to the recipient as dismissed at the
 // given time.
 func (s *Store) DismissPrompt(ctx context.Context, recipientID, id string, at time.Time) error {
-	prompt, err := core.PostPrompts(
-		core.PostPromptWhere.RecipientID.EQ(recipientID),
-		core.PostPromptWhere.ID.EQ(id),
-	).One(ctx, s.exec)
+	prompt := new(model.PostPrompt)
+
+	err := s.query().NewSelect().Model(prompt).
+		Where("recipient_id = ?", recipientID).
+		Where("id = ?", id).
+		Limit(1).Scan(ctx)
 	if err != nil {
 		return notFound(err)
 	}
 
-	prompt.DismissedAt = null.TimeFrom(at)
+	prompt.DismissedAt = &at
 
-	_, err = prompt.Update(ctx, s.exec, boil.Infer())
+	_, err = s.query().NewUpdate().Model(prompt).WherePK().Exec(ctx)
 
 	return err
 }
@@ -81,11 +86,14 @@ func (s *Store) DismissPrompt(ctx context.Context, recipientID, id string, at ti
 // OpenPromptsFor returns the prompts sent to recipientID that they haven't
 // dismissed, newest first, with the asker and the answer post loaded.
 func (s *Store) OpenPromptsFor(ctx context.Context, recipientID string) ([]*model.PostPrompt, error) {
-	return all[model.PostPrompt](core.PostPrompts(
-		core.PostPromptWhere.RecipientID.EQ(recipientID),
-		core.PostPromptWhere.DismissedAt.IsNull(),
-		qm.Load(core.PostPromptRels.Asker),
-		qm.Load(core.PostPromptRels.Post),
-		qm.OrderBy(fmt.Sprintf("%s DESC", core.PostPromptColumns.CreatedAt)),
-	).All(ctx, s.exec))
+	var prompts []*model.PostPrompt
+	err := s.query().NewSelect().Model(&prompts).
+		Relation("Asker").
+		Relation("Post").
+		Where("?TableAlias.recipient_id = ?", recipientID).
+		Where("?TableAlias.dismissed_at IS NULL").
+		OrderExpr("?TableAlias.created_at DESC").
+		Scan(ctx)
+
+	return prompts, err
 }
