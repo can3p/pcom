@@ -242,7 +242,9 @@ step fails:
 - installs golangci-lint at CI's `GOLANGCI_LINT_VERSION` (the image's copy is built with an older Go and
   refuses to lint this module);
 - installs the playwright-go driver and sets `CHROMIUM_PATH=/opt/pw-browsers/chromium`, because the
-  network policy blocks Playwright's CDN, so `make ui-deps` can't download Chromium.
+  network policy blocks Playwright's CDN, so `make ui-deps` can't download Chromium. The variable may not
+  reach every shell: if `make test-ui` says Playwright's executable doesn't exist, run it as
+  `CHROMIUM_PATH=/opt/pw-browsers/chromium make test-ui`.
 
 When Docker Hub rate-limits the sandbox (429), pull the image from `mirror.gcr.io/<image>` and `docker tag`
 it back rather than skipping the suite.

@@ -62,8 +62,12 @@ subagents, whose context is thrown away.
   branch>` (the only git command it may run). Merge each finished worktree by committing there and
   cherry-picking onto the wave branch; resolve shared files (a registry, an allowlist) by script, and
   conflicts in code by hand.
-  A worktree has no `cmd/web/node_modules` (it is untracked): when the task builds assets, its setup links
-  the main checkout's (`ln -s /home/user/pcom/cmd/web/node_modules cmd/web/node_modules`) and builds once.
+  A worktree has no `cmd/web/node_modules` and no built `cmd/web/dist` (both untracked), and the E2E tests
+  serve `cmd/web/dist`: a task that doesn't change assets links the main checkout's
+  (`ln -s /home/user/pcom/cmd/web/dist cmd/web/dist`); one that does links `node_modules` the same way and
+  builds once. Parallel worktrees share golangci-lint's lock: "parallel golangci-lint is running" means
+  retry, not a lint failure. Delete finished worktrees (`git worktree remove`) once merged; their copies
+  of the tree show up in every repository-wide grep.
   With a worktree of its own, an agent may run `make test-ui` freely. After merging parallel tasks, run the
   full browser suite once: two tasks can each pass alone and break together through a shared controller.
 - **Design references the subagents can't open** (a private claude.ai canvas, a mockup behind a login):
@@ -85,7 +89,15 @@ subagents, whose context is thrown away.
   answer rather than the files. The coordinator's own lookups use the LSP tool.
 - **Splitting the work is yours.** The wave file plans the tasks; you decide who owns what, so that no
   two parallel tasks write the same file (`go.mod`, a registry, a shared helper) and no task waits on a
-  file another is still writing. Whatever a task's prompt doesn't list as owned, it doesn't edit.
+  file another is still writing. Whatever a task's prompt doesn't list as owned, it doesn't edit. A shared
+  helper whose last caller one task removes fails that task's lint as unused: give that task the deletion,
+  and delete the helpers left unused after merging the rest yourself.
+- **Long prompts shared by several tasks** go into a file in your scratchpad, one per task, and the
+  dispatch says only "read <path> and follow it": the coordinator's context doesn't carry six copies.
+- **Work that stays uncommitted across tasks** (a plan that commits several tasks as one) is backed up
+  without moving HEAD: commit the working tree through a temporary `GIT_INDEX_FILE` with
+  `git commit-tree` and push it to a `wip/` branch. The proxy refuses to delete remote branches, so the
+  owner deletes it after the real commit lands.
 - **Subagents run no git commands** and delete no tracked files (the permission check refuses it): a
   deletion is yours, with `git rm`, before dispatch. They report gaps in the test factories instead of
   patching around them. Add missing helpers in one place, then re-dispatch. If two tasks independently ask
