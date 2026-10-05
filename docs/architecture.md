@@ -145,6 +145,33 @@ The database does not:
   returns the candidates and `LatestLoginAttempt` picks the first that
   `open()` accepts.
 
+## Writing bun queries
+
+Repositories are moving from sqlboiler to [bun](https://bun.uptrace.dev) over pgx (`docs/plan/r5.md`). The
+models are the structs in `pkg/model`; their conventions are in its package comment. Each rule below is
+pinned by a test in `pkg/repo/bun_test.go`.
+
+- **Every query runs on the Store's executor.** Start it with `s.query()` in a Store method, or
+  `repo.Query(exec)` in a test factory. Both point bun at the executor with `.Conn`, so a query inside a
+  transaction stays in it, and so do the relations bun loads with a query of their own (has-many).
+- **Locking with a joined relation names the table.** bun joins a belongs-to or has-one relation with a
+  `LEFT JOIN`, and Postgres refuses to lock the nullable side of an outer join: write
+  `For("UPDATE OF ?TableAlias")` (and `... SKIP LOCKED`). A has-many relation is a separate query; lock its
+  rows with `For` inside the relation's apply function.
+- **`bun.List` needs no empty-slice guard.** `Where("user_id IN (?)", bun.List(ids))` with no ids is valid SQL
+  and matches nothing.
+- **A defaulted column has a `default:` tag, never `nullzero`.** With `default:`, a zero value inserts
+  `DEFAULT` and the value comes back through `RETURNING`. `nullzero` would also write NULL for a zero
+  value on update (a `false` bool).
+- **Timestamps are stamped by the model.** Each model's `BeforeAppendModel` sets `created_at` and
+  `updated_at` on insert when they are zero and `updated_at` on every update, as sqlboiler did. An update
+  with `.Column(...)` writes only those columns, so list `updated_at` wherever the sqlboiler code updated
+  with `boil.Infer()` or listed it. To bun an upsert is an insert: set `updated_at` in its `DO UPDATE`.
+- **A limit on a has-many relation is shared.** `Relation("X", func(q) { return q.Limit(1) })` limits the
+  one query that loads the rows of every parent, as sqlboiler's `qm.Load(..., qm.Limit(1))` did.
+- **Errors.** A single-row `Scan` that finds nothing returns `sql.ErrNoRows`, which `notFound` turns into
+  `ErrNotFound`. A unique violation is a `*pgconn.PgError` with code `23505`.
+
 ## Tests
 
 - Services are tested against `testdb.New(t)` with the factories: no

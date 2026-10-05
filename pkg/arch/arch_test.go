@@ -25,11 +25,11 @@ import (
 const module = "github.com/can3p/pcom"
 
 // exempt packages may use the database directly: the repositories, the
-// generated models, test fixtures and harnesses, the session store and the
+// models (pkg/model's structs are bun models), test fixtures and harnesses, the session store and the
 // mail queue (infrastructure that owns its table), the seed command and the
 // composition root.
 var exempt = []string{
-	"pkg/model/core",
+	"pkg/model",
 	"pkg/repo",
 	"pkg/testutil/",
 	"pkg/feedops/testutil",
@@ -47,6 +47,8 @@ var exempt = []string{
 // calling anything whose signature carries one of their types is database work.
 var ormPackages = []string{
 	"github.com/volatiletech/sqlboiler/v4/",
+	"github.com/uptrace/bun/",
+	"github.com/jackc/pgx/",
 	"github.com/jmoiron/sqlx",
 	"database/sql",
 }
