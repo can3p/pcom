@@ -97,7 +97,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **One driver, no code generation.** Everything connects through pgx's `database/sql` driver: the server,
   the CLI commands and the test databases (`testdb` reopens gogo's lib/pq connection with pgx). The models
   are not generated; `TestModels_MatchTheSchema` (`pkg/model`) checks them against the migrated database,
-  so a migration that adds or changes a column fails it until the struct follows.
+  so a migration that adds or changes a column fails it until the struct follows. bun was chosen over bob
+  and sqlc because both generate code (bob is also still v0.x with breaking minor releases), and sqlc
+  handles runtime filters and eager loading worst; bun's query builder covers the optional filters,
+  relation loading, upserts and locks the repositories need. lib/pq stays in `go.mod` only as gogo's
+  indirect dependency.
 
 ## Logic in the database
 
