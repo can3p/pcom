@@ -18,17 +18,3 @@ func write[C any](m any, fn func(c *C) error) error {
 
 	return err
 }
-
-// toCoreEnums converts model enum values to sqlboiler's; nil stays nil.
-func toCoreEnums[C, M ~string](in []M) []C {
-	if in == nil {
-		return nil
-	}
-
-	out := make([]C, len(in))
-	for i, v := range in {
-		out[i] = C(v)
-	}
-
-	return out
-}
