@@ -7,7 +7,7 @@ Subject: New prompt from alice
 --- TEXT ---
 Hi!
 
-@alice has asked you to write a post on "What is your favorite hobby?"
+@alice has asked you to write a post on "What is <b>bold</b> & "quoted" <script>alert(1)</script>?"
 
 Head to new post page to give an update! /write?prompt=prompt-1
 
@@ -15,6 +15,6 @@ Head to new post page to give an update! /write?prompt=prompt-1
 
 <p>Hi!</p>
 
-<p>@alice has asked you to write a post on "What is your favorite hobby?"</p>
+<p>@alice has asked you to write a post on "What is &lt;b&gt;bold&lt;/b&gt; &amp; &#34;quoted&#34; &lt;script&gt;alert(1)&lt;/script&gt;?"</p>
 
 <p>Head to new post page to give an update! <a href="/write?prompt=prompt-1">/write?prompt=prompt-1</a></p>

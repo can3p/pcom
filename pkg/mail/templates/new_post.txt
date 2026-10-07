@@ -1,0 +1,6 @@
+Hi!
+
+@{{.Username}} has published a new post "{{.Subject}}"{{if .LinkedURL}}
+Linked URL: {{.LinkedURL}}{{end}}
+
+Head to the post to leave a comment! {{.Link}}

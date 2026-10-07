@@ -13,8 +13,8 @@ Check out their post! /posts/post-1
 
 --- HTML ---
 
-	<p>Hi!</p>
+<p>Hi!</p>
 
-	<p>@bob has responded on your prompt "What is your favorite hobby?" with the post "My Answer"</p>
+<p>@bob has responded on your prompt "What is your favorite hobby?" with the post "My Answer"</p>
 
-	<p>Head to new post page to give an update! <a href="/posts/post-1">/posts/post-1</a></p>
+<p>Head to new post page to give an update! <a href="/posts/post-1">/posts/post-1</a></p>

@@ -13,10 +13,10 @@ Head to the post to leave a comment! /posts/post-1
 
 --- HTML ---
 
-	<p>Hi!</p>
+<p>Hi!</p>
 
-	<p>@alice has published a new post "Test Post"</p>
+<p>@alice has published a new post "Test Post"</p>
 
-	<blockquote></blockquote>
+<blockquote></blockquote>
 
-	<p>Head to the post to leave a comment! <a href="/posts/post-1">/posts/post-1</a></p>
+<p>Head to the post to leave a comment! <a href="/posts/post-1">/posts/post-1</a></p>
