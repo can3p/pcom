@@ -76,12 +76,6 @@ type Envelope struct {
 	Mail     *sender.Mail
 }
 
-// Outgoing is the former name of Envelope, kept while the mails not yet
-// declared with declare still return it.
-//
-// Deprecated: use Envelope.
-type Outgoing = Envelope
-
 // Header is the addressing of one mail: the unique id the queue drops repeats
 // by, and who it is from and to.
 type Header struct {

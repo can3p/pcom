@@ -11,25 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sampleEnvelope is the rendering of the sample called name.
-func sampleEnvelope(t *testing.T, name string) *mail.Envelope {
-	t.Helper()
-
-	for _, m := range mail.All() {
-		for _, s := range m.Samples {
-			if s.Name == name {
-				require.NoError(t, s.Err)
-
-				return s.Envelope
-			}
-		}
-	}
-
-	require.Failf(t, "no such sample", "sample %s", name)
-
-	return nil
-}
-
 func keepMedia(in string) (bool, string) { return false, in }
 
 func postUsers() (user, connection *model.User) {
