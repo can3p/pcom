@@ -25,8 +25,6 @@ func requireSample(t *testing.T, name string, got *mail.Envelope, generatedID bo
 	}
 
 	require.Equal(t, want, got)
-	require.Equal(t, testAdmin, got.Mail.To[0].Address)
-	require.Equal(t, testFrom, got.Mail.From.Address)
 }
 
 func TestAdminNewUser(t *testing.T) {
@@ -34,9 +32,7 @@ func TestAdminNewUser(t *testing.T) {
 
 	user := &model.User{ID: "0190a3b4-0000-7000-8000-000000000001", Email: "alice@example.test", Username: "alice"}
 
-	got := mail.AdminNewUser(links.Site{}, testFrom, testAdmin, user)
-	require.Equal(t, "admin_new_user", got.Type)
-	require.Equal(t, "New User on pcom", got.Mail.Subject)
+	got := mail.AdminNewUser(mail.SampleSite, testFrom, testAdmin, user)
 	requireSample(t, "admin_new_user", got, false)
 }
 
@@ -46,8 +42,6 @@ func TestAdminNewWaitingListMember(t *testing.T) {
 	signup := &model.UserSignupRequest{ID: "0190a3b4-0000-7000-8000-000000000002", Email: "signup@example.test"}
 
 	got := mail.AdminNewWaitingListMember(testFrom, testAdmin, signup)
-	require.Equal(t, "new_waiting_list_member", got.Type)
-	require.Equal(t, "New waiting list member on pcom", got.Mail.Subject)
 	requireSample(t, "admin_new_waiting_list_member", got, false)
 
 	signup.Reason = new("I read your blog")
@@ -60,8 +54,6 @@ func TestAdminSignupConfirmed(t *testing.T) {
 	user := &model.User{ID: "0190a3b4-0000-7000-8000-000000000001", Email: "alice@example.test", Username: "alice"}
 
 	got := mail.AdminSignupConfirmed(testFrom, testAdmin, user)
-	require.Equal(t, "signup_confirmed", got.Type)
-	require.Equal(t, "New User confirmed email on pcom", got.Mail.Subject)
 	requireSample(t, "admin_signup_confirmed", got, false)
 }
 
@@ -69,8 +61,6 @@ func TestAdminThrowAwayEmailSignupAttempt(t *testing.T) {
 	t.Parallel()
 
 	got := mail.AdminThrowAwayEmailSignupAttempt(testFrom, testAdmin, "test@throwaway.example.com")
-	require.Equal(t, "throw_away_email_signup", got.Type)
-	require.Equal(t, "An attempt to use a throwaway email domain on pcom", got.Mail.Subject)
 	requireSample(t, "admin_throwaway_email", got, true)
 
 	other := mail.AdminThrowAwayEmailSignupAttempt(testFrom, testAdmin, "test@throwaway.example.com")
@@ -83,24 +73,12 @@ func TestAdminPageFailure(t *testing.T) {
 	user := &model.User{ID: "0190a3b4-0000-7000-8000-000000000001", Email: "alice@example.test"}
 
 	// the sample report is what the router would pass in
-	in := adminPageFailureReport(t)
+	in := mail.SampleAdminPageFailureReport
 
 	got := mail.AdminPageFailure(testFrom, testAdmin, in, user)
-	require.Equal(t, "panic_notification", got.Type)
-	require.Equal(t, "Panic on the page", got.Mail.Subject)
 	requireSample(t, "admin_page_failure", got, true)
 
 	requireSample(t, "admin_page_failure_anonymous", mail.AdminPageFailure(testFrom, testAdmin, in, nil), true)
-}
-
-// adminPageFailureReport is the report the page failure samples carry.
-func adminPageFailureReport(t *testing.T) string {
-	t.Helper()
-
-	return "[Recovery] 2026/01/02 - 03:04:05 panic recovered:\r\n" +
-		"GET /posts/1 HTTP/1.1\r\nHost: pcom.test\r\nCookie: <hidden>\r\n\r\n" +
-		"something broke\r\n" +
-		"/app/pkg/web/handler.go:42 (0x1234)\r\n\tHandle: panic(err)\r\n"
 }
 
 // adminMailers lists every admin notification with all user-controlled

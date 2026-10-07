@@ -10,7 +10,7 @@ Hi!
 @alice has published a new post "Check out this article"
 Linked URL: https://example.com/article
 
-Head to the post to leave a comment! /posts/post-1
+Head to the post to leave a comment! https://pcom.test/posts/post-1
 
 --- HTML ---
 
@@ -21,4 +21,4 @@ Head to the post to leave a comment! /posts/post-1
 <blockquote><p>This is a test post body</p>
 </blockquote><p>Linked URL: <a href="https://example.com/article">https://example.com/article</a></p>
 
-<p>Head to the post to leave a comment! <a href="/posts/post-1">/posts/post-1</a></p>
+<p>Head to the post to leave a comment! <a href="https://pcom.test/posts/post-1">https://pcom.test/posts/post-1</a></p>

@@ -17,13 +17,13 @@ type formatComment func(commenter, recipient *model.User, post *model.Post, comm
 func formatAuthor(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	return mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, edited)
+	return mail.PostCommentAuthor(mail.SampleSite, testFrom, mediaReplacer, commenter, recipient, post, comment, edited)
 }
 
 func formatParticipants(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	return mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, edited)
+	return mail.PostCommentParticipants(mail.SampleSite, testFrom, mediaReplacer, commenter, recipient, post, comment, edited)
 }
 
 // The comment mails are built from models; each case builds the models of

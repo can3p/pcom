@@ -30,7 +30,7 @@ var postPromptAnswerMail = declare("post_prompt_answer", "post_prompt_answer", p
 func postPromptAnswerSamples() []Sample[PostPromptAnswerInput] {
 	return []Sample[PostPromptAnswerInput]{
 		{Name: "post_prompt_answer", Input: PostPromptAnswerInput{
-			From: SampleFrom, PostID: "post-1", To: "asker@example.test", Responder: "bob",
+			From: SampleFrom, PostID: "post-2", To: "asker@example.test", Responder: "bob",
 			Message: "What is your favorite hobby?", Subject: "My Answer", Link: SampleSite.Abs("post", "post-1"),
 		}},
 	}

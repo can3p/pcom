@@ -10,7 +10,7 @@ Hi!
 New user alert:
 
 * ID: 0190a3b4-0000-7000-8000-000000000001
-* Blog: /users/alice
+* Blog: https://pcom.test/users/alice
 * Email: alice@example.test
 
 --- HTML ---
@@ -20,6 +20,6 @@ New user alert:
 
 <ul>
 	<li>ID: 0190a3b4-0000-7000-8000-000000000001</li>
-	<li>Blog: <a href="/users/alice">/users/alice</a></li>
+	<li>Blog: <a href="https://pcom.test/users/alice">https://pcom.test/users/alice</a></li>
 	<li>Email: alice@example.test</li>
 </ul>
