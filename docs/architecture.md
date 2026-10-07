@@ -27,6 +27,17 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   `sender.Sender`. The queue drops a repeated (type, unique id), so a
   feature that notifies again about the same object needs its own key, and
   its test sends two events in a row.
+- **Mail content** is declared in `pkg/mail`, one file per mail: a typed input,
+  samples built from in-memory models, and templates in `pkg/mail/templates`
+  (subject and text through `text/template`, HTML through `html/template`).
+  Escaping is `html/template`'s job; a `template.HTML` field is the one way
+  trusted HTML (a rendered markdown body) enters. `mail.All()` is the only
+  list of mails: the golden test and the `/dev/mail` preview read it. The
+  package doc of `pkg/mail/mail.go` is the how-to for adding a mail.
+- **Delivery.** `dbsender` sends each due mail in its own transaction, so one
+  failure doesn't resend the others; the waits between attempts are
+  `--email-retry-intervals`, and a mail fails after one attempt more than
+  there are waits.
 - **Errors** (`pkg/service`, which re-exports gogo's `apperr`; code uses the
   `service` names): `ErrNotFound` (also for "exists, but you may not see
   it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and

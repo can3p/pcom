@@ -14,6 +14,7 @@ the one for the area you touch:
 | How pcom behaves on purpose: accounts, login, visibility, feeds, comments | `docs/product.md` |
 | Layers: handlers, services, repositories, service errors, the arch test; configuration and tooling | `docs/architecture.md` |
 | Markdown rendering, view types, custom renderers | `pkg/markdown/AGENTS.md` |
+| Adding or changing a mail: inputs, samples, templates, goldens | package doc of `pkg/mail/mail.go`, item 6 in `docs/testing.md` |
 | RSS feed fetching and image budgets | `pkg/feedops/AGENTS.md` |
 | Writing tests: libraries, test DB, factories, mocks, E2E and browser tests, ground rules | `docs/testing.md` |
 | User guide, website, screenshots | `website/`, `docs/guide/` |
@@ -44,7 +45,8 @@ longer holds rather than annotating it. Wave names, dates and incident stories b
 **No magic numbers.** A limit or tunable value (a length cap, a page size, a timeout) is a setting in
 `pkg/config` with its default there, handed to the service as an option; the service exports the same default
 for callers built without configuration, and tests use that constant, not the literal. Pattern:
-`Limits.ProfileAboutMaxLength` → `accounts.WithProfileAboutMaxLength`.
+`Limits.ProfileAboutMaxLength` → `accounts.WithProfileAboutMaxLength`. A new setting also appears in
+`web serve --help`, whose golden the same diff rewrites (`UPDATE_GOLDEN=1 go test ./cmd/web -run TestHelp`).
 
 ## Reading code economically
 
@@ -91,4 +93,5 @@ for callers built without configuration, and tests use that constant, not the li
   the report prints, or re-run the single test with `-v`.
 - Golden files: after `UPDATE_GOLDEN=1`, check `git diff --stat`, not the contents.
 - Pipe unavoidable noisy commands (`docker compose`, `yarn`, `gh run view`) through `tail -n 40` or `grep`.
+  Never pipe a quiet target: the pipe takes `tail`'s exit status, so a failure no longer stops a `&&` chain.
 - Don't paste code or logs into reports to a coordinator.
