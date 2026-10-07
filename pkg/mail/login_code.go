@@ -1,47 +1,40 @@
 package mail
 
-import (
-	"fmt"
-	"html"
-	"net/mail"
-	"time"
+import "time"
 
-	"github.com/can3p/gogo/sender"
-)
+// LoginCodeInput is what the login code mail shows: the code of one login
+// attempt and how long it works.
+type LoginCodeInput struct {
+	From      string
+	AttemptID string
+	To        string
+	Code      string
+	Lifetime  time.Duration
+}
+
+// Header addresses the mail to the address the attempt was started with,
+// unique per attempt.
+func (in LoginCodeInput) Header() Header {
+	return Header{UniqueID: in.AttemptID, From: FromPcom(in.From), To: To(in.To)}
+}
+
+// Minutes is the lifetime of the code in whole minutes.
+func (in LoginCodeInput) Minutes() int {
+	return int(in.Lifetime.Minutes())
+}
+
+var loginCodeMail = declare("login_code", "login_code", loginCodeSamples)
+
+func loginCodeSamples() []Sample[LoginCodeInput] {
+	return []Sample[LoginCodeInput]{
+		{Name: "login_code", Input: LoginCodeInput{
+			From: SampleFrom, AttemptID: "attempt-1", To: "user@example.test", Code: "123456", Lifetime: 15 * time.Minute,
+		}},
+	}
+}
 
 // LoginCode is the mail that carries the code for one login attempt to the
 // address it was started with.
 func LoginCode(from string, attemptID, to, code string, lifetime time.Duration) *Envelope {
-	minutes := int(lifetime.Minutes())
-
-	mail := &sender.Mail{
-		From: mail.Address{
-			Address: from,
-			Name:    "Your pcom",
-		},
-		To: []mail.Address{
-			{
-				Address: to,
-			},
-		},
-		Subject: "Your pcom login code",
-		Text: fmt.Sprintf(`
-	Hi!
-
-	Your pcom login code is %s
-
-	It works once, for the next %d minutes.
-
-	If you didn't try to log in to pcom, ignore this mail: nobody can log in without the code.`, code, minutes),
-		Html: fmt.Sprintf(`
-	<p>Hi!</p>
-
-	<p>Your pcom login code is <strong>%s</strong></p>
-
-	<p>It works once, for the next %d minutes.</p>
-
-	<p>If you didn't try to log in to pcom, ignore this mail: nobody can log in without the code.</p>`, html.EscapeString(code), minutes),
-	}
-
-	return &Envelope{UniqueID: attemptID, Type: "login_code", Mail: mail}
+	return loginCodeMail.MustRender(LoginCodeInput{From: from, AttemptID: attemptID, To: to, Code: code, Lifetime: lifetime})
 }

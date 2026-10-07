@@ -105,7 +105,7 @@ func (s *Service) PostURL(postID string) string {
 
 // queue puts a formatted mail in the outbox of the transaction tx. A nil mail
 // is a notification nobody needs, and is skipped.
-func (s *Service) queue(ctx context.Context, tx *repo.Store, out *mail.Outgoing) error {
+func (s *Service) queue(ctx context.Context, tx *repo.Store, out *mail.Envelope) error {
 	if out == nil {
 		return nil
 	}
@@ -118,7 +118,7 @@ func (s *Service) queue(ctx context.Context, tx *repo.Store, out *mail.Outgoing)
 }
 
 // queueE is queue for the formatters that can fail.
-func (s *Service) queueE(ctx context.Context, tx *repo.Store, out *mail.Outgoing, err error) error {
+func (s *Service) queueE(ctx context.Context, tx *repo.Store, out *mail.Envelope, err error) error {
 	if err != nil {
 		return err
 	}

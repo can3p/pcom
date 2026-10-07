@@ -1,0 +1,8 @@
+
+Hi!
+
+Your pcom login code is {{.Code}}
+
+It works once, for the next {{.Minutes}} minutes.
+
+If you didn't try to log in to pcom, ignore this mail: nobody can log in without the code.
