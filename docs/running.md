@@ -61,8 +61,9 @@ once first. The server listens on `$PORT` (8080), and `SITE_ROOT` has to match. 
 tommy stands in for both outside services:
 
 * Mail goes to tommy's fake Mailjet API (`MJ_API_BASE`); read it at http://localhost:8811/ui/.
-* Every mail's samples render at http://localhost:8080/dev/mail. The `/dev` pages exist only with
-  `DEV_ROUTES=true`, which the local config sets and production never does.
+* Every mail's samples render at http://localhost:8080/dev/mail; `make dev` prints this address with the
+  others, or a warning when the app answers 404 there. The `/dev` pages exist only with `DEV_ROUTES=true`,
+  which the local config sets and production never does.
 * Uploads go to tommy's S3 bucket `pcom-media` on port 9555, with path-style addressing
   (`USER_MEDIA_PATH_STYLE=true`); list the objects at
   http://localhost:8811/api/v1/s3/buckets/pcom-media/objects.
