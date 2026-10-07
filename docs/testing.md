@@ -34,11 +34,18 @@ happen is tested in the browser, never over plain HTTP.
    ordering.
 5. **Every test gets its own database** (`testdb.New(t)`), and tests may run
    in parallel (`t.Parallel()` is encouraged for DB tests).
-6. **Mail content is golden-tested** under `testdata/*.golden`, with the
-   convention `UPDATE_GOLDEN=1 go test ./pkg/mail/...` to rewrite.
-   These goldens are the safety net for R4. Golden fixtures use fixed values,
-   never factory emails or usernames, which come from a counter that parallel
-   tests share and would make the golden depend on test order.
+6. **Mail content is golden-tested**: `TestMails_Goldens` renders every sample
+   of every mail into `pkg/mail/testdata/<sample>.golden`
+   (`UPDATE_GOLDEN=1 go test ./pkg/mail/...` rewrites; the helper doesn't create
+   a missing file, so a new sample's golden starts as an empty file). Samples use
+   fixed values, never factory emails or usernames, which come from a counter that
+   parallel tests share and would make the golden depend on test order. The
+   goldens test the samples, not the constructors: each constructor has a
+   `_MatchesSample` test that calls it with models and compares with its sample's
+   rendering. Write the sample inputs as literals, not through the constructor's
+   own model-to-input mapper (a wrong mapping would then be on both sides), give
+   ids that a mapper could swap different values, and use `SampleSite`, which has
+   a root, so a constructor that ignores its site fails.
 7. **Keep tests compact.** Cases that differ only in inputs and expectations
    are rows of one table-driven test with `t.Run`, not one function each. A
    table test opens one database at the top, and each row makes its own

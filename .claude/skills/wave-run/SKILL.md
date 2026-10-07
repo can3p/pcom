@@ -62,10 +62,10 @@ subagents, whose context is thrown away.
   branch>` (the only git command it may run). Merge each finished worktree by committing there and
   cherry-picking onto the wave branch; resolve shared files (a registry, an allowlist) by script, and
   conflicts in code by hand.
-  A worktree has no `cmd/web/node_modules` and no built `cmd/web/dist` (both untracked), and the E2E tests
-  serve `cmd/web/dist`: a task that doesn't change assets links the main checkout's
-  (`ln -s /home/user/pcom/cmd/web/dist cmd/web/dist`); one that does links `node_modules` the same way and
-  builds once. Parallel worktrees share golangci-lint's lock: "parallel golangci-lint is running" means
+  A worktree has no `cmd/web/node_modules` and no built `cmd/web/dist` (both untracked). The E2E tests
+  serve stub assets and need neither; only the browser tests (`make test-ui`) need a build. A task that
+  runs them links `node_modules` from the main checkout and lets `make test-ui` build. Don't link the main
+  checkout's `dist`: it exists only after a `make test-ui` there, and a dangling link breaks E2E. Parallel worktrees share golangci-lint's lock: "parallel golangci-lint is running" means
   retry, not a lint failure. Delete finished worktrees (`git worktree remove`) once merged; their copies
   of the tree show up in every repository-wide grep.
   With a worktree of its own, an agent may run `make test-ui` freely. After merging parallel tasks, run the
