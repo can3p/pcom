@@ -1,0 +1,8 @@
+
+	<p>Hi!</p>
+
+	<p>@{{.Commenter}} {{if .Edited}}has edited a comment in{{else}}has left a comment in{{end}} the post "{{.Subject}}" where you've also left a comment.</p>{{with .URL}}<p>Linked URL: <a href="{{.}}">{{.}}</a></p>{{end}}
+
+	<blockquote>{{.BodyHTML}}</blockquote>
+
+	<p>Checkout the comment in the <a href="{{.Link}}">post</a>.</p>

@@ -9,47 +9,89 @@ import (
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
-	"github.com/can3p/pcom/pkg/testutil/golden"
 	"github.com/stretchr/testify/require"
 )
 
-func TestPostCommentAuthor(t *testing.T) {
-	t.Parallel()
+// sampleEnvelope is the rendering of the sample name.
+func sampleEnvelope(t *testing.T, name string) *mail.Envelope {
+	t.Helper()
 
-	commenter := &model.User{
-		ID:       "user-1",
-		Email:    "commenter@example.test",
-		Username: "alice",
-	}
-	author := &model.User{
-		ID:       "user-2",
-		Email:    "author@example.test",
-		Username: "bob",
-	}
-	post := &model.Post{
-		ID:      "post-1",
-		Subject: new("Original Post"),
-		Body:    "Post body",
-		UserID:  author.ID,
-	}
-	comment := &model.PostComment{
-		ID:     "comment-1",
-		PostID: post.ID,
-		UserID: commenter.ID,
-		Body:   "Nice post!",
+	for _, m := range mail.All() {
+		for _, s := range m.Samples {
+			if s.Name == name {
+				require.NoError(t, s.Err)
+
+				return s.Envelope
+			}
+		}
 	}
 
-	sender := fakesender.New()
-	ctx := context.Background()
+	require.Failf(t, "no such sample", "sample %s", name)
+
+	return nil
+}
+
+type formatComment func(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error)
+
+func formatAuthor(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error) {
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment, false))
-	require.NoError(t, err)
+	return mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, edited)
+}
 
-	sent := sender.Sent()
-	require.Len(t, sent, 1)
+func formatParticipants(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error) {
+	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	golden.Assert(t, "post_comment_author", mailsToGolden(sent))
+	return mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, edited)
+}
+
+// The comment mails are built from models; each case builds the models of
+// the sample it names and expects the sample's rendering, so a wrong mapping
+// from models to the input fails.
+func TestPostCommentMails_MatchSamples(t *testing.T) {
+	t.Parallel()
+
+	commenter := &model.User{ID: "user-1", Email: "commenter@example.test", Username: "alice"}
+	newPost := func() *model.Post {
+		return &model.Post{ID: "post-1", Subject: new("Original Post"), Body: "Post body", UserID: "user-3"}
+	}
+	withURL := newPost()
+	withURL.URLID = new("url-1")
+	setPostURL(withURL, &model.NormalizedURL{ID: "url-1", URL: "https://example.com/article"})
+
+	for _, tc := range []struct {
+		name      string
+		recipient string
+		post      *model.Post
+		body      string
+		edited    bool
+		format    formatComment
+	}{
+		{"post_comment_author", "author@example.test", newPost(), "Nice post!", false, formatAuthor},
+		{"post_comment_author_edited", "recipient@example.test", newPost(), "Nice post, edited!", true, formatAuthor},
+		{"post_comment_author_with_url", "author@example.test", withURL, "Nice post!", false, formatAuthor},
+		{"post_comment_participants", "participant@example.test", newPost(), "Great comment!", false, formatParticipants},
+		{"post_comment_participants_edited", "recipient@example.test", newPost(), "Nice post, edited!", true, formatParticipants},
+		{"post_comment_participants_with_url", "participant@example.test", withURL, "Great comment!", false, formatParticipants},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			comment := &model.PostComment{ID: "comment-1", PostID: tc.post.ID, UserID: commenter.ID, Body: tc.body}
+			if tc.edited {
+				comment.EditedAt = new(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+			}
+
+			recipient := &model.User{ID: "user-2", Email: tc.recipient, Username: "bob"}
+			got, err := tc.format(commenter, recipient, tc.post, comment, tc.edited)
+			require.NoError(t, err)
+			require.Equal(t, sampleEnvelope(t, tc.name), got)
+
+			if tc.edited {
+				require.Contains(t, got.UniqueID, "2026-09-30T12:00:00Z")
+			}
+		})
+	}
 }
 
 func TestPostCommentAuthor_NotToMyself(t *testing.T) {
@@ -85,45 +127,6 @@ func TestPostCommentAuthor_NotToMyself(t *testing.T) {
 	require.Empty(t, sent, "should not send email to self")
 }
 
-func TestPostCommentParticipants(t *testing.T) {
-	t.Parallel()
-
-	commenter := &model.User{
-		ID:       "user-1",
-		Email:    "commenter@example.test",
-		Username: "alice",
-	}
-	participant := &model.User{
-		ID:       "user-2",
-		Email:    "participant@example.test",
-		Username: "bob",
-	}
-	post := &model.Post{
-		ID:      "post-1",
-		Subject: new("Original Post"),
-		Body:    "Post body",
-		UserID:  "user-3",
-	}
-	comment := &model.PostComment{
-		ID:     "comment-1",
-		PostID: post.ID,
-		UserID: commenter.ID,
-		Body:   "Great comment!",
-	}
-
-	sender := fakesender.New()
-	ctx := context.Background()
-	mediaReplacer := func(in string) (bool, string) { return false, in }
-
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment, false))
-	require.NoError(t, err)
-
-	sent := sender.Sent()
-	require.Len(t, sent, 1)
-
-	golden.Assert(t, "post_comment_participants", mailsToGolden(sent))
-}
-
 func TestPostCommentParticipants_NotToMyself(t *testing.T) {
 	t.Parallel()
 
@@ -155,130 +158,4 @@ func TestPostCommentParticipants_NotToMyself(t *testing.T) {
 
 	sent := sender.Sent()
 	require.Empty(t, sent, "should not send email to self")
-}
-
-func TestPostCommentAuthor_WithURL(t *testing.T) {
-	t.Parallel()
-
-	commenter := &model.User{
-		ID:       "user-1",
-		Email:    "commenter@example.test",
-		Username: "alice",
-	}
-	author := &model.User{
-		ID:       "user-2",
-		Email:    "author@example.test",
-		Username: "bob",
-	}
-	post := &model.Post{
-		ID:      "post-1",
-		Subject: new("Original Post"),
-		Body:    "Post body",
-		UserID:  author.ID,
-		URLID:   new("url-1"),
-	}
-	setPostURL(post, &model.NormalizedURL{
-		ID:  "url-1",
-		URL: "https://example.com/article",
-	})
-	comment := &model.PostComment{
-		ID:     "comment-1",
-		PostID: post.ID,
-		UserID: commenter.ID,
-		Body:   "Nice post!",
-	}
-
-	sender := fakesender.New()
-	ctx := context.Background()
-	mediaReplacer := func(in string) (bool, string) { return false, in }
-
-	err := deliverE(ctx, sender)(mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, author, post, comment, false))
-	require.NoError(t, err)
-
-	sent := sender.Sent()
-	require.Len(t, sent, 1)
-
-	golden.Assert(t, "post_comment_author_with_url", mailsToGolden(sent))
-}
-
-func TestPostCommentParticipants_WithURL(t *testing.T) {
-	t.Parallel()
-
-	commenter := &model.User{
-		ID:       "user-1",
-		Email:    "commenter@example.test",
-		Username: "alice",
-	}
-	participant := &model.User{
-		ID:       "user-2",
-		Email:    "participant@example.test",
-		Username: "bob",
-	}
-	post := &model.Post{
-		ID:      "post-1",
-		Subject: new("Original Post"),
-		Body:    "Post body",
-		UserID:  "user-3",
-		URLID:   new("url-1"),
-	}
-	setPostURL(post, &model.NormalizedURL{
-		ID:  "url-1",
-		URL: "https://example.com/article",
-	})
-	comment := &model.PostComment{
-		ID:     "comment-1",
-		PostID: post.ID,
-		UserID: commenter.ID,
-		Body:   "Great comment!",
-	}
-
-	sender := fakesender.New()
-	ctx := context.Background()
-	mediaReplacer := func(in string) (bool, string) { return false, in }
-
-	err := deliverE(ctx, sender)(mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, participant, post, comment, false))
-	require.NoError(t, err)
-
-	sent := sender.Sent()
-	require.Len(t, sent, 1)
-
-	golden.Assert(t, "post_comment_participants_with_url", mailsToGolden(sent))
-}
-
-func TestPostCommentEdited(t *testing.T) {
-	t.Parallel()
-
-	commenter := &model.User{ID: "user-1", Email: "commenter@example.test", Username: "alice"}
-	recipient := &model.User{ID: "user-2", Email: "recipient@example.test", Username: "bob"}
-	post := &model.Post{ID: "post-1", Subject: new("Original Post"), Body: "Post body", UserID: recipient.ID}
-	comment := &model.PostComment{
-		ID:       "comment-1",
-		PostID:   post.ID,
-		UserID:   commenter.ID,
-		Body:     "Nice post, edited!",
-		EditedAt: new(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
-	}
-	mediaReplacer := func(in string) (bool, string) { return false, in }
-
-	for name, format := range map[string]func() (*mail.Envelope, error){
-		"post_comment_author_edited": func() (*mail.Envelope, error) {
-			return mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, true)
-		},
-		"post_comment_participants_edited": func() (*mail.Envelope, error) {
-			return mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, true)
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			sender := fakesender.New()
-			require.NoError(t, deliverE(context.Background(), sender)(format()))
-
-			sent := sender.Sent()
-			require.Len(t, sent, 1)
-			require.Contains(t, sent[0].UniqueID, "2026-09-30T12:00:00Z")
-
-			golden.Assert(t, name, mailsToGolden(sent))
-		})
-	}
 }
