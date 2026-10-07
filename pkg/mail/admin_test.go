@@ -13,24 +13,6 @@ import (
 
 const testAdmin = "admin@pcom.test"
 
-// sampleEnvelope is the rendering of the sample called name.
-func sampleEnvelope(t *testing.T, name string) *mail.Envelope {
-	t.Helper()
-
-	for _, m := range mail.All() {
-		for _, s := range m.Samples {
-			if s.Name == name {
-				require.NoError(t, s.Err)
-				return s.Envelope
-			}
-		}
-	}
-
-	require.FailNow(t, "no sample", name)
-
-	return nil
-}
-
 // requireSample checks that got is the rendering of the sample called name.
 // Mails whose id is generated per send take the sample's id.
 func requireSample(t *testing.T, name string, got *mail.Envelope, generatedID bool) {

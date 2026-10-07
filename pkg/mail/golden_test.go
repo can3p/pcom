@@ -66,3 +66,22 @@ func TestMails_Registry(t *testing.T) {
 		}
 	}
 }
+
+// sampleEnvelope is the rendering of the sample called name.
+func sampleEnvelope(t *testing.T, name string) *mail.Envelope {
+	t.Helper()
+
+	for _, m := range mail.All() {
+		for _, s := range m.Samples {
+			if s.Name == name {
+				require.NoError(t, s.Err)
+
+				return s.Envelope
+			}
+		}
+	}
+
+	require.Failf(t, "no such sample", "sample %s", name)
+
+	return nil
+}

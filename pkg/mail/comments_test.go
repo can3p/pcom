@@ -12,25 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sampleEnvelope is the rendering of the sample name.
-func sampleEnvelope(t *testing.T, name string) *mail.Envelope {
-	t.Helper()
-
-	for _, m := range mail.All() {
-		for _, s := range m.Samples {
-			if s.Name == name {
-				require.NoError(t, s.Err)
-
-				return s.Envelope
-			}
-		}
-	}
-
-	require.Failf(t, "no such sample", "sample %s", name)
-
-	return nil
-}
-
 type formatComment func(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error)
 
 func formatAuthor(commenter, recipient *model.User, post *model.Post, comment *model.PostComment, edited bool) (*mail.Envelope, error) {
