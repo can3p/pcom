@@ -1,0 +1,6 @@
+
+Hi!
+
+Thank you for your interest pcom! Please follow the link to confirm your email address
+
+{{.Link}}

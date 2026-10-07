@@ -1,45 +1,43 @@
 package mail
 
 import (
-	"fmt"
-	"html"
-	"net/mail"
-
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 )
 
+// ConfirmWaitingListInput is what the waiting list confirmation mail shows:
+// the link that confirms the entry's email address.
+type ConfirmWaitingListInput struct {
+	Site      links.Site
+	From      string
+	RequestID string
+	To        string
+}
+
+// Header addresses the mail to the entry's address, unique per entry.
+func (in ConfirmWaitingListInput) Header() Header {
+	return Header{UniqueID: in.RequestID, From: FromPcom(in.From), To: To(in.To)}
+}
+
+// Link is the absolute link that confirms the entry.
+func (in ConfirmWaitingListInput) Link() string {
+	return in.Site.Abs("confirm_waiting_list", in.RequestID)
+}
+
+var confirmWaitingListMail = declare("waiting_list_confirm", "confirm_waiting_list", confirmWaitingListSamples)
+
+func confirmWaitingListSamples() []Sample[ConfirmWaitingListInput] {
+	return []Sample[ConfirmWaitingListInput]{
+		{Name: "send_actual_confirm_waiting_list", Input: ConfirmWaitingListInput{
+			Site: SampleSite, From: SampleFrom, RequestID: "request-1", To: "newuser@example.test",
+		}},
+	}
+}
+
 // ConfirmWaitingList is the mail with the link that confirms a waiting list
 // entry's email address.
 func ConfirmWaitingList(site links.Site, from string, waitingList *model.UserSignupRequest) *Envelope {
-	link := site.Abs("confirm_waiting_list", waitingList.ID)
-	to := waitingList.Email
-
-	mail := &sender.Mail{
-		From: mail.Address{
-			Address: from,
-			Name:    "Your pcom",
-		},
-		To: []mail.Address{
-			{
-				Address: to,
-			},
-		},
-		Subject: "Waiting list on pcom",
-		Text: fmt.Sprintf(`
-	Hi!
-
-	Thank you for your interest pcom! Please follow the link to confirm your email address
-
-	%s`, link),
-		Html: fmt.Sprintf(`
-	<p>Hi!</p>
-
-	<p>Thank you for your interest pcom! Please follow the link to confirm your email address</p>
-
-	<a href="%s">%s</a>`, html.EscapeString(link), html.EscapeString(link)),
-	}
-
-	return &Envelope{UniqueID: waitingList.ID, Type: "waiting_list_confirm", Mail: mail}
+	return confirmWaitingListMail.MustRender(ConfirmWaitingListInput{
+		Site: site, From: from, RequestID: waitingList.ID, To: waitingList.Email,
+	})
 }
