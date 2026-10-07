@@ -51,6 +51,8 @@ type Config struct {
 	HSTS bool
 	// StaticCache serves /static with a long immutable Cache-Control.
 	StaticCache bool
+	// DevRoutes mounts the /dev pages (mail previews); local development only.
+	DevRoutes bool
 	// ShowErrors shows error details in pages.
 	ShowErrors bool
 	// ReportPanics mails AdminAddress when a page panics.

@@ -1,0 +1,25 @@
+EmailType: admin_new_user
+UniqueID: 0190a3b4-0000-7000-8000-000000000001
+From: Your pcom <noreply@pcom.test>
+To: admin@pcom.test
+Subject: New User on pcom
+
+--- TEXT ---
+Hi!
+
+New user alert:
+
+* ID: 0190a3b4-0000-7000-8000-000000000001
+* Blog: https://pcom.test/users/alice
+* Email: alice@example.test
+
+--- HTML ---
+<p>Hi!</p>
+
+<p>New user alert:</p>
+
+<ul>
+	<li>ID: 0190a3b4-0000-7000-8000-000000000001</li>
+	<li>Blog: <a href="https://pcom.test/users/alice">https://pcom.test/users/alice</a></li>
+	<li>Email: alice@example.test</li>
+</ul>

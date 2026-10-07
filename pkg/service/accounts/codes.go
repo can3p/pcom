@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -310,7 +309,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*mod
 	}
 
 	if confirmed {
-		s.notifyAdmin(ctx, "signup confirmed", admin.SignupConfirmed(s.ident.Site, s.ident.From, s.ident.AdminAddress, user))
+		s.notifyAdmin(ctx, "signup confirmed", mail.AdminSignupConfirmed(s.ident.From, s.ident.AdminAddress, user))
 	}
 
 	return user, returnURL, nil

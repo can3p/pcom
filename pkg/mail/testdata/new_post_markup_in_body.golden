@@ -1,0 +1,23 @@
+EmailType: post_notification
+UniqueID: post-1user-2
+From: Your pcom <noreply@pcom.test>
+To: connection@example.test
+Subject: New post "Test Post" from alice
+
+--- TEXT ---
+Hi!
+
+@alice has published a new post "Test Post"
+
+Head to the post to leave a comment! https://pcom.test/posts/post-1
+
+--- HTML ---
+
+<p>Hi!</p>
+
+<p>@alice has published a new post "Test Post"</p>
+
+<blockquote><p>Hello <!-- raw HTML omitted -->alert(1)<!-- raw HTML omitted --> and <!-- raw HTML omitted -->a link<!-- raw HTML omitted --></p>
+</blockquote>
+
+<p>Head to the post to leave a comment! <a href="https://pcom.test/posts/post-1">https://pcom.test/posts/post-1</a></p>

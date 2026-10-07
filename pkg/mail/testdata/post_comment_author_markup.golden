@@ -1,0 +1,39 @@
+EmailType: comment_notification
+UniqueID: comment-1user-1
+From: Your pcom <noreply@pcom.test>
+To: author@example.test
+Subject: New comment in your post "Original Post"
+
+--- TEXT ---
+Hi!
+
+@alice has left a comment in your post "Original Post".
+
+> Nice **post**, see [the docs](https://example.com/a?b=1&c=2).
+> 
+> - one
+> - <script>alert(1)</script>
+> 
+> > quoted & "done"
+
+Checkout the comment in the post: https://pcom.test/posts/post-1#commentpost-1comment-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>@alice has left a comment in your post "Original Post".</p>
+
+	<blockquote><p>Nice <strong>post</strong>, see <a href="https://example.com/a?b=1&amp;c=2">the docs</a>.</p>
+<ul>
+<li>one</li>
+<li>
+<!-- raw HTML omitted -->
+</li>
+</ul>
+<blockquote>
+<p>quoted &amp; &quot;done&quot;</p>
+</blockquote>
+</blockquote>
+
+	<p>Checkout the comment in the <a href="https://pcom.test/posts/post-1#commentpost-1comment-1">post</a>.</p>

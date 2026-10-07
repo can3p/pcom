@@ -1,0 +1,8 @@
+Hi!
+
+@{{.Commenter}} {{if .Edited}}has edited a comment in{{else}}has left a comment in{{end}} the post "{{.Subject}}" where you've also left a comment.{{with .URL}}
+Linked URL: {{.}}{{end}}
+
+{{.Quote}}
+
+Checkout the comment in the post: {{.Link}}

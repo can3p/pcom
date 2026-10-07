@@ -1,0 +1,40 @@
+EmailType: panic_notification
+UniqueID: 0190a3b4-0000-7000-8000-000000000004
+From: Your pcom <noreply@pcom.test>
+To: admin@pcom.test
+Subject: Panic on the page
+
+--- TEXT ---
+Hi!
+
+Panic on the page
+
+* User: email (alice@example.test), id (0190a3b4-0000-7000-8000-000000000001)
+* Request data:
+
+[Recovery] 2026/01/02 - 03:04:05 panic recovered:
+GET /posts/1 HTTP/1.1
+Host: pcom.test
+Cookie: <hidden>
+
+something broke
+/app/pkg/web/handler.go:42 (0x1234)
+	Handle: panic(err)
+
+--- HTML ---
+<p>Hi!</p>
+
+<p>Panic on the page:</p>
+
+<ul>
+<li>user: email (alice@example.test), id (0190a3b4-0000-7000-8000-000000000001)</li>
+<li>Request data: <br /><pre>[Recovery] 2026/01/02 - 03:04:05 panic recovered:
+GET /posts/1 HTTP/1.1
+Host: pcom.test
+Cookie: &lt;hidden&gt;
+
+something broke
+/app/pkg/web/handler.go:42 (0x1234)
+	Handle: panic(err)
+</pre></li>
+</ul>

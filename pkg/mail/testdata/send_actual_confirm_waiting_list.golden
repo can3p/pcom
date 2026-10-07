@@ -6,16 +6,16 @@ Subject: Waiting list on pcom
 
 --- TEXT ---
 
-	Hi!
+Hi!
 
-	Thank you for your interest pcom! Please follow the link to confirm your email address
+Thank you for your interest pcom! Please follow the link to confirm your email address
 
-	/confirm_waiting_list/request-1
+https://pcom.test/confirm_waiting_list/request-1
 
 --- HTML ---
 
-	<p>Hi!</p>
+<p>Hi!</p>
 
-	<p>Thank you for your interest pcom! Please follow the link to confirm your email address</p>
+<p>Thank you for your interest pcom! Please follow the link to confirm your email address</p>
 
-	<a href="/confirm_waiting_list/request-1">/confirm_waiting_list/request-1</a>
+<a href="https://pcom.test/confirm_waiting_list/request-1">https://pcom.test/confirm_waiting_list/request-1</a>

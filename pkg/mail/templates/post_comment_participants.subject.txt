@@ -1,0 +1,1 @@
+{{if .Edited}}Edited comment in the post{{else}}New comment in the post{{end}} "{{.Subject}}"

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Sample }} - mail preview</title>
+    <link rel="stylesheet" href="{{ static_asset "main.css" }}" />
+  </head>
+  <body>
+    <main class="prose">
+      <p><a href="/dev/mail">All mails</a></p>
+      <h1>{{ .Sample }}</h1>
+      <p>Mail: {{ .Mail }}</p>
+      {{ if .Err }}
+      <p>The sample failed to render: {{ .Err }}</p>
+      {{ else }}
+      <h2>Subject</h2>
+      <p>{{ .Subject }}</p>
+      <h2>Text</h2>
+      <pre>{{ .Text }}</pre>
+      <h2>HTML</h2>
+      <iframe sandbox srcdoc="{{ .HTML }}" title="HTML body" style="width: 100%; height: 32rem; border: 1px solid currentColor;"></iframe>
+      {{ end }}
+    </main>
+  </body>
+</html>

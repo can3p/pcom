@@ -6,16 +6,16 @@ Subject: Welcome to pcom
 
 --- TEXT ---
 
-	Hi!
+Hi!
 
-	Welcome to pcom! Please follow the link to choose a username. You will log in with a code we mail you, so there is no password to set.
+Welcome to pcom! Please follow the link to choose a username. You will log in with a code we mail you, so there is no password to set.
 
-	/invite/invite-1
+https://pcom.test/invite/invite-1
 
 --- HTML ---
 
-	<p>Hi!</p>
+<p>Hi!</p>
 
-	<p>Welcome to pcom! Please follow the link to choose a username. You will log in with a code we mail you, so there is no password to set.</p>
+<p>Welcome to pcom! Please follow the link to choose a username. You will log in with a code we mail you, so there is no password to set.</p>
 
-	<a href="/invite/invite-1">/invite/invite-1</a>
+<a href="https://pcom.test/invite/invite-1">https://pcom.test/invite/invite-1</a>

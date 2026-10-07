@@ -55,6 +55,9 @@ Help Options:
                                               [$LOG_LEVEL]
           --enable-pprof=                     Serve net/http/pprof on :8081
                                               (default: false) [$ENABLE_PPROF]
+          --dev-routes=                       Serve the /dev pages (mail
+                                              previews); local development only
+                                              (default: false) [$DEV_ROUTES]
 
     Mail:
           --sender-address=                   From address of every mail
@@ -65,6 +68,11 @@ Help Options:
           --email-poll-interval=              How often the mail queue is sent
                                               (default: 10s)
                                               [$EMAIL_POLL_INTERVAL]
+          --email-retry-intervals=            Waits between attempts to send a
+                                              mail; a mail fails after one
+                                              attempt more than there are waits
+                                              (default: 10s, 60s, 30m)
+                                              [$EMAIL_RETRY_INTERVALS]
 
     Mailjet:
           --mj-api-key-public=                Mailjet API key public

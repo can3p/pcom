@@ -1,0 +1,23 @@
+EmailType: new_waiting_list_member
+UniqueID: 0190a3b4-0000-7000-8000-000000000002
+From: Your pcom <noreply@pcom.test>
+To: admin@pcom.test
+Subject: New waiting list member on pcom
+
+--- TEXT ---
+Hi!
+
+New waiting list member alert:
+
+* Email address: signup@example.test
+* Reason: I read your blog
+
+--- HTML ---
+<p>Hi!</p>
+
+<p>New waiting list member alert:</p>
+
+<ul>
+<li>Email address: signup@example.test</li>
+<li>Reason: I read your blog</li>
+</ul>

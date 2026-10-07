@@ -9,12 +9,12 @@ Hi!
 
 @alice has asked you to write a post on "What is your favorite hobby?"
 
-Head to new post page to give an update! /write?prompt=prompt-1
+Head to new post page to give an update! https://pcom.test/write?prompt=prompt-1
 
 --- HTML ---
 
-	<p>Hi!</p>
+<p>Hi!</p>
 
-	<p>@alice has asked you to write a post on "What is your favorite hobby?"</p>
+<p>@alice has asked you to write a post on "What is your favorite hobby?"</p>
 
-	<p>Head to new post page to give an update! <a href="/write?prompt=prompt-1">/write?prompt=prompt-1</a></p>
+<p>Head to new post page to give an update! <a href="https://pcom.test/write?prompt=prompt-1">https://pcom.test/write?prompt=prompt-1</a></p>

@@ -1,0 +1,25 @@
+EmailType: comment_notification
+UniqueID: comment-1user-1
+From: Your pcom <noreply@pcom.test>
+To: author@example.test
+Subject: New comment in your post "A <b>very</b> long & "quoted" subject that goes on and on to see how a mail client wraps a subject line of this length, past any sensible limit"
+
+--- TEXT ---
+Hi!
+
+@alice has left a comment in your post "A <b>very</b> long & "quoted" subject that goes on and on to see how a mail client wraps a subject line of this length, past any sensible limit".
+
+> Nice **post**!
+
+Checkout the comment in the post: https://pcom.test/posts/post-1#commentpost-1comment-1
+
+--- HTML ---
+
+	<p>Hi!</p>
+
+	<p>@alice has left a comment in your post "A &lt;b&gt;very&lt;/b&gt; long &amp; &#34;quoted&#34; subject that goes on and on to see how a mail client wraps a subject line of this length, past any sensible limit".</p>
+
+	<blockquote><p>Nice <strong>post</strong>!</p>
+</blockquote>
+
+	<p>Checkout the comment in the <a href="https://pcom.test/posts/post-1#commentpost-1comment-1">post</a>.</p>

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -119,7 +118,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *model.UserInvitation
 			return err
 		}
 
-		if err := s.send(ctx, tx, admin.NewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
+		if err := s.send(ctx, tx, mail.AdminNewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
 			return err
 		}
 

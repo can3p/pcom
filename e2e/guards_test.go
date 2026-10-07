@@ -367,6 +367,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_media.go":        {"router": ""},
 		"../pkg/web/app/routes_public.go":       {"r": ""},
 		"../pkg/web/app/routes_rss.go":          {"r": ""},
+		"../pkg/web/app/routes_dev.go":          {"dev": "/dev"},
 		"../pkg/web/app/routes_auth.go":         {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_connections.go":  {"controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_posts.go":        {"r": "", "controlsForms": "/controls/form"},

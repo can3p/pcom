@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/can3p/gogo/sender"
@@ -13,23 +14,43 @@ import (
 	"github.com/google/uuid"
 )
 
-const attemptsNumber = 3
-
-var retryIntervals = []time.Duration{10 * time.Second, 60 * time.Second, 30 * time.Minute}
+// DefaultRetryIntervals is the wait before each retry of a failed mail, equal
+// to the default of config.Mail.RetryIntervals. A mail fails for good after
+// one attempt more than there are intervals.
+var DefaultRetryIntervals = []time.Duration{10 * time.Second, 60 * time.Second, 30 * time.Minute}
 
 type dbSender struct {
-	realSender sender.Sender
-	store      *repo.Store
+	realSender     sender.Sender
+	store          *repo.Store
+	retryIntervals []time.Duration
+}
+
+// Option configures the sender.
+type Option func(*dbSender)
+
+// WithRetryIntervals sets the wait before each retry of a failed mail; a mail
+// fails for good after len(intervals)+1 attempts.
+func WithRetryIntervals(intervals []time.Duration) Option {
+	return func(m *dbSender) {
+		m.retryIntervals = slices.Clone(intervals)
+	}
 }
 
 // compile-time check that dbSender is the mail queue.
 var _ repo.MailQueue = (*dbSender)(nil)
 
-func NewSender(db *repo.Store, realSender sender.Sender) *dbSender {
-	return &dbSender{
-		realSender: realSender,
-		store:      db,
+func NewSender(db *repo.Store, realSender sender.Sender, opts ...Option) *dbSender {
+	m := &dbSender{
+		realSender:     realSender,
+		store:          db,
+		retryIntervals: slices.Clone(DefaultRetryIntervals),
 	}
+
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
 }
 
 // RunPoller sends the queued mail every interval until ctx is done.
@@ -57,25 +78,35 @@ func (m *dbSender) sendEmails(ctx context.Context) (err error) {
 		}
 	}()
 
-	return m.store.Tx(ctx, func(tx *repo.Store) error {
-		pending, err := tx.GetPendingEmails(ctx)
+	ids, err := m.store.ListDueEmailIDs(ctx)
+	if err != nil {
+		return err
+	}
 
+	for _, id := range ids {
+		if err := m.sendOne(ctx, id); err != nil {
+			slog.Warn("failed to send email", "email_id", id, "err", err)
+		}
+	}
+
+	return nil
+}
+
+// sendOne sends one mail in its own transaction: it locks the row, sends the
+// mail and records the outcome. A row another worker holds, or that is no
+// longer new, is skipped. A failure here leaves every other mail alone.
+func (m *dbSender) sendOne(ctx context.Context, id string) error {
+	return m.store.Tx(ctx, func(tx *repo.Store) error {
+		outgoing, err := tx.LockDueEmail(ctx, id)
 		if err != nil {
 			return err
 		}
 
-		if len(pending) == 0 {
+		if outgoing == nil {
 			return nil
 		}
 
-		for _, outgoing := range pending {
-			if err := m.trySendEmail(ctx, tx, outgoing); err != nil {
-				slog.Warn("failed to send email", "email_id", outgoing.ID, "err", err)
-				continue
-			}
-		}
-
-		return nil
+		return m.trySendEmail(ctx, tx, outgoing)
 	})
 }
 
@@ -93,8 +124,8 @@ func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *m
 		outgoing.Status = model.OutgoingEmailStatusSent
 		outgoing.SentAt = new(time.Now())
 	} else {
-		if outgoing.AttemptsNumber < attemptsNumber {
-			outgoing.TryAt = time.Now().Add(retryIntervals[outgoing.AttemptsNumber])
+		if outgoing.AttemptsNumber < len(m.retryIntervals) {
+			outgoing.TryAt = time.Now().Add(m.retryIntervals[outgoing.AttemptsNumber])
 			outgoing.AttemptsNumber = outgoing.AttemptsNumber + 1
 		} else {
 			outgoing.Status = model.OutgoingEmailStatusFailed
