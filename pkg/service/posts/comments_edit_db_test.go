@@ -156,3 +156,28 @@ func TestEditComment_LostConnection(t *testing.T) {
 	require.Nil(t, got.EditedAt)
 	require.Empty(t, out.Sent())
 }
+
+// A mail that cannot be queued fails the change it reports, and the
+// transaction rolls the change back.
+func TestSaveAndComment_SenderFailureRollsBack(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	w := newWorld(t, ctx, db)
+	out := fakesender.New()
+	s := posts.New(repo.New(db), out, nil)
+	sendErr := errors.New("queue is gone")
+	out.FailWith(sendErr)
+
+	_, err := s.Save(ctx, w.author, posts.SaveInput{
+		Subject: "published", Body: "a body for the post", Visibility: model.PostVisibilityPublic, Action: posts.ActionPublish,
+	})
+	require.ErrorIs(t, err, sendErr)
+	require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, w.author.ID))(t))
+
+	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
+	require.ErrorIs(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: post.ID, Body: "a fine comment"}), sendErr)
+	require.Empty(t, testutil.Must(factory.ListComments(ctx, db, post.ID))(t))
+	require.Zero(t, commentsNumber(t, ctx, db, post.ID))
+}

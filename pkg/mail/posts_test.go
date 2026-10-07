@@ -44,7 +44,7 @@ func TestNewPost_MatchesSamples(t *testing.T) {
 		t.Run(tt.sample, func(t *testing.T) {
 			t.Parallel()
 
-			got := mail.NewPost(links.Site{}, testFrom, keepMedia, user, connection, tt.post)
+			got := mail.NewPost(mail.SampleSite, testFrom, keepMedia, user, connection, tt.post)
 			require.Equal(t, sampleEnvelope(t, tt.sample), got)
 		})
 	}
@@ -88,7 +88,7 @@ func TestPostPrompt_MatchesSample(t *testing.T) {
 		Message:     "What is your favorite hobby?",
 	}
 
-	got := mail.PostPrompt(links.Site{}, testFrom, asker, recipient, prompt)
+	got := mail.PostPrompt(mail.SampleSite, testFrom, asker, recipient, prompt)
 	require.Equal(t, sampleEnvelope(t, "post_prompt"), got)
 }
 
@@ -124,7 +124,7 @@ func TestPostPromptAnswer_MatchesSample(t *testing.T) {
 	asker := &model.User{ID: "user-1", Email: "asker@example.test", Username: "alice"}
 	responder := &model.User{ID: "user-2", Email: "responder@example.test", Username: "bob"}
 	post := &model.Post{
-		ID:      "post-1",
+		ID:      "post-2",
 		Subject: new("My Answer"),
 		Body:    "Here is my answer to the prompt",
 		UserID:  responder.ID,
@@ -134,9 +134,9 @@ func TestPostPromptAnswer_MatchesSample(t *testing.T) {
 		AskerID:     asker.ID,
 		RecipientID: responder.ID,
 		Message:     "What is your favorite hobby?",
-		PostID:      new(post.ID),
+		PostID:      new("post-1"),
 	}
 
-	got := mail.PostPromptAnswer(links.Site{}, testFrom, asker, responder, post, prompt)
+	got := mail.PostPromptAnswer(mail.SampleSite, testFrom, asker, responder, post, prompt)
 	require.Equal(t, sampleEnvelope(t, "post_prompt_answer"), got)
 }

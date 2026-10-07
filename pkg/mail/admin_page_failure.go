@@ -9,6 +9,12 @@ import (
 
 const anonymousUser = "Anonymous"
 
+// SampleAdminPageFailureReport is the report the page failure samples carry.
+const SampleAdminPageFailureReport = "[Recovery] 2026/01/02 - 03:04:05 panic recovered:\r\n" +
+	"GET /posts/1 HTTP/1.1\r\nHost: pcom.test\r\nCookie: <hidden>\r\n\r\n" +
+	"something broke\r\n" +
+	"/app/pkg/web/handler.go:42 (0x1234)\r\n\tHandle: panic(err)\r\n"
+
 // AdminPageFailureInput is what the panic alert to the admin shows: who hit
 // the page and the report of the request, the panic and its stack.
 type AdminPageFailureInput struct {
@@ -27,10 +33,7 @@ func (in AdminPageFailureInput) Header() Header {
 var adminPageFailureMail = declare("panic_notification", "admin_page_failure", adminPageFailureSamples)
 
 func adminPageFailureSamples() []Sample[AdminPageFailureInput] {
-	const report = "[Recovery] 2026/01/02 - 03:04:05 panic recovered:\r\n" +
-		"GET /posts/1 HTTP/1.1\r\nHost: pcom.test\r\nCookie: <hidden>\r\n\r\n" +
-		"something broke\r\n" +
-		"/app/pkg/web/handler.go:42 (0x1234)\r\n\tHandle: panic(err)\r\n"
+	const report = SampleAdminPageFailureReport
 
 	return []Sample[AdminPageFailureInput]{
 		{Name: "admin_page_failure", Input: AdminPageFailureInput{

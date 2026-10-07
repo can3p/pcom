@@ -100,7 +100,7 @@ type Sample[In Input] struct {
 const SampleFrom = "noreply@pcom.test"
 
 // SampleSite is the site samples format their links for.
-var SampleSite = links.Site{}
+var SampleSite = links.Site{Root: "https://pcom.test"}
 
 // FromPcom is the from address of every pcom mail, at address from.
 func FromPcom(from string) mail.Address {

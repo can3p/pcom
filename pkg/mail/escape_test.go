@@ -2,7 +2,6 @@ package mail_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/links"
@@ -73,23 +72,6 @@ func TestMailers_EscapeUserContentInHTML(t *testing.T) {
 			require.Contains(t, html, escapedTag)
 			require.Contains(t, html, escapedQuo)
 			require.Contains(t, sent[0].Mail.Text, hostile)
-		})
-	}
-}
-
-func TestMailers_ReturnSendErrors(t *testing.T) {
-	t.Parallel()
-
-	sendErr := errors.New("database is gone")
-
-	for name, send := range mailers() {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			s := fakesender.New()
-			s.FailWith(sendErr)
-
-			require.ErrorIs(t, send(s), sendErr)
 		})
 	}
 }

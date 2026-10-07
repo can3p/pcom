@@ -88,46 +88,46 @@ type postCommentSample struct {
 	in   postComment
 }
 
-// postCommentSamples are the samples both comment mails share, built from
-// in-memory models. name is the sample name of the plain one, the others add
-// a suffix; to is the recipient's address and body the comment of the plain and
-// the linked-url ones.
+// postCommentSamples are the samples both comment mails share, written as
+// literal inputs so that no mapper from models stands on both sides of the
+// tests. name is the sample name of the plain one, the others add a suffix;
+// to is the recipient's address and body the comment of the plain and the
+// linked-url ones.
 func postCommentSamples(name, to, body string) []postCommentSample {
-	identity := func(in string) (bool, string) { return false, in }
-	commenter := &model.User{ID: "user-1", Email: "commenter@example.test", Username: "alice"}
-	recipient := &model.User{ID: "user-2", Email: to, Username: "bob"}
-	post := func(subject string) *model.Post {
-		return &model.Post{ID: "post-1", Subject: &subject, Body: "Post body", UserID: "user-3"}
-	}
-	comment := func(body string) *model.PostComment {
-		return &model.PostComment{ID: "comment-1", PostID: "post-1", UserID: commenter.ID, Body: body}
-	}
-	editedRecipient := &model.User{ID: "user-2", Email: "recipient@example.test", Username: "bob"}
-	build := func(p *model.Post, c *model.PostComment, edited bool) postComment {
-		to := recipient
-		if edited {
-			to = editedRecipient
-		}
-
-		in, err := newPostComment(SampleSite, SampleFrom, identity, commenter, to, p, c, edited)
-		if err != nil {
-			panic(err)
-		}
-
-		return in
-	}
-
-	withURL := post("Original Post")
-	withURL.URL = &model.NormalizedURL{ID: "url-1", URL: "https://example.com/article"}
-	edited := comment("Nice post, edited!")
-	edited.EditedAt = new(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
+	const (
+		commentLink = "https://pcom.test/posts/post-1#commentpost-1comment-1"
+		subject     = "Original Post"
+	)
 
 	return []postCommentSample{
-		{name, build(post("Original Post"), comment(body), false)},
-		{name + "_edited", build(post("Original Post"), edited, true)},
-		{name + "_with_url", build(withURL, comment(body), false)},
-		{name + "_markup", build(post("Original Post"), comment("Nice **post**, see [the docs](https://example.com/a?b=1&c=2).\n\n- one\n- <script>alert(1)</script>\n\n> quoted & \"done\""), false)},
-		{name + "_markup_long_subject", build(post("A <b>very</b> long & \"quoted\" subject that goes on and on to see how a mail client wraps a subject line of this length, past any sensible limit"), comment("Nice **post**!"), false)},
+		{name, postComment{
+			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Subject: subject, URL: "", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"),
+			Edited: false, EditedAt: time.Time{},
+		}},
+		{name + "_edited", postComment{
+			From: SampleFrom, To: "recipient@example.test", UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Subject: subject, URL: "", Link: commentLink, Body: "Nice post, edited!", BodyHTML: "<p>Nice post, edited!</p>\n",
+			Edited: true, EditedAt: time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC),
+		}},
+		{name + "_with_url", postComment{
+			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Subject: subject, URL: "https://example.com/article", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"),
+			Edited: false, EditedAt: time.Time{},
+		}},
+		{name + "_markup", postComment{
+			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Subject: subject, URL: "", Link: commentLink,
+			Body:     "Nice **post**, see [the docs](https://example.com/a?b=1&c=2).\n\n- one\n- <script>alert(1)</script>\n\n> quoted & \"done\"",
+			BodyHTML: "<p>Nice <strong>post</strong>, see <a href=\"https://example.com/a?b=1&amp;c=2\">the docs</a>.</p>\n<ul>\n<li>one</li>\n<li>\n<!-- raw HTML omitted -->\n</li>\n</ul>\n<blockquote>\n<p>quoted &amp; &quot;done&quot;</p>\n</blockquote>\n",
+			Edited:   false, EditedAt: time.Time{},
+		}},
+		{name + "_markup_long_subject", postComment{
+			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Subject: "A <b>very</b> long & \"quoted\" subject that goes on and on to see how a mail client wraps a subject line of this length, past any sensible limit",
+			URL:     "", Link: commentLink, Body: "Nice **post**!", BodyHTML: "<p>Nice <strong>post</strong>!</p>\n",
+			Edited: false, EditedAt: time.Time{},
+		}},
 	}
 }
 

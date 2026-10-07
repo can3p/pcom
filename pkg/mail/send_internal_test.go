@@ -3,7 +3,6 @@ package mail
 import (
 	"testing"
 
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +13,7 @@ func TestConfirmWaitingList_MatchesSample(t *testing.T) {
 	waitingList := &model.UserSignupRequest{ID: "request-1", Email: "newuser@example.test"}
 	want := confirmWaitingListMail.MustRender(confirmWaitingListSamples()[0].Input)
 
-	require.Equal(t, want, ConfirmWaitingList(links.Site{}, SampleFrom, waitingList))
+	require.Equal(t, want, ConfirmWaitingList(SampleSite, SampleFrom, waitingList))
 }
 
 func TestInvitation_MatchesSample(t *testing.T) {
@@ -23,7 +22,7 @@ func TestInvitation_MatchesSample(t *testing.T) {
 	invite := &model.UserInvitation{ID: "invite-1"}
 	want := inviteMail.MustRender(inviteSamples()[0].Input)
 
-	require.Equal(t, want, Invitation(links.Site{}, SampleFrom, invite, "newuser@example.test"))
+	require.Equal(t, want, Invitation(SampleSite, SampleFrom, invite, "newuser@example.test"))
 }
 
 func TestValidateFormat_InvalidFormat(t *testing.T) {

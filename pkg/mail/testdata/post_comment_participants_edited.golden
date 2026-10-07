@@ -11,7 +11,7 @@ Hi!
 
 > Nice post, edited!
 
-Checkout the comment in the post: /posts/post-1#commentpost-1comment-1
+Checkout the comment in the post: https://pcom.test/posts/post-1#commentpost-1comment-1
 
 --- HTML ---
 
@@ -22,4 +22,4 @@ Checkout the comment in the post: /posts/post-1#commentpost-1comment-1
 	<blockquote><p>Nice post, edited!</p>
 </blockquote>
 
-	<p>Checkout the comment in the <a href="/posts/post-1#commentpost-1comment-1">post</a>.</p>
+	<p>Checkout the comment in the <a href="https://pcom.test/posts/post-1#commentpost-1comment-1">post</a>.</p>
