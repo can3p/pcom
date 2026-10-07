@@ -4,20 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"html"
 	"net"
 	"net/http/httputil"
-	"net/mail"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/can3p/gogo/sender"
-	pcommail "github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/model"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 var (
@@ -27,51 +21,8 @@ var (
 	slash     = []byte("/")
 )
 
-// PageFailure tells the admin that a page panicked.
-func PageFailure(from, adminAddress string, c *gin.Context, err any, user *model.User) *pcommail.Envelope {
-	decodedStack := strings.Split(ClonedCustomRecovery(c, err), "\r\n")
-
-	userInfo := "Anonymous"
-
-	if user != nil {
-		userInfo = fmt.Sprintf("email (%s), id (%s)", user.Email, user.ID)
-	}
-
-	mail := &sender.Mail{
-		From: mail.Address{
-			Address: from,
-			Name:    "Your pcom",
-		},
-		To: []mail.Address{
-			{
-				Address: adminAddress,
-			},
-		},
-		Subject: "Panic on the page",
-		Text: fmt.Sprintf(`
-			Hi!
-
-			Panic on the page
-
-			* User: %s
-			* Request data:
-
-			%s
-			`, userInfo, strings.Join(decodedStack, "\r\n")),
-		Html: fmt.Sprintf(`
-			<p>Hi!</p>
-
-			<p>Panic on the page:</p>
-
-			<ul>
-			<li>user: %s</li>
-			<li>Request data: <br /><pre>%s</pre></li>
-			</ul>`, html.EscapeString(userInfo), html.EscapeString(strings.Join(decodedStack, "\r\n"))),
-	}
-
-	return &pcommail.Envelope{UniqueID: uuid.NewString(), Type: "panic_notification", Mail: mail}
-}
-
+// ClonedCustomRecovery formats a recovered panic for the admin: the request
+// without its secrets, the panic value and the stack.
 func ClonedCustomRecovery(c *gin.Context, err any) string {
 	// Check for a broken connection, as it is not really a
 	// condition that warrants a panic stack trace.

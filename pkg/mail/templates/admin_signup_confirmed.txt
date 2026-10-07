@@ -1,0 +1,6 @@
+Hi!
+
+New conrirmed user alert:
+
+* ID: {{.ID}}
+* Email: {{.Email}}

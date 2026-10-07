@@ -1,0 +1,15 @@
+EmailType: throw_away_email_signup
+UniqueID: 0190a3b4-0000-7000-8000-000000000003
+From: Your pcom <noreply@pcom.test>
+To: admin@pcom.test
+Subject: An attempt to use a throwaway email domain on pcom
+
+--- TEXT ---
+Hi!
+
+A user has just tried to use a throwaway email: test@throwaway.example.com
+
+--- HTML ---
+<p>Hi!</p>
+
+<p>A user has just tried to use a throwaway email: test@throwaway.example.com</p>

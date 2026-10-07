@@ -1,0 +1,8 @@
+Hi!
+
+Panic on the page
+
+* User: {{.User}}
+* Request data:
+
+{{.Report}}

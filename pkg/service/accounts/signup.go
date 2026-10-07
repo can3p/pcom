@@ -7,7 +7,6 @@ import (
 	"time"
 
 	disposable "github.com/can3p/anti-disposable-email"
-	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
@@ -41,7 +40,7 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 
 	if parsedEmail.Disposable {
 		go func() {
-			if err := s.send(ctx, s.store, admin.ThrowAwayEmailSignupAttempt(s.ident.From, s.ident.AdminAddress, address)); err != nil {
+			if err := s.send(ctx, s.store, mail.AdminThrowAwayEmailSignupAttempt(s.ident.From, s.ident.AdminAddress, address)); err != nil {
 				log.Printf("failed to queue the throwaway email notification: %v", err)
 			}
 		}()
@@ -138,7 +137,7 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 			return err
 		}
 
-		if err := s.send(ctx, tx, admin.NewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
+		if err := s.send(ctx, tx, mail.AdminNewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
 			return err
 		}
 
@@ -181,7 +180,7 @@ func (s *Service) JoinWaitingList(ctx context.Context, email, reason, attributio
 			return fatal(err)
 		}
 
-		return s.send(ctx, tx, admin.NewWaitingListMember(s.ident.Site, s.ident.From, s.ident.AdminAddress, request))
+		return s.send(ctx, tx, mail.AdminNewWaitingListMember(s.ident.From, s.ident.AdminAddress, request))
 	})
 }
 

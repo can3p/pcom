@@ -1,0 +1,6 @@
+Hi!
+
+New waiting list member alert:
+
+* Email address: {{.Email}}
+* Reason: {{.Reason}}

@@ -1,0 +1,7 @@
+Hi!
+
+New user alert:
+
+* ID: {{.ID}}
+* Blog: {{.BlogURL}}
+* Email: {{.Email}}
