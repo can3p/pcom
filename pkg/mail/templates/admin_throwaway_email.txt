@@ -1,0 +1,3 @@
+Hi!
+
+A user has just tried to use a throwaway email: {{.Email}}

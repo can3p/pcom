@@ -1,0 +1,23 @@
+EmailType: signup_confirmed
+UniqueID: 0190a3b4-0000-7000-8000-000000000001
+From: Your pcom <noreply@pcom.test>
+To: admin@pcom.test
+Subject: New User confirmed email on pcom
+
+--- TEXT ---
+Hi!
+
+New conrirmed user alert:
+
+* ID: 0190a3b4-0000-7000-8000-000000000001
+* Email: alice@example.test
+
+--- HTML ---
+<p>Hi!</p>
+
+<p>New conrirmed user alert:</p>
+
+<ul>
+	<li>ID: 0190a3b4-0000-7000-8000-000000000001</li>
+	<li>Email: alice@example.test</li>
+</ul>
