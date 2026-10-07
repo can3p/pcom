@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mail previews</title>
+    <link rel="stylesheet" href="{{ static_asset "main.css" }}" />
+  </head>
+  <body>
+    <main class="prose">
+      <h1>Mail previews</h1>
+      {{ range .Mails }}
+      <h2>{{ .Name }}</h2>
+      <ul>
+        {{ range .Samples }}
+        <li><a href="/dev/mail/{{ .Name }}">{{ .Name }}</a></li>
+        {{ end }}
+      </ul>
+      {{ else }}
+      <p>No mails are registered.</p>
+      {{ end }}
+    </main>
+  </body>
+</html>

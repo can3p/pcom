@@ -105,6 +105,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		SecureCookies:         cfg.Web.SecureCookies.On(),
 		HSTS:                  cfg.Web.HSTS.On(),
 		StaticCache:           cfg.Web.StaticCache.On(),
+		DevRoutes:             cfg.Web.DevRoutes.On(),
 		ShowErrors:            cfg.Web.ShowErrors.On(),
 		ReportPanics:          cfg.Web.ReportPanics.On(),
 		ProfileAboutMaxLength: cfg.Limits.ProfileAboutMaxLength,
