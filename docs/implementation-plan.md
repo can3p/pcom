@@ -11,6 +11,7 @@ support read directly. Rules for reading and verifying code cheaply are in `AGEN
 Where the modernization is going:
 
 - declared, golden-tested mailers (R4);
+- one job queue for mail and feeds (R8);
 - structured logging through one [zap](https://github.com/uber-go/zap) logger, passed explicitly (R7);
 - no unmaintained or duplicate dependencies (R6);
 - shared plumbing in [gogo](https://github.com/can3p/gogo) (`docs/gogo-extraction.md`).
