@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/can3p/gogo/sender"
@@ -21,20 +23,44 @@ func (s *Store) SendMail(ctx context.Context, snd MailQueue, uniqueID, emailType
 	return snd.Send(ctx, s.exec, uniqueID, emailType, mail)
 }
 
-// GetPendingEmails returns emails ready to be sent, locked for update.
-func (s *Store) GetPendingEmails(ctx context.Context) ([]*model.OutgoingEmail, error) {
-	var emails []*model.OutgoingEmail
+// ListDueEmailIDs returns the ids of the emails ready to be sent, oldest first.
+// It takes no lock: LockDueEmail claims each one.
+func (s *Store) ListDueEmailIDs(ctx context.Context) ([]string, error) {
+	var ids []string
 
-	err := s.query().NewSelect().Model(&emails).
+	err := s.query().NewSelect().Model((*model.OutgoingEmail)(nil)).
+		Column("id").
 		Where("status = ?", model.OutgoingEmailStatusNew).
 		Where("try_at < ?", time.Now()).
-		For("UPDATE SKIP LOCKED").
-		Scan(ctx)
+		Order("id").
+		Scan(ctx, &ids)
 	if err != nil {
 		return nil, err
 	}
 
-	return emails, nil
+	return ids, nil
+}
+
+// LockDueEmail locks one email for update inside the store's transaction. It
+// returns nil when another worker holds the row or it is no longer new and due.
+func (s *Store) LockDueEmail(ctx context.Context, id string) (*model.OutgoingEmail, error) {
+	email := new(model.OutgoingEmail)
+
+	err := s.query().NewSelect().Model(email).
+		Where("id = ?", id).
+		Where("status = ?", model.OutgoingEmailStatusNew).
+		Where("try_at < ?", time.Now()).
+		For("UPDATE SKIP LOCKED").
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return email, nil
 }
 
 // UpdateOutgoingEmail updates an outgoing email record.
