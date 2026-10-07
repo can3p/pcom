@@ -49,6 +49,7 @@ type Web struct {
 	ReportPanics    Switch `long:"report-panics" env:"REPORT_PANICS" description:"Mail the admin address when a page panics" optional:"true" optional-value:"true" default:"true"`
 	LogLevel        string `long:"log-level" env:"LOG_LEVEL" description:"Log level" choice:"debug" choice:"info" choice:"warn" choice:"error" default:"info"`
 	EnablePprof     Switch `long:"enable-pprof" env:"ENABLE_PPROF" description:"Serve net/http/pprof on :8081" optional:"true" optional-value:"true" default:"false"`
+	DevRoutes       Switch `long:"dev-routes" env:"DEV_ROUTES" description:"Serve the /dev pages (mail previews); local development only" optional:"true" optional-value:"true" default:"false"`
 }
 
 // SlogLevel is LogLevel as a slog level.
@@ -87,9 +88,10 @@ type Login struct {
 // Mail is outgoing mail: the addresses, the queue, and the Mailjet API that
 // delivers it (tommy in development and tests).
 type Mail struct {
-	SenderAddress string        `long:"sender-address" env:"SENDER_ADDRESS" description:"From address of every mail" required:"true"`
-	AdminAddress  string        `long:"admin-address" env:"ADMIN_ADDRESS" description:"Where admin notifications (signups, page failures) go"`
-	PollInterval  time.Duration `long:"email-poll-interval" env:"EMAIL_POLL_INTERVAL" description:"How often the mail queue is sent" default:"10s"`
+	SenderAddress  string          `long:"sender-address" env:"SENDER_ADDRESS" description:"From address of every mail" required:"true"`
+	AdminAddress   string          `long:"admin-address" env:"ADMIN_ADDRESS" description:"Where admin notifications (signups, page failures) go"`
+	PollInterval   time.Duration   `long:"email-poll-interval" env:"EMAIL_POLL_INTERVAL" description:"How often the mail queue is sent" default:"10s"`
+	RetryIntervals []time.Duration `long:"email-retry-intervals" env:"EMAIL_RETRY_INTERVALS" env-delim:"," description:"Waits between attempts to send a mail; a mail fails after one attempt more than there are waits" default:"10s" default:"60s" default:"30m"`
 
 	Mailjet mjconfig.Config `group:"Mailjet" namespace:"mj" env-namespace:"MJ"`
 }

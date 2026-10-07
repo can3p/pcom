@@ -131,6 +131,7 @@ services:
       STATIC_CACHE: "false"
       MEDIA_PERMA_CACHE: "false"
       SHOW_ERRORS: "true"
+      DEV_ROUTES: "true"
       REPORT_PANICS: "false"
       LOG_LEVEL: debug
       PCOM_WATCH_POLL: ${PCOM_WATCH_POLL:-}
