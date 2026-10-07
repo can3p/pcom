@@ -1,0 +1,6 @@
+
+Hi!
+
+Thank you for your interest in pcom! Your confirmation code is {{.Code}}
+
+Type it on the signup page to confirm your email address and log in. It works once, for the next {{.Minutes}} minutes.

@@ -6,16 +6,16 @@ Subject: Welcome to pcom
 
 --- TEXT ---
 
-	Hi!
+Hi!
 
-	Thank you for your interest in pcom! Your confirmation code is 123456
+Thank you for your interest in pcom! Your confirmation code is 123456
 
-	Type it on the signup page to confirm your email address and log in. It works once, for the next 15 minutes.
+Type it on the signup page to confirm your email address and log in. It works once, for the next 15 minutes.
 
 --- HTML ---
 
-	<p>Hi!</p>
+<p>Hi!</p>
 
-	<p>Thank you for your interest in pcom! Your confirmation code is <strong>123456</strong></p>
+<p>Thank you for your interest in pcom! Your confirmation code is <strong>123456</strong></p>
 
-	<p>Type it on the signup page to confirm your email address and log in. It works once, for the next 15 minutes.</p>
+<p>Type it on the signup page to confirm your email address and log in. It works once, for the next 15 minutes.</p>

@@ -13,17 +13,9 @@ import (
 	"github.com/can3p/pcom/pkg/types"
 )
 
-// Outgoing is a mail ready to be queued: the unique id and the type that
-// sender.Send takes along with the message.
-type Outgoing struct {
-	UniqueID string
-	Type     string
-	Mail     *sender.Mail
-}
-
 // NewPost formats the notification about a new post for one connection of its
 // author. It returns nil when there is nobody to notify.
-func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string], user *model.User, connection *model.User, post *model.Post) *Outgoing {
+func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string], user *model.User, connection *model.User, post *model.Post) *Envelope {
 	// we're not sending email notifications to ourselves
 	if user.ID == connection.ID {
 		return nil
@@ -86,5 +78,5 @@ Head to the post to leave a comment! %s`, user.Username, subject, urlText, link)
 			html.EscapeString(link)),
 	}
 
-	return &Outgoing{UniqueID: post.ID + connection.ID, Type: "post_notification", Mail: mail}
+	return &Envelope{UniqueID: post.ID + connection.ID, Type: "post_notification", Mail: mail}
 }

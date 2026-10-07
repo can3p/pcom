@@ -260,11 +260,11 @@ func TestPostCommentEdited(t *testing.T) {
 	}
 	mediaReplacer := func(in string) (bool, string) { return false, in }
 
-	for name, format := range map[string]func() (*mail.Outgoing, error){
-		"post_comment_author_edited": func() (*mail.Outgoing, error) {
+	for name, format := range map[string]func() (*mail.Envelope, error){
+		"post_comment_author_edited": func() (*mail.Envelope, error) {
 			return mail.PostCommentAuthor(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, true)
 		},
-		"post_comment_participants_edited": func() (*mail.Outgoing, error) {
+		"post_comment_participants_edited": func() (*mail.Envelope, error) {
 			return mail.PostCommentParticipants(links.Site{}, testFrom, mediaReplacer, commenter, recipient, post, comment, true)
 		},
 	} {
