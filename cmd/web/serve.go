@@ -44,7 +44,7 @@ func (c *serveCmd) Execute([]string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dbSender := dbsender.NewSender(repo.New(db), mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet))
+	dbSender := dbsender.NewSender(repo.New(db), mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet), dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals))
 
 	go dbSender.RunPoller(ctx, cfg.Mail.PollInterval)
 

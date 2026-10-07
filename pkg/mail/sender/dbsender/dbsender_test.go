@@ -99,21 +99,21 @@ func TestTrySendEmail(t *testing.T) {
 
 		real.FailWith(errors.New("smtp down"))
 
-		// Attempts 1 through attemptsNumber fail and reschedule with the
+		// Attempts 1 through len(DefaultRetryIntervals) fail and reschedule with the
 		// matching interval, keeping the email in the New status.
-		for i := range attemptsNumber {
+		for i := range len(DefaultRetryIntervals) {
 			trySend(t, ctx, m, store, outgoing)
 
 			require.Equal(t, i+1, outgoing.AttemptsNumber, "attempt %d", i+1)
 			require.Equal(t, model.OutgoingEmailStatusNew, outgoing.Status, "attempt %d", i+1)
-			require.WithinDuration(t, time.Now().Add(retryIntervals[i]), outgoing.TryAt, 5*time.Second, "attempt %d", i+1)
+			require.WithinDuration(t, time.Now().Add(DefaultRetryIntervals[i]), outgoing.TryAt, 5*time.Second, "attempt %d", i+1)
 		}
 
-		// One more failure past attemptsNumber gives up for good.
+		// One more failure past the last interval gives up for good.
 		trySend(t, ctx, m, store, outgoing)
 
 		require.Equal(t, model.OutgoingEmailStatusFailed, outgoing.Status)
-		require.Equal(t, attemptsNumber, outgoing.AttemptsNumber)
+		require.Equal(t, len(DefaultRetryIntervals), outgoing.AttemptsNumber)
 		require.Empty(t, real.Sent(), "the real sender never succeeded, so nothing should be recorded as sent")
 	})
 
@@ -189,7 +189,7 @@ func TestSendEmails(t *testing.T) {
 		// Exhausted its attempts: must not be retried either.
 		failedEmail := newOutgoingEmail(t, ctx, store)
 		setup.FailWith(errors.New("smtp down"))
-		for range attemptsNumber + 1 {
+		for range len(DefaultRetryIntervals) + 1 {
 			trySend(t, ctx, setupSender, store, failedEmail)
 		}
 		require.Equal(t, model.OutgoingEmailStatusFailed, failedEmail.Status)
@@ -370,4 +370,74 @@ func TestRunPoller_LongIntervalSendsNothingEarly(t *testing.T) {
 	go m.RunPoller(ctx, time.Hour)
 
 	require.Never(t, func() bool { return len(real.Sent()) > 0 }, 500*time.Millisecond, 50*time.Millisecond)
+}
+
+func TestSendEmails_OneFailingUpdateLeavesOthersSent(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	store := repo.New(db)
+	ctx := context.Background()
+
+	real := fakesender.New()
+	m := NewSender(store, real.Delivery())
+
+	first := newOutgoingEmail(t, ctx, store)
+	broken := newOutgoingEmail(t, ctx, store)
+	last := newOutgoingEmail(t, ctx, store)
+
+	// The update that records the outcome of one mail fails; the others are
+	// processed in their own transactions and stay sent.
+	_, err := db.ExecContext(ctx, `
+		CREATE FUNCTION fail_outgoing_update() RETURNS trigger AS $$
+		BEGIN
+			IF NEW.id = '`+broken.ID+`' THEN
+				RAISE EXCEPTION 'update refused';
+			END IF;
+			RETURN NEW;
+		END
+		$$ LANGUAGE plpgsql;
+		CREATE TRIGGER fail_outgoing_update BEFORE UPDATE ON outgoing_emails
+			FOR EACH ROW EXECUTE FUNCTION fail_outgoing_update();`)
+	require.NoError(t, err)
+
+	require.NoError(t, m.sendEmails(ctx))
+
+	status := map[string]model.OutgoingEmailStatus{}
+	for _, r := range listOutgoing(t, ctx, store) {
+		status[r.ID] = r.Status
+	}
+
+	require.Equal(t, model.OutgoingEmailStatusSent, status[first.ID])
+	require.Equal(t, model.OutgoingEmailStatusSent, status[last.ID])
+	require.Equal(t, model.OutgoingEmailStatusNew, status[broken.ID], "the mail whose update failed stays queued")
+}
+
+func TestWithRetryIntervals(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	store := repo.New(db)
+	ctx := context.Background()
+
+	intervals := []time.Duration{time.Hour, 2 * time.Hour}
+	real := fakesender.New()
+	real.FailWith(errors.New("smtp down"))
+	m := NewSender(store, real.Delivery(), WithRetryIntervals(intervals))
+
+	outgoing := newOutgoingEmail(t, ctx, store)
+
+	for i, interval := range intervals {
+		trySend(t, ctx, m, store, outgoing)
+
+		require.Equal(t, i+1, outgoing.AttemptsNumber)
+		require.Equal(t, model.OutgoingEmailStatusNew, outgoing.Status)
+		require.WithinDuration(t, time.Now().Add(interval), outgoing.TryAt, 5*time.Second)
+	}
+
+	// The failure after the last interval gives up.
+	trySend(t, ctx, m, store, outgoing)
+
+	require.Equal(t, model.OutgoingEmailStatusFailed, outgoing.Status)
+	require.Equal(t, len(intervals), outgoing.AttemptsNumber)
 }
