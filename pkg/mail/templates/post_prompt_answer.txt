@@ -1,0 +1,5 @@
+Hi!
+
+@{{.Responder}} has responded on your prompt "{{.Message}}" with the post "{{.Subject}}"
+
+Check out their post! {{.Link}}

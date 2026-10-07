@@ -1,0 +1,8 @@
+
+<p>Hi!</p>
+
+<p>@{{.Username}} has published a new post "{{.Subject}}"</p>
+
+<blockquote>{{.Body}}</blockquote>{{if .LinkedURL}}<p>Linked URL: <a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
+
+<p>Head to the post to leave a comment! <a href="{{.Link}}">{{.Link}}</a></p>

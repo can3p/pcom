@@ -1,0 +1,5 @@
+Hi!
+
+@{{.Asker}} has asked you to write a post on "{{.Message}}"
+
+Head to new post page to give an update! {{.Link}}
