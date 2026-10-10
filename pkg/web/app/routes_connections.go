@@ -7,6 +7,7 @@ import (
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +34,7 @@ func mountConnectionRoutes(d *Deps, controls, controlsForms *gin.RouterGroup) {
 
 		form := forms.WhitelistConnectionNew(dbUser, conns)
 
-		gogoForms.DefaultHandler(c, form)
+		gogoForms.DefaultHandler(c, logging.FromContext(c), form)
 	})
 
 }

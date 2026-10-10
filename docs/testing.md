@@ -110,6 +110,7 @@ improvised inline. `pkg/feedops/testutil` is legacy: don't use it in new tests.
 - **`testutil.Must(v, err)(t)`** (`pkg/testutil`) - returns `v`, or fails the test immediately if `err != nil`; for one-line fixture setup such as `testutil.Must(factory.User(ctx, db))(t)`.
 - **`fakesender.New()`** (`pkg/testutil/fakesender`) - a `sender.Sender` that records every `Send` instead of delivering it. `Sent()` returns what was recorded; `FailWith(err)` makes `Send` fail instead (`nil` resumes recording).
 - **`fakestorage.New()`** (`pkg/testutil/fakestorage`) - an in-memory `pkg/media/server.MediaStorage`. `FailUploadWith`, `FailDownloadWith` and `FailExistsWith(err)` inject an error into the matching call.
+- **`testlog.New()`** (`pkg/testutil/testlog`) - a `*zap.Logger` that records every entry, and the `observer.ObservedLogs` to assert on (`FilterMessage`, `ContextMap()`). `testlog.Context(ctx)` puts one into a context for code that takes its logger from there.
 - **`ginctx.New(t, method, target, body, opts...)`** (`pkg/testutil/ginctx`) - a `*gin.Context` wired like a real request (cookie session under `"sess"`), plus its `*httptest.ResponseRecorder`. Options: `ginctx.WithUser(t, db, userID)`, `ginctx.WithCSPNonces(style, script)`.
 - **`golden.Assert(t, name, got)`** (`pkg/testutil/golden`) - compares `got` against `testdata/<name>.golden`. `UPDATE_GOLDEN=1 go test ./pkg/...` writes it instead of comparing; after regenerating, check `git diff --stat`, not the contents.
 

@@ -2,19 +2,20 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/gogo/util/ginhelpers/csrf"
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // New builds the gin engine: middleware, templates and every route group.
@@ -36,7 +37,13 @@ func New(d *Deps) *gin.Engine {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	router := gin.Default()
+	logger := d.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	router := gin.New()
+	router.Use(logging.Middleware(logger))
 
 	router.Use(ginhelpers.Configure(ginhelpers.Options{
 		RedirectToLogin: auth.RedirectToLogin(d.Config.SessionSalt),
@@ -46,25 +53,28 @@ func New(d *Deps) *gin.Engine {
 	router.MaxMultipartMemory = 8 << 20 // 8 MiB
 
 	if d.Config.ReportPanics {
-		router.Use(gin.CustomRecovery(func(c *gin.Context, err any) {
+		router.Use(logging.Recovery(func(c *gin.Context, err any) {
 			// not auth.GetUserData: routes outside the auth group have no
 			// session, and its MustGet would panic inside the recovery
 			user := auth.GetAPIUserData(c).DBUser
 
 			if nerr := d.Services.Accounts.SendAdminMail(c, mail.AdminPageFailure(d.Config.SenderAddress, d.Config.AdminAddress, admin.ClonedCustomRecovery(c, err), user)); nerr != nil {
-				log.Printf("failed to queue the page failure notification: %v", nerr)
+				logging.FromContext(c).Error("failed to queue the page failure notification", zap.Error(nerr))
 			}
 		}))
 	} else {
-		log.Println("Custom error reporter skipped")
+		logger.Info("custom error reporter skipped")
+		router.Use(logging.Recovery(func(c *gin.Context, _ any) {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}))
 	}
 
 	router.SetFuncMap(funcmap(d.Config.StaticAsset, siteOf(d)))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
 	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })
-	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) })
-	r := router.Group("/", csp.New(csp.Options{HSTS: d.Config.HSTS, StaticCDN: d.Config.StaticCDN, MediaCDN: d.Config.MediaCDN}), sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) })
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) }, logUser)
+	r := router.Group("/", csp.New(csp.Options{HSTS: d.Config.HSTS, StaticCDN: d.Config.StaticCDN, MediaCDN: d.Config.MediaCDN}), sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) }, logUser)
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrfCheck)
 	nonControlsForms := r.Group("/form", csrfCheck)
@@ -73,4 +83,11 @@ func New(d *Deps) *gin.Engine {
 	mountRoutes(d, router, apiGroup, r, controls, actions, nonControlsForms, controlsForms)
 
 	return router
+}
+
+// logUser adds the user ID to the request's logger once auth knows the user.
+func logUser(c *gin.Context) {
+	if u := auth.GetAPIUserData(c).DBUser; u != nil {
+		logging.With(c, zap.String("user_id", u.ID))
+	}
 }

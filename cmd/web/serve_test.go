@@ -3,11 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +23,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // serveOptions is every option of the serve command, by environment variable.
@@ -134,39 +136,69 @@ func TestAppConfig(t *testing.T) {
 func restoreProcessSettings(t *testing.T) {
 	t.Helper()
 
-	level, mode := slog.SetLogLoggerLevel(slog.LevelInfo), gin.Mode()
-	t.Cleanup(func() {
-		slog.SetLogLoggerLevel(level)
-		gin.SetMode(mode)
-	})
+	mode := gin.Mode()
+	t.Cleanup(func() { gin.SetMode(mode) })
 }
 
-func TestApplyProcessSettings_LogLevel(t *testing.T) {
+func TestNewLogger_Level(t *testing.T) {
 	for _, r := range []struct {
 		level   string
-		enabled []slog.Level
-		dropped []slog.Level
+		enabled []zapcore.Level
+		dropped []zapcore.Level
 	}{
-		{"debug", []slog.Level{slog.LevelDebug, slog.LevelInfo}, nil},
-		{"info", []slog.Level{slog.LevelInfo, slog.LevelError}, []slog.Level{slog.LevelDebug}},
-		{"warn", []slog.Level{slog.LevelWarn}, []slog.Level{slog.LevelDebug, slog.LevelInfo}},
-		{"error", []slog.Level{slog.LevelError}, []slog.Level{slog.LevelWarn}},
+		{"debug", []zapcore.Level{zapcore.DebugLevel, zapcore.InfoLevel}, nil},
+		{"info", []zapcore.Level{zapcore.InfoLevel, zapcore.ErrorLevel}, []zapcore.Level{zapcore.DebugLevel}},
+		{"warn", []zapcore.Level{zapcore.WarnLevel}, []zapcore.Level{zapcore.DebugLevel, zapcore.InfoLevel}},
+		{"error", []zapcore.Level{zapcore.ErrorLevel}, []zapcore.Level{zapcore.WarnLevel}},
 	} {
 		t.Run(r.level, func(t *testing.T) {
-			restoreProcessSettings(t)
-
 			cfg, err := parseServe(t, map[string]string{"LOG_LEVEL": r.level})
 			require.NoError(t, err)
 
-			applyProcessSettings(cfg)
+			logger := newLogger(cfg.Web, io.Discard)
 
 			for _, l := range r.enabled {
-				require.True(t, slog.Default().Enabled(context.Background(), l), "%s kept at %s", l, r.level)
+				require.True(t, logger.Core().Enabled(l), "%s kept at %s", l, r.level)
 			}
 
 			for _, l := range r.dropped {
-				require.False(t, slog.Default().Enabled(context.Background(), l), "%s dropped at %s", l, r.level)
+				require.False(t, logger.Core().Enabled(l), "%s dropped at %s", l, r.level)
 			}
+		})
+	}
+}
+
+// json, the default, writes one JSON object per entry; console writes a
+// line a person reads.
+func TestNewLogger_Format(t *testing.T) {
+	for _, r := range []struct {
+		name string
+		env  map[string]string
+		json bool
+	}{
+		{"default", nil, true},
+		{"json", map[string]string{"LOG_FORMAT": "json"}, true},
+		{"console", map[string]string{"LOG_FORMAT": "console"}, false},
+	} {
+		t.Run(r.name, func(t *testing.T) {
+			cfg, err := parseServe(t, r.env)
+			require.NoError(t, err)
+
+			var buf bytes.Buffer
+			newLogger(cfg.Web, &buf).Info("hello", zap.String("k", "v"))
+
+			var entry map[string]any
+			if !r.json {
+				require.Error(t, json.Unmarshal(buf.Bytes(), &entry))
+				require.Contains(t, buf.String(), "hello")
+				require.Contains(t, buf.String(), `{"k": "v"}`)
+				return
+			}
+
+			require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
+			require.Equal(t, "hello", entry["msg"])
+			require.Equal(t, "info", entry["level"])
+			require.Equal(t, "v", entry["k"])
 		})
 	}
 }
@@ -207,7 +239,7 @@ func TestStartPprof(t *testing.T) {
 			t.Cleanup(func() { http.DefaultServeMux = orig })
 
 			addr := freeAddr(t)
-			startPprof(enabled, addr)
+			startPprof(enabled, addr, zap.NewNop())
 
 			// the default mux the app could serve from never carries pprof
 			_, pattern := http.DefaultServeMux.Handler(httptest.NewRequest("GET", "/debug/pprof/", nil))

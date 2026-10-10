@@ -4,6 +4,7 @@ import (
 	gogoForms "github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,6 @@ func mountFeedRoutes(d *Deps, controlsForms *gin.RouterGroup) {
 
 		form := forms.NewAddFeedForm(d.Services.Feeds, dbUser)
 
-		gogoForms.DefaultHandler(c, form)
+		gogoForms.DefaultHandler(c, logging.FromContext(c), form)
 	})
 }

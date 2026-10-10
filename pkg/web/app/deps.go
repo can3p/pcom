@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
 // Deps is everything the handlers need. RS replaces DB with the services.
@@ -18,7 +19,9 @@ type Deps struct {
 	Sender       repo.MailQueue
 	MediaStorage server.MediaStorage
 	MediaServer  server.MediaServer
-	Config       Config
+	// Logger is the base of every request's logger; nil logs nothing.
+	Logger *zap.Logger
+	Config Config
 }
 
 // Config carries the choices main() makes from flags and the environment.
