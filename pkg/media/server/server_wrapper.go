@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log/slog"
 	"sync"
 
+	"github.com/can3p/pcom/pkg/logging"
+	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -66,7 +67,7 @@ func (w *ServerWrapper) GetImage(ctx context.Context, fname string, class string
 		buffer: &bytes.Buffer{},
 	}
 	w.inFlight[key] = req
-	slog.Info("Inflight image requests", "number", len(w.inFlight), "max", w.maxConcurrent)
+	logging.FromContext(ctx).Info("Inflight image requests", zap.Int("number", len(w.inFlight)), zap.Int64("max", w.maxConcurrent))
 	w.mu.Unlock()
 
 	// Clean up when we're done

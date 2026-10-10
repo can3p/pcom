@@ -16,9 +16,62 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/can3p/pcom/pkg/testutil/testlog"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
+
+func TestRunPoller_LogsFailedMail(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	store := repo.New(db)
+	logger, logs := testlog.New()
+	ctx := t.Context()
+
+	m := NewSender(store, fakesender.New().Delivery(), WithLogger(logger))
+
+	broken := newOutgoingEmail(t, context.Background(), store)
+
+	// a payload that is not a mail makes processing this one mail fail
+	_, err := db.ExecContext(ctx, `UPDATE outgoing_emails SET payload = '"not a mail"' WHERE id = $1`, broken.ID)
+	require.NoError(t, err)
+
+	go m.RunPoller(ctx, 50*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return logs.FilterMessage("failed to send email").Len() > 0
+	}, 2*time.Second, 25*time.Millisecond)
+
+	entry := logs.FilterMessage("failed to send email").All()[0]
+	require.Equal(t, zapcore.WarnLevel, entry.Level)
+	require.Equal(t, broken.ID, entry.ContextMap()["email_id"])
+	require.Contains(t, entry.ContextMap()["error"], "cannot unmarshal")
+}
+
+func TestRunPoller_LogsFailedSend(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	store := repo.New(db)
+	logger, logs := testlog.New()
+	ctx := t.Context()
+
+	m := NewSender(store, panicSender{}, WithLogger(logger))
+
+	newOutgoingEmail(t, context.Background(), store)
+
+	go m.RunPoller(ctx, 50*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		return logs.FilterMessage("Failed to send emails").Len() > 0
+	}, 2*time.Second, 25*time.Millisecond)
+
+	entry := logs.FilterMessage("Failed to send emails").All()[0]
+	require.Equal(t, zapcore.WarnLevel, entry.Level)
+	require.Contains(t, entry.ContextMap()["error"], "sendEmails panicked")
+}
 
 // panicSender is a sender.Sender that always panics: it stands in for a real
 // sender misbehaving badly, to pin that sendEmails recovers instead of

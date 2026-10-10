@@ -5,11 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/can3p/pcom/pkg/logging"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"go.uber.org/zap"
 )
 
 const (
@@ -56,13 +57,14 @@ func (s *CachingServer) removeUploadLock(key string) {
 }
 
 func (s *CachingServer) GetImage(ctx context.Context, fname string, class string) (io.Reader, string, error) {
+	logger := logging.FromContext(ctx)
 	cacheKey := s.getCacheKey(fname, class)
 
-	slog.Debug("GetImage called", "cacheKey", cacheKey)
+	logger.Debug("GetImage called", zap.String("cacheKey", cacheKey))
 
 	// Check in-memory cache first
 	if _, ok := s.cache.Get(cacheKey); ok {
-		slog.Debug("Cache hit", "cacheKey", cacheKey)
+		logger.Debug("Cache hit", zap.String("cacheKey", cacheKey))
 		// File is known to exist in storage
 		reader, _, mime, err := s.storage.DownloadFile(ctx, cacheKey)
 		if err != nil {
@@ -74,9 +76,9 @@ func (s *CachingServer) GetImage(ctx context.Context, fname string, class string
 	// Check if file exists in storage
 	exists, err := s.storage.ObjectExists(ctx, cacheKey)
 	if err != nil {
-		slog.Error("Failed to check object existence", "error", err, "key", cacheKey)
+		logger.Error("Failed to check object existence", zap.Error(err), zap.String("key", cacheKey))
 	} else if exists {
-		slog.Debug("Storage hit", "cacheKey", cacheKey)
+		logger.Debug("Storage hit", zap.String("cacheKey", cacheKey))
 		s.cache.Add(cacheKey, true)
 		reader, _, mime, err := s.storage.DownloadFile(ctx, cacheKey)
 		if err != nil {
@@ -88,10 +90,10 @@ func (s *CachingServer) GetImage(ctx context.Context, fname string, class string
 	// Get upload lock for this file
 	lock := s.getUploadLock(cacheKey)
 	lock.Lock()
-	slog.Debug("Acquired lock", "cacheKey", cacheKey)
+	logger.Debug("Acquired lock", zap.String("cacheKey", cacheKey))
 	releaseLock := func() {
 		lock.Unlock()
-		slog.Debug("Released lock", "cacheKey", cacheKey)
+		logger.Debug("Released lock", zap.String("cacheKey", cacheKey))
 		s.removeUploadLock(cacheKey)
 	}
 
@@ -104,7 +106,7 @@ func (s *CachingServer) GetImage(ctx context.Context, fname string, class string
 	// simplicity over battling all corner cases.
 	// If you ever need multi-node support, implement cache with redis backend instead of in mem store
 	if _, ok := s.cache.Get(cacheKey); ok {
-		slog.Debug("File found in cache after acquiring lock", "cacheKey", cacheKey)
+		logger.Debug("File found in cache after acquiring lock", zap.String("cacheKey", cacheKey))
 		// File is known to exist in storage
 		reader, _, mime, err := s.storage.DownloadFile(ctx, cacheKey)
 		if err != nil {
@@ -117,7 +119,7 @@ func (s *CachingServer) GetImage(ctx context.Context, fname string, class string
 	// Double-check if file was uploaded while we were waiting
 	exists, err = s.storage.ObjectExists(ctx, cacheKey)
 	if err == nil && exists {
-		slog.Debug("File found in storage after lock wait", "cacheKey", cacheKey)
+		logger.Debug("File found in storage after lock wait", zap.String("cacheKey", cacheKey))
 		s.cache.Add(cacheKey, true)
 		reader, _, mime, err := s.storage.DownloadFile(ctx, cacheKey)
 		if err != nil {
@@ -150,12 +152,12 @@ func (s *CachingServer) GetImage(ctx context.Context, fname string, class string
 		defer releaseLock()
 
 		if err := s.storage.UploadFile(ctx, cacheKey, bufCopy, mime); err != nil {
-			slog.Error("Failed to cache image", "error", err, "key", cacheKey)
+			logger.Error("Failed to cache image", zap.Error(err), zap.String("key", cacheKey))
 			return
 		}
 
 		s.cache.Add(cacheKey, true)
-		slog.Info("Image cached successfully", "key", cacheKey)
+		logger.Info("Image cached successfully", zap.String("key", cacheKey))
 	}()
 	// Return the image to the client immediately
 	return bytes.NewReader(buf.Bytes()), mime, nil
