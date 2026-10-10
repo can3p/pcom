@@ -2,15 +2,16 @@ package forms
 
 import (
 	"context"
-	"log"
 	"strings"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/forms/validation"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 type AcceptInviteFormInput struct {
@@ -51,7 +52,7 @@ func (f *AcceptInviteForm) Validate(c *gin.Context) error {
 		exists, err := f.Accounts.UsernameTaken(c, username)
 
 		if err != nil {
-			log.Printf("Failed to check username [%s] for duplication: %s", username, err.Error())
+			logging.FromContext(c).Warn("failed to check username for duplication", zap.String("username", username), zap.Error(err))
 			f.AddError("username", "internal error")
 		} else if exists {
 			f.AddError("username", "this username is not available")

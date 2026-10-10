@@ -9,11 +9,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -21,6 +21,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -36,6 +37,7 @@ type Service struct {
 	codeKey []byte
 	now     func() time.Time
 	login   LoginLimits
+	logger  *zap.Logger
 }
 
 // New builds the service. sender may be nil for a command line script that
@@ -88,6 +90,16 @@ func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
 }
 
+// WithLogger sets the logger of the background pruner (RunPruner); requests
+// log through the logger their context carries. The default logs nothing.
+func WithLogger(l *zap.Logger) Option {
+	return func(s *Service) {
+		if l != nil {
+			s.logger = l
+		}
+	}
+}
+
 // WithLoginLimits sets the limits of login by code; a zero field keeps its
 // DefaultLoginLimits value.
 func WithLoginLimits(l LoginLimits) Option {
@@ -107,7 +119,7 @@ func WithLoginLimits(l LoginLimits) Option {
 }
 
 func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, stylesMaxLength: DefaultUserStylesMaxLength, now: time.Now, login: DefaultLoginLimits}
+	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, stylesMaxLength: DefaultUserStylesMaxLength, now: time.Now, login: DefaultLoginLimits, logger: zap.NewNop()}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -325,7 +337,7 @@ func notFound[T any](v T, err error) (T, error) {
 // committed; a failure is logged, never returned.
 func (s *Service) notifyAdmin(ctx context.Context, what string, e *mail.Envelope) {
 	if err := s.send(ctx, s.store, e); err != nil {
-		log.Printf("failed to queue the %s notification: %v", what, err)
+		logging.FromContext(ctx).Warn("failed to queue the admin notification", zap.String("notification", what), zap.Error(err))
 	}
 }
 

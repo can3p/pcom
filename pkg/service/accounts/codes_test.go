@@ -23,10 +23,12 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/can3p/pcom/pkg/testutil/testlog"
 	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 // clock is a settable time for one service.
@@ -618,5 +620,33 @@ func TestRunPruner(t *testing.T) {
 		defer cancel()
 		svc.RunPruner(runCtx)
 		require.ErrorIs(t, runCtx.Err(), context.DeadlineExceeded)
+	})
+
+	t.Run("logs a failed prune through its logger", func(t *testing.T) {
+		t.Parallel()
+
+		db := testdb.New(t).DB
+		require.NoError(t, db.Close())
+		logger, logs := testlog.New()
+		svc := accounts.New(repo.New(db), nil, nil, accounts.WithClock(time.Now), accounts.WithCodeKey("test-key"),
+			accounts.WithLoginLimits(accounts.LoginLimits{PruneEvery: time.Millisecond}), accounts.WithLogger(logger))
+
+		runCtx, cancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		go func() {
+			svc.RunPruner(runCtx)
+			close(done)
+		}()
+
+		require.Eventually(t, func() bool {
+			return logs.FilterMessage("failed to prune login attempts").Len() > 0
+		}, 5*time.Second, 5*time.Millisecond)
+
+		cancel()
+		<-done
+
+		entry := logs.FilterMessage("failed to prune login attempts").All()[0]
+		require.Equal(t, zapcore.WarnLevel, entry.Level)
+		require.Contains(t, entry.ContextMap()["error"], "database is closed")
 	})
 }

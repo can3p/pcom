@@ -6,13 +6,14 @@ package connections
 import (
 	"context"
 	"errors"
-	"log"
 	"strings"
 
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/graph"
+	"go.uber.org/zap"
 )
 
 // ErrNoConnectionRequest is returned when there is no mediation request to revoke.
@@ -75,13 +76,13 @@ func (s *Service) whitelistTarget(ctx context.Context, store *repo.Store, actor 
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.Invalid("username", "No such user")
 	} else if err != nil {
-		log.Printf("Failed to check username [%s] for existence on whitelist operation: %s", username, err.Error())
+		logging.FromContext(ctx).Warn("failed to check username for existence on whitelist operation", zap.String("username", username), zap.Error(err))
 		return nil, service.Invalid("username", "Failed to lookup the username")
 	}
 
 	isConnection, err := store.Connected(ctx, actor.ID, target.ID)
 	if err != nil {
-		log.Printf("Failed to check username connection [%s] for existence on whitelist operation: %s", username, err.Error())
+		logging.FromContext(ctx).Warn("failed to check username connection for existence on whitelist operation", zap.String("username", username), zap.Error(err))
 		return nil, service.Invalid("username", "Failed to lookup the your connections")
 	} else if isConnection {
 		return nil, service.Invalid("username", "You have this connection already")
@@ -91,7 +92,7 @@ func (s *Service) whitelistTarget(ctx context.Context, store *repo.Store, actor 
 	// @TODO: this should be upsert
 	isWhitelisted, err := store.OpenGrantExists(ctx, actor.ID, target.ID)
 	if err != nil {
-		log.Printf("Failed to check username connection [%s] for existence on whitelist operation: %s", username, err.Error())
+		logging.FromContext(ctx).Warn("failed to check username connection for existence on whitelist operation", zap.String("username", username), zap.Error(err))
 		return nil, service.Invalid("username", "Failed to lookup the your connections")
 	} else if isWhitelisted {
 		return nil, service.Invalid("username", "Already in the list")

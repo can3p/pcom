@@ -8,11 +8,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"math/big"
 	"time"
 
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -20,6 +20,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 // codeDigits is the length of a code, part of its format (the mail, the
@@ -403,7 +404,7 @@ func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
 	for _, id := range ids {
 		ok, err := s.store.DeleteUnconfirmedUser(ctx, id)
 		if err != nil {
-			slog.Warn("Failed to delete an unconfirmed user", "user_id", id, "err", err.Error())
+			logging.FromContext(ctx).Warn("failed to delete an unconfirmed user", zap.String("user_id", id), zap.Error(err))
 			continue
 		}
 
@@ -418,6 +419,8 @@ func (s *Service) PruneUnconfirmedUsers(ctx context.Context) (int, error) {
 // RunPruner prunes login attempts and unconfirmed accounts every PruneEvery
 // until ctx is done.
 func (s *Service) RunPruner(ctx context.Context) {
+	ctx = logging.WithLogger(ctx, s.logger)
+
 	ticker := time.NewTicker(s.login.PruneEvery)
 	defer ticker.Stop()
 
@@ -425,11 +428,11 @@ func (s *Service) RunPruner(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			if _, err := s.PruneLoginAttempts(ctx); err != nil {
-				slog.Warn("Failed to prune login attempts", "err", err.Error())
+				logging.FromContext(ctx).Warn("failed to prune login attempts", zap.Error(err))
 			}
 
 			if _, err := s.PruneUnconfirmedUsers(ctx); err != nil {
-				slog.Warn("Failed to prune unconfirmed users", "err", err.Error())
+				logging.FromContext(ctx).Warn("failed to prune unconfirmed users", zap.Error(err))
 			}
 		case <-ctx.Done():
 			return

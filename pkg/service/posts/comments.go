@@ -3,10 +3,10 @@ package posts
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"strings"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 // CommentInput is a comment as its author submitted it.
@@ -202,7 +203,7 @@ func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *mode
 		return err
 	}
 
-	slog.Debug("comment in the post", "participants", len(participants))
+	logging.FromContext(ctx).Debug("comment in the post", zap.Int("participants", len(participants)))
 
 	for _, cmt := range participants {
 		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.User, post, comment, edited)

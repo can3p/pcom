@@ -2,12 +2,12 @@ package accounts
 
 import (
 	"context"
-	"log"
 	"regexp"
 	"time"
 
 	disposable "github.com/can3p/anti-disposable-email"
 	"github.com/can3p/pcom/pkg/forms/validation"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 // emailRE and testEmailRE decide what signup accepts as an address.
@@ -39,9 +40,11 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 	parsedEmail, _ := disposable.ParseEmail(address)
 
 	if parsedEmail.Disposable {
+		logger := logging.FromContext(ctx)
+
 		go func() {
 			if err := s.send(ctx, s.store, mail.AdminThrowAwayEmailSignupAttempt(s.ident.From, s.ident.AdminAddress, address)); err != nil {
-				log.Printf("failed to queue the throwaway email notification: %v", err)
+				logger.Warn("failed to queue the throwaway email notification", zap.Error(err))
 			}
 		}()
 

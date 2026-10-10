@@ -20,10 +20,12 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/can3p/pcom/pkg/testutil/testlog"
 	. "github.com/ovechkin-dm/mockio/v2/mock"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 // readItems is the user's reading list, read through the service.
@@ -254,6 +256,37 @@ func TestRunPoller_StopsOnContextDone(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("RunPoller did not return after its context was canceled")
 	}
+}
+
+// TestRunPoller_LogsRefreshFailure drives the poller with a closed database:
+// every tick fails and the worker logs it through the logger it was given.
+func TestRunPoller_LogsRefreshFailure(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t)
+	require.NoError(t, db.DB.Close())
+
+	logger, logs := testlog.New()
+	f := newService(repo.New(db.DB), nil, nil, nil, WithLogger(logger))
+	f.pollEvery = time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		f.RunPoller(ctx)
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		return logs.FilterMessage("failed to refresh feeds").Len() > 0
+	}, 5*time.Second, 5*time.Millisecond)
+
+	cancel()
+	<-done
+
+	entry := logs.FilterMessage("failed to refresh feeds").All()[0]
+	require.Equal(t, zapcore.WarnLevel, entry.Level)
+	require.Contains(t, entry.ContextMap()["error"], "database is closed")
 }
 
 // TestLockFeed_NotFound pins LockFeed's error path for an id that doesn't

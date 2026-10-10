@@ -17,6 +17,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -24,15 +25,36 @@ type Service struct {
 	fetcher      fetcher
 	cleaner      cleaner
 	mediaStorage server.MediaStorage
+	logger       *zap.Logger
+	// pollEvery is the pause between polls; tests shorten it.
+	pollEvery time.Duration
+}
+
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// WithLogger sets the logger of the background poller (RunPoller); requests
+// log through the logger their context carries. The default logs nothing.
+func WithLogger(l *zap.Logger) Option {
+	return func(s *Service) {
+		if l != nil {
+			s.logger = l
+		}
+	}
 }
 
 // New builds the service with the reader the poller uses in production.
-func New(store *repo.Store, mediaStorage server.MediaStorage) *Service {
-	return newService(store, reader.DefaultFetcher(), reader.DefaultCleaner(), mediaStorage)
+func New(store *repo.Store, mediaStorage server.MediaStorage, opts ...Option) *Service {
+	return newService(store, reader.DefaultFetcher(), reader.DefaultCleaner(), mediaStorage, opts...)
 }
 
-func newService(store *repo.Store, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage) *Service {
-	return &Service{store: store, fetcher: fetcher, cleaner: cleaner, mediaStorage: mediaStorage}
+func newService(store *repo.Store, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage, opts ...Option) *Service {
+	s := &Service{store: store, fetcher: fetcher, cleaner: cleaner, mediaStorage: mediaStorage, logger: zap.NewNop(), pollEvery: pollEvery}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // RssFeed is a feed as its subscriber sees it. ID is the subscription's id.
