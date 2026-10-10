@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestCreateImageReplacer(t *testing.T) {
@@ -110,7 +111,7 @@ func TestCreateImageReplacer(t *testing.T) {
 				return result.url, result.err
 			}
 
-			replacer := reader.CreateImageReplacer(tt.inputMarkdown, uploadFunc)
+			replacer := reader.CreateImageReplacer(zap.NewNop(), tt.inputMarkdown, uploadFunc)
 			output, err := markdown.ReplaceImageUrlsOrLinkify(tt.inputMarkdown, replacer)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedOutput, output)
