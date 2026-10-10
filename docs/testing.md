@@ -27,7 +27,7 @@ happen is tested in the browser, never over plain HTTP.
    `ConstructComments` or `isURLMediaUpload`. Black-box tests survive
    refactors; tests of internals get rewritten by them.
 3. **Assertions use `testify/require`** (and `assert` where continuing after a
-   failure helps). Don't add new uses of `alecthomas/assert`, which R6 removes.
+   failure helps). Lint refuses `alecthomas/assert`.
    Mocks use mockio v2 as shown below, but prefer the fakes in `pkg/testutil`.
 4. **Never assert on wall-clock time.** Nothing is injectable yet. Use
    `require.WithinDuration(t, time.Now(), got, 5*time.Second)`, or compare

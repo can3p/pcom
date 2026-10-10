@@ -1,11 +1,13 @@
 package pgsession
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/antonlindstrom/pgstore"
 	"github.com/gin-contrib/sessions"
 	gsessions "github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
-	"github.com/pkg/errors"
 )
 
 type Store interface {
@@ -36,7 +38,7 @@ func (c *store) Options(options sessions.Options) {
 func Regenerate(s sessions.Session) error {
 	gb, ok := s.(interface{ Session() *gsessions.Session })
 	if !ok {
-		return errors.Errorf("session %T is not backed by gorilla/sessions", s)
+		return fmt.Errorf("session %T is not backed by gorilla/sessions", s)
 	}
 
 	gs := gb.Session()
@@ -46,7 +48,7 @@ func Regenerate(s sessions.Session) error {
 
 	if ps, ok := gs.Store().(*pgstore.PGStore); ok && gs.ID != "" {
 		if _, err := ps.DbPool.Exec("DELETE FROM http_sessions WHERE key = $1", gs.ID); err != nil {
-			return errors.Wrap(err, "failed to delete the old session")
+			return fmt.Errorf("failed to delete the old session: %w", err)
 		}
 	}
 

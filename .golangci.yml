@@ -18,6 +18,12 @@ linters:
               desc: "log with a *zap.Logger from pkg/logging (logging.FromContext or a WithLogger option), not the log package"
             - pkg: "log/slog"
               desc: "log with a *zap.Logger from pkg/logging (logging.FromContext or a WithLogger option), not log/slog"
+        replaced:
+          deny:
+            - pkg: github.com/alecthomas/assert
+              desc: use github.com/stretchr/testify/require
+            - pkg: github.com/pkg/errors
+              desc: use the standard errors package and fmt.Errorf with %w
   exclusions:
     generated: lax
     paths:
