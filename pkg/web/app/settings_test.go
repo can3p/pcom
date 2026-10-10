@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/can3p/pcom/pkg/testutil/testlog"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/stretchr/testify/require"
 )
@@ -83,6 +84,7 @@ func TestRouter_Settings(t *testing.T) {
 }
 
 // ReportPanics mails the admin about a failed page; off, nothing is queued.
+// Either way the panic is logged with its stack.
 func TestRouter_ReportPanics(t *testing.T) {
 	t.Parallel()
 
@@ -96,13 +98,18 @@ func TestRouter_ReportPanics(t *testing.T) {
 			// a closed database makes the user styles page panic on its query
 			db := testdb.New(t).DB
 			snd := fakesender.New()
-			h := app.New(&app.Deps{DB: db, Sender: snd, MediaStorage: fakestorage.New(), Config: cfg})
+			logger, logs := testlog.New()
+			h := app.New(&app.Deps{DB: db, Sender: snd, MediaStorage: fakestorage.New(), Logger: logger, Config: cfg})
 			require.NoError(t, db.Close())
 
 			req := httptest.NewRequest(http.MethodGet, "/users/nobody/user_styles", nil)
 			req.Header.Set("Referer", "http://example.com/")
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
+
+			panics := logs.FilterMessage("panic recovered").All()
+			require.Len(t, panics, 1)
+			require.Contains(t, panics[0].ContextMap()["stack"], "pkg/web/app.")
 
 			if !on {
 				require.Empty(t, snd.Sent())

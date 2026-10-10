@@ -53,6 +53,10 @@ Help Options:
                                               [$REPORT_PANICS]
           --log-level=[debug|info|warn|error] Log level (default: info)
                                               [$LOG_LEVEL]
+          --log-format=[json|console]         Log encoding on stdout: json for
+                                              the deployed app, console for a
+                                              terminal (default: json)
+                                              [$LOG_FORMAT]
           --enable-pprof=                     Serve net/http/pprof on :8081
                                               (default: false) [$ENABLE_PPROF]
           --dev-routes=                       Serve the /dev pages (mail

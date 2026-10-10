@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/mileusna/useragent"
@@ -55,7 +56,7 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 	// logged in user and handed to gogo.
 	form := func(newForm func(c *gin.Context) gogoForms.Form) gin.HandlerFunc {
 		return func(c *gin.Context) {
-			gogoForms.DefaultHandler(c, newForm(c))
+			gogoForms.DefaultHandler(c, logging.FromContext(c), newForm(c))
 		}
 	}
 

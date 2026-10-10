@@ -6,13 +6,13 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"time"
 
 	mjconfig "github.com/can3p/gogo/sender/mailjet/config"
 	"github.com/can3p/gogo/settings"
 	"github.com/jessevdk/go-flags"
+	"go.uber.org/zap/zapcore"
 )
 
 // NewParser returns a parser for the binary: options are spelled
@@ -48,13 +48,14 @@ type Web struct {
 	ShowErrors      Switch `long:"show-errors" env:"SHOW_ERRORS" description:"Show error details in pages (development only)" optional:"true" optional-value:"true" default:"false"`
 	ReportPanics    Switch `long:"report-panics" env:"REPORT_PANICS" description:"Mail the admin address when a page panics" optional:"true" optional-value:"true" default:"true"`
 	LogLevel        string `long:"log-level" env:"LOG_LEVEL" description:"Log level" choice:"debug" choice:"info" choice:"warn" choice:"error" default:"info"`
+	LogFormat       string `long:"log-format" env:"LOG_FORMAT" description:"Log encoding on stdout: json for the deployed app, console for a terminal" choice:"json" choice:"console" default:"json"`
 	EnablePprof     Switch `long:"enable-pprof" env:"ENABLE_PPROF" description:"Serve net/http/pprof on :8081" optional:"true" optional-value:"true" default:"false"`
 	DevRoutes       Switch `long:"dev-routes" env:"DEV_ROUTES" description:"Serve the /dev pages (mail previews); local development only" optional:"true" optional-value:"true" default:"false"`
 }
 
-// SlogLevel is LogLevel as a slog level.
-func (w *Web) SlogLevel() slog.Level {
-	var l slog.Level
+// ZapLevel is LogLevel as a zap level.
+func (w *Web) ZapLevel() zapcore.Level {
+	var l zapcore.Level
 	_ = l.UnmarshalText([]byte(w.LogLevel)) // the choice tag admits only valid names
 
 	return l

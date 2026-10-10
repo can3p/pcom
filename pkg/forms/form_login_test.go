@@ -24,6 +24,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 const (
@@ -66,7 +67,7 @@ func TestLoginForm_SaveAnswersAnyAddressTheSame(t *testing.T) {
 		r.Use(sessions.Sessions("sess", cookie.NewStore([]byte("secret"))))
 		r.SetHTMLTemplate(tmpl)
 		r.POST("/login", func(c *gin.Context) {
-			gogoforms.DefaultHandler(c, form)
+			gogoforms.DefaultHandler(c, zap.NewNop(), form)
 			require.NotEmpty(t, auth.LoginAttempt(c), email)
 		})
 

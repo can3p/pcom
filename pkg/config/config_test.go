@@ -3,7 +3,6 @@ package config_test
 import (
 	"fmt"
 	"github.com/can3p/pcom/pkg/service/posts"
-	"log/slog"
 	"maps"
 	"os"
 	"sort"
@@ -15,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 // serveOnly records the parsed settings instead of serving.
@@ -125,7 +125,8 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"MEDIA_PERMA_CACHE", "false", func(s *config.Serve) any { return s.Web.MediaPermaCache.On() }, true, false},
 		{"SHOW_ERRORS", "true", func(s *config.Serve) any { return s.Web.ShowErrors.On() }, false, true},
 		{"REPORT_PANICS", "false", func(s *config.Serve) any { return s.Web.ReportPanics.On() }, true, false},
-		{"LOG_LEVEL", "debug", func(s *config.Serve) any { return s.Web.SlogLevel() }, slog.LevelInfo, slog.LevelDebug},
+		{"LOG_LEVEL", "debug", func(s *config.Serve) any { return s.Web.ZapLevel() }, zapcore.InfoLevel, zapcore.DebugLevel},
+		{"LOG_FORMAT", "console", func(s *config.Serve) any { return s.Web.LogFormat }, "json", "console"},
 		{"ENABLE_PPROF", "true", func(s *config.Serve) any { return s.Web.EnablePprof.On() }, false, true},
 		{"DEV_ROUTES", "true", func(s *config.Serve) any { return s.Web.DevRoutes.On() }, false, true},
 		{"PAGE_SIZE", "10", func(s *config.Serve) any { return s.Limits.PageSize }, 30, 10},

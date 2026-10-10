@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"log/slog"
+	"io"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"time"
 
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
@@ -19,6 +20,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 const (
@@ -34,6 +36,9 @@ func (c *serveCmd) Execute([]string) error {
 	cfg := c.Serve
 
 	applyProcessSettings(cfg)
+
+	logger := newLogger(cfg.Web, os.Stdout)
+	defer func() { _ = logger.Sync() }()
 
 	db, closeDB, err := openDB(cfg.Database.URL)
 	if err != nil {
@@ -73,21 +78,26 @@ func (c *serveCmd) Execute([]string) error {
 		Sender:       dbSender,
 		MediaStorage: mediaStorage,
 		MediaServer:  mediaServer,
+		Logger:       logger,
 		Config:       appConfig(cfg, app.LoadStaticManifest(cfg.Web.StaticCDN)),
 	}
 
-	startPprof(cfg.Web.EnablePprof.On(), pprofAddr)
+	startPprof(cfg.Web.EnablePprof.On(), pprofAddr, logger)
 
 	return app.New(deps).Run(fmt.Sprintf(":%d", cfg.Web.Port))
 }
 
-// applyProcessSettings sets the process-wide gin mode and log level.
+// applyProcessSettings sets the process-wide gin mode.
 func applyProcessSettings(cfg config.Serve) {
 	if cfg.Web.GinMode != "" {
 		gin.SetMode(cfg.Web.GinMode)
 	}
+}
 
-	slog.SetLogLoggerLevel(cfg.Web.SlogLevel())
+// newLogger is the server's logger, writing to w at --log-level in
+// --log-format.
+func newLogger(web config.Web, w io.Writer) *zap.Logger {
+	return logging.New(web.ZapLevel(), web.LogFormat, w)
 }
 
 // appConfig maps the settings onto what the app needs.
@@ -178,7 +188,7 @@ func newMediaServer(mediaStorage server.MediaStorage, web config.Web) (server.Me
 
 // startPprof moves the pprof handlers off the default mux and, when enabled,
 // serves them on addr.
-func startPprof(enabled bool, addr string) {
+func startPprof(enabled bool, addr string, logger *zap.Logger) {
 	pprofMux := http.DefaultServeMux
 	http.DefaultServeMux = http.NewServeMux()
 
@@ -189,7 +199,7 @@ func startPprof(enabled bool, addr string) {
 				Handler: pprofMux,
 			}
 
-			log.Fatal(srv.ListenAndServe())
+			logger.Fatal("pprof server stopped", zap.Error(srv.ListenAndServe()))
 		}()
 	}
 }

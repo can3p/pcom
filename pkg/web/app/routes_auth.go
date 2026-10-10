@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/can3p/pcom/pkg/web"
@@ -114,13 +115,13 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 	actions.POST("/logout", auth.Logout)
 
 	nonControlsForms.POST("/login", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
-		gogoForms.DefaultHandler(c, forms.LoginFormNew(accounts, d.Config.SessionSalt))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.LoginFormNew(accounts, d.Config.SessionSalt))
 
 		return nil
 	}))
 
 	nonControlsForms.POST("/login/code", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
-		gogoForms.DefaultHandler(c, forms.LoginCodeFormNew(accounts, d.Config.SiteRoot))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.LoginCodeFormNew(accounts, d.Config.SiteRoot))
 
 		return nil
 	}))
@@ -132,7 +133,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			return
 		}
 
-		gogoForms.DefaultHandler(c, forms.AcceptInviteFormNew(accounts, invite))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.AcceptInviteFormNew(accounts, invite))
 	})
 
 	nonControlsForms.POST("/signup", signedOutPage(func(c *gin.Context, _ auth.UserData) error {
@@ -146,7 +147,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			return nil
 		}
 
-		gogoForms.DefaultHandler(c, forms.SignupFormNew(accounts))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.SignupFormNew(accounts))
 
 		return nil
 	}))
@@ -169,7 +170,7 @@ func mountAuthRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
 			return nil
 		}
 
-		gogoForms.DefaultHandler(c, forms.SignupWaitingListFormNew(accounts))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.SignupWaitingListFormNew(accounts))
 
 		return nil
 	}))

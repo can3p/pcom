@@ -7,6 +7,7 @@ import (
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
@@ -78,7 +79,7 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 			}
 		}
 
-		gogoForms.DefaultHandler(c, form)
+		gogoForms.DefaultHandler(c, logging.FromContext(c), form)
 	})
 
 	controlsForms.POST("/new_comment", func(c *gin.Context) {
@@ -86,13 +87,13 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 
 		form := forms.NewCommentFormNew(posts, dbUser, c.PostForm("post_id"))
 
-		gogoForms.DefaultHandler(c, form)
+		gogoForms.DefaultHandler(c, logging.FromContext(c), form)
 	})
 
 	controlsForms.POST("/edit_comment/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		dbUser := auth.GetUserData(c).DBUser
 
-		gogoForms.DefaultHandler(c, forms.EditCommentFormNew(posts, dbUser, c.Param("id")))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.EditCommentFormNew(posts, dbUser, c.Param("id")))
 	})
 
 	controlsForms.POST("/prompt_post", func(c *gin.Context) {
@@ -104,6 +105,6 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 			panic(err)
 		}
 
-		gogoForms.DefaultHandler(c, forms.PostPromptFormNew(posts, dbUser, directConnections))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.PostPromptFormNew(posts, dbUser, directConnections))
 	})
 }

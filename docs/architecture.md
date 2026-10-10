@@ -114,6 +114,23 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   relation loading, upserts and locks the repositories need. lib/pq stays in `go.mod` only as gogo's
   indirect dependency.
 
+## Logging
+
+- **One `*zap.Logger`, passed explicitly.** No global logger, no `zap.ReplaceGlobals`. Long-running workers
+  (mail sender, feed poller, login pruner, media server) take it through a `WithLogger` option defaulting to
+  a no-op logger; handlers and services take it from the context with `logging.FromContext(ctx)`, which
+  works on a `*gin.Context` and returns a no-op logger when none is set, so a test or a CLI subcommand
+  needs none.
+- **Per request.** `logging.Middleware` (installed first in `router.go`) gives each request a logger with
+  its `request_id`, adds `user_id` once auth knows the user, and logs the request once it is served;
+  `logging.Recovery` logs a panic with its stack. `--log-format` is `json` (the default, for the deployed
+  app) or `console` (development).
+- **Structured fields, not formatted strings**: `logger.Error("send failed", zap.Error(err),
+  zap.String("mail_id", id))`. An error is returned or logged, never both: it is logged once, where it is
+  handled (the request middleware, a worker loop, a service that deliberately swallows it).
+- `fmt.Print*` is only a CLI subcommand's output to its user. A test asserts log entries with
+  `pkg/testutil/testlog`.
+
 ## Logic in the database
 
 Business rules live in Go services, where they are read, tested and changed

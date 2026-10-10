@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0
 	github.com/badoux/checkmail v1.2.4
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
-	github.com/can3p/gogo v0.1.0
+	github.com/can3p/gogo v0.2.0
 	github.com/davidbyttow/govips/v2 v2.19.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gin-contrib/sessions v1.1.2
@@ -41,6 +41,7 @@ require (
 	github.com/uptrace/bun/dialect/pgdialect v1.3.0
 	github.com/yuin/goldmark v1.8.6
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
+	go.uber.org/zap v1.28.0
 	golang.org/x/image v0.46.0
 	golang.org/x/sync v0.24.0
 )
@@ -148,6 +149,7 @@ require (
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.29.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect

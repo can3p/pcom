@@ -23,7 +23,7 @@ make dev-up && make migrate && make seed
 make dev        # app and asset watcher in containers, http://localhost:8080
 ```
 
-Every setting is an environment variable (or flag) listed by `go run ./cmd/web serve --help`; other commands have their own `--help`. Defaults are production values, so `cmd/web/.env` (copied from `.env.example`) and compose turn off what doesn't fit plain-HTTP localhost.
+Every setting is an environment variable (or flag) listed by `go run ./cmd/web serve --help`; other commands have their own `--help`. Defaults are production values, so `cmd/web/.env` (copied from `.env.example`) and compose turn off what doesn't fit plain-HTTP localhost, and log in the console format instead of JSON.
 
 Local development uses [tommy](https://github.com/can3p/tommy) for mail and S3:
 - Mail: sent to tommy's Mailjet provider, view at http://localhost:8811/ui/
