@@ -13,7 +13,9 @@ import (
 
 	mediaerrors "github.com/can3p/pcom/pkg/media/errors"
 	"github.com/can3p/pcom/pkg/testutil"
+	"github.com/can3p/pcom/pkg/testutil/testlog"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 )
 
 type mockStorage struct {
@@ -105,6 +107,24 @@ func (e *errMockServer) GetImage(ctx context.Context, fname string, class string
 
 func (e *errMockServer) ServeImage(ctx context.Context, getter MediaGetter, req *http.Request, w http.ResponseWriter, fname string) error {
 	return e.err
+}
+
+func TestCachingServer_LogsUploadFailureToRequestLogger(t *testing.T) {
+	ctx, logs := testlog.Context(context.Background())
+	storage := newMockStorage()
+	storage.uploadErr = errors.New("upload failed")
+	cache := testutil.Must(NewCachingServer(&mockServer{}, storage, 10))(t)
+
+	_, _, err := cache.GetImage(ctx, "test.jpg", "thumb")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return logs.FilterMessage("Failed to cache image").Len() == 1
+	}, 5*time.Second, 10*time.Millisecond)
+
+	entry := logs.FilterMessage("Failed to cache image").All()[0]
+	require.Equal(t, zapcore.ErrorLevel, entry.Level)
+	require.Equal(t, "thumb/test.jpg", entry.ContextMap()["key"])
 }
 
 func TestNewCachingServer(t *testing.T) {

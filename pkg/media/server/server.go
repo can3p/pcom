@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log"
-	"log/slog"
 	"net/http"
 
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/davidbyttow/govips/v2/vips"
+	"go.uber.org/zap"
 )
 
 type ClassParams struct {
@@ -88,7 +88,7 @@ func (s Server) GetImage(ctx context.Context, fname string, class string) (io.Re
 
 	defer func() {
 		if err := dl.Close(); err != nil {
-			log.Printf("Error closing download: %v", err)
+			logging.FromContext(ctx).Warn("Error closing download", zap.Error(err))
 		}
 	}()
 
@@ -154,7 +154,7 @@ func (s Server) ServeImage(ctx context.Context, getter MediaGetter, req *http.Re
 	if closer, ok := out.(io.Closer); ok {
 		defer func() {
 			if err := closer.Close(); err != nil {
-				slog.Warn("Failed to close the reader", "err", err)
+				logging.FromContext(ctx).Warn("Failed to close the reader", zap.Error(err))
 			}
 		}()
 	}

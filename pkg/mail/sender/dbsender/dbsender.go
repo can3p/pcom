@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"slices"
 	"time"
 
 	"github.com/can3p/gogo/sender"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // DefaultRetryIntervals is the wait before each retry of a failed mail, equal
@@ -23,6 +24,7 @@ type dbSender struct {
 	realSender     sender.Sender
 	store          *repo.Store
 	retryIntervals []time.Duration
+	logger         *zap.Logger
 }
 
 // Option configures the sender.
@@ -36,6 +38,13 @@ func WithRetryIntervals(intervals []time.Duration) Option {
 	}
 }
 
+// WithLogger sets the logger the poller logs to; the default logs nothing.
+func WithLogger(logger *zap.Logger) Option {
+	return func(m *dbSender) {
+		m.logger = logger
+	}
+}
+
 // compile-time check that dbSender is the mail queue.
 var _ repo.MailQueue = (*dbSender)(nil)
 
@@ -44,6 +53,7 @@ func NewSender(db *repo.Store, realSender sender.Sender, opts ...Option) *dbSend
 		realSender:     realSender,
 		store:          db,
 		retryIntervals: slices.Clone(DefaultRetryIntervals),
+		logger:         zap.NewNop(),
 	}
 
 	for _, opt := range opts {
@@ -55,13 +65,14 @@ func NewSender(db *repo.Store, realSender sender.Sender, opts ...Option) *dbSend
 
 // RunPoller sends the queued mail every interval until ctx is done.
 func (m *dbSender) RunPoller(ctx context.Context, every time.Duration) {
+	ctx = logging.WithLogger(ctx, m.logger)
 	ticker := time.NewTicker(every)
 
 	for {
 		select {
 		case <-ticker.C:
 			if err := m.sendEmails(ctx); err != nil {
-				slog.Warn("Failed to send emails", "err", err.Error())
+				logging.FromContext(ctx).Warn("Failed to send emails", zap.Error(err))
 			}
 		case <-ctx.Done():
 			return
@@ -85,7 +96,7 @@ func (m *dbSender) sendEmails(ctx context.Context) (err error) {
 
 	for _, id := range ids {
 		if err := m.sendOne(ctx, id); err != nil {
-			slog.Warn("failed to send email", "email_id", id, "err", err)
+			logging.FromContext(ctx).Warn("failed to send email", zap.String("email_id", id), zap.Error(err))
 		}
 	}
 
@@ -117,7 +128,7 @@ func (m *dbSender) trySendEmail(ctx context.Context, tx *repo.Store, outgoing *m
 		return err
 	}
 
-	slog.Debug("Trying to send an email for real", "id", outgoing.ID, "to", payload.To)
+	logging.FromContext(ctx).Debug("Trying to send an email for real", zap.String("id", outgoing.ID), zap.Any("to", payload.To))
 	sendErr := m.realSender.Send(ctx, &payload)
 
 	if sendErr == nil {
@@ -160,7 +171,7 @@ func (m *dbSender) Send(ctx context.Context, exec repo.Executor, uniqueID string
 		EmailType: emailType,
 	}
 
-	slog.Debug("Scheduling email", "uniqueID", uniqueID, "email_type", emailType, "to", mail.To)
+	logging.FromContext(ctx).Debug("Scheduling email", zap.String("uniqueID", uniqueID), zap.String("email_type", emailType), zap.Any("to", mail.To))
 
 	// this action is really dumb in a sense that we only attempt to put an email into the queue and bail if it's already there
 	// We use repo.Using to wrap the legacy code, as this is the executor path from services
