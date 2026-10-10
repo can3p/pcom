@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/media"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
@@ -253,7 +254,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 			return media.StoreUpload(downloadCtx, tx, s.mediaStorage, nil, &feedID, readerIO)
 		}
 
-		replacer := reader.CreateImageReplacer(markdownContent, uploadFunc)
+		replacer := reader.CreateImageReplacer(logging.FromContext(ctx), markdownContent, uploadFunc)
 
 		markdownContent, err = markdown.ReplaceImageUrlsOrLinkify(markdownContent, replacer)
 		if err != nil {

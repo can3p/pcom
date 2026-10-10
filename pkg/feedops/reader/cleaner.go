@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"html"
 
-	"log/slog"
-
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 const (
@@ -22,7 +21,7 @@ func DefaultCleaner() *Cleaner {
 	return &Cleaner{}
 }
 
-func CreateImageReplacer(md string, uploadFunc func(url string) (string, error)) markdown.ErrorReplacer {
+func CreateImageReplacer(logger *zap.Logger, md string, uploadFunc func(url string) (string, error)) markdown.ErrorReplacer {
 	imageUrls := markdown.ExtractImageUrls(md)
 
 	uniqueUrls := make(map[string]bool)
@@ -58,7 +57,7 @@ func CreateImageReplacer(md string, uploadFunc func(url string) (string, error))
 				readableErr = fmt.Errorf("image too large")
 			} else {
 				readableErr = fmt.Errorf("image download failed")
-				slog.Warn("image download failed", "url", url, "error", err)
+				logger.Warn("image download failed", zap.String("url", url), zap.Error(err))
 			}
 
 			downloadResults[url] = result{err: readableErr}
