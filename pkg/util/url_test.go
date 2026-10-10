@@ -3,7 +3,7 @@ package util
 import (
 	"testing"
 
-	"github.com/alecthomas/assert/v2"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeURL(t *testing.T) {
@@ -100,11 +100,11 @@ func TestNormalizeURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := NormalizeURL(tt.input)
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, result)
 			}
 		})
 	}

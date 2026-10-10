@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alecthomas/assert/v2"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImport(t *testing.T) {
@@ -92,13 +92,13 @@ with some *markdown* in it`,
 			imported, additionalFields, err := DeserializePost([]byte(tc.content))
 
 			if tc.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
-			assert.Equal(t, tc.post, imported)
-			assert.Equal(t, tc.additionalFields, additionalFields)
+			require.NoError(t, err)
+			require.Equal(t, tc.post, imported)
+			require.Equal(t, tc.additionalFields, additionalFields)
 		})
 	}
 }
@@ -163,16 +163,16 @@ with some *markdown* in it`,
 			imported, additionalFields, err := DeserializePost(b)
 
 			if tc.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			tc.post.URL = nil
 			// url id is never filled in in imported post
 			tc.post.URLID = nil
-			assert.Equal(t, tc.post, imported)
-			assert.Equal(t, tc.additionalFields, additionalFields)
+			require.Equal(t, tc.post, imported)
+			require.Equal(t, tc.additionalFields, additionalFields)
 		})
 	}
 }
@@ -194,16 +194,16 @@ with some *markdown* in it`,
 	}
 
 	b, err := SerializeBlogSlice(context.Background(), []*model.Post{post}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	posts, images, err := DeserializeArchive(b)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(posts))
-	assert.Equal(t, 0, len(images))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(posts))
+	require.Equal(t, 0, len(images))
 
 	// Clear R field before comparison as it's not part of serialization
 	post.URL = nil
 	post.URLID = nil
-	assert.Equal(t, post, posts[0].Post)
-	assert.Equal(t, "https://example.com", posts[0].Additional.URL)
+	require.Equal(t, post, posts[0].Post)
+	require.Equal(t, "https://example.com", posts[0].Additional.URL)
 }
