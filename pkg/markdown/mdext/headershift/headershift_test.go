@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alecthomas/assert/v2"
+	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
 )
 
@@ -36,6 +36,6 @@ func TestHeaderShift(t *testing.T) {
 
 		_ = parser.Convert(in, &writer)
 
-		assert.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
+		require.Equal(t, out, strings.TrimSpace(writer.String()), "[ex %d]:", idx+1)
 	}
 }

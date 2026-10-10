@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/alecthomas/assert/v2"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReplaceImageUrls(t *testing.T) {
@@ -33,8 +33,8 @@ wwww
 		},
 	))
 
-	assert.NoError(t, err)
-	assert.Equal(t, expected, res)
+	require.NoError(t, err)
+	require.Equal(t, expected, res)
 }
 
 func TestReplaceImageUrlsOrLinkify(t *testing.T) {
@@ -81,8 +81,8 @@ func TestReplaceImageUrlsOrLinkify(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ReplaceImageUrlsOrLinkify(tt.input, tt.replacer)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expected, result)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
