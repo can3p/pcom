@@ -3,6 +3,7 @@ package postops
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/samber/lo"
 )
 
@@ -88,7 +88,7 @@ func DeserializePost(b []byte) (*model.Post, *AdditionalFields, error) {
 			_, err := uuid.Parse(value)
 
 			if err != nil {
-				return nil, nil, errors.Errorf("Invalid ID")
+				return nil, nil, errors.New("Invalid ID") //nolint:staticcheck // ST1005: message text kept as is
 			}
 
 			post.ID = value
@@ -104,7 +104,7 @@ func DeserializePost(b []byte) (*model.Post, *AdditionalFields, error) {
 
 			if err := vis.IsValid(); err != nil {
 				allVis := lo.Map(model.AllPostVisibility(), func(v model.PostVisibility, idx int) string { return v.String() })
-				return nil, nil, errors.Errorf("Invalid visibility value, possible values are: %s", strings.Join(allVis, ", "))
+				return nil, nil, fmt.Errorf("Invalid visibility value, possible values are: %s", strings.Join(allVis, ", ")) //nolint:staticcheck // ST1005: message text kept as is
 			}
 
 			post.VisibilityRadius = vis
@@ -112,12 +112,12 @@ func DeserializePost(b []byte) (*model.Post, *AdditionalFields, error) {
 			d, err := time.Parse(time.RFC3339, value)
 
 			if err != nil {
-				return nil, nil, errors.Errorf("Invalid publish date")
+				return nil, nil, errors.New("Invalid publish date") //nolint:staticcheck // ST1005: message text kept as is
 			}
 
 			post.PublishedAt = new(d)
 		default:
-			return nil, nil, errors.Errorf("Unknown header: %s", name)
+			return nil, nil, fmt.Errorf("Unknown header: %s", name) //nolint:staticcheck // ST1005: message text kept as is
 		}
 	}
 

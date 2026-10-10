@@ -54,6 +54,7 @@ package mail
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	htmltemplate "html/template"
 	"io"
 	"maps"
@@ -65,7 +66,6 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
-	"github.com/pkg/errors"
 )
 
 // Envelope is a mail with the id and type the outgoing queue files it under.
@@ -136,17 +136,17 @@ func (d *Definition[In]) Name() string { return d.name }
 func (d *Definition[In]) Render(in In) (*Envelope, error) {
 	subject, err := execute(d.subject, in)
 	if err != nil {
-		return nil, errors.Wrapf(err, "mail %s: subject", d.name)
+		return nil, fmt.Errorf("mail %s: subject: %w", d.name, err)
 	}
 
 	text, err := execute(d.text, in)
 	if err != nil {
-		return nil, errors.Wrapf(err, "mail %s: text", d.name)
+		return nil, fmt.Errorf("mail %s: text: %w", d.name, err)
 	}
 
 	html, err := execute(d.html, in)
 	if err != nil {
-		return nil, errors.Wrapf(err, "mail %s: html", d.name)
+		return nil, fmt.Errorf("mail %s: html: %w", d.name, err)
 	}
 
 	subject = strings.TrimSpace(subject)

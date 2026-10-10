@@ -5,13 +5,13 @@ package posts
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
-	"github.com/pkg/errors"
 )
 
 type Service struct {
@@ -111,7 +111,7 @@ func (s *Service) queue(ctx context.Context, tx *repo.Store, out *mail.Envelope)
 	}
 
 	if err := tx.SendMail(ctx, s.sender, out.UniqueID, out.Type, out.Mail); err != nil {
-		return errors.Wrap(err, "failed to queue email")
+		return fmt.Errorf("failed to queue email: %w", err)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"fmt"
 	"html/template"
 	"strings"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/types"
-	"github.com/pkg/errors"
 	"github.com/samber/lo"
 )
 
@@ -60,7 +60,7 @@ func newPostComment(site links.Site, from string, mediaReplacer types.Replacer[s
 	body, err := markdown.ReplaceImageUrls(comment.Body, mediaReplacer)
 	if err != nil {
 		// ReplaceImageUrls only fails if goldmark cannot render, which no input triggers, so no test covers this.
-		return postComment{}, errors.Wrap(err, "failed to render the comment")
+		return postComment{}, fmt.Errorf("failed to render the comment: %w", err)
 	}
 
 	in := postComment{

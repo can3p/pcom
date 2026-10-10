@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,7 +18,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -130,7 +130,11 @@ func SetLoginAttempt(c *gin.Context, attemptID string) error {
 	session := sessions.Default(c)
 	session.Set(loginAttemptKey, attemptID)
 
-	return errors.Wrap(session.Save(), "Failed to save session")
+	if err := session.Save(); err != nil {
+		return fmt.Errorf("Failed to save session: %w", err) //nolint:staticcheck // ST1005: message text kept as is
+	}
+
+	return nil
 }
 
 // LoginAttempt returns the id of the visitor's login attempt, empty when there
@@ -154,7 +158,7 @@ func StartSession(c *gin.Context, user *model.User) error {
 	session.Set(userkey, user.ID)
 
 	if err := session.Save(); err != nil {
-		return errors.Wrapf(err, "Failed to save session")
+		return fmt.Errorf("Failed to save session: %w", err) //nolint:staticcheck // ST1005: message text kept as is
 	}
 
 	return nil
