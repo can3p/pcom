@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // sendZip answers with a zip archive as a download.
@@ -81,7 +82,7 @@ func readUpload(c *gin.Context, field string) ([]byte, error) {
 
 	defer func() {
 		if err := f.Close(); err != nil {
-			log.Printf("Error closing file: %v", err)
+			logging.FromContext(c).Warn("failed to close the uploaded file", zap.Error(err))
 		}
 	}()
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"runtime/debug"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
 )
 
 const (
@@ -37,13 +37,15 @@ type cleaner interface {
 
 // RunPoller refreshes due feeds until ctx is done.
 func (s *Service) RunPoller(ctx context.Context) {
-	ticker := time.NewTicker(pollEvery)
+	ctx = logging.WithLogger(ctx, s.logger)
+
+	ticker := time.NewTicker(s.pollEvery)
 
 	for {
 		select {
 		case <-ticker.C:
 			if err := s.refreshFeeds(ctx); err != nil {
-				slog.Warn("Failed to refreshFeeds", "err", err.Error())
+				logging.FromContext(ctx).Warn("failed to refresh feeds", zap.Error(err))
 			}
 		case <-ctx.Done():
 			return
@@ -78,7 +80,7 @@ func (s *Service) refreshFeeds(ctx context.Context) (err error) {
 			return s.tryFetchFeed(ctx, tx, feed)
 		})
 		if err != nil {
-			slog.Warn("failed to fetch the feed", "feed_id", ff.ID, "err", err)
+			logging.FromContext(ctx).Warn("failed to fetch the feed", zap.String("feed_id", ff.ID), zap.Error(err))
 			continue
 		}
 	}
@@ -256,7 +258,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 
 		replacer := reader.CreateImageReplacer(logging.FromContext(ctx), markdownContent, uploadFunc)
 
-		markdownContent, err = markdown.ReplaceImageUrlsOrLinkify(markdownContent, replacer)
+		markdownContent, err = markdown.ReplaceImageUrlsOrLinkify(markdownContent, replacer, markdown.WithLogger(logging.FromContext(ctx)))
 		if err != nil {
 			return false, fmt.Errorf("failed to process images in feed item: %w", err)
 		}

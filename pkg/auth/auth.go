@@ -3,14 +3,13 @@ package auth
 import (
 	"crypto/sha256"
 	"fmt"
-	"log"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/can3p/gogo/apperr"
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service"
@@ -19,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 const (
@@ -44,7 +44,7 @@ func Auth(c *gin.Context, accounts *accounts.Service) {
 	}
 
 	if u, err := accounts.UserByID(c.Request.Context(), user.(string)); err != nil {
-		log.Printf("Failed to save user to pgsession, auth won't work as expected: %s", err)
+		logging.FromContext(c).Warn("failed to load the session user, auth won't work as expected", zap.Error(err))
 	} else {
 		setUser(c, u)
 	}
@@ -71,7 +71,7 @@ func AuthAPI(c *gin.Context, accounts *accounts.Service) {
 
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
-		slog.Warn("Failed to fetch user token", "err", err)
+		logging.FromContext(c).Warn("failed to fetch user token", zap.Error(err))
 		return
 	}
 
@@ -171,7 +171,7 @@ func Logout(c *gin.Context) {
 	}
 
 	if err := pgsession.Regenerate(session); err != nil {
-		slog.Warn("Failed to regenerate session on logout", "err", err)
+		logging.FromContext(c).Warn("failed to regenerate session on logout", zap.Error(err))
 		session.Delete(userkey)
 	}
 
@@ -202,7 +202,7 @@ func GetUserData(c *gin.Context) UserData {
 		session.Set(csrfTokenKey, storedToken)
 
 		if err := session.Save(); err != nil {
-			slog.Warn(errors.Wrapf(err, "Failed to save session").Error())
+			logging.FromContext(c).Warn("failed to save session", zap.Error(err))
 		}
 	}
 
@@ -238,7 +238,7 @@ func AddFlash(c *gin.Context, flash any, vars ...string) {
 
 	session.AddFlash(flash, vars...)
 	if err := session.Save(); err != nil {
-		log.Printf("Failed to save session: %v", err)
+		logging.FromContext(c).Warn("failed to save session", zap.Error(err))
 	}
 }
 
@@ -249,7 +249,7 @@ func GetFlashes(c *gin.Context, vars ...string) []any {
 
 	if len(flashes) != 0 {
 		if err := session.Save(); err != nil {
-			log.Printf("error in flashes saving session: %v", err)
+			logging.FromContext(c).Warn("failed to save session after reading flashes", zap.Error(err))
 		}
 	}
 

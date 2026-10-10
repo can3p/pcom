@@ -3,7 +3,6 @@ package markdown
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/can3p/pcom/pkg/types"
@@ -13,10 +12,38 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
+	"go.uber.org/zap"
 )
+
+// Option changes how a rewrite function builds its renderer.
+type Option func(*options)
+
+type options struct {
+	logger *zap.Logger
+}
+
+// WithLogger sets the logger the AST transformers report to, as goldmark
+// transformers cannot return errors. The default logs nothing.
+func WithLogger(l *zap.Logger) Option {
+	return func(o *options) {
+		if l != nil {
+			o.logger = l
+		}
+	}
+}
+
+func newOptions(opts []Option) options {
+	o := options{logger: zap.NewNop()}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	return o
+}
 
 type imgReplaceTransformer struct {
 	Replacer types.Replacer[string]
+	logger   *zap.Logger
 }
 
 func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
@@ -43,7 +70,7 @@ func (t *imgReplaceTransformer) Transform(node *ast.Document, reader text.Reader
 
 	if err != nil {
 		// the walker callback never fails and goldmark transformers cannot return errors
-		log.Printf("markdown: error encountered while transforming AST: %v", err)
+		t.logger.Error("markdown: error encountered while transforming AST", zap.Error(err))
 	}
 }
 
@@ -59,9 +86,10 @@ func NewModifier(t parser.ASTTransformer) goldmark.Markdown {
 	return gm
 }
 
-func ReplaceImageUrls(md string, replace types.Replacer[string]) (string, error) {
+func ReplaceImageUrls(md string, replace types.Replacer[string], opts ...Option) (string, error) {
 	t := &imgReplaceTransformer{
 		Replacer: replace,
+		logger:   newOptions(opts).logger,
 	}
 
 	gm := NewModifier(t) // Output buffer
@@ -83,6 +111,7 @@ type ErrorReplacer func(in string) (string, error)
 
 type imgReplaceOrLinkifyTransformer struct {
 	Replacer ErrorReplacer
+	logger   *zap.Logger
 }
 
 func (t *imgReplaceOrLinkifyTransformer) Transform(node *ast.Document, reader text.Reader, pc parser.Context) {
@@ -135,7 +164,7 @@ func (t *imgReplaceOrLinkifyTransformer) Transform(node *ast.Document, reader te
 
 	if err != nil {
 		// the walker callback never fails and goldmark transformers cannot return errors
-		log.Printf("markdown: error encountered while transforming AST: %v", err)
+		t.logger.Error("markdown: error encountered while transforming AST", zap.Error(err))
 	}
 
 	// Apply replacements
@@ -168,9 +197,10 @@ func ExtractImageUrls(md string) []string {
 	return urls
 }
 
-func ReplaceImageUrlsOrLinkify(md string, replace ErrorReplacer) (string, error) {
+func ReplaceImageUrlsOrLinkify(md string, replace ErrorReplacer, opts ...Option) (string, error) {
 	t := &imgReplaceOrLinkifyTransformer{
 		Replacer: replace,
+		logger:   newOptions(opts).logger,
 	}
 
 	gm := NewModifier(t)
