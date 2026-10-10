@@ -117,10 +117,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 ## Logging
 
 - **One `*zap.Logger`, passed explicitly.** No global logger, no `zap.ReplaceGlobals`. Long-running workers
-  (mail sender, feed poller, login pruner, media server) take it through a `WithLogger` option defaulting to
-  a no-op logger; handlers and services take it from the context with `logging.FromContext(ctx)`, which
-  works on a `*gin.Context` and returns a no-op logger when none is set, so a test or a CLI subcommand
-  needs none.
+  (mail sender, feed poller, login pruner) take it through a `WithLogger` option defaulting to a no-op
+  logger, and put it into the context they pass down. Handlers, services and the media server take it
+  from the context with `logging.FromContext(ctx)`, which works on a `*gin.Context` and on its
+  `c.Request.Context()`, and returns a no-op logger when none is set, so a test or a CLI subcommand needs
+  none.
 - **Per request.** `logging.Middleware` (installed first in `router.go`) gives each request a logger with
   its `request_id`, adds `user_id` once auth knows the user, and logs the request once it is served;
   `logging.Recovery` logs a panic with its stack. `--log-format` is `json` (the default, for the deployed

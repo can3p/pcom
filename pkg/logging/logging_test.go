@@ -57,6 +57,22 @@ func TestWithLogger_GinContext(t *testing.T) {
 	require.Equal(t, 1, logs.FilterMessage("from derived").Len())
 }
 
+// Code called with c.Request.Context() sees the logger the middleware set,
+// and fields added later.
+func TestWithLogger_GinRequestContext(t *testing.T) {
+	logger, logs := testlog.New()
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+
+	logging.WithLogger(c, logger)
+	logging.With(c, zap.String("user_id", "u1"))
+	logging.FromContext(c.Request.Context()).Info("from request")
+
+	entries := logs.FilterMessage("from request").All()
+	require.Len(t, entries, 1)
+	require.Equal(t, "u1", entries[0].ContextMap()["user_id"])
+}
+
 func TestWith_AddsFields(t *testing.T) {
 	ctx, logs := testlog.Context(context.Background())
 

@@ -25,10 +25,16 @@ type ctxKey struct{}
 const ginKey = "pcom.logging.logger"
 
 // WithLogger returns ctx carrying logger. A *gin.Context is changed in place
-// and returned, so the middleware after it and the handler see the logger.
+// and returned, so the middleware after it and the handler see the logger;
+// its request's context carries the logger too, for code called with
+// c.Request.Context().
 func WithLogger(ctx context.Context, logger *zap.Logger) context.Context {
 	if gc, ok := ctx.(*gin.Context); ok {
 		gc.Set(ginKey, logger)
+		if gc.Request != nil {
+			gc.Request = gc.Request.WithContext(context.WithValue(gc.Request.Context(), ctxKey{}, logger))
+		}
+
 		return ctx
 	}
 

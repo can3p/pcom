@@ -49,7 +49,7 @@ func (c *serveCmd) Execute([]string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dbSender := dbsender.NewSender(repo.New(db), mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet), dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals))
+	dbSender := dbsender.NewSender(repo.New(db), mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet), dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals), dbsender.WithLogger(logger))
 
 	go dbSender.RunPoller(ctx, cfg.Mail.PollInterval)
 
@@ -58,11 +58,11 @@ func (c *serveCmd) Execute([]string) error {
 		return err
 	}
 
-	feeder := feeds.New(repo.New(db), mediaStorage)
+	feeder := feeds.New(repo.New(db), mediaStorage, feeds.WithLogger(logger))
 
 	go feeder.RunPoller(ctx)
 
-	go accounts.New(repo.New(db), nil, nil, accounts.WithLoginLimits(loginLimits(cfg.Login))).RunPruner(ctx)
+	go accounts.New(repo.New(db), nil, nil, accounts.WithLoginLimits(loginLimits(cfg.Login)), accounts.WithLogger(logger)).RunPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {
