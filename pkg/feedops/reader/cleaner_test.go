@@ -1,13 +1,13 @@
 package reader_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/markdown"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )

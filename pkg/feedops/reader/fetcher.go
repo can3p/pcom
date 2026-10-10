@@ -3,13 +3,14 @@ package reader
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/mmcdole/gofeed"
-	"github.com/pkg/errors"
 	"github.com/samber/lo"
 )
 
@@ -89,7 +90,7 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 	req, err := http.NewRequestWithContext(ctx, "GET", mediaURL, nil)
 	if err != nil {
 		cancel()
-		return nil, errors.Wrap(err, "failed to create request")
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	resp, err := f.httpClient.Do(req)
@@ -98,19 +99,19 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, ErrMediaTimeout
 		}
-		return nil, errors.Wrap(err, "failed to fetch media")
+		return nil, fmt.Errorf("failed to fetch media: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
 		cancel()
-		return nil, errors.Errorf("failed to fetch media: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to fetch media: HTTP %d", resp.StatusCode)
 	}
 
 	if resp.ContentLength > MaxMediaSize {
 		_ = resp.Body.Close()
 		cancel()
-		return nil, errors.Wrapf(ErrMediaTooLarge, "content-length: %d bytes", resp.ContentLength)
+		return nil, fmt.Errorf("content-length: %d bytes: %w", resp.ContentLength, ErrMediaTooLarge)
 	}
 
 	peekBuf := make([]byte, 512)
@@ -121,7 +122,7 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, ErrMediaTimeout
 		}
-		return nil, errors.Wrap(err, "failed to read media header")
+		return nil, fmt.Errorf("failed to read media header: %w", err)
 	}
 
 	contentType := http.DetectContentType(peekBuf[:n])

@@ -1,13 +1,13 @@
 package reader
 
 import (
+	"errors"
 	"fmt"
 	"html"
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 

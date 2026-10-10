@@ -1,13 +1,13 @@
 package media
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
 var (
-	ErrNotFound            = errors.Errorf("Resource not found")
+	ErrNotFound            = errors.New("Resource not found") //nolint:staticcheck // ST1005: message text kept as is
 	ErrUnsupportedMimeType = errors.New("unsupported mime type")
 )
 
@@ -20,7 +20,7 @@ var supportedImageTypes = map[string]string{
 func ValidateImageType(contentType string) (string, error) {
 	ext, ok := supportedImageTypes[contentType]
 	if !ok {
-		return "", errors.Wrapf(ErrUnsupportedMimeType, "%s", contentType)
+		return "", fmt.Errorf("%s: %w", contentType, ErrUnsupportedMimeType)
 	}
 	return ext, nil
 }
