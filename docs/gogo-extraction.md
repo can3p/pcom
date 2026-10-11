@@ -3,9 +3,9 @@
 Generic plumbing that could move into [github.com/can3p/gogo](https://github.com/can3p/gogo), so that every
 gogo-based project shares one copy. **Extract only code that has tests**, and move the tests along with it.
 
-pcom depends on `github.com/can3p/gogo v0.1.0` and uses `forms`, `sender` (mailjet), `links.ArgBuilder`,
-`util/transact`, `testcontainers/postgres`, `apperr`, `settings`, `util/ginhelpers` and
-`util/ginhelpers/csrf`. gogo takes no executor: forms call services and the mail queue is pcom's
+pcom depends on `github.com/can3p/gogo v0.3.0` and uses `forms`, `sender` (mailjet), `links.ArgBuilder`,
+`util/transact`, `testcontainers/postgres`, `sessions/pgstore`, `apperr`, `settings`, `util/ginhelpers` and
+`util/ginhelpers/csrf`. Apart from `sessions/pgstore`, which owns its table and takes the `*sql.DB`, gogo takes no executor: forms call services and the mail queue is pcom's
 `repo.MailQueue`, so the ORM never reaches gogo. What has already moved is in the history files under
 `docs/archive/history/`.
 
@@ -21,7 +21,6 @@ Roughly ordered by payoff:
 | Mail definitions and preview | `pkg/mail/mail.go`, `pkg/web/app/routes_dev.go` | Typed definitions with samples, embedded `text/template`/`html/template` parts, a registry, and the `/dev/mail` preview. `mail.go` depends on pcom only through `links.Site` in `SampleSite`. |
 | Webpack/asset manifest loader | `LoadStaticManifest` in `pkg/web/app/funcmap.go` | `static_asset` funcmap with CDN prefix. |
 | Template helpers | `toMap` in `pkg/web/app/funcmap.go`, `renderHumanTime` (`pkg/util/date`) | A small `gogo/tmplfuncs`. |
-| Postgres session store | `pkg/pgsession` | Wraps `antonlindstrom/pgstore` (stale) for gin-contrib/sessions, plus user-in-context. Replace pgstore when extracting. |
 | Signed return URLs, referer guard, flashes | `pkg/auth` (`HashValue`, `RedirectToLogin`, `EnforceReferer`, `AddFlash`/`GetFlashes`) | Tiny, but every gogo app reimplements them. Should use HMAC rather than salted SHA-256. |
 | Form validators | `pkg/forms/validation` | Email (with the anti-disposable check), username, URL, min/max, enum. Pairs with `gogo/forms`. |
 | Panic reporter | `pkg/admin/panics.go` | `ClonedCustomRecovery` (a copy of gin's recovery output) + email to the admin. |

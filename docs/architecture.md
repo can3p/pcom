@@ -13,7 +13,7 @@ is empty and stays so. Shares
 
 Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 `pkg/forms/validation`'s pure checks, `pkg/util`, mail formatting in
-`pkg/mail`). `pkg/pgsession` owns its table and is exempt.
+`pkg/mail`). `pkg/pgsession` builds the session store and is exempt.
 
 ## Rules
 
@@ -83,8 +83,14 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Uploads.** `media.StoreUpload` (`pkg/service/media`) stores an image owned
   by exactly one of a user or an RSS feed on the caller's `tx`; posts (import)
   and feeds (feed images) call it, so no service writes `media_uploads` itself.
-- **Exemptions.** `pkg/pgsession` and the `dbsender` mail queue own their
-  tables and are exempt from the layering (see `pkg/arch`).
+- **Exemptions.** `pkg/pgsession` (it hands the database to gogo's
+  `sessions/pgstore`) and the `dbsender` mail queue own their tables and are
+  exempt from the layering (see `pkg/arch`).
+- **Sessions live in `http_sessions`**, gogo's `sessions/pgstore`. Its table is
+  the `gogo-pgstore` migration in `migrations/`, copied with
+  `go run github.com/can3p/gogo/sessions/pgstore/cmd/pgstore-migrations -dir migrations`;
+  `pkg/pgsession`'s migration test fails when a gogo upgrade ships another one.
+  `web serve` deletes expired rows every `--session-cleanup-interval`.
 - **One query, one method.** Repository files are per aggregate; a lookup
   another area needs is called, not copied (`UsersByIDs`, `OpenGrantExists`).
 - **Know a value's readers before changing it.** Before a migration rewrites

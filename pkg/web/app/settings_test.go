@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -38,6 +40,24 @@ func TestRouter_Settings(t *testing.T) {
 		// check gets the response and whether the setting is on.
 		check func(t *testing.T, rec *httptest.ResponseRecorder, on bool)
 	}{
+		{
+			name: "SessionMaxAge sets the session cookie's Max-Age", set: func(c *app.Config) { c.SessionMaxAge = 2 * time.Hour },
+			target: "/login",
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, on bool) {
+				want := int(pgsession.DefaultMaxAge.Seconds())
+				if on {
+					want = int((2 * time.Hour).Seconds())
+				}
+
+				for _, ck := range rec.Result().Cookies() {
+					if ck.Name == "sess" {
+						require.Equal(t, want, ck.MaxAge)
+						return
+					}
+				}
+				t.Fatal("no session cookie")
+			},
+		},
 		{
 			name: "SecureCookies marks the session cookie Secure", set: func(c *app.Config) { c.SecureCookies = true },
 			target: "/login",

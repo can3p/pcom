@@ -26,6 +26,11 @@ func New(d *Deps) *gin.Engine {
 		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, CodeKey: d.Config.SessionSalt, Login: d.Config.Login})
 	}
 
+	maxAge := d.Config.SessionMaxAge
+	if maxAge == 0 {
+		maxAge = pgsession.DefaultMaxAge
+	}
+
 	store := pgsession.NewStore(db, []byte(d.Config.SessionSalt))
 	store.Options(sessions.Options{
 		Path: "/",
@@ -33,7 +38,7 @@ func New(d *Deps) *gin.Engine {
 		// if server works on localhost
 		Secure:   d.Config.SecureCookies,
 		HttpOnly: true,
-		MaxAge:   24 * 3600 * 30, // make every session one month long
+		MaxAge:   int(maxAge.Seconds()),
 		SameSite: http.SameSiteLaxMode,
 	})
 

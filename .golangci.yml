@@ -24,6 +24,8 @@ linters:
               desc: use github.com/stretchr/testify/require
             - pkg: github.com/pkg/errors
               desc: use the standard errors package and fmt.Errorf with %w
+            - pkg: github.com/antonlindstrom/pgstore
+              desc: use github.com/can3p/gogo/sessions/pgstore (pgsession.NewStore)
   exclusions:
     generated: lax
     paths:

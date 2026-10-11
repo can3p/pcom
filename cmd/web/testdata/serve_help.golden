@@ -32,6 +32,14 @@ Help Options:
           --static-cdn=                       Origin that serves /static, such
                                               as https://cdn.example; served by
                                               the app if empty [$STATIC_CDN]
+          --session-max-age=                  How long a session lasts after
+                                              its last save; the session cookie
+                                              and its row expire then (default:
+                                              720h) [$SESSION_MAX_AGE]
+          --session-cleanup-interval=         How often expired sessions are
+                                              deleted from the database
+                                              (default: 1h)
+                                              [$SESSION_CLEANUP_INTERVAL]
           --secure-cookies=                   Mark the session cookie Secure
                                               (turn off for plain-HTTP
                                               localhost) (default: true)

@@ -1,60 +1,30 @@
 package pgsession
 
 import (
-	"errors"
-	"fmt"
+	"context"
+	"time"
 
-	"github.com/antonlindstrom/pgstore"
-	"github.com/gin-contrib/sessions"
-	gsessions "github.com/gorilla/sessions"
+	"github.com/can3p/gogo/sessions/pgstore"
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 )
 
-type Store interface {
-	sessions.Store
+// DefaultMaxAge is how long a session lasts after it was last saved, for
+// callers built without configuration (config's --session-max-age).
+const DefaultMaxAge = 30 * 24 * time.Hour
+
+// DefaultCleanupInterval is how often expired sessions are deleted, for callers
+// built without configuration (config's --session-cleanup-interval).
+const DefaultCleanupInterval = time.Hour
+
+// NewStore returns gogo's PostgreSQL session store over db. Its table comes
+// from the gogo-pgstore migration in migrations/; pgstore.Regenerate rotates a
+// session at login and logout.
+func NewStore(db *sqlx.DB, keyPairs ...[]byte) *pgstore.Store {
+	return pgstore.New(db.DB, keyPairs...)
 }
 
-func NewStore(db *sqlx.DB, keyPairs ...[]byte) Store {
-	s, err := pgstore.NewPGStoreFromPool(db.DB, keyPairs...)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return &store{s}
-}
-
-type store struct {
-	*pgstore.PGStore
-}
-
-func (c *store) Options(options sessions.Options) {
-	c.PGStore.Options = options.ToGorillaOptions()
-}
-
-// Regenerate starts a new session in place of s, as login and logout must
-// (session fixation): the old session's row is deleted, its values are
-// cleared and the next Save writes the session under a fresh ID and cookie.
-func Regenerate(s sessions.Session) error {
-	gb, ok := s.(interface{ Session() *gsessions.Session })
-	if !ok {
-		return fmt.Errorf("session %T is not backed by gorilla/sessions", s)
-	}
-
-	gs := gb.Session()
-	if gs == nil {
-		return errors.New("no session to regenerate")
-	}
-
-	if ps, ok := gs.Store().(*pgstore.PGStore); ok && gs.ID != "" {
-		if _, err := ps.DbPool.Exec("DELETE FROM http_sessions WHERE key = $1", gs.ID); err != nil {
-			return fmt.Errorf("failed to delete the old session: %w", err)
-		}
-	}
-
-	s.Clear()
-	gs.ID = ""
-	gs.IsNew = true
-
-	return nil
+// RunCleanup deletes expired sessions every interval until ctx is done.
+func RunCleanup(ctx context.Context, db *sqlx.DB, interval time.Duration, logger *zap.Logger) {
+	pgstore.New(db.DB).Cleanup(ctx, interval, logger)
 }
