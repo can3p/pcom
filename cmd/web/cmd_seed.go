@@ -13,7 +13,7 @@ type seedCmd struct {
 }
 
 func (c *seedCmd) Execute([]string) error {
-	db, closeDB, err := openDB(c.Database.URL)
+	db, closeDB, err := openDB(c.Database.URL, newCLILogger())
 	if err != nil {
 		return err
 	}

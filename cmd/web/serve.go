@@ -40,7 +40,7 @@ func (c *serveCmd) Execute([]string) error {
 	logger := newLogger(cfg.Web, os.Stdout)
 	defer func() { _ = logger.Sync() }()
 
-	db, closeDB, err := openDB(cfg.Database.URL)
+	db, closeDB, err := openDB(cfg.Database.URL, logger)
 	if err != nil {
 		return err
 	}
