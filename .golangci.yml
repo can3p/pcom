@@ -5,7 +5,19 @@ run:
     - browser
 linters:
   enable:
+    - depguard
     - misspell
+  settings:
+    depguard:
+      rules:
+        logging-only-via-zap:
+          files:
+            - "!**/pkg/logging/**"
+          deny:
+            - pkg: "log"
+              desc: "log with a *zap.Logger from pkg/logging (logging.FromContext or a WithLogger option), not the log package"
+            - pkg: "log/slog"
+              desc: "log with a *zap.Logger from pkg/logging (logging.FromContext or a WithLogger option), not log/slog"
   exclusions:
     generated: lax
     paths:
