@@ -129,6 +129,8 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Structured fields, not formatted strings**: `logger.Error("send failed", zap.Error(err),
   zap.String("mail_id", id))`. An error is returned or logged, never both: it is logged once, where it is
   handled (the request middleware, a worker loop, a service that deliberately swallows it).
+- Importing `log` or `log/slog` outside `pkg/logging` fails lint (depguard in `.golangci.yml`), tests
+  included. Subcommands other than `serve` log in the console format on stderr (`newCLILogger`).
 - `fmt.Print*` is only a CLI subcommand's output to its user. A test asserts log entries with
   `pkg/testutil/testlog`.
 
