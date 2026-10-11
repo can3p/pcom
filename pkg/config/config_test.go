@@ -11,6 +11,7 @@ import (
 
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
@@ -119,6 +120,8 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"HTML_DIR", "tpl", func(s *config.Serve) any { return s.Web.HTMLDir }, "client/html", "tpl"},
 		{"FORCE_SIGNUP", "true", func(s *config.Serve) any { return s.Web.ForceSignup.On() }, false, true},
 		{"STATIC_CDN", "https://cdn.test", func(s *config.Serve) any { return s.Web.StaticCDN }, "", "https://cdn.test"},
+		{"SESSION_MAX_AGE", "48h", func(s *config.Serve) any { return s.Web.SessionMaxAge }, pgsession.DefaultMaxAge, 48 * time.Hour},
+		{"SESSION_CLEANUP_INTERVAL", "5m", func(s *config.Serve) any { return s.Web.SessionCleanupInterval }, pgsession.DefaultCleanupInterval, 5 * time.Minute},
 		{"SECURE_COOKIES", "false", func(s *config.Serve) any { return s.Web.SecureCookies.On() }, true, false},
 		{"HSTS", "false", func(s *config.Serve) any { return s.Web.HSTS.On() }, true, false},
 		{"STATIC_CACHE", "false", func(s *config.Serve) any { return s.Web.StaticCache.On() }, true, false},

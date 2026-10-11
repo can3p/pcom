@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
+	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
@@ -61,6 +62,8 @@ func (c *serveCmd) Execute([]string) error {
 	feeder := feeds.New(repo.New(db), mediaStorage, feeds.WithLogger(logger))
 
 	go feeder.RunPoller(ctx)
+
+	go pgsession.RunCleanup(ctx, db, cfg.Web.SessionCleanupInterval, logger)
 
 	go accounts.New(repo.New(db), nil, nil, accounts.WithLoginLimits(loginLimits(cfg.Login)), accounts.WithLogger(logger)).RunPruner(ctx)
 
@@ -113,6 +116,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		SenderAddress:         cfg.Mail.SenderAddress,
 		AdminAddress:          cfg.Mail.AdminAddress,
 		SecureCookies:         cfg.Web.SecureCookies.On(),
+		SessionMaxAge:         cfg.Web.SessionMaxAge,
 		HSTS:                  cfg.Web.HSTS.On(),
 		StaticCache:           cfg.Web.StaticCache.On(),
 		DevRoutes:             cfg.Web.DevRoutes.On(),

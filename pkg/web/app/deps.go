@@ -3,6 +3,8 @@
 package app
 
 import (
+	"time"
+
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -50,6 +52,9 @@ type Config struct {
 	CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength, PromptMaxLength, UserStylesMaxLength int
 	// SecureCookies marks the session cookie Secure.
 	SecureCookies bool
+	// SessionMaxAge is how long a session lasts after its last save;
+	// pgsession.DefaultMaxAge when zero.
+	SessionMaxAge time.Duration
 	// HSTS sends Strict-Transport-Security.
 	HSTS bool
 	// StaticCache serves /static with a long immutable Cache-Control.

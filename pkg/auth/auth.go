@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/apperr"
+	"github.com/can3p/gogo/sessions/pgstore"
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/logging"
@@ -150,7 +151,7 @@ func LoginAttempt(c *gin.Context) string {
 func StartSession(c *gin.Context, user *model.User) error {
 	session := sessions.Default(c)
 
-	if err := pgsession.Regenerate(session); err != nil {
+	if err := pgstore.Regenerate(c.Request.Context(), session); err != nil {
 		return err
 	}
 
@@ -174,7 +175,7 @@ func Logout(c *gin.Context) {
 		return
 	}
 
-	if err := pgsession.Regenerate(session); err != nil {
+	if err := pgstore.Regenerate(c.Request.Context(), session); err != nil {
 		logging.FromContext(c).Warn("failed to regenerate session on logout", zap.Error(err))
 		session.Delete(userkey)
 	}

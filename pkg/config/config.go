@@ -41,6 +41,9 @@ type Web struct {
 	ForceSignup Switch          `long:"force-signup" env:"FORCE_SIGNUP" description:"Allow new signups even when system settings close them" optional:"true" optional-value:"true" default:"false"`
 	StaticCDN   string          `long:"static-cdn" env:"STATIC_CDN" description:"Origin that serves /static, such as https://cdn.example; served by the app if empty"`
 
+	SessionMaxAge          time.Duration `long:"session-max-age" env:"SESSION_MAX_AGE" description:"How long a session lasts after its last save; the session cookie and its row expire then" default:"720h"`
+	SessionCleanupInterval time.Duration `long:"session-cleanup-interval" env:"SESSION_CLEANUP_INTERVAL" description:"How often expired sessions are deleted from the database" default:"1h"`
+
 	SecureCookies   Switch `long:"secure-cookies" env:"SECURE_COOKIES" description:"Mark the session cookie Secure (turn off for plain-HTTP localhost)" optional:"true" optional-value:"true" default:"true"`
 	HSTS            Switch `long:"hsts" env:"HSTS" description:"Send Strict-Transport-Security" optional:"true" optional-value:"true" default:"true"`
 	StaticCache     Switch `long:"static-cache" env:"STATIC_CACHE" description:"Serve /static with a long immutable Cache-Control" optional:"true" optional-value:"true" default:"true"`

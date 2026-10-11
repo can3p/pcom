@@ -101,6 +101,7 @@ func TestAppConfig(t *testing.T) {
 		{"--html-dir=tpl-flag", "HTMLDir", "tpl-flag"},
 		{"FORCE_SIGNUP=true", "ForceOpenRegistration", true},
 		{"SECURE_COOKIES=false", "SecureCookies", false},
+		{"SESSION_MAX_AGE=48h", "SessionMaxAge", 48 * time.Hour},
 		{"HSTS=false", "HSTS", false},
 		{"STATIC_CACHE=false", "StaticCache", false},
 		{"SHOW_ERRORS=true", "ShowErrors", true},

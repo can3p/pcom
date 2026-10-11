@@ -43,8 +43,9 @@ var models = []any{
 	(*model.WhitelistedConnection)(nil),
 }
 
-// unmodeled tables belong to tools, not to pcom's data.
-var unmodeled = map[string]bool{"migrations": true}
+// unmodeled tables belong to tools and libraries, not to pcom's data:
+// sql-migrate's bookkeeping, and gogo's sessions/pgstore.
+var unmodeled = map[string]bool{"migrations": true, "http_sessions": true}
 
 type column struct {
 	nullable, defaulted, pk bool

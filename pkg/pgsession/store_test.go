@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/can3p/gogo/sessions/pgstore"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	gsessions "github.com/gin-contrib/sessions"
@@ -12,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newStore(t *testing.T) pgsession.Store {
+func newStore(t *testing.T) *pgstore.Store {
 	t.Helper()
 	return pgsession.NewStore(testdb.New(t).DB, []byte("0123456789abcdef0123456789abcdef"))
 }
@@ -20,7 +21,7 @@ func newStore(t *testing.T) pgsession.Store {
 // TestNewStore_RoundTrip drives the Store interface the way gin-contrib's
 // session middleware does: New a session, set a value, Save it (which sets
 // a cookie), then Get it back with that cookie on a fresh request. This
-// pins the pgstore-backed round trip through Postgres, not just the
+// pins the store's round trip through Postgres, not just the
 // in-memory gorilla/sessions plumbing.
 func TestNewStore_RoundTrip(t *testing.T) {
 	t.Parallel()
@@ -102,7 +103,7 @@ func TestRegenerate(t *testing.T) {
 	})
 	r.GET("/login", func(c *gin.Context) {
 		s := gsessions.Default(c)
-		require.NoError(t, pgsession.Regenerate(s))
+		require.NoError(t, pgstore.Regenerate(c.Request.Context(), s))
 		require.Nil(t, s.Get("csrf_token"), "the old values must not carry over")
 		s.Set("user", "user-id-1")
 		require.NoError(t, s.Save())
@@ -142,4 +143,13 @@ func TestRegenerate(t *testing.T) {
 
 	require.Empty(t, load(before), "the old session must be deleted")
 	require.Equal(t, "user-id-1", load(after)["user"])
+}
+
+// TestMigrations_GogoSessionTableInstalled fails once a gogo upgrade ships a
+// session migration that migrations/ lacks; copy it with
+// go run github.com/can3p/gogo/sessions/pgstore/cmd/pgstore-migrations -dir migrations.
+func TestMigrations_GogoSessionTableInstalled(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, pgstore.CheckMigrations("../../migrations"))
 }
