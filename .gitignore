@@ -2,3 +2,6 @@
 coverage.out
 .ui-artifacts/
 /site/
+
+# Agent worktrees (wave-run dispatches tasks into them)
+.claude/worktrees/

@@ -67,7 +67,8 @@ subagents, whose context is thrown away.
   runs them links `node_modules` from the main checkout and lets `make test-ui` build. Don't link the main
   checkout's `dist`: it exists only after a `make test-ui` there, and a dangling link breaks E2E. Parallel worktrees share golangci-lint's lock: "parallel golangci-lint is running" means
   retry, not a lint failure. Delete finished worktrees (`git worktree remove`) once merged; their copies
-  of the tree show up in every repository-wide grep.
+  of the tree show up in every repository-wide grep. `.claude/worktrees/` is gitignored, so running agents' trees don't trip the
+  stop hook's "untracked files" check.
   With a worktree of its own, an agent may run `make test-ui` freely. After merging parallel tasks, run the
   full browser suite once: two tasks can each pass alone and break together through a shared controller.
 - **Design references the subagents can't open** (a private claude.ai canvas, a mockup behind a login):
@@ -92,6 +93,9 @@ subagents, whose context is thrown away.
   file another is still writing. Whatever a task's prompt doesn't list as owned, it doesn't edit. A shared
   helper whose last caller one task removes fails that task's lint as unused: give that task the deletion,
   and delete the helpers left unused after merging the rest yourself.
+  A function one parallel task owns and another task's files call (a constructor, a helper across
+  packages) gets its new signature from you, committed and pushed before dispatch: each task otherwise
+  breaks the other's build, and in separate worktrees neither notices until the merge.
 - **Long prompts shared by several tasks** go into a file in your scratchpad, one per task, and the
   dispatch says only "read <path> and follow it": the coordinator's context doesn't carry six copies.
 - **Work that stays uncommitted across tasks** (a plan that commits several tasks as one) is backed up
