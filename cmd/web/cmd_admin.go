@@ -32,7 +32,7 @@ func (c *adminInviteCmd) Execute([]string) error {
 		return errors.New("--num must be positive")
 	}
 
-	db, closeDB, err := openDB(c.Database.URL)
+	db, closeDB, err := openDB(c.Database.URL, newCLILogger())
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (c *adminRegistrationCmd) Execute([]string) error {
 		return errors.New("give exactly one of --open and --close")
 	}
 
-	db, closeDB, err := openDB(c.Database.URL)
+	db, closeDB, err := openDB(c.Database.URL, newCLILogger())
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ type adminLoginCodeCmd struct {
 }
 
 func (c *adminLoginCodeCmd) Execute([]string) error {
-	db, closeDB, err := openDB(c.Database.URL)
+	db, closeDB, err := openDB(c.Database.URL, newCLILogger())
 	if err != nil {
 		return err
 	}
