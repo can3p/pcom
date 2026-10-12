@@ -33,7 +33,8 @@ Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` un
 ```
 
 It pastes the task's table row or `###` section into a preamble and prints the `model` to use on the first
-line. Replace every `<FILL: ...>`, above all the owned files, before dispatching. If the excerpt names
+line. Replace every `<FILL: ...>`, above all the owned files, before dispatching, and check the `PKG=` paths:
+the script guesses them from the paths in the excerpt and can name a package that doesn't exist. If the excerpt names
 something a subagent can't read (another wave's matrix, an issue by number, an open question), paste its
 definition or a one-line summary into the prompt: subagents read no other wave files and have no GitHub
 access. The preamble is chosen by wave:
@@ -85,7 +86,9 @@ subagents, whose context is thrown away.
   The same applies to ordinary packages shared by several tasks. There, a
   task's coverage target is for its own files or functions: tell it to measure them with
   `go tool cover -func` on a profile. When a shared package suddenly fails to build, check first for an
-  agent that left its files untagged.
+  agent that left its files untagged. Lint works the same way: a finding in a file a task doesn't own
+  belongs to the task that owns it (a swap to stdlib `errors` made staticcheck flag capitalized messages
+  in the other task's lint run), so route it there instead of blocking the reporter.
 - A broad question ("where is X used across the handlers?") goes to an `Explore` subagent, which returns the
   answer rather than the files. The coordinator's own lookups use the LSP tool.
 - **Splitting the work is yours.** The wave file plans the tasks; you decide who owns what, so that no
