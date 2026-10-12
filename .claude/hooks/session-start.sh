@@ -25,6 +25,12 @@ fi
 # Docker daemon: testdb and the E2E harness start Postgres with testcontainers.
 # The binary is installed in the image but the daemon is not running.
 if ! docker info >/dev/null 2>&1; then
+  # A container restart leaves dockerd's managed-containerd pid file behind;
+  # dockerd then waits for that dead pid and gives up ("timeout waiting for
+  # containerd to start"). No dockerd is running here, so the files are stale.
+  if ! pgrep -x dockerd >/dev/null 2>&1; then
+    rm -f /var/run/docker/containerd/containerd.pid /var/run/docker.pid
+  fi
   log "starting dockerd"
   setsid nohup dockerd >/tmp/dockerd.log 2>&1 < /dev/null &
   for _ in $(seq 1 30); do
