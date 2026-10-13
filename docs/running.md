@@ -70,6 +70,16 @@ tommy stands in for both outside services:
 
 The values are in `.env.example`; tommy keeps both on the `tommydata` volume across restarts.
 
+## Grammar checks and style reviews
+
+The proofreading panel calls the Claude API, so it is off unless `PROOFREAD_ANTHROPIC_KEY` is set: without a
+key there are no buttons and no panel, and the routes answer 404. Development and the tests run with it off.
+To try it locally, put a key of your own in `cmd/web/.env` (`.env.example` has the line commented out);
+`PROOFREAD_ANTHROPIC_ENDPOINT` points the client elsewhere (WireMock in tests). The models, efforts, per-user
+hourly limits (`PROOFREAD_GRAMMAR_PER_HOUR`, `PROOFREAD_STYLE_PER_HOUR`), the optional site-wide daily cap
+(`PROOFREAD_SITE_DAILY_REQUESTS`), the request timeout and the output token limits are the other
+`PROOFREAD_*` settings in `web serve --help`.
+
 ## Seeding
 
 `make seed` runs `go run ./cmd/web seed` in the `app` container (the dev image: building `cmd/web` needs cgo

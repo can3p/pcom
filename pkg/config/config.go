@@ -112,14 +112,33 @@ type Media struct {
 	CDN       string          `long:"cdn" env:"CDN" description:"Origin that serves user media, such as https://media.example; served by the app if empty"`
 }
 
+// Proofread is the grammar check and style review of posts by Claude. Embed
+// it with `namespace:"proofread" env-namespace:"PROOFREAD"`. Without a key
+// the feature is off. The defaults are proofread.Default* and claude.Default*.
+type Proofread struct {
+	AnthropicKey      settings.Secret `long:"anthropic-key" env:"ANTHROPIC_KEY" description:"Anthropic API key; grammar checks and style reviews are off without one"`
+	AnthropicEndpoint string          `long:"anthropic-endpoint" env:"ANTHROPIC_ENDPOINT" description:"Anthropic API base URL" default:"https://api.anthropic.com"`
+	GrammarModel      string          `long:"grammar-model" env:"GRAMMAR_MODEL" description:"Model of grammar checks" default:"claude-haiku-5-5"`
+	GrammarEffort     string          `long:"grammar-effort" env:"GRAMMAR_EFFORT" description:"Effort of grammar checks" choice:"low" choice:"medium" choice:"high" default:"low"`
+	StyleModel        string          `long:"style-model" env:"STYLE_MODEL" description:"Model of style reviews" default:"claude-sonnet-5-5"`
+	StyleEffort       string          `long:"style-effort" env:"STYLE_EFFORT" description:"Effort of style reviews" choice:"low" choice:"medium" choice:"high" default:"medium"`
+	GrammarPerHour    int             `long:"grammar-per-hour" env:"GRAMMAR_PER_HOUR" description:"Grammar checks one user may make per hour" default:"10"`
+	StylePerHour      int             `long:"style-per-hour" env:"STYLE_PER_HOUR" description:"Style reviews one user may make per hour" default:"3"`
+	SiteDailyRequests int             `long:"site-daily-requests" env:"SITE_DAILY_REQUESTS" description:"Grammar checks and style reviews the whole site may make per day; 0 is no cap" default:"0"`
+	Timeout           time.Duration   `long:"timeout" env:"TIMEOUT" description:"How long one request to the Anthropic API may take" default:"90s"`
+	GrammarMaxTokens  int             `long:"grammar-max-tokens" env:"GRAMMAR_MAX_TOKENS" description:"Most output tokens of a grammar check" default:"8000"`
+	StyleMaxTokens    int             `long:"style-max-tokens" env:"STYLE_MAX_TOKENS" description:"Most output tokens of a style review" default:"16000"`
+}
+
 // Serve is the settings of the serve command.
 type Serve struct {
-	Database Database `group:"Database"`
-	Web      Web      `group:"Web"`
-	Mail     Mail     `group:"Mail"`
-	Limits   Limits   `group:"Limits"`
-	Login    Login    `group:"Login"`
-	Media    Media    `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
+	Database  Database  `group:"Database"`
+	Web       Web       `group:"Web"`
+	Mail      Mail      `group:"Mail"`
+	Limits    Limits    `group:"Limits"`
+	Login     Login     `group:"Login"`
+	Media     Media     `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
+	Proofread Proofread `group:"Proofread" namespace:"proofread" env-namespace:"PROOFREAD"`
 }
 
 // Switch is a boolean setting that may default to true, which go-flags

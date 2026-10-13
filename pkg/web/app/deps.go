@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -71,4 +73,16 @@ type Config struct {
 	// Login is the limits of login by code; zero fields keep accounts'
 	// defaults.
 	Login accounts.LoginLimits
+	// Proofread is the grammar check and style review; an empty
+	// Claude.APIKey turns the feature off.
+	Proofread Proofread
+}
+
+// Proofread is the settings of the grammar check and style review: the
+// Claude client's, and the service's limits and models (zero fields keep the
+// service's defaults; the post text limits come from Config).
+type Proofread struct {
+	Claude claude.Options
+	Limits proofreadsvc.Limits
+	Models proofreadsvc.Models
 }

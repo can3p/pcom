@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": {"type": "string", "enum": ["subject", "body"]},
+          "kind": {"type": "string", "enum": ["spelling", "punctuation", "grammar", "word_choice"]},
+          "quote": {"type": "string", "description": "exact text to replace"},
+          "before": {"type": "string", "description": "up to 30 characters right before the quote"},
+          "replacement": {"type": "string"},
+          "explanation": {"type": "string"}
+        },
+        "required": ["field", "kind", "quote", "before", "replacement", "explanation"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["suggestions"],
+  "additionalProperties": false
+}

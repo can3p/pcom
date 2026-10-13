@@ -11,6 +11,8 @@ import (
 	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/proofread"
+	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
 	"github.com/gin-contrib/sessions"
@@ -23,7 +25,7 @@ func New(d *Deps) *gin.Engine {
 	db := d.DB
 
 	if d.Services == nil {
-		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, CodeKey: d.Config.SessionSalt, Login: d.Config.Login})
+		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, CodeKey: d.Config.SessionSalt, Login: d.Config.Login, ProofreadModel: proofreadModel(d.Config.Proofread.Claude), ProofreadLimits: d.Config.Proofread.Limits, ProofreadModels: d.Config.Proofread.Models})
 	}
 
 	maxAge := d.Config.SessionMaxAge
@@ -88,6 +90,16 @@ func New(d *Deps) *gin.Engine {
 	mountRoutes(d, router, apiGroup, r, controls, actions, nonControlsForms, controlsForms)
 
 	return router
+}
+
+// proofreadModel is the Claude client of the proofread service, or nil,
+// which turns the feature off, when no API key is set.
+func proofreadModel(opts claude.Options) proofread.Model {
+	if opts.APIKey == "" {
+		return nil
+	}
+
+	return claude.New(opts)
 }
 
 // logUser adds the user ID to the request's logger once auth knows the user.

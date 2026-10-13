@@ -7,12 +7,14 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/proofread"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/media"
 	"github.com/can3p/pcom/pkg/service/posts"
+	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
 	"github.com/jmoiron/sqlx"
@@ -39,6 +41,14 @@ type Deps struct {
 	// Login is the limits of login by code; zero fields keep accounts'
 	// defaults.
 	Login accounts.LoginLimits
+	// ProofreadModel answers grammar checks and style reviews; nil turns the
+	// feature off.
+	ProofreadModel proofread.Model
+	// ProofreadLimits and ProofreadModels configure the proofread service;
+	// zero fields keep its defaults. Its post text limits are
+	// PostSubjectMaxLength and PostBodyMaxLength.
+	ProofreadLimits proofreadsvc.Limits
+	ProofreadModels proofreadsvc.Models
 }
 
 // Services is one field per area service.
@@ -50,6 +60,7 @@ type Services struct {
 	Media       *media.Service
 	Posts       *posts.Service
 	Accounts    *accounts.Service
+	Proofread   *proofreadsvc.Service
 }
 
 func New(db *sqlx.DB, deps Deps) *Services {
@@ -66,5 +77,16 @@ func New(db *sqlx.DB, deps Deps) *Services {
 		Media:       media.New(store, deps.MediaStorage),
 		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength})),
 		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Proofread:   proofreadsvc.New(store, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
 	}
+}
+
+// proofreadLimits are the proofread service's limits, with the post form's
+// text limits.
+func proofreadLimits(deps Deps) proofreadsvc.Limits {
+	l := deps.ProofreadLimits
+	l.PostSubjectMaxLength = deps.PostSubjectMaxLength
+	l.PostBodyMaxLength = deps.PostBodyMaxLength
+
+	return l
 }

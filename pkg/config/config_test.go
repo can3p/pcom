@@ -12,7 +12,10 @@ import (
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/proofread"
+	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -161,6 +164,18 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"LOGIN_WRONG_TRIES", "20", func(s *config.Serve) any { return s.Login.WrongTries }, accounts.DefaultLoginLimits.WrongTries, 20},
 		{"LOGIN_WRONG_TRIES_WINDOW", "2h", func(s *config.Serve) any { return s.Login.WrongTriesWindow }, accounts.DefaultLoginLimits.WrongTriesWindow, 2 * time.Hour},
 		{"LOGIN_UNCONFIRMED_LIFETIME", "48h", func(s *config.Serve) any { return s.Login.UnconfirmedLifetime }, accounts.DefaultLoginLimits.UnconfirmedLifetime, 48 * time.Hour},
+		{"PROOFREAD_ANTHROPIC_KEY", "sk-test", func(s *config.Serve) any { return s.Proofread.AnthropicKey.Reveal() }, "", "sk-test"},
+		{"PROOFREAD_ANTHROPIC_ENDPOINT", "http://wiremock:8080", func(s *config.Serve) any { return s.Proofread.AnthropicEndpoint }, claude.DefaultEndpoint, "http://wiremock:8080"},
+		{"PROOFREAD_GRAMMAR_MODEL", "claude-x", func(s *config.Serve) any { return s.Proofread.GrammarModel }, proofreadsvc.DefaultGrammarModel, "claude-x"},
+		{"PROOFREAD_GRAMMAR_EFFORT", "high", func(s *config.Serve) any { return proofread.Effort(s.Proofread.GrammarEffort) }, proofreadsvc.DefaultGrammarEffort, proofread.EffortHigh},
+		{"PROOFREAD_STYLE_MODEL", "claude-y", func(s *config.Serve) any { return s.Proofread.StyleModel }, proofreadsvc.DefaultStyleModel, "claude-y"},
+		{"PROOFREAD_STYLE_EFFORT", "low", func(s *config.Serve) any { return proofread.Effort(s.Proofread.StyleEffort) }, proofreadsvc.DefaultStyleEffort, proofread.EffortLow},
+		{"PROOFREAD_GRAMMAR_PER_HOUR", "4", func(s *config.Serve) any { return s.Proofread.GrammarPerHour }, proofreadsvc.DefaultGrammarPerHour, 4},
+		{"PROOFREAD_STYLE_PER_HOUR", "2", func(s *config.Serve) any { return s.Proofread.StylePerHour }, proofreadsvc.DefaultStylePerHour, 2},
+		{"PROOFREAD_SITE_DAILY_REQUESTS", "500", func(s *config.Serve) any { return s.Proofread.SiteDailyRequests }, proofreadsvc.DefaultSiteDailyRequests, 500},
+		{"PROOFREAD_TIMEOUT", "30s", func(s *config.Serve) any { return s.Proofread.Timeout }, claude.DefaultTimeout, 30 * time.Second},
+		{"PROOFREAD_GRAMMAR_MAX_TOKENS", "1000", func(s *config.Serve) any { return s.Proofread.GrammarMaxTokens }, claude.DefaultGrammarMaxTokens, 1000},
+		{"PROOFREAD_STYLE_MAX_TOKENS", "2000", func(s *config.Serve) any { return s.Proofread.StyleMaxTokens }, claude.DefaultStyleMaxTokens, 2000},
 		{"LOGIN_PRUNE_EVERY", "10m", func(s *config.Serve) any { return s.Login.PruneEvery }, accounts.DefaultLoginLimits.PruneEvery, 10 * time.Minute},
 	}
 
@@ -225,12 +240,12 @@ func TestServe_RequiredVariables(t *testing.T) {
 }
 
 func TestServe_SecretsDontPrint(t *testing.T) {
-	got, err := parseServe(t, with(map[string]string{"USER_MEDIA_SECRET": "media-secret-value"}))
+	got, err := parseServe(t, with(map[string]string{"USER_MEDIA_SECRET": "media-secret-value", "PROOFREAD_ANTHROPIC_KEY": "anthropic-key-value"}))
 	require.NoError(t, err)
 
 	for _, format := range []string{"%v", "%+v", "%#v", "%s"} {
 		out := fmt.Sprintf(format, *got)
-		for _, secret := range []string{"salt-value", "mj-private-value", "media-secret-value"} {
+		for _, secret := range []string{"salt-value", "mj-private-value", "media-secret-value", "anthropic-key-value"} {
 			require.NotContains(t, out, secret, format)
 		}
 	}
