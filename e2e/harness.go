@@ -316,10 +316,15 @@ func WithRealAssets() Option {
 	return func(c *config) { c.realAssets = true }
 }
 
+// WireMockAnthropicKey is the Anthropic API key WithWireMock gives the binary;
+// stubs for /anthropic match it in the x-api-key header.
+const WireMockAnthropicKey = "wiremock-anthropic-key"
+
 // WithWireMock starts the shared WireMock container (pkg/testutil/wiremock)
-// and tells the binary to translate through it: TRANSLATION_PROVIDER=azure and
-// TRANSLATION_AZURE_ENDPOINT=<container URL>/azure-translator. The stubs
-// under that prefix are the ones registered with wiremock.Register.
+// and points the binary's third-party APIs at it: proofreading calls
+// <container URL>/anthropic with the key WireMockAnthropicKey, which turns
+// the feature on. The stubs under that prefix are the ones registered with
+// wiremock.Register.
 func WithWireMock() Option {
 	return func(c *config) {
 		c.wiremock = true
@@ -331,8 +336,8 @@ func (c *config) resolve(t testing.TB) {
 	t.Helper()
 
 	if c.wiremock {
-		c.env["TRANSLATION_PROVIDER"] = "azure"
-		c.env["TRANSLATION_AZURE_ENDPOINT"] = wiremock.Shared(t).URL("azure-translator")
+		c.env["PROOFREAD_ANTHROPIC_ENDPOINT"] = wiremock.Shared(t).URL("anthropic")
+		c.env["PROOFREAD_ANTHROPIC_KEY"] = WireMockAnthropicKey
 	}
 }
 

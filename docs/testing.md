@@ -144,9 +144,9 @@ produces (`app.URL+"/..."`). `app.S3Object(t, key)`, `app.S3Objects(t,
 prefix)` and `app.ResizedVariant(t, fname, class)` read the bucket; `tommy.S3Events` gives the raw request
 headers (e.g. `X-Amz-Acl`). Package tests that need neither keep `fakesender` and `fakestorage`.
 
-Third-party APIs pcom calls for an answer (the first is Azure Translator) are stubbed by one WireMock container
+Third-party APIs pcom calls for an answer (the first is the Anthropic API, for proofreading) are stubbed by one WireMock container
 per test binary (`pkg/testutil/wiremock`; `e2e.WithWireMock()` starts it and points the binary at
-`<container URL>/azure-translator`); tommy stays for mail and S3. Stubs are JSON mapping files next to the code
+`<container URL>/anthropic` with the key `e2e.WireMockAnthropicKey`); tommy stays for mail and S3. Stubs are JSON mapping files next to the code
 they serve (`testdata/wiremock/mappings/*.json`, long bodies in `__files/`), each API under its own path prefix;
 the package names its directory with `wiremock.Register` from `TestMain` before the first `Shared`. A stub is a
 canned exchange: an `equalToJson` request body and the response. Use content only your test sends, so parallel

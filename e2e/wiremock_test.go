@@ -21,9 +21,8 @@ func TestWithWireMockStartsTheContainer(t *testing.T) {
 	cfg.resolve(t)
 
 	w := wiremock.Shared(t)
-	require.Equal(t, "azure", cfg.env["TRANSLATION_PROVIDER"])
-	require.Equal(t, w.URL("azure-translator"), cfg.env["TRANSLATION_AZURE_ENDPOINT"])
-	require.Contains(t, processEnv(cfg.env), "TRANSLATION_PROVIDER=azure")
+	require.Equal(t, w.URL("anthropic"), cfg.env["PROOFREAD_ANTHROPIC_ENDPOINT"])
+	require.Contains(t, processEnv(cfg.env), "PROOFREAD_ANTHROPIC_KEY="+WireMockAnthropicKey)
 
 	resp, err := http.Get(w.BaseURL + "/__admin/health")
 	require.NoError(t, err)
