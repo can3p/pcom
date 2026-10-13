@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/proofread"
@@ -53,4 +54,9 @@ func TestSchemas_MatchTheAnswerTypes(t *testing.T) {
 			require.Equal(t, jsonKeys(t, tc.value), slices.Sorted(maps.Keys(properties(tc.schema, tc.path...))))
 		})
 	}
+}
+
+func TestPrompts_AreEmbedded(t *testing.T) {
+	require.Contains(t, proofread.GrammarSystemPrompt(), "{spoiler}")
+	require.Contains(t, strings.ToLower(proofread.StyleSystemPrompt()), "at most 10")
 }
