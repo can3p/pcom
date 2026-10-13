@@ -1,0 +1,70 @@
+{
+  "priority": 1,
+  "scenarioName": "anthropic-retry",
+  "requiredScenarioState": "Started",
+  "newScenarioState": "Retried",
+  "request": {
+    "method": "POST",
+    "urlPath": "/anthropic/v1/messages",
+    "headers": {
+      "x-api-key": {
+        "equalTo": "test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.model",
+          "equalTo": "claude-haiku-5-5"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.output_config.effort",
+          "equalTo": "low"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.output_config.format.type",
+          "equalTo": "json_schema"
+        }
+      },
+      {
+        "matchesJsonPath": "$.output_config.format.schema.properties.suggestions"
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.system[0].cache_control.type",
+          "equalTo": "ephemeral"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.messages[0].content[0].text",
+          "contains": "wm-retry"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.system[0].text",
+          "contains": "proofreader for a blogging platform"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "Content-Type": "application/json",
+      "retry-after": "0"
+    },
+    "jsonBody": {
+      "type": "error",
+      "error": {
+        "type": "rate_limit_error",
+        "message": "slow down"
+      }
+    }
+  }
+}

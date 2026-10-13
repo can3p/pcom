@@ -1,0 +1,32 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "ANY",
+    "urlPathPattern": "/anthropic/.*",
+    "headers": {
+      "x-api-key": {
+        "or": [
+          {
+            "absent": true
+          },
+          {
+            "doesNotMatch": "^test-key$"
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "type": "error",
+      "error": {
+        "type": "authentication_error",
+        "message": "invalid x-api-key"
+      }
+    }
+  }
+}

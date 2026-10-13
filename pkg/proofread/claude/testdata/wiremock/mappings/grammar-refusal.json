@@ -1,0 +1,74 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/anthropic/v1/messages",
+    "headers": {
+      "x-api-key": {
+        "equalTo": "test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.model",
+          "equalTo": "claude-haiku-5-5"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.output_config.effort",
+          "equalTo": "low"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.output_config.format.type",
+          "equalTo": "json_schema"
+        }
+      },
+      {
+        "matchesJsonPath": "$.output_config.format.schema.properties.suggestions"
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.system[0].cache_control.type",
+          "equalTo": "ephemeral"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.messages[0].content[0].text",
+          "contains": "wm-grammar-refusal"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.system[0].text",
+          "contains": "proofreader for a blogging platform"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "msg_test",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-5-5",
+      "content": [],
+      "stop_reason": "refusal",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      }
+    }
+  }
+}

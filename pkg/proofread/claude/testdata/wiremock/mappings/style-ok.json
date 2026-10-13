@@ -1,0 +1,79 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/anthropic/v1/messages",
+    "headers": {
+      "x-api-key": {
+        "equalTo": "test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.model",
+          "equalTo": "claude-sonnet-5-5"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.output_config.effort",
+          "equalTo": "medium"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.output_config.format.type",
+          "equalTo": "json_schema"
+        }
+      },
+      {
+        "matchesJsonPath": "$.output_config.format.schema.properties.notes"
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.system[0].cache_control.type",
+          "equalTo": "ephemeral"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.messages[0].content[0].text",
+          "contains": "wm-style-ok"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.system[0].text",
+          "contains": "fiction writer's draft"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "msg_test",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-5-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"summary\": \"A solid first draft.\", \"notes\": [{\"field\": \"body\", \"kind\": \"pacing\", \"quote\": \"Then it ended.\", \"before\": \"\", \"text\": \"The ending is abrupt.\", \"continues\": \"n1\"}]}"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 400,
+        "output_tokens": 80,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      }
+    }
+  }
+}
