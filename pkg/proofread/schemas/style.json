@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {"type": "string", "description": "what changed since the previous review, or an overall impression for the first one"},
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": {"type": "string", "enum": ["subject", "body", "none"]},
+          "kind": {"type": "string", "enum": ["logic", "repetition", "pacing", "clarity", "title", "consistency", "other"]},
+          "quote": {"type": "string", "description": "the passage, verbatim, or empty for a general note"},
+          "before": {"type": "string", "description": "up to 30 characters right before the quote"},
+          "text": {"type": "string"},
+          "continues": {"type": "string", "description": "id of a previous note this one repeats, or empty"}
+        },
+        "required": ["field", "kind", "quote", "before", "text", "continues"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["summary", "notes"],
+  "additionalProperties": false
+}

@@ -4,165 +4,297 @@ Usage:
 Serve the site, send queued mail and poll RSS feeds.
 
 Help Options:
-  -h, --help                                  Show this help message
+  -h, --help                                           Show this help message
 
 [serve command options]
 
     Database:
-          --database-url=                     Postgres connection URL
-                                              [$DATABASE_URL]
+          --database-url=                              Postgres connection URL
+                                                       [$DATABASE_URL]
 
     Web:
-          --site-root=                        Public root URL of the site, such
-                                              as https://pcom.example; absolute
-                                              links start with it [$SITE_ROOT]
-          --session-salt=                     Salt for session cookies and
-                                              hashed values [$SESSION_SALT]
-          --port=                             Port to listen on (default: 8080)
-                                              [$PORT]
-          --gin-mode=                         gin mode: debug, release or test;
-                                              gin's own default if empty
-                                              [$GIN_MODE]
-          --html-dir=                         Template directory, relative to
-                                              the working directory (default:
-                                              client/html) [$HTML_DIR]
-          --force-signup=                     Allow new signups even when
-                                              system settings close them
-                                              (default: false) [$FORCE_SIGNUP]
-          --static-cdn=                       Origin that serves /static, such
-                                              as https://cdn.example; served by
-                                              the app if empty [$STATIC_CDN]
-          --session-max-age=                  How long a session lasts after
-                                              its last save; the session cookie
-                                              and its row expire then (default:
-                                              720h) [$SESSION_MAX_AGE]
-          --session-cleanup-interval=         How often expired sessions are
-                                              deleted from the database
-                                              (default: 1h)
-                                              [$SESSION_CLEANUP_INTERVAL]
-          --secure-cookies=                   Mark the session cookie Secure
-                                              (turn off for plain-HTTP
-                                              localhost) (default: true)
-                                              [$SECURE_COOKIES]
-          --hsts=                             Send Strict-Transport-Security
-                                              (default: true) [$HSTS]
-          --static-cache=                     Serve /static with a long
-                                              immutable Cache-Control (default:
-                                              true) [$STATIC_CACHE]
-          --media-perma-cache=                Keep resized user media in the
-                                              media server's permanent cache
-                                              (default: true)
-                                              [$MEDIA_PERMA_CACHE]
-          --show-errors=                      Show error details in pages
-                                              (development only) (default:
-                                              false) [$SHOW_ERRORS]
-          --report-panics=                    Mail the admin address when a
-                                              page panics (default: true)
-                                              [$REPORT_PANICS]
-          --log-level=[debug|info|warn|error] Log level (default: info)
-                                              [$LOG_LEVEL]
-          --log-format=[json|console]         Log encoding on stdout: json for
-                                              the deployed app, console for a
-                                              terminal (default: json)
-                                              [$LOG_FORMAT]
-          --enable-pprof=                     Serve net/http/pprof on :8081
-                                              (default: false) [$ENABLE_PPROF]
-          --dev-routes=                       Serve the /dev pages (mail
-                                              previews); local development only
-                                              (default: false) [$DEV_ROUTES]
+          --site-root=                                 Public root URL of the
+                                                       site, such as
+                                                       https://pcom.example;
+                                                       absolute links start
+                                                       with it [$SITE_ROOT]
+          --session-salt=                              Salt for session cookies
+                                                       and hashed values
+                                                       [$SESSION_SALT]
+          --port=                                      Port to listen on
+                                                       (default: 8080) [$PORT]
+          --gin-mode=                                  gin mode: debug, release
+                                                       or test; gin's own
+                                                       default if empty
+                                                       [$GIN_MODE]
+          --html-dir=                                  Template directory,
+                                                       relative to the working
+                                                       directory (default:
+                                                       client/html) [$HTML_DIR]
+          --force-signup=                              Allow new signups even
+                                                       when system settings
+                                                       close them (default:
+                                                       false) [$FORCE_SIGNUP]
+          --static-cdn=                                Origin that serves
+                                                       /static, such as
+                                                       https://cdn.example;
+                                                       served by the app if
+                                                       empty [$STATIC_CDN]
+          --session-max-age=                           How long a session lasts
+                                                       after its last save; the
+                                                       session cookie and its
+                                                       row expire then
+                                                       (default: 720h)
+                                                       [$SESSION_MAX_AGE]
+          --session-cleanup-interval=                  How often expired
+                                                       sessions are deleted
+                                                       from the database
+                                                       (default: 1h)
+                                                       [$SESSION_CLEANUP_INTERV-
+
+                                                       AL]
+          --secure-cookies=                            Mark the session cookie
+                                                       Secure (turn off for
+                                                       plain-HTTP localhost)
+                                                       (default: true)
+                                                       [$SECURE_COOKIES]
+          --hsts=                                      Send
+                                                       Strict-Transport-Securit-
+
+                                                       y (default: true) [$HSTS]
+          --static-cache=                              Serve /static with a
+                                                       long immutable
+                                                       Cache-Control (default:
+                                                       true) [$STATIC_CACHE]
+          --media-perma-cache=                         Keep resized user media
+                                                       in the media server's
+                                                       permanent cache
+                                                       (default: true)
+                                                       [$MEDIA_PERMA_CACHE]
+          --show-errors=                               Show error details in
+                                                       pages (development only)
+                                                       (default: false)
+                                                       [$SHOW_ERRORS]
+          --report-panics=                             Mail the admin address
+                                                       when a page panics
+                                                       (default: true)
+                                                       [$REPORT_PANICS]
+          --log-level=[debug|info|warn|error]          Log level (default:
+                                                       info) [$LOG_LEVEL]
+          --log-format=[json|console]                  Log encoding on stdout:
+                                                       json for the deployed
+                                                       app, console for a
+                                                       terminal (default: json)
+                                                       [$LOG_FORMAT]
+          --enable-pprof=                              Serve net/http/pprof on
+                                                       :8081 (default: false)
+                                                       [$ENABLE_PPROF]
+          --dev-routes=                                Serve the /dev pages
+                                                       (mail previews); local
+                                                       development only
+                                                       (default: false)
+                                                       [$DEV_ROUTES]
 
     Mail:
-          --sender-address=                   From address of every mail
-                                              [$SENDER_ADDRESS]
-          --admin-address=                    Where admin notifications
-                                              (signups, page failures) go
-                                              [$ADMIN_ADDRESS]
-          --email-poll-interval=              How often the mail queue is sent
-                                              (default: 10s)
-                                              [$EMAIL_POLL_INTERVAL]
-          --email-retry-intervals=            Waits between attempts to send a
-                                              mail; a mail fails after one
-                                              attempt more than there are waits
-                                              (default: 10s, 60s, 30m)
-                                              [$EMAIL_RETRY_INTERVALS]
+          --sender-address=                            From address of every
+                                                       mail [$SENDER_ADDRESS]
+          --admin-address=                             Where admin
+                                                       notifications (signups,
+                                                       page failures) go
+                                                       [$ADMIN_ADDRESS]
+          --email-poll-interval=                       How often the mail queue
+                                                       is sent (default: 10s)
+                                                       [$EMAIL_POLL_INTERVAL]
+          --email-retry-intervals=                     Waits between attempts
+                                                       to send a mail; a mail
+                                                       fails after one attempt
+                                                       more than there are
+                                                       waits (default: 10s,
+                                                       60s, 30m)
+                                                       [$EMAIL_RETRY_INTERVALS]
 
     Mailjet:
-          --mj-api-key-public=                Mailjet API key public
-                                              [$MJ_APIKEY_PUBLIC]
-          --mj-api-key-private=               Mailjet API key private
-                                              [$MJ_APIKEY_PRIVATE]
-          --mj-api-base=                      Mailjet API root, such as a
-                                              mock's http://localhost:8822;
-                                              Mailjet's own if empty
-                                              [$MJ_API_BASE]
+          --mj-api-key-public=                         Mailjet API key public
+                                                       [$MJ_APIKEY_PUBLIC]
+          --mj-api-key-private=                        Mailjet API key private
+                                                       [$MJ_APIKEY_PRIVATE]
+          --mj-api-base=                               Mailjet API root, such
+                                                       as a mock's
+                                                       http://localhost:8822;
+                                                       Mailjet's own if empty
+                                                       [$MJ_API_BASE]
 
     Limits:
-          --profile-about-max-length=         Most characters a user's About
-                                              text may have (default: 6000)
-                                              [$PROFILE_ABOUT_MAX_LENGTH]
-          --comment-max-length=               Most characters a comment may
-                                              have (default: 6000)
-                                              [$COMMENT_MAX_LENGTH]
-          --post-body-max-length=             Most characters a post body may
-                                              have (default: 20000)
-                                              [$POST_BODY_MAX_LENGTH]
-          --post-subject-max-length=          Most characters a post subject
-                                              may have (default: 100)
-                                              [$POST_SUBJECT_MAX_LENGTH]
-          --prompt-max-length=                Most characters a prompt message
-                                              may have (default: 1400)
-                                              [$PROMPT_MAX_LENGTH]
-          --user-styles-max-length=           Most characters a user's custom
-                                              CSS may have (default: 10000)
-                                              [$USER_STYLES_MAX_LENGTH]
-          --page-size=                        Items per page of the feed,
-                                              explore, the index and a journal
-                                              (default: 30) [$PAGE_SIZE]
-          --rss-limit=                        Items in every RSS output
-                                              (default: 50) [$RSS_LIMIT]
+          --profile-about-max-length=                  Most characters a user's
+                                                       About text may have
+                                                       (default: 6000)
+                                                       [$PROFILE_ABOUT_MAX_LENG-
+
+                                                       TH]
+          --comment-max-length=                        Most characters a
+                                                       comment may have
+                                                       (default: 6000)
+                                                       [$COMMENT_MAX_LENGTH]
+          --post-body-max-length=                      Most characters a post
+                                                       body may have (default:
+                                                       20000)
+                                                       [$POST_BODY_MAX_LENGTH]
+          --post-subject-max-length=                   Most characters a post
+                                                       subject may have
+                                                       (default: 100)
+                                                       [$POST_SUBJECT_MAX_LENGT-
+
+                                                       H]
+          --prompt-max-length=                         Most characters a prompt
+                                                       message may have
+                                                       (default: 1400)
+                                                       [$PROMPT_MAX_LENGTH]
+          --user-styles-max-length=                    Most characters a user's
+                                                       custom CSS may have
+                                                       (default: 10000)
+                                                       [$USER_STYLES_MAX_LENGTH]
+          --page-size=                                 Items per page of the
+                                                       feed, explore, the index
+                                                       and a journal (default:
+                                                       30) [$PAGE_SIZE]
+          --rss-limit=                                 Items in every RSS
+                                                       output (default: 50)
+                                                       [$RSS_LIMIT]
 
     Login:
-          --login-code-lifetime=              How long a mailed login code
-                                              works (default: 15m)
-                                              [$LOGIN_CODE_LIFETIME]
-          --login-code-tries=                 Wrong codes one login attempt
-                                              allows (default: 5)
-                                              [$LOGIN_CODE_TRIES]
-          --login-codes-mailed=               Login codes mailed to one user
-                                              per --login-codes-mailed-window
-                                              (default: 3) [$LOGIN_CODES_MAILED]
-          --login-codes-mailed-window=        Window of --login-codes-mailed
-                                              (default: 15m)
-                                              [$LOGIN_CODES_MAILED_WINDOW]
-          --login-wrong-tries=                Wrong codes on one user's
-                                              attempts per
-                                              --login-wrong-tries-window before
-                                              no code logs them in (default:
-                                              10) [$LOGIN_WRONG_TRIES]
-          --login-wrong-tries-window=         Window of --login-wrong-tries
-                                              (default: 1h)
-                                              [$LOGIN_WRONG_TRIES_WINDOW]
-          --login-unconfirmed-lifetime=       How long an account nobody
-                                              confirmed with a code is kept
-                                              (default: 24h)
-                                              [$LOGIN_UNCONFIRMED_LIFETIME]
-          --login-prune-every=                How often old login attempts and
-                                              unconfirmed accounts are deleted
-                                              (default: 1h) [$LOGIN_PRUNE_EVERY]
+          --login-code-lifetime=                       How long a mailed login
+                                                       code works (default:
+                                                       15m)
+                                                       [$LOGIN_CODE_LIFETIME]
+          --login-code-tries=                          Wrong codes one login
+                                                       attempt allows (default:
+                                                       5) [$LOGIN_CODE_TRIES]
+          --login-codes-mailed=                        Login codes mailed to
+                                                       one user per
+                                                       --login-codes-mailed-win-
+
+                                                       dow (default: 3)
+                                                       [$LOGIN_CODES_MAILED]
+          --login-codes-mailed-window=                 Window of
+                                                       --login-codes-mailed
+                                                       (default: 15m)
+                                                       [$LOGIN_CODES_MAILED_WIN-
+
+                                                       DOW]
+          --login-wrong-tries=                         Wrong codes on one
+                                                       user's attempts per
+                                                       --login-wrong-tries-wind-
+
+                                                       ow before no code logs
+                                                       them in (default: 10)
+                                                       [$LOGIN_WRONG_TRIES]
+          --login-wrong-tries-window=                  Window of
+                                                       --login-wrong-tries
+                                                       (default: 1h)
+                                                       [$LOGIN_WRONG_TRIES_WIND-
+
+                                                       OW]
+          --login-unconfirmed-lifetime=                How long an account
+                                                       nobody confirmed with a
+                                                       code is kept (default:
+                                                       24h)
+                                                       [$LOGIN_UNCONFIRMED_LIFE-
+
+                                                       TIME]
+          --login-prune-every=                         How often old login
+                                                       attempts and unconfirmed
+                                                       accounts are deleted
+                                                       (default: 1h)
+                                                       [$LOGIN_PRUNE_EVERY]
 
     User media:
-          --user-media-endpoint=              S3 endpoint URL
-                                              [$USER_MEDIA_ENDPOINT]
-          --user-media-bucket=                Bucket name [$USER_MEDIA_BUCKET]
-          --user-media-region=                Bucket region [$USER_MEDIA_REGION]
-          --user-media-key=                   Access key ID [$USER_MEDIA_KEY]
-          --user-media-secret=                Secret access key
-                                              [$USER_MEDIA_SECRET]
-          --user-media-path-style=            Path-style addressing
-                                              (endpoint/bucket/key), as tommy
-                                              needs (default: false)
-                                              [$USER_MEDIA_PATH_STYLE]
-          --user-media-cdn=                   Origin that serves user media,
-                                              such as https://media.example;
-                                              served by the app if empty
-                                              [$USER_MEDIA_CDN]
+          --user-media-endpoint=                       S3 endpoint URL
+                                                       [$USER_MEDIA_ENDPOINT]
+          --user-media-bucket=                         Bucket name
+                                                       [$USER_MEDIA_BUCKET]
+          --user-media-region=                         Bucket region
+                                                       [$USER_MEDIA_REGION]
+          --user-media-key=                            Access key ID
+                                                       [$USER_MEDIA_KEY]
+          --user-media-secret=                         Secret access key
+                                                       [$USER_MEDIA_SECRET]
+          --user-media-path-style=                     Path-style addressing
+                                                       (endpoint/bucket/key),
+                                                       as tommy needs (default:
+                                                       false)
+                                                       [$USER_MEDIA_PATH_STYLE]
+          --user-media-cdn=                            Origin that serves user
+                                                       media, such as
+                                                       https://media.example;
+                                                       served by the app if
+                                                       empty [$USER_MEDIA_CDN]
+
+    Proofread:
+          --proofread-anthropic-key=                   Anthropic API key;
+                                                       grammar checks and style
+                                                       reviews are off without
+                                                       one
+                                                       [$PROOFREAD_ANTHROPIC_KE-
+
+                                                       Y]
+          --proofread-anthropic-endpoint=              Anthropic API base URL
+                                                       (default:
+                                                       https://api.anthropic.co-
+
+                                                       m)
+                                                       [$PROOFREAD_ANTHROPIC_EN-
+
+                                                       DPOINT]
+          --proofread-grammar-model=                   Model of grammar checks
+                                                       (default:
+                                                       claude-haiku-5-5)
+                                                       [$PROOFREAD_GRAMMAR_MODE-
+
+                                                       L]
+          --proofread-grammar-effort=[low|medium|high] Effort of grammar checks
+                                                       (default: low)
+                                                       [$PROOFREAD_GRAMMAR_EFFO-
+
+                                                       RT]
+          --proofread-style-model=                     Model of style reviews
+                                                       (default:
+                                                       claude-sonnet-5-5)
+                                                       [$PROOFREAD_STYLE_MODEL]
+          --proofread-style-effort=[low|medium|high]   Effort of style reviews
+                                                       (default: medium)
+                                                       [$PROOFREAD_STYLE_EFFORT]
+          --proofread-grammar-per-hour=                Grammar checks one user
+                                                       may make per hour
+                                                       (default: 10)
+                                                       [$PROOFREAD_GRAMMAR_PER_-
+
+                                                       HOUR]
+          --proofread-style-per-hour=                  Style reviews one user
+                                                       may make per hour
+                                                       (default: 3)
+                                                       [$PROOFREAD_STYLE_PER_HO-
+
+                                                       UR]
+          --proofread-site-daily-requests=             Grammar checks and style
+                                                       reviews the whole site
+                                                       may make per day; 0 is
+                                                       no cap (default: 0)
+                                                       [$PROOFREAD_SITE_DAILY_R-
+
+                                                       EQUESTS]
+          --proofread-timeout=                         How long one request to
+                                                       the Anthropic API may
+                                                       take (default: 90s)
+                                                       [$PROOFREAD_TIMEOUT]
+          --proofread-grammar-max-tokens=              Most output tokens of a
+                                                       grammar check (default:
+                                                       8000)
+                                                       [$PROOFREAD_GRAMMAR_MAX_-
+
+                                                       TOKENS]
+          --proofread-style-max-tokens=                Most output tokens of a
+                                                       style review (default:
+                                                       16000)
+                                                       [$PROOFREAD_STYLE_MAX_TO-
+
+                                                       KENS]

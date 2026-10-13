@@ -16,9 +16,12 @@ import (
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/proofread"
+	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
+	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -131,6 +134,29 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		PageSize:              cfg.Limits.PageSize,
 		RSSLimit:              cfg.Limits.RSSLimit,
 		Login:                 loginLimits(cfg.Login),
+		Proofread:             proofreadConfig(cfg.Proofread),
+	}
+}
+
+// proofreadConfig is the app's view of the proofread settings.
+func proofreadConfig(cfg config.Proofread) app.Proofread {
+	return app.Proofread{
+		Claude: claude.Options{
+			APIKey:           cfg.AnthropicKey.Reveal(),
+			Endpoint:         cfg.AnthropicEndpoint,
+			Timeout:          cfg.Timeout,
+			GrammarMaxTokens: cfg.GrammarMaxTokens,
+			StyleMaxTokens:   cfg.StyleMaxTokens,
+		},
+		Limits: proofreadsvc.Limits{
+			GrammarPerHour:    cfg.GrammarPerHour,
+			StylePerHour:      cfg.StylePerHour,
+			SiteDailyRequests: cfg.SiteDailyRequests,
+		},
+		Models: proofreadsvc.Models{
+			Grammar: proofread.ModelChoice{Name: cfg.GrammarModel, Effort: proofread.Effort(cfg.GrammarEffort)},
+			Style:   proofread.ModelChoice{Name: cfg.StyleModel, Effort: proofread.Effort(cfg.StyleEffort)},
+		},
 	}
 }
 
