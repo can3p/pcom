@@ -173,6 +173,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"PROOFREAD_GRAMMAR_PER_HOUR", "4", func(s *config.Serve) any { return s.Proofread.GrammarPerHour }, proofreadsvc.DefaultGrammarPerHour, 4},
 		{"PROOFREAD_STYLE_PER_HOUR", "2", func(s *config.Serve) any { return s.Proofread.StylePerHour }, proofreadsvc.DefaultStylePerHour, 2},
 		{"PROOFREAD_SITE_DAILY_REQUESTS", "500", func(s *config.Serve) any { return s.Proofread.SiteDailyRequests }, proofreadsvc.DefaultSiteDailyRequests, 500},
+		{"PROOFREAD_NOTE_MAX_LENGTH", "300", func(s *config.Serve) any { return s.Proofread.NoteMaxLength }, proofreadsvc.DefaultNoteMaxLength, 300},
 		{"PROOFREAD_TIMEOUT", "30s", func(s *config.Serve) any { return s.Proofread.Timeout }, claude.DefaultTimeout, 30 * time.Second},
 		{"PROOFREAD_GRAMMAR_MAX_TOKENS", "1000", func(s *config.Serve) any { return s.Proofread.GrammarMaxTokens }, claude.DefaultGrammarMaxTokens, 1000},
 		{"PROOFREAD_STYLE_MAX_TOKENS", "2000", func(s *config.Serve) any { return s.Proofread.StyleMaxTokens }, claude.DefaultStyleMaxTokens, 2000},

@@ -282,6 +282,14 @@ Help Options:
                                                        [$PROOFREAD_SITE_DAILY_R-
 
                                                        EQUESTS]
+          --proofread-note-max-length=                 Most characters of an
+                                                       author note to a style
+                                                       review, or of a reason
+                                                       to keep a note as is
+                                                       (default: 2000)
+                                                       [$PROOFREAD_NOTE_MAX_LEN-
+
+                                                       GTH]
           --proofread-timeout=                         How long one request to
                                                        the Anthropic API may
                                                        take (default: 90s)

@@ -125,6 +125,7 @@ type Proofread struct {
 	GrammarPerHour    int             `long:"grammar-per-hour" env:"GRAMMAR_PER_HOUR" description:"Grammar checks one user may make per hour" default:"10"`
 	StylePerHour      int             `long:"style-per-hour" env:"STYLE_PER_HOUR" description:"Style reviews one user may make per hour" default:"3"`
 	SiteDailyRequests int             `long:"site-daily-requests" env:"SITE_DAILY_REQUESTS" description:"Grammar checks and style reviews the whole site may make per day; 0 is no cap" default:"0"`
+	NoteMaxLength     int             `long:"note-max-length" env:"NOTE_MAX_LENGTH" description:"Most characters of an author note to a style review, or of a reason to keep a note as is" default:"2000"`
 	Timeout           time.Duration   `long:"timeout" env:"TIMEOUT" description:"How long one request to the Anthropic API may take" default:"90s"`
 	GrammarMaxTokens  int             `long:"grammar-max-tokens" env:"GRAMMAR_MAX_TOKENS" description:"Most output tokens of a grammar check" default:"8000"`
 	StyleMaxTokens    int             `long:"style-max-tokens" env:"STYLE_MAX_TOKENS" description:"Most output tokens of a style review" default:"16000"`
