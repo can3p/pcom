@@ -289,6 +289,19 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/delete_share", staticPath("/controls/action/delete_share"),
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.published.ID} }},
 	{http.MethodPost, "/controls/action/upload_media", staticPath("/controls/action/upload_media"), noExtra},
+	{http.MethodGet, "/controls/proofread_style/:post_id", func(w *guardWorld) string { return "/controls/proofread_style/" + w.published.ID }, noExtra},
+	{http.MethodPost, "/controls/action/proofread_grammar", staticPath("/controls/action/proofread_grammar"),
+		func(w *guardWorld) map[string]string { return map[string]string{"subject": "s", "body": "b"} }},
+	{http.MethodPost, "/controls/action/proofread_style", staticPath("/controls/action/proofread_style"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"post_id": w.published.ID, "subject": "s", "body": "b"}
+		}},
+	{http.MethodPost, "/controls/action/proofread_style_note", staticPath("/controls/action/proofread_style_note"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"note_id": "00000000-0000-0000-0000-000000000000", "status": "done"}
+		}},
+	{http.MethodPost, "/controls/action/proofread_style_reset", staticPath("/controls/action/proofread_style_reset"),
+		func(w *guardWorld) map[string]string { return map[string]string{"post_id": w.published.ID} }},
 	{http.MethodPost, "/controls/action/settings/export", staticPath("/controls/action/settings/export"), noExtra},
 	{http.MethodPost, "/controls/action/settings/import", staticPath("/controls/action/settings/import"), noExtra},
 
@@ -382,6 +395,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/actions_rss.go":         {"r": "/controls/action"},
 		"../pkg/web/app/actions_settings.go":    {"r": "/controls/action"},
 		"../pkg/web/app/actions_media.go":       {"r": "/controls/action"},
+		"../pkg/web/app/actions_proofread.go":   {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/api.go":                 {"r": "/api/v1"},
 	}
 
