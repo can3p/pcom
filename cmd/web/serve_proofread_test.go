@@ -24,12 +24,13 @@ func TestProofreadConfig(t *testing.T) {
 		GrammarPerHour:    1,
 		StylePerHour:      2,
 		SiteDailyRequests: 3,
+		NoteMaxLength:     7,
 		Timeout:           4 * time.Second,
 		GrammarMaxTokens:  5,
 		StyleMaxTokens:    6,
 	})
 
-	require.Equal(t, proofreadsvc.Limits{GrammarPerHour: 1, StylePerHour: 2, SiteDailyRequests: 3}, got.Limits)
+	require.Equal(t, proofreadsvc.Limits{GrammarPerHour: 1, StylePerHour: 2, SiteDailyRequests: 3, NoteMaxLength: 7}, got.Limits)
 	require.Equal(t, proofreadsvc.Models{
 		Grammar: proofread.ModelChoice{Name: "grammar-model", Effort: proofread.EffortHigh},
 		Style:   proofread.ModelChoice{Name: "style-model", Effort: proofread.EffortLow},

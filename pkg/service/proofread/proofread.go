@@ -7,10 +7,8 @@
 package proofread
 
 import (
-	"context"
-	"errors"
+	"time"
 
-	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/proofread"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -22,6 +20,7 @@ const (
 	DefaultGrammarPerHour    = 10
 	DefaultStylePerHour      = 3
 	DefaultSiteDailyRequests = 0 // no cap
+	DefaultNoteMaxLength     = 2000
 
 	DefaultGrammarModel  = "claude-haiku-5-5"
 	DefaultGrammarEffort = proofread.EffortLow
@@ -41,6 +40,9 @@ type Limits struct {
 	// PostSubjectMaxLength and PostBodyMaxLength are the post form's limits;
 	// longer input is rejected with the form's messages.
 	PostSubjectMaxLength, PostBodyMaxLength int
+	// NoteMaxLength is the longest author note to a style review, and the
+	// longest reason to keep a note as is.
+	NoteMaxLength int
 }
 
 // DefaultLimits are the limits of a service built without configuration.
@@ -50,6 +52,7 @@ var DefaultLimits = Limits{
 	SiteDailyRequests:    DefaultSiteDailyRequests,
 	PostSubjectMaxLength: posts.DefaultPostSubjectMaxLength,
 	PostBodyMaxLength:    posts.DefaultPostBodyMaxLength,
+	NoteMaxLength:        DefaultNoteMaxLength,
 }
 
 // Models are the model and effort of each kind of call.
@@ -89,6 +92,10 @@ func WithLimits(l Limits) Option {
 		if l.PostBodyMaxLength > 0 {
 			s.limits.PostBodyMaxLength = l.PostBodyMaxLength
 		}
+
+		if l.NoteMaxLength > 0 {
+			s.limits.NoteMaxLength = l.NoteMaxLength
+		}
 	}
 }
 
@@ -119,23 +126,35 @@ func choose(def, set proofread.ModelChoice) proofread.ModelChoice {
 func WithLogger(l *zap.Logger) Option {
 	return func(s *Service) {
 		if l != nil {
-			s.logger = l
+			s.log = l
 		}
 	}
+}
+
+// WithClock replaces the clock the hourly and daily windows are timed by,
+// for tests.
+func WithClock(now func() time.Time) Option {
+	return func(s *Service) { s.now = now }
 }
 
 // Service is the proofread service. Build it with New.
 type Service struct {
 	store  *repo.Store
+	posts  *posts.Service
 	model  proofread.Model
 	limits Limits
 	models Models
-	logger *zap.Logger
+	log    *zap.Logger
+	now    func() time.Time
 }
 
-// New builds the service. A nil m turns the feature off.
-func New(store *repo.Store, m proofread.Model, opts ...Option) *Service {
-	s := &Service{store: store, model: m, limits: DefaultLimits, models: DefaultModels, logger: zap.NewNop()}
+// New builds the service. A nil m turns the feature off. Who may review a
+// post is ps's CheckEdit.
+func New(store *repo.Store, ps *posts.Service, m proofread.Model, opts ...Option) *Service {
+	s := &Service{
+		store: store, posts: ps, model: m,
+		limits: DefaultLimits, models: DefaultModels, log: zap.NewNop(), now: time.Now,
+	}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -152,84 +171,3 @@ func (s *Service) Limits() Limits { return s.limits }
 
 // Models returns the models and efforts the service asks.
 func (s *Service) Models() Models { return s.models }
-
-// GrammarRequest is the text of a grammar check. PostID is the post being
-// edited, or empty for one never saved.
-type GrammarRequest struct {
-	PostID  string
-	Subject string
-	Body    string
-}
-
-// GrammarResult is a grammar check's answer: the suggestions that were found
-// in the text, in its order, and what is left of the limits.
-type GrammarResult struct {
-	Suggestions []proofread.Suggestion
-	Remaining   Remaining
-}
-
-// StyleRequest is the text of a style review of a saved post, and what the
-// author wants the reviewer to know.
-type StyleRequest struct {
-	PostID     string
-	Subject    string
-	Body       string
-	AuthorNote string
-}
-
-// StyleReview is a new style review with its notes, and what is left of the
-// limits.
-type StyleReview struct {
-	Review    *model.StyleReview
-	Remaining Remaining
-}
-
-// StyleState is a post's style reviews: the latest with its notes (nil when
-// there is none), the earlier ones newest first, and what is left of the
-// limits.
-type StyleState struct {
-	Latest    *model.StyleReview
-	Earlier   []*model.StyleReview
-	Remaining Remaining
-}
-
-// Remaining is what is left of a user's hourly limits.
-type Remaining struct {
-	Grammar, GrammarLimit int
-	Style, StyleLimit     int
-}
-
-// errNotImplemented is returned until the methods are written.
-var errNotImplemented = errors.New("proofread: not implemented")
-
-// CheckGrammar asks the model for a grammar check of the actor's text.
-func (s *Service) CheckGrammar(ctx context.Context, actor *model.User, req GrammarRequest) (*GrammarResult, error) {
-	return nil, errNotImplemented
-}
-
-// ReviewStyle asks the model for a style review of the actor's post and
-// stores it, settling the open notes of the previous review.
-func (s *Service) ReviewStyle(ctx context.Context, actor *model.User, req StyleRequest) (*StyleReview, error) {
-	return nil, errNotImplemented
-}
-
-// StyleState returns the style reviews of the actor's post.
-func (s *Service) StyleState(ctx context.Context, actor *model.User, postID string) (*StyleState, error) {
-	return nil, errNotImplemented
-}
-
-// SetNoteStatus marks a note of the actor's latest review done, kept (with
-// reason) or open again.
-func (s *Service) SetNoteStatus(ctx context.Context, actor *model.User, noteID string, status model.StyleNoteStatus, reason string) error {
-	return errNotImplemented
-}
-
-// ResetStyle deletes every style review of the actor's post.
-func (s *Service) ResetStyle(ctx context.Context, actor *model.User, postID string) error {
-	return errNotImplemented
-}
-
-// Remaining returns what is left of the actor's hourly limits.
-func (s *Service) Remaining(ctx context.Context, actor *model.User) (Remaining, error) {
-	return Remaining{}, errNotImplemented
-}

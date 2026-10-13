@@ -77,8 +77,9 @@ key there are no buttons and no panel, and the routes answer 404. Development an
 To try it locally, put a key of your own in `cmd/web/.env` (`.env.example` has the line commented out);
 `PROOFREAD_ANTHROPIC_ENDPOINT` points the client elsewhere (WireMock in tests). The models, efforts, per-user
 hourly limits (`PROOFREAD_GRAMMAR_PER_HOUR`, `PROOFREAD_STYLE_PER_HOUR`), the optional site-wide daily cap
-(`PROOFREAD_SITE_DAILY_REQUESTS`), the request timeout and the output token limits are the other
-`PROOFREAD_*` settings in `web serve --help`.
+(`PROOFREAD_SITE_DAILY_REQUESTS`), the longest author note or keep reason (`PROOFREAD_NOTE_MAX_LENGTH`, 2000
+characters by default), the request timeout and the output token limits are the other `PROOFREAD_*` settings
+in `web serve --help`.
 
 ## Seeding
 

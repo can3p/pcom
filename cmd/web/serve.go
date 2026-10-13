@@ -152,6 +152,7 @@ func proofreadConfig(cfg config.Proofread) app.Proofread {
 			GrammarPerHour:    cfg.GrammarPerHour,
 			StylePerHour:      cfg.StylePerHour,
 			SiteDailyRequests: cfg.SiteDailyRequests,
+			NoteMaxLength:     cfg.NoteMaxLength,
 		},
 		Models: proofreadsvc.Models{
 			Grammar: proofread.ModelChoice{Name: cfg.GrammarModel, Effort: proofread.Effort(cfg.GrammarEffort)},

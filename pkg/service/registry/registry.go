@@ -69,15 +69,17 @@ func New(db *sqlx.DB, deps Deps) *Services {
 
 	feedSvc := feeds.New(store, deps.MediaStorage)
 
+	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
+
 	return &Services{
 		Connections: connections.New(store),
 		Feeds:       feedSvc,
 		Shares:      shares.New(store),
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage),
-		Posts:       posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength})),
+		Posts:       postsSvc,
 		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
-		Proofread:   proofreadsvc.New(store, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
+		Proofread:   proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
 	}
 }
 
