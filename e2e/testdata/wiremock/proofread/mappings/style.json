@@ -1,0 +1,52 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/anthropic/v1/messages",
+    "headers": {
+      "x-api-key": {
+        "equalTo": "wiremock-anthropic-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.model",
+          "equalTo": "claude-sonnet-5-5"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.messages[0].content[0].text",
+          "contains": "wm-e2e-style"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "msg_e2e",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-sonnet-5-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"summary\": \"A solid first draft.\", \"notes\": [{\"field\": \"body\", \"kind\": \"pacing\", \"quote\": \"Then it ended.\", \"before\": \"\", \"text\": \"The ending is abrupt.\", \"continues\": \"\"}]}"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      }
+    }
+  }
+}
