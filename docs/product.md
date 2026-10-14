@@ -85,12 +85,14 @@ code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
   title, and clicking it highlights the subject field.
 - **Grammar results live on the page.** Only the author's dismissals are kept, per post, in the browser's
   `localStorage`, so a later check in that browser doesn't show them again. Another browser shows them again.
+  A new draft's dismissals move to the post when it is first saved.
 - **Style reviews are stored.** Each review is kept with its post: the text reviewed, its notes, their status and
   the author's reasons. The next review is told what was said before, what the author did and why ("Keep as
   is" takes an optional reason for that). Deleting a post deletes its reviews; "Start fresh" deletes the post's
-  reviews without deleting the post.
-- **Grammar-check text is not stored.** pcom keeps only the request row (kind, model, token counts, time) for a
-  grammar check. The privacy policy (`cmd/web/client/articles/privacy_policy.md`) says the same.
+  reviews without deleting the post. The post's request rows stay, without the post, until the account is
+  deleted.
+- **Grammar-check text is not stored.** pcom keeps only the request row for a grammar check: user, post, kind,
+  model, token counts, ok or failed, and time. The privacy policy (`cmd/web/client/articles/privacy_policy.md`) says the same.
 - **A disclosure is always visible** wherever the buttons are: the line under the limits says that Claude, an
   external AI model from Anthropic, receives the subject and text only when a button is pressed. It is not behind
   a tooltip, because the author must see it before pressing.

@@ -18,4 +18,6 @@ of a post are sent to Anthropic only when you press Check grammar or Style revie
 is sent as you type.
 
 Style reviews, including the text they reviewed, are stored with the post and are deleted with it. pcom stores
-no grammar-check text, only a record of each request: its kind, model, token counts and time.
+no grammar-check text, only a record of each request: who made it, for which post, its kind, the model, token
+counts, whether it succeeded and when. These records stay when a post is deleted and are deleted with your
+account.

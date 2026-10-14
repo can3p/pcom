@@ -24,7 +24,7 @@ Two buttons in the editor ask Claude to read your post: **Check grammar** and **
 
 **Style review** reads the post for style, logic, pacing and repetition, and for the title, aimed at short fiction and essays. Its notes never change the text. Mark a note **Done** when you have dealt with it, or **Keep as is**, with an optional reason under "Why keep it?". The next review knows what you did and why. Your reviews are saved with the post; **Review again** asks for a new one, **Earlier reviews** lists the earlier ones, and **Start fresh** deletes them. Style review is available once the draft has been saved for the first time.
 
-A line under the editor shows how many grammar checks and style reviews you have left this hour. When you have used them up, the panel says when the next one is available. A request that fails is not counted.
+Once the draft is saved, or after your first check, a line under the editor shows how many grammar checks and style reviews you have left this hour. When you have used one kind up, its button is disabled until the hour frees one; a request refused for the limit says in how many minutes the next one is available. A request that fails is not counted.
 
 ## Visibility
 
