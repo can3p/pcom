@@ -19,3 +19,6 @@ github.com/can3p/pcom/pkg/service/posts 79.7
 github.com/can3p/pcom/pkg/service/reading 99.0
 github.com/can3p/pcom/pkg/service/registry 99.0
 github.com/can3p/pcom/pkg/service/shares 95.7
+github.com/can3p/pcom/pkg/proofread 96.0
+github.com/can3p/pcom/pkg/proofread/claude 92.4
+github.com/can3p/pcom/pkg/service/proofread 86.4
