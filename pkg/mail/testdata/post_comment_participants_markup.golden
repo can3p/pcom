@@ -41,6 +41,9 @@ border-color: #35302a !important;
 color: #e3dccc !important
 }
 h1,
+  h2,
+  h3,
+  h4,
   .mail-wordmark,
   .mail-code {
 color: #f4ecdd !important
