@@ -17,6 +17,8 @@ import (
 // postComment is what the two comment mails show: one comment, the post it
 // belongs to and who it is for. The mails differ in their wording only.
 type postComment struct {
+	// Site is the site the mail's links, header and footer point to.
+	Site         links.Site
 	From         string
 	To           string
 	UniqueUserID string
@@ -47,7 +49,7 @@ func (in postComment) uniqueID() string {
 }
 
 func (in postComment) header() Header {
-	return Header{UniqueID: in.uniqueID(), From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, UniqueID: in.uniqueID(), From: FromPcom(in.From), To: To(in.To)}
 }
 
 // Quote is the comment as a text quote.
@@ -64,6 +66,7 @@ func newPostComment(site links.Site, from string, mediaReplacer types.Replacer[s
 	}
 
 	in := postComment{
+		Site:         site,
 		From:         from,
 		To:           recipient.Email,
 		UniqueUserID: recipient.ID,
@@ -101,29 +104,29 @@ func postCommentSamples(name, to, body string) []postCommentSample {
 
 	return []postCommentSample{
 		{name, postComment{
-			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Site: SampleSite, From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
 			Subject: subject, URL: "", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"),
 			Edited: false, EditedAt: time.Time{},
 		}},
 		{name + "_edited", postComment{
-			From: SampleFrom, To: "recipient@example.test", UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Site: SampleSite, From: SampleFrom, To: "recipient@example.test", UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
 			Subject: subject, URL: "", Link: commentLink, Body: "Nice post, edited!", BodyHTML: "<p>Nice post, edited!</p>\n",
 			Edited: true, EditedAt: time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC),
 		}},
 		{name + "_with_url", postComment{
-			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Site: SampleSite, From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
 			Subject: subject, URL: "https://example.com/article", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"),
 			Edited: false, EditedAt: time.Time{},
 		}},
 		{name + "_markup", postComment{
-			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Site: SampleSite, From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
 			Subject: subject, URL: "", Link: commentLink,
 			Body:     "Nice **post**, see [the docs](https://example.com/a?b=1&c=2).\n\n- one\n- <script>alert(1)</script>\n\n> quoted & \"done\"",
 			BodyHTML: "<p>Nice <strong>post</strong>, see <a href=\"https://example.com/a?b=1&amp;c=2\">the docs</a>.</p>\n<ul>\n<li>one</li>\n<li>\n<!-- raw HTML omitted -->\n</li>\n</ul>\n<blockquote>\n<p>quoted &amp; &quot;done&quot;</p>\n</blockquote>\n",
 			Edited:   false, EditedAt: time.Time{},
 		}},
 		{name + "_markup_long_subject", postComment{
-			From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
+			Site: SampleSite, From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
 			Subject: "A <b>very</b> long & \"quoted\" subject that goes on and on to see how a mail client wraps a subject line of this length, past any sensible limit",
 			URL:     "", Link: commentLink, Body: "Nice **post**!", BodyHTML: "<p>Nice <strong>post</strong>!</p>\n",
 			Edited: false, EditedAt: time.Time{},

@@ -10,6 +10,8 @@ const sampleAdmin = "admin@pcom.test"
 
 // AdminNewUserInput is what the new account alert to the admin shows.
 type AdminNewUserInput struct {
+	// Site is the site the mail's links, header and footer point to.
+	Site         links.Site
 	From         string
 	AdminAddress string
 	ID           string
@@ -19,7 +21,7 @@ type AdminNewUserInput struct {
 
 // Header addresses the mail to the admin, unique per account.
 func (in AdminNewUserInput) Header() Header {
-	return Header{UniqueID: in.ID, From: FromPcom(in.From), To: To(in.AdminAddress)}
+	return Header{Site: in.Site, UniqueID: in.ID, From: FromPcom(in.From), To: To(in.AdminAddress)}
 }
 
 var adminNewUserMail = declare("admin_new_user", "admin_new_user", adminNewUserSamples)
@@ -27,7 +29,7 @@ var adminNewUserMail = declare("admin_new_user", "admin_new_user", adminNewUserS
 func adminNewUserSamples() []Sample[AdminNewUserInput] {
 	return []Sample[AdminNewUserInput]{
 		{Name: "admin_new_user", Input: AdminNewUserInput{
-			From: SampleFrom, AdminAddress: sampleAdmin,
+			Site: SampleSite, From: SampleFrom, AdminAddress: sampleAdmin,
 			ID: "0190a3b4-0000-7000-8000-000000000001", BlogURL: SampleSite.Abs("user", "alice"), Email: "alice@example.test",
 		}},
 	}
@@ -36,7 +38,7 @@ func adminNewUserSamples() []Sample[AdminNewUserInput] {
 // AdminNewUser tells the admin about a new account.
 func AdminNewUser(site links.Site, from, adminAddress string, user *model.User) *Envelope {
 	return adminNewUserMail.MustRender(AdminNewUserInput{
-		From: from, AdminAddress: adminAddress,
+		Site: site, From: from, AdminAddress: adminAddress,
 		ID: user.ID, BlogURL: site.Abs("user", user.Username), Email: user.Email,
 	})
 }

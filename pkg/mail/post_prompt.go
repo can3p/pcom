@@ -8,6 +8,8 @@ import (
 // PostPromptInput is what the post prompt mail shows: who asks, what they
 // ask and where to answer.
 type PostPromptInput struct {
+	// Site is the site the mail's links, header and footer point to.
+	Site     links.Site
 	From     string
 	PromptID string
 	To       string
@@ -19,7 +21,7 @@ type PostPromptInput struct {
 // Header addresses the mail to the recipient of the prompt, unique per
 // prompt.
 func (in PostPromptInput) Header() Header {
-	return Header{UniqueID: in.PromptID, From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, UniqueID: in.PromptID, From: FromPcom(in.From), To: To(in.To)}
 }
 
 var postPromptMail = declare("post_prompt", "post_prompt", postPromptSamples)
@@ -27,7 +29,7 @@ var postPromptMail = declare("post_prompt", "post_prompt", postPromptSamples)
 func postPromptSamples() []Sample[PostPromptInput] {
 	sample := func(message string) PostPromptInput {
 		return PostPromptInput{
-			From: SampleFrom, PromptID: "prompt-1", To: "recipient@example.test", Asker: "alice",
+			Site: SampleSite, From: SampleFrom, PromptID: "prompt-1", To: "recipient@example.test", Asker: "alice",
 			Message: message, Link: SampleSite.Abs("write", "prompt", "prompt-1"),
 		}
 	}
@@ -47,6 +49,7 @@ func PostPrompt(site links.Site, from string, asker *model.User, recipient *mode
 	}
 
 	return postPromptMail.MustRender(PostPromptInput{
+		Site:     site,
 		From:     from,
 		PromptID: postPrompt.ID,
 		To:       recipient.Email,

@@ -186,7 +186,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 			return err
 		}
 
-		return s.send(ctx, tx, mail.LoginCode(s.ident.From, attempt.ID, user.Email, code, s.login.CodeLifetime))
+		return s.send(ctx, tx, mail.LoginCode(s.ident.Site, s.ident.From, attempt.ID, user.Email, code, s.login.CodeLifetime))
 	})
 	if err != nil {
 		return "", err
@@ -310,7 +310,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*mod
 	}
 
 	if confirmed {
-		s.notifyAdmin(ctx, "signup confirmed", mail.AdminSignupConfirmed(s.ident.From, s.ident.AdminAddress, user))
+		s.notifyAdmin(ctx, "signup confirmed", mail.AdminSignupConfirmed(s.ident.Site, s.ident.From, s.ident.AdminAddress, user))
 	}
 
 	return user, returnURL, nil

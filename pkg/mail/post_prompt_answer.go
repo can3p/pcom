@@ -10,6 +10,8 @@ import (
 // PostPromptAnswerInput is what the post prompt answer mail shows: the
 // prompt, who answered it and the post they answered with.
 type PostPromptAnswerInput struct {
+	// Site is the site the mail's links, header and footer point to.
+	Site      links.Site
 	From      string
 	PostID    string
 	To        string
@@ -22,7 +24,7 @@ type PostPromptAnswerInput struct {
 // Header addresses the mail to the asker of the prompt, unique per
 // answering post.
 func (in PostPromptAnswerInput) Header() Header {
-	return Header{UniqueID: in.PostID, From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, UniqueID: in.PostID, From: FromPcom(in.From), To: To(in.To)}
 }
 
 var postPromptAnswerMail = declare("post_prompt_answer", "post_prompt_answer", postPromptAnswerSamples)
@@ -30,7 +32,7 @@ var postPromptAnswerMail = declare("post_prompt_answer", "post_prompt_answer", p
 func postPromptAnswerSamples() []Sample[PostPromptAnswerInput] {
 	return []Sample[PostPromptAnswerInput]{
 		{Name: "post_prompt_answer", Input: PostPromptAnswerInput{
-			From: SampleFrom, PostID: "post-2", To: "asker@example.test", Responder: "bob",
+			Site: SampleSite, From: SampleFrom, PostID: "post-2", To: "asker@example.test", Responder: "bob",
 			Message: "What is your favorite hobby?", Subject: "My Answer", Link: SampleSite.Abs("post", "post-1"),
 		}},
 	}
@@ -40,6 +42,7 @@ func postPromptAnswerSamples() []Sample[PostPromptAnswerInput] {
 // the recipient answered with a post.
 func PostPromptAnswer(site links.Site, from string, asker, recipient *model.User, post *model.Post, postPrompt *model.PostPrompt) *Envelope {
 	return postPromptAnswerMail.MustRender(PostPromptAnswerInput{
+		Site:      site,
 		From:      from,
 		PostID:    post.ID,
 		To:        asker.Email,

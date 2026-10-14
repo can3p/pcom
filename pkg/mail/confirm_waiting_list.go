@@ -16,7 +16,7 @@ type ConfirmWaitingListInput struct {
 
 // Header addresses the mail to the entry's address, unique per entry.
 func (in ConfirmWaitingListInput) Header() Header {
-	return Header{UniqueID: in.RequestID, From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, NoAccount: true, UniqueID: in.RequestID, From: FromPcom(in.From), To: To(in.To)}
 }
 
 // Link is the absolute link that confirms the entry.

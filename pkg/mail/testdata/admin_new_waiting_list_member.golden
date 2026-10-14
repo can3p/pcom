@@ -12,12 +12,84 @@ New waiting list member alert:
 * Email address: signup@example.test
 * Reason: Not specified
 
+--
+pcom · https://pcom.test
+
 --- HTML ---
-<p>Hi!</p>
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="color-scheme" content="light dark"/>
+<meta name="supported-color-schemes" content="light dark"/>
+<title>pcom</title>
 
-<p>New waiting list member alert:</p>
+<style type="text/css">@media (prefers-color-scheme: dark){
+body,
+  .mail-ground {
+background-color: #1f1c17 !important;
+color: #e3dccc !important
+}
+.mail-card {
+background-color: #26221c !important;
+border-color: #35302a !important;
+color: #e3dccc !important
+}
+h1,
+  .mail-wordmark,
+  .mail-code {
+color: #f4ecdd !important
+}
+a {
+color: #c5d38a !important
+}
+.mail-button {
+background-color: #c5d38a !important;
+color: #1f1c17 !important
+}
+.mail-quote,
+  .mail-code {
+background-color: #2d2922 !important
+}
+blockquote,
+  .mail-quote,
+  .mail-card th,
+  .mail-card td {
+border-color: #35302a !important
+}
+.mail-muted {
+color: #a79e8b !important
+}
+}
+</style></head>
+<body style="margin:0;padding:0;background-color:#faf6ee">
+<table role="presentation" class="mail-ground" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#faf6ee" style="background-color:#faf6ee;color:#3a3526;font-family:-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, Roboto, Helvetica, Arial, sans-serif;font-size:16px;line-height:1.5">
+<tbody><tr>
+<td class="mail-outer" align="center" style="padding:32px 16px">
+<table role="presentation" class="mail-column" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
+<tbody><tr>
+<td class="mail-header" style="padding:0 0 16px"><a class="mail-wordmark" href="https://pcom.test" style="color:#2b2719;font-size:22px;font-weight:800;text-decoration:none">pcom</a></td>
+</tr>
+<tr>
+<td class="mail-card" bgcolor="#fffdf8" style="background-color:#fffdf8;border:1px solid #e7dfcf;border-radius:12px;padding:32px;color:#3a3526">
+<p style="margin:0 0 16px">Hi!</p>
 
-<ul>
-<li>Email address: signup@example.test</li>
-<li>Reason: Not specified</li>
+<p style="margin:0 0 16px">New waiting list member alert:</p>
+
+<ul style="margin:0 0 16px;padding:0 0 0 24px">
+<li style="margin:0 0 4px">Email address: signup@example.test</li>
+<li style="margin:0 0 4px">Reason: Not specified</li>
 </ul>
+</td>
+</tr>
+<tr>
+<td class="mail-footer" style="padding:24px 32px 0">
+<p class="mail-muted" style="margin:0 0 16px;color:#6e6754;font-size:14px">You get this mail because you have an account at pcom.<br/>
+<a href="https://pcom.test" style="color:#4f6328">https://pcom.test</a></p>
+</td>
+</tr>
+</tbody></table>
+</td>
+</tr>
+</tbody></table>
+
+</body></html>

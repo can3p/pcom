@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
@@ -41,11 +40,11 @@ func TestAdminNewWaitingListMember(t *testing.T) {
 
 	signup := &model.UserSignupRequest{ID: "0190a3b4-0000-7000-8000-000000000002", Email: "signup@example.test"}
 
-	got := mail.AdminNewWaitingListMember(testFrom, testAdmin, signup)
+	got := mail.AdminNewWaitingListMember(mail.SampleSite, testFrom, testAdmin, signup)
 	requireSample(t, "admin_new_waiting_list_member", got, false)
 
 	signup.Reason = new("I read your blog")
-	requireSample(t, "admin_new_waiting_list_member_reason", mail.AdminNewWaitingListMember(testFrom, testAdmin, signup), false)
+	requireSample(t, "admin_new_waiting_list_member_reason", mail.AdminNewWaitingListMember(mail.SampleSite, testFrom, testAdmin, signup), false)
 }
 
 func TestAdminSignupConfirmed(t *testing.T) {
@@ -53,17 +52,17 @@ func TestAdminSignupConfirmed(t *testing.T) {
 
 	user := &model.User{ID: "0190a3b4-0000-7000-8000-000000000001", Email: "alice@example.test", Username: "alice"}
 
-	got := mail.AdminSignupConfirmed(testFrom, testAdmin, user)
+	got := mail.AdminSignupConfirmed(mail.SampleSite, testFrom, testAdmin, user)
 	requireSample(t, "admin_signup_confirmed", got, false)
 }
 
 func TestAdminThrowAwayEmailSignupAttempt(t *testing.T) {
 	t.Parallel()
 
-	got := mail.AdminThrowAwayEmailSignupAttempt(testFrom, testAdmin, "test@throwaway.example.com")
+	got := mail.AdminThrowAwayEmailSignupAttempt(mail.SampleSite, testFrom, testAdmin, "test@throwaway.example.com")
 	requireSample(t, "admin_throwaway_email", got, true)
 
-	other := mail.AdminThrowAwayEmailSignupAttempt(testFrom, testAdmin, "test@throwaway.example.com")
+	other := mail.AdminThrowAwayEmailSignupAttempt(mail.SampleSite, testFrom, testAdmin, "test@throwaway.example.com")
 	require.NotEqual(t, got.UniqueID, other.UniqueID)
 }
 
@@ -75,10 +74,10 @@ func TestAdminPageFailure(t *testing.T) {
 	// the sample report is what the router would pass in
 	in := mail.SampleAdminPageFailureReport
 
-	got := mail.AdminPageFailure(testFrom, testAdmin, in, user)
+	got := mail.AdminPageFailure(mail.SampleSite, testFrom, testAdmin, in, user)
 	requireSample(t, "admin_page_failure", got, true)
 
-	requireSample(t, "admin_page_failure_anonymous", mail.AdminPageFailure(testFrom, testAdmin, in, nil), true)
+	requireSample(t, "admin_page_failure_anonymous", mail.AdminPageFailure(mail.SampleSite, testFrom, testAdmin, in, nil), true)
 }
 
 // adminMailers lists every admin notification with all user-controlled
@@ -89,19 +88,19 @@ func adminMailers() map[string]func() *mail.Envelope {
 
 	return map[string]func() *mail.Envelope{
 		"AdminNewUser": func() *mail.Envelope {
-			return mail.AdminNewUser(links.Site{}, testFrom, testAdmin, user)
+			return mail.AdminNewUser(mail.SampleSite, testFrom, testAdmin, user)
 		},
 		"AdminNewWaitingListMember": func() *mail.Envelope {
-			return mail.AdminNewWaitingListMember(testFrom, testAdmin, signup)
+			return mail.AdminNewWaitingListMember(mail.SampleSite, testFrom, testAdmin, signup)
 		},
 		"AdminSignupConfirmed": func() *mail.Envelope {
-			return mail.AdminSignupConfirmed(testFrom, testAdmin, user)
+			return mail.AdminSignupConfirmed(mail.SampleSite, testFrom, testAdmin, user)
 		},
 		"AdminThrowAwayEmail": func() *mail.Envelope {
-			return mail.AdminThrowAwayEmailSignupAttempt(testFrom, testAdmin, hostile)
+			return mail.AdminThrowAwayEmailSignupAttempt(mail.SampleSite, testFrom, testAdmin, hostile)
 		},
 		"AdminPageFailure": func() *mail.Envelope {
-			return mail.AdminPageFailure(testFrom, testAdmin, hostile, user)
+			return mail.AdminPageFailure(mail.SampleSite, testFrom, testAdmin, hostile, user)
 		},
 	}
 }
@@ -124,7 +123,6 @@ func TestAdminMails_EscapeUserContentInHTML(t *testing.T) {
 
 			html := sent[0].Mail.Html
 			require.NotContains(t, html, rawTag)
-			require.NotContains(t, html, `"><`)
 			require.Contains(t, html, escapedTag)
 			require.Contains(t, html, escapedQuo)
 		})
