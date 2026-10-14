@@ -1,9 +1,9 @@
 // Package wiremock runs one WireMock container per test binary. It stands in
-// for the third-party APIs pcom calls for an answer (the first is Azure
-// Translator); tommy stays for mail and S3.
+// for the third-party APIs pcom calls for an answer (the first is the
+// Anthropic API, for proofreading); tommy stays for mail and S3.
 //
 // Stubs are JSON mapping files next to the code they serve, such as
-// pkg/translate/azure/testdata/wiremock/mappings/*.json, with long bodies in
+// pkg/proofread/claude/testdata/wiremock/mappings/*.json, with long bodies in
 // a sibling __files directory. A package names its directory with Register;
 // the container imports every registered directory when it starts. Each API
 // lives under its own path prefix (the urlPath in its mappings starts with
@@ -90,7 +90,7 @@ func Cleanup() error {
 	return testcontainers.TerminateContainer(shared.container)
 }
 
-// URL is the endpoint of the API mounted under prefix, e.g. "/azure-translator".
+// URL is the endpoint of the API mounted under prefix, e.g. "anthropic".
 func (w *WireMock) URL(prefix string) string {
 	return w.BaseURL + "/" + strings.Trim(prefix, "/")
 }
