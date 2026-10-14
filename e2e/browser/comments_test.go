@@ -161,8 +161,8 @@ func TestComments_ViewerWithoutAccessGetsNoForm(t *testing.T) {
 }
 
 // Leaving a comment queues a notification email to the post's author and to
-// every other participant who has already commented on the post, but never
-// to the commenter themselves.
+// every other participant who has already commented on the post and may
+// still read it, but never to the commenter themselves.
 func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 	t.Parallel()
 
@@ -171,6 +171,10 @@ func TestComments_NotifiesAuthorAndParticipants(t *testing.T) {
 
 	author, commenter := b3ConnectedPair(t, app)
 	participant := browser.NewUser(t, app)
+
+	// only those who may still read the comments are told about them
+	_, _, err := factory.Connect(ctx, app.DB, author.ID, participant.ID)
+	require.NoError(t, err)
 
 	post, err := factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityDirectOnly))
 	require.NoError(t, err)

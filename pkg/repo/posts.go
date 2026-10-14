@@ -298,11 +298,11 @@ func (s *Store) PublishedPostsByProfile(ctx context.Context, visibility model.Po
 }
 
 // PostsOfOrAmong returns the posts, drafts included, written by userID, and
-// those written by one of authorIDs whose ID is in postIDs, with their
-// authors loaded.
+// the published ones written by one of authorIDs whose ID is in postIDs,
+// with their authors loaded.
 func (s *Store) PostsOfOrAmong(ctx context.Context, userID string, authorIDs, postIDs []string) ([]*model.Post, error) {
 	var posts []*model.Post
-	// user_id = userID OR (user_id IN authorIDs AND id IN postIDs)
+	// user_id = userID OR (user_id IN authorIDs AND id IN postIDs AND published)
 	err := s.query().NewSelect().Model(&posts).
 		Relation("User").
 		WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
@@ -311,7 +311,8 @@ func (s *Store) PostsOfOrAmong(ctx context.Context, userID string, authorIDs, po
 				WhereGroup(" OR ", func(q *bun.SelectQuery) *bun.SelectQuery {
 					return q.
 						Where("?TableAlias.user_id IN (?)", bun.List(authorIDs)).
-						Where("?TableAlias.id IN (?)", bun.List(postIDs))
+						Where("?TableAlias.id IN (?)", bun.List(postIDs)).
+						Where("?TableAlias.published_at IS NOT NULL")
 				})
 		}).
 		Scan(ctx)

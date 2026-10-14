@@ -53,9 +53,9 @@ func TestNewCommentForm_Validate(t *testing.T) {
 	stranger := testutil.Must(factory.User(ctx, db))(t)
 	connect(t, ctx, db, author.ID, direct.ID)
 
-	post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 	topComment := testutil.Must(factory.Comment(ctx, db, post.ID, author.ID))(t)
-	otherPost := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+	otherPost := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 	otherComment := testutil.Must(factory.Comment(ctx, db, otherPost.ID, author.ID))(t)
 
 	for _, tc := range []struct {
@@ -117,7 +117,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		author := testutil.Must(factory.User(ctx, db))(t)
 		commenter := testutil.Must(factory.User(ctx, db))(t)
 		connect(t, ctx, db, author.ID, commenter.ID)
-		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
 		sender := fakesender.New()
 		saveComment(t, ctx, db, newCommentForm(t, db, sender, commenter, post.ID, ""))
@@ -138,7 +138,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		author := testutil.Must(factory.User(ctx, db))(t)
 		commenter := testutil.Must(factory.User(ctx, db))(t)
 		connect(t, ctx, db, author.ID, commenter.ID)
-		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
 		_, err := factory.GetPostStat(ctx, db, post.ID)
 		require.Error(t, err, "no stat row before the first comment")
@@ -154,7 +154,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		t.Parallel()
 
 		author := testutil.Must(factory.User(ctx, db))(t)
-		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
 		// Save without Validate, as a race with a deleted comment would.
 		_, err := newCommentForm(t, db, fakesender.New(), author, post.ID, missingID).Save(ctx)
@@ -170,7 +170,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		replier := testutil.Must(factory.User(ctx, db))(t)
 		connect(t, ctx, db, author.ID, firstCommenter.ID)
 		connect(t, ctx, db, author.ID, replier.ID)
-		post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 		topComment := testutil.Must(factory.Comment(ctx, db, post.ID, firstCommenter.ID))(t)
 
 		sender := fakesender.New()

@@ -44,8 +44,12 @@ func TestEditComment(t *testing.T) {
 
 	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
 	comment := testutil.Must(factory.Comment(ctx, db, post.ID, w.direct.ID))(t)
-	// w.second has commented on the post before, so it follows the discussion
-	testutil.Must(factory.Comment(ctx, db, post.ID, w.second.ID))(t)
+	// another direct connection has commented on the post before, so it
+	// follows the discussion
+	other := testutil.Must(factory.User(ctx, db))(t)
+	_, _, err := factory.Connect(ctx, db, w.author.ID, other.ID)
+	require.NoError(t, err)
+	testutil.Must(factory.Comment(ctx, db, post.ID, other.ID))(t)
 
 	stored := func() *model.PostComment {
 		return testutil.Must(repo.New(db).CommentByID(ctx, comment.ID))(t)
@@ -75,7 +79,7 @@ func TestEditComment(t *testing.T) {
 			require.Contains(t, m.Mail.Subject, "Edited comment")
 		}
 
-		require.Equal(t, map[string]int{w.author.Email: i + 1, w.second.Email: i + 1}, recipients)
+		require.Equal(t, map[string]int{w.author.Email: i + 1, other.Email: i + 1}, recipients)
 
 		for _, m := range out.Sent()[i*2:] {
 			require.Contains(t, m.Mail.Text, body)
