@@ -33,7 +33,9 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   Escaping is `html/template`'s job; a `template.HTML` field is the one way
   trusted HTML (a rendered markdown body) enters. `mail.All()` is the only
   list of mails: the golden test and the `/dev/mail` preview read it. The
-  package doc of `pkg/mail/mail.go` is the how-to for adding a mail.
+  package doc of `pkg/mail/mail.go` is the how-to for adding a mail. Every HTML
+  mail is wrapped in `templates/_layout.html`, and `templates/mail.css` is inlined
+  into style attributes at render (go-premailer); the rules are in that package doc.
 - **Delivery.** `dbsender` sends each due mail in its own transaction, so one
   failure doesn't resend the others; the waits between attempts are
   `--email-retry-intervals`, and a mail fails after one attempt more than
