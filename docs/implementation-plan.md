@@ -56,6 +56,11 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   the test harness owns the routes the harness calls. One that changes shared markup (the header, a partial, a
   Stimulus controller several templates use) owns every test that selects it: grep `e2e/` for its classes,
   ids and texts, and every template for the controller's `data-controller` uses.
+- **A page that gets new data owns its whole path**: the template that renders it and the templates that
+  include it (`write.html`, `edit_post.html` around `form--post.html`), the page type in `pkg/web/pages_*.go`
+  and the route that builds it, not only the partial the feature lives in.
+- **Every text a user can store has a length setting.** A note, a reason, a label: list each new free-text
+  field with its `pkg/config` limit, or the service stores it unbounded.
 - **Tasks that share a file are not parallel.** Run them in sequence rather than plan a merge. Split a mixed
   file by area in a step 0 before parallel work, so later merges conflict only in registries. A breaking
   library bump is sequential too: order its tasks by import graph, each with the packages that compile at
@@ -97,6 +102,9 @@ Waves that don't depend on each other run at the same time, each in its own sess
 - **Coverage floors.** On a conflict in `tools/coverage-floors.txt`, keep the higher floor of each line.
 - **Route table.** Every new route needs a row in `TestGuards_RouteTableMatchesSource`; rows from parallel
   waves conflict only textually: keep both.
+- **A task done on another open wave's branch** (a shared helper) is cherry-picked, not rebuilt; grep the
+  ported commit for that wave's names (its settings, routes, env variables) before committing, since it was
+  written against that wave's tree.
 - **Contracts other waves use.** A wave that changes one (an E2E harness function, a factory signature, a
   shared template partial) says so in its wave file; a wave in flight adapts when it rebases, which shows up
   as a compile error rather than a silent change.

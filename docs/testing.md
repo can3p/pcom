@@ -149,8 +149,12 @@ per test binary (`pkg/testutil/wiremock`; `e2e.WithWireMock()` starts it and poi
 `<container URL>/anthropic` with the key `e2e.WireMockAnthropicKey`); tommy stays for mail and S3. Stubs are JSON mapping files next to the code
 they serve (`testdata/wiremock/mappings/*.json`, long bodies in `__files/`), each API under its own path prefix;
 the package names its directory with `wiremock.Register` from `TestMain` before the first `Shared`. A stub is a
-canned exchange: an `equalToJson` request body and the response. Use content only your test sends, so parallel
-tests don't collide. `w.URL(prefix)` is the endpoint; `w.Watch(t, prefix)` returns it and fails the test at
+canned exchange: the request (an `equalToJson` body, or `matchesJsonPath` on the fields that matter) and the
+response. Use content only your test sends, so parallel tests don't collide, and match it where the client puts
+it (`$.messages[0].content[0].text`), not with `contains` on the whole body: fixed text the client always sends
+(a system prompt) matches too, and the stub passes whatever the test's input. A catch-all stub (a 401 for a
+bad key) matches only what it is for (a missing or wrong key), so a request of the wrong shape still goes
+unmatched and fails the test instead of getting the catch-all's answer. `w.URL(prefix)` is the endpoint; `w.Watch(t, prefix)` returns it and fails the test at
 cleanup for any call to that prefix no stub matched, printing the near misses; `w.Verify(t, n, pattern)` checks
 the call count of a go-wiremock request pattern ("a cache hit made no call" is `n = 0`).
 

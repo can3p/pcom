@@ -21,6 +21,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   services hold the `*repo.Store`. A service opens a transaction with
   `s.store.Tx(ctx, func(tx *repo.Store) error { ... })` and passes `tx` on.
   `Tx` inside a transaction joins it. Repositories never call `Tx`.
+- **Third-party APIs** a service calls for an answer (the Anthropic API for proofreading) sit behind an
+  interface the service package's domain defines (`proofread.Model`), with the HTTP client in its own
+  package (`pkg/proofread/claude`) built in `pkg/web/app/router.go` and passed in through `registry.Deps`,
+  because services may not import `net/http`. A nil client means the feature is off; tests use an
+  in-memory fake (`pkg/proofread/proofreadtest`) and the client's own tests run against WireMock.
 - **Mail** is sent with `tx.SendMail(ctx, sender, ...)` inside the
   transaction, so it is queued only if the change commits. Services get the
   queue, `repo.MailQueue`, in their constructor; it delivers through gogo's
