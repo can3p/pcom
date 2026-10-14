@@ -260,6 +260,8 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 
 			asker := testutil.Must(factory.User(ctx, db))(t)
 			author := testutil.Must(factory.User(ctx, db))(t)
+			// only a direct connection may prompt, and read the answer
+			connect(t, ctx, db, asker.ID, author.ID)
 			prompt := testutil.Must(factory.PostPrompt(ctx, db, asker.ID, author.ID))(t)
 
 			action := forms.PostFormActionMakeDraft

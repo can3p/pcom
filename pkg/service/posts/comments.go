@@ -37,8 +37,8 @@ func (s *Service) checkCommentBody(body string) error {
 
 // CheckComment reports whether the actor may leave a comment on the post,
 // as a reply to replyTo if it is not empty: ErrNotFound for a post or a
-// comment that is not there, ErrForbidden for a post the actor is not
-// connected to.
+// comment that is not there and for somebody else's draft, ErrForbidden for
+// a post the actor is not connected to.
 func (s *Service) CheckComment(ctx context.Context, actor *model.User, postID, replyTo string) error {
 	if err := requireActor(actor); err != nil {
 		return err
@@ -60,6 +60,11 @@ func (s *Service) checkComment(ctx context.Context, store *repo.Store, actor *mo
 	radius, err := graph.RadiusBetween(ctx, store, actor.ID, post.UserID)
 	if err != nil {
 		return nil, err
+	}
+
+	// a draft is not found for anybody but its author, as on its page
+	if post.PublishedAt == nil && !radius.IsSameUser() {
+		return nil, service.ErrNotFound
 	}
 
 	if !postops.GetPostCapabilities(radius).CanLeaveComments {
@@ -180,7 +185,8 @@ func (s *Service) EditComment(ctx context.Context, actor *model.User, commentID,
 }
 
 // notifyComment tells the post's author and everybody else who commented on
-// the post about a new comment, or an edited one.
+// the post and may still read its comments about a new comment, or an
+// edited one.
 func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *model.User, comment *model.PostComment, edited bool) error {
 	post, err := tx.PostWithAuthorAndURL(ctx, comment.PostID)
 	if err != nil {
@@ -206,6 +212,17 @@ func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *mode
 	logging.FromContext(ctx).Debug("comment in the post", zap.Int("participants", len(participants)))
 
 	for _, cmt := range participants {
+		mayRead, err := mayReadComments(ctx, tx, cmt.User.ID, post)
+		if err != nil {
+			return err
+		}
+
+		// a participant who lost the connection, or whose post went back
+		// to draft, is told nothing more
+		if !mayRead {
+			continue
+		}
+
 		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.User, post, comment, edited)
 		if err := s.queueE(ctx, tx, out, err); err != nil {
 			return err
@@ -213,4 +230,15 @@ func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *mode
 	}
 
 	return nil
+}
+
+// mayReadComments reports whether the user may read the post and its
+// comments now.
+func mayReadComments(ctx context.Context, store *repo.Store, userID string, post *model.Post) (bool, error) {
+	radius, err := graph.RadiusBetween(ctx, store, userID, post.UserID)
+	if err != nil {
+		return false, err
+	}
+
+	return postops.CanSeePost(post, radius) && postops.GetPostCapabilities(radius).CanViewComments, nil
 }

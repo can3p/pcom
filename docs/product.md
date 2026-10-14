@@ -48,6 +48,9 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 - **Only the author edits a comment**, and only while they may still comment on the post. An edit that
   changes the body notifies the same people as a new comment, with "edited" variants of the comment mails.
   No history is kept; the marker shows the last edit time.
+- **Comment mails and feed entries reach only who may read the comments now.** A participant who lost the
+  connection gets no more of them, and once a post is a draft again nobody but its author comments on it or
+  hears about its comments. The asker of a prompt is mailed the answer only if they may read it.
 
 ## Profiles
 

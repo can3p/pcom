@@ -222,8 +222,9 @@ func (s *Service) rssItems(ctx context.Context, userID string, page repo.Page) (
 }
 
 // feedComments is a page of the comments others left on the user's own posts, and on
-// the posts of their direct connections they have commented on. The
-// connection is checked again because the user may have lost it since.
+// the published posts of their direct connections they have commented on.
+// The connection and the publication are checked again because the user may
+// have lost the one and the author withdrawn the other since.
 func (s *Service) feedComments(ctx context.Context, userID string, page repo.Page) ([]*FeedItem, error) {
 	participatedPostIDs, err := s.store.CommentedPostIDs(ctx, userID)
 	if err != nil {

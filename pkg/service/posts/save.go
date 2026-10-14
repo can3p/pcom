@@ -247,8 +247,8 @@ func (s *Service) promptOf(ctx context.Context, tx *repo.Store, actor *model.Use
 	return promptForRecipient(ctx, tx, actor.ID, promptID)
 }
 
-// notifyPublished tells the asker of the prompt the post answers, then every
-// direct connection of the author.
+// notifyPublished tells the asker of the prompt the post answers, if they may
+// read it, then every direct connection of the author.
 func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *model.User, post *model.Post, prompt *postops.PostPrompt) error {
 	if prompt != nil && prompt.Prompt.DismissedAt == nil {
 		dbPrompt := prompt.Prompt
@@ -260,8 +260,17 @@ func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *mo
 			return err
 		}
 
-		if err := s.queue(ctx, tx, mail.PostPromptAnswer(s.ident.Site, s.ident.From, prompt.Author, actor, post, dbPrompt)); err != nil {
+		radius, err := graph.RadiusBetween(ctx, tx, prompt.Author.ID, post.UserID)
+		if err != nil {
 			return err
+		}
+
+		// the mail names the post, so an asker who may not read it is not
+		// told
+		if postops.CanSeePost(post, radius) {
+			if err := s.queue(ctx, tx, mail.PostPromptAnswer(s.ident.Site, s.ident.From, prompt.Author, actor, post, dbPrompt)); err != nil {
+				return err
+			}
 		}
 	}
 

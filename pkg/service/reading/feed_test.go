@@ -75,7 +75,7 @@ func TestGetComments(t *testing.T) {
 
 	// a direct connection's post the user has participated in: a further
 	// comment from someone else on it is included too.
-	participatedPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
+	participatedPost := testutil.Must(factory.Post(ctx, db, direct.ID, factory.Published()))(t)
 	testutil.Must(factory.Comment(ctx, db, participatedPost.ID, user.ID))(t)
 
 	otherCommenter := testutil.Must(factory.User(ctx, db))(t)
@@ -86,6 +86,12 @@ func TestGetComments(t *testing.T) {
 	// even though someone else left a comment on it.
 	untouchedPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
 	testutil.Must(factory.Comment(ctx, db, untouchedPost.ID, otherCommenter.ID))(t)
+
+	// a post the user commented on that its author made a draft since:
+	// excluded, so its subject and comments stay with its author.
+	withdrawnPost := testutil.Must(factory.Post(ctx, db, direct.ID))(t)
+	testutil.Must(factory.Comment(ctx, db, withdrawnPost.ID, user.ID))(t)
+	testutil.Must(factory.Comment(ctx, db, withdrawnPost.ID, direct.ID))(t)
 
 	items, err := New(repo.Using(db)).feedComments(ctx, user.ID, repo.Page{})
 	require.NoError(t, err)
