@@ -45,7 +45,10 @@ happen is tested in the browser, never over plain HTTP.
    rendering. Write the sample inputs as literals, not through the constructor's
    own model-to-input mapper (a wrong mapping would then be on both sides), give
    ids that a mapper could swap different values, and use `SampleSite`, which has
-   a root, so a constructor that ignores its site fails.
+   a root, so a constructor that ignores its site fails. A golden holds the full
+   mail, layout included (`pkg/mail/mail.go`, "Templates"). `TestMailCSS_MatchesTokens`
+   reads `mail.css` and `cmd/web/client/scss/_tokens.scss` by path, so a token
+   change needs the matching colour in `mail.css`.
 7. **Keep tests compact.** Cases that differ only in inputs and expectations
    are rows of one table-driven test with `t.Run`, not one function each. A
    table test opens one database at the top, and each row makes its own
