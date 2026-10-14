@@ -1,6 +1,13 @@
+<h1>New prompt from @{{.Asker}}</h1>
 
 <p>Hi!</p>
 
-<p>@{{.Asker}} has asked you to write a post on "{{.Message}}"</p>
+<p>@{{.Asker}} has asked you to write a post on</p>
 
-<p>Head to new post page to give an update! <a href="{{.Link}}">{{.Link}}</a></p>
+<div class="mail-quote">{{.Message}}</div>
+
+<p>Head to new post page to give an update!</p>
+
+<p><a class="mail-button" href="{{.Link}}">Write the answer</a></p>
+
+<p class="mail-muted">{{.Link}}</p>

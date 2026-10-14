@@ -1,6 +1,15 @@
+<h1>Response to your prompt from @{{.Responder}}</h1>
 
 <p>Hi!</p>
 
-<p>@{{.Responder}} has responded on your prompt "{{.Message}}" with the post "{{.Subject}}"</p>
+<p>@{{.Responder}} has responded on your prompt</p>
 
-<p>Head to new post page to give an update! <a href="{{.Link}}">{{.Link}}</a></p>
+<div class="mail-quote">{{.Message}}</div>
+
+<p>with the post "{{.Subject}}"</p>
+
+<p>Head to new post page to give an update!</p>
+
+<p><a class="mail-button" href="{{.Link}}">Open the post</a></p>
+
+<p class="mail-muted">{{.Link}}</p>
