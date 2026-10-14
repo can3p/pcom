@@ -64,6 +64,39 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   people's styles; every other class may change. `TestTemplatesKeepUserStyleHooks` fails when one disappears.
 - **The username in the header opens your journal**; Settings has its own link in the menu, next to Controls.
 
+## Grammar check and style review
+
+The post editor has two buttons, **Check grammar** and **Style review**, which send the post's subject and body
+to Claude through the server. Users see only the words "grammar check" and "style review"; "proofreading" is the
+code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
+
+- **Who and when.** Every logged-in user, in the post editor only (not comments, not the profile text). A call
+  runs only when its button is pressed; nothing runs as the user types. The feature is off unless
+  `PROOFREAD_ANTHROPIC_KEY` is set; its settings and their defaults are in `docs/running.md`.
+- **The key stays on the server.** The browser talks only to pcom, never to Anthropic.
+- **Limits are per user and per kind.** Grammar checks and style reviews have separate hourly limits, counted
+  from the user's requests of that kind with `status = 'ok'`, so a failed call is not counted. An optional
+  site-wide daily cap can close both. Each request is a row in `proofread_requests`; the numbers are the
+  `PROOFREAD_*` settings.
+- **Nothing changes the text without a click.** A suggestion from a grammar check is applied or dismissed by
+  the author. A style note is never a fix: it is marked done or kept as is, and the text stays as the author
+  wrote it.
+- **The subject is part of both kinds.** A grammar fix may change the subject; a style note may be about the
+  title, and clicking it highlights the subject field.
+- **Grammar results live on the page.** Only the author's dismissals are kept, per post, in the browser's
+  `localStorage`, so a later check in that browser doesn't show them again. Another browser shows them again.
+- **Style reviews are stored.** Each review is kept with its post: the text reviewed, its notes, their status and
+  the author's reasons. The next review is told what was said before, what the author did and why ("Keep as
+  is" takes an optional reason for that). Deleting a post deletes its reviews; "Start fresh" deletes the post's
+  reviews without deleting the post.
+- **Grammar-check text is not stored.** pcom keeps only the request row (kind, model, token counts, time) for a
+  grammar check. The privacy policy (`cmd/web/client/articles/privacy_policy.md`) says the same.
+- **A disclosure is always visible** wherever the buttons are: the line under the limits says that Claude, an
+  external AI model from Anthropic, receives the subject and text only when a button is pressed. It is not behind
+  a tooltip, because the author must see it before pressing.
+- **A new post has no review until it is saved.** Style review is disabled until the first autosave gives the
+  post an id.
+
 ## Interface
 
 - **Every form saves in place** and reports next to its submit button (saved / not saved), with field errors

@@ -1,0 +1,52 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/anthropic/v1/messages",
+    "headers": {
+      "x-api-key": {
+        "equalTo": "wiremock-anthropic-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": {
+          "expression": "$.model",
+          "equalTo": "claude-haiku-5-5"
+        }
+      },
+      {
+        "matchesJsonPath": {
+          "expression": "$.messages[0].content[0].text",
+          "contains": "Она одела пальто"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "id": "msg_screenshot",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-5-5",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"suggestions\": [{\"field\": \"body\", \"kind\": \"word_choice\", \"quote\": \"одела\", \"before\": \"Она \", \"replacement\": \"надела\", \"explanation\": \"«Надеть» — на себя, «одеть» — кого-то другого.\"}, {\"field\": \"body\", \"kind\": \"spelling\", \"quote\": \"Не смотря\", \"before\": \"не было. \", \"replacement\": \"Несмотря\", \"explanation\": \"Предлог «несмотря на» пишется слитно.\"}, {\"field\": \"body\", \"kind\": \"spelling\", \"quote\": \"В течении\", \"before\": \"пешком. \", \"replacement\": \"В течение\", \"explanation\": \"Предлог «в течение» (о времени) пишется с «е» на конце.\"}]}"
+        }
+      ],
+      "stop_reason": "end_turn",
+      "stop_sequence": null,
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 20,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      }
+    }
+  }
+}

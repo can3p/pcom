@@ -14,6 +14,18 @@ The editor saves about two seconds after you stop typing and shows when it last 
 
 The status next to the post's title ("Last Updated …") shows when it was last saved; an unpublished post also shows a Draft badge there. The page icon in the toolbar opens the post as readers will see it, in a new tab. It appears once the post has been saved for the first time. Save as Draft saves at once and says "Draft saved" next to the buttons. Pressing Enter in the subject or URL field saves too: on a published post it saves and opens the post; it never deletes or unpublishes.
 
+## Grammar check and style review
+
+Two buttons in the editor ask Claude to read your post: **Check grammar** and **Style review**. Every logged-in user can use them, and they run only when you press them: nothing is sent to Claude as you type. A line under the editor's limits says that Claude, an external AI model from Anthropic, receives your subject and text only when you press one of the two buttons.
+
+![The post editor with the grammar panel open beside it, showing three suggestions for a Russian draft.](screenshots/grammar.png)
+
+**Check grammar** lists suggestions for spelling, punctuation, grammar and word choice in the panel beside the editor. Each one shows the passage, its replacement and why. **Apply** changes the text and saves it, and **Undo** puts it back. **Dismiss** hides a suggestion; it stays hidden on later checks of that post, in this browser, until you press "show again". Nothing changes in the text without a click.
+
+**Style review** reads the post for style, logic, pacing and repetition, and for the title, aimed at short fiction and essays. Its notes never change the text. Mark a note **Done** when you have dealt with it, or **Keep as is**, with an optional reason under "Why keep it?". The next review knows what you did and why. Your reviews are saved with the post; **Review again** asks for a new one, **Earlier reviews** lists the earlier ones, and **Start fresh** deletes them. Style review is available once the draft has been saved for the first time.
+
+A line under the editor shows how many grammar checks and style reviews you have left this hour. When you have used them up, the panel says when the next one is available. A request that fails is not counted.
+
 ## Visibility
 
 Below the body you choose who can read the post: "Show to direct connections only", "Show to their connections as well" (the default for a new post) or "Public". You can change it later. [Connections](connections.md) spells out what each choice means.

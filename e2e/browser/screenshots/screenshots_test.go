@@ -19,9 +19,16 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/seed"
+	"github.com/can3p/pcom/pkg/testutil/wiremock"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
+
+var _ = func() struct{} {
+	wiremock.Register("testdata/wiremock")
+
+	return struct{}{}
+}()
 
 func TestMain(m *testing.M) { browser.Main(m) }
 
@@ -50,6 +57,7 @@ var shots = []shot{
 	{file: "post.png", user: "bob", path: "/posts/{post}", ready: "text=Level 3 (bob)"},
 	{file: "feed.png", user: "alice", path: "/feed", ready: "h1"},
 	{file: "editor.png", user: "alice", path: "/write", prepare: fillEditor, ready: "#show_preview"},
+	{file: "grammar.png", user: "alice", path: "/write", prepare: checkGrammar, ready: ".pr-card"},
 	{file: "settings.png", user: "alice", path: "/controls/settings", ready: "h1"},
 	{file: "explore.png", user: "alice", path: "/explore", ready: "h1"},
 }
@@ -71,8 +79,17 @@ func fillEditor(t *testing.T, page playwright.Page) {
 	require.NoError(t, body.PressSequentially(" "))
 }
 
+// checkGrammar types a Russian draft whose mistakes the WireMock stub in
+// testdata/wiremock knows, and asks for a grammar check, so the suggestion
+// panel is open in the shot.
+func checkGrammar(t *testing.T, page playwright.Page) {
+	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Перрон"))
+	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("Она одела пальто, достала телефон, но связи не было. Не смотря на усталость, она решила идти пешком. В течении часа она бродила по пустым улицам, и ни один фонарь не горел."))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Check grammar", Exact: new(true)}).Click())
+}
+
 func TestScreenshots(t *testing.T) {
-	app := e2e.Start(t, e2e.WithRealAssets())
+	app := e2e.Start(t, e2e.WithRealAssets(), e2e.WithWireMock())
 	require.NoError(t, seed.Run(context.Background(), app.DB.DB, io.Discard, seed.Options{}))
 	require.NoError(t, os.MkdirAll(outDir, 0o755))
 
