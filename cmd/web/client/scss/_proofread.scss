@@ -1,0 +1,472 @@
+// The grammar check and style review in the post editor: two buttons in the
+// toolbar, the limits and disclosure lines under the text, and the panel beside
+// the editor (a bottom sheet on a phone). Behaviour is proofread_controller.js.
+$pr-tint: color-mix(in srgb, var(--accent) 24%, transparent);
+
+// Toolbar buttons: text next to the icon buttons, pushed to the right.
+.tb-gap {
+  flex: 1;
+}
+
+.tb-ai {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tbt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font: 600 14px var(--font-ui);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
+  }
+
+  &:disabled {
+    opacity: .5;
+    cursor: default;
+    background: transparent;
+  }
+}
+
+// Two columns: the editor and the panel.
+.ed-pr {
+  max-width: calc(var(--page-width) + var(--space-7));
+
+  .ed-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: var(--space-5);
+    align-items: start;
+  }
+
+  // the highlight layer sits behind the transparent textarea
+  .mdeditor .ed-body {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.ed-subject.pr-mark {
+  background: $pr-tint;
+  border-radius: 4px;
+}
+
+.pr-hl {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pr-hl-box {
+  position: absolute;
+  border-radius: 3px;
+  background: $pr-tint;
+}
+
+.pr-mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.pr-limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font: 400 13px/1.5 var(--font-ui);
+  color: var(--muted);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.pr-disclosure {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font: 400 13px/1.5 var(--font-ui);
+  color: var(--muted);
+
+  svg {
+    flex: none;
+    margin-top: 3px;
+  }
+}
+
+// The panel: header and footer stay, only the list scrolls.
+.pr-panel {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-4));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.pr-bar {
+  display: none;
+}
+
+.pr-head {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.pr-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.pr-tab {
+  padding: 6px var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 14px var(--font-ui);
+  cursor: pointer;
+
+  &[aria-pressed="true"] {
+    background: var(--sunken);
+    color: var(--title);
+  }
+}
+
+.pr-sub {
+  margin: var(--space-2) 0 0;
+  font: 400 13px/1.5 var(--font-ui);
+  color: var(--muted);
+}
+
+.pr-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  overflow-y: auto;
+}
+
+.pr-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  font: 600 13px var(--font-ui);
+}
+
+.pr-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--ground);
+  color: var(--text);
+  font: 400 14px/1.5 var(--font-ui);
+  resize: vertical;
+}
+
+.pr-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--ground);
+
+  &.is-selected {
+    border-color: var(--accent);
+  }
+
+  &.is-stale,
+  &.is-lost {
+    border-style: dashed;
+  }
+}
+
+.pr-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 400 15px/1.5 var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pr-kind {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font: 600 12px var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.pr-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+
+  [data-kind="spelling"] & {
+    background: var(--err);
+  }
+
+  [data-kind="punctuation"] & {
+    background: var(--accent);
+  }
+
+  [data-kind="grammar"] & {
+    background: var(--ok);
+  }
+}
+
+.pr-count,
+.pr-badge {
+  margin-left: auto;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.pr-badge {
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+.pr-fix {
+  overflow-wrap: anywhere;
+
+  s {
+    color: var(--muted);
+  }
+
+  b {
+    color: var(--title);
+  }
+}
+
+.pr-why,
+.pr-note,
+.pr-summary p,
+.pr-earlier-item p {
+  margin: 0;
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--text);
+}
+
+.pr-note {
+  color: var(--muted);
+}
+
+.pr-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pr-earlier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.pr-lost {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font: 400 13px/1.5 var(--font-ui);
+  color: var(--muted);
+
+  p {
+    margin: 0;
+  }
+}
+
+.pr-quote {
+  padding: var(--space-1) var(--space-2);
+  border: 1px dashed var(--faint);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+.pr-keep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font: 600 13px var(--font-ui);
+}
+
+.pr-acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  .pr-link {
+    align-self: center;
+  }
+
+  .btn {
+    min-height: 34px;
+    padding: 0 var(--space-3);
+    font-size: 14px;
+  }
+}
+
+.pr-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--err);
+  border-radius: var(--radius-control);
+  color: var(--err);
+  font: 600 14px/1.5 var(--font-ui);
+
+  p {
+    margin: 0;
+  }
+}
+
+.pr-wait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  p {
+    margin: 0;
+    font: 600 14px var(--font-ui);
+    color: var(--muted);
+  }
+}
+
+.pr-skel {
+  height: 44px;
+  border-radius: var(--radius-control);
+  background: var(--sunken);
+}
+
+.pr-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: 600 13px var(--font-ui);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.pr-pager {
+  display: none;
+}
+
+// A phone: one card at a time in a bottom sheet that collapses to a bar, so
+// the visibility options and the buttons stay reachable.
+@media (max-width: 767.98px) {
+  .ed-pr .ed-cols {
+    display: block;
+  }
+
+  .ed-pr .ed-cols.has-panel {
+    padding-bottom: 64px;
+  }
+
+  .pr-panel {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1050;
+    max-height: 62vh;
+    border-width: 1px 0 0;
+    border-radius: var(--radius-box) var(--radius-box) 0 0;
+
+    &.is-empty {
+      display: none;
+    }
+
+    &.is-collapsed {
+      .pr-head,
+      .pr-list,
+      .pr-foot {
+        display: none;
+      }
+    }
+
+    .pr-card:not(.is-selected) {
+      display: none;
+    }
+  }
+
+  .pr-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    min-height: 48px;
+    padding: 0 var(--space-4);
+    border: 0;
+    background: var(--surface);
+    color: var(--title);
+    font: 600 15px var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .pr-grip {
+    width: 28px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--faint);
+  }
+
+  .pr-pager {
+    display: flex;
+    justify-content: space-between;
+  }
+}

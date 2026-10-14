@@ -111,6 +111,13 @@ func EditPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, pos
 	return form, nil
 }
 
+// WithProofread tells the form whether the grammar check and style review are
+// on: the editor then shows their buttons and panel, also when a validation
+// error renders the form again.
+func (f *PostForm) WithProofread(on bool) {
+	f.AddTemplateData("Proofread", on)
+}
+
 // saveInput is what the form's input asks the service to save.
 func (f *PostForm) saveInput() posts.SaveInput {
 	in := posts.SaveInput{

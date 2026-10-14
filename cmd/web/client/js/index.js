@@ -1,3 +1,6 @@
+// chunks are served from /static (the production build is rooted at /)
+__webpack_public_path__ = "/static/"
+
 import htmx from 'htmx.org';
 import 'htmx-ext-head-support';
 import { Application } from "@hotwired/stimulus"
