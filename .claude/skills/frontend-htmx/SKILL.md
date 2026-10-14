@@ -25,6 +25,13 @@ Located in `cmd/web/client/js/index.js`:
 - `hx-ext="head-support"` auto-merges `<head>` elements during navigation
 - `json-enc` extension for JSON payloads (sets `Content-Type: application/json`, stringifies parameters)
 
+### Bundle size
+`TestFirstVisitWeight` (`e2e/browser/weight_test.go`) caps the gzipped JS every first visit loads. A
+controller that only one page needs and that is large (the editor's grammar panel) is a small stub in
+`controllers/` whose `connect()` does `await import("../<area>/<file>.js")`, so the rest is a separate chunk
+fetched only where the controller appears (`index.js` sets `__webpack_public_path__` to `/static/` for those
+chunks). Raising the budget instead needs the owner's reason.
+
 ### Template Structure
 - Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
 - Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
@@ -90,6 +97,10 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
   add a `data-testid` to the template.
 - Wait with auto-waiting locator assertions, never sleeps. After an htmx action, assert on the swapped
   element, not on the network.
+- The post form autosaves on `change delay:2s, keyup delay:2s` and sends the form as it is when the delay
+  ends, so typing followed by a click within two seconds saves the click's result too. A test proving that
+  an action saves waits for the save of the typing before it (the saved body in the DB, or
+  `page.ExpectResponse`), or the keyup's save makes it pass without the action's trigger.
 
 Handlers behind htmx endpoints are thin (see the layering note in `AGENTS.md`): they call a service and set
 the response headers. Don't put queries into a handler to feed a template.

@@ -83,7 +83,8 @@ tests compact (ground rule 7 in docs/testing.md).
 After editing, check compilation with `make vet-q PKG={pkg}` (language-server diagnostics don't reach you).
 Test with `make test-q PKG={pkg}`, then `make test-q PKG=./e2e/...` once at the end{ui}.
 Before reporting, run `make fix-q PKG={pkg}` (CI's Go Fix job commits whatever go fix rewrites), then
-`make lint-q PKG={pkg}` and the tests again. Report only when all three are clean.
+`make lint-q PKG={pkg}` and the tests again; if you wrote tests under e2e/, also `make lint-q PKG=./e2e/...`
+(it lints the browser tests too). Report only when all are clean.
 Done when: {done}.
 {report}"""
 
