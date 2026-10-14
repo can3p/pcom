@@ -2,7 +2,7 @@
 
 -- One row per call to Claude for a grammar check or a style review, ok or
 -- failed. The hourly limits count a user's ok rows of a kind; the site-wide
--- daily cap counts every row. post_id is null for a check of a post that was
+-- daily cap counts every ok row. post_id is null for a check of a post that was
 -- never saved, or once the post is deleted.
 create table proofread_requests (
   id uuid primary key,
