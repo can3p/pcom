@@ -37,7 +37,8 @@ line. Replace every `<FILL: ...>`, above all the owned files, before dispatching
 the script guesses them from the paths in the excerpt and can name a package that doesn't exist. If the excerpt names
 something a subagent can't read (another wave's matrix, an issue by number, an open question), paste its
 definition or a one-line summary into the prompt: subagents read no other wave files and have no GitHub
-access. The preamble is chosen by wave:
+access. The excerpt is only the task's own row or section: a wave's shared design ("How it is built", the
+owner's decisions) that the task implements is pasted in too, or the task rebuilds it from guesses. The preamble is chosen by wave:
 
 - **R-waves**: a refactor preamble. Behavior is unchanged, `e2e/` is not edited, moved tests keep
   their assertions, and the layering rules apply.
@@ -57,8 +58,9 @@ subagents, whose context is thrown away.
   prove it by diffing the old and new files' line multisets.
 - Tasks that own disjoint files go out in **one message** with several `Agent` calls,
   `subagent_type: "general-purpose"`. Never `fork`: a fork drags the coordinator's context along.
-- Tasks whose tests build the whole tree (E2E, the arch test) run with `isolation: "worktree"`, so one
-  agent's half-written files don't break another's build. Worktrees start from `origin/master`, not the
+- Tasks whose tests build the whole tree (E2E, the arch test), and parallel tasks that rewrite goldens in one
+  package (`UPDATE_GOLDEN=1` rewrites every golden there, the other task's included), run with
+  `isolation: "worktree"`, so one agent's half-written files don't break another's build. Worktrees start from `origin/master`, not the
   wave branch: push the branch first, or make the agent's first command `git merge --ff-only <wave
   branch>` (the only git command it may run). Merge each finished worktree by committing there and
   cherry-picking onto the wave branch; resolve shared files (a registry, an allowlist) by script, and
