@@ -13,6 +13,8 @@ import (
 // NewPostInput is what the new post mail shows: the author, the post and
 // the connection it is sent to.
 type NewPostInput struct {
+	// Site is the site the mail's links, header and footer point to.
+	Site         links.Site
 	From         string
 	PostID       string
 	ConnectionID string
@@ -29,7 +31,7 @@ type NewPostInput struct {
 // Header addresses the mail to the connection, unique per post and
 // connection.
 func (in NewPostInput) Header() Header {
-	return Header{UniqueID: in.PostID + in.ConnectionID, From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, UniqueID: in.PostID + in.ConnectionID, From: FromPcom(in.From), To: To(in.To)}
 }
 
 var newPostMail = declare("post_notification", "new_post", newPostSamples)
@@ -53,7 +55,7 @@ func newPostSamples() []Sample[NewPostInput] {
 
 	sample := func(subject, linkedURL, body string) NewPostInput {
 		return NewPostInput{
-			From: SampleFrom, PostID: "post-1", ConnectionID: "user-2", To: "connection@example.test",
+			Site: SampleSite, From: SampleFrom, PostID: "post-1", ConnectionID: "user-2", To: "connection@example.test",
 			Username: "alice", Subject: subject, LinkedURL: linkedURL,
 			Link: SampleSite.Abs("post", "post-1"),
 			Body: newPostBody(SampleSite, "post-1", body, keep),
@@ -82,6 +84,7 @@ func NewPost(site links.Site, from string, mediaReplacer types.Replacer[string],
 	}
 
 	in := NewPostInput{
+		Site:         site,
 		From:         from,
 		PostID:       post.ID,
 		ConnectionID: connection.ID,

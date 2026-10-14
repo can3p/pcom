@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>pcom</title>
+<style>{{template "mail.css"}}</style>
+</head>
+<body>
+<table role="presentation" class="mail-ground" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#faf6ee">
+<tr>
+<td class="mail-outer" align="center">
+<table role="presentation" class="mail-column" width="600" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td class="mail-header"><a class="mail-wordmark" href="{{.Site.Root}}">pcom</a></td>
+</tr>
+<tr>
+<td class="mail-card" bgcolor="#fffdf8">
+{{.Content}}
+</td>
+</tr>
+<tr>
+<td class="mail-footer">
+<p class="mail-muted">{{if .NoAccount}}You get this mail because somebody entered this address at pcom.{{else}}You get this mail because you have an account at pcom.{{end}}<br>
+<a href="{{.Site.Root}}">{{.Site.Root}}</a></p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>

@@ -68,7 +68,6 @@ func TestMailers_EscapeUserContentInHTML(t *testing.T) {
 
 			html := sent[0].Mail.Html
 			require.NotContains(t, html, rawTag)
-			require.NotContains(t, html, `"><`)
 			require.Contains(t, html, escapedTag)
 			require.Contains(t, html, escapedQuo)
 			require.Contains(t, sent[0].Mail.Text, hostile)

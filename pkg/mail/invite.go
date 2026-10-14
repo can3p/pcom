@@ -16,7 +16,7 @@ type InviteInput struct {
 
 // Header addresses the mail to the invited address, unique per invitation.
 func (in InviteInput) Header() Header {
-	return Header{UniqueID: in.InviteID, From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, NoAccount: true, UniqueID: in.InviteID, From: FromPcom(in.From), To: To(in.To)}
 }
 
 // Link is the absolute link that opens the invitation.

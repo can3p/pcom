@@ -1,10 +1,16 @@
 package mail
 
-import "time"
+import (
+	"time"
+
+	"github.com/can3p/pcom/pkg/links"
+)
 
 // ConfirmSignupInput is what the signup confirmation mail shows: the code
 // that confirms a new account's address and how long it works.
 type ConfirmSignupInput struct {
+	// Site is the site the mail's links, header and footer point to.
+	Site      links.Site
 	From      string
 	AttemptID string
 	To        string
@@ -15,7 +21,7 @@ type ConfirmSignupInput struct {
 // Header addresses the mail to the new account's address, unique per login
 // attempt.
 func (in ConfirmSignupInput) Header() Header {
-	return Header{UniqueID: in.AttemptID, From: FromPcom(in.From), To: To(in.To)}
+	return Header{Site: in.Site, UniqueID: in.AttemptID, From: FromPcom(in.From), To: To(in.To)}
 }
 
 // Minutes is the lifetime of the code in whole minutes.
@@ -28,13 +34,13 @@ var confirmSignupMail = declare("confirm_signup", "confirm_signup", confirmSignu
 func confirmSignupSamples() []Sample[ConfirmSignupInput] {
 	return []Sample[ConfirmSignupInput]{
 		{Name: "confirm_signup", Input: ConfirmSignupInput{
-			From: SampleFrom, AttemptID: "attempt-1", To: "user@example.test", Code: "123456", Lifetime: 15 * time.Minute,
+			Site: SampleSite, From: SampleFrom, AttemptID: "attempt-1", To: "user@example.test", Code: "123456", Lifetime: 15 * time.Minute,
 		}},
 	}
 }
 
 // ConfirmSignup is the mail that carries the code which confirms a new
 // account's email address and logs it in, for the login attempt attemptID.
-func ConfirmSignup(from string, attemptID, to, code string, lifetime time.Duration) *Envelope {
-	return confirmSignupMail.MustRender(ConfirmSignupInput{From: from, AttemptID: attemptID, To: to, Code: code, Lifetime: lifetime})
+func ConfirmSignup(site links.Site, from string, attemptID, to, code string, lifetime time.Duration) *Envelope {
+	return confirmSignupMail.MustRender(ConfirmSignupInput{Site: site, From: from, AttemptID: attemptID, To: to, Code: code, Lifetime: lifetime})
 }

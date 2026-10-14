@@ -8,8 +8,9 @@
 // template name (snake_case, unique across the package). The file holds:
 //
 //   - the input, a struct <Name>Input with everything the templates show and
-//     a Header method returning the unique id, the from address and the
-//     recipients; values the templates need derived (minutes from a duration,
+//     a Header method returning the unique id, the from address, the
+//     recipients and the site (every input has a Site field, and every
+//     constructor takes the site as its first parameter); values the templates need derived (minutes from a duration,
 //     an absolute link) are methods on the input, so the templates stay
 //     logic-free;
 //   - the declaration, a package-level
@@ -42,7 +43,30 @@
 // comment text, links) goes into the input as a plain string. A field of type
 // template.HTML is the one way trusted HTML enters a template: a markdown
 // body rendered with markdown.ToEnrichedTemplate is such a field, and nothing
-// else is wrapped in template.HTML.
+// else is wrapped in template.HTML, with one exception: Render wraps the
+// output of a mail's <name>.html, which html/template has already escaped, to
+// hand it to the layout.
+//
+// Every HTML mail has one look, built from three shared templates that
+// declare parses with the mail's own: _layout.html is the document around
+// the HTML part (the "pcom" wordmark linking to the site, the card the
+// content sits in, and the footer saying why the reader gets the mail),
+// mail.css its stylesheet in the site's light colours, and _footer.txt the
+// footer Render appends to the text part after a blank line. So <name>.html
+// holds only the mail's content: plain elements (h1, p, a, ul, pre) and the
+// classes of mail.css, mail-button for the main action's link, mail-quote
+// for quoted user content and markdown bodies, mail-code for a login or
+// confirmation code and mail-muted for fine print. The layout and footer read
+// the Header: Site for the links, NoAccount for the footer's wording.
+//
+// Mail clients drop or ignore a <style> element unevenly, so Render inlines
+// mail.css into style attributes with go-premailer. Element selectors style
+// markdown bodies, which carry no classes; a class without a rule in mail.css
+// is dropped silently, which TestMails_ClassesHaveRules catches. Rules that
+// cannot be inlined, the dark mode @media block, stay in a <style> element
+// for the clients that honour it. Each colour in mail.css names its token of
+// cmd/web/client/scss/_tokens.scss, and TestMailCSS_MatchesTokens keeps them
+// equal.
 //
 // # Registry
 //
@@ -66,6 +90,7 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/vanng822/go-premailer/premailer"
 )
 
 // Envelope is a mail with the id and type the outgoing queue files it under.
@@ -77,11 +102,16 @@ type Envelope struct {
 }
 
 // Header is the addressing of one mail: the unique id the queue drops repeats
-// by, and who it is from and to.
+// by, who it is from and to, and the site its header and footer link to.
 type Header struct {
 	UniqueID string
 	From     mail.Address
 	To       []mail.Address
+	Site     links.Site
+	// NoAccount is set for a mail to an address that has no account yet (an
+	// invitation, a waiting list confirmation): the footer then says that
+	// somebody entered the address instead of that the reader has an account.
+	NoAccount bool
 }
 
 // Input is what a declared mail renders: the template data, which also knows
@@ -112,8 +142,18 @@ func To(address string) []mail.Address {
 	return []mail.Address{{Address: address}}
 }
 
-//go:embed templates
+// The prefix all: embeds the shared templates too, whose names start with _.
+//
+//go:embed all:templates
 var templatesFS embed.FS
+
+// The templates every mail shares: the HTML layout around the mail's own HTML
+// part, the stylesheet the layout carries, and the footer of the text part.
+const (
+	layoutTemplate = "_layout.html"
+	cssTemplate    = "mail.css"
+	footerTemplate = "_footer.txt"
+)
 
 // Definition is one declared mail: its email type, its parsed templates and
 // its samples.
@@ -123,7 +163,18 @@ type Definition[In Input] struct {
 	subject   *texttemplate.Template
 	text      *texttemplate.Template
 	html      *htmltemplate.Template
+	layout    *htmltemplate.Template
+	footer    *texttemplate.Template
 	samples   func() []Sample[In]
+}
+
+// layoutData is what the shared layout and the text footer render: the
+// mail's own HTML part, already escaped by html/template, and the site and
+// footer choice of its Header.
+type layoutData struct {
+	Content   htmltemplate.HTML
+	Site      links.Site
+	NoAccount bool
 }
 
 // Type is the queue's email_type of the mail.
@@ -132,7 +183,9 @@ func (d *Definition[In]) Type() string { return d.emailType }
 // Name is the template name of the mail.
 func (d *Definition[In]) Name() string { return d.name }
 
-// Render executes the templates on in and addresses the result.
+// Render executes the templates on in and addresses the result. The HTML part
+// is the mail's own template wrapped in the layout, with mail.css inlined; the
+// text part ends in the shared footer.
 func (d *Definition[In]) Render(in In) (*Envelope, error) {
 	subject, err := execute(d.subject, in)
 	if err != nil {
@@ -144,13 +197,33 @@ func (d *Definition[In]) Render(in In) (*Envelope, error) {
 		return nil, fmt.Errorf("mail %s: text: %w", d.name, err)
 	}
 
-	html, err := execute(d.html, in)
+	content, err := execute(d.html, in)
 	if err != nil {
 		return nil, fmt.Errorf("mail %s: html: %w", d.name, err)
 	}
 
-	subject = strings.TrimSpace(subject)
 	h := in.Header()
+	// content is the output of html/template, every value in it escaped, so
+	// it is trusted HTML.
+	data := layoutData{Content: htmltemplate.HTML(content), Site: h.Site, NoAccount: h.NoAccount}
+
+	page, err := execute(d.layout, data)
+	if err != nil {
+		return nil, fmt.Errorf("mail %s: layout: %w", d.name, err)
+	}
+
+	html, err := inlineCSS(page)
+	if err != nil {
+		return nil, fmt.Errorf("mail %s: inline css: %w", d.name, err)
+	}
+
+	footer, err := execute(d.footer, data)
+	if err != nil {
+		return nil, fmt.Errorf("mail %s: footer: %w", d.name, err)
+	}
+
+	subject = strings.TrimSpace(subject)
+	text += "\n\n" + footer
 
 	return &Envelope{
 		UniqueID: h.UniqueID,
@@ -175,6 +248,25 @@ func (d *Definition[In]) MustRender(in In) *Envelope {
 	}
 
 	return e
+}
+
+// inlineCSS moves the rules of the page's <style> element into the style
+// attributes of the elements they select, since mail clients drop or ignore
+// <style> unevenly. Rules that cannot be inlined, the dark mode @media block
+// among them, stay in a <style> element in the head, marked !important so
+// they win over the inlined styles.
+func inlineCSS(page string) (string, error) {
+	p, err := premailer.NewPremailerFromString(page, premailer.NewOptions())
+	if err != nil {
+		return "", err
+	}
+
+	out, err := p.Transform()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimRightFunc(out, unicode.IsSpace), nil
 }
 
 func execute(t interface {
@@ -221,16 +313,24 @@ func (d *Definition[In]) register() Registered {
 // package init, before anything reads it.
 var registry = map[string]registration{}
 
-// declare parses the templates of the mail name and registers it. It panics
-// when a template is missing or does not parse, or when name is declared
-// twice, so a broken mail stops the binary at init.
+// declare parses the templates of the mail name, the layout and the text
+// footer, and registers the mail. It panics when a template is missing or
+// does not parse, or when name is declared twice, so a broken mail stops the
+// binary at init.
 func declare[In Input](emailType, name string, samples func() []Sample[In]) *Definition[In] {
+	// mail.css joins the layout as a template of its own, so the layout
+	// includes it in its <style> element as trusted template text.
+	layout := htmltemplate.Must(htmltemplate.New(layoutTemplate).ParseFS(templatesFS, "templates/"+layoutTemplate))
+	htmltemplate.Must(layout.New(cssTemplate).ParseFS(templatesFS, "templates/"+cssTemplate))
+
 	d := &Definition[In]{
 		emailType: emailType,
 		name:      name,
 		subject:   texttemplate.Must(texttemplate.New(name+".subject.txt").ParseFS(templatesFS, "templates/"+name+".subject.txt")),
 		text:      texttemplate.Must(texttemplate.New(name+".txt").ParseFS(templatesFS, "templates/"+name+".txt")),
 		html:      htmltemplate.Must(htmltemplate.New(name+".html").ParseFS(templatesFS, "templates/"+name+".html")),
+		layout:    layout,
+		footer:    texttemplate.Must(texttemplate.New(footerTemplate).ParseFS(templatesFS, "templates/"+footerTemplate)),
 		samples:   samples,
 	}
 

@@ -43,7 +43,7 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 		logger := logging.FromContext(ctx)
 
 		go func() {
-			if err := s.send(ctx, s.store, mail.AdminThrowAwayEmailSignupAttempt(s.ident.From, s.ident.AdminAddress, address)); err != nil {
+			if err := s.send(ctx, s.store, mail.AdminThrowAwayEmailSignupAttempt(s.ident.Site, s.ident.From, s.ident.AdminAddress, address)); err != nil {
 				logger.Warn("failed to queue the throwaway email notification", zap.Error(err))
 			}
 		}()
@@ -145,7 +145,7 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 		}
 
 		id, err := s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
-			return mail.ConfirmSignup(s.ident.From, id, u.Email, code, s.login.CodeLifetime)
+			return mail.ConfirmSignup(s.ident.Site, s.ident.From, id, u.Email, code, s.login.CodeLifetime)
 		})
 		attemptID = id
 
@@ -183,7 +183,7 @@ func (s *Service) JoinWaitingList(ctx context.Context, email, reason, attributio
 			return fatal(err)
 		}
 
-		return s.send(ctx, tx, mail.AdminNewWaitingListMember(s.ident.From, s.ident.AdminAddress, request))
+		return s.send(ctx, tx, mail.AdminNewWaitingListMember(s.ident.Site, s.ident.From, s.ident.AdminAddress, request))
 	})
 }
 

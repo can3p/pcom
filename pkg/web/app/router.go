@@ -63,7 +63,7 @@ func New(d *Deps) *gin.Engine {
 			// session, and its MustGet would panic inside the recovery
 			user := auth.GetAPIUserData(c).DBUser
 
-			if nerr := d.Services.Accounts.SendAdminMail(c, mail.AdminPageFailure(d.Config.SenderAddress, d.Config.AdminAddress, admin.ClonedCustomRecovery(c, err), user)); nerr != nil {
+			if nerr := d.Services.Accounts.SendAdminMail(c, mail.AdminPageFailure(siteOf(d), d.Config.SenderAddress, d.Config.AdminAddress, admin.ClonedCustomRecovery(c, err), user)); nerr != nil {
 				logging.FromContext(c).Error("failed to queue the page failure notification", zap.Error(nerr))
 			}
 		}))
