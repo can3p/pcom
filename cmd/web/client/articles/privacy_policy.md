@@ -10,3 +10,12 @@ no guarantees are given with regards to data safety at the moment.
 
 The service administration reserves the right to analyze uploaded content
 for purposes of modetaration.
+
+## Grammar checks and style reviews
+
+Grammar checks and style reviews are made by Claude, an external AI model from Anthropic. The subject and body
+of a post are sent to Anthropic only when you press Check grammar or Style review in the post editor; nothing
+is sent as you type.
+
+Style reviews, including the text they reviewed, are stored with the post and are deleted with it. pcom stores
+no grammar-check text, only a record of each request: its kind, model, token counts and time.
