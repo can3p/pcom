@@ -66,7 +66,7 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   results of actions without a form. Destructive actions are red and always ask first.
 - **A first visit stays light**: CSS, fonts and JS have byte budgets that `TestFirstVisitWeight` enforces,
   because the site must open fast on a phone. pcom uses no CSS framework.
-- **Mails share one layout** in the site's light colours (its dark ones where the mail client follows dark mode), with system fonts and no images or tracking.
+- **Mails share one layout** in the site's light colours (its dark ones where the mail client follows dark mode), with system fonts and no images of their own or tracking. The HTML footer says why the reader gets the mail: an account at pcom, or, for invitations and waiting-list confirmations, that somebody entered the address.
 
 ## Website
 
