@@ -1,8 +1,15 @@
+<h1>New post from @{{.Username}}</h1>
 
 <p>Hi!</p>
 
 <p>@{{.Username}} has published a new post "{{.Subject}}"</p>
 
-<blockquote>{{.Body}}</blockquote>{{if .LinkedURL}}<p>Linked URL: <a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
+<div class="mail-quote">{{.Body}}</div>{{if .LinkedURL}}
 
-<p>Head to the post to leave a comment! <a href="{{.Link}}">{{.Link}}</a></p>
+<p class="mail-muted">Linked URL: <a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
+
+<p>Head to the post to leave a comment!</p>
+
+<p><a class="mail-button" href="{{.Link}}">Open the post</a></p>
+
+<p class="mail-muted">{{.Link}}</p>

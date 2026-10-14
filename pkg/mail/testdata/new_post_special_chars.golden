@@ -70,15 +70,20 @@ color: #a79e8b !important
 </tr>
 <tr>
 <td class="mail-card" bgcolor="#fffdf8" style="background-color:#fffdf8;border:1px solid #e7dfcf;border-radius:12px;padding:32px;color:#3a3526">
+<h1 style="margin:0 0 16px;color:#2b2719;font-size:22px;font-weight:800;line-height:1.3">New post from @alice</h1>
 
 <p style="margin:0 0 16px">Hi!</p>
 
 <p style="margin:0 0 16px">@alice has published a new post &#34;Test &lt;b&gt;bold&lt;/b&gt; and &#34;quotes&#34;&#34;</p>
 
-<blockquote style="margin:0 0 16px;padding:0 0 0 16px;border-left:4px solid #e7dfcf"><p style="margin:0 0 16px">This is a test post body</p>
-</blockquote>
+<div class="mail-quote" style="margin:0 0 16px;padding:16px;border-left:4px solid #e7dfcf;background-color:#f2ebdd"><p style="margin:0 0 16px">This is a test post body</p>
+</div>
 
-<p style="margin:0 0 16px">Head to the post to leave a comment! <a href="https://pcom.test/posts/post-1" style="color:#4f6328">https://pcom.test/posts/post-1</a></p>
+<p style="margin:0 0 16px">Head to the post to leave a comment!</p>
+
+<p style="margin:0 0 16px"><a class="mail-button" href="https://pcom.test/posts/post-1" style="display:inline-block;padding:12px 20px;border-radius:8px;background-color:#4f6328;color:#fff;font-weight:bold;text-decoration:none">Open the post</a></p>
+
+<p class="mail-muted" style="margin:0 0 16px;color:#6e6754;font-size:14px">https://pcom.test/posts/post-1</p>
 </td>
 </tr>
 <tr>

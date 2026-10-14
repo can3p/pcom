@@ -64,6 +64,9 @@ func newPostSamples() []Sample[NewPostInput] {
 
 	const body = "This is a test post body"
 
+	const richBody = "## A heading\n\nSome text with a [link](https://example.com/page).\n\n- first item\n- second item\n\n" +
+		"```\nfmt.Println(\"hi\")\n```\n\n![an image](https://example.com/image.png)\n\n> a quote\n\n{cut}\n\nText after the cut."
+
 	return []Sample[NewPostInput]{
 		{Name: "new_post", Input: sample("Test Post", "", body)},
 		{Name: "new_post_no_subject", Input: sample(postops.PostSubject(nil), "", body)},
@@ -71,6 +74,7 @@ func newPostSamples() []Sample[NewPostInput] {
 		{Name: "new_post_special_chars", Input: sample(`Test <b>bold</b> and "quotes"`, "", body)},
 		{Name: "new_post_empty_body", Input: sample("Test Post", "", "")},
 		{Name: "new_post_long_subject", Input: sample("A very long subject that goes on and on and on to see how the mail copes with a title that no one would reasonably write but someone surely will", "", body)},
+		{Name: "new_post_rich_body", Input: sample("Test Post", "", richBody)},
 		{Name: "new_post_markup_in_body", Input: sample("Test Post", "", `Hello <script>alert(1)</script> and <a href="https://example.com/x?a=1&b=2">a link</a>`)},
 	}
 }
