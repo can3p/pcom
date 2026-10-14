@@ -43,13 +43,23 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 	r.GET("/posts/:id/edit", auth.EnforceAuth, requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "edit_post.html", web.EditPost(c, posts, &userData, c.Param("id")))
+		page := web.EditPost(c, posts, &userData, c.Param("id"))
+		if p, err := page.Get(); err == nil {
+			p.Proofread = d.Services.Proofread.Enabled()
+		}
+
+		ginhelpers.HTML(c, "edit_post.html", page)
 	})
 
 	r.GET("/write", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		ginhelpers.HTML(c, "write.html", web.Write(c, posts, &userData))
+		page := web.Write(c, posts, &userData)
+		if p, err := page.Get(); err == nil {
+			p.Proofread = d.Services.Proofread.Enabled()
+		}
+
+		ginhelpers.HTML(c, "write.html", page)
 	})
 
 	controlsForms.POST("/edit_post", func(c *gin.Context) {
@@ -78,6 +88,8 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 				panic(err)
 			}
 		}
+
+		form.WithProofread(d.Services.Proofread.Enabled())
 
 		gogoForms.DefaultHandler(c, logging.FromContext(c), form)
 	})

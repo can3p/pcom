@@ -15,6 +15,9 @@ import (
 type WritePage struct {
 	*BasePage
 	Prompt *postops.PostPrompt
+	// Proofread is set by the route when the grammar check and style review
+	// are on: the editor then shows their buttons and panel.
+	Proofread bool
 }
 
 // Write is the new post page. The prompt query parameter names the prompt the
@@ -44,6 +47,8 @@ type EditPostPage struct {
 	LastUpdatedAt time.Time
 	IsPublished   bool
 	Prompt        *postops.PostPrompt
+	// Proofread is set by the route, as on WritePage.
+	Proofread bool
 }
 
 // EditPost is the edit page of a post the viewer may edit.
