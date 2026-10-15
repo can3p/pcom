@@ -68,7 +68,7 @@ func (s *Service) checkComment(ctx context.Context, store *repo.Store, actor *mo
 		return nil, service.ErrNotFound
 	}
 
-	if !postops.PostCapabilitiesOf(post, radius).CanLeaveComments {
+	if !postops.GetPostCapabilities(post, radius).CanLeaveComments {
 		return nil, service.ErrForbidden
 	}
 
@@ -241,5 +241,5 @@ func mayReadComments(ctx context.Context, store *repo.Store, userID string, post
 		return false, err
 	}
 
-	return postops.CanSeePost(post, radius) && postops.GetPostCapabilities(radius).CanViewComments, nil
+	return postops.CanSeePost(post, radius) && postops.GetPostCapabilities(post, radius).CanViewComments, nil
 }

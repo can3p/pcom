@@ -76,13 +76,15 @@ func TestCanSeePost(t *testing.T) {
 	}
 }
 
-// TestGetPostCapabilities covers GetPostCapabilities over every radius; the
-// function does not depend on the post's visibility at all.
+// TestGetPostCapabilities covers GetPostCapabilities over every radius, for
+// a published post and a draft: nobody comments on a draft, its author
+// included. The post's visibility plays no part.
 func TestGetPostCapabilities(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		radius graph.Radius
+		draft  bool
 		want   *postops.PostCapabilities
 	}{
 		{
@@ -95,13 +97,25 @@ func TestGetPostCapabilities(t *testing.T) {
 			},
 		},
 		{
+			radius: graph.RadiusSameUser,
+			draft:  true,
+			want: &postops.PostCapabilities{
+				CanViewComments: true,
+				CanEdit:         true,
+				CanShare:        true,
+			},
+		},
+		{
 			radius: graph.RadiusDirect,
 			want: &postops.PostCapabilities{
 				CanViewComments:  true,
 				CanLeaveComments: true,
-				CanEdit:          false,
-				CanShare:         false,
 			},
+		},
+		{
+			radius: graph.RadiusDirect,
+			draft:  true,
+			want:   &postops.PostCapabilities{CanViewComments: true},
 		},
 		{
 			radius: graph.RadiusSecondDegree,
@@ -118,27 +132,15 @@ func TestGetPostCapabilities(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("radius=%d", tc.radius), func(t *testing.T) {
+		t.Run(fmt.Sprintf("radius=%d,draft=%v", tc.radius, tc.draft), func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tc.want, postops.GetPostCapabilities(tc.radius))
+			post := &model.Post{PublishedAt: new(time.Now())}
+			if tc.draft {
+				post.PublishedAt = nil
+			}
+
+			require.Equal(t, tc.want, postops.GetPostCapabilities(post, tc.radius))
 		})
-	}
-}
-
-// Nobody comments on a draft, its author included; the rest of the
-// capabilities don't depend on publication.
-func TestPostCapabilitiesOf(t *testing.T) {
-	t.Parallel()
-
-	published := &model.Post{PublishedAt: new(time.Now())}
-	draft := &model.Post{}
-
-	for _, radius := range []graph.Radius{graph.RadiusSameUser, graph.RadiusDirect, graph.RadiusSecondDegree, graph.RadiusUnrelated, graph.RadiusUnknown} {
-		require.Equal(t, postops.GetPostCapabilities(radius), postops.PostCapabilitiesOf(published, radius))
-
-		want := postops.GetPostCapabilities(radius)
-		want.CanLeaveComments = false
-		require.Equal(t, want, postops.PostCapabilitiesOf(draft, radius))
 	}
 }
