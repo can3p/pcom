@@ -28,8 +28,8 @@ func mailsTo(out *fakesender.Sender, email string) []fakesender.Recorded {
 	return got
 }
 
-// Somebody else's draft is not found for commenting, also when it was
-// published before; its author may still comment on it.
+// Nobody comments on a draft, also one that was published before: somebody
+// else's is not found, and its author is refused.
 func TestComment_Draft(t *testing.T) {
 	t.Parallel()
 
@@ -44,7 +44,8 @@ func TestComment_Draft(t *testing.T) {
 	require.ErrorIs(t, s.CheckComment(ctx, w.direct, draft.ID, ""), service.ErrNotFound)
 	require.ErrorIs(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: draft.ID, Body: "on your draft"}), service.ErrNotFound)
 	require.ErrorIs(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: draft.ID, ReplyTo: parent.ID, Body: "on your draft"}), service.ErrNotFound)
-	require.NoError(t, s.AddComment(ctx, w.author, posts.CommentInput{PostID: draft.ID, Body: "a note on my draft"}))
+	require.ErrorIs(t, s.AddComment(ctx, w.author, posts.CommentInput{PostID: draft.ID, Body: "a note on my draft"}), service.ErrForbidden)
+	require.ErrorIs(t, s.EditComment(ctx, w.author, parent.ID, "edited on my draft"), service.ErrForbidden)
 
 	saved, err := s.Save(ctx, w.author, posts.SaveInput{Subject: "published", Body: "a body for the post",
 		Visibility: model.PostVisibilityPublic, Action: posts.ActionPublish})
@@ -58,11 +59,11 @@ func TestComment_Draft(t *testing.T) {
 
 	require.ErrorIs(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: saved.Post.ID, Body: "still here"}), service.ErrNotFound)
 	require.ErrorIs(t, s.EditComment(ctx, w.direct, own.ID, "edited after the withdrawal"), service.ErrNotFound)
+	require.ErrorIs(t, s.AddComment(ctx, w.author, posts.CommentInput{PostID: saved.Post.ID, Body: "on my withdrawn post"}), service.ErrForbidden)
 }
 
 // The comment mails reach only the participants who may still read the
-// comments: not one who lost the connection, nor anybody but the author once
-// the post is a draft again.
+// comments, not one who lost the connection.
 func TestCommentMail_OnlyToWhoMayRead(t *testing.T) {
 	t.Parallel()
 
@@ -91,14 +92,6 @@ func TestCommentMail_OnlyToWhoMayRead(t *testing.T) {
 	require.NoError(t, s.AddComment(ctx, w.author, posts.CommentInput{PostID: postID, Body: "after the removal"}))
 	require.Len(t, mailsTo(out, w.direct.Email), before, "a removed connection gets no more comments")
 	require.NotEmpty(t, mailsTo(out, other.Email))
-
-	_, err = s.Save(ctx, w.author, posts.SaveInput{PostID: postID, Subject: "withdrawn", Body: "a body for the post",
-		Visibility: model.PostVisibilityDirectOnly, Action: posts.ActionMakeDraft})
-	require.NoError(t, err)
-
-	before = len(mailsTo(out, other.Email))
-	require.NoError(t, s.AddComment(ctx, w.author, posts.CommentInput{PostID: postID, Body: "on my draft"}))
-	require.Len(t, mailsTo(out, other.Email), before, "nobody is told about comments on a draft")
 }
 
 // The asker of a prompt is told about the answer only when they may read it.

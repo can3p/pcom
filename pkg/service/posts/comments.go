@@ -38,7 +38,7 @@ func (s *Service) checkCommentBody(body string) error {
 // CheckComment reports whether the actor may leave a comment on the post,
 // as a reply to replyTo if it is not empty: ErrNotFound for a post or a
 // comment that is not there and for somebody else's draft, ErrForbidden for
-// a post the actor is not connected to.
+// the actor's own draft and for a post the actor is not connected to.
 func (s *Service) CheckComment(ctx context.Context, actor *model.User, postID, replyTo string) error {
 	if err := requireActor(actor); err != nil {
 		return err
@@ -62,12 +62,13 @@ func (s *Service) checkComment(ctx context.Context, store *repo.Store, actor *mo
 		return nil, err
 	}
 
-	// a draft is not found for anybody but its author, as on its page
+	// a draft is not found for anybody but its author, as on its page, and
+	// nobody comments on it
 	if post.PublishedAt == nil && !radius.IsSameUser() {
 		return nil, service.ErrNotFound
 	}
 
-	if !postops.GetPostCapabilities(radius).CanLeaveComments {
+	if !postops.PostCapabilitiesOf(post, radius).CanLeaveComments {
 		return nil, service.ErrForbidden
 	}
 

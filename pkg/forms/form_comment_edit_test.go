@@ -19,7 +19,7 @@ func TestEditCommentForm_SaveAndValidate(t *testing.T) {
 	ctx := context.Background()
 
 	author := testutil.Must(factory.User(ctx, db))(t)
-	post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 	comment := testutil.Must(factory.Comment(ctx, db, post.ID, author.ID, factory.WithCommentBody("a typpo")))(t)
 
 	newForm := func(body string) *forms.EditCommentForm {

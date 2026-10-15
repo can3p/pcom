@@ -125,3 +125,20 @@ func TestGetPostCapabilities(t *testing.T) {
 		})
 	}
 }
+
+// Nobody comments on a draft, its author included; the rest of the
+// capabilities don't depend on publication.
+func TestPostCapabilitiesOf(t *testing.T) {
+	t.Parallel()
+
+	published := &model.Post{PublishedAt: new(time.Now())}
+	draft := &model.Post{}
+
+	for _, radius := range []graph.Radius{graph.RadiusSameUser, graph.RadiusDirect, graph.RadiusSecondDegree, graph.RadiusUnrelated, graph.RadiusUnknown} {
+		require.Equal(t, postops.GetPostCapabilities(radius), postops.PostCapabilitiesOf(published, radius))
+
+		want := postops.GetPostCapabilities(radius)
+		want.CanLeaveComments = false
+		require.Equal(t, want, postops.PostCapabilitiesOf(draft, radius))
+	}
+}
