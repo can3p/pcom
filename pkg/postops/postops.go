@@ -59,27 +59,17 @@ type PostCapabilities struct {
 	CanShare         bool
 }
 
-func GetPostCapabilities(radius graph.Radius) *PostCapabilities {
+// GetPostCapabilities is what a visitor at the given radius from the author
+// may do with the post. Nobody comments on a draft, its author included.
+func GetPostCapabilities(post *model.Post, radius graph.Radius) *PostCapabilities {
 	return &PostCapabilities{
 		// it can be different in the future, e.g. if the author disables
 		// new comments at some point
 		CanViewComments:  radius.IsDirect() || radius.IsSameUser(),
-		CanLeaveComments: radius.IsDirect() || radius.IsSameUser(),
+		CanLeaveComments: post.PublishedAt != nil && (radius.IsDirect() || radius.IsSameUser()),
 		CanEdit:          radius.IsSameUser(),
 		CanShare:         radius.IsSameUser(),
 	}
-}
-
-// PostCapabilitiesOf is what a visitor at the given radius from the author may
-// do with the post: GetPostCapabilities, except that nobody comments on a
-// draft, its author included.
-func PostCapabilitiesOf(post *model.Post, radius graph.Radius) *PostCapabilities {
-	caps := GetPostCapabilities(radius)
-	if post.PublishedAt == nil {
-		caps.CanLeaveComments = false
-	}
-
-	return caps
 }
 
 func PostSubject(subject *string) string {
@@ -123,7 +113,7 @@ func ConstructPost(user *model.User, post *model.Post, radius graph.Radius, via 
 		LinkedURL:      linkedURL,
 		Author:         post.User,
 		Via:            via,
-		Capabilities:   PostCapabilitiesOf(post, radius),
+		Capabilities:   GetPostCapabilities(post, radius),
 		CommentsNumber: commentsNum,
 		Radius:         radius,
 		EditPreview:    editPreview,

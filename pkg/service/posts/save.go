@@ -338,7 +338,7 @@ func (s *Service) CheckEdit(ctx context.Context, actor *model.User, post *model.
 		return err
 	}
 
-	if !postops.GetPostCapabilities(radius).CanEdit {
+	if !postops.GetPostCapabilities(post, radius).CanEdit {
 		return service.ErrForbidden
 	}
 

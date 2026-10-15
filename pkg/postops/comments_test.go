@@ -155,7 +155,7 @@ func TestConstructComments(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := postops.ConstructComments(nil, tc.comments, postops.GetPostCapabilities(graph.RadiusDirect))
+			got := postops.ConstructComments(nil, tc.comments, postops.GetPostCapabilities(published, graph.RadiusDirect))
 
 			if len(tc.want) == 0 {
 				require.Empty(t, got)
@@ -175,13 +175,13 @@ func TestConstructComments_Capabilities(t *testing.T) {
 		mkComment("c1", "", t0, "alice"),
 	}
 
-	sameUser := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(graph.RadiusSameUser))
+	sameUser := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(published, graph.RadiusSameUser))
 	require.True(t, sameUser[0].Capabilities.CanRespond)
 
-	direct := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(graph.RadiusDirect))
+	direct := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(published, graph.RadiusDirect))
 	require.True(t, direct[0].Capabilities.CanRespond)
 
-	unrelated := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(graph.RadiusUnrelated))
+	unrelated := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(published, graph.RadiusUnrelated))
 	require.False(t, unrelated[0].Capabilities.CanRespond)
 }
 
@@ -194,12 +194,12 @@ func TestConstructComments_CanEdit(t *testing.T) {
 	comments := []*model.PostComment{comment}
 	alice := &model.User{ID: "alice-id"}
 
-	require.True(t, postops.ConstructComments(alice, comments, postops.GetPostCapabilities(graph.RadiusDirect))[0].Capabilities.CanEdit)
-	require.True(t, postops.ConstructComments(alice, comments, postops.GetPostCapabilities(graph.RadiusSameUser))[0].Capabilities.CanEdit)
+	require.True(t, postops.ConstructComments(alice, comments, postops.GetPostCapabilities(published, graph.RadiusDirect))[0].Capabilities.CanEdit)
+	require.True(t, postops.ConstructComments(alice, comments, postops.GetPostCapabilities(published, graph.RadiusSameUser))[0].Capabilities.CanEdit)
 	// lost the connection to the post's author
-	require.False(t, postops.ConstructComments(alice, comments, postops.GetPostCapabilities(graph.RadiusUnrelated))[0].Capabilities.CanEdit)
-	require.False(t, postops.ConstructComments(&model.User{ID: "bob-id"}, comments, postops.GetPostCapabilities(graph.RadiusDirect))[0].Capabilities.CanEdit)
-	require.False(t, postops.ConstructComments(nil, comments, postops.GetPostCapabilities(graph.RadiusDirect))[0].Capabilities.CanEdit)
+	require.False(t, postops.ConstructComments(alice, comments, postops.GetPostCapabilities(published, graph.RadiusUnrelated))[0].Capabilities.CanEdit)
+	require.False(t, postops.ConstructComments(&model.User{ID: "bob-id"}, comments, postops.GetPostCapabilities(published, graph.RadiusDirect))[0].Capabilities.CanEdit)
+	require.False(t, postops.ConstructComments(nil, comments, postops.GetPostCapabilities(published, graph.RadiusDirect))[0].Capabilities.CanEdit)
 }
 
 func TestConstructComments_AuthorIsCarriedThrough(t *testing.T) {
@@ -210,6 +210,10 @@ func TestConstructComments_AuthorIsCarriedThrough(t *testing.T) {
 		mkComment("c1", "", t0, "alice"),
 	}
 
-	got := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(graph.RadiusDirect))
+	got := postops.ConstructComments(nil, comments, postops.GetPostCapabilities(published, graph.RadiusDirect))
 	require.Equal(t, "alice", got[0].Author.Username)
 }
+
+// published is a post that takes comments, for the tests that only vary the
+// radius.
+var published = &model.Post{PublishedAt: new(time.Unix(0, 0))}
