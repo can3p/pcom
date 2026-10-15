@@ -8,7 +8,7 @@ You can comment on posts of your direct connections and on your own posts, and r
 
 On the post itself, click the comment count ("No Comments yet", "One comment" or "N comments") to open the comment form. The Reply action under each comment replies to it, and replies are nested under the comment they answer. Comments are written in markdown, are between 3 and 6,000 characters long and can include images with the upload images button.
 
-Comments are open to you and your direct connections only. If you can see a post as a second-degree connection or as a stranger, you can read it but not its comments, and you can't leave one. Nobody but its author can comment on a draft, also one that was published before.
+Comments are open to you and your direct connections only. If you can see a post as a second-degree connection or as a stranger, you can read it but not its comments, and you can't leave one. Nobody can comment on a draft, its author included, also on a post that was published before and made a draft again.
 
 ## Editing
 

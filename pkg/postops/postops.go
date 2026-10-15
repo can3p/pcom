@@ -70,6 +70,18 @@ func GetPostCapabilities(radius graph.Radius) *PostCapabilities {
 	}
 }
 
+// PostCapabilitiesOf is what a visitor at the given radius from the author may
+// do with the post: GetPostCapabilities, except that nobody comments on a
+// draft, its author included.
+func PostCapabilitiesOf(post *model.Post, radius graph.Radius) *PostCapabilities {
+	caps := GetPostCapabilities(radius)
+	if post.PublishedAt == nil {
+		caps.CanLeaveComments = false
+	}
+
+	return caps
+}
+
 func PostSubject(subject *string) string {
 	return cmp.Or(lo.FromPtr(subject), "No Subject")
 }
@@ -111,14 +123,16 @@ func ConstructPost(user *model.User, post *model.Post, radius graph.Radius, via 
 		LinkedURL:      linkedURL,
 		Author:         post.User,
 		Via:            via,
-		Capabilities:   GetPostCapabilities(radius),
+		Capabilities:   PostCapabilitiesOf(post, radius),
 		CommentsNumber: commentsNum,
 		Radius:         radius,
 		EditPreview:    editPreview,
 	}
 }
 
-func ConstructComments(user *model.User, comments []*model.PostComment, radius graph.Radius) []*Comment {
+// ConstructComments threads a post's comments for the user, who may respond
+// and edit their own only when the post's capabilities let them comment.
+func ConstructComments(user *model.User, comments []*model.PostComment, caps *PostCapabilities) []*Comment {
 	if len(comments) == 0 {
 		return nil
 	}
@@ -135,8 +149,8 @@ func ConstructComments(user *model.User, comments []*model.PostComment, radius g
 			PostComment: dbComment,
 			Author:      dbComment.User,
 			Capabilities: &CommentCapabilities{
-				CanRespond: radius.IsSameUser() || radius.IsDirect(),
-				CanEdit:    user != nil && user.ID == dbComment.UserID && GetPostCapabilities(radius).CanLeaveComments,
+				CanRespond: caps.CanLeaveComments,
+				CanEdit:    user != nil && user.ID == dbComment.UserID && caps.CanLeaveComments,
 			},
 			Level: 0,
 		}

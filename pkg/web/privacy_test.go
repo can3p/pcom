@@ -313,7 +313,10 @@ func TestPrivacyMatrix(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, post.ID, page.Post.ID)
 				require.Equal(t, w.authors[profile].ID, page.Post.Author.ID)
-				require.Equal(t, row.want.capabilities(), *page.Post.Capabilities)
+				want := row.want.capabilities()
+				// nobody comments on a draft, its author included
+				want.CanLeaveComments = want.CanLeaveComments && row.published
+				require.Equal(t, want, *page.Post.Capabilities)
 
 				if row.want.capabilities().CanViewComments {
 					require.Len(t, page.Comments, 1, "comments are shown")
