@@ -130,6 +130,7 @@ func TestRouter_ReportPanics(t *testing.T) {
 			panics := logs.FilterMessage("panic recovered").All()
 			require.Len(t, panics, 1)
 			require.Contains(t, panics[0].ContextMap()["stack"], "pkg/web/app.")
+			require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 			if !on {
 				require.Empty(t, snd.Sent())
