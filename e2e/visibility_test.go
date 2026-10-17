@@ -222,6 +222,11 @@ func TestVisibility_UserHomePostsByRadius(t *testing.T) {
 	require.NotContains(t, anonText, lo.FromPtr(directOnly.Subject))
 	require.NotContains(t, anonText, lo.FromPtr(draft.Subject))
 
+	unrelatedText := requireStatus(t, loginAs(t, app, newUser(t, app)).Get("/users/"+author.Username), http.StatusOK).Doc().Text()
+	require.Contains(t, unrelatedText, lo.FromPtr(public.Subject))
+	require.NotContains(t, unrelatedText, lo.FromPtr(directOnly.Subject))
+	require.NotContains(t, unrelatedText, lo.FromPtr(draft.Subject))
+
 	directText := requireStatus(t, loginAs(t, app, direct).Get("/users/"+author.Username), http.StatusOK).Doc().Text()
 	require.Contains(t, directText, lo.FromPtr(public.Subject))
 	require.Contains(t, directText, lo.FromPtr(directOnly.Subject))

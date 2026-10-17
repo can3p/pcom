@@ -66,15 +66,11 @@
   </section>
   {{ end }}
 
-  {{ if .ConnectionRadius.IsUnrelated }}
-  <p class="empty">You are not allowed to see posts in this journal</p>
+  {{ if eq (len .Posts) 0 }}
+    {{ if .ConnectionRadius.IsSecondDegree }}<p class="empty">Author has no posts shared outside of direct connetions</p>
+    {{- else }}<p class="empty">No posts yet</p>{{ end }}
   {{ else }}
-    {{ if eq (len .Posts) 0 }}
-      {{ if .ConnectionRadius.IsSecondDegree }}<p class="empty">Author has no posts shared outside of direct connetions</p>
-      {{- else }}<p class="empty">No posts yet</p>{{ end }}
-    {{ else }}
-      {{ template "partial--post-list.html" toMap "Posts" .Posts "User" .User "Next" .Next "URL" (link "user" .Author.Username) }}
-    {{ end }}
+    {{ template "partial--post-list.html" toMap "Posts" .Posts "User" .User "Next" .Next "URL" (link "user" .Author.Username) }}
   {{ end }}
 </main>
 </div>
