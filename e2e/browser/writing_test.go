@@ -688,3 +688,38 @@ func TestWriting_RenderedPostFeatures(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, b2PixelPNG, src)
 }
+
+// Wrapping freshly added images into a gallery and opening the preview at
+// once shows the gallery: the preview link waits for the edit to be saved
+// rather than opening the draft as it was before the edit.
+func TestWriting_PreviewRightAfterGalleryShowsGallery(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+
+	const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+	images := "![one](" + pixel + ")\n\n![two](" + pixel + ")"
+
+	post, err := factory.Post(context.Background(), app.DB, user.ID, factory.WithSubject("Gallery preview"), factory.WithBody(images))
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err = page.Goto(fmt.Sprintf("/posts/%s/edit", post.ID))
+	require.NoError(t, err)
+
+	require.NoError(t, page.GetByPlaceholder("Your post goes there").SelectText())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Gallery"}).Click())
+
+	preview, err := page.ExpectPopup(func() error {
+		return page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Open post preview"}).Click()
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, browser.Expect.Locator(preview.Locator(".gallery__item")).ToHaveCount(2))
+
+	saved, err := factory.GetPost(context.Background(), app.DB, post.ID)
+	require.NoError(t, err)
+	require.Contains(t, saved.Body, "{gallery}")
+}

@@ -29,7 +29,7 @@
         hx-post="{{ link "form_edit_post" }}"
         hx-swap="outerHTML"
         hx-target="#form-container"
-        hx-trigger="change delay:2s, keyup delay:2s, submit"
+        hx-trigger="change delay:2s, keyup delay:2s, submit, postform:save"
         hx-disabled-elt="this"
         data-controller="postform"
         class="ed-form"
