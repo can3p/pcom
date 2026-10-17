@@ -20,12 +20,18 @@
   gap: var(--space-5) 56px;
 }
 
+// The index stays in view while the sections scroll past it; the link of the
+// section being read is marked (sectionnav controller).
 .settings-side {
+  position: sticky;
+  top: 0;
   display: flex;
   flex: 1 1 200px;
   flex-direction: column;
   gap: 2px;
   max-width: 220px;
+  max-height: 100vh;
+  overflow-y: auto;
   padding-top: 30px;
   font: 600 13px var(--font-mono);
 
@@ -44,6 +50,11 @@
       color: var(--text);
       background: var(--sunken);
       text-decoration: none;
+    }
+
+    &[aria-current="location"] {
+      color: var(--text);
+      box-shadow: inset 2px 0 0 var(--accent);
     }
   }
 }
@@ -300,6 +311,9 @@
   }
 
   .settings-side {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
     flex-flow: row wrap;
     max-width: none;
     padding-top: 0;

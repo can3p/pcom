@@ -4,17 +4,17 @@
   <h1 class="settings-title">Settings</h1>
 
   <div class="settings-layout">
-    <nav class="settings-side" aria-label="Settings sections">
-      <a href="#general">General</a>
-      <a href="#profile">Profile</a>
-      <a href="#styles">Custom styles</a>
-      <a href="#feeds">RSS feeds</a>
+    <nav class="settings-side" aria-label="Settings sections" data-controller="sectionnav">
+      <a href="#general" data-sectionnav-target="link" data-action="sectionnav#go">General</a>
+      <a href="#profile" data-sectionnav-target="link" data-action="sectionnav#go">Profile</a>
+      <a href="#styles" data-sectionnav-target="link" data-action="sectionnav#go">Custom styles</a>
+      <a href="#feeds" data-sectionnav-target="link" data-action="sectionnav#go">RSS feeds</a>
       {{ if or (gt .AvailableInvites 0) (gt (len .UsedInvites) 0) }}
-      <a href="#invites">Invites</a>
+      <a href="#invites" data-sectionnav-target="link" data-action="sectionnav#go">Invites</a>
       {{ end }}
-      <a href="#data">Import and export</a>
-      <a href="#api">API key</a>
-      <a href="#private-feed">Private feed</a>
+      <a href="#data" data-sectionnav-target="link" data-action="sectionnav#go">Import and export</a>
+      <a href="#api" data-sectionnav-target="link" data-action="sectionnav#go">API key</a>
+      <a href="#private-feed" data-sectionnav-target="link" data-action="sectionnav#go">Private feed</a>
       <form
         class="settings-logout"
         method="POST"
