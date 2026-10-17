@@ -5,7 +5,7 @@ import (
 	"html/template"
 	"regexp"
 
-	"github.com/alecthomas/chroma/formatters/html"
+	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/can3p/pcom/pkg/markdown/mdext"
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/markdown/mdext/headershift"
@@ -14,7 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
-	highlighting "github.com/yuin/goldmark-highlighting"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
