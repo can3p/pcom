@@ -68,6 +68,8 @@ func New(d *Deps) *gin.Engine {
 			if nerr := d.Services.Accounts.SendAdminMail(c, mail.AdminPageFailure(siteOf(d), d.Config.SenderAddress, d.Config.AdminAddress, admin.ClonedCustomRecovery(c, err), user)); nerr != nil {
 				logging.FromContext(c).Error("failed to queue the page failure notification", zap.Error(nerr))
 			}
+
+			c.AbortWithStatus(http.StatusInternalServerError)
 		}))
 	} else {
 		logger.Info("custom error reporter skipped")
