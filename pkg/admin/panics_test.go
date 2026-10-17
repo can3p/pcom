@@ -3,7 +3,7 @@ package admin_test
 import (
 	"net"
 	"os"
-	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/admin"
@@ -23,31 +23,32 @@ func TestClonedCustomRecovery_WithPanic(t *testing.T) {
 	require.Contains(t, result, "[Recovery]")
 	require.Contains(t, result, "panic recovered")
 	require.Contains(t, result, "test panic")
-	// Stack frames should be present
+	// Stack frames are present in "file.go:line (0x...)" form
+	require.Contains(t, result, ".go:")
 	require.Contains(t, result, "0x")
 }
 
-func TestClonedCustomRecovery_WithConnectionError(t *testing.T) {
+func TestClonedCustomRecovery_WithBrokenPipe(t *testing.T) {
 	t.Parallel()
 
 	c, _ := ginctx.New(t, "GET", "/test", nil)
 
-	// Create a connection reset error
 	connErr := &net.OpError{
 		Op:  "write",
 		Net: "tcp",
 		Err: &os.SyscallError{
 			Syscall: "write",
-			Err:     net.ErrClosed,
+			Err:     syscall.EPIPE,
 		},
 	}
 
 	result := admin.ClonedCustomRecovery(c, connErr)
 
-	// Result should be non-empty and contain request info
-	require.NotEmpty(t, result)
-	// May or may not have [Recovery] depending on the exact error type
-	require.Contains(t, result, "GET")
+	// A broken connection is logged as the error and the request only
+	require.Contains(t, result, "broken pipe")
+	require.Contains(t, result, "GET /test")
+	require.NotContains(t, result, "[Recovery]")
+	require.NotContains(t, result, ".go:")
 }
 
 func TestClonedCustomRecovery_HidesCookie(t *testing.T) {
@@ -74,25 +75,4 @@ func TestClonedCustomRecovery_HidesAuthorization(t *testing.T) {
 	// Authorization should be hidden
 	require.NotContains(t, result, "secret_token_12345")
 	require.Contains(t, result, "Authorization: *")
-}
-
-func TestClonedCustomRecovery_StackFramesPresent(t *testing.T) {
-	t.Parallel()
-
-	c, _ := ginctx.New(t, "POST", "/test", nil)
-
-	result := admin.ClonedCustomRecovery(c, "test panic")
-
-	// Should have stack frame information with file:line format
-	lines := strings.Split(result, "\n")
-	hasStackFrame := false
-	for _, line := range lines {
-		// Stack frames contain file paths and line numbers like "filename.go:123"
-		if strings.Contains(line, ".go:") && strings.Contains(line, "0x") {
-			hasStackFrame = true
-			break
-		}
-	}
-
-	require.True(t, hasStackFrame, "Stack frames should be present in output")
 }
