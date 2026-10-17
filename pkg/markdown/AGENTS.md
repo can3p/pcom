@@ -35,10 +35,13 @@ Located in `pkg/markdown/mdext/`:
 - **headershift** - Shifts header levels (h1→h2, etc.)
 - **videoembed** - Embeds videos from URLs
 - **handle** - Renders @username mentions
+- **strikethrough** - `~~text~~` becomes `<del>text</del>` in every view. Only double tildes: goldmark's own
+  `extension.Strikethrough` also strikes single tildes, which hits prose like "~5 to ~10 minutes"
 
 ## Extensions
 Configured in `NewParser()`:
 - **Linkify** - Auto-converts URLs to links (custom regex excludes closing braces)
+- **Raw HTML** - Not rendered (goldmark's default, no `html.WithUnsafe()`): tags like `<s>` or `<del>` are dropped
 - **Syntax highlighting** - Only for feed, single post, and edit preview views
 - Custom node renderers registered via `util.Prioritized()` with priority 500
 

@@ -145,3 +145,26 @@ func TestFeedViewEmailAutolink(t *testing.T) {
 	// Email links should also open in new tab
 	assert.Contains(t, output, `<a href="mailto:user@example.com" target="_blank" rel="noopener noreferrer">user@example.com</a>`)
 }
+
+func TestStrikethroughInAllViews(t *testing.T) {
+	views := []types.HTMLView{
+		types.ViewFeed,
+		types.ViewSinglePost,
+		types.ViewEditPreview,
+		types.ViewComment,
+		types.ViewProfile,
+		types.ViewArticle,
+		types.ViewEmail,
+		types.ViewRSS,
+	}
+
+	for _, view := range views {
+		result := ToEnrichedTemplate("The text should have ~~strikethrough~~ styling", view, func(in string) (bool, string) {
+			return false, in
+		}, func(name string, args ...string) string {
+			return "/" + name
+		})
+
+		assert.Contains(t, string(result), "<del>strikethrough</del>", "view %v", view)
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/markdown/mdext/headershift"
 	"github.com/can3p/pcom/pkg/markdown/mdext/lazyload"
 	"github.com/can3p/pcom/pkg/markdown/mdext/linkrenderer"
+	"github.com/can3p/pcom/pkg/markdown/mdext/strikethrough"
 	"github.com/can3p/pcom/pkg/markdown/mdext/videoembed"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/yuin/goldmark"
@@ -39,6 +40,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 		mdext.NewHandle(),
 		videoembed.NewVideoEmbedExtender(view),
 		headershift.NewHeaderShiftExtender(1),
+		strikethrough.New(),
 	}
 
 	// Only add syntax highlighting for feed, single post and preview views
