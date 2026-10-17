@@ -633,3 +633,37 @@ func TestSettings_UploadedImageRendersFromUserMedia(t *testing.T) {
 	require.Equal(t, "image/png", app.S3Object(t, fname).ContentType)
 	require.Equal(t, "image/webp", app.ResizedVariant(t, fname, class).ContentType)
 }
+
+// The section index stays in view while the page scrolls, marks the section
+// being read, and a click on a link scrolls to its section.
+func TestSettings_SectionIndexFollowsScroll(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+	openSettings(t, page)
+
+	index := page.GetByRole("navigation", playwright.PageGetByRoleOptions{Name: "Settings sections"})
+	link := func(name string) playwright.Locator {
+		return index.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: name, Exact: playwright.Bool(true)})
+	}
+
+	require.NoError(t, browser.Expect.Locator(link("General")).ToHaveAttribute("aria-current", "location"))
+
+	require.NoError(t, link("Private feed").Click())
+	require.NoError(t, browser.Expect.Locator(section(page, "Private feed")).ToBeInViewport())
+	require.NoError(t, browser.Expect.Locator(index).ToBeInViewport())
+	require.NoError(t, browser.Expect.Locator(link("Private feed")).ToHaveAttribute("aria-current", "location"))
+	require.NoError(t, browser.Expect.Locator(link("General")).Not().ToHaveAttribute("aria-current", "location"))
+	hash, err := page.Evaluate(`() => location.hash`)
+	require.NoError(t, err)
+	require.Equal(t, "#private-feed", hash)
+	requireSamePage(t, page)
+
+	// Scrolling by hand moves the mark to the section in view.
+	_, err = page.Evaluate(`() => document.getElementById("styles").scrollIntoView({ block: "start" })`)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(link("Custom styles")).ToHaveAttribute("aria-current", "location"))
+	require.NoError(t, browser.Expect.Locator(index).ToBeInViewport())
+}
