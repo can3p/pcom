@@ -666,4 +666,18 @@ func TestSettings_SectionIndexFollowsScroll(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Locator(link("Custom styles")).ToHaveAttribute("aria-current", "location"))
 	require.NoError(t, browser.Expect.Locator(index).ToBeInViewport())
+
+	// A jump to API key ends at the bottom of the page, under which the
+	// last section would be current; scrolling up from there keeps API key
+	// rather than passing through Private feed.
+	_, err = page.Evaluate(`() => { window.jumpEnded = new Promise((done) => addEventListener("scrollend", done, { once: true })) }`)
+	require.NoError(t, err)
+	require.NoError(t, link("API key").Click())
+	_, err = page.Evaluate(`() => window.jumpEnded`)
+	require.NoError(t, err)
+	require.NoError(t, page.Mouse().Wheel(0, -1))
+	_, err = page.WaitForFunction(`() => window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 0.5`, nil)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(link("API key")).ToHaveAttribute("aria-current", "location"))
+	require.NoError(t, browser.Expect.Locator(link("Private feed")).Not().ToHaveAttribute("aria-current", "location"))
 }

@@ -15,18 +15,22 @@ export default class extends Controller {
       if (this.frame) return
       this.frame = requestAnimationFrame(() => {
         this.frame = null
-        this.highlight()
+        const y = window.scrollY
+        this.highlight(Math.sign(y - this.lastY))
+        this.lastY = y
       })
     }
+    this.onResize = () => this.highlight()
 
+    this.lastY = window.scrollY
     window.addEventListener("scroll", this.onScroll, { passive: true })
-    window.addEventListener("resize", this.onScroll, { passive: true })
+    window.addEventListener("resize", this.onResize, { passive: true })
     this.highlight()
   }
 
   disconnect() {
     window.removeEventListener("scroll", this.onScroll)
-    window.removeEventListener("resize", this.onScroll)
+    window.removeEventListener("resize", this.onResize)
     window.removeEventListener("scrollend", this.settle)
     clearTimeout(this.settleTimer)
     if (this.frame) cancelAnimationFrame(this.frame)
@@ -79,7 +83,8 @@ export default class extends Controller {
     return window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
   }
 
-  highlight() {
+  // direction is the way the page just scrolled: 1 down, -1 up, 0 unknown.
+  highlight(direction = 0) {
     if (this.pinned) return
 
     // A section is current once its top passes a third of the window; at the
@@ -94,10 +99,20 @@ export default class extends Controller {
       if (atBottom || section.getBoundingClientRect().top <= line) current = link
     }
 
-    this.setCurrent(current || this.linkTargets[0])
+    current = current || this.linkTargets[0]
+
+    // The mark only moves the way the page scrolls. After a jump to one of
+    // the last sections the page sits at its bottom, where the rule above
+    // picks the last section; scrolling up from there must not pass through it.
+    const was = this.linkTargets.indexOf(this.current)
+    const now = this.linkTargets.indexOf(current)
+    if (was >= 0 && ((direction < 0 && now > was) || (direction > 0 && now < was))) return
+
+    this.setCurrent(current)
   }
 
   setCurrent(current) {
+    this.current = current
     for (const link of this.linkTargets) {
       if (link === current) {
         link.setAttribute("aria-current", "location")
