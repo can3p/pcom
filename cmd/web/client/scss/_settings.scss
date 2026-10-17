@@ -52,9 +52,11 @@
       text-decoration: none;
     }
 
+    // After :hover, so hovering the current link keeps its underline.
     &[aria-current="location"] {
       color: var(--text);
-      box-shadow: inset 2px 0 0 var(--accent);
+      text-decoration: underline 2px var(--accent);
+      text-underline-offset: 5px;
     }
   }
 }
