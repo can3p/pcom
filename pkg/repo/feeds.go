@@ -6,7 +6,6 @@ import (
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/uptrace/bun"
 )
 
@@ -159,19 +158,17 @@ func (s *Store) FeedsToRefresh(ctx context.Context) ([]*model.RSSFeed, error) {
 	var feeds []*model.RSSFeed
 
 	err := s.query().NewSelect().Model(&feeds).
-		Where("next_fetch_at < ?", time.Now()).
-		WhereOr("next_fetch_at IS NULL").
-		Relation("FeedUserFeedSubscriptions", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Limit(1)
+		WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.Where("?TableAlias.next_fetch_at < ?", time.Now()).
+				WhereOr("?TableAlias.next_fetch_at IS NULL")
 		}).
+		Where("EXISTS (SELECT 1 FROM user_feed_subscriptions ufs WHERE ufs.feed_id = ?TableAlias.id)").
 		Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return lo.Filter(feeds, func(f *model.RSSFeed, _ int) bool {
-		return len(f.FeedUserFeedSubscriptions) > 0
-	}), nil
+	return feeds, nil
 }
 
 // LockFeed loads a feed and locks its row until the transaction ends. A feed

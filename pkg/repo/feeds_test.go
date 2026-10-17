@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -137,17 +138,11 @@ func TestFeeds_RefreshAndLock(t *testing.T) {
 		testutil.Must(factory.Subscription(ctx, db, user.ID, f.ID))(t)
 	}
 
-	// the subscriptions load is limited to one row for all feeds (issue #213),
-	// so only a feed that gets that row is returned; whichever it is must be
-	// a due feed with a subscriber
+	// every due feed with a subscriber is returned, however many there are
 	feeds := testutil.Must(store.FeedsToRefresh(ctx))(t)
-	require.LessOrEqual(t, len(feeds), 1)
-
-	for _, f := range feeds {
-		require.Contains(t, []string{due.ID, unscheduled.ID}, f.ID)
-		require.NotEqual(t, noSubs.ID, f.ID)
-		require.NotEmpty(t, f.FeedUserFeedSubscriptions)
-	}
+	ids := lo.Map(feeds, func(f *model.RSSFeed, _ int) string { return f.ID })
+	require.ElementsMatch(t, []string{due.ID, unscheduled.ID}, ids)
+	require.NotContains(t, ids, noSubs.ID)
 
 	// SaveFeed writes the fields back
 	due.Title = new("renamed")
