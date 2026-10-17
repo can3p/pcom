@@ -8,6 +8,11 @@
 coverage.out
 **/node_modules
 cmd/web/dist
+# Local media from before R2 (gitignored); never part of the image, but it can be
+# hundreds of MB and is uploaded to fly's builder on every deploy otherwise.
+cmd/web/user_media
+# Binary left by a local `go build` in cmd/web; the image builds its own.
+cmd/web/web
 cmd/web/.env
 .env
 env.pl
