@@ -101,6 +101,8 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
   ends, so typing followed by a click within two seconds saves the click's result too. A test proving that
   an action saves waits for the save of the typing before it (the saved body in the DB, or
   `page.ExpectResponse`), or the keyup's save makes it pass without the action's trigger.
+- The preview link opens the saved post, so it doesn't follow its href directly: `postform#preview` fires
+  the form's `postform:save` trigger at once and opens the preview when that save is back.
 
 Handlers behind htmx endpoints are thin (see the layering note in `AGENTS.md`): they call a service and set
 the response headers. Don't put queries into a handler to feed a template.
