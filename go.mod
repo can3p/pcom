@@ -6,14 +6,14 @@ require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2
 	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/alecthomas/chroma/v2 v2.27.0
-	github.com/anthropics/anthropic-sdk-go v1.80.0
+	github.com/anthropics/anthropic-sdk-go v1.82.0
 	github.com/aws/aws-sdk-go-v2 v1.47.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.9
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
 	github.com/badoux/checkmail v1.2.4
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
 	github.com/can3p/gogo v0.3.0
-	github.com/davidbyttow/govips/v2 v2.19.0
+	github.com/davidbyttow/govips/v2 v2.20.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gin-contrib/sessions v1.1.2
 	github.com/gin-gonic/gin v1.12.0
