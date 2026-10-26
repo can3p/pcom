@@ -6,14 +6,14 @@ require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2
 	github.com/PuerkitoBio/goquery v1.13.0
 	github.com/alecthomas/chroma/v2 v2.27.0
-	github.com/anthropics/anthropic-sdk-go v1.80.0
-	github.com/aws/aws-sdk-go-v2 v1.47.3
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.9
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3
+	github.com/anthropics/anthropic-sdk-go v1.84.0
+	github.com/aws/aws-sdk-go-v2 v1.47.4
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.10
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5
 	github.com/badoux/checkmail v1.2.4
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
 	github.com/can3p/gogo v0.3.0
-	github.com/davidbyttow/govips/v2 v2.19.0
+	github.com/davidbyttow/govips/v2 v2.20.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gin-contrib/sessions v1.1.2
 	github.com/gin-gonic/gin v1.12.0
@@ -51,15 +51,15 @@ require (
 	github.com/JohannesKaufmann/dom v0.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.22 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.6 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.6 // indirect
-	github.com/aws/smithy-go v1.28.5 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.7 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.7 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.22 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.7 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.7 // indirect
+	github.com/aws/smithy-go v1.28.6 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
