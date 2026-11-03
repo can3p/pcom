@@ -4,7 +4,7 @@
 
 <p>@{{.Username}} has published a new post "{{.Subject}}"</p>
 
-<div class="mail-quote">{{.Body}}</div>{{if .LinkedURL}}
+<div class="mail-body">{{.Body}}</div>{{if .LinkedURL}}
 
 <p class="mail-muted">Linked URL: <a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
 

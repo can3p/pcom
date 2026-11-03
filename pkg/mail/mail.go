@@ -55,8 +55,9 @@
 // footer Render appends to the text part after a blank line. So <name>.html
 // holds only the mail's content: plain elements (h1, p, a, ul, pre) and the
 // classes of mail.css, mail-button for the main action's link, mail-quote
-// for quoted user content and markdown bodies, mail-code for a login or
-// confirmation code and mail-muted for fine print. The layout and footer read
+// for quoted user content (comments, prompts, reports), mail-body for a post
+// body, which is the mail's main content and so is not boxed, mail-code for a
+// login or confirmation code and mail-muted for fine print. The layout and footer read
 // the Header: Site for the links, NoAccount for the footer's wording.
 //
 // Mail clients drop or ignore a <style> element unevenly, so Render inlines

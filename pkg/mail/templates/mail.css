@@ -21,7 +21,7 @@ body {
 }
 
 .mail-outer {
-  padding: 32px 16px;
+  padding: 24px 8px;
 }
 
 .mail-column {
@@ -44,12 +44,12 @@ body {
   background-color: #fffdf8; /* --surface */
   border: 1px solid #e7dfcf; /* --line */
   border-radius: 12px;
-  padding: 32px;
+  padding: 24px 20px;
   color: #3a3526; /* --text */
 }
 
 .mail-footer {
-  padding: 24px 32px 0;
+  padding: 24px 20px 0;
 }
 
 h1 {
@@ -143,6 +143,15 @@ img {
   background-color: #f2ebdd; /* --sunken */
 }
 
+/* a post body: the mail's main content, set off by rules above and below
+   rather than boxed like a quote, so it keeps the card's full width */
+.mail-body {
+  margin: 0 0 16px;
+  padding: 16px 0 0;
+  border-top: 1px solid #e7dfcf; /* --line */
+  border-bottom: 1px solid #e7dfcf; /* --line */
+}
+
 .mail-code {
   display: inline-block;
   padding: 12px 20px;
@@ -197,6 +206,7 @@ img {
 
   blockquote,
   .mail-quote,
+  .mail-body,
   .mail-card th,
   .mail-card td {
     border-color: #35302a; /* --line */
