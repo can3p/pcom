@@ -49,15 +49,17 @@
 //
 // Every HTML mail has one look, built from three shared templates that
 // declare parses with the mail's own: _layout.html is the document around
-// the HTML part (the "pcom" wordmark linking to the site, the card the
-// content sits in, and the footer saying why the reader gets the mail),
+// the HTML part (the "pcom" wordmark linking to the site, the content on the
+// page's ground, and the footer saying why the reader gets the mail),
 // mail.css its stylesheet in the site's light colours, and _footer.txt the
 // footer Render appends to the text part after a blank line. So <name>.html
 // holds only the mail's content: plain elements (h1, p, a, ul, pre) and the
 // classes of mail.css, mail-button for the main action's link, mail-quote
-// for quoted user content (comments, prompts, reports), mail-body for a post
-// body, which is the mail's main content and so is not boxed, mail-code for a
-// login or confirmation code and mail-muted for fine print. The layout and footer read
+// for quoted user content and markdown bodies (the one box a mail has, so
+// nothing nests a box in a box), mail-post-title for the linked title of a
+// quoted post, mail-lead for the line above quoted content saying what the
+// mail is about, mail-code for a login or confirmation code and mail-muted
+// for fine print. The layout and footer read
 // the Header: Site for the links, NoAccount for the footer's wording.
 //
 // Mail clients drop or ignore a <style> element unevenly, so Render inlines

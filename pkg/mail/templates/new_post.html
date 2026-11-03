@@ -1,15 +1,9 @@
-<h1>New post from @{{.Username}}</h1>
+<p class="mail-lead">@{{.Username}} published a new post</p>
 
-<p>Hi!</p>
+<div class="mail-quote">
+<h1 class="mail-post-title"><a href="{{.Link}}">{{.Subject}}</a></h1>{{if .LinkedURL}}
+<p class="mail-muted"><a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
+{{.Body}}
+</div>
 
-<p>@{{.Username}} has published a new post "{{.Subject}}"</p>
-
-<div class="mail-body">{{.Body}}</div>{{if .LinkedURL}}
-
-<p class="mail-muted">Linked URL: <a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
-
-<p>Head to the post to leave a comment!</p>
-
-<p><a class="mail-button" href="{{.Link}}">Open the post</a></p>
-
-<p class="mail-muted">{{.Link}}</p>
+<p><a class="mail-button" href="{{.Link}}">Read and comment</a></p>
