@@ -21,7 +21,7 @@ body {
 }
 
 .mail-outer {
-  padding: 24px 8px;
+  padding: 24px 16px;
 }
 
 .mail-column {
@@ -40,16 +40,12 @@ body {
   text-decoration: none;
 }
 
-.mail-card {
-  background-color: #fffdf8; /* --surface */
-  border: 1px solid #e7dfcf; /* --line */
-  border-radius: 12px;
-  padding: 24px 20px;
+.mail-content {
   color: #3a3526; /* --text */
 }
 
 .mail-footer {
-  padding: 24px 20px 0;
+  padding: 8px 0 0;
 }
 
 h1 {
@@ -114,13 +110,13 @@ img {
   border: 0;
 }
 
-.mail-card table {
+.mail-quote table {
   margin: 0 0 16px;
   border-collapse: collapse;
 }
 
-.mail-card th,
-.mail-card td {
+.mail-quote th,
+.mail-quote td {
   padding: 4px 8px;
   border: 1px solid #e7dfcf; /* --line */
   text-align: left;
@@ -136,20 +132,43 @@ img {
   text-decoration: none;
 }
 
+/* quoted user content: the one box in a mail, so a post or a comment stands
+   apart from the mail's own words; tighter paragraphs than the mail's copy,
+   so it reads like the post it comes from */
 .mail-quote {
-  margin: 0 0 16px;
-  padding: 16px;
-  border-left: 4px solid #e7dfcf; /* --line */
-  background-color: #f2ebdd; /* --sunken */
+  margin: 0 0 20px;
+  padding: 16px 16px 6px;
+  border: 1px solid #e7dfcf; /* --line */
+  border-radius: 10px;
+  background-color: #fffdf8; /* --surface */
+  color: #3a3526; /* --text */
 }
 
-/* a post body: the mail's main content, set off by rules above and below
-   rather than boxed like a quote, so it keeps the card's full width */
-.mail-body {
-  margin: 0 0 16px;
-  padding: 16px 0 0;
-  border-top: 1px solid #e7dfcf; /* --line */
-  border-bottom: 1px solid #e7dfcf; /* --line */
+.mail-quote p,
+.mail-quote ul,
+.mail-quote ol,
+.mail-quote pre,
+.mail-quote blockquote {
+  margin: 0 0 10px;
+}
+
+/* the title of the quoted post, linking to it */
+.mail-post-title {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.mail-post-title a {
+  color: #2b2719; /* --title */
+  text-decoration: none;
+}
+
+/* the line that says what the mail is about, above the quoted content */
+.mail-lead {
+  margin: 0 0 12px;
+  color: #6e6754; /* --muted */
 }
 
 .mail-code {
@@ -175,9 +194,12 @@ img {
     color: #e3dccc; /* --text */
   }
 
-  .mail-card {
+  .mail-content {
+    color: #e3dccc; /* --text */
+  }
+
+  .mail-quote {
     background-color: #26221c; /* --surface */
-    border-color: #35302a; /* --line */
     color: #e3dccc; /* --text */
   }
 
@@ -186,6 +208,7 @@ img {
   h3,
   h4,
   .mail-wordmark,
+  .mail-post-title a,
   .mail-code {
     color: #f4ecdd; /* --title */
   }
@@ -199,20 +222,19 @@ img {
     color: #1f1c17; /* --on-accent */
   }
 
-  .mail-quote,
   .mail-code {
     background-color: #2d2922; /* --sunken */
   }
 
   blockquote,
   .mail-quote,
-  .mail-body,
-  .mail-card th,
-  .mail-card td {
+  .mail-quote th,
+  .mail-quote td {
     border-color: #35302a; /* --line */
   }
 
-  .mail-muted {
+  .mail-muted,
+  .mail-lead {
     color: #a79e8b; /* --muted */
   }
 }

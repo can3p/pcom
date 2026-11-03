@@ -49,9 +49,8 @@ func TestMailCSS_MatchesTokens(t *testing.T) {
 		}
 	}
 
-	// the layout's bgcolor fallbacks for Outlook
+	// the layout's bgcolor fallback for Outlook
 	require.Contains(t, layout, `bgcolor="`+light["--ground"]+`"`)
-	require.Contains(t, layout, `bgcolor="`+light["--surface"]+`"`)
 }
 
 // Every mail renders inside the layout: a full document whose footer links to

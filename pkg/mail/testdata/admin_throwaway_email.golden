@@ -26,9 +26,11 @@ body,
 background-color: #1f1c17 !important;
 color: #e3dccc !important
 }
-.mail-card {
+.mail-content {
+color: #e3dccc !important
+}
+.mail-quote {
 background-color: #26221c !important;
-border-color: #35302a !important;
 color: #e3dccc !important
 }
 h1,
@@ -36,6 +38,7 @@ h1,
   h3,
   h4,
   .mail-wordmark,
+  .mail-post-title a,
   .mail-code {
 color: #f4ecdd !important
 }
@@ -46,18 +49,17 @@ color: #c5d38a !important
 background-color: #c5d38a !important;
 color: #1f1c17 !important
 }
-.mail-quote,
-  .mail-code {
+.mail-code {
 background-color: #2d2922 !important
 }
 blockquote,
   .mail-quote,
-  .mail-body,
-  .mail-card th,
-  .mail-card td {
+  .mail-quote th,
+  .mail-quote td {
 border-color: #35302a !important
 }
-.mail-muted {
+.mail-muted,
+  .mail-lead {
 color: #a79e8b !important
 }
 }
@@ -65,13 +67,13 @@ color: #a79e8b !important
 <body style="margin:0;padding:0;background-color:#faf6ee">
 <table role="presentation" class="mail-ground" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#faf6ee" style="background-color:#faf6ee;color:#3a3526;font-family:-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, Roboto, Helvetica, Arial, sans-serif;font-size:16px;line-height:1.5">
 <tbody><tr>
-<td class="mail-outer" align="center" style="padding:24px 8px">
+<td class="mail-outer" align="center" style="padding:24px 16px">
 <table role="presentation" class="mail-column" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tbody><tr>
 <td class="mail-header" style="padding:0 0 16px"><a class="mail-wordmark" href="https://pcom.test" style="color:#2b2719;font-size:22px;font-weight:800;text-decoration:none">pcom</a></td>
 </tr>
 <tr>
-<td class="mail-card" bgcolor="#fffdf8" style="background-color:#fffdf8;border:1px solid #e7dfcf;border-radius:12px;padding:24px 20px;color:#3a3526">
+<td class="mail-content" style="color:#3a3526">
 <h1 style="margin:0 0 16px;color:#2b2719;font-size:22px;font-weight:800;line-height:1.3">Throwaway email</h1>
 
 <p style="margin:0 0 16px">Hi!</p>
@@ -80,7 +82,7 @@ color: #a79e8b !important
 </td>
 </tr>
 <tr>
-<td class="mail-footer" style="padding:24px 20px 0">
+<td class="mail-footer" style="padding:8px 0 0">
 <p class="mail-muted" style="margin:0 0 16px;color:#6e6754;font-size:14px">You get this mail because you have an account at pcom.<br/>
 <a href="https://pcom.test" style="color:#4f6328">https://pcom.test</a></p>
 </td>
