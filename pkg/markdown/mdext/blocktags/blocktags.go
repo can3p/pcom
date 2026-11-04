@@ -2,6 +2,7 @@ package blocktags
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -111,8 +112,8 @@ func (p *blockTagParser) Open(parent ast.Node, reader text.Reader, pc parser.Con
 
 	parents := pc.OpenedBlocks()
 
-	for i := len(parents) - 1; i >= 0; i-- {
-		if b, ok := parents[i].Node.(*BlockTag); ok {
+	for _, parent := range slices.Backward(parents) {
+		if b, ok := parent.Node.(*BlockTag); ok {
 			if !lo.Contains(tagDef.AllowedParentTags, b.BlockTagName) {
 				// if a tag is forbidden, just eat it
 				// XXX: we can generte some debug comment there

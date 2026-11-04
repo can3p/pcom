@@ -7,7 +7,7 @@
 # CI's lint job checks it.
 
 # --- tools: migrations, psql, seed ---------------------------------
-FROM golang:1.26-alpine AS tools
+FROM golang:1.27-alpine AS tools
 
 # psql/pg_dump for `make psql` and dumps; bash for the scripts.
 RUN apk add --no-cache bash postgresql16-client

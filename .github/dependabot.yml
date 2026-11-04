@@ -31,3 +31,26 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+
+  # The website is its own module.
+  - package-ecosystem: "gomod"
+    directory: "/website"
+    schedule:
+      interval: "daily"
+    groups:
+      website-go-dependencies:
+        patterns:
+          - "*"
+
+  # Go toolchain: the golang:<minor>-alpine base images. The `go` directive in
+  # go.mod is not touched by dependabot; bump it by hand with the images.
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/tools"
+    schedule:
+      interval: "daily"
+    groups:
+      docker-images:
+        patterns:
+          - "*"
