@@ -19,10 +19,10 @@ import (
 // counter hands out small increasing integers so that every made-up value
 // (an email, a username, a URL, ...) is unique across a whole test run
 // without a caller having to think about it.
-var counter int64
+var counter atomic.Int64
 
 func next() int64 {
-	return atomic.AddInt64(&counter, 1)
+	return counter.Add(1)
 }
 
 // newID mints a time-ordered UUID for a new row's primary key, the same way

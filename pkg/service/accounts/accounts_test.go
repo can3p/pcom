@@ -42,8 +42,7 @@ func sendInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, inviter *mod
 // problem splits a check's result into the reason shown to the user and
 // whether the input passed. Any other error fails the test run loudly.
 func problem(err error) (string, bool) {
-	var invalid *service.ValidationError
-	if errors.As(err, &invalid) {
+	if invalid, ok := errors.AsType[*service.ValidationError](err); ok {
 		return invalid.Message, false
 	}
 

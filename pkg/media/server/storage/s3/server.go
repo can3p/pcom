@@ -63,8 +63,7 @@ func (s3s *s3Server) DownloadFile(ctx context.Context, fname string) (io.ReadClo
 	result, err := s3s.s3.GetObject(ctx, input)
 
 	if err != nil {
-		var noSuchKey *types.NoSuchKey
-		if errors.As(err, &noSuchKey) {
+		if _, ok := errors.AsType[*types.NoSuchKey](err); ok {
 			return nil, 0, "", mediaerrors.ErrNotFound
 		}
 		return nil, 0, "", err

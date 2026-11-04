@@ -85,8 +85,7 @@ func fieldError(f interface{ AddError(field, message string) }, field string, er
 		return nil
 	}
 
-	var invalid *service.ValidationError
-	if errors.As(err, &invalid) {
+	if invalid, ok := errors.AsType[*service.ValidationError](err); ok {
 		f.AddError(field, invalid.Message)
 
 		return nil
@@ -98,8 +97,7 @@ func fieldError(f interface{ AddError(field, message string) }, field string, er
 
 // panicOnFatal panics on the failures the forms always panicked on (see accounts.FatalError).
 func panicOnFatal(err error) error {
-	var fatal *accounts.FatalError
-	if errors.As(err, &fatal) {
+	if _, ok := errors.AsType[*accounts.FatalError](err); ok {
 		panic(err)
 	}
 

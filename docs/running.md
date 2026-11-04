@@ -195,7 +195,7 @@ Use `docker compose --profile '*' down -v` if the `dev` profile containers exist
 ## macOS
 
 macOS with Docker Desktop is the primary development platform. All images (Postgres, tommy, the tools and dev
-images built from `golang:1.26-alpine`) have arm64 variants, so nothing runs under emulation on Apple silicon.
+images built from `golang:1.27-alpine`) have arm64 variants, so nothing runs under emulation on Apple silicon.
 
 * **File watching in container mode.** Docker Desktop's VirtioFS file sharing (the default) forwards change
   events through the bind mount, so saving a file restarts the app. If it doesn't (older Docker Desktop or gRPC
