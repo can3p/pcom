@@ -16,6 +16,7 @@ import (
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/emailaddr"
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/logging"
@@ -69,6 +70,10 @@ func (c *serveCmd) Execute([]string) error {
 	go pgsession.RunCleanup(ctx, db, cfg.Web.SessionCleanupInterval, logger)
 
 	go accounts.New(repo.New(db), nil, accounts.WithLoginLimits(loginLimits(cfg.Login)), accounts.WithLogger(logger)).RunPruner(ctx)
+
+	// The subscriptions service checks that an address's domain can receive mail.
+	emailChecker := emailaddr.NewChecker(emailaddr.WithTimeout(cfg.Email.MXTimeout))
+	_ = emailChecker // TODO(F11.T0): pass to the subscriptions service
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {

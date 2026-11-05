@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.13
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6
 	github.com/badoux/checkmail v1.2.4
-	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
+	github.com/can3p/anti-disposable-email v0.1.0
 	github.com/can3p/gogo v0.4.0
 	github.com/davidbyttow/govips/v2 v2.20.0
 	github.com/dustin/go-humanize v1.1.0
@@ -178,8 +178,8 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/arch v0.29.0 // indirect
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

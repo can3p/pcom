@@ -85,6 +85,14 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Connection graph.** `pkg/service/graph` (`RadiusBetween`,
   `DirectUserIDs`, `DirectAndSecondDegree`) is the one place that answers
   how two users are connected. Services call it with their store or `tx`.
+- **Email addresses.** `pkg/emailaddr` is the one place that classifies an address: `Parse` gives the
+  stored form, the canonical mailbox (`users.email_canonical`), and whether the domain is disposable or a
+  relay; `Checker.CheckDomain` asks DNS whether the domain can receive mail (`--email-mx-timeout`, off in
+  E2E). It is the only importer of `anti-disposable-email` (depguard). Syntax is `validation.EmailRE`, not
+  the library: its parser refuses the `.test` addresses tests and development use, so an address it can't
+  parse is neither disposable nor a relay and gets pcom's own canonical rule (a `+tag` is dropped on every
+  domain). The library flags `example.com` and `example.org` as disposable, so test addresses that go
+  through a check use `example.test`.
 - **Wiring.** `pkg/service/registry` builds every service; `app.New` fills
   `Deps.Services` from `Deps.DB` when it is nil. A new service adds one field
   to `registry.Services` and one line to `registry.New`. Handlers reach it

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	disposable "github.com/can3p/anti-disposable-email"
+	"github.com/can3p/pcom/pkg/emailaddr"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/model"
@@ -36,9 +36,9 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 		return errMailboxTaken
 	}
 
-	parsedEmail, _ := disposable.ParseEmail(address)
-
-	if parsedEmail.Disposable {
+	// A relay (duck.com, relay.firefox.com) is a real person's mailbox and
+	// may sign up.
+	if emailaddr.Parse(address).Disposable {
 		logger := logging.FromContext(ctx)
 
 		go func() {

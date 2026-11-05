@@ -595,13 +595,15 @@ func TestCheckSignupEmail(t *testing.T) {
 		wantOK bool
 	}{
 		{"existing user", func(t *testing.T) string { return testutil.Must(factory.User(ctx, db))(t).Email }, false},
-		{"+tag of an existing user", registered("tagged@example.com", "Tagged+promo@example.com"), false},
-		{"existing user with a +tag, plain", registered("plain+old@example.com", "plain@example.com"), false},
-		{"new address with a +tag", address("fresh+tag@example.com"), true},
+		{"+tag of an existing user", registered("tagged@example.test", "Tagged+promo@example.test"), false},
+		{"existing user with a +tag, plain", registered("plain+old@example.test", "plain@example.test"), false},
+		{"new address with a +tag", address("fresh+tag@example.test"), true},
 		{"Gmail dots of an existing user", registered("john.smith@gmail.com", "johnsmith+x@googlemail.com"), false},
-		{"dots elsewhere are another mailbox", registered("jane.doe@example.org", "janedoe@example.org"), true},
+		{"dots elsewhere are another mailbox", registered("jane.doe@example.test", "janedoe@example.test"), true},
 		{"owner's test +tag beside the owner", registered("dpetroff@gmail.com", "dpetroff+test@gmail.com"), true},
 		{"disposable domain", address("test@mailinator.com"), false},
+		{"subdomain of a disposable domain", address("test@foo.mailinator.com"), false},
+		{"relay", address("someone@duck.com"), true},
 		{"valid email", address("valid@gmail.com"), true},
 	}
 
