@@ -416,6 +416,7 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 		"MJ_APIKEY_PRIVATE":  "test",
 		"MJ_API_BASE":        tm.MailjetURL,
 		"JOBS_POLL_INTERVAL": "100ms",
+		"EMAIL_MX_TIMEOUT":   "0", // no DNS: test domains don't resolve
 		"SECURE_COOKIES":     "false",
 		"HSTS":               "false",
 		"STATIC_CACHE":       "false",

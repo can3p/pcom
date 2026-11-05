@@ -260,6 +260,13 @@ Help Options:
                                                        (default: 1h)
                                                        [$LOGIN_PRUNE_EVERY]
 
+    Email:
+          --email-mx-timeout=                          How long the DNS lookups
+                                                       of an address's domain
+                                                       may take; 0 turns the
+                                                       check off (default: 2s)
+                                                       [$EMAIL_MX_TIMEOUT]
+
     RSS feeds:
           --rss-poll-interval=                         How often feeds due for
                                                        a fetch are looked for

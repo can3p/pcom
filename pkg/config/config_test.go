@@ -11,6 +11,7 @@ import (
 
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/emailaddr"
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
@@ -199,6 +200,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"RSS_FETCH_TIMEOUT", "2s", func(s *config.Serve) any { return s.Feeds.FetchTimeout }, reader.DefaultFeedTimeout, 2 * time.Second},
 		{"RSS_IMAGE_TIMEOUT", "5s", func(s *config.Serve) any { return s.Feeds.ImageTimeout }, reader.DefaultMediaTimeout, 5 * time.Second},
 		{"RSS_MAX_FEED_SIZE", "1024", func(s *config.Serve) any { return s.Feeds.MaxFeedSize }, int64(reader.DefaultMaxFeedSize), int64(1024)},
+		{"EMAIL_MX_TIMEOUT", "0s", func(s *config.Serve) any { return s.Email.MXTimeout }, emailaddr.DefaultMXTimeout, time.Duration(0)},
 		{"USER_MEDIA_TIMEOUT", "5s", func(s *config.Serve) any { return s.Media.Timeout }, s3.DefaultTimeout, 5 * time.Second},
 	}
 

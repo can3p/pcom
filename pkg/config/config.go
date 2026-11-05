@@ -95,6 +95,12 @@ type Feeds struct {
 	MaxFeedSize  int64         `long:"rss-max-feed-size" env:"RSS_MAX_FEED_SIZE" description:"Most bytes of a feed document" default:"5242880"`
 }
 
+// Email is how pcom checks the addresses users give. The default is
+// emailaddr.DefaultMXTimeout.
+type Email struct {
+	MXTimeout time.Duration `long:"email-mx-timeout" env:"EMAIL_MX_TIMEOUT" description:"How long the DNS lookups of an address's domain may take; 0 turns the check off" default:"2s"`
+}
+
 // Login is the limits of login by emailed code. Their defaults are
 // accounts.DefaultLoginLimits.
 type Login struct {
@@ -166,6 +172,7 @@ type Serve struct {
 	Jobs      Jobs      `group:"Jobs"`
 	Limits    Limits    `group:"Limits"`
 	Login     Login     `group:"Login"`
+	Email     Email     `group:"Email"`
 	Feeds     Feeds     `group:"RSS feeds"`
 	Media     Media     `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
 	Proofread Proofread `group:"Proofread" namespace:"proofread" env-namespace:"PROOFREAD"`

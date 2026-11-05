@@ -26,6 +26,12 @@ linters:
               desc: "log with a *zap.Logger from pkg/logging (logging.FromContext or a WithLogger option), not the log package"
             - pkg: "log/slog"
               desc: "log with a *zap.Logger from pkg/logging (logging.FromContext or a WithLogger option), not log/slog"
+        disposable-only-via-emailaddr:
+          files:
+            - "!**/pkg/emailaddr/**"
+          deny:
+            - pkg: github.com/can3p/anti-disposable-email
+              desc: classify addresses with pkg/emailaddr, the one place that knows the library's rules and pcom's on top
         replaced:
           deny:
             - pkg: github.com/alecthomas/assert

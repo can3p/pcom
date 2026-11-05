@@ -20,6 +20,12 @@ func TestCanonicalEmail(t *testing.T) {
 		"first.last@googlemail.com":  "firstlast@gmail.com",
 		"user@gmail.com.example.org": "user@gmail.com.example.org",
 		"+tag@example.com":           "@example.com",
+		"john+news@me.com":           "john@icloud.com",
+		"jane@protonmail.com":        "jane@proton.me",
+		"bob+shop@hotmail.co.uk":     "bob@hotmail.co.uk",
+		"amy-shop@yahoo.com":         "amy@yahoo.com",
+		"anything@kim.fastmail.com":  "kim@fastmail.com",
+		"user+tag@example.test":      "user@example.test", // not parseable by the library
 		"not-an-address":             "not-an-address",
 	} {
 		require.Equal(t, want, pgsession.CanonicalEmail(in), in)
