@@ -201,7 +201,7 @@ func (s *Store) FeedItemCount(ctx context.Context, feedID string) (int64, error)
 		Where("feed_id = ?", feedID).
 		Count(ctx)
 
-	return int64(n), err
+	return n, err
 }
 
 // FeedSubscriptions returns every subscription to a feed.

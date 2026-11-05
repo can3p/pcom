@@ -322,7 +322,7 @@ func TestFetchMedia_LimitedReader(t *testing.T) {
 	data, err := io.ReadAll(rc)
 	require.NoError(t, err)
 	// The limitedReader should cap at exactly MaxMediaSize
-	require.Equal(t, reader.MaxMediaSize, len(data))
+	require.Len(t, data, reader.MaxMediaSize)
 }
 
 func TestFetchMedia_ContextDeadlineExceeded(t *testing.T) {

@@ -451,7 +451,13 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 
 // rawRequest sends a request outside e2e.Client, so the test controls the
 // X-CSRFToken header exactly (the client always adds the right one).
-func rawRequest(t *testing.T, app *e2e.App, cookies []*http.Cookie, method, path, contentType, body, csrfHeader string) *http.Response {
+// rawResponse is what a raw request leaves to check once its body is drained.
+type rawResponse struct {
+	StatusCode int
+	Header     http.Header
+}
+
+func rawRequest(t *testing.T, app *e2e.App, cookies []*http.Cookie, method, path, contentType, body, csrfHeader string) rawResponse {
 	t.Helper()
 
 	req, err := http.NewRequest(method, app.URL+path, strings.NewReader(body))
@@ -477,7 +483,7 @@ func rawRequest(t *testing.T, app *e2e.App, cookies []*http.Cookie, method, path
 	_, _ = io.Copy(io.Discard, resp.Body)
 	require.NoError(t, resp.Body.Close())
 
-	return resp
+	return rawResponse{StatusCode: resp.StatusCode, Header: resp.Header}
 }
 
 func encodeBody(t *testing.T, r guardRoute, w *guardWorld, asForm bool, extra url.Values) (string, string) {

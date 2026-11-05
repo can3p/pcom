@@ -626,7 +626,7 @@ func waitReady(url string, exited <-chan struct{}, out *syncBuffer) error {
 
 			return fmt.Errorf("the web binary exited during startup:\n%s", out.String())
 		case <-ctx.Done():
-			return fmt.Errorf("the web binary did not serve GET / with 200 within 30s (last error: %v):\n%s", err, out.String())
+			return fmt.Errorf("the web binary did not serve GET / with 200 within 30s (last error: %w):\n%s", err, out.String())
 		case <-time.After(50 * time.Millisecond):
 		}
 	}

@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
@@ -44,7 +45,7 @@ func (s *Store) UserStyleForUser(ctx context.Context, userID string) (*model.Use
 func (s *Store) UserStyleByUsername(ctx context.Context, username string) (*model.UserStyle, error) {
 	user := new(model.User)
 	err := s.query().NewSelect().Model(user).Where("username = ?", username).Limit(1).Scan(ctx)
-	if err = notFound(err); err == ErrNotFound {
+	if err = notFound(err); errors.Is(err, ErrNotFound) {
 		return nil, nil
 	} else if err != nil {
 		return nil, err

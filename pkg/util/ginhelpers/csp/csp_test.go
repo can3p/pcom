@@ -92,6 +92,6 @@ func TestCsp_FreshNoncesPerRequest(t *testing.T) {
 	require.NotEqual(t, *script1, *script2)
 
 	// Sanity: the headers actually carry these distinct nonces too.
-	require.False(t, strings.Contains(w1.Header().Get("Content-Security-Policy"), *style2))
-	require.False(t, strings.Contains(w2.Header().Get("Content-Security-Policy"), *style1))
+	require.NotContains(t, w1.Header().Get("Content-Security-Policy"), *style2)
+	require.NotContains(t, w2.Header().Get("Content-Security-Policy"), *style1)
 }

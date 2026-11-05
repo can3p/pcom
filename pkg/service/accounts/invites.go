@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -65,7 +66,7 @@ func (s *Service) SendInvite(ctx context.Context, actor *model.User, to string) 
 		}
 
 		invite, err := tx.LockUnusedInvitation(ctx, actor.ID)
-		if err == repo.ErrNotFound {
+		if errors.Is(err, repo.ErrNotFound) {
 			return service.Invalid("", fmt.Sprintf("user [%s] does not have any unused invites", actor.Email))
 		} else if err != nil {
 			return fmt.Errorf("failed to lock the invite: %w", err)

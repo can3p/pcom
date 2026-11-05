@@ -98,7 +98,7 @@ func TestNew(t *testing.T) {
 			server.WithPermaCache(true))
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		req := httptest.NewRequest(http.MethodGet, "/?class=thumb", nil)
 		require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
 		resp := w.Result()
@@ -130,7 +130,7 @@ func TestNew(t *testing.T) {
 		// The query string names a class the resolver ignores; if the
 		// resolver weren't actually consulted, this class wouldn't resolve
 		// to a configured one and ServeImage would 404 instead of 200.
-		req := httptest.NewRequest("GET", "/?class=unmapped", nil)
+		req := httptest.NewRequest(http.MethodGet, "/?class=unmapped", nil)
 		require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
 		require.True(t, resolverCalled)
@@ -195,7 +195,7 @@ func TestGetImage_ZeroDimensionClass(t *testing.T) {
 	require.Equal(t, "image/webp", mime)
 
 	data := testutil.Must(io.ReadAll(reader))(t)
-	require.Greater(t, len(data), 0)
+	require.NotEmpty(t, data)
 }
 
 func TestGetImage_Errors(t *testing.T) {
@@ -270,7 +270,7 @@ func TestServeImage(t *testing.T) {
 		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		req := httptest.NewRequest(http.MethodGet, "/?class=thumb", nil)
 		require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
 		resp := w.Result()
@@ -279,7 +279,7 @@ func TestServeImage(t *testing.T) {
 		require.Equal(t, "image/webp", resp.Header.Get("Content-Type"))
 		data, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
-		require.Greater(t, len(data), 0)
+		require.NotEmpty(t, data)
 	})
 
 	t.Run("404 when the class doesn't resolve to a configured one", func(t *testing.T) {
@@ -289,7 +289,7 @@ func TestServeImage(t *testing.T) {
 
 		for _, class := range []string{"unknown", ""} {
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/?class="+class, nil)
+			req := httptest.NewRequest(http.MethodGet, "/?class="+class, nil)
 			require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 			require.Equal(t, http.StatusNotFound, w.Result().StatusCode)
 		}
@@ -317,7 +317,7 @@ func TestServeImage(t *testing.T) {
 				srv := newServer(t, storage, opts...)
 
 				w := httptest.NewRecorder()
-				req := httptest.NewRequest("GET", "/?class=thumb", nil)
+				req := httptest.NewRequest(http.MethodGet, "/?class=thumb", nil)
 				require.NoError(t, srv.ServeImage(ctx, srv, req, w, "test.png"))
 
 				cacheControl := w.Header().Get("Cache-Control")
@@ -336,7 +336,7 @@ func TestServeImage(t *testing.T) {
 		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		req := httptest.NewRequest(http.MethodGet, "/?class=thumb", nil)
 		require.Error(t, srv.ServeImage(ctx, srv, req, w, "nonexistent.png"))
 	})
 
@@ -348,7 +348,7 @@ func TestServeImage(t *testing.T) {
 		srv := newServer(t, storage, server.WithClass("thumb", server.ClassParams{Width: 100, Height: 100}))
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest("GET", "/?class=thumb", nil)
+		req := httptest.NewRequest(http.MethodGet, "/?class=thumb", nil)
 		require.NoError(t, srv.ServeImage(ctx, mockGetter, req, w, "test.png"))
 		require.True(t, closeCalled, "reader should have been closed")
 	})

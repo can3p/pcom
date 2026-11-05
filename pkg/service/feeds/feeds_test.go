@@ -229,7 +229,7 @@ func TestItems_FiltersDismissedItems(t *testing.T) {
 
 	items, err = svc(testDB.DB).Items(ctx, user)
 	require.NoError(t, err)
-	require.Len(t, items, 0, "Should return 0 items after dismissing")
+	require.Empty(t, items, "Should return 0 items after dismissing")
 }
 
 func TestItems_EmptyResult(t *testing.T) {
@@ -242,7 +242,7 @@ func TestItems_EmptyResult(t *testing.T) {
 
 	items, err := svc(testDB.DB).Items(ctx, user)
 	require.NoError(t, err)
-	require.Len(t, items, 0, "Should return empty list for user with no items")
+	require.Empty(t, items, "Should return empty list for user with no items")
 }
 
 func TestDismiss_ScopedToUser(t *testing.T) {

@@ -58,7 +58,7 @@ func TestMediaReplacer_InvalidFormats(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			valid, url := links.Site{}.MediaReplacer(tt.input)
 			require.False(t, valid)
-			require.Equal(t, "", url)
+			require.Empty(t, url)
 		})
 	}
 }

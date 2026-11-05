@@ -190,7 +190,7 @@ func (c *Client) call(ctx context.Context, choice proofread.ModelChoice, system,
 	}
 
 	if msg.Model != "" {
-		usage.Model = string(msg.Model)
+		usage.Model = msg.Model
 	}
 
 	usage.InputTokens = int(msg.Usage.InputTokens)
@@ -201,6 +201,8 @@ func (c *Client) call(ctx context.Context, choice proofread.ModelChoice, system,
 		return usage, ErrRefused
 	case anthropic.StopReasonMaxTokens:
 		return usage, ErrTruncated
+	default:
+		// any other stop reason leaves a complete answer to parse
 	}
 
 	var text strings.Builder
@@ -212,7 +214,7 @@ func (c *Client) call(ctx context.Context, choice proofread.ModelChoice, system,
 	}
 
 	if err := json.Unmarshal([]byte(text.String()), out); err != nil {
-		return usage, fmt.Errorf("%w: %v", ErrBadAnswer, err)
+		return usage, fmt.Errorf("%w: %w", ErrBadAnswer, err)
 	}
 
 	return usage, nil

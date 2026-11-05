@@ -46,7 +46,7 @@ func TestPointer(t *testing.T) {
 		ptr := Pointer(val)
 		require.NotNil(t, ptr)
 		require.Equal(t, val, *ptr)
-		require.Equal(t, "", *ptr)
+		require.Empty(t, *ptr)
 	})
 
 	t.Run("pointer to struct", func(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 func newTestContext() (*gin.Context, *httptest.ResponseRecorder) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest("POST", "/test", nil)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/test", nil)
 	return ctx, recorder
 }
 
