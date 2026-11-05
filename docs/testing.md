@@ -265,8 +265,9 @@ step fails:
   the containerd pid file a container restart leaves behind, which otherwise stops dockerd from starting;
 - installs the frontend's `node_modules` and downloads Go modules;
 - builds `go tool covdata`, which the image's Go install lacks and `make cover` needs;
-- installs golangci-lint at CI's `GOLANGCI_LINT_VERSION` (the image's copy is built with an older Go and
-  refuses to lint this module);
+- installs golangci-lint at CI's `GOLANGCI_LINT_VERSION`, built with `go.mod`'s Go (`GOTOOLCHAIN` is set
+  explicitly because `go install pkg@version` ignores `go.mod`; a linter built with an older Go refuses to
+  lint this module);
 - installs the playwright-go driver and sets `CHROMIUM_PATH=/opt/pw-browsers/chromium`, because the
   network policy blocks Playwright's CDN, so `make ui-deps` can't download Chromium. The variable may not
   reach every shell: if `make test-ui` says Playwright's executable doesn't exist, run it as

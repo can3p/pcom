@@ -58,12 +58,14 @@ if [ ! -x "$tooldir/covdata" ]; then
   go build -o "$tooldir/covdata" cmd/covdata
 fi
 
-# golangci-lint at CI's version. The image ships an older one, built with a Go
-# older than go.mod's, which refuses to load the config.
+# golangci-lint at CI's version, built with go.mod's Go: one built with an older
+# Go refuses to load the config. `go install pkg@version` ignores go.mod, so the
+# toolchain is pinned explicitly.
 want=$(sed -n 's/.*GOLANGCI_LINT_VERSION: *"v\([^"]*\)".*/\1/p' "$CLAUDE_PROJECT_DIR/.github/workflows/ci.yml")
-if [ -n "$want" ] && ! golangci-lint version 2>/dev/null | grep -q "version $want "; then
-  log "installing golangci-lint v$want"
-  GOBIN=/usr/local/bin go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$want"
+gover=$(cd "$CLAUDE_PROJECT_DIR" && go env GOVERSION)
+if [ -n "$want" ] && ! golangci-lint version 2>/dev/null | grep -q "version $want built with $gover "; then
+  log "installing golangci-lint v$want with $gover"
+  GOTOOLCHAIN="$gover" GOBIN=/usr/local/bin go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$want"
 fi
 
 # Browser tests: the playwright-go driver downloads fine, but Playwright's CDN
