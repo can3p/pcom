@@ -11,12 +11,14 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -316,6 +318,63 @@ func TestAPI_EditPost(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Updated Subject", lo.FromPtr(got.Subject))
 	require.Equal(t, "# Updated Body", got.Body)
+}
+
+// TestAPI_NotifySubscribers: left out, notify_subscribers mails a first
+// publish to the author's email subscribers and not a published post turning
+// public; false declines the first, true mails the published post later.
+func TestAPI_NotifySubscribers(t *testing.T) {
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user, err := factory.User(ctx, app.DB, factory.Subscribable())
+	require.NoError(t, err)
+
+	apiKey, err := factory.APIKey(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+
+	reader := "api-reader-" + user.ID + "@example.test"
+	_, err = factory.EmailSubscription(ctx, app.DB, user.ID, reader)
+	require.NoError(t, err)
+
+	client := app.Client(t)
+	// notify is the notify_subscribers field, left out when nil
+	save := func(path, subject string, notify *bool) web.ApiNewPostResponse {
+		fields := map[string]any{"subject": subject, "md_body": "a body", "visibility": "public", "is_published": true}
+		if notify != nil {
+			fields["notify_subscribers"] = *notify
+		}
+
+		body, err := json.Marshal(fields)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, app.URL+path, bytes.NewReader(body))
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+apiKey.APIKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp := client.Do(req)
+		resp.RequireStatus(http.StatusOK)
+
+		return decodeData[web.ApiNewPostResponse](t, resp.Body)
+	}
+
+	about := func(subject string) func(tommy.Mail) bool {
+		return func(m tommy.Mail) bool { return strings.Contains(m.Subject, subject) }
+	}
+
+	turning, err := factory.Post(ctx, app.DB, user.ID, factory.Published(), factory.Visibility(model.PostVisibilitySecondDegree))
+	require.NoError(t, err)
+
+	save("/api/v1/posts", "Published by default", nil)
+	declined := save("/api/v1/posts", "Declined at first", new(false))
+	save("/api/v1/posts/"+turning.ID, "Turned public", nil)
+
+	require.Len(t, app.Mails(t, reader, about("Published by default")), 1)
+	app.NoMails(t, reader, about("Declined at first"))
+	app.NoMails(t, reader, about("Turned public"))
+
+	save("/api/v1/posts/"+declined.ID, "Declined at first", new(true))
+	require.Len(t, app.Mails(t, reader, about("Declined at first")), 1)
 }
 
 // TestAPI_EditPost_Foreign tests POST /api/v1/posts/:id for someone else's

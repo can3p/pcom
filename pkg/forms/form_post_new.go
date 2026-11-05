@@ -22,6 +22,10 @@ type PostFormInput struct {
 	Body       string               `form:"body"`
 	Visibility model.PostVisibility `form:"visibility"`
 	SaveAction PostFormAction       `form:"save_action"`
+	// NotifyOffered says the form showed the "Email this post" checkbox,
+	// so an unchecked NotifySubscribers means no rather than the default.
+	NotifyOffered     bool `form:"notify_offered"`
+	NotifySubscribers bool `form:"notify_subscribers"`
 }
 
 type PostForm struct {
@@ -58,6 +62,11 @@ func NewPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, prom
 		}
 	}
 
+	reach, err := svc.SubscriberReach(ctx, u, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	form := &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
@@ -65,8 +74,9 @@ func NewPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, prom
 			KeepValuesAfterSave: true,
 			Input:               &PostFormInput{},
 			ExtraTemplateData: map[string]any{
-				"User":   u,
-				"Prompt": prompt,
+				"User":        u,
+				"Prompt":      prompt,
+				"Subscribers": reach,
 			},
 		},
 		User:   u,
@@ -88,6 +98,11 @@ func EditPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, pos
 
 	post := view.Post
 
+	reach, err := svc.SubscriberReach(ctx, u, post)
+	if err != nil {
+		return nil, err
+	}
+
 	form := &PostForm{
 		FormBase: &forms.FormBase[PostFormInput]{
 			Name:                "new_post",
@@ -100,6 +115,7 @@ func EditPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, pos
 				"IsPublished":   post.PublishedAt != nil,
 				"LastUpdatedAt": lo.FromPtr(post.UpdatedAt),
 				"Prompt":        view.Prompt,
+				"Subscribers":   reach,
 			},
 		},
 		User:   u,
@@ -126,6 +142,10 @@ func (f *PostForm) saveInput() posts.SaveInput {
 		Body:       f.Input.Body,
 		Visibility: f.Input.Visibility,
 		Action:     posts.Action(f.Input.SaveAction),
+	}
+
+	if f.Input.NotifyOffered {
+		in.NotifySubscribers = new(f.Input.NotifySubscribers)
 	}
 
 	switch {

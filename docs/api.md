@@ -52,6 +52,22 @@ curl -v -H'Authorization: Bearer <api-key>' -XPOST -d'{ "subject": "test post1",
 {"data":{"id":"01904796-62f7-7a9a-a7bd-1595ed6d1663","public_url":"http://localhost:8080/posts/01904796-62f7-7a9a-a7bd-1595ed6d1663"}}%
 ```
 
+### Email subscribers
+
+A public post can also be mailed to your email subscribers, if you let people subscribe to your journal by
+email. The optional `notify_subscribers` field of a create or update decides it:
+
+- left out, the post is mailed on the call that publishes it, and not on any other call, such as one that
+  makes a published post public;
+- `true` mails a published public post, `false` doesn't.
+
+A post is mailed to your subscribers at most once, so `true` on a post that was mailed already changes
+nothing. Mails to your connections don't depend on this field.
+
+```
+curl -v -H'Authorization: Bearer <api-key>' -XPOST -d'{ "subject": "test post1", "md_body": "is **saved**", "visibility": "public", "is_published": true, "notify_subscribers": false }' http://localhost:8080/api/v1/posts/01904796-62f7-7a9a-a7bd-1595ed6d1663
+```
+
 ## Delete a Post
 
 ```

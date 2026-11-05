@@ -92,7 +92,9 @@ func New(db *sql.DB, deps Deps) *Services {
 
 	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch), feeds.WithPollInterval(deps.FeedPollInterval), feeds.WithJobs(deps.Jobs), feeds.WithLogger(deps.Logger))
 
-	postsSvc := posts.New(store, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
+	subsSvc := subscriptions.New(store, append([]subscriptions.Option{subscriptions.WithJobs(deps.Jobs), subscriptions.WithIdentity(ident)}, deps.Subscriptions...)...)
+
+	postsSvc := posts.New(store, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}), posts.WithSubscriptions(subsSvc))
 
 	return &Services{
 		Connections:   connections.New(store),
@@ -103,7 +105,7 @@ func New(db *sql.DB, deps Deps) *Services {
 		Posts:         postsSvc,
 		Accounts:      accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:     proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
-		Subscriptions: subscriptions.New(store, append([]subscriptions.Option{subscriptions.WithJobs(deps.Jobs), subscriptions.WithIdentity(ident)}, deps.Subscriptions...)...),
+		Subscriptions: subsSvc,
 	}
 }
 

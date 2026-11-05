@@ -38,6 +38,13 @@ type SaveInput struct {
 	Body       string
 	Visibility model.PostVisibility
 	Action     Action
+	// NotifySubscribers says whether the save mails the post to the author's
+	// email subscribers. Nil takes the default: yes on the save that
+	// publishes the post, no on any other save, such as one that makes a
+	// published post public. It counts only for a save the author asked for
+	// (never an autosave) that leaves the post published and public, and a
+	// post is mailed to its subscribers at most once.
+	NotifySubscribers *bool
 }
 
 // Saved is what a save left behind. Post is nil after a delete.
@@ -87,7 +94,8 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 
 // Save creates or changes the actor's post, or deletes it. Publishing
 // notifies the author's direct connections, and the asker of the prompt the
-// post answers, in the same transaction.
+// post answers, in the same transaction; then, as SaveInput.NotifySubscribers
+// decides, the author's email subscribers.
 func (s *Service) Save(ctx context.Context, actor *model.User, in SaveInput) (*Saved, error) {
 	if err := requireActor(actor); err != nil {
 		return nil, err
@@ -201,6 +209,8 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 		}
 	} else {
 		post.ID = existing.ID
+		// the update writes every column, so the post stays marked as mailed
+		post.SubscribersMailedAt = existing.SubscribersMailedAt
 
 		switch action {
 		case ActionMakeDraft:
@@ -229,7 +239,83 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 		}
 	}
 
+	if s.subscribers != nil && notifySubscribers(action, publishing, in.NotifySubscribers) {
+		// NotifyPost skips a post that isn't public and published, a post
+		// already mailed and an author without subscribers
+		if err := s.subscribers.NotifyPost(ctx, tx, actor, post); err != nil {
+			return nil, err
+		}
+	}
+
 	return &Saved{Post: post, Created: existing == nil}, nil
+}
+
+// notifySubscribers decides whether a save mails the post to the author's
+// email subscribers, as SaveInput.NotifySubscribers describes. An autosave
+// never does: the form autosaves while the author is still choosing.
+func notifySubscribers(action Action, publishing bool, asked *bool) bool {
+	if action == ActionAutosave {
+		return false
+	}
+
+	if asked != nil {
+		return *asked
+	}
+
+	return publishing
+}
+
+// Subscribers is what a save needs of the email subscriptions service
+// (*subscriptions.Service).
+type Subscribers interface {
+	Subscribable(author *model.User) bool
+	ActiveCount(ctx context.Context, tx *repo.Store, authorID string) (int, error)
+	NotifyPost(ctx context.Context, tx *repo.Store, author *model.User, post *model.Post) error
+}
+
+// WithSubscriptions lets saves mail posts to the author's email subscribers;
+// without it nobody can subscribe to an author as far as this service knows.
+func WithSubscriptions(subs Subscribers) Option {
+	return func(s *Service) { s.subscribers = subs }
+}
+
+// SubscriberReach is what the post form tells the author about their email
+// subscribers.
+type SubscriberReach struct {
+	// Subscribable is whether readers may subscribe to the author; the
+	// Public option then names Count.
+	Subscribable bool
+	// Count is how many confirmed subscribers the author has.
+	Count int
+	// CanNotify is whether the form offers to mail the post to them: the
+	// author can be subscribed to, has subscribers, and the post was never
+	// mailed to them.
+	CanNotify bool
+	// NotifyByDefault is whether the offer starts checked: it does for a
+	// post that isn't published yet, as its publish mails it by default.
+	NotifyByDefault bool
+}
+
+// SubscriberReach tells the actor about their email subscribers for the form
+// of post, nil for a new post. Nobody can subscribe to an anonymous actor.
+func (s *Service) SubscriberReach(ctx context.Context, actor *model.User, post *model.Post) (*SubscriberReach, error) {
+	reach := &SubscriberReach{NotifyByDefault: post == nil || post.PublishedAt == nil}
+
+	if s.subscribers == nil || !s.subscribers.Subscribable(actor) {
+		return reach, nil
+	}
+
+	reach.Subscribable = true
+
+	count, err := s.subscribers.ActiveCount(ctx, s.store, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	reach.Count = count
+	reach.CanNotify = count > 0 && (post == nil || post.SubscribersMailedAt == nil)
+
+	return reach, nil
 }
 
 // promptOf finds the prompt a post answers: the one being answered by a new

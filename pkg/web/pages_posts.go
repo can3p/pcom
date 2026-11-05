@@ -18,6 +18,9 @@ type WritePage struct {
 	// Proofread is set by the route when the grammar check and style review
 	// are on: the editor then shows their buttons and panel.
 	Proofread bool
+	// Subscribers is what the form says about the author's email
+	// subscribers.
+	Subscribers *posts.SubscriberReach
 }
 
 // Write is the new post page. The prompt query parameter names the prompt the
@@ -34,9 +37,15 @@ func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Resul
 		}
 	}
 
+	reach, err := svc.SubscriberReach(c, userData.DBUser, nil)
+	if err != nil {
+		return mo.Err[*WritePage](err)
+	}
+
 	return mo.Ok(&WritePage{
-		BasePage: getBasePage(c, "New Post", userData),
-		Prompt:   prompt,
+		BasePage:    getBasePage(c, "New Post", userData),
+		Prompt:      prompt,
+		Subscribers: reach,
 	})
 }
 
@@ -49,6 +58,8 @@ type EditPostPage struct {
 	Prompt        *postops.PostPrompt
 	// Proofread is set by the route, as on WritePage.
 	Proofread bool
+	// Subscribers is as on WritePage, for this post.
+	Subscribers *posts.SubscriberReach
 }
 
 // EditPost is the edit page of a post the viewer may edit.
@@ -59,6 +70,11 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 	}
 
 	post := view.Post
+
+	reach, err := svc.SubscriberReach(c, userData.DBUser, post)
+	if err != nil {
+		return mo.Err[*EditPostPage](err)
+	}
 
 	var url string
 
@@ -78,5 +94,6 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 		LastUpdatedAt: lo.FromPtr(post.UpdatedAt),
 		IsPublished:   post.PublishedAt != nil,
 		Prompt:        view.Prompt,
+		Subscribers:   reach,
 	})
 }

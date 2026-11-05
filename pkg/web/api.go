@@ -21,6 +21,9 @@ type ApiPost struct {
 	PublishedAt int64                `json:"published_at,omitempty"`
 	UpdatedAt   int64                `json:"updated_at,omitempty"`
 	PublicURL   string               `json:"public_url"`
+	// NotifySubscribers is input only: whether the save mails the post to
+	// the author's email subscribers (posts.SaveInput.NotifySubscribers).
+	NotifySubscribers *bool `json:"notify_subscribers,omitempty"`
 }
 
 type ApiGetPostsResponse struct {
@@ -94,10 +97,11 @@ func ApiNewPost(c *gin.Context, svc *posts.Service, actor *model.User) mo.Result
 	}
 
 	saved, err := svc.Save(c, actor, posts.SaveInput{
-		Subject:    input.Subject,
-		Body:       input.MdBody,
-		Visibility: input.Visibility,
-		Action:     action,
+		Subject:           input.Subject,
+		Body:              input.MdBody,
+		Visibility:        input.Visibility,
+		Action:            action,
+		NotifySubscribers: input.NotifySubscribers,
 	})
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
@@ -123,11 +127,12 @@ func ApiEditPost(c *gin.Context, svc *posts.Service, actor *model.User, postID s
 	}
 
 	_, err := svc.Save(c, actor, posts.SaveInput{
-		PostID:     postID,
-		Subject:    input.Subject,
-		Body:       input.MdBody,
-		Visibility: input.Visibility,
-		Action:     action,
+		PostID:            postID,
+		Subject:           input.Subject,
+		Body:              input.MdBody,
+		Visibility:        input.Visibility,
+		Action:            action,
+		NotifySubscribers: input.NotifySubscribers,
 	})
 	if err != nil {
 		return mo.Err[*ApiNewPostResponse](err)
