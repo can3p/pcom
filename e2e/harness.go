@@ -10,6 +10,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"math/bits"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +26,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -41,6 +44,46 @@ import (
 // SessionSalt is the SESSION_SALT of the app under test. The login code key
 // comes from it, so LoginAs can ask for a code of its own.
 const SessionSalt = "test"
+
+// SubscribePowDifficulty is the leading zero bits of the proof of work the
+// app under test asks of the subscribe form: low, so SolveChallenge is quick.
+const SubscribePowDifficulty = 4
+
+// SolveChallenge finds the nonce of a proof-of-work challenge the way the
+// pow controller does: SHA-256 over the token and the decimal nonce must
+// start with as many zero bits as the token's third field says.
+func SolveChallenge(t testing.TB, token string) string {
+	t.Helper()
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 4 {
+		t.Fatalf("e2e: %q is not a challenge", token)
+	}
+
+	difficulty, err := strconv.Atoi(parts[2])
+	if err != nil {
+		t.Fatalf("e2e: %q has no difficulty", token)
+	}
+
+	for n := 0; ; n++ {
+		sum := sha256.Sum256([]byte(token + strconv.Itoa(n)))
+
+		zeros := 0
+
+		for _, b := range sum {
+			if b != 0 {
+				zeros += bits.LeadingZeros8(b)
+				break
+			}
+
+			zeros += 8
+		}
+
+		if zeros >= difficulty {
+			return strconv.Itoa(n)
+		}
+	}
+}
 
 var (
 	// repoRoot is the module root, resolved from this file.
@@ -183,8 +226,8 @@ type App struct {
 const AdminAddress = "admin@pcom.test"
 
 // unsentMailSQL counts the mail the app queued and hasn't sent: the
-// unfinished River jobs that send mail (mail.*) or queue it (posts.*).
-const unsentMailSQL = `SELECT count(*) FROM river_job WHERE (kind LIKE 'mail.%' OR kind LIKE 'posts.%')
+// unfinished River jobs that send mail (mail.*) or queue it (posts.*, subscriptions.*).
+const unsentMailSQL = `SELECT count(*) FROM river_job WHERE (kind LIKE 'mail.%' OR kind LIKE 'posts.%' OR kind LIKE 'subscriptions.%')
 	AND state IN ('available', 'pending', 'retryable', 'running', 'scheduled')`
 
 // WaitMailSent waits up to 5s until the app has sent all the mail it
@@ -221,7 +264,7 @@ func (a *App) QueuedMails(t testing.TB) int {
 	t.Helper()
 
 	var n int
-	if err := a.DB.QueryRow(`SELECT count(*) FROM river_job WHERE kind LIKE 'mail.%' OR kind LIKE 'posts.%'`).Scan(&n); err != nil {
+	if err := a.DB.QueryRow(`SELECT count(*) FROM river_job WHERE kind LIKE 'mail.%' OR kind LIKE 'posts.%' OR kind LIKE 'subscriptions.%'`).Scan(&n); err != nil {
 		t.Fatalf("e2e: counting queued mail: %v", err)
 	}
 
@@ -417,13 +460,19 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 		"MJ_API_BASE":        tm.MailjetURL,
 		"JOBS_POLL_INTERVAL": "100ms",
 		"EMAIL_MX_TIMEOUT":   "0", // no DNS: test domains don't resolve
-		"SECURE_COOKIES":     "false",
-		"HSTS":               "false",
-		"STATIC_CACHE":       "false",
-		"MEDIA_PERMA_CACHE":  "false",
-		"SHOW_ERRORS":        "true",
-		"REPORT_PANICS":      "false",
-		"LOG_LEVEL":          "debug",
+
+		// A challenge a test solves in microseconds, and a form it may submit
+		// at once (zero would keep the default, so one nanosecond).
+		"SUBSCRIBE_POW_DIFFICULTY": strconv.Itoa(SubscribePowDifficulty),
+		"SUBSCRIBE_MIN_FILL_TIME":  "1ns",
+
+		"SECURE_COOKIES":    "false",
+		"HSTS":              "false",
+		"STATIC_CACHE":      "false",
+		"MEDIA_PERMA_CACHE": "false",
+		"SHOW_ERRORS":       "true",
+		"REPORT_PANICS":     "false",
+		"LOG_LEVEL":         "debug",
 
 		"USER_MEDIA_ENDPOINT":   tm.S3URL,
 		"USER_MEDIA_BUCKET":     tommy.Bucket,

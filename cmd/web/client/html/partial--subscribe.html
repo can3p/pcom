@@ -1,0 +1,40 @@
+{{/* The email subscription form of a journal or a public post. Username: the author; Challenge: the proof of work (abuse.Challenge.Token). Also the form gogo renders after a submit: Input, Errors, FormError, FormSaved. */}}
+{{ if .FormSaved }}
+<p class="auth-note" role="status" data-testid="subscribe-sent">Check your inbox to confirm your subscription.</p>
+{{ else }}
+<form method="POST"
+      action="{{ link "subscribe" .Username }}"
+      hx-post="{{ link "subscribe" .Username }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="this"
+      data-controller="pow"
+      data-pow-challenge-value="{{ .Challenge }}"
+      data-testid="subscribe-form"
+  >
+  <p class="field-help">Get @{{ .Username }}'s public posts by email. @{{ .Username }} will see your email address.</p>
+
+  <input type="hidden" name="pow_challenge" value="{{ .Challenge }}" />
+  <input type="hidden" name="pow_nonce" value="" data-pow-target="nonce" />
+  <div hidden aria-hidden="true">
+    <label for="subscribeWebsite">Leave this field empty</label>
+    <input type="text" name="website" id="subscribeWebsite" value="" tabindex="-1" autocomplete="off" />
+  </div>
+
+  <div class="field">
+    <label for="subscribeEmail">Email address</label>
+    <input name="email" type="email" autocomplete="email"
+                        value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
+                        {{ with .Errors }}{{ if .HasError "email" }}aria-invalid="true" aria-describedby="subscribeEmailError"{{ end }}{{ end }}
+                        id="subscribeEmail"
+                        required>
+    {{ with .Errors }}{{ if .HasError "email" }}
+    <p class="field-error" id="subscribeEmailError" data-testid="field-error-email">{{ .email }}</p>
+    {{ end }}{{ end }}
+  </div>
+
+  <div class="auth-submit">
+    <button type="submit" class="btn btn-primary">Subscribe</button>
+    {{ with .FormError }}<span class="status err" role="alert" data-testid="form-error">{{ . }}</span>{{ end }}
+  </div>
+</form>
+{{ end }}

@@ -33,6 +33,10 @@ func New(d *Deps) *gin.Engine {
 		d.Services = NewServices(d)
 	}
 
+	if d.Guard == nil {
+		d.Guard = NewAbuseGuard(d)
+	}
+
 	maxAge := d.Config.SessionMaxAge
 	if maxAge == 0 {
 		maxAge = pgsession.DefaultMaxAge

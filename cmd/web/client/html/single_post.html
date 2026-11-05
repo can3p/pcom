@@ -78,6 +78,12 @@
     {{ end }}
   </article>
 
+  {{ with $.Subscribe }}
+  <section class="box subscribe" data-testid="subscribe-box">
+    {{ template "partial--subscribe.html" toMap "Username" .Username "Challenge" .Challenge }}
+  </section>
+  {{ end }}
+
   {{ if not .EditPreview }}
     <section class="comments us-comments-section" aria-label="Comments">
 

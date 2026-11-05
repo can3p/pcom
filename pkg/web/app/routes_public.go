@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/util"
 	"github.com/can3p/pcom/pkg/util/ginhelpers/csp"
@@ -87,6 +88,7 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 		}
 
 		home := web.UserHome(c, &userData, journal)
+		home.Subscribe = subscribeOffer(d, userData, journal.Author)
 		if isLoadMore(c) {
 			c.HTML(http.StatusOK, "partial--post-list.html", map[string]any{
 				"Posts": home.Posts, "User": home.User, "Next": home.Next, "URL": links.Link("user", home.Author.Username),
@@ -118,7 +120,12 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "single_post.html", web.PostPage(c, &userData, post))
+		page := web.PostPage(c, &userData, post)
+		if post.Post.IsPublished() && post.Post.VisibilityRadius == model.PostVisibilityPublic {
+			page.Subscribe = subscribeOffer(d, userData, post.Post.Author)
+		}
+
+		c.HTML(http.StatusOK, "single_post.html", page)
 	})
 
 	r.GET("/posts/:id/md", requireUUIDParam("id"), func(c *gin.Context) {
