@@ -29,6 +29,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -72,8 +73,9 @@ func (c *serveCmd) Execute([]string) error {
 	go accounts.New(repo.New(db), nil, accounts.WithLoginLimits(loginLimits(cfg.Login)), accounts.WithLogger(logger)).RunPruner(ctx)
 
 	// The subscriptions service checks that an address's domain can receive mail.
-	emailChecker := emailaddr.NewChecker(emailaddr.WithTimeout(cfg.Email.MXTimeout))
-	_ = emailChecker // TODO(F11.T0): pass to the subscriptions service
+	emailChecker := newEmailChecker(cfg.Email)
+
+	go subscriptions.New(repo.New(db), nil, append(subscriptionsOptions(cfg.Subscriptions, emailChecker), subscriptions.WithLogger(logger))...).RunPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {
@@ -270,6 +272,24 @@ func loginLimits(cfg config.Login) accounts.LoginLimits {
 		WrongTriesWindow:    cfg.WrongTriesWindow,
 		UnconfirmedLifetime: cfg.UnconfirmedLifetime,
 		PruneEvery:          cfg.PruneEvery,
+	}
+}
+
+// newEmailChecker is what asks DNS whether an address's domain can receive
+// mail; opts replace its resolver in tests.
+func newEmailChecker(cfg config.Email, opts ...emailaddr.Option) *emailaddr.Checker {
+	return emailaddr.NewChecker(append([]emailaddr.Option{emailaddr.WithTimeout(cfg.MXTimeout)}, opts...)...)
+}
+
+// subscriptionsOptions is the subscriptions service's view of its settings.
+func subscriptionsOptions(cfg config.Subscriptions, checker *emailaddr.Checker) []subscriptions.Option {
+	return []subscriptions.Option{
+		subscriptions.WithConfirmLifetime(cfg.ConfirmLifetime),
+		subscriptions.WithConfirmsPerAddress(cfg.ConfirmsPerAddress),
+		subscriptions.WithManageLinksPerAddress(cfg.ManageLinksPerAddress),
+		subscriptions.WithConfirmsPerHour(cfg.ConfirmsPerHour),
+		subscriptions.WithPruneEvery(cfg.PruneEvery),
+		subscriptions.WithEmailChecker(checker),
 	}
 }
 

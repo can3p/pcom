@@ -79,6 +79,8 @@ type User struct {
 	Username          string            `bun:"username"`
 	ProfileVisibility ProfileVisibility `bun:"profile_visibility,default:'registered_users'"`
 	EmailCanonical    string            `bun:"email_canonical"`
+
+	EmailSubscriptionsEnabled bool `bun:"email_subscriptions_enabled,default:false"`
 }
 
 // BeforeAppendModel stamps the row's timestamps on insert and update.

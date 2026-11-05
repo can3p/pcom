@@ -70,6 +70,8 @@ type Post struct {
 	URLID            *string        `bun:"url_id"`
 	RSSItemID        *string        `bun:"rss_item_id"`
 
+	SubscribersMailedAt *time.Time `bun:"subscribers_mailed_at"`
+
 	RSSItem  *RSSItem       `bun:"rel:belongs-to,join:rss_item_id=id"`
 	URL      *NormalizedURL `bun:"rel:belongs-to,join:url_id=id"`
 	User     *User          `bun:"rel:belongs-to,join:user_id=id"`

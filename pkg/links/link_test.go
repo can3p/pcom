@@ -37,6 +37,7 @@ func TestLink_SimpleNames(t *testing.T) {
 		{"form_change_password", "/controls/form/change_password"},
 		{"form_whitelist_connection", "/controls/form/whitelist_connection"},
 		{"form_prompt_post", "/controls/form/prompt_post"},
+		{"subscriptions_lost", "/subscriptions"},
 	}
 
 	for _, tt := range tests {
@@ -70,6 +71,10 @@ func TestLink_WithArguments(t *testing.T) {
 		{"public_feed", nil, "/rss/public"},
 		{"public_blog_feed", []string{"user-1"}, "/rss/public/user-1"},
 		{"private_user_feed", []string{"user-2"}, "/rss/private/user-2"},
+		{"subscribe", []string{"alice"}, "/form/subscribe/alice"},
+		{"subscription_confirm", []string{"confirm-token"}, "/subscriptions/confirm/confirm-token"},
+		{"subscriptions_manage", []string{"manage-token"}, "/subscriptions/manage-token"},
+		{"subscription_unsubscribe", []string{"manage-token", "sub-1"}, "/subscriptions/manage-token/unsubscribe/sub-1"},
 	}
 
 	for _, tt := range tests {

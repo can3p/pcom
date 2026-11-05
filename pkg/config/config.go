@@ -164,6 +164,21 @@ type Proofread struct {
 	StyleMaxTokens    int             `long:"style-max-tokens" env:"STYLE_MAX_TOKENS" description:"Most output tokens of a style review" default:"16000"`
 }
 
+// Subscriptions is email subscriptions to authors and the checks of the
+// public form that starts one. Embed it with `namespace:"subscribe"
+// env-namespace:"SUBSCRIBE"`. The defaults are subscriptions.Default* and
+// abuse.Default*.
+type Subscriptions struct {
+	ConfirmLifetime       time.Duration `long:"confirm-lifetime" env:"CONFIRM_LIFETIME" description:"How long a mailed subscription confirmation link works" default:"72h"`
+	ConfirmsPerAddress    int           `long:"confirms-per-address" env:"CONFIRMS_PER_ADDRESS" description:"Subscription confirmation mails one address may get" default:"3"`
+	ManageLinksPerAddress int           `long:"manage-links-per-address" env:"MANAGE_LINKS_PER_ADDRESS" description:"Mails with the link to manage subscriptions one address may get" default:"3"`
+	ConfirmsPerHour       int           `long:"confirms-per-hour" env:"CONFIRMS_PER_HOUR" description:"Subscription confirmation mails the whole site may send per hour" default:"100"`
+	PowDifficulty         int           `long:"pow-difficulty" env:"POW_DIFFICULTY" description:"Leading zero bits of the proof of work the subscribe form's browser solves" default:"18"`
+	PowMaxAge             time.Duration `long:"pow-max-age" env:"POW_MAX_AGE" description:"How long a proof-of-work challenge may be answered" default:"30m"`
+	MinFillTime           time.Duration `long:"min-fill-time" env:"MIN_FILL_TIME" description:"Least time between showing the subscribe form and submitting it" default:"2s"`
+	PruneEvery            time.Duration `long:"prune-every" env:"PRUNE_EVERY" description:"How often expired subscriptions and old subscription mail records are deleted" default:"1h"`
+}
+
 // Serve is the settings of the serve command.
 type Serve struct {
 	Database  Database  `group:"Database"`
@@ -176,6 +191,8 @@ type Serve struct {
 	Feeds     Feeds     `group:"RSS feeds"`
 	Media     Media     `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
 	Proofread Proofread `group:"Proofread" namespace:"proofread" env-namespace:"PROOFREAD"`
+
+	Subscriptions Subscriptions `group:"Email subscriptions" namespace:"subscribe" env-namespace:"SUBSCRIBE"`
 }
 
 // Switch is a boolean setting that may default to true, which go-flags

@@ -81,6 +81,24 @@ hourly limits (`PROOFREAD_GRAMMAR_PER_HOUR`, `PROOFREAD_STYLE_PER_HOUR`), the op
 characters by default), the request timeout and the output token limits are the other `PROOFREAD_*` settings
 in `web serve --help`.
 
+## Email subscriptions
+
+Readers subscribe to an author's posts by email; the `SUBSCRIBE_*` settings bound it (defaults in brackets):
+
+| Setting | Does |
+|---|---|
+| `SUBSCRIBE_CONFIRM_LIFETIME` (72h) | How long a mailed confirmation link works |
+| `SUBSCRIBE_CONFIRMS_PER_ADDRESS` (3) | Confirmation mails one address may get |
+| `SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS` (3) | Mails with the manage link one address may get |
+| `SUBSCRIBE_CONFIRMS_PER_HOUR` (100) | Confirmation mails the whole site may send per hour |
+| `SUBSCRIBE_POW_DIFFICULTY` (18) | Leading zero bits of the proof of work the subscribe form's browser solves |
+| `SUBSCRIBE_POW_MAX_AGE` (30m) | How long a proof-of-work challenge may be answered |
+| `SUBSCRIBE_MIN_FILL_TIME` (2s) | Least time between showing the subscribe form and submitting it |
+| `SUBSCRIBE_PRUNE_EVERY` (1h) | How often expired subscriptions and old mail records are deleted |
+
+The subscribe form also checks that the address's domain can receive mail, within `EMAIL_MX_TIMEOUT` (2s; 0
+turns the DNS check off).
+
 ## Seeding
 
 `make seed` runs `go run ./cmd/web seed` in the `app` container (the dev image: building `cmd/web` needs cgo

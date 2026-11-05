@@ -97,6 +97,17 @@ func Link(name string, args ...string) string {
 		out = "/rss/public/" + builder.Shift()
 	case "private_user_feed":
 		out = "/rss/private/" + builder.Shift()
+	case "subscribe":
+		out = "/form/subscribe/" + builder.Shift()
+	case "subscription_confirm":
+		out = "/subscriptions/confirm/" + builder.Shift()
+	case "subscriptions_manage":
+		out = "/subscriptions/" + builder.Shift()
+	case "subscription_unsubscribe":
+		manageToken := builder.Shift()
+		out = "/subscriptions/" + manageToken + "/unsubscribe/" + builder.Shift()
+	case "subscriptions_lost":
+		out = "/subscriptions"
 	case "login":
 		out = "/login"
 	case "signup":

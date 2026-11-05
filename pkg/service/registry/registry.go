@@ -22,6 +22,7 @@ import (
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"go.uber.org/zap"
 )
 
@@ -67,18 +68,22 @@ type Deps struct {
 	// Logger is the logger of the services' background jobs; nil logs
 	// nothing.
 	Logger *zap.Logger
+	// Subscriptions configures the email subscriptions service (its limits
+	// and the address checker); none keeps its defaults.
+	Subscriptions []subscriptions.Option
 }
 
 // Services is one field per area service.
 type Services struct {
-	Connections *connections.Service
-	Feeds       *feeds.Service
-	Shares      *shares.Service
-	Reading     *reading.Service
-	Media       *media.Service
-	Posts       *posts.Service
-	Accounts    *accounts.Service
-	Proofread   *proofreadsvc.Service
+	Connections   *connections.Service
+	Feeds         *feeds.Service
+	Shares        *shares.Service
+	Reading       *reading.Service
+	Media         *media.Service
+	Posts         *posts.Service
+	Accounts      *accounts.Service
+	Proofread     *proofreadsvc.Service
+	Subscriptions *subscriptions.Service
 }
 
 func New(db *sql.DB, deps Deps) *Services {
@@ -90,14 +95,15 @@ func New(db *sql.DB, deps Deps) *Services {
 	postsSvc := posts.New(store, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
 
 	return &Services{
-		Connections: connections.New(store),
-		Feeds:       feedSvc,
-		Shares:      shares.New(store),
-		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
-		Media:       media.New(store, deps.MediaStorage, media.WithMaxUploadSize(deps.MaxUploadSize)),
-		Posts:       postsSvc,
-		Accounts:    accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
-		Proofread:   proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
+		Connections:   connections.New(store),
+		Feeds:         feedSvc,
+		Shares:        shares.New(store),
+		Reading:       reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
+		Media:         media.New(store, deps.MediaStorage, media.WithMaxUploadSize(deps.MaxUploadSize)),
+		Posts:         postsSvc,
+		Accounts:      accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Proofread:     proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
+		Subscriptions: subscriptions.New(store, deps.Sender, append([]subscriptions.Option{subscriptions.WithIdentity(ident)}, deps.Subscriptions...)...),
 	}
 }
 
