@@ -4,9 +4,6 @@
 package posts
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model"
@@ -15,8 +12,7 @@ import (
 )
 
 type Service struct {
-	store  *repo.Store
-	sender repo.MailQueue
+	store *repo.Store
 	// jobs enqueues background jobs; see jobs.go.
 	jobs    repo.JobQueue
 	storage server.MediaStorage
@@ -100,8 +96,8 @@ func WithIdentity(ident mail.Identity) Option {
 	return func(s *Service) { s.ident = ident }
 }
 
-func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, storage: storage, limits: DefaultTextLimits}
+func New(store *repo.Store, _ repo.MailQueue, storage server.MediaStorage, opts ...Option) *Service {
+	s := &Service{store: store, storage: storage, limits: DefaultTextLimits}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -112,29 +108,6 @@ func New(store *repo.Store, snd repo.MailQueue, storage server.MediaStorage, opt
 // PostURL is the public address of a post.
 func (s *Service) PostURL(postID string) string {
 	return s.ident.Site.Abs("post", postID)
-}
-
-// queue puts a formatted mail in the outbox of the transaction tx. A nil mail
-// is a notification nobody needs, and is skipped.
-func (s *Service) queue(ctx context.Context, tx *repo.Store, out *mail.Envelope) error {
-	if out == nil {
-		return nil
-	}
-
-	if err := tx.SendMail(ctx, s.sender, out.UniqueID, out.Type, out.Mail); err != nil {
-		return fmt.Errorf("failed to queue email: %w", err)
-	}
-
-	return nil
-}
-
-// queueE is queue for the formatters that can fail.
-func (s *Service) queueE(ctx context.Context, tx *repo.Store, out *mail.Envelope, err error) error {
-	if err != nil {
-		return err
-	}
-
-	return s.queue(ctx, tx, out)
 }
 
 // requireActor turns an anonymous actor into ErrNeedsLogin.

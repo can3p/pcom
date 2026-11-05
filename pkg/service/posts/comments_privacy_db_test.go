@@ -4,20 +4,21 @@ import (
 	"context"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
 
 // mailsTo is the mail recorded for one address.
-func mailsTo(out *fakesender.Sender, email string) []fakesender.Recorded {
-	var got []fakesender.Recorded
+func mailsTo(out *mailbox, email string) []*mail.Envelope {
+	var got []*mail.Envelope
 
 	for _, m := range out.Sent() {
 		if m.Mail.To[0].Address == email {
@@ -36,7 +37,7 @@ func TestComment_Draft(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	s := posts.New(repo.New(db), fakesender.New(), nil)
+	s := svcWith(db, fakequeue.New())
 
 	draft := testutil.Must(factory.Post(ctx, db, w.author.ID))(t)
 	parent := testutil.Must(factory.Comment(ctx, db, draft.ID, w.author.ID))(t)
@@ -70,9 +71,10 @@ func TestCommentMail_OnlyToWhoMayRead(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	out := fakesender.New()
+	q := fakequeue.New()
 	store := repo.New(db)
-	s := posts.New(store, out, nil)
+	s := svcWith(db, q)
+	out := newMailbox(t, ctx, s, q)
 
 	other := testutil.Must(factory.User(ctx, db))(t)
 	_, _, err := factory.Connect(ctx, db, w.author.ID, other.ID)
@@ -112,9 +114,10 @@ func TestPromptAnswerMail_OnlyToWhoMayRead(t *testing.T) {
 			db := testdb.New(t).DB
 			ctx := context.Background()
 			w := newWorld(t, ctx, db)
-			out := fakesender.New()
+			q := fakequeue.New()
 			store := repo.New(db)
-			s := posts.New(store, out, nil)
+			s := svcWith(db, q)
+			out := newMailbox(t, ctx, s, q)
 
 			prompt := testutil.Must(factory.PostPrompt(ctx, db, w.direct.ID, w.author.ID))(t)
 			require.NoError(t, store.DeleteConnectionsBetween(ctx, w.author.ID, w.direct.ID))

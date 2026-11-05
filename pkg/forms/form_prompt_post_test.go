@@ -9,12 +9,12 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
 
-func newPromptForm(t *testing.T, db *sql.DB, sender *fakesender.Sender, u *model.User, directConnections []*model.User, message, recipientHandle string) *forms.PostPromptForm {
+func newPromptForm(t *testing.T, db *sql.DB, sender *fakequeue.Queue, u *model.User, directConnections []*model.User, message, recipientHandle string) *forms.PostPromptForm {
 	t.Helper()
 	form, ok := forms.PostPromptFormNew(postsService(db, sender), u, directConnections).(*forms.PostPromptForm)
 	require.True(t, ok)
@@ -58,7 +58,7 @@ func TestPostPromptForm_Validate(t *testing.T) {
 			t.Parallel()
 
 			c, _ := newCtx(t)
-			err := newPromptForm(t, db, fakesender.New(), tc.asker, tc.direct, tc.message, tc.recipient.Username).Validate(c)
+			err := newPromptForm(t, db, fakequeue.New(), tc.asker, tc.direct, tc.message, tc.recipient.Username).Validate(c)
 			if tc.ok {
 				require.NoError(t, err)
 			} else {
@@ -80,7 +80,7 @@ func TestPostPromptForm_Save(t *testing.T) {
 	_, _, err := factory.Connect(ctx, db, asker.ID, recipient.ID)
 	require.NoError(t, err)
 
-	sender := fakesender.New()
+	sender := fakequeue.New()
 	form := newPromptForm(t, db, sender, asker, []*model.User{recipient}, "Tell us about your week!", recipient.Username)
 
 	c, _ := newCtx(t)
@@ -88,8 +88,8 @@ func TestPostPromptForm_Save(t *testing.T) {
 	action := testutil.Must(form.Save(ctx))(t)
 	action(c, form)
 
-	sent := sender.Sent()
+	sent := sentMails(t, ctx, db, sender)
 	require.Len(t, sent, 1)
-	require.Equal(t, "post_prompt", sent[0].EmailType)
+	require.Equal(t, "post_prompt", sent[0].Type)
 	require.Equal(t, recipient.Email, sent[0].Mail.To[0].Address)
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/logging"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
@@ -195,9 +194,11 @@ func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *mode
 	}
 
 	// notify post author about discussion
-	out, err := mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.User, post, comment, edited)
-	if err := s.queueE(ctx, tx, out, err); err != nil {
-		return err
+	// we're not sending email notifications to ourselves
+	if actor.ID != post.UserID {
+		if err := tx.Enqueue(ctx, s.jobs, CommentMailArgs{CommentID: comment.ID, RecipientID: post.UserID, Edited: edited}); err != nil {
+			return err
+		}
 	}
 
 	// notify anyone else who left a comment to the post about discussion
@@ -224,8 +225,11 @@ func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *mode
 			continue
 		}
 
-		out, err := mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, cmt.User, post, comment, edited)
-		if err := s.queueE(ctx, tx, out, err); err != nil {
+		if cmt.User.ID == actor.ID {
+			continue
+		}
+
+		if err := tx.Enqueue(ctx, s.jobs, CommentMailArgs{CommentID: comment.ID, RecipientID: cmt.User.ID, Edited: edited}); err != nil {
 			return err
 		}
 	}
