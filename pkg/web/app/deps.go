@@ -3,6 +3,7 @@
 package app
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/can3p/pcom/pkg/media/server"
@@ -11,13 +12,12 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
-	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
 // Deps is everything the handlers need. RS replaces DB with the services.
 type Deps struct {
-	DB *sqlx.DB
+	DB *sql.DB
 	// Services is built from DB by New when it is nil.
 	Services     *registry.Services
 	Sender       repo.MailQueue

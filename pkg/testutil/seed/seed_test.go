@@ -3,6 +3,7 @@ package seed
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +20,7 @@ func options(reset bool) Options {
 	return Options{Reset: reset, SiteRoot: "http://site.test"}
 }
 
-func count(t *testing.T, db *sqlx.DB, query string, args ...any) int {
+func count(t *testing.T, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
 	var n int
@@ -30,7 +30,7 @@ func count(t *testing.T, db *sqlx.DB, query string, args ...any) int {
 	return n
 }
 
-func userID(t *testing.T, db *sqlx.DB, name string) string {
+func userID(t *testing.T, db *sql.DB, name string) string {
 	t.Helper()
 
 	var id string

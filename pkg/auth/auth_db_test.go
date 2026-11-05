@@ -2,12 +2,12 @@ package auth_test
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -20,7 +20,7 @@ import (
 )
 
 // svc is the accounts service over the test database; auth talks to users through it.
-func svc(db *sqlx.DB) *accounts.Service {
+func svc(db *sql.DB) *accounts.Service {
 	return accounts.New(repo.New(db), nil, nil)
 }
 

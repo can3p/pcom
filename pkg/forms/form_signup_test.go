@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"testing"
 
@@ -14,13 +15,12 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
 // accountsFor is the accounts service the forms under test call, over db.
-func accountsFor(db *sqlx.DB, s repo.MailQueue) *accounts.Service {
+func accountsFor(db *sql.DB, s repo.MailQueue) *accounts.Service {
 	return accounts.New(repo.New(db), s, nil)
 }
 

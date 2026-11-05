@@ -2,6 +2,7 @@ package connections_test
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 	"testing"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +23,7 @@ func as(id string) *model.User {
 
 // connect wraps factory.Connect, whose three return values (both directions
 // of the edge, plus an error) don't fit testutil.Must's (value, error) shape.
-func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
+func connect(t *testing.T, ctx context.Context, db *sql.DB, aID, bID string) {
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
 // secondDegreeTrio builds source -- mediator -- target, both edges direct,
 // with no direct edge between source and target: source and target are
 // second-degree connections of one another, through mediator.
-func secondDegreeTrio(t *testing.T, ctx context.Context, db *sqlx.DB) (source, mediator, target *model.User) {
+func secondDegreeTrio(t *testing.T, ctx context.Context, db *sql.DB) (source, mediator, target *model.User) {
 	t.Helper()
 
 	source = testutil.Must(factory.User(ctx, db))(t)

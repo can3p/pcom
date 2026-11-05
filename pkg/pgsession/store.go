@@ -2,10 +2,10 @@ package pgsession
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/can3p/gogo/sessions/pgstore"
-	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
@@ -20,11 +20,11 @@ const DefaultCleanupInterval = time.Hour
 // NewStore returns gogo's PostgreSQL session store over db. Its table comes
 // from the gogo-pgstore migration in migrations/; pgstore.Regenerate rotates a
 // session at login and logout.
-func NewStore(db *sqlx.DB, keyPairs ...[]byte) *pgstore.Store {
-	return pgstore.New(db.DB, keyPairs...)
+func NewStore(db *sql.DB, keyPairs ...[]byte) *pgstore.Store {
+	return pgstore.New(db, keyPairs...)
 }
 
 // RunCleanup deletes expired sessions every interval until ctx is done.
-func RunCleanup(ctx context.Context, db *sqlx.DB, interval time.Duration, logger *zap.Logger) {
-	pgstore.New(db.DB).Cleanup(ctx, interval, logger)
+func RunCleanup(ctx context.Context, db *sql.DB, interval time.Duration, logger *zap.Logger) {
+	pgstore.New(db).Cleanup(ctx, interval, logger)
 }

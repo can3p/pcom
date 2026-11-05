@@ -2,6 +2,7 @@ package graph_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/repo"
@@ -9,14 +10,13 @@ import (
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
 // connect wraps factory.Connect, whose three return values (both directions
 // of the edge, plus an error) don't fit testutil.Must's (value, error) shape.
-func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
+func connect(t *testing.T, ctx context.Context, db *sql.DB, aID, bID string) {
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)

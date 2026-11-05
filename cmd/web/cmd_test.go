@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"github.com/can3p/pcom/pkg/config"
 	"io"
 	"os"
@@ -15,13 +16,12 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
-func count(t *testing.T, db *sqlx.DB, query string) (n int) {
+func count(t *testing.T, db *sql.DB, query string) (n int) {
 	t.Helper()
-	require.NoError(t, db.Get(&n, query))
+	require.NoError(t, db.QueryRow(query).Scan(&n))
 
 	return n
 }

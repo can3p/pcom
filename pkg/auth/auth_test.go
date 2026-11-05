@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 	"testing"
@@ -120,7 +121,7 @@ func TestAuthAPI_BadRequestPaths(t *testing.T) {
 			}
 
 			// These inputs are all rejected before the handler ever
-			// touches the database, so a nil *sqlx.DB is safe here.
+			// touches the database, so a nil *sql.DB is safe here.
 			auth.AuthAPI(c, nil)
 
 			require.True(t, c.IsAborted())

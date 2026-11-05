@@ -2,6 +2,7 @@ package accounts_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strconv"
 	"strings"
@@ -18,24 +19,23 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // svcWith is the accounts service over db that sends through snd.
-func svcWith(db *sqlx.DB, snd repo.MailQueue) *accounts.Service {
+func svcWith(db *sql.DB, snd repo.MailQueue) *accounts.Service {
 	return accounts.New(repo.New(db), snd, nil, accounts.WithCodeKey("test-key"))
 }
 
-func acceptInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, invite *model.UserInvitation, username string) error {
+func acceptInvite(ctx context.Context, db *sql.DB, s repo.MailQueue, invite *model.UserInvitation, username string) error {
 	_, err := svcWith(db, s).AcceptInvite(ctx, invite, username)
 
 	return err
 }
 
-func sendInvite(ctx context.Context, db *sqlx.DB, s repo.MailQueue, inviter *model.User, to string) error {
+func sendInvite(ctx context.Context, db *sql.DB, s repo.MailQueue, inviter *model.User, to string) error {
 	return svcWith(db, s).SendInvite(ctx, inviter, to)
 }
 
@@ -53,13 +53,13 @@ func problem(err error) (string, bool) {
 	return "", true
 }
 
-func newUser(t *testing.T, ctx context.Context, db *sqlx.DB) *model.User {
+func newUser(t *testing.T, ctx context.Context, db *sql.DB) *model.User {
 	t.Helper()
 
 	return testutil.Must(factory.User(ctx, db))(t)
 }
 
-func newInvitation(t *testing.T, ctx context.Context, db *sqlx.DB, userID string) {
+func newInvitation(t *testing.T, ctx context.Context, db *sql.DB, userID string) {
 	t.Helper()
 
 	testutil.Must(factory.Invitation(ctx, db, userID))(t)
@@ -293,7 +293,7 @@ func TestSendInvite_Queue(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	queued := func(t *testing.T, db *sqlx.DB) []string {
+	queued := func(t *testing.T, db *sql.DB) []string {
 		t.Helper()
 		var to []string
 		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, factory.EmailType("user_invitation")))(t) {

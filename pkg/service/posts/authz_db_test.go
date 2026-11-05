@@ -2,6 +2,7 @@ package posts_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/model"
@@ -12,7 +13,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +22,7 @@ type world struct {
 	author, direct, second, stranger *model.User
 }
 
-func newWorld(t *testing.T, ctx context.Context, db *sqlx.DB) world {
+func newWorld(t *testing.T, ctx context.Context, db *sql.DB) world {
 	t.Helper()
 
 	w := world{}

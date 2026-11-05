@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"testing"
 
@@ -15,14 +16,13 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
 // newInvite creates an inviter and returns an invitation addressed to
 // a unique address (pending invitations are unique per address), for tests that accept it.
-func newInvite(t *testing.T, ctx context.Context, db *sqlx.DB) *model.UserInvitation {
+func newInvite(t *testing.T, ctx context.Context, db *sql.DB) *model.UserInvitation {
 	t.Helper()
 	inviter := testutil.Must(factory.User(ctx, db))(t)
 	return testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("invitee-"+uuid.NewString()+"@example.test")))(t)

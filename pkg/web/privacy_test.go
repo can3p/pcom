@@ -24,7 +24,6 @@ import (
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -100,7 +99,7 @@ type postKey struct {
 // share link. friend is directly connected to every author, fof is connected
 // to friend only and stranger to nobody.
 type world struct {
-	db       *sqlx.DB
+	db       *sql.DB
 	authors  map[model.ProfileVisibility]*model.User
 	friend   *model.User
 	fof      *model.User
@@ -156,7 +155,7 @@ func newWorld(t *testing.T) *world {
 }
 
 // connect creates a direct connection between a and b, or fails the test.
-func connect(t *testing.T, db *sqlx.DB, ctx context.Context, aID, bID string) {
+func connect(t *testing.T, db *sql.DB, ctx context.Context, aID, bID string) {
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)
@@ -516,7 +515,7 @@ var errPrivInjected = errors.New("injected database failure")
 // failingExecutor passes queries through to db, except the failAt-th one,
 // which fails.
 type failingExecutor struct {
-	db     *sqlx.DB
+	db     *sql.DB
 	failAt int
 	calls  int
 }

@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
@@ -11,18 +12,17 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
-func connect(t *testing.T, ctx context.Context, db *sqlx.DB, aID, bID string) {
+func connect(t *testing.T, ctx context.Context, db *sql.DB, aID, bID string) {
 	t.Helper()
 	_, _, err := factory.Connect(ctx, db, aID, bID)
 	require.NoError(t, err)
 }
 
-func newCommentForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *model.User, postID, replyTo string) *forms.NewCommentForm {
+func newCommentForm(t *testing.T, db *sql.DB, sender *fakesender.Sender, u *model.User, postID, replyTo string) *forms.NewCommentForm {
 	t.Helper()
 	form, ok := forms.NewCommentFormNew(postsService(db, sender), u, postID).(*forms.NewCommentForm)
 	require.True(t, ok)
@@ -34,7 +34,7 @@ func newCommentForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *mod
 }
 
 // saveComment validates and saves a comment and runs the returned action.
-func saveComment(t *testing.T, ctx context.Context, db *sqlx.DB, form *forms.NewCommentForm) {
+func saveComment(t *testing.T, ctx context.Context, db *sql.DB, form *forms.NewCommentForm) {
 	t.Helper()
 	c, _ := newCtx(t)
 	require.NoError(t, form.Validate(c))
