@@ -103,7 +103,7 @@ func New(db *sql.DB, deps Deps) *Services {
 		Posts:         postsSvc,
 		Accounts:      accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:     proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
-		Subscriptions: subscriptions.New(store, deps.Sender, append([]subscriptions.Option{subscriptions.WithIdentity(ident)}, deps.Subscriptions...)...),
+		Subscriptions: subscriptions.New(store, append([]subscriptions.Option{subscriptions.WithJobs(deps.Jobs), subscriptions.WithIdentity(ident)}, deps.Subscriptions...)...),
 	}
 }
 
@@ -112,6 +112,7 @@ func (s *Services) RegisterJobs(r *jobs.Registry) {
 	s.Accounts.RegisterJobs(r)
 	s.Posts.RegisterJobs(r)
 	s.Feeds.RegisterJobs(r)
+	s.Subscriptions.RegisterJobs(r)
 }
 
 // proofreadLimits are the proofread service's limits, with the post form's

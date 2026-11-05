@@ -76,7 +76,7 @@ func (c *serveCmd) Execute([]string) error {
 	// The subscriptions service checks that an address's domain can receive mail.
 	emailChecker := newEmailChecker(cfg.Email)
 
-	go subscriptions.New(repo.New(db), nil, append(subscriptionsOptions(cfg.Subscriptions, emailChecker), subscriptions.WithLogger(logger))...).RunPruner(ctx)
+	go subscriptions.New(repo.New(db), append(subscriptionsOptions(cfg.Subscriptions, emailChecker), subscriptions.WithLogger(logger))...).RunPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {

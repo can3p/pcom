@@ -3,29 +3,25 @@ package subscriptions_test
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/can3p/gogo/sender"
 	"github.com/can3p/pcom/pkg/emailaddr"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,31 +72,71 @@ func (resolver) LookupIPAddr(_ context.Context, name string) ([]net.IPAddr, erro
 	return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
 }
 
-// newSvc is the service over the real mail queue and the fake resolver,
-// timed by a clock it returns.
-func newSvc(db *sql.DB, opts ...subscriptions.Option) (*subscriptions.Service, *clock) {
+// newSvc is the service over a fake job queue, which it returns, and the
+// fake resolver, timed by a clock it returns.
+func newSvc(db *sql.DB, opts ...subscriptions.Option) (*subscriptions.Service, *clock, *fakequeue.Queue) {
 	c := &clock{t: time.Now().UTC().Truncate(time.Second)}
-	queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
+	q := fakequeue.New()
 	base := []subscriptions.Option{
+		subscriptions.WithJobs(q),
 		subscriptions.WithClock(c.now),
 		subscriptions.WithEmailChecker(emailaddr.NewChecker(emailaddr.WithResolver(resolver{}))),
 		subscriptions.WithIdentity(mail.Identity{Site: mail.SampleSite, From: "pcom@pcom.test", AdminAddress: adminAddr}),
 	}
 
-	return subscriptions.New(repo.New(db), queue, append(base, opts...)...), c
+	return subscriptions.New(repo.New(db), append(base, opts...)...), c, q
+}
+
+// render builds the mail of a mail job, as the worker would now.
+func render(t *testing.T, svc *subscriptions.Service, args repo.JobArgs) *mail.Envelope {
+	t.Helper()
+
+	var (
+		env *mail.Envelope
+		err error
+		ctx = context.Background()
+	)
+
+	switch a := args.(type) {
+	case subscriptions.ConfirmMailArgs:
+		env, err = svc.RenderConfirm(ctx, a)
+	case subscriptions.ManageLinkMailArgs:
+		env, err = svc.RenderManageLink(ctx, a)
+	case subscriptions.NewPostMailArgs:
+		env, err = svc.RenderNewPost(ctx, a)
+	case subscriptions.NewSubscriberMailArgs:
+		env, err = svc.RenderNewSubscriber(ctx, a)
+	case subscriptions.SubscriberLeftMailArgs:
+		env, err = svc.RenderSubscriberLeft(ctx, a)
+	case subscriptions.BrakedMailArgs:
+		env, err = svc.RenderBraked(ctx, a)
+	default:
+		t.Fatalf("not a mail job: %T", args)
+	}
+
+	require.NoError(t, err, args.Kind())
+
+	return env
 }
 
 type queued struct{ to, uniqueID string }
 
-// mails returns the queued mails of emailType.
-func mails(t *testing.T, db *sql.DB, emailType string) []queued {
+// mails renders the mail jobs of emailType the queue holds; a job that
+// renders no mail any more is left out.
+func mails(t *testing.T, svc *subscriptions.Service, q *fakequeue.Queue, emailType string) []queued {
 	t.Helper()
 
 	var out []queued
-	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, factory.EmailType(emailType)))(t) {
-		var m sender.Mail
-		require.NoError(t, json.Unmarshal(e.Payload, &m))
-		out = append(out, queued{to: m.To[0].Address, uniqueID: e.UniqueID})
+
+	for _, args := range q.Inserted() {
+		if args.Kind() != "mail."+emailType {
+			continue
+		}
+
+		if env := render(t, svc, args); env != nil {
+			require.Equal(t, emailType, env.Type)
+			out = append(out, queued{to: env.Mail.To[0].Address, uniqueID: env.UniqueID})
+		}
 	}
 
 	return out
@@ -116,11 +152,11 @@ func recipients(qs []queued) []string {
 }
 
 // mailsTo counts the queued mails of emailType to the address.
-func mailsTo(t *testing.T, db *sql.DB, emailType, to string) int {
+func mailsTo(t *testing.T, svc *subscriptions.Service, q *fakequeue.Queue, emailType, to string) int {
 	t.Helper()
 
 	n := 0
-	for _, m := range mails(t, db, emailType) {
+	for _, m := range mails(t, svc, q, emailType) {
 		if m.to == to {
 			n++
 		}
@@ -149,7 +185,7 @@ func subscriptionsOf(t *testing.T, db *sql.DB, email string) []*model.EmailSubsc
 func TestSubscribable(t *testing.T) {
 	t.Parallel()
 
-	svc := subscriptions.New(nil, nil)
+	svc := subscriptions.New(nil)
 
 	for _, r := range []struct {
 		name       string
@@ -260,7 +296,7 @@ func TestSubscribe(t *testing.T) {
 			}
 
 			author := testutil.Must(factory.User(ctx, db, opts...))(t)
-			svc, c := newSvc(db)
+			svc, c, q := newSvc(db)
 
 			if r.before != nil {
 				r.before(t, svc, c, author, r.email)
@@ -269,7 +305,7 @@ func TestSubscribe(t *testing.T) {
 			prev := subscriptionsOf(t, db, r.email)
 
 			require.Equal(t, r.wantErr, svc.Subscribe(ctx, author.Username, r.email))
-			require.Equal(t, r.wantConfirms, mailsTo(t, db, confirmType, r.email))
+			require.Equal(t, r.wantConfirms, mailsTo(t, svc, q, confirmType, r.email))
 			require.Equal(t, r.wantLogged, logged(t, r.email))
 
 			subs := subscriptionsOf(t, db, r.email)
@@ -296,7 +332,7 @@ func TestSubscribe_Brake(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
-	svc, c := newSvc(db, subscriptions.WithConfirmsPerHour(1))
+	svc, c, q := newSvc(db, subscriptions.WithConfirmsPerHour(1))
 	paused := service.Invalid("", subscriptions.PausedMessage)
 
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "first@mail.test"))
@@ -304,11 +340,43 @@ func TestSubscribe_Brake(t *testing.T) {
 	require.Equal(t, paused, svc.RequestManageLink(ctx, "first@mail.test"))
 	require.Empty(t, subscriptionsOf(t, db, "second@mail.test"))
 	require.Equal(t, paused, svc.Subscribe(ctx, author.Username, "second@mail.test"))
-	require.Equal(t, 1, mailsTo(t, db, brakedType, adminAddr), "one alert per hour")
+
+	// Every alert of the hour is the same job, which the queue keeps once
+	// (TestBrakedMailArgs_UniqueByHour).
+	alerts := fakequeue.Of[subscriptions.BrakedMailArgs](q)
+	require.Len(t, alerts, 3)
+	require.Equal(t, alerts[0], alerts[1])
+	require.Equal(t, alerts[0], alerts[2])
+	require.Equal(t, adminAddr, render(t, svc, alerts[0]).Mail.To[0].Address)
 
 	c.advance(time.Hour + time.Second)
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "second@mail.test"))
-	require.Equal(t, 1, mailsTo(t, db, confirmType, "second@mail.test"))
+	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "second@mail.test"))
+}
+
+// The inserter keeps one admin alert per hour.
+func TestBrakedMailArgs_UniqueByHour(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	ins, err := jobs.NewInserter(db)
+	require.NoError(t, err)
+
+	count := func() int {
+		var n int
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM river_job WHERE kind = $1`, subscriptions.BrakedMailArgs{}.Kind()).Scan(&n))
+
+		return n
+	}
+
+	hour := time.Now().UTC().Truncate(time.Hour)
+	require.NoError(t, ins.Insert(ctx, db, subscriptions.BrakedMailArgs{Hour: hour}))
+	require.NoError(t, ins.Insert(ctx, db, subscriptions.BrakedMailArgs{Hour: hour}))
+	require.Equal(t, 1, count())
+
+	require.NoError(t, ins.Insert(ctx, db, subscriptions.BrakedMailArgs{Hour: hour.Add(time.Hour)}))
+	require.Equal(t, 2, count())
 }
 
 func TestConfirm(t *testing.T) {
@@ -317,12 +385,12 @@ func TestConfirm(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
-	svc, c := newSvc(db)
+	svc, c, q := newSvc(db)
 
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "reader@mail.test"))
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "late@mail.test"))
 
-	require.Zero(t, mailsTo(t, db, newSubType, author.Email), "the author hears of a subscriber only once confirmed")
+	require.Zero(t, mailsTo(t, svc, q, newSubType, author.Email), "the author hears of a subscriber only once confirmed")
 
 	token := subscriptionsOf(t, db, "reader@mail.test")[0].ConfirmToken
 	view, err := svc.ConfirmView(ctx, token)
@@ -338,7 +406,7 @@ func TestConfirm(t *testing.T) {
 	c.advance(time.Minute)
 	require.NoError(t, svc.Confirm(ctx, token))
 	require.Equal(t, confirmed.ConfirmedAt, subscriptionsOf(t, db, "reader@mail.test")[0].ConfirmedAt)
-	require.Equal(t, 1, mailsTo(t, db, newSubType, author.Email))
+	require.Equal(t, 1, mailsTo(t, svc, q, newSubType, author.Email))
 
 	_, err = svc.ConfirmView(ctx, "unknown")
 	require.ErrorIs(t, err, service.ErrNotFound)
@@ -356,19 +424,6 @@ func TestConfirm(t *testing.T) {
 	require.NoError(t, err, "an active subscription's link keeps working")
 }
 
-// countingQueue is the real queue that also counts every mail handed to it,
-// so a repeat the queue would drop as a duplicate still shows.
-type countingQueue struct {
-	repo.MailQueue
-	sent atomic.Int32
-}
-
-func (q *countingQueue) Send(ctx context.Context, exec repo.Executor, uniqueID, emailType string, m *sender.Mail) error {
-	q.sent.Add(1)
-
-	return q.MailQueue.Send(ctx, exec, uniqueID, emailType, m)
-}
-
 func TestConfirm_Concurrent(t *testing.T) {
 	t.Parallel()
 
@@ -377,7 +432,7 @@ func TestConfirm_Concurrent(t *testing.T) {
 	store := repo.New(db)
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
 	sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "reader@mail.test", factory.PendingSince(time.Now().UTC())))(t)
-	queue := &countingQueue{MailQueue: dbsender.NewSender(store, fakesender.New().Delivery())}
+	queue := fakequeue.New()
 
 	// Hold the subscriber's lock until both confirmations have read the
 	// pending subscription and wait for it.
@@ -401,7 +456,7 @@ func TestConfirm_Concurrent(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range errs {
 		c := &clock{t: time.Now().UTC().Add(time.Duration(i) * time.Minute)}
-		svc := subscriptions.New(store, queue, subscriptions.WithClock(c.now))
+		svc := subscriptions.New(store, subscriptions.WithJobs(queue), subscriptions.WithClock(c.now))
 
 		wg.Go(func() { errs[i] = svc.Confirm(ctx, sub.ConfirmToken) })
 	}
@@ -418,7 +473,8 @@ func TestConfirm_Concurrent(t *testing.T) {
 	wg.Wait()
 	require.NoError(t, <-done)
 	require.Equal(t, []error{nil, nil}, errs)
-	require.Equal(t, int32(1), queue.sent.Load(), "one author_new_subscriber mail")
+	require.Equal(t, []subscriptions.NewSubscriberMailArgs{{SubscriptionID: sub.ID}}, fakequeue.Of[subscriptions.NewSubscriberMailArgs](queue),
+		"one author_new_subscriber mail")
 
 	got := testutil.Must(factory.GetEmailSubscription(ctx, db, sub.ID))(t)
 	require.Equal(t, model.SubscriptionStatusActive, got.Status)
@@ -430,7 +486,7 @@ func TestUnsubscribe(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc, _ := newSvc(db)
+	svc, _, q := newSvc(db)
 
 	alice := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
 	bob := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
@@ -447,13 +503,13 @@ func TestUnsubscribe(t *testing.T) {
 
 	require.NoError(t, svc.Unsubscribe(ctx, token, toAlice.ID))
 	require.Len(t, subscriptionsOf(t, db, "reader@mail.test"), 2)
-	require.Equal(t, []string{alice.Email}, recipients(mails(t, db, leftType)))
+	require.Equal(t, []string{alice.Email}, recipients(mails(t, svc, q, leftType)))
 
 	require.NoError(t, svc.UnsubscribeAll(ctx, token))
 	_, err := factory.GetEmailSubscriber(ctx, db, "reader@mail.test")
 	require.ErrorIs(t, err, sql.ErrNoRows, "the subscriber goes with their last subscription")
-	require.Equal(t, 1, mailsTo(t, db, leftType, bob.Email))
-	require.Zero(t, mailsTo(t, db, leftType, carol.Email), "a pending subscription's author never knew of it")
+	require.Equal(t, 1, mailsTo(t, svc, q, leftType, bob.Email), "the subscription is gone, the mail still names it")
+	require.Zero(t, mailsTo(t, svc, q, leftType, carol.Email), "a pending subscription's author never knew of it")
 	require.Len(t, subscriptionsOf(t, db, "other@mail.test"), 1)
 
 	require.ErrorIs(t, svc.UnsubscribeAll(ctx, token), service.ErrNotFound)
@@ -464,7 +520,7 @@ func TestManage(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc, _ := newSvc(db)
+	svc, _, _ := newSvc(db)
 
 	zed := testutil.Must(factory.User(ctx, db, factory.WithUsername("zed"), factory.Subscribable()))(t)
 	amy := testutil.Must(factory.User(ctx, db, factory.WithUsername("amy")))(t)
@@ -490,20 +546,23 @@ func TestRequestManageLink(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc, c := newSvc(db)
+	svc, c, q := newSvc(db)
 
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
 	testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "reader@mail.test"))(t)
 
 	require.NoError(t, svc.RequestManageLink(ctx, "nobody@mail.test"))
-	require.Empty(t, mails(t, db, manageType))
+	require.Empty(t, mails(t, svc, q, manageType))
 
 	for range subscriptions.DefaultManageLinksPerAddress + 1 {
 		require.NoError(t, svc.RequestManageLink(ctx, "reader@mail.test"))
 		c.advance(time.Second)
 	}
 
-	require.Equal(t, subscriptions.DefaultManageLinksPerAddress, mailsTo(t, db, manageType, "reader@mail.test"))
+	sent := mails(t, svc, q, manageType)
+	require.Len(t, sent, subscriptions.DefaultManageLinksPerAddress)
+	require.Equal(t, subscriptions.DefaultManageLinksPerAddress, mailsTo(t, svc, q, manageType, "reader@mail.test"))
+	require.NotEqual(t, sent[0].uniqueID, sent[1].uniqueID, "each request is its own mail")
 
 	require.Equal(t, service.Invalid("email", subscriptions.InvalidEmailMessage), svc.RequestManageLink(ctx, "nope"))
 }
@@ -513,7 +572,7 @@ func TestForAuthorAndRemove(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc, _ := newSvc(db)
+	svc, _, q := newSvc(db)
 
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
 	stranger := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
@@ -545,7 +604,7 @@ func TestForAuthorAndRemove(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 	require.Len(t, subscriptionsOf(t, db, "oldest@mail.test"), 1, "the subscription to another author stays")
 	require.Equal(t, 0, testutil.Must(svc.ActiveCount(ctx, nil, author.ID))(t))
-	require.Empty(t, testutil.Must(factory.ListOutgoingEmails(ctx, db))(t), "removing a subscriber mails nobody")
+	require.Empty(t, q.Inserted(), "removing a subscriber mails nobody")
 }
 
 func TestNotifyPost(t *testing.T) {
@@ -556,13 +615,15 @@ func TestNotifyPost(t *testing.T) {
 	public := factory.Visibility(model.PostVisibilityPublic)
 
 	for _, r := range []struct {
-		name     string
-		paused   bool
-		postOpts []factory.PostOpt
-		want     int
+		name          string
+		paused        bool
+		noSubscribers bool
+		postOpts      []factory.PostOpt
+		want          bool
 	}{
-		{name: "public post", postOpts: []factory.PostOpt{public, factory.Published()}, want: 2},
+		{name: "public post", postOpts: []factory.PostOpt{public, factory.Published()}, want: true},
 		{name: "paused author", paused: true, postOpts: []factory.PostOpt{public, factory.Published()}},
+		{name: "no subscribers", noSubscribers: true, postOpts: []factory.PostOpt{public, factory.Published()}},
 		{name: "non-public post", postOpts: []factory.PostOpt{factory.Visibility(model.PostVisibilitySecondDegree), factory.Published()}},
 		{name: "draft", postOpts: []factory.PostOpt{public}},
 		{name: "already mailed", postOpts: []factory.PostOpt{public, factory.Published(), factory.SubscribersMailedAt(time.Now())}},
@@ -578,12 +639,9 @@ func TestNotifyPost(t *testing.T) {
 			author := testutil.Must(factory.User(ctx, db, opts...))(t)
 			post := testutil.Must(factory.Post(ctx, db, author.ID, r.postOpts...))(t)
 			mailedAt := post.SubscribersMailedAt
-			emails := []string{"a-" + post.ID + "@mail.test", "b-" + post.ID + "@mail.test"}
 
-			wantIDs := map[string]string{}
-			for _, e := range emails {
-				sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, e))(t)
-				wantIDs[e] = uuid.NewSHA1(uuid.NameSpaceURL, []byte(post.ID+sub.ID)).String() // as dbsender keys it
+			if !r.noSubscribers {
+				testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "a-"+post.ID+"@mail.test"))(t)
 			}
 
 			testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "pending-"+post.ID+"@mail.test", factory.PendingSince(time.Now())))(t)
@@ -593,31 +651,227 @@ func TestNotifyPost(t *testing.T) {
 			stale := *post
 			stale.SubscribersMailedAt = nil
 
-			svc, _ := newSvc(db)
+			svc, _, q := newSvc(db)
 			store := repo.New(db)
 			require.NoError(t, store.Tx(ctx, func(tx *repo.Store) error { return svc.NotifyPost(ctx, tx, author, new(stale)) }))
 			require.NoError(t, svc.NotifyPost(ctx, nil, author, new(stale)))
 
-			var got []queued
-			for _, m := range mails(t, db, postType) {
-				if strings.Contains(m.to, post.ID) {
-					got = append(got, m)
-				}
-			}
-
 			stored := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
-			if r.want == 0 {
-				require.Empty(t, got)
+			if !r.want {
+				require.Empty(t, q.Inserted())
 				require.Equal(t, mailedAt == nil, stored.SubscribersMailedAt == nil)
 
 				return
 			}
 
-			require.ElementsMatch(t, emails, recipients(got))
-			for _, m := range got {
-				require.Equal(t, wantIDs[m.to], m.uniqueID)
-			}
+			require.Equal(t, []repo.JobArgs{subscriptions.PostPublishedArgs{PostID: post.ID}}, q.Inserted(), "one event job, no mail yet")
 			require.NotNil(t, stored.SubscribersMailedAt)
+		})
+	}
+}
+
+// The event job mails the post to each subscriber active when it runs.
+func TestFanOutPost(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Visibility(model.PostVisibilityPublic), factory.Published()))(t)
+	a := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "a@mail.test"))(t)
+	testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "pending@mail.test", factory.PendingSince(time.Now())))(t)
+
+	svc, _, q := newSvc(db)
+	require.NoError(t, svc.NotifyPost(ctx, nil, author, post))
+
+	// subscribed after the post was saved, before the job ran
+	b := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "b@mail.test"))(t)
+
+	event := fakequeue.Of[subscriptions.PostPublishedArgs](q)
+	require.Len(t, event, 1)
+	require.NoError(t, svc.FanOutPost(ctx, event[0]))
+
+	require.ElementsMatch(t, []subscriptions.NewPostMailArgs{
+		{PostID: post.ID, SubscriptionID: a.ID},
+		{PostID: post.ID, SubscriptionID: b.ID},
+	}, fakequeue.Of[subscriptions.NewPostMailArgs](q))
+
+	require.ElementsMatch(t, []queued{
+		{to: "a@mail.test", uniqueID: post.ID + a.ID},
+		{to: "b@mail.test", uniqueID: post.ID + b.ID},
+	}, mails(t, svc, q, postType))
+}
+
+// The event job re-checks the post and its author when it runs.
+func TestFanOutPost_RechecksAtRunTime(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	for name, change := range map[string]string{
+		"post made draft":       `UPDATE posts SET published_at = NULL WHERE id = $1`,
+		"post no longer public": `UPDATE posts SET visibility_radius = 'second_degree' WHERE id = $1`,
+		"author paused":         `UPDATE users SET email_subscriptions_enabled = false WHERE id = (SELECT user_id FROM posts WHERE id = $1)`,
+		"post deleted":          `DELETE FROM posts WHERE id = $1`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+			post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Visibility(model.PostVisibilityPublic), factory.Published()))(t)
+			testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "reader-"+post.ID+"@mail.test"))(t)
+
+			svc, _, q := newSvc(db)
+			require.NoError(t, svc.NotifyPost(ctx, nil, author, post))
+
+			_, err := db.ExecContext(ctx, change, post.ID)
+			require.NoError(t, err)
+
+			require.NoError(t, svc.FanOutPost(ctx, subscriptions.PostPublishedArgs{PostID: post.ID}))
+			require.Empty(t, fakequeue.Of[subscriptions.NewPostMailArgs](q))
+		})
+	}
+}
+
+// Mails are rendered as the rows are when they are sent: what changed since
+// the enqueue sends nothing.
+func TestRenderMails_RecheckAtSend(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+
+	t.Run("confirmation of a subscription unsubscribed", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, q := newSvc(db)
+		require.NoError(t, svc.Subscribe(ctx, author.Username, "gone@mail.test"))
+
+		sub := subscriptionsOf(t, db, "gone@mail.test")[0]
+		subscriber := testutil.Must(factory.GetEmailSubscriber(ctx, db, "gone@mail.test"))(t)
+		require.NoError(t, svc.Unsubscribe(ctx, subscriber.ManageToken, sub.ID))
+
+		require.Nil(t, render(t, svc, fakequeue.Of[subscriptions.ConfirmMailArgs](q)[0]))
+	})
+
+	t.Run("confirmation of a subscription confirmed", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, q := newSvc(db)
+		require.NoError(t, svc.Subscribe(ctx, author.Username, "quick@mail.test"))
+		require.NoError(t, svc.Confirm(ctx, subscriptionsOf(t, db, "quick@mail.test")[0].ConfirmToken))
+
+		require.Nil(t, render(t, svc, fakequeue.Of[subscriptions.ConfirmMailArgs](q)[0]))
+	})
+
+	t.Run("confirmation whose link expired", func(t *testing.T) {
+		t.Parallel()
+
+		svc, c, q := newSvc(db)
+		require.NoError(t, svc.Subscribe(ctx, author.Username, "slow@mail.test"))
+		c.advance(subscriptions.DefaultConfirmLifetime)
+
+		require.Nil(t, render(t, svc, fakequeue.Of[subscriptions.ConfirmMailArgs](q)[0]))
+	})
+
+	t.Run("new subscriber removed", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, q := newSvc(db)
+		sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "removed@mail.test", factory.PendingSince(time.Now())))(t)
+		require.NoError(t, svc.Confirm(ctx, sub.ConfirmToken))
+		require.NoError(t, svc.Remove(ctx, author, sub.ID))
+
+		require.Nil(t, render(t, svc, fakequeue.Of[subscriptions.NewSubscriberMailArgs](q)[0]))
+	})
+
+	t.Run("manage link of an address that left", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, q := newSvc(db)
+		sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "left@mail.test"))(t)
+		require.NoError(t, svc.RequestManageLink(ctx, "left@mail.test"))
+		require.NoError(t, svc.Remove(ctx, author, sub.ID))
+
+		require.Nil(t, render(t, svc, fakequeue.Of[subscriptions.ManageLinkMailArgs](q)[0]))
+	})
+
+	t.Run("post to a subscription ended", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, _ := newSvc(db)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Visibility(model.PostVisibilityPublic), factory.Published()))(t)
+		sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "ended@mail.test"))(t)
+		args := subscriptions.NewPostMailArgs{PostID: post.ID, SubscriptionID: sub.ID}
+		require.NotNil(t, render(t, svc, args))
+
+		require.NoError(t, svc.Remove(ctx, author, sub.ID))
+		require.Nil(t, render(t, svc, args))
+	})
+
+	t.Run("post made draft", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, _ := newSvc(db)
+		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Visibility(model.PostVisibilityPublic), factory.Published()))(t)
+		sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "draft@mail.test"))(t)
+
+		_, err := db.ExecContext(ctx, `UPDATE posts SET published_at = NULL WHERE id = $1`, post.ID)
+		require.NoError(t, err)
+		require.Nil(t, render(t, svc, subscriptions.NewPostMailArgs{PostID: post.ID, SubscriptionID: sub.ID}))
+	})
+
+	t.Run("subscriber left, author gone", func(t *testing.T) {
+		t.Parallel()
+
+		svc, _, _ := newSvc(db)
+		require.Nil(t, render(t, svc, subscriptions.SubscriberLeftMailArgs{
+			SubscriptionID: "s", AuthorID: "00000000-0000-0000-0000-000000000000", SubscriberEmail: "x@mail.test",
+		}))
+	})
+}
+
+// Every mail kind renders the mail it names, to its recipient, with a fact
+// of the rows it was enqueued for.
+func TestRenderMails_EveryKind(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	svc, _, _ := newSvc(db)
+
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Visibility(model.PostVisibilityPublic), factory.Published(), factory.WithSubject("Hello subscribers")))(t)
+	active := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "active@mail.test"))(t)
+	pending := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "pending@mail.test", factory.PendingSince(time.Now().UTC())))(t)
+	hour := time.Date(2026, 11, 5, 10, 0, 0, 0, time.UTC)
+
+	for _, tt := range []struct {
+		args    repo.JobArgs
+		emailTp string
+		to      string
+		body    string
+	}{
+		{subscriptions.ConfirmMailArgs{SubscriptionID: pending.ID}, confirmType, "pending@mail.test", pending.ConfirmToken},
+		{subscriptions.ManageLinkMailArgs{SubscriberID: active.SubscriberID, RequestID: "r1"}, manageType, "active@mail.test", active.Subscriber.ManageToken},
+		{subscriptions.NewPostMailArgs{PostID: post.ID, SubscriptionID: active.ID}, postType, "active@mail.test", "Hello subscribers"},
+		{subscriptions.NewSubscriberMailArgs{SubscriptionID: active.ID}, newSubType, author.Email, "active@mail.test"},
+		{subscriptions.SubscriberLeftMailArgs{SubscriptionID: "gone", AuthorID: author.ID, SubscriberEmail: "left@mail.test"}, leftType, author.Email, "left@mail.test"},
+		{subscriptions.BrakedMailArgs{Hour: hour}, brakedType, adminAddr, ""},
+	} {
+		t.Run(tt.args.Kind(), func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, "mail."+tt.emailTp, tt.args.Kind())
+
+			env := render(t, svc, tt.args)
+			require.NotNil(t, env)
+			require.Equal(t, tt.emailTp, env.Type)
+			require.NotEmpty(t, env.UniqueID)
+			require.Equal(t, tt.to, env.Mail.To[0].Address)
+			require.Contains(t, env.Mail.Text, tt.body)
 		})
 	}
 }
@@ -627,7 +881,7 @@ func TestPrune(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc, c := newSvc(db)
+	svc, c, _ := newSvc(db)
 	store := repo.New(db)
 
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)

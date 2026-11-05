@@ -26,6 +26,16 @@ func (s *Store) SubscriberByEmail(ctx context.Context, email string) (*model.Ema
 	return sub, nil
 }
 
+// SubscriberByID returns the subscriber, or ErrNotFound.
+func (s *Store) SubscriberByID(ctx context.Context, id string) (*model.EmailSubscriber, error) {
+	sub := new(model.EmailSubscriber)
+	if err := s.query().NewSelect().Model(sub).Where("id = ?", id).Scan(ctx); err != nil {
+		return nil, notFound(err)
+	}
+
+	return sub, nil
+}
+
 // SubscriberByManageToken returns the subscriber the manage token belongs
 // to, or ErrNotFound.
 func (s *Store) SubscriberByManageToken(ctx context.Context, token string) (*model.EmailSubscriber, error) {
