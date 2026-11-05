@@ -73,7 +73,7 @@ type Limits struct {
 // Service is email subscriptions to authors.
 type Service struct {
 	store   *repo.Store
-	sender  repo.MailQueue
+	jobs    repo.JobQueue
 	ident   mail.Identity
 	checker *emailaddr.Checker
 	limits  Limits
@@ -165,12 +165,11 @@ func WithLogger(l *zap.Logger) Option {
 	}
 }
 
-// New builds the service. sender may be nil when no mail is sent, as for the
-// pruner.
-func New(store *repo.Store, snd repo.MailQueue, opts ...Option) *Service {
+// New builds the service. Its mail is enqueued as jobs on the queue WithJobs
+// sets; the pruner needs none.
+func New(store *repo.Store, opts ...Option) *Service {
 	s := &Service{
 		store:   store,
-		sender:  snd,
 		checker: emailaddr.NewChecker(),
 		limits: Limits{
 			ConfirmLifetime:       DefaultConfirmLifetime,
@@ -320,7 +319,7 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 			return err
 		}
 
-		return s.send(ctx, tx, mail.SubscriberConfirm(s.ident.Site, s.ident.From, author, subscriber, sub))
+		return tx.Enqueue(ctx, s.jobs, ConfirmMailArgs{SubscriptionID: sub.ID})
 	})
 }
 
@@ -351,8 +350,7 @@ func (s *Service) Confirm(ctx context.Context, token string) error {
 			return err
 		}
 
-		subscriber, err := notFound(tx.LockSubscriber(ctx, sub.SubscriberID))
-		if err != nil {
+		if _, err := notFound(tx.LockSubscriber(ctx, sub.SubscriberID)); err != nil {
 			return err
 		}
 
@@ -361,17 +359,12 @@ func (s *Service) Confirm(ctx context.Context, token string) error {
 			return err
 		}
 
-		author, err := tx.UserByID(ctx, sub.AuthorID)
-		if err != nil {
-			return err
-		}
-
 		sub.Status, sub.ConfirmedAt = model.SubscriptionStatusActive, new(s.now())
 		if err := tx.SaveEmailSubscription(ctx, sub, "status", "confirmed_at"); err != nil {
 			return err
 		}
 
-		return s.send(ctx, tx, mail.AuthorNewSubscriber(s.ident.Site, s.ident.From, author, subscriber, sub))
+		return tx.Enqueue(ctx, s.jobs, NewSubscriberMailArgs{SubscriptionID: sub.ID})
 	})
 }
 
@@ -458,7 +451,8 @@ func (s *Service) unsubscribe(ctx context.Context, manageToken string, match fun
 
 		for _, sub := range subs {
 			if sub.Status == model.SubscriptionStatusActive {
-				if err := s.send(ctx, tx, mail.AuthorSubscriberLeft(s.ident.Site, s.ident.From, sub.Author, subscriber, sub)); err != nil {
+				left := SubscriberLeftMailArgs{SubscriptionID: sub.ID, AuthorID: sub.AuthorID, SubscriberEmail: subscriber.Email}
+				if err := tx.Enqueue(ctx, s.jobs, left); err != nil {
 					return err
 				}
 			}
@@ -500,7 +494,7 @@ func (s *Service) RequestManageLink(ctx context.Context, email string) error {
 			return err
 		}
 
-		return s.send(ctx, tx, mail.SubscriberManageLink(s.ident.Site, s.ident.From, subscriber, now.UTC().Format(time.RFC3339Nano)))
+		return tx.Enqueue(ctx, s.jobs, ManageLinkMailArgs{SubscriberID: subscriber.ID, RequestID: now.UTC().Format(time.RFC3339Nano)})
 	})
 }
 
@@ -565,12 +559,13 @@ func (s *Service) ActiveCount(ctx context.Context, tx *repo.Store, authorID stri
 	return s.on(tx).EmailSubscriptionCount(ctx, authorID, model.SubscriptionStatusActive)
 }
 
-// NotifyPost queues the mail of a published post to the author's active
-// subscribers, once per post, inside the caller's transaction (a transaction
-// of its own when tx is nil), so the post is marked mailed only together with
-// its mails. It does nothing for an author who can't be subscribed to, a post
-// that isn't public and published, a post already mailed, or an author
-// without subscribers.
+// NotifyPost marks a published post mailed to the author's subscribers and
+// enqueues the job that mails them (PostPublishedArgs), once per post, inside
+// the caller's transaction (a transaction of its own when tx is nil), so the
+// post is marked only together with its job. It does nothing for an author
+// who can't be subscribed to, a post that isn't public and published, a post
+// already mailed, or an author without subscribers. The job picks the
+// subscribers as they are when it runs.
 func (s *Service) NotifyPost(ctx context.Context, tx *repo.Store, author *model.User, post *model.Post) error {
 	if !s.Subscribable(author) || post.UserID != author.ID || post.VisibilityRadius != model.PostVisibilityPublic ||
 		post.PublishedAt == nil || post.SubscribersMailedAt != nil {
@@ -578,8 +573,8 @@ func (s *Service) NotifyPost(ctx context.Context, tx *repo.Store, author *model.
 	}
 
 	return s.on(tx).Tx(ctx, func(tx *repo.Store) error {
-		subs, err := tx.EmailSubscriptionsOfAuthor(ctx, author.ID, model.SubscriptionStatusActive)
-		if err != nil || len(subs) == 0 {
+		active, err := tx.EmailSubscriptionCount(ctx, author.ID, model.SubscriptionStatusActive)
+		if err != nil || active == 0 {
 			return err
 		}
 
@@ -588,10 +583,8 @@ func (s *Service) NotifyPost(ctx context.Context, tx *repo.Store, author *model.
 			return err
 		}
 
-		for _, sub := range subs {
-			if err := s.send(ctx, tx, mail.SubscriberNewPost(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, author, sub.Subscriber, sub, post)); err != nil {
-				return err
-			}
+		if err := tx.Enqueue(ctx, s.jobs, PostPublishedArgs{PostID: post.ID}); err != nil {
+			return err
 		}
 
 		post.SubscribersMailedAt = &now
@@ -642,7 +635,7 @@ func (s *Service) Prune(ctx context.Context) error {
 // address checks what both forms check before they touch a mailbox: the
 // address's syntax and the site-wide brake. Past ConfirmsPerHour
 // confirmation mails in the last hour the forms are paused, and the admin is
-// told once per hour.
+// told once per hour: the alert's job is unique by hour.
 func (s *Service) address(ctx context.Context, email string) (emailaddr.Address, error) {
 	if !validation.EmailRE.MatchString(emailaddr.Normalize(email)) {
 		return emailaddr.Address{}, service.Invalid("email", InvalidEmailMessage)
@@ -656,7 +649,7 @@ func (s *Service) address(ctx context.Context, email string) (emailaddr.Address,
 	}
 
 	if sent >= s.limits.ConfirmsPerHour {
-		if err := s.send(ctx, s.store, mail.AdminSubscriptionsBraked(s.ident.Site, s.ident.From, s.ident.AdminAddress, now)); err != nil {
+		if err := s.store.Enqueue(ctx, s.jobs, BrakedMailArgs{Hour: now.UTC().Truncate(time.Hour)}); err != nil {
 			return emailaddr.Address{}, err
 		}
 
@@ -678,12 +671,6 @@ func (s *Service) underCap(ctx context.Context, tx *repo.Store, canonical string
 // longer works at now.
 func (s *Service) expired(sub *model.EmailSubscription, now time.Time) bool {
 	return !now.Before(sub.ConfirmSentAt.Add(s.limits.ConfirmLifetime))
-}
-
-// send queues a mail on store, so inside Tx it goes out only if the change
-// commits.
-func (s *Service) send(ctx context.Context, store *repo.Store, e *mail.Envelope) error {
-	return store.SendMail(ctx, s.sender, e.UniqueID, e.Type, e.Mail)
 }
 
 // on is tx, or the service's store when tx is nil.

@@ -329,7 +329,7 @@ func TestSubscriptionsOptions(t *testing.T) {
 	require.NoError(t, err)
 
 	limitsOf := func(cfg config.Serve) subscriptions.Limits {
-		return subscriptions.New(nil, nil, subscriptionsOptions(cfg.Subscriptions, nil)...).Limits()
+		return subscriptions.New(nil, subscriptionsOptions(cfg.Subscriptions, nil)...).Limits()
 	}
 	base := limitsOf(baseSettings)
 
