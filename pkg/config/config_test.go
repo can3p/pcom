@@ -144,6 +144,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"MJ_APIKEY_PUBLIC", "other-public", func(s *config.Serve) any { return s.Mail.Mailjet.ApiKeyPublic }, nil, "other-public"},
 		{"MJ_APIKEY_PRIVATE", "other-private", func(s *config.Serve) any { return s.Mail.Mailjet.ApiKeyPrivate.Reveal() }, nil, "other-private"},
 		{"MJ_API_BASE", "http://tommy:8822", func(s *config.Serve) any { return s.Mail.Mailjet.BaseURL }, "", "http://tommy:8822"},
+		{"MJ_TIMEOUT", "5s", func(s *config.Serve) any { return s.Mail.Mailjet.Timeout }, 30 * time.Second, 5 * time.Second},
 		{"USER_MEDIA_ENDPOINT", "http://tommy:9000", func(s *config.Serve) any { return s.Media.Endpoint }, nil, "http://tommy:9000"},
 		{"USER_MEDIA_BUCKET", "pcom-media", func(s *config.Serve) any { return s.Media.Bucket }, nil, "pcom-media"},
 		{"USER_MEDIA_REGION", "eu-west-1", func(s *config.Serve) any { return s.Media.Region }, nil, "eu-west-1"},
