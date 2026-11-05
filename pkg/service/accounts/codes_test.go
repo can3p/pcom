@@ -2,6 +2,7 @@ package accounts_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,7 +25,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/testlog"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,7 +42,7 @@ func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
 // codeSvc is the accounts service over the real mail queue, timed by c and
 // keyed with key ("" for none).
-func codeSvc(db *sqlx.DB, c *clock, key string) *accounts.Service {
+func codeSvc(db *sql.DB, c *clock, key string) *accounts.Service {
 	queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
 	opts := []accounts.Option{accounts.WithClock(c.now)}
 	if key != "" {
@@ -55,7 +55,7 @@ func codeSvc(db *sqlx.DB, c *clock, key string) *accounts.Service {
 var codeRe = regexp.MustCompile(`login code is (\d{8})`)
 
 // mailedCodes returns the codes queued for the address, in no order.
-func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
+func mailedCodes(t *testing.T, db *sql.DB, to string) []string {
 	t.Helper()
 
 	var codes []string
@@ -72,7 +72,7 @@ func mailedCodes(t *testing.T, db *sqlx.DB, to string) []string {
 
 // start starts a login for the user's address and returns the attempt and
 // the one code it mailed.
-func start(t *testing.T, ctx context.Context, db *sqlx.DB, svc *accounts.Service, u *model.User, returnURL string) (string, string) {
+func start(t *testing.T, ctx context.Context, db *sql.DB, svc *accounts.Service, u *model.User, returnURL string) (string, string) {
 	t.Helper()
 
 	before := mailedCodes(t, db, u.Email)
@@ -89,7 +89,7 @@ func start(t *testing.T, ctx context.Context, db *sqlx.DB, svc *accounts.Service
 }
 
 // signupConfirmed counts the admin's "confirmed email" notices naming email.
-func signupConfirmed(t *testing.T, db *sqlx.DB, email string) int {
+func signupConfirmed(t *testing.T, db *sql.DB, email string) int {
 	t.Helper()
 
 	n := 0
@@ -561,7 +561,7 @@ func TestRunPruner(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	pruner := func(db *sqlx.DB, c *clock) *accounts.Service {
+	pruner := func(db *sql.DB, c *clock) *accounts.Service {
 		return accounts.New(repo.New(db), nil, nil, accounts.WithClock(c.now), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{PruneEvery: time.Millisecond}))
 	}
 

@@ -94,7 +94,7 @@ func TestCommentQueries(t *testing.T) {
 		require.NoError(t, store.CountNewComment(ctx, post.ID))
 
 		var n int64
-		require.NoError(t, db.GetContext(ctx, &n, "SELECT comments_number FROM post_stats WHERE post_id = $1", post.ID))
+		require.NoError(t, db.QueryRowContext(ctx, "SELECT comments_number FROM post_stats WHERE post_id = $1", post.ID).Scan(&n))
 		require.EqualValues(t, 2, n)
 	})
 }

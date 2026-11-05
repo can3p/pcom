@@ -7,7 +7,6 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 )
 
 type contextKey string
@@ -34,7 +33,7 @@ func GetUser(c *gin.Context) *User {
 	return v.(*User)
 }
 
-func SetUser(c *gin.Context, db *sqlx.DB, userID string) error {
+func SetUser(c *gin.Context, db *sql.DB, userID string) error {
 	u, err := repo.New(db).UserByID(c.Request.Context(), userID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return sql.ErrNoRows

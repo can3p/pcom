@@ -2,6 +2,7 @@ package mail_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,12 +11,11 @@ import (
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
 // newUser wraps the factory call this file repeats.
-func newUser(t *testing.T, ctx context.Context, db *sqlx.DB) *model.User {
+func newUser(t *testing.T, ctx context.Context, db *sql.DB) *model.User {
 	t.Helper()
 
 	return testutil.Must(factory.User(ctx, db))(t)

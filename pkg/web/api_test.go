@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"mime/multipart"
 	"net/http"
@@ -25,7 +26,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +81,7 @@ func multipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Cont
 
 // postsService is the posts service over db and a sender that records
 // instead of sending.
-func postsService(db *sqlx.DB, s repo.MailQueue) *posts.Service {
+func postsService(db *sql.DB, s repo.MailQueue) *posts.Service {
 	return registry.New(db, registry.Deps{Sender: s, Site: testSite}).Posts
 }
 

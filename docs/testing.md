@@ -89,7 +89,7 @@ happen is tested in the browser, never over plain HTTP.
 ## Database: pkg/testutil/testdb
 
 `db := testdb.New(t)` returns a fresh, fully migrated Postgres database, dropped when the test ends. `db.DB`
-is a `*sqlx.DB` and also a `repo.Executor`, so it goes directly into `repo.New`, `repo.Using` and factory calls.
+is a `*sql.DB` and also a `repo.Executor`, so it goes directly into `repo.New`, `repo.Using` and factory calls.
 It connects through pgx, the driver the server uses.
 `testdb.New` skips the test under `-short`, so a test meant to need no database must not call it: under
 `make test-short` it would pass by not running. `db.URL` is its connection string, for handing to a subprocess (this is how `e2e.Start` gives the real binary

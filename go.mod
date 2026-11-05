@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6
 	github.com/badoux/checkmail v1.2.4
 	github.com/can3p/anti-disposable-email v0.0.0-20230623054934-598d3044afb0
-	github.com/can3p/gogo v0.3.0
+	github.com/can3p/gogo v0.4.0
 	github.com/davidbyttow/govips/v2 v2.20.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gin-contrib/sessions v1.1.3
@@ -22,7 +22,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mileusna/useragent v1.3.5
@@ -92,6 +91,7 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.30.3 // indirect
+	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect

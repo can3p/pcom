@@ -10,6 +10,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -35,7 +36,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/can3p/pcom/pkg/testutil/wiremock"
-	"github.com/jmoiron/sqlx"
 )
 
 // SessionSalt is the SESSION_SALT of the app under test. The login code key
@@ -169,7 +169,7 @@ type App struct {
 	URL string
 	// DB is the app's database, for creating fixtures with the factories and
 	// asserting on rows.
-	DB *sqlx.DB
+	DB *sql.DB
 
 	tommy *tommy.Tommy
 
@@ -194,7 +194,7 @@ func (a *App) WaitMailSent(t testing.TB) {
 
 	for {
 		var unsent int
-		if err := a.DB.Get(&unsent, `SELECT count(*) FROM outgoing_emails WHERE status = 'new'`); err != nil {
+		if err := a.DB.QueryRow(`SELECT count(*) FROM outgoing_emails WHERE status = 'new'`).Scan(&unsent); err != nil {
 			t.Fatalf("e2e: counting unsent mail: %v", err)
 		}
 
@@ -216,7 +216,7 @@ func (a *App) QueuedMails(t testing.TB) int {
 	t.Helper()
 
 	var n int
-	if err := a.DB.Get(&n, `SELECT count(*) FROM outgoing_emails`); err != nil {
+	if err := a.DB.QueryRow(`SELECT count(*) FROM outgoing_emails`).Scan(&n); err != nil {
 		t.Fatalf("e2e: counting queued mail: %v", err)
 	}
 

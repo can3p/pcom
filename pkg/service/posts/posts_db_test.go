@@ -2,6 +2,7 @@ package posts_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -12,12 +13,11 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
 // svc is the service over db and a media storage.
-func svc(db *sqlx.DB, storage server.MediaStorage) *posts.Service {
+func svc(db *sql.DB, storage server.MediaStorage) *posts.Service {
 	return posts.New(repo.New(db), nil, storage)
 }
 

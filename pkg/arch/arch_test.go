@@ -47,7 +47,6 @@ var exempt = []string{
 var ormPackages = []string{
 	"github.com/uptrace/bun/",
 	"github.com/jackc/pgx/",
-	"github.com/jmoiron/sqlx",
 	"database/sql",
 }
 

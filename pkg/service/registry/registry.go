@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"database/sql"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
@@ -17,7 +18,6 @@ import (
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
-	"github.com/jmoiron/sqlx"
 )
 
 // Deps is what services are built from besides the database.
@@ -63,7 +63,7 @@ type Services struct {
 	Proofread   *proofreadsvc.Service
 }
 
-func New(db *sqlx.DB, deps Deps) *Services {
+func New(db *sql.DB, deps Deps) *Services {
 	store := repo.New(db)
 	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 

@@ -2,12 +2,12 @@ package repo
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the pgx database/sql driver
-	"github.com/jmoiron/sqlx"
 	"github.com/uptrace/bun"
 )
 
@@ -125,8 +125,13 @@ func (s *Store) CommentForMail(ctx context.Context, id string) (*model.PostComme
 // ConnectPostgres opens a store on the database at dsn, for commands that
 // run outside the web server. Close it with the returned function.
 func ConnectPostgres(dsn string) (*Store, func() error, error) {
-	db, err := sqlx.Connect("pgx", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
 		return nil, nil, err
 	}
 

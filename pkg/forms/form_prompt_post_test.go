@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
@@ -10,11 +11,10 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
-func newPromptForm(t *testing.T, db *sqlx.DB, sender *fakesender.Sender, u *model.User, directConnections []*model.User, message, recipientHandle string) *forms.PostPromptForm {
+func newPromptForm(t *testing.T, db *sql.DB, sender *fakesender.Sender, u *model.User, directConnections []*model.User, message, recipientHandle string) *forms.PostPromptForm {
 	t.Helper()
 	form, ok := forms.PostPromptFormNew(postsService(db, sender), u, directConnections).(*forms.PostPromptForm)
 	require.True(t, ok)

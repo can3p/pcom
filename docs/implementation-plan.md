@@ -74,7 +74,7 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   is matched by a check (`pkg/arch` matched the old executor's package path). Each becomes a rule the tasks
   follow or a test that pins it.
 - **Dropping a dependency starts at its other requirers.** `go mod graph | grep <module>@` lists the modules
-  that also require it, and a library whose API takes its types (gogo's `transact` took `*sqlx.DB`) must
+  that also require it, and a library whose API takes its types (gogo's `transact` took `*sqlx.DB` until v0.4.0) must
   change first; until then the module stays in `go.mod` as indirect, and the lint guard bans the import,
   not the module.
 - **Check a wrapper's fit before converting to it.** List which handlers match its exact shape; a wrapper

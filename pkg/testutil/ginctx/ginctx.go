@@ -5,6 +5,7 @@
 package ginctx
 
 import (
+	"database/sql"
 	"io"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +16,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +38,7 @@ type Option func(*gin.Context)
 // the request, the way auth.Auth does once it reads a logged-in session.
 // db must already hold a row for userID: pgsession.SetUser looks it up
 // eagerly and fails the test if that lookup errors.
-func WithUser(t testing.TB, db *sqlx.DB, userID string) Option {
+func WithUser(t testing.TB, db *sql.DB, userID string) Option {
 	return func(c *gin.Context) {
 		t.Helper()
 		require.NoError(t, pgsession.SetUser(c, db, userID))

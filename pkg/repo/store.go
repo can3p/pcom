@@ -6,14 +6,13 @@ import (
 	"errors"
 
 	"github.com/can3p/gogo/util/transact"
-	"github.com/jmoiron/sqlx"
 )
 
 // ErrNotFound replaces sql.ErrNoRows at the repository boundary.
 var ErrNotFound = errors.New("not found")
 
 // Executor runs queries: the database or a transaction. *sql.DB, *sql.Tx
-// and *sqlx.DB all satisfy it.
+// and *sql.DB all satisfy it.
 type Executor interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
@@ -24,12 +23,12 @@ type Executor interface {
 // aggregate (shares.go, posts.go, ...). They take no executor: the Store
 // carries it, either the database or the transaction it was handed by Tx.
 type Store struct {
-	db   *sqlx.DB // nil inside a transaction
+	db   *sql.DB // nil inside a transaction
 	exec Executor
 }
 
 // New returns a Store over db.
-func New(db *sqlx.DB) *Store {
+func New(db *sql.DB) *Store {
 	return &Store{db: db, exec: db}
 }
 

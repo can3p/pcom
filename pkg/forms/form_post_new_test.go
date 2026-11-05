@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +22,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +33,7 @@ const missingID = "00000000-0000-0000-0000-000000000000"
 
 // postsService is the service the forms call, over db and a sender that
 // records instead of sending.
-func postsService(db *sqlx.DB, s repo.MailQueue) *posts.Service {
+func postsService(db *sql.DB, s repo.MailQueue) *posts.Service {
 	return registry.New(db, registry.Deps{Sender: s}).Posts
 }
 
@@ -71,7 +71,7 @@ func fillPost(form *forms.PostForm, action forms.PostFormAction) *forms.PostForm
 }
 
 // savePost saves the form, runs the returned action and returns the response.
-func savePost(t *testing.T, ctx context.Context, db *sqlx.DB, form *forms.PostForm) *httptest.ResponseRecorder {
+func savePost(t *testing.T, ctx context.Context, db *sql.DB, form *forms.PostForm) *httptest.ResponseRecorder {
 	t.Helper()
 	c, w := newCtx(t)
 	action := testutil.Must(form.Save(ctx))(t)

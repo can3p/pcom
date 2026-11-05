@@ -14,13 +14,12 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
 // commentsNumber is the comment counter of a post, zero without a stat row.
-func commentsNumber(t *testing.T, ctx context.Context, db *sqlx.DB, postID string) int64 {
+func commentsNumber(t *testing.T, ctx context.Context, db *sql.DB, postID string) int64 {
 	t.Helper()
 
 	stat, err := factory.GetPostStat(ctx, db, postID)

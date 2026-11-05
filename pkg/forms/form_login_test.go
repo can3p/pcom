@@ -2,6 +2,7 @@ package forms_test
 
 import (
 	"context"
+	"database/sql"
 	gogoforms "github.com/can3p/gogo/forms"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -22,7 +23,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -33,7 +33,7 @@ const (
 )
 
 // codeAccounts is the accounts service with the code key logging in needs.
-func codeAccounts(db *sqlx.DB, snd *fakesender.Sender) *accounts.Service {
+func codeAccounts(db *sql.DB, snd *fakesender.Sender) *accounts.Service {
 	return accounts.New(repo.New(db), snd, nil, accounts.WithCodeKey("test-key"))
 }
 

@@ -24,7 +24,6 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +65,7 @@ func (e *failingExecutor) QueryRowContext(ctx context.Context, query string, arg
 }
 
 // postsService is the posts service over db.
-func postsService(db *sqlx.DB) *posts.Service {
+func postsService(db *sql.DB) *posts.Service {
 	return registry.New(db, registry.Deps{}).Posts
 }
 
@@ -225,7 +224,7 @@ func TestEditPost(t *testing.T) {
 
 // controlsPage runs what the /controls route does: the service gathers the
 // data, the page builder shapes it.
-func controlsPage(t *testing.T, db *sqlx.DB, user *model.User) *ControlsPage {
+func controlsPage(t *testing.T, db *sql.DB, user *model.User) *ControlsPage {
 	t.Helper()
 
 	view := testutil.Must(connections.New(repo.New(db)).Controls(context.Background(), user))(t)
