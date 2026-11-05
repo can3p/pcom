@@ -12,7 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -23,22 +23,27 @@ func TestJoinWaitingList(t *testing.T) {
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
-	s := fakesender.New()
+	q := fakequeue.New()
+	svc := svcWith(db, q)
 
-	require.NoError(t, svcWith(db, s).JoinWaitingList(ctx, " Waiter@Example.test ", "curious", "index_page"))
+	require.NoError(t, svc.JoinWaitingList(ctx, " Waiter@Example.test ", "curious", "index_page"))
 
-	sent := s.Sent()
+	require.Len(t, q.Inserted(), 2)
+	require.Len(t, fakequeue.Of[accounts.ConfirmWaitingListMailArgs](q), 1)
+	require.Len(t, fakequeue.Of[accounts.AdminNewWaitingListMemberMailArgs](q), 1)
+
+	sent := rendered(t, ctx, svc, q)
 	require.Len(t, sent, 2)
 	confirms := 0
 	for _, m := range sent {
-		if m.EmailType == "waiting_list_confirm" {
+		if m.Type == "waiting_list_confirm" {
 			confirms++
 		}
 	}
 	require.Equal(t, 1, confirms)
-	require.Equal(t, "waiting_list_confirm", sent[0].EmailType)
+	require.Equal(t, "waiting_list_confirm", sent[0].Type)
 	require.Equal(t, "waiter@example.test", sent[0].Mail.To[0].Address)
-	require.Equal(t, "new_waiting_list_member", sent[1].EmailType)
+	require.Equal(t, "new_waiting_list_member", sent[1].Type)
 
 	row := testutil.Must(factory.GetSignupRequest(ctx, db, sent[0].UniqueID))(t)
 	require.Equal(t, "waiter@example.test", row.Email)
@@ -55,8 +60,7 @@ func TestConfirmations(t *testing.T) {
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
-	s := fakesender.New()
-	svc := svcWith(db, s)
+	svc := svcWith(db, fakequeue.New())
 
 	t.Run("a waiting list link confirms the entry", func(t *testing.T) {
 		t.Parallel()

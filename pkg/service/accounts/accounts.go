@@ -25,8 +25,7 @@ import (
 )
 
 type Service struct {
-	store  *repo.Store
-	sender repo.MailQueue
+	store *repo.Store
 	// jobs enqueues background jobs; see jobs.go.
 	jobs  repo.JobQueue
 	feeds *feeds.Service
@@ -42,8 +41,8 @@ type Service struct {
 	logger  *zap.Logger
 }
 
-// New builds the service. sender may be nil for a command line script that
-// sends no mail; feeds may be nil when the settings page is not used.
+// New builds the service. The mail queue parameter is unused: mail goes out
+// as jobs on the queue WithJobs sets. feeds may be nil when the settings page is not used.
 // Option changes how New builds the service.
 type Option func(*Service)
 
@@ -120,8 +119,8 @@ func WithLoginLimits(l LoginLimits) Option {
 	}
 }
 
-func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
-	s := &Service{store: store, sender: snd, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, stylesMaxLength: DefaultUserStylesMaxLength, now: time.Now, login: DefaultLoginLimits, logger: zap.NewNop()}
+func New(store *repo.Store, _ repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
+	s := &Service{store: store, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, stylesMaxLength: DefaultUserStylesMaxLength, now: time.Now, login: DefaultLoginLimits, logger: zap.NewNop()}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -129,16 +128,16 @@ func New(store *repo.Store, snd repo.MailQueue, subscriptions *feeds.Service, op
 	return s
 }
 
-// send queues a mail on the store, so inside Tx it goes out only if the
-// change commits.
-func (s *Service) send(ctx context.Context, store *repo.Store, e *mail.Envelope) error {
-	return store.SendMail(ctx, s.sender, e.UniqueID, e.Type, e.Mail)
-}
+// SendAdminMail queues the page failure report for the site admin outside of
+// any change: report is the request, the panic and its stack, and user the
+// visitor who hit the page, nil when not logged in.
+func (s *Service) SendAdminMail(ctx context.Context, report string, user *model.User) error {
+	args := AdminPageFailureMailArgs{Report: report}
+	if user != nil {
+		args.UserID = user.ID
+	}
 
-// SendAdminMail queues a notification for the site admin outside of any
-// change, for the page failure report.
-func (s *Service) SendAdminMail(ctx context.Context, e *mail.Envelope) error {
-	return s.send(ctx, s.store, e)
+	return s.store.Enqueue(ctx, s.jobs, args)
 }
 
 // UserByID loads the user a session belongs to.
@@ -337,8 +336,8 @@ func notFound[T any](v T, err error) (T, error) {
 
 // notifyAdmin queues an admin notification after the change it reports
 // committed; a failure is logged, never returned.
-func (s *Service) notifyAdmin(ctx context.Context, what string, e *mail.Envelope) {
-	if err := s.send(ctx, s.store, e); err != nil {
+func (s *Service) notifyAdmin(ctx context.Context, what string, args repo.JobArgs) {
+	if err := s.store.Enqueue(ctx, s.jobs, args); err != nil {
 		logging.FromContext(ctx).Warn("failed to queue the admin notification", zap.String("notification", what), zap.Error(err))
 	}
 }
