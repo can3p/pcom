@@ -89,6 +89,7 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	require.Len(t, sent, 1)
 	require.Equal(t, "user_invitation", sent[0].Type)
 	require.Equal(t, "newinvitee@example.test", sent[0].Mail.To[0].Address)
+	require.Contains(t, sent[0].Mail.Text, "/invite/"+fakequeue.Of[accounts.InvitationMailArgs](sender)[0].InviteID)
 
 	invites := testutil.Must(repo.Using(db).SentInvitations(ctx, inviter.ID))(t)
 	require.Len(t, invites, 1)

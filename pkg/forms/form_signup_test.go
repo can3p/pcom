@@ -25,7 +25,7 @@ func accountsFor(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
 		q = fakequeue.New()
 	}
 
-	return accounts.New(repo.New(db), nil, nil, accounts.WithJobs(q))
+	return accounts.New(repo.New(db), nil, nil, accounts.WithIdentity(testIdent), accounts.WithJobs(q))
 }
 
 func TestSignupForm_Validate(t *testing.T) {
@@ -114,6 +114,8 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	sent := rendered(t, ctx, codeAccounts(db, sender), sender)
 	require.Len(t, sent, 2)
 	require.Equal(t, "admin_new_user", sent[0].Type)
+	require.Equal(t, testAdmin, sent[0].Mail.To[0].Address)
+	require.Contains(t, sent[0].Mail.Text, newUser.Email)
 	require.Equal(t, "confirm_signup", sent[1].Type)
 	require.Equal(t, newUser.Email, sent[1].Mail.To[0].Address)
 	require.NotEmpty(t, auth.LoginAttempt(c), "the visitor's session carries the attempt the code form finishes")
