@@ -1,0 +1,5 @@
+Hi!
+
+{{.SubscriberEmail}} unsubscribed from your public posts on pcom.
+
+{{.Link}}

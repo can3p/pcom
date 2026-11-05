@@ -1,0 +1,5 @@
+Hi!
+
+Follow the link to see and change your subscriptions to authors' public posts on pcom.
+
+{{.Link}}

@@ -1,0 +1,3 @@
+Hi!
+
+Email subscriptions were braked in the hour of {{.Hour}}. Subscription mail is held until the brake lifts.

@@ -102,14 +102,20 @@ func TestMails_FooterReason(t *testing.T) {
 	t.Parallel()
 
 	const (
-		entered = "You get this mail because somebody entered this address at pcom."
-		account = "You get this mail because you have an account at pcom."
+		entered    = "You get this mail because somebody entered this address at pcom."
+		account    = "You get this mail because you have an account at pcom."
+		subscribed = "You subscribed to @alice&#39;s public posts at pcom."
 	)
 
 	reasons := map[string]string{
 		"send_actual_invitation":           entered,
 		"send_actual_confirm_waiting_list": entered,
-		"new_post_subscriber":              "You subscribed to @alice&#39;s public posts at pcom.",
+		"subscriber_confirm":               entered,
+		"subscriber_manage_link":           entered,
+		"subscriber_new_post":              subscribed,
+		"subscriber_new_post_cut":          subscribed,
+		"subscriber_new_post_no_subject":   subscribed,
+		"subscriber_new_post_with_url":     subscribed,
 	}
 
 	for _, m := range mail.All() {

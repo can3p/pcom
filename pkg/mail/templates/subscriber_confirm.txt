@@ -1,0 +1,7 @@
+Hi!
+
+Follow the link to confirm your subscription to @{{.AuthorUsername}}'s public posts on pcom.
+
+@{{.AuthorUsername}} will see your email address.
+
+{{.Link}}

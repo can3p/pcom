@@ -1,0 +1,4 @@
+@{{.AuthorUsername}} published a new post "{{.Subject}}"{{if .LinkedURL}}
+Linked URL: {{.LinkedURL}}{{end}}
+
+Read on pcom: {{.Link}}
