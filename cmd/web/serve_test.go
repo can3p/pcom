@@ -19,6 +19,8 @@ import (
 
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/emailaddr"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/gin-gonic/gin"
 	"github.com/jessevdk/go-flags"
@@ -313,6 +315,89 @@ func TestNewMediaServer_PermaCache(t *testing.T) {
 			} else {
 				require.Contains(t, resp.Header.Get("Cache-Control"), r.wantCache)
 			}
+		})
+	}
+}
+
+func TestSubscriptionsOptions(t *testing.T) {
+	baseSettings, err := parseServe(t, nil)
+	require.NoError(t, err)
+
+	limitsOf := func(cfg config.Serve) subscriptions.Limits {
+		return subscriptions.New(nil, nil, subscriptionsOptions(cfg.Subscriptions, nil)...).Limits()
+	}
+	base := limitsOf(baseSettings)
+
+	// Each row changes one setting from the base; the value must land in the
+	// named field and in no other.
+	rows := []struct {
+		set, field string
+		want       any
+	}{
+		{"SUBSCRIBE_CONFIRM_LIFETIME=24h", "ConfirmLifetime", 24 * time.Hour},
+		{"SUBSCRIBE_CONFIRMS_PER_ADDRESS=5", "ConfirmsPerAddress", 5},
+		{"SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS=6", "ManageLinksPerAddress", 6},
+		{"SUBSCRIBE_CONFIRMS_PER_HOUR=7", "ConfirmsPerHour", 7},
+		{"SUBSCRIBE_PRUNE_EVERY=10m", "PruneEvery", 10 * time.Minute},
+	}
+
+	for _, r := range rows {
+		t.Run(r.set, func(t *testing.T) {
+			k, v, _ := strings.Cut(r.set, "=")
+
+			cfg, err := parseServe(t, map[string]string{k: v})
+			require.NoError(t, err)
+
+			got, want := limitsOf(cfg), base
+
+			require.Equal(t, r.want, reflect.ValueOf(got).FieldByName(r.field).Interface())
+
+			reflect.ValueOf(&got).Elem().FieldByName(r.field).SetZero()
+			reflect.ValueOf(&want).Elem().FieldByName(r.field).SetZero()
+			require.Equal(t, want, got, "%s changed another field", r.set)
+		})
+	}
+}
+
+// deadlineResolver records the deadline of the lookups it answers; every
+// domain has a mail server.
+type deadlineResolver struct {
+	deadlines []time.Time
+}
+
+func (r *deadlineResolver) LookupMX(ctx context.Context, _ string) ([]*net.MX, error) {
+	d, _ := ctx.Deadline()
+	r.deadlines = append(r.deadlines, d)
+
+	return []*net.MX{{Host: "mx.example.test.", Pref: 10}}, nil
+}
+
+func (r *deadlineResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) {
+	return nil, nil
+}
+
+func TestNewEmailChecker_MXTimeout(t *testing.T) {
+	for _, r := range []struct {
+		value string
+		want  time.Duration // 0: no lookup
+	}{
+		{"5s", 5 * time.Second},
+		{"0s", 0},
+	} {
+		t.Run("EMAIL_MX_TIMEOUT="+r.value, func(t *testing.T) {
+			cfg, err := parseServe(t, map[string]string{"EMAIL_MX_TIMEOUT": r.value})
+			require.NoError(t, err)
+
+			resolver := &deadlineResolver{}
+			require.NoError(t, newEmailChecker(cfg.Email, emailaddr.WithResolver(resolver)).CheckDomain(context.Background(), "example.test"))
+
+			if r.want == 0 {
+				require.Empty(t, resolver.deadlines, "the check ran although it is off")
+				return
+			}
+
+			require.Len(t, resolver.deadlines, 1)
+			require.WithinDuration(t, time.Now().Add(r.want), resolver.deadlines[0], time.Second)
 		})
 	}
 }

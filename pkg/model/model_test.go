@@ -17,6 +17,8 @@ import (
 // here; TestModels_MatchTheSchema fails until it has one.
 var models = []any{
 	(*model.LoginAttempt)(nil),
+	(*model.EmailSubscriber)(nil),
+	(*model.EmailSubscription)(nil),
 	(*model.MediaUpload)(nil),
 	(*model.NormalizedURL)(nil),
 	(*model.Post)(nil),
@@ -24,12 +26,14 @@ var models = []any{
 	(*model.PostPrompt)(nil),
 	(*model.PostShare)(nil),
 	(*model.PostStat)(nil),
+	(*model.PowChallengeUsed)(nil),
 	(*model.ProofreadRequest)(nil),
 	(*model.SentEmail)(nil),
 	(*model.RSSFeed)(nil),
 	(*model.RSSItem)(nil),
 	(*model.StyleReview)(nil),
 	(*model.StyleReviewNote)(nil),
+	(*model.SubscriptionMailLog)(nil),
 	(*model.SystemSetting)(nil),
 	(*model.User)(nil),
 	(*model.UserAPIKey)(nil),

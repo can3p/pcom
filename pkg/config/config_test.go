@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/settings"
+	"github.com/can3p/pcom/pkg/abuse"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/emailaddr"
 	"github.com/can3p/pcom/pkg/feedops/reader"
@@ -22,6 +23,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/media"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
@@ -202,6 +204,14 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"RSS_MAX_FEED_SIZE", "1024", func(s *config.Serve) any { return s.Feeds.MaxFeedSize }, int64(reader.DefaultMaxFeedSize), int64(1024)},
 		{"EMAIL_MX_TIMEOUT", "0s", func(s *config.Serve) any { return s.Email.MXTimeout }, emailaddr.DefaultMXTimeout, time.Duration(0)},
 		{"USER_MEDIA_TIMEOUT", "5s", func(s *config.Serve) any { return s.Media.Timeout }, s3.DefaultTimeout, 5 * time.Second},
+		{"SUBSCRIBE_CONFIRM_LIFETIME", "24h", func(s *config.Serve) any { return s.Subscriptions.ConfirmLifetime }, subscriptions.DefaultConfirmLifetime, 24 * time.Hour},
+		{"SUBSCRIBE_CONFIRMS_PER_ADDRESS", "5", func(s *config.Serve) any { return s.Subscriptions.ConfirmsPerAddress }, subscriptions.DefaultConfirmsPerAddress, 5},
+		{"SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS", "6", func(s *config.Serve) any { return s.Subscriptions.ManageLinksPerAddress }, subscriptions.DefaultManageLinksPerAddress, 6},
+		{"SUBSCRIBE_CONFIRMS_PER_HOUR", "7", func(s *config.Serve) any { return s.Subscriptions.ConfirmsPerHour }, subscriptions.DefaultConfirmsPerHour, 7},
+		{"SUBSCRIBE_POW_DIFFICULTY", "12", func(s *config.Serve) any { return s.Subscriptions.PowDifficulty }, abuse.DefaultPowDifficulty, 12},
+		{"SUBSCRIBE_POW_MAX_AGE", "5m", func(s *config.Serve) any { return s.Subscriptions.PowMaxAge }, abuse.DefaultPowMaxAge, 5 * time.Minute},
+		{"SUBSCRIBE_MIN_FILL_TIME", "0s", func(s *config.Serve) any { return s.Subscriptions.MinFillTime }, abuse.DefaultMinFillTime, time.Duration(0)},
+		{"SUBSCRIBE_PRUNE_EVERY", "10m", func(s *config.Serve) any { return s.Subscriptions.PruneEvery }, subscriptions.DefaultPruneEvery, 10 * time.Minute},
 	}
 
 	keys := envKeys(t)

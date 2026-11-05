@@ -388,3 +388,57 @@ Help Options:
                                                        [$PROOFREAD_STYLE_MAX_TO-
 
                                                        KENS]
+
+    Email subscriptions:
+          --subscribe-confirm-lifetime=                How long a mailed
+                                                       subscription
+                                                       confirmation link works
+                                                       (default: 72h)
+                                                       [$SUBSCRIBE_CONFIRM_LIFE-
+
+                                                       TIME]
+          --subscribe-confirms-per-address=            Subscription
+                                                       confirmation mails one
+                                                       address may get
+                                                       (default: 3)
+                                                       [$SUBSCRIBE_CONFIRMS_PER-
+
+                                                       _ADDRESS]
+          --subscribe-manage-links-per-address=        Mails with the link to
+                                                       manage subscriptions one
+                                                       address may get
+                                                       (default: 3)
+                                                       [$SUBSCRIBE_MANAGE_LINKS-
+
+                                                       _PER_ADDRESS]
+          --subscribe-confirms-per-hour=               Subscription
+                                                       confirmation mails the
+                                                       whole site may send per
+                                                       hour (default: 100)
+                                                       [$SUBSCRIBE_CONFIRMS_PER-
+
+                                                       _HOUR]
+          --subscribe-pow-difficulty=                  Leading zero bits of the
+                                                       proof of work the
+                                                       subscribe form's browser
+                                                       solves (default: 18)
+                                                       [$SUBSCRIBE_POW_DIFFICUL-
+
+                                                       TY]
+          --subscribe-pow-max-age=                     How long a proof-of-work
+                                                       challenge may be
+                                                       answered (default: 30m)
+                                                       [$SUBSCRIBE_POW_MAX_AGE]
+          --subscribe-min-fill-time=                   Least time between
+                                                       showing the subscribe
+                                                       form and submitting it
+                                                       (default: 2s)
+                                                       [$SUBSCRIBE_MIN_FILL_TIM-
+
+                                                       E]
+          --subscribe-prune-every=                     How often expired
+                                                       subscriptions and old
+                                                       subscription mail
+                                                       records are deleted
+                                                       (default: 1h)
+                                                       [$SUBSCRIBE_PRUNE_EVERY]
