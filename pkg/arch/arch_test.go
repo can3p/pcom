@@ -25,7 +25,7 @@ const module = "github.com/can3p/pcom"
 
 // exempt packages may use the database directly: the repositories, the
 // models (pkg/model's structs are bun models), test fixtures and harnesses, the session store and the
-// mail queue (infrastructure that owns its table), the seed command and the
+// mail queue and the job queue (infrastructure that owns its tables), the seed command and the
 // composition root.
 var exempt = []string{
 	"pkg/model",
@@ -34,6 +34,7 @@ var exempt = []string{
 	"pkg/feedops/testutil",
 	"pkg/pgsession",
 	"pkg/mail/sender/dbsender",
+	"pkg/jobs",
 	"pkg/service/registry",
 	"cmd/web/cmd_seed.go",
 	"cmd/web/serve.go",
@@ -171,7 +172,7 @@ func forbiddenImport(rel, path string) string {
 	case isORM(path):
 		return "only repositories query the database"
 	case path == module+"/pkg/repo":
-		if !strings.HasPrefix(rel, "pkg/service/") && !strings.HasPrefix(rel, "cmd/") && rel != "pkg/mail/sender/dbsender" {
+		if !strings.HasPrefix(rel, "pkg/service/") && !strings.HasPrefix(rel, "cmd/") && rel != "pkg/mail/sender/dbsender" && rel != "pkg/jobs" {
 			return "only services use repositories"
 		}
 	case strings.HasPrefix(rel, "pkg/service/") && (path == "github.com/gin-gonic/gin" || path == "net/http"):

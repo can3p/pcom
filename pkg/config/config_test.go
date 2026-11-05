@@ -12,6 +12,7 @@ import (
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/proofread"
@@ -144,6 +145,9 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"SENDER_ADDRESS", "other@pcom.test", func(s *config.Serve) any { return s.Mail.SenderAddress }, nil, "other@pcom.test"},
 		{"ADMIN_ADDRESS", "admin@pcom.test", func(s *config.Serve) any { return s.Mail.AdminAddress }, "", "admin@pcom.test"},
 		{"EMAIL_POLL_INTERVAL", "250ms", func(s *config.Serve) any { return s.Mail.PollInterval }, 10 * time.Second, 250 * time.Millisecond},
+		{"JOBS_POLL_INTERVAL", "250ms", func(s *config.Serve) any { return s.Jobs.PollInterval }, jobs.DefaultPollInterval, 250 * time.Millisecond},
+		{"JOBS_WORKERS", "3", func(s *config.Serve) any { return s.Jobs.Workers }, jobs.DefaultWorkers, 3},
+		{"JOBS_RETENTION", "2h", func(s *config.Serve) any { return s.Jobs.Retention }, jobs.DefaultRetention, 2 * time.Hour},
 		{"EMAIL_RETRY_INTERVALS", "1s,2s", func(s *config.Serve) any { return s.Mail.RetryIntervals }, []time.Duration{10 * time.Second, 60 * time.Second, 30 * time.Minute}, []time.Duration{time.Second, 2 * time.Second}},
 		{"MJ_APIKEY_PUBLIC", "other-public", func(s *config.Serve) any { return s.Mail.Mailjet.ApiKeyPublic }, nil, "other-public"},
 		{"MJ_APIKEY_PRIVATE", "other-private", func(s *config.Serve) any { return s.Mail.Mailjet.ApiKeyPrivate.Reveal() }, nil, "other-private"},

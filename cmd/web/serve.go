@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -12,9 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
@@ -26,6 +29,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
+	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -57,7 +61,8 @@ func (c *serveCmd) Execute([]string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	dbSender := dbsender.NewSender(repo.New(db), mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet), dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals), dbsender.WithLogger(logger))
+	delivery := mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet)
+	dbSender := dbsender.NewSender(repo.New(db), delivery, dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals), dbsender.WithLogger(logger))
 
 	go dbSender.RunPoller(ctx, cfg.Mail.PollInterval)
 
@@ -83,14 +88,27 @@ func (c *serveCmd) Execute([]string) error {
 	// developer timezone only messes things up
 	time.Local = time.UTC
 
+	inserter, err := jobs.NewInserter(db)
+	if err != nil {
+		return err
+	}
+
 	deps := &app.Deps{
 		DB:           db,
 		Sender:       dbSender,
+		Jobs:         inserter,
 		MediaStorage: mediaStorage,
 		MediaServer:  mediaServer,
 		Logger:       logger,
 		Config:       appConfig(cfg, app.LoadStaticManifest(cfg.Web.StaticCDN)),
 	}
+	deps.Services = app.NewServices(deps)
+
+	stopJobs, err := startJobs(ctx, db, deps.Services, delivery, cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer stopJobs()
 
 	startPprof(cfg.Web.EnablePprof.On(), pprofAddr, logger)
 
@@ -126,6 +144,32 @@ func serveUntilDone(ctx context.Context, srv *http.Server, shutdownTimeout time.
 	}
 
 	return nil
+}
+
+// startJobs starts the background job runner with every service's job
+// kinds; the function it returns stops it, waiting up to the shutdown
+// timeout for the jobs in progress.
+func startJobs(ctx context.Context, db *sql.DB, services *registry.Services, delivery sender.Sender, cfg config.Serve, logger *zap.Logger) (func(), error) {
+	reg := jobs.NewRegistry(repo.New(db), delivery, jobs.WithRetryIntervals(cfg.Mail.RetryIntervals))
+	services.RegisterJobs(reg)
+
+	runner, err := jobs.NewRunner(db, reg, jobs.WithPollInterval(cfg.Jobs.PollInterval), jobs.WithWorkers(cfg.Jobs.Workers), jobs.WithRetention(cfg.Jobs.Retention), jobs.WithLogger(logger))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runner.Start(ctx); err != nil {
+		return nil, fmt.Errorf("starting the job runner: %w", err)
+	}
+
+	return func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
+		defer cancel()
+
+		if err := runner.Stop(stopCtx); err != nil {
+			logger.Warn("failed to stop the job runner", zap.Error(err))
+		}
+	}, nil
 }
 
 // serverTimeouts are the app server's timeouts.

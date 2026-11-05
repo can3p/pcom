@@ -15,8 +15,10 @@ import (
 )
 
 type Service struct {
-	store   *repo.Store
-	sender  repo.MailQueue
+	store  *repo.Store
+	sender repo.MailQueue
+	// jobs enqueues background jobs; see jobs.go.
+	jobs    repo.JobQueue
 	storage server.MediaStorage
 	ident   mail.Identity
 	limits  TextLimits

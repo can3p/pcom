@@ -25,7 +25,9 @@ type Service struct {
 	fetcher      fetcher
 	cleaner      cleaner
 	mediaStorage server.MediaStorage
-	logger       *zap.Logger
+	// jobs enqueues background jobs; see jobs.go.
+	jobs   repo.JobQueue
+	logger *zap.Logger
 	// pollEvery is the pause between polls; tests shorten it.
 	pollEvery time.Duration
 	// fetchLimits bound the production fetcher New builds.
