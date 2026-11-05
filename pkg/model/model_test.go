@@ -63,7 +63,7 @@ func TestModels_MatchTheSchema(t *testing.T) {
 
 	ctx := context.Background()
 	tdb := testdb.New(t)
-	db := bun.NewDB(tdb.SQL, pgdialect.New())
+	db := bun.NewDB(tdb.DB, pgdialect.New())
 
 	schema := map[string]map[string]column{}
 	rows, err := db.QueryContext(ctx, `

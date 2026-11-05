@@ -46,7 +46,6 @@ func New(t testing.TB) *postgres.TestDB {
 	}
 
 	tdb.DB = db
-	tdb.SQL = db
 
 	return tdb
 }
