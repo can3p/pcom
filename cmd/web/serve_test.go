@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/settings"
+	"github.com/can3p/pcom/pkg/abuse"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/emailaddr"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
@@ -136,6 +137,7 @@ func TestAppConfig(t *testing.T) {
 			// Options are functions, which never compare equal; their mapping
 			// is TestSubscriptionsOptions.
 			got.Subscriptions, want.Subscriptions = nil, nil
+			got.Abuse, want.Abuse = nil, nil
 			require.Equal(t, want, got, "%s changed another field", r.set)
 		})
 	}
@@ -352,6 +354,49 @@ func TestSubscriptionsOptions(t *testing.T) {
 			require.NoError(t, err)
 
 			got, want := limitsOf(cfg), base
+
+			require.Equal(t, r.want, reflect.ValueOf(got).FieldByName(r.field).Interface())
+
+			reflect.ValueOf(&got).Elem().FieldByName(r.field).SetZero()
+			reflect.ValueOf(&want).Elem().FieldByName(r.field).SetZero()
+			require.Equal(t, want, got, "%s changed another field", r.set)
+		})
+	}
+}
+
+func TestAbuseOptions(t *testing.T) {
+	type settings struct {
+		Difficulty  int
+		MaxAge      time.Duration
+		MinFillTime time.Duration
+	}
+
+	settingsOf := func(cfg config.Serve) settings {
+		g := abuse.New("salt", abuseOptions(cfg.Subscriptions)...)
+
+		return settings{g.Difficulty(), g.MaxAge(), g.MinFillTime()}
+	}
+
+	baseSettings, err := parseServe(t, nil)
+	require.NoError(t, err)
+
+	base := settingsOf(baseSettings)
+
+	for _, r := range []struct {
+		set, field string
+		want       any
+	}{
+		{"SUBSCRIBE_POW_DIFFICULTY=12", "Difficulty", 12},
+		{"SUBSCRIBE_POW_MAX_AGE=1h", "MaxAge", time.Hour},
+		{"SUBSCRIBE_MIN_FILL_TIME=5s", "MinFillTime", 5 * time.Second},
+	} {
+		t.Run(r.set, func(t *testing.T) {
+			k, v, _ := strings.Cut(r.set, "=")
+
+			cfg, err := parseServe(t, map[string]string{k: v})
+			require.NoError(t, err)
+
+			got, want := settingsOf(cfg), base
 
 			require.Equal(t, r.want, reflect.ValueOf(got).FieldByName(r.field).Interface())
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/mailjet"
+	"github.com/can3p/pcom/pkg/abuse"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/emailaddr"
 	"github.com/can3p/pcom/pkg/feedops/reader"
@@ -236,6 +237,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		Login:                 loginLimits(cfg.Login),
 		Proofread:             proofreadConfig(cfg.Proofread),
 		Subscriptions:         subscriptionsOptions(cfg.Subscriptions, newEmailChecker(cfg.Email)),
+		Abuse:                 abuseOptions(cfg.Subscriptions),
 	}
 }
 
@@ -291,6 +293,15 @@ func subscriptionsOptions(cfg config.Subscriptions, checker *emailaddr.Checker) 
 		subscriptions.WithConfirmsPerHour(cfg.ConfirmsPerHour),
 		subscriptions.WithPruneEvery(cfg.PruneEvery),
 		subscriptions.WithEmailChecker(checker),
+	}
+}
+
+// abuseOptions is the abuse guard's view of the subscribe form's settings.
+func abuseOptions(cfg config.Subscriptions) []abuse.Option {
+	return []abuse.Option{
+		abuse.WithDifficulty(cfg.PowDifficulty),
+		abuse.WithMaxAge(cfg.PowMaxAge),
+		abuse.WithMinFillTime(cfg.MinFillTime),
 	}
 }
 
