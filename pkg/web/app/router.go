@@ -20,12 +20,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewServices builds the services from d, as New does when d.Services is
+// nil. web serve builds them first, to register their background jobs.
+func NewServices(d *Deps) *registry.Services {
+	return registry.New(d.DB, registry.Deps{Sender: d.Sender, Jobs: d.Jobs, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, MaxUploadSize: d.Config.MaxUploadSize, FeedFetch: d.Config.FeedFetch, CodeKey: d.Config.SessionSalt, Login: d.Config.Login, ProofreadModel: proofreadModel(d.Config.Proofread.Claude), ProofreadLimits: d.Config.Proofread.Limits, ProofreadModels: d.Config.Proofread.Models})
+}
+
 // New builds the gin engine: middleware, templates and every route group.
 func New(d *Deps) *gin.Engine {
 	db := d.DB
 
 	if d.Services == nil {
-		d.Services = registry.New(db, registry.Deps{Sender: d.Sender, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, MaxUploadSize: d.Config.MaxUploadSize, FeedFetch: d.Config.FeedFetch, CodeKey: d.Config.SessionSalt, Login: d.Config.Login, ProofreadModel: proofreadModel(d.Config.Proofread.Claude), ProofreadLimits: d.Config.Proofread.Limits, ProofreadModels: d.Config.Proofread.Models})
+		d.Services = NewServices(d)
 	}
 
 	maxAge := d.Config.SessionMaxAge

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
@@ -24,7 +25,9 @@ import (
 
 // Deps is what services are built from besides the database.
 type Deps struct {
-	Sender       repo.MailQueue
+	Sender repo.MailQueue
+	// Jobs is the queue services enqueue background jobs on.
+	Jobs         repo.JobQueue
 	MediaStorage server.MediaStorage
 	// Site, SenderAddress and AdminAddress are what mail and its links are built from.
 	Site          links.Site
@@ -75,9 +78,9 @@ func New(db *sql.DB, deps Deps) *Services {
 	store := repo.New(db)
 	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 
-	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch))
+	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch), feeds.WithJobs(deps.Jobs))
 
-	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
+	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
 
 	return &Services{
 		Connections: connections.New(store),
@@ -86,9 +89,16 @@ func New(db *sql.DB, deps Deps) *Services {
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage, media.WithMaxUploadSize(deps.MaxUploadSize)),
 		Posts:       postsSvc,
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:   proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
 	}
+}
+
+// RegisterJobs registers the workers of every service's job kinds on r.
+func (s *Services) RegisterJobs(r *jobs.Registry) {
+	s.Accounts.RegisterJobs(r)
+	s.Posts.RegisterJobs(r)
+	s.Feeds.RegisterJobs(r)
 }
 
 // proofreadLimits are the proofread service's limits, with the post form's

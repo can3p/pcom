@@ -107,6 +107,14 @@ type Login struct {
 	PruneEvery          time.Duration `long:"login-prune-every" env:"LOGIN_PRUNE_EVERY" description:"How often old login attempts and unconfirmed accounts are deleted" default:"1h"`
 }
 
+// Jobs is the background job runner (pkg/jobs). Its defaults are
+// jobs.Default*.
+type Jobs struct {
+	PollInterval time.Duration `long:"jobs-poll-interval" env:"JOBS_POLL_INTERVAL" description:"How often the job runner looks for jobs to work" default:"1s"`
+	Workers      int           `long:"jobs-workers" env:"JOBS_WORKERS" description:"How many jobs the runner works at once" default:"10"`
+	Retention    time.Duration `long:"jobs-retention" env:"JOBS_RETENTION" description:"How long finished jobs are kept" default:"24h"`
+}
+
 // Mail is outgoing mail: the addresses, the queue, and the Mailjet API that
 // delivers it (tommy in development and tests).
 type Mail struct {
@@ -155,6 +163,7 @@ type Serve struct {
 	Database  Database  `group:"Database"`
 	Web       Web       `group:"Web"`
 	Mail      Mail      `group:"Mail"`
+	Jobs      Jobs      `group:"Jobs"`
 	Limits    Limits    `group:"Limits"`
 	Login     Login     `group:"Login"`
 	Feeds     Feeds     `group:"RSS feeds"`

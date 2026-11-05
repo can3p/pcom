@@ -26,6 +26,7 @@ var models = []any{
 	(*model.PostShare)(nil),
 	(*model.PostStat)(nil),
 	(*model.ProofreadRequest)(nil),
+	(*model.SentEmail)(nil),
 	(*model.RSSFeed)(nil),
 	(*model.RSSItem)(nil),
 	(*model.StyleReview)(nil),
@@ -47,8 +48,12 @@ var models = []any{
 }
 
 // unmodeled tables belong to tools and libraries, not to pcom's data:
-// sql-migrate's bookkeeping, and gogo's sessions/pgstore.
-var unmodeled = map[string]bool{"migrations": true, "http_sessions": true}
+// sql-migrate's bookkeeping, gogo's sessions/pgstore and River's job queue
+// (pkg/jobs).
+var unmodeled = map[string]bool{
+	"migrations": true, "http_sessions": true,
+	"river_job": true, "river_leader": true, "river_migration": true, "river_queue": true, "river_client": true, "river_client_queue": true, "river_notification": true,
+}
 
 type column struct {
 	nullable, defaulted, pk bool

@@ -182,10 +182,18 @@ type App struct {
 // notifications are sent to it.
 const AdminAddress = "admin@pcom.test"
 
+// unsentMailSQL counts the mail the app queued and hasn't sent: the
+// outgoing_emails rows still new, and the unfinished River jobs that send
+// mail (mail.*) or queue it (posts.*).
+const unsentMailSQL = `SELECT
+	(SELECT count(*) FROM outgoing_emails WHERE status = 'new') +
+	(SELECT count(*) FROM river_job WHERE (kind LIKE 'mail.%' OR kind LIKE 'posts.%')
+		AND state IN ('available', 'pending', 'retryable', 'running', 'scheduled'))`
+
 // WaitMailSent waits up to 5s until the app has sent all the mail it
 // queued, so that what tommy holds is final: a count or an absence checked
 // after it holds. It and QueuedMails are the only places e2e knows the mail
-// goes through the outgoing_emails queue (R4 may replace the queue); tests
+// goes through a queue (outgoing_emails, and River's jobs during R8); tests
 // assert on delivered mail.
 func (a *App) WaitMailSent(t testing.TB) {
 	t.Helper()
@@ -194,7 +202,7 @@ func (a *App) WaitMailSent(t testing.TB) {
 
 	for {
 		var unsent int
-		if err := a.DB.QueryRow(`SELECT count(*) FROM outgoing_emails WHERE status = 'new'`).Scan(&unsent); err != nil {
+		if err := a.DB.QueryRow(unsentMailSQL).Scan(&unsent); err != nil {
 			t.Fatalf("e2e: counting unsent mail: %v", err)
 		}
 
@@ -210,13 +218,13 @@ func (a *App) WaitMailSent(t testing.TB) {
 	}
 }
 
-// QueuedMails is how many mails the app has queued in all, sent or not; see
+// QueuedMails is how many mails (and post fan-outs) the app has queued in all, sent or not; see
 // WaitMailSent.
 func (a *App) QueuedMails(t testing.TB) int {
 	t.Helper()
 
 	var n int
-	if err := a.DB.QueryRow(`SELECT count(*) FROM outgoing_emails`).Scan(&n); err != nil {
+	if err := a.DB.QueryRow(`SELECT (SELECT count(*) FROM outgoing_emails) + (SELECT count(*) FROM river_job WHERE kind LIKE 'mail.%' OR kind LIKE 'posts.%')`).Scan(&n); err != nil {
 		t.Fatalf("e2e: counting queued mail: %v", err)
 	}
 

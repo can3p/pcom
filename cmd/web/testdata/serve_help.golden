@@ -154,6 +154,18 @@ Help Options:
                                                        (default: 30s)
                                                        [$MJ_TIMEOUT]
 
+    Jobs:
+          --jobs-poll-interval=                        How often the job runner
+                                                       looks for jobs to work
+                                                       (default: 1s)
+                                                       [$JOBS_POLL_INTERVAL]
+          --jobs-workers=                              How many jobs the runner
+                                                       works at once (default:
+                                                       10) [$JOBS_WORKERS]
+          --jobs-retention=                            How long finished jobs
+                                                       are kept (default: 24h)
+                                                       [$JOBS_RETENTION]
+
     Limits:
           --profile-about-max-length=                  Most characters a user's
                                                        About text may have

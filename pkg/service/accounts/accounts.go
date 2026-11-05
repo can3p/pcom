@@ -27,8 +27,10 @@ import (
 type Service struct {
 	store  *repo.Store
 	sender repo.MailQueue
-	feeds  *feeds.Service
-	ident  mail.Identity
+	// jobs enqueues background jobs; see jobs.go.
+	jobs  repo.JobQueue
+	feeds *feeds.Service
+	ident mail.Identity
 
 	aboutMaxLength  int
 	stylesMaxLength int

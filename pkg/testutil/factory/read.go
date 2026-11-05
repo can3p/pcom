@@ -97,6 +97,22 @@ func ListOutgoingEmails(ctx context.Context, exec repo.Executor, filter ...Outgo
 	return emails, nil
 }
 
+// ListSentEmails returns the sent_emails records of type emailType, oldest
+// first.
+func ListSentEmails(ctx context.Context, exec repo.Executor, emailType string) ([]*model.SentEmail, error) {
+	var emails []*model.SentEmail
+
+	err := repo.Query(exec).NewSelect().Model(&emails).
+		Where("email_type = ?", emailType).
+		Order("created_at").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return emails, nil
+}
+
 // ConnectionExists reports whether aID and bID are directly connected, in
 // either direction.
 func ConnectionExists(ctx context.Context, exec repo.Executor, aID, bID string) (bool, error) {
