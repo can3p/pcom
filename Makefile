@@ -122,7 +122,7 @@ ui-trace:
 COMPOSE ?= docker compose
 export HOST_UID := $(shell id -u)
 export HOST_GID := $(shell id -g)
-TOOLS_RUN = $(COMPOSE) run --rm $(if $(shell [ -t 0 ] || echo notty),-T)
+TOOLS_RUN = $(COMPOSE) run --rm --build $(if $(shell [ -t 0 ] || echo notty),-T)
 TOOLS = $(TOOLS_RUN) tools
 
 dev-up:
@@ -132,7 +132,7 @@ dev-up:
 # The app (live reload) and the frontend watcher in containers; foreground.
 # The addresses are printed once the app answers.
 dev:
-	@./tools/dev-urls.sh --app & $(COMPOSE) --profile dev up
+	@./tools/dev-urls.sh --app & $(COMPOSE) --profile dev up --build
 
 dev-logs:
 	$(COMPOSE) --profile dev logs -f
