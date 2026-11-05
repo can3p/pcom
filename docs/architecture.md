@@ -112,6 +112,14 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   error pages) is each its own setting with a production-safe default; development, compose and tests
   turn them off. There is no "production mode" switch: `FLY_APP_NAME` only makes `seed` refuse to run.
   Limits and tunables are settings too ("No magic numbers" in `AGENTS.md`).
+- **Nothing a peer controls is unbounded.** The app server (`app.NewServer`) has read, write and idle
+  timeouts and shuts down gracefully on SIGINT/SIGTERM; `--write-timeout` stays above `--proofread-timeout`,
+  since the proofread actions wait on the Anthropic API. Every request body is capped by the `bodyLimits`
+  middleware in `pkg/web/app/limits.go` (`--max-body-size`); only the upload and import routes, listed
+  there by path, get `--max-upload-size` or `--max-import-size` on top. A new route that takes a file adds
+  its path there. Every outbound HTTP client has a timeout (S3: `--user-media-timeout`; feeds:
+  `--rss-fetch-timeout`, `--rss-image-timeout`; Anthropic: `--proofread-timeout`; Mailjet: `--mj-timeout`,
+  and gogo's sender honours the poller's context).
 - **Migrations run at deploy, outside the app.** There is no `migrate` subcommand and no migration library
   in `go.mod`: the production image carries the `sql-migrate` binary, `dbconfig.yml` and `migrations/`, and
   fly's `release_command` runs it before the new version takes traffic.

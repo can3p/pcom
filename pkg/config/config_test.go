@@ -11,11 +11,15 @@ import (
 
 	"github.com/can3p/gogo/settings"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/proofread"
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/media"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
+	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -179,6 +183,18 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"PROOFREAD_GRAMMAR_MAX_TOKENS", "1000", func(s *config.Serve) any { return s.Proofread.GrammarMaxTokens }, claude.DefaultGrammarMaxTokens, 1000},
 		{"PROOFREAD_STYLE_MAX_TOKENS", "2000", func(s *config.Serve) any { return s.Proofread.StyleMaxTokens }, claude.DefaultStyleMaxTokens, 2000},
 		{"LOGIN_PRUNE_EVERY", "10m", func(s *config.Serve) any { return s.Login.PruneEvery }, accounts.DefaultLoginLimits.PruneEvery, 10 * time.Minute},
+		{"READ_HEADER_TIMEOUT", "3s", func(s *config.Serve) any { return s.Web.ReadHeaderTimeout }, app.DefaultReadHeaderTimeout, 3 * time.Second},
+		{"READ_TIMEOUT", "30s", func(s *config.Serve) any { return s.Web.ReadTimeout }, app.DefaultReadTimeout, 30 * time.Second},
+		{"WRITE_TIMEOUT", "200s", func(s *config.Serve) any { return s.Web.WriteTimeout }, app.DefaultWriteTimeout, 200 * time.Second},
+		{"IDLE_TIMEOUT", "30s", func(s *config.Serve) any { return s.Web.IdleTimeout }, app.DefaultIdleTimeout, 30 * time.Second},
+		{"SHUTDOWN_TIMEOUT", "10s", func(s *config.Serve) any { return s.Web.ShutdownTimeout }, 4 * time.Second, 10 * time.Second},
+		{"MAX_BODY_SIZE", "2048", func(s *config.Serve) any { return s.Limits.MaxBodySize }, int64(app.DefaultMaxBodySize), int64(2048)},
+		{"MAX_UPLOAD_SIZE", "4096", func(s *config.Serve) any { return s.Limits.MaxUploadSize }, int64(media.DefaultMaxUploadSize), int64(4096)},
+		{"MAX_IMPORT_SIZE", "8192", func(s *config.Serve) any { return s.Limits.MaxImportSize }, int64(app.DefaultMaxImportSize), int64(8192)},
+		{"RSS_FETCH_TIMEOUT", "2s", func(s *config.Serve) any { return s.Feeds.FetchTimeout }, reader.DefaultFeedTimeout, 2 * time.Second},
+		{"RSS_IMAGE_TIMEOUT", "5s", func(s *config.Serve) any { return s.Feeds.ImageTimeout }, reader.DefaultMediaTimeout, 5 * time.Second},
+		{"RSS_MAX_FEED_SIZE", "1024", func(s *config.Serve) any { return s.Feeds.MaxFeedSize }, int64(reader.DefaultMaxFeedSize), int64(1024)},
+		{"USER_MEDIA_TIMEOUT", "5s", func(s *config.Serve) any { return s.Media.Timeout }, s3.DefaultTimeout, 5 * time.Second},
 	}
 
 	keys := envKeys(t)

@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/can3p/gogo/sender/mailjet"
 	"github.com/can3p/pcom/pkg/config"
+	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
@@ -50,7 +54,7 @@ func (c *serveCmd) Execute([]string) error {
 	}
 	defer closeDB()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	dbSender := dbsender.NewSender(repo.New(db), mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet), dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals), dbsender.WithLogger(logger))
@@ -62,7 +66,7 @@ func (c *serveCmd) Execute([]string) error {
 		return err
 	}
 
-	feeder := feeds.New(repo.New(db), mediaStorage, feeds.WithLogger(logger))
+	feeder := feeds.New(repo.New(db), mediaStorage, feeds.WithLogger(logger), feeds.WithFetchLimits(feedLimits(cfg.Feeds)))
 
 	go feeder.RunPoller(ctx)
 
@@ -90,7 +94,57 @@ func (c *serveCmd) Execute([]string) error {
 
 	startPprof(cfg.Web.EnablePprof.On(), pprofAddr, logger)
 
-	return app.New(deps).Run(fmt.Sprintf(":%d", cfg.Web.Port))
+	srv := app.NewServer(fmt.Sprintf(":%d", cfg.Web.Port), app.New(deps).Handler(), serverTimeouts(cfg.Web))
+
+	return serveUntilDone(ctx, srv, cfg.Web.ShutdownTimeout, logger)
+}
+
+// serveUntilDone runs srv until ctx ends, then lets the requests in flight
+// finish for up to shutdownTimeout.
+func serveUntilDone(ctx context.Context, srv *http.Server, shutdownTimeout time.Duration, logger *zap.Logger) error {
+	errc := make(chan error, 1)
+
+	go func() { errc <- srv.ListenAndServe() }()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+	}
+
+	logger.Info("shutting down")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("shutting down: %w", err)
+	}
+
+	if err := <-errc; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return nil
+}
+
+// serverTimeouts are the app server's timeouts.
+func serverTimeouts(web config.Web) app.ServerTimeouts {
+	return app.ServerTimeouts{
+		ReadHeader: web.ReadHeaderTimeout,
+		Read:       web.ReadTimeout,
+		Write:      web.WriteTimeout,
+		Idle:       web.IdleTimeout,
+	}
+}
+
+// feedLimits are the reader's view of the feed settings.
+func feedLimits(cfg config.Feeds) reader.Limits {
+	return reader.Limits{
+		FeedTimeout:  cfg.FetchTimeout,
+		MediaTimeout: cfg.ImageTimeout,
+		MaxFeedSize:  cfg.MaxFeedSize,
+	}
 }
 
 // applyProcessSettings sets the process-wide gin mode.
@@ -133,6 +187,10 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		UserStylesMaxLength:   cfg.Limits.UserStylesMaxLength,
 		PageSize:              cfg.Limits.PageSize,
 		RSSLimit:              cfg.Limits.RSSLimit,
+		MaxBodySize:           cfg.Limits.MaxBodySize,
+		MaxUploadSize:         cfg.Limits.MaxUploadSize,
+		MaxImportSize:         cfg.Limits.MaxImportSize,
+		FeedFetch:             feedLimits(cfg.Feeds),
 		Login:                 loginLimits(cfg.Login),
 		Proofread:             proofreadConfig(cfg.Proofread),
 	}
@@ -184,6 +242,7 @@ func newMediaStorage(cfg config.Media) (server.MediaStorage, error) {
 		Key:       cfg.Key,
 		Secret:    cfg.Secret.Reveal(),
 		PathStyle: cfg.PathStyle.On(),
+		Timeout:   cfg.Timeout,
 	})
 }
 

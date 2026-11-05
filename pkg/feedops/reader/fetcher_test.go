@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/mmcdole/gofeed"
 	"github.com/stretchr/testify/require"
 )
 
@@ -319,10 +320,68 @@ func TestFetchMedia_LimitedReader(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = rc.Close() }()
 
-	data, err := io.ReadAll(rc)
+	// a body past MaxMediaSize fails rather than being cut short
+	_, err = io.ReadAll(rc)
+	require.ErrorIs(t, err, reader.ErrMediaTooLarge)
+}
+
+func TestFetchMedia_ExactlyMaxSize(t *testing.T) {
+	t.Parallel()
+
+	jpegHeader := []byte{0xFF, 0xD8, 0xFF, 0xE0}
+	data := append(jpegHeader, bytes.Repeat([]byte{0xFF}, reader.MaxMediaSize-len(jpegHeader))...)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.(http.Flusher).Flush() // no Content-Length
+		_, _ = w.Write(data)
+	}))
+	defer server.Close()
+
+	rc, err := reader.NewFetcher(&http.Client{}).FetchMedia(context.Background(), server.URL)
 	require.NoError(t, err)
-	// The limitedReader should cap at exactly MaxMediaSize
-	require.Len(t, data, reader.MaxMediaSize)
+	defer func() { _ = rc.Close() }()
+
+	got, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	require.Len(t, got, reader.MaxMediaSize)
+}
+
+func TestFetch_TooLarge(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		w.(http.Flusher).Flush() // no Content-Length
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel><title>`))
+		_, _ = w.Write(bytes.Repeat([]byte("x"), 2048))
+		_, _ = w.Write([]byte(`</title></channel></rss>`))
+	}))
+	defer server.Close()
+
+	fetcher := reader.NewFetcher(&http.Client{}, reader.WithLimits(reader.Limits{MaxFeedSize: 1024}))
+
+	_, err := fetcher.Fetch(context.Background(), server.URL)
+	require.ErrorIs(t, err, gofeed.ErrResponseTooLarge)
+}
+
+func TestFetch_Timeout(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+
+	fetcher := reader.NewFetcher(&http.Client{}, reader.WithLimits(reader.Limits{FeedTimeout: 50 * time.Millisecond}))
+
+	_, err := fetcher.Fetch(context.Background(), server.URL)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestFetchMedia_ContextDeadlineExceeded(t *testing.T) {

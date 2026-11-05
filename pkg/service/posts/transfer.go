@@ -190,5 +190,5 @@ func (s *Service) UploadImage(ctx context.Context, actor *model.User, r io.Reade
 // storeImage records an image upload of a user and puts the file in the
 // storage.
 func (s *Service) storeImage(ctx context.Context, store *repo.Store, userID string, r io.Reader) (string, error) {
-	return mediasvc.StoreUpload(ctx, store, s.storage, &userID, nil, r)
+	return mediasvc.StoreUpload(ctx, store, s.storage, &userID, nil, r, s.maxUploadSize)
 }

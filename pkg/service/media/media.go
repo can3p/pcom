@@ -4,6 +4,7 @@ package media
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/can3p/pcom/pkg/media"
@@ -14,16 +15,40 @@ import (
 	"github.com/google/uuid"
 )
 
+// DefaultMaxUploadSize is the most bytes an uploaded image may have.
+const DefaultMaxUploadSize = 20 * 1024 * 1024
+
 type Service struct {
-	store        *repo.Store
-	mediaStorage server.MediaStorage
+	store         *repo.Store
+	mediaStorage  server.MediaStorage
+	maxUploadSize int64
 }
 
-func New(store *repo.Store, mediaStorage server.MediaStorage) *Service {
-	return &Service{
-		store:        store,
-		mediaStorage: mediaStorage,
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// WithMaxUploadSize sets the most bytes an uploaded image may have; zero
+// keeps DefaultMaxUploadSize.
+func WithMaxUploadSize(n int64) Option {
+	return func(s *Service) {
+		if n > 0 {
+			s.maxUploadSize = n
+		}
 	}
+}
+
+func New(store *repo.Store, mediaStorage server.MediaStorage, opts ...Option) *Service {
+	s := &Service{
+		store:         store,
+		mediaStorage:  mediaStorage,
+		maxUploadSize: DefaultMaxUploadSize,
+	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // Upload validates, reads, stores, and records a media upload for a user.
@@ -34,21 +59,31 @@ func (s *Service) Upload(ctx context.Context, actor *model.User, reader io.Reade
 		return "", service.ErrNeedsLogin
 	}
 
-	return StoreUpload(ctx, s.store, s.mediaStorage, &actor.ID, nil, reader)
+	return StoreUpload(ctx, s.store, s.mediaStorage, &actor.ID, nil, reader, s.maxUploadSize)
 }
 
 // StoreUpload validates an image, records the upload on store, owned by
 // exactly one of a user or an RSS feed, and puts the file in the storage.
-// Other services call it with their transaction. The row comes first; the
-// file lands in the storage, which is not part of the transaction.
-func StoreUpload(ctx context.Context, store *repo.Store, storage server.MediaStorage, userID, rssFeedID *string, reader io.Reader) (string, error) {
+// An image larger than maxSize bytes (DefaultMaxUploadSize when not
+// positive) is a validation error. Other services call it with their
+// transaction. The row comes first; the file lands in the storage, which is
+// not part of the transaction.
+func StoreUpload(ctx context.Context, store *repo.Store, storage server.MediaStorage, userID, rssFeedID *string, reader io.Reader, maxSize int64) (string, error) {
 	if (userID == nil) == (rssFeedID == nil) {
 		return "", errors.New("exactly one of userID or rssFeedID must be provided")
 	}
 
-	bytes, err := io.ReadAll(reader)
+	if maxSize <= 0 {
+		maxSize = DefaultMaxUploadSize
+	}
+
+	bytes, err := io.ReadAll(io.LimitReader(reader, maxSize+1))
 	if err != nil {
 		return "", err
+	}
+
+	if int64(len(bytes)) > maxSize {
+		return "", service.Invalid("file", fmt.Sprintf("The image is larger than %d MiB.", maxSize>>20))
 	}
 
 	ext, ftype, err := media.DetectAndValidateImageTypeAndExt(bytes)

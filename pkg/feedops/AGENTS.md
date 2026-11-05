@@ -7,9 +7,15 @@ Images from RSS feeds are automatically downloaded and hosted locally to avoid t
 
 ## Budget Limits
 - **Max images per feed item**: 20 (enforced in `pkg/feedops/reader/cleaner.go`)
-- **Max size per image**: 10 MB (enforced in `pkg/feedops/reader/fetcher.go`)
-- **Individual image timeout**: 30 seconds (per image download)
+- **Max size per image**: 10 MB (enforced in `pkg/feedops/reader/fetcher.go`). A larger body fails with
+  `ErrMediaTooLarge`, whether or not it sends a `Content-Length`; it is never cut short.
+- **Feed document**: at most `--rss-max-feed-size` bytes (5 MiB) within `--rss-fetch-timeout` (5s).
+- **Individual image timeout**: `--rss-image-timeout` (30s per image download)
 - **Global timeout**: 2 minutes (for all images in one feed item)
+
+The fetcher's HTTP client has no `Timeout` of its own: every request gets its deadline from the context, so
+the feed timeout and the image timeout stay independent. A client-wide timeout would cut every image download
+short at the feed timeout.
 
 ## Implementation Flow
 1. **`saveFeedItem`** (`pkg/service/feeds/poller.go`) - Creates global timeout context and upload function

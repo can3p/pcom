@@ -28,6 +28,8 @@ type Service struct {
 	logger       *zap.Logger
 	// pollEvery is the pause between polls; tests shorten it.
 	pollEvery time.Duration
+	// fetchLimits bound the production fetcher New builds.
+	fetchLimits reader.Limits
 }
 
 // Option changes how New builds the service.
@@ -43,9 +45,18 @@ func WithLogger(l *zap.Logger) Option {
 	}
 }
 
+// WithFetchLimits sets the timeouts and the feed size cap of fetching feeds;
+// zero fields keep the reader's defaults.
+func WithFetchLimits(l reader.Limits) Option {
+	return func(s *Service) { s.fetchLimits = l }
+}
+
 // New builds the service with the reader the poller uses in production.
 func New(store *repo.Store, mediaStorage server.MediaStorage, opts ...Option) *Service {
-	return newService(store, reader.DefaultFetcher(), reader.DefaultCleaner(), mediaStorage, opts...)
+	s := newService(store, nil, reader.DefaultCleaner(), mediaStorage, opts...)
+	s.fetcher = reader.DefaultFetcher(s.fetchLimits)
+
+	return s
 }
 
 func newService(store *repo.Store, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage, opts ...Option) *Service {

@@ -3,10 +3,12 @@ package media_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"testing"
 
 	mediapkg "github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/media"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -50,7 +52,7 @@ func TestStoreUpload_ArgumentValidation(t *testing.T) {
 			pngData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D}
 			reader := bytes.NewReader(pngData)
 
-			_, err := media.StoreUpload(context.Background(), nil, mockStorage, tt.userID, tt.rssFeedID, reader)
+			_, err := media.StoreUpload(context.Background(), nil, mockStorage, tt.userID, tt.rssFeedID, reader, 0)
 
 			require.Error(t, err, "expected error when "+tt.desc)
 			require.Contains(t, err.Error(), "exactly one of")
@@ -61,8 +63,19 @@ func TestStoreUpload_ArgumentValidation(t *testing.T) {
 func TestStoreUpload_ReaderError(t *testing.T) {
 	t.Parallel()
 
-	_, err := media.StoreUpload(context.Background(), nil, fakestorage.New(), new("user123"), nil, failReader{})
+	_, err := media.StoreUpload(context.Background(), nil, fakestorage.New(), new("user123"), nil, failReader{}, 0)
 	require.Error(t, err)
+}
+
+func TestStoreUpload_TooLarge(t *testing.T) {
+	t.Parallel()
+
+	pngData := append([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, make([]byte, 100)...)
+
+	_, err := media.StoreUpload(context.Background(), nil, fakestorage.New(), new("user123"), nil, bytes.NewReader(pngData), int64(len(pngData)-1))
+
+	_, ok := errors.AsType[*service.ValidationError](err)
+	require.True(t, ok, "want a validation error, got %v", err)
 }
 
 func TestStoreUpload_InvalidImageType(t *testing.T) {
@@ -75,7 +88,7 @@ func TestStoreUpload_InvalidImageType(t *testing.T) {
 	textData := []byte("This is plain text, not an image")
 	reader := bytes.NewReader(textData)
 
-	_, err := media.StoreUpload(context.Background(), nil, mockStorage, userID, nil, reader)
+	_, err := media.StoreUpload(context.Background(), nil, mockStorage, userID, nil, reader, 0)
 
 	// Should fail because text is not a supported image type
 	require.Error(t, err)
@@ -113,7 +126,7 @@ func TestStoreUpload_StoresRowAndObject(t *testing.T) {
 			storage := fakestorage.New()
 			userID, feedID := tc.newOwner(t)
 
-			fname := testutil.Must(media.StoreUpload(ctx, repo.New(db), storage, userID, feedID, bytes.NewReader(pngBytes)))(t)
+			fname := testutil.Must(media.StoreUpload(ctx, repo.New(db), storage, userID, feedID, bytes.NewReader(pngBytes), 0))(t)
 			require.Contains(t, fname, ".png")
 
 			exists := testutil.Must(storage.ObjectExists(ctx, fname))(t)
