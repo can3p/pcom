@@ -11,7 +11,7 @@ import (
 )
 
 // ErrUserNotSignedIn keeps its old wording; it can reach users.
-var ErrUserNotSignedIn = errors.New("One of the users is not signed in") //nolint:staticcheck
+var ErrUserNotSignedIn = errors.New("One of the users is not signed in") //nolint:staticcheck // ST1005: message text kept as is
 
 type Radius int
 

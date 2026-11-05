@@ -126,6 +126,14 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   handles runtime filters and eager loading worst; bun's query builder covers the optional filters,
   relation loading, upserts and locks the repositories need. lib/pq stays in `go.mod` only as gogo's
   indirect dependency.
+- **Lint suppressions carry their reason.** `//nolint:<linter> // why` names the linter and says why the
+  finding doesn't apply; nolintlint fails a bare or stale directive. Every `template.HTML` (and the other
+  types that skip html/template's escaping) trips gosec G203 and gets one: say what makes the content safe
+  (escaped values, goldmark without raw HTML, a constant), because each is an XSS trust boundary.
+- **The linter set** in `.golangci.yml` is chosen for bugs, not style: errorlint (sentinels compared with
+  `errors.Is`, since errors are wrapped with `%w`), exhaustive (a switch on an enum-like type lists every
+  value or has a `default`), a narrowed gosec, testifylint, bodyclose. Loop modernizations are left to the
+  Go Fix job rather than linters.
 
 ## Logging
 

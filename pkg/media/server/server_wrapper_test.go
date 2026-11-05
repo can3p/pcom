@@ -122,12 +122,12 @@ func TestServerWrapper_GetImage(t *testing.T) {
 			wg.Go(func() {
 				// assert, not require: FailNow must not run off the test goroutine.
 				reader, mime, err := wrapper.GetImage(context.Background(), "test.jpg", "thumbnail")
-				if !assert.NoError(t, err) {
+				if !assert.NoError(t, err) { //nolint:testifylint // off the test goroutine, see above
 					return
 				}
 				assert.Equal(t, "image/jpeg", mime)
 				data, err := io.ReadAll(reader)
-				assert.NoError(t, err)
+				assert.NoError(t, err) //nolint:testifylint // off the test goroutine, see above
 				assert.Equal(t, "mock image data", string(data))
 			})
 		}

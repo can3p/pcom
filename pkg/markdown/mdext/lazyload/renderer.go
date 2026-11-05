@@ -109,7 +109,7 @@ func nodeToHTMLText(n ast.Node, source []byte) []byte {
 		if s, ok := c.(*ast.String); ok && s.IsCode() {
 			buf.Write(s.Value)
 		} else if !c.HasChildren() {
-			buf.Write(util.EscapeHTML(c.Text(source))) //nolint:staticcheck
+			buf.Write(util.EscapeHTML(c.Text(source))) //nolint:staticcheck // SA1019: fallback for nodes without a text property of their own
 		} else {
 			buf.Write(nodeToHTMLText(c, source))
 		}

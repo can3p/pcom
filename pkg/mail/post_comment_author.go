@@ -105,7 +105,7 @@ func postCommentSamples(name, to, body string) []postCommentSample {
 	return []postCommentSample{
 		{name, postComment{
 			Site: SampleSite, From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
-			Subject: subject, URL: "", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"),
+			Subject: subject, URL: "", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"), //nolint:gosec // sample data, a constant
 			Edited: false, EditedAt: time.Time{},
 		}},
 		{name + "_edited", postComment{
@@ -115,7 +115,7 @@ func postCommentSamples(name, to, body string) []postCommentSample {
 		}},
 		{name + "_with_url", postComment{
 			Site: SampleSite, From: SampleFrom, To: to, UniqueUserID: "user-2", CommentID: "comment-1", Commenter: "alice",
-			Subject: subject, URL: "https://example.com/article", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"),
+			Subject: subject, URL: "https://example.com/article", Link: commentLink, Body: body, BodyHTML: template.HTML("<p>" + body + "</p>\n"), //nolint:gosec // sample data, a constant
 			Edited: false, EditedAt: time.Time{},
 		}},
 		{name + "_markup", postComment{
