@@ -61,7 +61,17 @@
 // quoted post, mail-lead for the line above quoted content saying what the
 // mail is about, mail-code for a login or confirmation code and mail-muted
 // for fine print. The layout and footer read
-// the Header: Site for the links, NoAccount for the footer's wording.
+// the Header: Site for the links, Audience for the footer's wording, and for
+// a subscriber AuthorUsername, ManageURL and UnsubscribeURL, which both parts
+// of the footer link to.
+//
+// # Headers
+//
+// A mail with an UnsubscribeURL in its Header carries the one-click
+// unsubscribe headers of RFC 8058: Render sets List-Unsubscribe to
+// <UnsubscribeURL>, <ManageURL> and List-Unsubscribe-Post to
+// List-Unsubscribe=One-Click in sender.Mail.Headers, which the queue keeps in
+// its payload and the sender passes on.
 //
 // Mail clients drop or ignore a <style> element unevenly, so Render inlines
 // mail.css into style attributes with go-premailer. Element selectors style
@@ -112,11 +122,42 @@ type Header struct {
 	From     mail.Address
 	To       []mail.Address
 	Site     links.Site
-	// NoAccount is set for a mail to an address that has no account yet (an
-	// invitation, a waiting list confirmation): the footer then says that
-	// somebody entered the address instead of that the reader has an account.
-	NoAccount bool
+	// Audience is who the reader is to pcom, which the footer says.
+	Audience Audience
+	// AuthorUsername is the author a subscriber follows, for the
+	// AudienceSubscriber footer.
+	AuthorUsername string
+	// ManageURL is the absolute link where a subscriber manages the
+	// subscription; the footer links to it.
+	ManageURL string
+	// UnsubscribeURL is the absolute one-click unsubscribe link. When set,
+	// the footer links to it and Render adds the RFC 8058 headers.
+	UnsubscribeURL string
 }
+
+// Audience is who a mail's reader is to pcom, which decides the footer's
+// wording. The zero value is a reader with an account.
+type Audience int
+
+const (
+	// AudienceAccount is a reader who has an account.
+	AudienceAccount Audience = iota
+	// AudienceNoAccount is an address that has no account yet (an
+	// invitation, a waiting list confirmation): the footer says that
+	// somebody entered the address.
+	AudienceNoAccount
+	// AudienceSubscriber is a reader subscribed to an author's public posts
+	// by email: the footer names the author and links to manage and
+	// unsubscribe.
+	AudienceSubscriber
+)
+
+// The headers Render sets for a mail with an UnsubscribeURL (RFC 8058).
+const (
+	headerListUnsubscribe     = "List-Unsubscribe"
+	headerListUnsubscribePost = "List-Unsubscribe-Post"
+	listUnsubscribeOneClick   = "List-Unsubscribe=One-Click"
+)
 
 // Input is what a declared mail renders: the template data, which also knows
 // its own addressing.
@@ -173,13 +214,19 @@ type Definition[In Input] struct {
 }
 
 // layoutData is what the shared layout and the text footer render: the
-// mail's own HTML part, already escaped by html/template, and the site and
-// footer choice of its Header.
+// mail's own HTML part, already escaped by html/template, and its Header for
+// the site and the footer.
 type layoutData struct {
-	Content   htmltemplate.HTML
-	Site      links.Site
-	NoAccount bool
+	Header
+	Content htmltemplate.HTML
 }
+
+// NoAccount reports whether the footer is the one for an address without an
+// account.
+func (d layoutData) NoAccount() bool { return d.Audience == AudienceNoAccount }
+
+// Subscriber reports whether the footer is the one for a subscriber.
+func (d layoutData) Subscriber() bool { return d.Audience == AudienceSubscriber }
 
 // Type is the queue's email_type of the mail.
 func (d *Definition[In]) Type() string { return d.emailType }
@@ -209,7 +256,7 @@ func (d *Definition[In]) Render(in In) (*Envelope, error) {
 	h := in.Header()
 	// content is the output of html/template, every value in it escaped, so
 	// it is trusted HTML.
-	data := layoutData{Content: htmltemplate.HTML(content), Site: h.Site, NoAccount: h.NoAccount} //nolint:gosec // see above
+	data := layoutData{Header: h, Content: htmltemplate.HTML(content)} //nolint:gosec // see above
 
 	page, err := execute(d.layout, data)
 	if err != nil {
@@ -238,8 +285,22 @@ func (d *Definition[In]) Render(in In) (*Envelope, error) {
 			Subject: subject,
 			Text:    text,
 			Html:    html,
+			Headers: h.headers(),
 		},
 	}, nil
+}
+
+// headers are the extra headers of the mail: the RFC 8058 one-click
+// unsubscribe pair when it has an UnsubscribeURL, otherwise none.
+func (h Header) headers() map[string]string {
+	if h.UnsubscribeURL == "" {
+		return nil
+	}
+
+	return map[string]string{
+		headerListUnsubscribe:     "<" + h.UnsubscribeURL + ">, <" + h.ManageURL + ">",
+		headerListUnsubscribePost: listUnsubscribeOneClick,
+	}
 }
 
 // MustRender is Render for constructors that cannot return an error. A
@@ -322,12 +383,21 @@ var registry = map[string]registration{}
 // does not parse, or when name is declared twice, so a broken mail stops the
 // binary at init.
 func declare[In Input](emailType, name string, samples func() []Sample[In]) *Definition[In] {
+	d := parse(emailType, name, samples)
+	register(name, d)
+
+	return d
+}
+
+// parse parses the templates of the mail name, the layout and the text
+// footer into a Definition, panicking when one is missing or broken.
+func parse[In Input](emailType, name string, samples func() []Sample[In]) *Definition[In] {
 	// mail.css joins the layout as a template of its own, so the layout
 	// includes it in its <style> element as trusted template text.
 	layout := htmltemplate.Must(htmltemplate.New(layoutTemplate).ParseFS(templatesFS, "templates/"+layoutTemplate))
 	htmltemplate.Must(layout.New(cssTemplate).ParseFS(templatesFS, "templates/"+cssTemplate))
 
-	d := &Definition[In]{
+	return &Definition[In]{
 		emailType: emailType,
 		name:      name,
 		subject:   texttemplate.Must(texttemplate.New(name+".subject.txt").ParseFS(templatesFS, "templates/"+name+".subject.txt")),
@@ -337,14 +407,16 @@ func declare[In Input](emailType, name string, samples func() []Sample[In]) *Def
 		footer:    texttemplate.Must(texttemplate.New(footerTemplate).ParseFS(templatesFS, "templates/"+footerTemplate)),
 		samples:   samples,
 	}
+}
 
-	if _, ok := registry[name]; ok {
-		panic("mail " + name + " is declared twice")
+// register adds a parsed mail to the registry under key, panicking when the
+// key is taken.
+func register(key string, r registration) {
+	if _, ok := registry[key]; ok {
+		panic("mail " + key + " is declared twice")
 	}
 
-	registry[name] = d
-
-	return d
+	registry[key] = r
 }
 
 // All lists every declared mail with its samples rendered, sorted by name.

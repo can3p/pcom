@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6
 	github.com/badoux/checkmail v1.2.4
 	github.com/can3p/anti-disposable-email v0.1.0
-	github.com/can3p/gogo v0.4.0
+	github.com/can3p/gogo v0.4.1
 	github.com/davidbyttow/govips/v2 v2.20.0
 	github.com/dustin/go-humanize v1.1.0
 	github.com/gin-contrib/sessions v1.1.3

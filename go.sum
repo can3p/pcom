@@ -86,6 +86,8 @@ github.com/can3p/anti-disposable-email v0.1.0 h1:9oTUEbQS7P8Y6Z/mOWSU58svI4w+NrB
 github.com/can3p/anti-disposable-email v0.1.0/go.mod h1:S9XY6MJn+ItVEAh39xWOUHxldiMN53lai55WkviYfDw=
 github.com/can3p/gogo v0.4.0 h1:18MkL6p4R6IBqSA9aDEVFD6E6rNcIafUlOlQ6O8g93Y=
 github.com/can3p/gogo v0.4.0/go.mod h1:8FfxErlyxcMLqSnsi4232TWQyjZ7zZGqVt2LggmjQBU=
+github.com/can3p/gogo v0.4.1 h1:iGjkplEd12qL/cx5o2E2sv3pLuBHsiuIeIqZ118WzMU=
+github.com/can3p/gogo v0.4.1/go.mod h1:8FfxErlyxcMLqSnsi4232TWQyjZ7zZGqVt2LggmjQBU=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=

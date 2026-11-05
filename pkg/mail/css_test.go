@@ -72,7 +72,8 @@ func TestMails_ClassesHaveRules(t *testing.T) {
 
 				html := sample.Envelope.Mail.Html
 				require.True(t, strings.HasPrefix(html, "<!DOCTYPE html>"), "starts with the doctype")
-				require.True(t, strings.HasSuffix(sample.Envelope.Mail.Text, "\n\n--\npcom · "+mail.SampleSite.Root),
+				_, footer, found := strings.Cut(sample.Envelope.Mail.Text, "\n\n--\n")
+				require.True(t, found && strings.HasSuffix(footer, "pcom · "+mail.SampleSite.Root),
 					"the text part ends in the shared footer")
 
 				doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
@@ -95,8 +96,8 @@ func TestMails_ClassesHaveRules(t *testing.T) {
 }
 
 // The footer says why the reader gets the mail: an invitation or a waiting
-// list confirmation goes to an address somebody entered, every other mail to
-// an account.
+// list confirmation goes to an address somebody entered, a subscriber's mail
+// names the author subscribed to, every other mail goes to an account.
 func TestMails_FooterReason(t *testing.T) {
 	t.Parallel()
 
@@ -105,20 +106,29 @@ func TestMails_FooterReason(t *testing.T) {
 		account = "You get this mail because you have an account at pcom."
 	)
 
-	noAccount := map[string]bool{"send_actual_invitation": true, "send_actual_confirm_waiting_list": true}
+	reasons := map[string]string{
+		"send_actual_invitation":           entered,
+		"send_actual_confirm_waiting_list": entered,
+		"new_post_subscriber":              "You subscribed to @alice&#39;s public posts at pcom.",
+	}
 
 	for _, m := range mail.All() {
 		for _, sample := range m.Samples {
 			require.NoError(t, sample.Err)
 
-			want, other := account, entered
-			if noAccount[sample.Name] {
-				want, other = entered, account
+			want, ok := reasons[sample.Name]
+			if !ok {
+				want = account
 			}
 
 			html := sample.Envelope.Mail.Html
 			require.Contains(t, html, want, sample.Name)
-			require.NotContains(t, html, other, sample.Name)
+
+			for _, other := range []string{entered, account} {
+				if other != want {
+					require.NotContains(t, html, other, sample.Name)
+				}
+			}
 		}
 	}
 }
