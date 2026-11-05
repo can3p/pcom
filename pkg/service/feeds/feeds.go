@@ -1,6 +1,6 @@
 // Package feeds manages RSS subscriptions: what a user follows, the items
-// the poller delivers to them, and dismissing an item. The poller that
-// fetches feeds lives here too (poller.go).
+// the refresh jobs deliver to them, and dismissing an item. Feeds are refreshed
+// by background jobs (jobs.go, refresh.go): one feeds.refresh job per due feed.
 package feeds
 
 import (
@@ -28,8 +28,8 @@ type Service struct {
 	// jobs enqueues background jobs; see jobs.go.
 	jobs   repo.JobQueue
 	logger *zap.Logger
-	// pollEvery is the pause between polls; tests shorten it.
-	pollEvery time.Duration
+	// pollInterval is how often the feeds.schedule job runs.
+	pollInterval time.Duration
 	// fetchLimits bound the production fetcher New builds.
 	fetchLimits reader.Limits
 }
@@ -37,7 +37,7 @@ type Service struct {
 // Option changes how New builds the service.
 type Option func(*Service)
 
-// WithLogger sets the logger of the background poller (RunPoller); requests
+// WithLogger sets the logger of the refresh jobs (Refresh); requests
 // log through the logger their context carries. The default logs nothing.
 func WithLogger(l *zap.Logger) Option {
 	return func(s *Service) {
@@ -53,7 +53,7 @@ func WithFetchLimits(l reader.Limits) Option {
 	return func(s *Service) { s.fetchLimits = l }
 }
 
-// New builds the service with the reader the poller uses in production.
+// New builds the service with the reader the refresh jobs use in production.
 func New(store *repo.Store, mediaStorage server.MediaStorage, opts ...Option) *Service {
 	s := newService(store, nil, reader.DefaultCleaner(), mediaStorage, opts...)
 	s.fetcher = reader.DefaultFetcher(s.fetchLimits)
@@ -62,7 +62,7 @@ func New(store *repo.Store, mediaStorage server.MediaStorage, opts ...Option) *S
 }
 
 func newService(store *repo.Store, fetcher fetcher, cleaner cleaner, mediaStorage server.MediaStorage, opts ...Option) *Service {
-	s := &Service{store: store, fetcher: fetcher, cleaner: cleaner, mediaStorage: mediaStorage, logger: zap.NewNop(), pollEvery: pollEvery}
+	s := &Service{store: store, fetcher: fetcher, cleaner: cleaner, mediaStorage: mediaStorage, logger: zap.NewNop(), pollInterval: DefaultPollInterval}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -116,7 +116,7 @@ func (s *Service) Subscribe(ctx context.Context, actor *model.User, rawURL strin
 }
 
 // Unsubscribe removes one of the actor's subscriptions. The feed itself stays,
-// and the poller skips feeds nobody follows.
+// and the refresh schedule skips feeds nobody follows.
 func (s *Service) Unsubscribe(ctx context.Context, actor *model.User, subscriptionID string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin

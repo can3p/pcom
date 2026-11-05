@@ -5,6 +5,7 @@ package registry
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/jobs"
@@ -21,6 +22,7 @@ import (
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
+	"go.uber.org/zap"
 )
 
 // Deps is what services are built from besides the database.
@@ -46,6 +48,9 @@ type Deps struct {
 	// FeedFetch bounds fetching RSS feeds; zero fields keep the reader's
 	// defaults.
 	FeedFetch reader.Limits
+	// FeedPollInterval is how often due feeds are looked for; feeds'
+	// default when zero.
+	FeedPollInterval time.Duration
 	// CodeKey keys the HMAC of login codes. Empty means no login codes can
 	// be issued or checked.
 	CodeKey string
@@ -60,6 +65,9 @@ type Deps struct {
 	// PostSubjectMaxLength and PostBodyMaxLength.
 	ProofreadLimits proofreadsvc.Limits
 	ProofreadModels proofreadsvc.Models
+	// Logger is the logger of the services' background jobs; nil logs
+	// nothing.
+	Logger *zap.Logger
 }
 
 // Services is one field per area service.
@@ -78,7 +86,7 @@ func New(db *sql.DB, deps Deps) *Services {
 	store := repo.New(db)
 	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 
-	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch), feeds.WithJobs(deps.Jobs))
+	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch), feeds.WithPollInterval(deps.FeedPollInterval), feeds.WithJobs(deps.Jobs), feeds.WithLogger(deps.Logger))
 
 	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
 

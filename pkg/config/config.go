@@ -87,8 +87,9 @@ type Limits struct {
 }
 
 // Feeds bounds fetching the RSS feeds users follow. The defaults are
-// reader.Default*.
+// reader.Default* and feeds.DefaultPollInterval.
 type Feeds struct {
+	PollInterval time.Duration `long:"rss-poll-interval" env:"RSS_POLL_INTERVAL" description:"How often feeds due for a fetch are looked for and queued" default:"10s"`
 	FetchTimeout time.Duration `long:"rss-fetch-timeout" env:"RSS_FETCH_TIMEOUT" description:"How long fetching one feed document may take" default:"5s"`
 	ImageTimeout time.Duration `long:"rss-image-timeout" env:"RSS_IMAGE_TIMEOUT" description:"How long downloading one image of a feed item may take" default:"30s"`
 	MaxFeedSize  int64         `long:"rss-max-feed-size" env:"RSS_MAX_FEED_SIZE" description:"Most bytes of a feed document" default:"5242880"`
