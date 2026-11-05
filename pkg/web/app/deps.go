@@ -7,6 +7,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"time"
 
+	"github.com/can3p/pcom/pkg/abuse"
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/proofread/claude"
@@ -93,6 +94,10 @@ type Config struct {
 	// Subscriptions configures the email subscriptions service: its limits
 	// and the address checker.
 	Subscriptions []subscriptions.Option
+	// Abuse configures the guard of the public forms (pkg/abuse): proof-of-work
+	// difficulty, challenge age and the least time to fill a form. The guard
+	// is built with the session salt as its key where a form needs it.
+	Abuse []abuse.Option
 }
 
 // Proofread is the settings of the grammar check and style review: the
