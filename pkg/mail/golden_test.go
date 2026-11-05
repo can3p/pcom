@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/mail"
@@ -26,6 +28,9 @@ func mailsToGolden(sent []fakesender.Recorded) []byte {
 			fmt.Fprintf(&buf, "To: %s\n", rec.Mail.To[0].Address)
 		}
 		fmt.Fprintf(&buf, "Subject: %s\n", rec.Mail.Subject)
+		for _, k := range slices.Sorted(maps.Keys(rec.Mail.Headers)) {
+			fmt.Fprintf(&buf, "%s: %s\n", k, rec.Mail.Headers[k])
+		}
 		fmt.Fprintf(&buf, "\n--- TEXT ---\n%s\n", rec.Mail.Text)
 		fmt.Fprintf(&buf, "\n--- HTML ---\n%s\n", rec.Mail.Html)
 	}

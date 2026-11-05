@@ -23,7 +23,8 @@
 </tr>
 <tr>
 <td class="mail-footer">
-<p class="mail-muted">{{if .NoAccount}}You get this mail because somebody entered this address at pcom.{{else}}You get this mail because you have an account at pcom.{{end}}<br>
+<p class="mail-muted">{{if .Subscriber}}You subscribed to @{{.AuthorUsername}}'s public posts at pcom.<br>
+<a href="{{.ManageURL}}">Manage your subscription</a> · <a href="{{.UnsubscribeURL}}">Unsubscribe</a>{{else if .NoAccount}}You get this mail because somebody entered this address at pcom.{{else}}You get this mail because you have an account at pcom.{{end}}<br>
 <a href="{{.Site.Root}}">{{.Site.Root}}</a></p>
 </td>
 </tr>

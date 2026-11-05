@@ -1,2 +1,5 @@
 --
-pcom · {{.Site.Root}}
+{{if .Subscriber}}You subscribed to @{{.AuthorUsername}}'s public posts at pcom.
+Manage your subscription: {{.ManageURL}}
+Unsubscribe: {{.UnsubscribeURL}}
+{{end}}pcom · {{.Site.Root}}
