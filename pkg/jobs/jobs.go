@@ -27,15 +27,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"time"
 
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
 	"github.com/riverqueue/river/rivertype"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // Defaults of the runner's settings, equal to the defaults of config.Jobs.
@@ -47,6 +47,10 @@ const (
 	// DefaultRetention is how long finished jobs are kept.
 	DefaultRetention = 24 * time.Hour
 )
+
+// riverLogLevel is the least level of River's own log records that reach
+// the logger: its info records narrate every start, stop and election.
+const riverLogLevel = zapcore.WarnLevel
 
 // riverFetchCooldown is River's default FetchCooldown, which may not exceed
 // the poll interval: a shorter poll interval (tests) shortens it too.
@@ -64,7 +68,7 @@ var _ repo.JobQueue = (*Inserter)(nil)
 // NewInserter returns an Inserter over db.
 func NewInserter(db *sql.DB) (*Inserter, error) {
 	client, err := river.NewClient(riverdatabasesql.New(db), &river.Config{
-		Logger: discardLogger(),
+		Logger: logging.Slog(zap.NewNop(), riverLogLevel),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("jobs: building the inserter: %w", err)
@@ -166,7 +170,7 @@ func NewRunner(db *sql.DB, reg *Registry, opts ...Option) (*Runner, error) {
 		ErrorHandler:                errorLogger{logger: cfg.logger},
 		FetchPollInterval:           cfg.pollInterval,
 		FetchCooldown:               min(cfg.pollInterval, riverFetchCooldown),
-		Logger:                      discardLogger(),
+		Logger:                      logging.Slog(cfg.logger, riverLogLevel),
 		PeriodicJobs:                reg.periodic,
 		PollOnly:                    true,
 		Queues:                      map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.workers}},
@@ -193,12 +197,6 @@ func (r *Runner) Stop(ctx context.Context) error {
 	}
 
 	return err
-}
-
-// discardLogger silences River's own logging: failures reach the zap logger
-// through errorLogger.
-func discardLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 // errorLogger logs every failed or panicking job and leaves River's retry
