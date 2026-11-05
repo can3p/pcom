@@ -218,30 +218,3 @@ func (f flakyDelivery) Send(ctx context.Context, m *sender.Mail) error {
 
 	return f.inner.Send(ctx, m)
 }
-
-func TestRenderedMailArgs(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-	fake := fakesender.New()
-	reg := newRegistry(db, fake.Delivery())
-
-	key := jobs.UniqueKey("legacy-1")
-	args := jobs.RenderedMailArgs{UniqueKey: key, EmailType: testMailType, Mail: *testMail("legacy")}
-
-	require.Equal(t, "mail.rendered", args.Kind())
-
-	insertJob(t, db, args)
-	insertJob(t, db, args)
-
-	startRunner(t, db, reg)
-	requireStates(t, db, "mail.rendered", "completed", "completed")
-
-	sent := fake.Sent()
-	require.Len(t, sent, 1)
-	require.Equal(t, *testMail("legacy"), *sent[0].Mail)
-
-	rows := sentRows(t, db)
-	require.Len(t, rows, 1)
-	require.Equal(t, key, rows[0].UniqueID)
-}

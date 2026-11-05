@@ -1,15 +1,20 @@
 -- +migrate Up
 
--- Nothing writes outgoing_emails any more. A row an old machine queued while
--- 20261105121000-sent_emails.sql ran is handled the way that migration
--- handled the rest: unsent mail becomes a mail.rendered job, sent mail is
--- recorded in sent_emails so its dedup holds.
-insert into river_job (args, kind, max_attempts, queue, state, scheduled_at)
-select jsonb_build_object('unique_key', unique_id, 'email_type', email_type, 'mail', payload),
-       'mail.rendered', 4, 'default', 'available', now()
-from outgoing_emails
-where status = 'new';
+-- Nothing writes outgoing_emails any more, and no worker sends a mail
+-- queued there: 20261105121000-sent_emails.sql turned the unsent rows into
+-- jobs of a kind since retired. A row an old machine queued during that
+-- deploy stops this migration rather than being dropped unsent.
+-- +migrate StatementBegin
+do $$
+begin
+  if exists (select 1 from outgoing_emails where status = 'new') then
+    raise exception 'outgoing_emails still has unsent mail';
+  end if;
+end
+$$;
+-- +migrate StatementEnd
 
+-- The sent mail sent_emails doesn't have yet, so its dedup stays complete.
 insert into sent_emails (id, unique_id, email_type, payload, sent_at, created_at)
 select id, unique_id, email_type, payload, coalesce(sent_at, updated_at), created_at
 from outgoing_emails

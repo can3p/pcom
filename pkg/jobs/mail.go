@@ -29,19 +29,6 @@ func RegisterMail[A river.JobArgs](r *Registry, render func(ctx context.Context,
 	river.AddWorker(r.workers, &mailWorker[A]{render: render, deliverer: r.deliverer()})
 }
 
-// RenderedMailArgs is a mail rendered before the job queue existed: the
-// unsent rows of the old outgoing_emails table, which
-// 20261105121000-sent_emails.sql and 20261105130000-drop_outgoing_emails.sql
-// turned into jobs. UniqueKey is already the SHA-1 uuid.
-type RenderedMailArgs struct {
-	UniqueKey string      `json:"unique_key"`
-	EmailType string      `json:"email_type"`
-	Mail      sender.Mail `json:"mail"`
-}
-
-// Kind names the job kind.
-func (RenderedMailArgs) Kind() string { return "mail.rendered" }
-
 // deliverer sends one mail and records it.
 type deliverer struct {
 	store          *repo.Store
@@ -132,18 +119,5 @@ func (w *mailWorker[A]) Work(ctx context.Context, job *river.Job[A]) error {
 }
 
 func (w *mailWorker[A]) NextRetry(job *river.Job[A]) time.Time {
-	return w.nextRetry(job.Attempt)
-}
-
-type renderedMailWorker struct {
-	river.WorkerDefaults[RenderedMailArgs]
-	deliverer
-}
-
-func (w *renderedMailWorker) Work(ctx context.Context, job *river.Job[RenderedMailArgs]) error {
-	return w.failed(job.Attempt, w.send(ctx, job.Args.EmailType, job.Args.UniqueKey, &job.Args.Mail))
-}
-
-func (w *renderedMailWorker) NextRetry(job *river.Job[RenderedMailArgs]) time.Time {
 	return w.nextRetry(job.Attempt)
 }
