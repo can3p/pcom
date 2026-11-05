@@ -38,7 +38,7 @@ func WithRetryIntervals(intervals []time.Duration) RegistryOption {
 }
 
 // NewRegistry returns a Registry whose mail workers record sent mail in
-// store and hand it to delivery. It registers the mail.rendered kind.
+// store and hand it to delivery.
 func NewRegistry(store *repo.Store, delivery sender.Sender, opts ...RegistryOption) *Registry {
 	r := &Registry{
 		workers:        river.NewWorkers(),
@@ -50,8 +50,6 @@ func NewRegistry(store *repo.Store, delivery sender.Sender, opts ...RegistryOpti
 	for _, o := range opts {
 		o(r)
 	}
-
-	river.AddWorker(r.workers, &renderedMailWorker{deliverer: r.deliverer()})
 
 	return r
 }
