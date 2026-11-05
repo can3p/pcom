@@ -70,8 +70,8 @@
 // A mail with an UnsubscribeURL in its Header carries the one-click
 // unsubscribe headers of RFC 8058: Render sets List-Unsubscribe to
 // <UnsubscribeURL>, <ManageURL> and List-Unsubscribe-Post to
-// List-Unsubscribe=One-Click in sender.Mail.Headers, which the queue keeps in
-// its payload and the sender passes on.
+// List-Unsubscribe=One-Click in sender.Mail.Headers, which the mail job hands
+// to the sender with the rest of the rendered mail.
 //
 // Mail clients drop or ignore a <style> element unevenly, so Render inlines
 // mail.css into style attributes with go-premailer. Element selectors style
