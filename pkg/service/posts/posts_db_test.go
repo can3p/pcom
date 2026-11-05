@@ -19,7 +19,7 @@ import (
 
 // svc is the service over db and a media storage.
 func svc(db *sql.DB, storage server.MediaStorage) *posts.Service {
-	return posts.New(repo.New(db), nil, storage, posts.WithJobs(fakequeue.New()))
+	return posts.New(repo.New(db), storage, posts.WithJobs(fakequeue.New()))
 }
 
 // PostStat, PostShare and PostPrompt all reference posts(id) with no ON

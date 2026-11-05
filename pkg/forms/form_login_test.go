@@ -46,7 +46,7 @@ func codeAccounts(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
 		q = fakequeue.New()
 	}
 
-	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithIdentity(testIdent), accounts.WithJobs(q))
+	return accounts.New(repo.New(db), nil, accounts.WithCodeKey("test-key"), accounts.WithIdentity(testIdent), accounts.WithJobs(q))
 }
 
 // rendered builds the mail of every account job q recorded, in order, the way

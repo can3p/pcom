@@ -7,7 +7,6 @@ import (
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/uptrace/bun"
 )
 
 // noRows maps the repository's ErrNotFound back to sql.ErrNoRows, which the
@@ -68,33 +67,6 @@ func GetPostStat(ctx context.Context, exec repo.Executor, postID string) (*model
 // GetMediaUploadByFname looks up the upload row that StoreUpload created for fname.
 func GetMediaUploadByFname(ctx context.Context, exec repo.Executor, fname string) (*model.MediaUpload, error) {
 	return one[model.MediaUpload](ctx, exec, "uploaded_fname = ?", fname)
-}
-
-// OutgoingEmailFilter narrows ListOutgoingEmails.
-type OutgoingEmailFilter func(*bun.SelectQuery) *bun.SelectQuery
-
-// EmailType keeps the emails of type t.
-func EmailType(t string) OutgoingEmailFilter {
-	return func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Where("email_type = ?", t)
-	}
-}
-
-// ListOutgoingEmails returns the queued emails matching every filter, e.g.
-// factory.ListOutgoingEmails(ctx, db, factory.EmailType("welcome")).
-func ListOutgoingEmails(ctx context.Context, exec repo.Executor, filter ...OutgoingEmailFilter) ([]*model.OutgoingEmail, error) {
-	var emails []*model.OutgoingEmail
-
-	q := repo.Query(exec).NewSelect().Model(&emails)
-	for _, f := range filter {
-		q = f(q)
-	}
-
-	if err := q.Scan(ctx); err != nil {
-		return nil, err
-	}
-
-	return emails, nil
 }
 
 // ListSentEmails returns the sent_emails records of type emailType, oldest

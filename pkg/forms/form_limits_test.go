@@ -18,10 +18,10 @@ import (
 func TestForms_UseConfiguredTextLimits(t *testing.T) {
 	t.Parallel()
 
-	postsSvc := posts.New(repo.New(nil), nil, nil, posts.WithTextLimits(posts.TextLimits{
+	postsSvc := posts.New(repo.New(nil), nil, posts.WithTextLimits(posts.TextLimits{
 		CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7, PromptMaxLength: 8,
 	}))
-	accountsSvc := accounts.New(repo.New(nil), nil, nil,
+	accountsSvc := accounts.New(repo.New(nil), nil,
 		accounts.WithProfileAboutMaxLength(4), accounts.WithUserStylesMaxLength(9))
 
 	editComment := func(body string) string {

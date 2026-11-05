@@ -15,7 +15,6 @@ import (
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil/fakequeue"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/testlog"
@@ -29,7 +28,7 @@ import (
 func renderPageFailures(t *testing.T, cfg app.Config, q *fakequeue.Queue) []*mail.Envelope {
 	t.Helper()
 
-	svc := accounts.New(repo.New(nil), nil, nil, accounts.WithIdentity(mail.Identity{From: cfg.SenderAddress, AdminAddress: cfg.AdminAddress}))
+	svc := accounts.New(repo.New(nil), nil, accounts.WithIdentity(mail.Identity{From: cfg.SenderAddress, AdminAddress: cfg.AdminAddress}))
 
 	var out []*mail.Envelope
 
@@ -118,7 +117,7 @@ func TestRouter_Settings(t *testing.T) {
 					tc.set(&cfg)
 				}
 
-				h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+				h := app.New(&app.Deps{DB: testdb.New(t).DB, MediaStorage: fakestorage.New(), Config: cfg})
 
 				rec := httptest.NewRecorder()
 				h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.target, nil))
@@ -216,7 +215,7 @@ func TestRouter_StaticCache(t *testing.T) {
 		cfg := settingsConfig()
 		cfg.HTMLDir = htmlDir
 		cfg.StaticCache = on
-		h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+		h := app.New(&app.Deps{DB: testdb.New(t).DB, MediaStorage: fakestorage.New(), Config: cfg})
 
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/app.js", nil))
@@ -235,7 +234,7 @@ func TestRouter_StaticCache_MissingFileNotImmutable(t *testing.T) {
 
 	cfg.HTMLDir = htmlDir
 	cfg.StaticCache = true
-	h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+	h := app.New(&app.Deps{DB: testdb.New(t).DB, MediaStorage: fakestorage.New(), Config: cfg})
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/nothing-here", nil))
@@ -258,7 +257,7 @@ func TestRouter_ForceOpenRegistration(t *testing.T) {
 
 			cfg := settingsConfig()
 			cfg.ForceOpenRegistration = force
-			h := app.New(&app.Deps{DB: db, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Config: cfg})
+			h := app.New(&app.Deps{DB: db, MediaStorage: fakestorage.New(), Config: cfg})
 
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/signup", nil))

@@ -19,7 +19,6 @@ import (
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/logging"
-	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/media/server/storage/s3"
 	"github.com/can3p/pcom/pkg/pgsession"
@@ -61,9 +60,6 @@ func (c *serveCmd) Execute([]string) error {
 	defer cancel()
 
 	delivery := mailjet.NewSenderFromConfig(&cfg.Mail.Mailjet)
-	dbSender := dbsender.NewSender(repo.New(db), delivery, dbsender.WithRetryIntervals(cfg.Mail.RetryIntervals), dbsender.WithLogger(logger))
-
-	go dbSender.RunPoller(ctx, cfg.Mail.PollInterval)
 
 	mediaStorage, err := newMediaStorage(cfg.Media)
 	if err != nil {
@@ -72,7 +68,7 @@ func (c *serveCmd) Execute([]string) error {
 
 	go pgsession.RunCleanup(ctx, db, cfg.Web.SessionCleanupInterval, logger)
 
-	go accounts.New(repo.New(db), nil, nil, accounts.WithLoginLimits(loginLimits(cfg.Login)), accounts.WithLogger(logger)).RunPruner(ctx)
+	go accounts.New(repo.New(db), nil, accounts.WithLoginLimits(loginLimits(cfg.Login)), accounts.WithLogger(logger)).RunPruner(ctx)
 
 	mediaServer, mediaServerCleanup, err := newMediaServer(mediaStorage, cfg.Web)
 	if err != nil {
@@ -90,7 +86,6 @@ func (c *serveCmd) Execute([]string) error {
 
 	deps := &app.Deps{
 		DB:           db,
-		Sender:       dbSender,
 		Jobs:         inserter,
 		MediaStorage: mediaStorage,
 		MediaServer:  mediaServer,

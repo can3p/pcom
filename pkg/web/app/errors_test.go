@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/web/app"
@@ -29,7 +28,6 @@ func TestRouter_ErrorTextOnlyWhenShowErrors(t *testing.T) {
 
 			h := app.New(&app.Deps{
 				DB:           testdb.New(t).DB,
-				Sender:       fakesender.New(),
 				MediaStorage: fakestorage.New(),
 				Config: app.Config{
 					HTMLDir:     "../../../cmd/web/client/html",

@@ -96,7 +96,7 @@ func WithIdentity(ident mail.Identity) Option {
 	return func(s *Service) { s.ident = ident }
 }
 
-func New(store *repo.Store, _ repo.MailQueue, storage server.MediaStorage, opts ...Option) *Service {
+func New(store *repo.Store, storage server.MediaStorage, opts ...Option) *Service {
 	s := &Service{store: store, storage: storage, limits: DefaultTextLimits}
 	for _, opt := range opts {
 		opt(s)

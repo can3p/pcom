@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/mail"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/web/app"
@@ -30,7 +29,6 @@ func newDevApp(t *testing.T, dev bool) http.Handler {
 
 	return app.New(&app.Deps{
 		DB:           testdb.New(t).DB,
-		Sender:       fakesender.New(),
 		MediaStorage: fakestorage.New(),
 		Config: app.Config{
 			HTMLDir:     "../../../cmd/web/client/html",

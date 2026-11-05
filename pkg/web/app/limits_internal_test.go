@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-gonic/gin"
@@ -66,7 +65,6 @@ func TestBodyLimits_UploadPaths(t *testing.T) {
 
 	router := New(&Deps{
 		DB:           testdb.New(t).DB,
-		Sender:       fakesender.New(),
 		MediaStorage: fakestorage.New(),
 		Config: Config{
 			HTMLDir:     "../../../cmd/web/client/html",

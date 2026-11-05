@@ -104,7 +104,7 @@ func feedPage(c *gin.Context, db repo.Executor, userData *auth.UserData) mo.Resu
 // settingsPage builds the settings page the way its route does: the service
 // gathers what it shows, the page builder shapes it.
 func settingsPage(c *gin.Context, exec repo.Executor, user *model.User) (*SettingsPage, error) {
-	svc := accounts.New(repo.Using(exec), nil, feeds.New(repo.Using(exec), nil))
+	svc := accounts.New(repo.Using(exec), feeds.New(repo.Using(exec), nil))
 
 	view, err := svc.Settings(c, user)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestInvite(t *testing.T) {
 
 	c := newTestContext(t, http.MethodGet, "/invite/"+invite.ID)
 
-	page := Invite(c, testutil.Must(accounts.New(repo.New(db), nil, nil).Invitation(ctx, invite.ID))(t), userDataFor(nil))
+	page := Invite(c, testutil.Must(accounts.New(repo.New(db), nil).Invitation(ctx, invite.ID))(t), userDataFor(nil))
 
 	require.Equal(t, "Accept Invitation", page.Name)
 	require.Equal(t, invite.ID, page.Invite.ID)

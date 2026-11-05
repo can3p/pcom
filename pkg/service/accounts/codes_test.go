@@ -56,7 +56,7 @@ func codeSvc(db *sql.DB, c *clock, key string) *accounts.Service {
 		opts = append(opts, accounts.WithCodeKey(key))
 	}
 
-	return accounts.New(repo.New(db), nil, nil, opts...)
+	return accounts.New(repo.New(db), nil, opts...)
 }
 
 var codeRe = regexp.MustCompile(`login code is (\d{8})`)
@@ -89,7 +89,7 @@ func queuedArgs[T any](t *testing.T, db *sql.DB, kind string) []T {
 
 // renderSvc is the service the mail workers render with.
 func renderSvc(db *sql.DB) *accounts.Service {
-	return accounts.New(repo.New(db), nil, nil, accounts.WithIdentity(testIdent))
+	return accounts.New(repo.New(db), nil, accounts.WithIdentity(testIdent))
 }
 
 // mailedCodes returns the codes queued for the address, in no order.
@@ -431,7 +431,7 @@ func TestLoginCodes(t *testing.T) {
 	t.Run("the limits are settings: a set one applies, the others keep their defaults", func(t *testing.T) {
 		t.Parallel()
 
-		svc := accounts.New(repo.New(db), nil, nil, accounts.WithJobs(jobQueue(db)), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
+		svc := accounts.New(repo.New(db), nil, accounts.WithJobs(jobQueue(db)), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
 		u := newUser(t)
 		id, code := start(t, ctx, db, svc, u, "")
 
@@ -600,7 +600,7 @@ func TestRunPruner(t *testing.T) {
 
 	ctx := context.Background()
 	pruner := func(db *sql.DB, c *clock) *accounts.Service {
-		return accounts.New(repo.New(db), nil, nil, accounts.WithClock(c.now), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{PruneEvery: time.Millisecond}))
+		return accounts.New(repo.New(db), nil, accounts.WithClock(c.now), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{PruneEvery: time.Millisecond}))
 	}
 
 	t.Run("prunes on its schedule until its context ends", func(t *testing.T) {
@@ -666,7 +666,7 @@ func TestRunPruner(t *testing.T) {
 		db := testdb.New(t).DB
 		require.NoError(t, db.Close())
 		logger, logs := testlog.New()
-		svc := accounts.New(repo.New(db), nil, nil, accounts.WithClock(time.Now), accounts.WithCodeKey("test-key"),
+		svc := accounts.New(repo.New(db), nil, accounts.WithClock(time.Now), accounts.WithCodeKey("test-key"),
 			accounts.WithLoginLimits(accounts.LoginLimits{PruneEvery: time.Millisecond}), accounts.WithLogger(logger))
 
 		runCtx, cancel := context.WithCancel(ctx)

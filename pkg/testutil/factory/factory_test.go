@@ -115,11 +115,8 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, url.ID, item2.URLID)
 
-	// Media and mail.
+	// Media.
 	_, err = factory.MediaUpload(ctx, db, alice.ID)
-	require.NoError(t, err)
-
-	_, err = factory.OutgoingEmail(ctx, db, "test_email")
 	require.NoError(t, err)
 
 	// Readers.
@@ -138,10 +135,6 @@ func TestFactoriesBuildEveryEntity(t *testing.T) {
 	comments, err := factory.ListComments(ctx, db, post.ID)
 	require.NoError(t, err)
 	require.Len(t, comments, 2)
-
-	emails, err := factory.ListOutgoingEmails(ctx, db, factory.EmailType("test_email"))
-	require.NoError(t, err)
-	require.Len(t, emails, 1)
 
 	connected, err := factory.ConnectionExists(ctx, db, alice.ID, bob.ID)
 	require.NoError(t, err)

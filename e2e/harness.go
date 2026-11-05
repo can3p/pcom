@@ -183,17 +183,14 @@ type App struct {
 const AdminAddress = "admin@pcom.test"
 
 // unsentMailSQL counts the mail the app queued and hasn't sent: the
-// outgoing_emails rows still new, and the unfinished River jobs that send
-// mail (mail.*) or queue it (posts.*).
-const unsentMailSQL = `SELECT
-	(SELECT count(*) FROM outgoing_emails WHERE status = 'new') +
-	(SELECT count(*) FROM river_job WHERE (kind LIKE 'mail.%' OR kind LIKE 'posts.%')
-		AND state IN ('available', 'pending', 'retryable', 'running', 'scheduled'))`
+// unfinished River jobs that send mail (mail.*) or queue it (posts.*).
+const unsentMailSQL = `SELECT count(*) FROM river_job WHERE (kind LIKE 'mail.%' OR kind LIKE 'posts.%')
+	AND state IN ('available', 'pending', 'retryable', 'running', 'scheduled')`
 
 // WaitMailSent waits up to 5s until the app has sent all the mail it
 // queued, so that what tommy holds is final: a count or an absence checked
 // after it holds. It and QueuedMails are the only places e2e knows the mail
-// goes through a queue (outgoing_emails, and River's jobs during R8); tests
+// goes through a queue (River's jobs); tests
 // assert on delivered mail.
 func (a *App) WaitMailSent(t testing.TB) {
 	t.Helper()
@@ -224,7 +221,7 @@ func (a *App) QueuedMails(t testing.TB) int {
 	t.Helper()
 
 	var n int
-	if err := a.DB.QueryRow(`SELECT (SELECT count(*) FROM outgoing_emails) + (SELECT count(*) FROM river_job WHERE kind LIKE 'mail.%' OR kind LIKE 'posts.%')`).Scan(&n); err != nil {
+	if err := a.DB.QueryRow(`SELECT count(*) FROM river_job WHERE kind LIKE 'mail.%' OR kind LIKE 'posts.%'`).Scan(&n); err != nil {
 		t.Fatalf("e2e: counting queued mail: %v", err)
 	}
 
@@ -238,7 +235,7 @@ func (a *App) IssueLoginCode(t testing.TB, email string) string {
 	t.Helper()
 
 	ctx := context.Background()
-	svc := accounts.New(repo.New(a.DB), nil, nil, accounts.WithCodeKey(SessionSalt))
+	svc := accounts.New(repo.New(a.DB), nil, accounts.WithCodeKey(SessionSalt))
 
 	attempt, err := svc.LatestLoginAttempt(ctx, email)
 	if err != nil {
@@ -408,24 +405,24 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 	// `web serve --help`, as in production; development values where
 	// production defaults don't fit plain-HTTP localhost.
 	env := map[string]string{
-		"PORT":                fmt.Sprint(port),
-		"DATABASE_URL":        dbURL,
-		"SESSION_SALT":        SessionSalt,
-		"SITE_ROOT":           url,
-		"GIN_MODE":            "release",
-		"SENDER_ADDRESS":      "pcom@pcom.test",
-		"ADMIN_ADDRESS":       AdminAddress,
-		"MJ_APIKEY_PUBLIC":    "test",
-		"MJ_APIKEY_PRIVATE":   "test",
-		"MJ_API_BASE":         tm.MailjetURL,
-		"EMAIL_POLL_INTERVAL": "200ms",
-		"SECURE_COOKIES":      "false",
-		"HSTS":                "false",
-		"STATIC_CACHE":        "false",
-		"MEDIA_PERMA_CACHE":   "false",
-		"SHOW_ERRORS":         "true",
-		"REPORT_PANICS":       "false",
-		"LOG_LEVEL":           "debug",
+		"PORT":               fmt.Sprint(port),
+		"DATABASE_URL":       dbURL,
+		"SESSION_SALT":       SessionSalt,
+		"SITE_ROOT":          url,
+		"GIN_MODE":           "release",
+		"SENDER_ADDRESS":     "pcom@pcom.test",
+		"ADMIN_ADDRESS":      AdminAddress,
+		"MJ_APIKEY_PUBLIC":   "test",
+		"MJ_APIKEY_PRIVATE":  "test",
+		"MJ_API_BASE":        tm.MailjetURL,
+		"JOBS_POLL_INTERVAL": "100ms",
+		"SECURE_COOKIES":     "false",
+		"HSTS":               "false",
+		"STATIC_CACHE":       "false",
+		"MEDIA_PERMA_CACHE":  "false",
+		"SHOW_ERRORS":        "true",
+		"REPORT_PANICS":      "false",
+		"LOG_LEVEL":          "debug",
 
 		"USER_MEDIA_ENDPOINT":   tm.S3URL,
 		"USER_MEDIA_BUCKET":     tommy.Bucket,

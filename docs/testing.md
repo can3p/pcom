@@ -102,7 +102,7 @@ Builders such as `factory.User(ctx, exec, opts...)`, `factory.Post(ctx, exec, au
 row with sane defaults. Functional options override specific fields, e.g. `factory.WithEmail("a@b.test")`,
 `factory.Published()`, `factory.Visibility(model.PostVisibilityPublic)`. Readers, in `read.go`, fetch state
 back through the same `exec`: `factory.GetUser`, `factory.GetPost`, `factory.ListPosts`, `factory.ListComments`,
-`factory.ListOutgoingEmails` (filtered by `factory.EmailType("login_code")`), `factory.ConnectionExists`.
+`factory.ListSentEmails`, `factory.ConnectionExists`.
 
 The package imports no `testing`, so it also works from e2e's subprocess-backed database. Tests reach the ORM
 only through it (ground rule 1); a missing builder or reader is requested from the coordinator, not
@@ -111,7 +111,8 @@ improvised inline. `pkg/feedops/testutil` is legacy: don't use it in new tests.
 ## Fakes and other helpers
 
 - **`testutil.Must(v, err)(t)`** (`pkg/testutil`) - returns `v`, or fails the test immediately if `err != nil`; for one-line fixture setup such as `testutil.Must(factory.User(ctx, db))(t)`.
-- **`fakesender.New()`** (`pkg/testutil/fakesender`) - a `sender.Sender` that records every `Send` instead of delivering it. `Sent()` returns what was recorded; `FailWith(err)` makes `Send` fail instead (`nil` resumes recording).
+- **`fakequeue.New()`** (`pkg/testutil/fakequeue`) - a `repo.JobQueue` for service tests: it records the args a service enqueued (`Inserted()`, `fakequeue.Of[T](q)`). Assert the args, then call the service's `Render<Mail>` on them for what the mail says; the River tables exist in the test database for tests of workers and the runner.
+- **`fakesender.New()`** (`pkg/testutil/fakesender`) - the fake delivery for worker tests: `Delivery()` is a gogo `sender.Sender` that records every mail instead of delivering it. `Sent()` returns what was recorded; `FailWith(err)` makes delivery fail instead (`nil` resumes recording).
 - **`fakestorage.New()`** (`pkg/testutil/fakestorage`) - an in-memory `pkg/media/server.MediaStorage`. `FailUploadWith`, `FailDownloadWith` and `FailExistsWith(err)` inject an error into the matching call.
 - **`testlog.New()`** (`pkg/testutil/testlog`) - a `*zap.Logger` that records every entry, and the `observer.ObservedLogs` to assert on (`FilterMessage`, `ContextMap()`). `testlog.Context(ctx)` puts one into a context for code that takes its logger from there.
 - **`ginctx.New(t, method, target, body, opts...)`** (`pkg/testutil/ginctx`) - a `*gin.Context` wired like a real request (cookie session under `"sess"`), plus its `*httptest.ResponseRecorder`. Options: `ginctx.WithUser(t, db, userID)`, `ginctx.WithCSPNonces(style, script)`.
@@ -135,7 +136,7 @@ with `RequireStatus(code)`, `Doc()` (goquery) and `Location()`; `Header` and `Bo
 never a real remote URL.
 
 Mail and user media go to one tommy container per test binary (`pkg/testutil/tommy`), which the harness
-starts and points the binary at. Assert what was delivered, never the `outgoing_emails` queue:
+starts and points the binary at. Assert what was delivered, never the job queue:
 `app.Mails(t, to, match)` waits for mail to that exact recipient (match may be nil), `app.NoMails(t, to,
 match)` asserts none arrived, and `app.SentMails` returns the final set for counting; the last two first wait
 until the app has sent everything it queued (`app.WaitMailSent`), so an absence or a count is final. The

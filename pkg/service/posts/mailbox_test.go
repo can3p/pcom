@@ -14,7 +14,7 @@ import (
 
 // svcWith is the posts service over db that enqueues its jobs on q.
 func svcWith(db *sql.DB, q *fakequeue.Queue) *posts.Service {
-	return posts.New(repo.New(db), nil, nil, posts.WithJobs(q))
+	return posts.New(repo.New(db), nil, posts.WithJobs(q))
 }
 
 // mailbox plays the workers over the jobs a service enqueued on q: Sent runs

@@ -12,9 +12,9 @@ import (
 func TestTextLimits(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(t, DefaultTextLimits, New(repo.New(nil), nil, nil).TextLimits())
+	require.Equal(t, DefaultTextLimits, New(repo.New(nil), nil).TextLimits())
 
-	small := New(repo.New(nil), nil, nil, WithTextLimits(TextLimits{CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7}))
+	small := New(repo.New(nil), nil, WithTextLimits(TextLimits{CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7}))
 	require.Equal(t, TextLimits{CommentMaxLength: 5, PostBodyMaxLength: 6, PostSubjectMaxLength: 7, PromptMaxLength: DefaultPromptMaxLength},
 		small.TextLimits(), "a zero limit keeps its default")
 
@@ -26,7 +26,7 @@ func TestTextLimits(t *testing.T) {
 	require.ErrorAs(t, small.checkCommentBody("ab"), &invalid, "shorter than CommentMinLength")
 
 	require.NoError(t, small.checkPrompt("abc"))
-	require.ErrorAs(t, New(repo.New(nil), nil, nil, WithTextLimits(TextLimits{PromptMaxLength: 8})).checkPrompt("abcdefghi"), &invalid)
+	require.ErrorAs(t, New(repo.New(nil), nil, WithTextLimits(TextLimits{PromptMaxLength: 8})).checkPrompt("abcdefghi"), &invalid)
 	require.Equal(t, "message", invalid.Field)
 
 	errs := small.checkSave(SaveInput{Subject: "12345678", Body: "1234567", Visibility: "public"})

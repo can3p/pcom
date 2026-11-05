@@ -128,9 +128,6 @@ Help Options:
                                                        notifications (signups,
                                                        page failures) go
                                                        [$ADMIN_ADDRESS]
-          --email-poll-interval=                       How often the mail queue
-                                                       is sent (default: 10s)
-                                                       [$EMAIL_POLL_INTERVAL]
           --email-retry-intervals=                     Waits between attempts
                                                        to send a mail; a mail
                                                        fails after one attempt

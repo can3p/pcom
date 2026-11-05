@@ -25,7 +25,7 @@ func accountsFor(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
 		q = fakequeue.New()
 	}
 
-	return accounts.New(repo.New(db), nil, nil, accounts.WithIdentity(testIdent), accounts.WithJobs(q))
+	return accounts.New(repo.New(db), nil, accounts.WithIdentity(testIdent), accounts.WithJobs(q))
 }
 
 func TestSignupForm_Validate(t *testing.T) {

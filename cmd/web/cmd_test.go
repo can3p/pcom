@@ -14,7 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
@@ -84,7 +84,7 @@ func TestAdminLoginCode(t *testing.T) {
 	_, err := stdoutOf(t, args)
 	require.ErrorContains(t, err, "must first enter their email on the login page")
 
-	svc := accounts.New(repo.New(db.DB), fakesender.New(), nil, accounts.WithCodeKey("test-key"))
+	svc := accounts.New(repo.New(db.DB), nil, accounts.WithCodeKey("test-key"), accounts.WithJobs(fakequeue.New()))
 	attemptID := testutil.Must(svc.StartLogin(ctx, user.Email, ""))(t)
 
 	out, err := stdoutOf(t, args)

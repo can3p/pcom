@@ -5,8 +5,8 @@ gogo-based project shares one copy. **Extract only code that has tests**, and mo
 
 pcom depends on `github.com/can3p/gogo v0.3.0` and uses `forms`, `sender` (mailjet), `links.ArgBuilder`,
 `util/transact`, `testcontainers/postgres`, `sessions/pgstore`, `apperr`, `settings`, `util/ginhelpers` and
-`util/ginhelpers/csrf`. Apart from `sessions/pgstore`, which owns its table and takes the `*sql.DB`, gogo takes no executor: forms call services and the mail queue is pcom's
-`repo.MailQueue`, so the ORM never reaches gogo. What has already moved is in the history files under
+`util/ginhelpers/csrf`. Apart from `sessions/pgstore`, which owns its table and takes the `*sql.DB`, gogo takes no executor: forms call services and background jobs are pcom's
+`repo.JobQueue` over River (`pkg/jobs`), so the ORM never reaches gogo. What has already moved is in the history files under
 `docs/archive/history/`.
 
 ## Candidates
@@ -28,6 +28,6 @@ Roughly ordered by payoff:
 | Timezone list | `pkg/util/tz.go` | IANA zones for settings dropdowns. |
 | JSON action helper | `pkg/web/app` | `jsonAction[T]`: bind, call, `{explanation}` on error. Pairs with gogo's `API` renderer. |
 | RSS fetcher | `pkg/feedops/reader` | Size and time-limited fetch with MIME validation. Maybe; it's pcom-specific today. |
-| DB-backed mail queue | `pkg/mail/sender/dbsender` | **Don't extract as is.** R8 plans to replace it with a general job queue; extract that instead, if it happens. |
+| Job queue | `pkg/jobs` | **Don't extract.** It is a thin pcom wrapper over River; the mail worker depends on `pkg/mail` and `sent_emails`. |
 | Boolean switch setting | `pkg/config.Switch` | A go-flags boolean that can default to true (`--x`, `--x=false`, `X=false`; empty is an error). Belongs next to `settings.Secret` as `settings.Switch`. |
 | tommy test container | `pkg/testutil/tommy` | One tommy container per test binary (Mailjet API, S3 bucket, read-back API URLs). Belongs next to `testcontainers/postgres` as `testcontainers/tommy`. |

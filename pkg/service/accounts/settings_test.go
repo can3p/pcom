@@ -165,7 +165,7 @@ func TestUserStyles(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "d { e: f }", css, "saving replaces the styles and the css comes back trimmed")
 
-	short := accounts.New(repo.New(db), nil, nil, accounts.WithUserStylesMaxLength(5))
+	short := accounts.New(repo.New(db), nil, accounts.WithUserStylesMaxLength(5))
 	require.Equal(t, 5, short.TextLimits().UserStylesMaxLength)
 	require.NoError(t, short.SaveUserStyles(ctx, user, " a{b} "))
 
@@ -257,7 +257,7 @@ func TestProfileAbout(t *testing.T) {
 	require.Equal(t, "about", invalid.Field)
 	require.Equal(t, strings.Repeat("я", limit), about(), "a rejected text changes nothing")
 
-	short := accounts.New(repo.New(db), nil, nil, accounts.WithProfileAboutMaxLength(5))
+	short := accounts.New(repo.New(db), nil, accounts.WithProfileAboutMaxLength(5))
 	require.NoError(t, short.SaveProfile(ctx, user, "12345"))
 	require.ErrorAs(t, short.SaveProfile(ctx, user, "123456"), &invalid, "the configured limit applies")
 

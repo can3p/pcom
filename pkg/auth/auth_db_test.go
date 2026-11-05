@@ -21,7 +21,7 @@ import (
 
 // svc is the accounts service over the test database; auth talks to users through it.
 func svc(db *sql.DB) *accounts.Service {
-	return accounts.New(repo.New(db), nil, nil)
+	return accounts.New(repo.New(db), nil)
 }
 
 func TestStartSession_PutsTheUserInTheSession(t *testing.T) {

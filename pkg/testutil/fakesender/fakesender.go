@@ -1,5 +1,5 @@
-// Package fakesender is a fake of github.com/can3p/pcom/pkg/repo.MailQueue for
-// unit and package tests: it records every mail instead of delivering it.
+// Package fakesender is a fake delivery, a gogo sender.Sender, for unit and
+// package tests: it records every mail instead of delivering it.
 // From R2 on, real delivery in E2E and development paths is exercised
 // through tommy instead; this fake stays the right tool for tests that only
 // care what the code under test tried to send.
@@ -10,13 +10,9 @@ import (
 	"sync"
 
 	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/repo"
 )
 
-// compile-time check that Sender implements repo.MailQueue.
-var _ repo.MailQueue = (*Sender)(nil)
-
-// Recorded is one call to Send.
+// Recorded is one mail handed to the sender.
 type Recorded struct {
 	UniqueID  string
 	EmailType string
@@ -46,9 +42,10 @@ func (s *Sender) FailWith(err error) {
 	s.err = err
 }
 
-// Send implements repo.MailQueue. exec is accepted, to match the
-// interface, but is not used: this fake never touches the database.
-func (s *Sender) Send(ctx context.Context, exec repo.Executor, uniqueID string, emailType string, mail *sender.Mail) error {
+// Send records a mail with the unique id and type the mail package gives it
+// (tests of the mail formatters read them). exec is not used: this fake
+// never touches the database.
+func (s *Sender) Send(ctx context.Context, exec any, uniqueID string, emailType string, mail *sender.Mail) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -76,9 +73,9 @@ func (s *Sender) Sent() []Recorded {
 	return out
 }
 
-// Delivery returns s as gogo's sender.Sender, the real sender behind a mail
-// queue. It records into s like Send, with an empty UniqueID and EmailType:
-// those stay in the queue and never reach delivery.
+// Delivery returns s as gogo's sender.Sender, what a mail worker delivers
+// through. It records into s like Send, with an empty UniqueID and EmailType:
+// those stay in sent_emails and never reach delivery.
 func (s *Sender) Delivery() sender.Sender {
 	return delivery{s}
 }

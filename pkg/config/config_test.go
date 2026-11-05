@@ -145,7 +145,6 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"RSS_LIMIT", "20", func(s *config.Serve) any { return s.Limits.RSSLimit }, 50, 20},
 		{"SENDER_ADDRESS", "other@pcom.test", func(s *config.Serve) any { return s.Mail.SenderAddress }, nil, "other@pcom.test"},
 		{"ADMIN_ADDRESS", "admin@pcom.test", func(s *config.Serve) any { return s.Mail.AdminAddress }, "", "admin@pcom.test"},
-		{"EMAIL_POLL_INTERVAL", "250ms", func(s *config.Serve) any { return s.Mail.PollInterval }, 10 * time.Second, 250 * time.Millisecond},
 		{"JOBS_POLL_INTERVAL", "250ms", func(s *config.Serve) any { return s.Jobs.PollInterval }, jobs.DefaultPollInterval, 250 * time.Millisecond},
 		{"JOBS_WORKERS", "3", func(s *config.Serve) any { return s.Jobs.Workers }, jobs.DefaultWorkers, 3},
 		{"JOBS_RETENTION", "2h", func(s *config.Serve) any { return s.Jobs.Retention }, jobs.DefaultRetention, 2 * time.Hour},
