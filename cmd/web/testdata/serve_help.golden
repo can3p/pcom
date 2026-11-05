@@ -123,6 +123,10 @@ Help Options:
                                                        http://localhost:8822;
                                                        Mailjet's own if empty
                                                        [$MJ_API_BASE]
+          --mj-timeout=                                How long one request to
+                                                       the Mailjet API may take
+                                                       (default: 30s)
+                                                       [$MJ_TIMEOUT]
 
     Limits:
           --profile-about-max-length=                  Most characters a user's
