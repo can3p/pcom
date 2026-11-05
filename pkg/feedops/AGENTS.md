@@ -18,7 +18,14 @@ the feed timeout and the image timeout stay independent. A client-wide timeout w
 short at the feed timeout.
 
 ## Implementation Flow
-1. **`saveFeedItem`** (`pkg/service/feeds/poller.go`) - Creates global timeout context and upload function
+A feed is refreshed by one `feeds.refresh` job (`Refresh` in `pkg/service/feeds/refresh.go`). Every download
+(the feed document, then the images of its new items) happens outside any transaction: `prepareNewItems`
+finds the new items with read-only queries and `prepareItem` converts each to markdown and stores its images
+on the plain store. Only then does one transaction lock the feed row, skip items another refresh saved
+meanwhile, insert the rest with the subscribers' rows and save the feed's counters. Images stored for an item
+that another refresh saved first stay stored.
+
+1. **`prepareItem`** (`pkg/service/feeds/refresh.go`) - Creates global timeout context and upload function
 2. **`CreateImageReplacer`** (`pkg/feedops/reader/cleaner.go`) - Extracts image URLs, enforces max images limit, handles errors
 3. **`FetchMedia`** (`pkg/feedops/reader/fetcher.go`) - Downloads images with size/timeout limits, validates MIME types
 4. **`StoreUpload`** (`pkg/service/media/media.go`) - Stores images linked to RSS feed ID

@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/feedops/testutil"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	testutil2 "github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
@@ -53,7 +55,7 @@ func TestSubscribe(t *testing.T) {
 
 // TestNew_FetchesAndParsesFeed exercises the reader
 // New wires together: given a subscribed feed backed by a real
-// HTTP server, its poller should fetch the RSS document, parse it and store
+// HTTP server, its refresh jobs should fetch the RSS document, parse it and store
 // the item, not just construct without panicking.
 func TestNew_FetchesAndParsesFeed(t *testing.T) {
 	t.Parallel()
@@ -84,24 +86,36 @@ func TestNew_FetchesAndParsesFeed(t *testing.T) {
 	user := testutil2.Must(factory.User(ctx, db))(t)
 	require.NoError(t, svc(db).Subscribe(ctx, user, srv.URL))
 
-	rssReader := feeds.New(repo.New(db), fakestorage.New())
+	inserter := testutil2.Must(jobs.NewInserter(db))(t)
+	rssReader := feeds.New(repo.New(db), fakestorage.New(), feeds.WithJobs(inserter))
 
-	pollCtx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	reg := jobs.NewRegistry(repo.New(db), fakesender.New().Delivery())
+	rssReader.RegisterJobs(reg)
 
-	done := make(chan struct{})
-	go func() {
-		rssReader.RunPoller(pollCtx)
-		close(done)
-	}()
+	runner := testutil2.Must(jobs.NewRunner(db, reg, jobs.WithPollInterval(10*time.Millisecond)))(t)
+	require.NoError(t, runner.Start(ctx))
 
+	stopped := false
+	stop := func() {
+		if stopped {
+			return
+		}
+
+		stopped = true
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		require.NoError(t, runner.Stop(stopCtx))
+	}
+	t.Cleanup(stop)
+
+	// the schedule runs on start and queues the due feed's refresh
 	require.Eventually(t, func() bool {
 		items, err := svc(db).Items(ctx, user)
 		return err == nil && len(items) == 1
-	}, 20*time.Second, 200*time.Millisecond, "the poller should fetch and store the feed's item")
+	}, 20*time.Second, 200*time.Millisecond, "the refresh jobs should fetch and store the feed's item")
 
-	cancel()
-	<-done
+	stop()
 
 	items := testutil2.Must(svc(db).Items(ctx, user))(t)
 	require.Len(t, items, 1)

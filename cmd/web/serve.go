@@ -27,7 +27,6 @@ import (
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
-	"github.com/can3p/pcom/pkg/service/feeds"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/web/app"
@@ -70,10 +69,6 @@ func (c *serveCmd) Execute([]string) error {
 	if err != nil {
 		return err
 	}
-
-	feeder := feeds.New(repo.New(db), mediaStorage, feeds.WithLogger(logger), feeds.WithFetchLimits(feedLimits(cfg.Feeds)))
-
-	go feeder.RunPoller(ctx)
 
 	go pgsession.RunCleanup(ctx, db, cfg.Web.SessionCleanupInterval, logger)
 
@@ -235,6 +230,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		MaxUploadSize:         cfg.Limits.MaxUploadSize,
 		MaxImportSize:         cfg.Limits.MaxImportSize,
 		FeedFetch:             feedLimits(cfg.Feeds),
+		FeedPollInterval:      cfg.Feeds.PollInterval,
 		Login:                 loginLimits(cfg.Login),
 		Proofread:             proofreadConfig(cfg.Proofread),
 	}

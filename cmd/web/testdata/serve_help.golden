@@ -264,6 +264,10 @@ Help Options:
                                                        [$LOGIN_PRUNE_EVERY]
 
     RSS feeds:
+          --rss-poll-interval=                         How often feeds due for
+                                                       a fetch are looked for
+                                                       and queued (default:
+                                                       10s) [$RSS_POLL_INTERVAL]
           --rss-fetch-timeout=                         How long fetching one
                                                        feed document may take
                                                        (default: 5s)

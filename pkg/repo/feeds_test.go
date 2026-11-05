@@ -156,16 +156,49 @@ func TestFeeds_RefreshAndLock(t *testing.T) {
 	_, err := store.LockFeed(ctx, uuid.NewString())
 	require.ErrorIs(t, err, repo.ErrNotFound)
 
-	// a feed another transaction holds is skipped
+	byID := testutil.Must(store.FeedByID(ctx, due.ID))(t)
+	require.Equal(t, "renamed", *byID.Title)
+
+	_, err = store.FeedByID(ctx, uuid.NewString())
+	require.ErrorIs(t, err, repo.ErrNotFound)
+
+	// a feed another transaction holds is waited for, not skipped; reading it
+	// with FeedByID doesn't wait
 	require.NoError(t, store.Tx(ctx, func(tx *repo.Store) error {
 		_, err := tx.LockFeed(ctx, due.ID)
 		require.NoError(t, err)
 
-		_, err = store.LockFeed(ctx, due.ID)
-		require.ErrorIs(t, err, repo.ErrNotFound)
+		waitCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+		defer cancel()
+
+		_, err = store.LockFeed(waitCtx, due.ID)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, repo.ErrNotFound)
+
+		_, err = store.FeedByID(ctx, due.ID)
+		require.NoError(t, err)
 
 		return nil
 	}))
+}
+
+func TestFeeds_FeedItemExistsForURL(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	store := repo.New(db)
+	feed := testutil.Must(factory.RSSFeed(ctx, db))(t)
+	other := testutil.Must(factory.RSSFeed(ctx, db))(t)
+
+	url := testutil.Must(store.StoreURL(ctx, "https://Example.com/item"))(t)
+	_, err := store.UpsertFeedItem(ctx, &model.RSSItem{ID: uuid.NewString(), FeedID: feed.ID, URLID: url.ID, GUID: "https://example.com/item", PublishedAt: time.Now()})
+	require.NoError(t, err)
+
+	// the raw URL is normalized as StoreURL normalizes it
+	require.True(t, testutil.Must(store.FeedItemExistsForURL(ctx, feed.ID, "https://Example.com/item"))(t))
+	require.False(t, testutil.Must(store.FeedItemExistsForURL(ctx, other.ID, "https://example.com/item"))(t), "the item belongs to one feed")
+	require.False(t, testutil.Must(store.FeedItemExistsForURL(ctx, feed.ID, "https://example.com/never-stored"))(t))
 }
 
 func TestCreateMediaUpload(t *testing.T) {

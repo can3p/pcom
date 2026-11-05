@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/util"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
@@ -54,7 +55,7 @@ func (s *Store) Subscribe(ctx context.Context, userID, feedID string) error {
 }
 
 // DeleteSubscription removes a user's subscription. The feed row stays: the
-// poller skips feeds without subscribers, and this avoids racing a user who
+// refresh schedule skips feeds without subscribers, and this avoids racing a user who
 // adds the feed back.
 func (s *Store) DeleteSubscription(ctx context.Context, userID, subscriptionID string) error {
 	_, err := s.query().NewDelete().Model((*model.UserFeedSubscription)(nil)).
@@ -171,14 +172,29 @@ func (s *Store) FeedsToRefresh(ctx context.Context) ([]*model.RSSFeed, error) {
 	return feeds, nil
 }
 
-// LockFeed loads a feed and locks its row until the transaction ends. A feed
-// another transaction holds is skipped, which reads as ErrNotFound.
+// FeedByID loads a feed, or returns ErrNotFound.
+func (s *Store) FeedByID(ctx context.Context, feedID string) (*model.RSSFeed, error) {
+	feed := new(model.RSSFeed)
+
+	err := s.query().NewSelect().Model(feed).
+		Where("id = ?", feedID).
+		Limit(1).
+		Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
+
+	return feed, nil
+}
+
+// LockFeed loads a feed and locks its row until the transaction ends,
+// waiting for a transaction that holds it. A missing feed is ErrNotFound.
 func (s *Store) LockFeed(ctx context.Context, feedID string) (*model.RSSFeed, error) {
 	feed := new(model.RSSFeed)
 
 	err := s.query().NewSelect().Model(feed).
 		Where("id = ?", feedID).
-		For("UPDATE SKIP LOCKED").
+		For("UPDATE").
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -220,6 +236,22 @@ func (s *Store) FeedItemExists(ctx context.Context, feedID, urlID string) (bool,
 	return s.query().NewSelect().Model((*model.RSSItem)(nil)).
 		Where("feed_id = ?", feedID).
 		Where("url_id = ?", urlID).
+		Exists(ctx)
+}
+
+// FeedItemExistsForURL reports whether a feed has an item for a raw URL,
+// normalized as StoreURL normalizes it. Unlike StoreURL it writes nothing: a
+// URL never stored has no item.
+func (s *Store) FeedItemExistsForURL(ctx context.Context, feedID, rawURL string) (bool, error) {
+	normalizedURL, err := util.NormalizeURL(rawURL)
+	if err != nil {
+		return false, err
+	}
+
+	return s.query().NewSelect().Model((*model.RSSItem)(nil)).
+		Join("JOIN normalized_urls AS nu ON nu.id = ?TableAlias.url_id").
+		Where("?TableAlias.feed_id = ?", feedID).
+		Where("nu.url = ?", normalizedURL).
 		Exists(ctx)
 }
 

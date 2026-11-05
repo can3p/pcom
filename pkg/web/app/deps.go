@@ -78,6 +78,9 @@ type Config struct {
 	// FeedFetch bounds fetching RSS feeds; zero fields keep the reader's
 	// defaults.
 	FeedFetch reader.Limits
+	// FeedPollInterval is how often due feeds are looked for; zero keeps
+	// feeds.DefaultPollInterval.
+	FeedPollInterval time.Duration
 	// PageSize is how many items a page of a list holds, RSSLimit how many
 	// items an RSS output lists; zero means the reading service's default.
 	PageSize, RSSLimit int

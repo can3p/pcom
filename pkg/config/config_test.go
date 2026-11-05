@@ -18,6 +18,7 @@ import (
 	"github.com/can3p/pcom/pkg/proofread"
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/media"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/web/app"
@@ -195,6 +196,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"MAX_BODY_SIZE", "2048", func(s *config.Serve) any { return s.Limits.MaxBodySize }, int64(app.DefaultMaxBodySize), int64(2048)},
 		{"MAX_UPLOAD_SIZE", "4096", func(s *config.Serve) any { return s.Limits.MaxUploadSize }, int64(media.DefaultMaxUploadSize), int64(4096)},
 		{"MAX_IMPORT_SIZE", "8192", func(s *config.Serve) any { return s.Limits.MaxImportSize }, int64(app.DefaultMaxImportSize), int64(8192)},
+		{"RSS_POLL_INTERVAL", "1m", func(s *config.Serve) any { return s.Feeds.PollInterval }, feeds.DefaultPollInterval, time.Minute},
 		{"RSS_FETCH_TIMEOUT", "2s", func(s *config.Serve) any { return s.Feeds.FetchTimeout }, reader.DefaultFeedTimeout, 2 * time.Second},
 		{"RSS_IMAGE_TIMEOUT", "5s", func(s *config.Serve) any { return s.Feeds.ImageTimeout }, reader.DefaultMediaTimeout, 5 * time.Second},
 		{"RSS_MAX_FEED_SIZE", "1024", func(s *config.Serve) any { return s.Feeds.MaxFeedSize }, int64(reader.DefaultMaxFeedSize), int64(1024)},
