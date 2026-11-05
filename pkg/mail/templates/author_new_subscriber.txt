@@ -1,0 +1,5 @@
+Hi!
+
+{{.SubscriberEmail}} subscribed to your public posts on pcom.
+
+{{.Link}}

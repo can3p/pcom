@@ -33,6 +33,8 @@ func mailers() map[string]func(s *fakesender.Sender) error {
 	setPostURL(post, &model.NormalizedURL{ID: "url-1", URL: "https://example.com/" + hostile})
 	comment := &model.PostComment{ID: "comment-1", PostID: post.ID, UserID: alice.ID, Body: hostile}
 	prompt := &model.PostPrompt{ID: "prompt-1", AskerID: bob.ID, RecipientID: alice.ID, Message: hostile}
+	subscriber := &model.EmailSubscriber{ID: "subscriber-1", Email: hostile, ManageToken: "manage-token-1"}
+	subscription := &model.EmailSubscription{ID: "subscription-1", SubscriberID: subscriber.ID, AuthorID: alice.ID, ConfirmToken: "confirm-token-1"}
 
 	return map[string]func(s *fakesender.Sender) error{
 		"NewPost": func(s *fakesender.Sender) error {
@@ -49,6 +51,18 @@ func mailers() map[string]func(s *fakesender.Sender) error {
 		},
 		"PostPromptAnswer": func(s *fakesender.Sender) error {
 			return deliver(ctx, s)(mail.PostPromptAnswer(links.Site{}, testFrom, bob, alice, post, prompt))
+		},
+		"SubscriberConfirm": func(s *fakesender.Sender) error {
+			return deliver(ctx, s)(mail.SubscriberConfirm(links.Site{}, testFrom, alice, subscriber, subscription))
+		},
+		"SubscriberNewPost": func(s *fakesender.Sender) error {
+			return deliver(ctx, s)(mail.SubscriberNewPost(links.Site{}, testFrom, replacer, alice, subscriber, subscription, post))
+		},
+		"AuthorNewSubscriber": func(s *fakesender.Sender) error {
+			return deliver(ctx, s)(mail.AuthorNewSubscriber(links.Site{}, testFrom, alice, subscriber, subscription))
+		},
+		"AuthorSubscriberLeft": func(s *fakesender.Sender) error {
+			return deliver(ctx, s)(mail.AuthorSubscriberLeft(links.Site{}, testFrom, alice, subscriber, subscription))
 		},
 	}
 }

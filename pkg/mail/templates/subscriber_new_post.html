@@ -1,0 +1,9 @@
+<p class="mail-lead">@{{.AuthorUsername}} published a new post</p>
+
+<div class="mail-quote">
+<h1 class="mail-post-title"><a href="{{.Link}}">{{.Subject}}</a></h1>{{if .LinkedURL}}
+<p class="mail-muted"><a href="{{.LinkedURL}}">{{.LinkedURL}}</a></p>{{end}}
+{{.Body}}
+</div>
+
+<p><a class="mail-button" href="{{.Link}}">Read on pcom</a></p>
