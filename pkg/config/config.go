@@ -173,7 +173,7 @@ type Subscriptions struct {
 	ConfirmsPerAddress    int           `long:"confirms-per-address" env:"CONFIRMS_PER_ADDRESS" description:"Subscription confirmation mails one address may get" default:"3"`
 	ManageLinksPerAddress int           `long:"manage-links-per-address" env:"MANAGE_LINKS_PER_ADDRESS" description:"Mails with the link to manage subscriptions one address may get" default:"3"`
 	ConfirmsPerHour       int           `long:"confirms-per-hour" env:"CONFIRMS_PER_HOUR" description:"Subscription confirmation mails the whole site may send per hour" default:"100"`
-	PowDifficulty         int           `long:"pow-difficulty" env:"POW_DIFFICULTY" description:"Leading zero bits of the proof of work the subscribe form's browser solves" default:"18"`
+	PowDifficulty         int           `long:"pow-difficulty" env:"POW_DIFFICULTY" description:"Leading zero bits of the proof of work the subscribe form's browser solves" default:"15"`
 	PowMaxAge             time.Duration `long:"pow-max-age" env:"POW_MAX_AGE" description:"How long a proof-of-work challenge may be answered" default:"30m"`
 	MinFillTime           time.Duration `long:"min-fill-time" env:"MIN_FILL_TIME" description:"Least time between showing the subscribe form and submitting it" default:"2s"`
 	PruneEvery            time.Duration `long:"prune-every" env:"PRUNE_EVERY" description:"How often expired subscriptions and old subscription mail records are deleted" default:"1h"`

@@ -421,7 +421,7 @@ Help Options:
           --subscribe-pow-difficulty=                  Leading zero bits of the
                                                        proof of work the
                                                        subscribe form's browser
-                                                       solves (default: 18)
+                                                       solves (default: 15)
                                                        [$SUBSCRIBE_POW_DIFFICUL-
 
                                                        TY]

@@ -23,7 +23,7 @@ import (
 // DefaultPowDifficulty is how many leading zero bits a proof-of-work answer's
 // hash needs when the configuration sets none; it is also the configuration's
 // default.
-const DefaultPowDifficulty = 18
+const DefaultPowDifficulty = 15
 
 // DefaultPowMaxAge is how long a proof-of-work challenge may be answered
 // when the configuration sets none; it is also the configuration's default.

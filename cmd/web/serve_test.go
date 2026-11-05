@@ -381,6 +381,7 @@ func TestAbuseOptions(t *testing.T) {
 	require.NoError(t, err)
 
 	base := settingsOf(baseSettings)
+	require.Equal(t, settings{abuse.DefaultPowDifficulty, abuse.DefaultPowMaxAge, abuse.DefaultMinFillTime}, base)
 
 	for _, r := range []struct {
 		set, field string
