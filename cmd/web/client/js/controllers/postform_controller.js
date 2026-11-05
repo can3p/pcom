@@ -5,12 +5,27 @@ import { Controller } from "@hotwired/stimulus"
 // cannot submit it natively (no CSRF header, 403). They are enabled once
 // htmx is bound to the form.
 export default class extends Controller {
+  // notify is the "Email this post to subscribers" offer, which only a
+  // public post can take up.
+  static targets = ["notify"]
+
   connect() {
     window.htmx.process(this.element)
 
     this.element.querySelectorAll("button[data-postform-pending]").forEach((btn) => {
       btn.disabled = false
       btn.removeAttribute("data-postform-pending")
+    })
+
+    this.visibility()
+  }
+
+  // Shows the subscriber offer while Public is selected.
+  visibility() {
+    const visibility = this.element.querySelector("input[name=visibility]:checked")?.value
+
+    this.notifyTargets.forEach((el) => {
+      el.hidden = visibility !== "public"
     })
   }
 

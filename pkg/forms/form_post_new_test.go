@@ -16,6 +16,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/registry"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakequeue"
@@ -333,6 +334,52 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			} else {
 				require.Empty(t, answeredTo)
 			}
+		})
+	}
+}
+
+// The "Email this post" box overrides the default: checked, it mails a
+// published post that turns public (no mail by default); unchecked, it
+// declines the mail a first publish sends by default.
+func TestPostForm_Save_NotifySubscribers(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name            string
+		published       bool // a published post turning public, else a first publish
+		offered, notify bool
+		wantMailed      bool
+	}{
+		{name: "checked on a post turning public", published: true, offered: true, notify: true, wantMailed: true},
+		{name: "unchecked on a first publish", offered: true},
+		{name: "not offered on a first publish", wantMailed: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+			testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "reader-"+author.ID+"@example.test"))(t)
+
+			q := fakequeue.New()
+			svc := postsService(db, q)
+
+			var form *forms.PostForm
+			if tc.published {
+				post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published(), factory.Visibility(model.PostVisibilitySecondDegree)))(t)
+				form = fillPost(testutil.Must(forms.EditPostFormNew(ctx, svc, author, post.ID))(t), forms.PostFormActionSavePost)
+			} else {
+				form = fillPost(testutil.Must(forms.NewPostFormNew(ctx, svc, author, ""))(t), forms.PostFormActionPublish)
+			}
+
+			form.Input.Visibility = model.PostVisibilityPublic
+			form.Input.NotifyOffered = tc.offered
+			form.Input.NotifySubscribers = tc.notify
+			savePost(t, ctx, db, form)
+
+			require.Len(t, fakequeue.Of[subscriptions.PostPublishedArgs](q), lo.Ternary(tc.wantMailed, 1, 0))
 		})
 	}
 }

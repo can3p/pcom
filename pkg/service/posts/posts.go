@@ -21,6 +21,9 @@ type Service struct {
 	// maxUploadSize is the most bytes an image may have;
 	// mediasvc.DefaultMaxUploadSize when zero.
 	maxUploadSize int64
+	// subscribers mails posts to the author's email subscribers; see
+	// save.go. Nil turns that off.
+	subscribers Subscribers
 }
 
 // Default text limits, used for every limit the configuration leaves zero;

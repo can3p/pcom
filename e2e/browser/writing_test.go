@@ -21,6 +21,7 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -616,6 +617,89 @@ func TestWriting_PostVisibility(t *testing.T) {
 	_, err = page.Goto("/posts/" + postID + "/edit")
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Locator(direct).ToBeChecked())
+}
+
+// An author with email subscribers is offered to mail a post to them only
+// while Public is selected: checked on a first publish, unchecked when a
+// published post turns public, and gone once the post was mailed.
+func TestWriting_EmailSubscribersOffer(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	author := browser.NewUser(t, app, factory.Subscribable())
+	ctx := context.Background()
+
+	reader := "writing-reader-" + author.ID + "@example.test"
+	_, err := factory.EmailSubscription(ctx, app.DB, author.ID, reader)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(author))
+	page.OnDialog(func(d playwright.Dialog) { _ = d.Accept() })
+
+	direct := page.GetByLabel("Show to direct connections only")
+	public := page.GetByLabel("Public and your 1 email subscriber", playwright.PageGetByLabelOptions{Exact: new(true)})
+	offer := page.GetByLabel("Email this post to 1 subscriber")
+
+	_, err = page.Goto("/write")
+	require.NoError(t, err)
+
+	require.NoError(t, browser.Expect.Locator(offer).ToBeHidden())
+	require.NoError(t, public.Check())
+	require.NoError(t, browser.Expect.Locator(offer).ToBeChecked())
+	require.NoError(t, direct.Check())
+	require.NoError(t, browser.Expect.Locator(offer).ToBeHidden())
+	require.NoError(t, public.Check())
+
+	require.NoError(t, page.GetByPlaceholder("Subject").Fill("For my subscribers"))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)}).Click())
+
+	postURLRe := regexp.MustCompile(`/posts/([^/]+)$`)
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
+	postID := postURLRe.FindStringSubmatch(page.URL())[1]
+
+	mailed, err := factory.GetPost(ctx, app.DB, postID)
+	require.NoError(t, err)
+	require.NotNil(t, mailed.SubscribersMailedAt)
+
+	_, err = page.Goto("/posts/" + postID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(public).ToBeChecked())
+	require.NoError(t, browser.Expect.Locator(offer).ToHaveCount(0))
+
+	published, err := factory.Post(ctx, app.DB, author.ID, factory.Published())
+	require.NoError(t, err)
+
+	_, err = page.Goto("/posts/" + published.ID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(offer).ToBeHidden())
+	require.NoError(t, public.Check())
+	require.NoError(t, browser.Expect.Locator(offer).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(offer).Not().ToBeChecked())
+
+	// unchecked on a first publish, kept through a validation error, the post
+	// goes to nobody by email
+	_, err = page.Goto("/write")
+	require.NoError(t, err)
+	require.NoError(t, public.Check())
+	require.NoError(t, offer.Uncheck())
+
+	subject := page.GetByPlaceholder("Subject")
+	publish := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)})
+	require.NoError(t, subject.Fill(strings.Repeat("x", 101)))
+	require.NoError(t, publish.Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByText("subject should be between 0 and 100 characters")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(offer).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(offer).Not().ToBeChecked())
+
+	const kept = "Kept from my subscribers"
+	require.NoError(t, subject.Fill(kept))
+	require.NoError(t, publish.Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(postURLRe))
+
+	notMailed, err := factory.GetPost(ctx, app.DB, postURLRe.FindStringSubmatch(page.URL())[1])
+	require.NoError(t, err)
+	require.Nil(t, notMailed.SubscribersMailedAt)
+	app.NoMails(t, reader, func(m tommy.Mail) bool { return strings.Contains(m.Subject, kept) })
 }
 
 // /write?prompt=<id> shows the asker's name and message in a banner.
