@@ -121,7 +121,7 @@ This table mirrors the doc comment of `pkg/testutil/seed/seed.go`; when one chan
 * A comment thread three levels deep on Alice's public post (bob, alice, bob).
 * An open prompt from Bob to Alice ("What are you reading?").
 * An RSS feed on `https://example.test/seed/feed.xml` (title "Seed feed") with three items, subscribed by Alice.
-  The poller fails on that URL harmlessly.
+  Its refresh job fails on that URL harmlessly.
 * Alice asks Bob to introduce her to Carol; nobody has decided yet.
 * Registration is opened (`system_settings.registration_open`) in the seeded database only.
 

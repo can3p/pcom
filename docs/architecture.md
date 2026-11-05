@@ -48,6 +48,24 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   with jobs has a `RegisterJobs(r *jobs.Registry)` method that `registry.Services.RegisterJobs` calls. To add a
   job kind (args struct with `Kind`, worker, registration, tests with `fakequeue`), follow the package doc of
   `pkg/jobs`.
+  - **Why River**: it is Postgres-backed and inserts on the caller's `*sql.Tx` (through `riverdatabasesql`, so
+    poll-only, with no LISTEN), and brings retries, backoff, unique jobs and dead jobs instead of per-poller
+    code. Its schema is migrations `*-river-NNN.sql`, one file per River version, because River runs each
+    version in its own transaction (version 004 adds an enum value and uses it).
+  - **Mail is rendered at send.** A mail job's args hold ids and only what the database doesn't keep (a
+    login code, a page failure report); the service's `Render<Mail>` method loads the rows when the job runs
+    and returns nil when there is nothing to send any more (`docs/product.md`). So a template fix reaches
+    queued mail, and fan-out (`posts.published` → one `mail.post_notification` per reader) runs in the
+    worker, not in the request.
+  - **`sent_emails` is the sent-mail record and the dedup.** The worker inserts the row and delivers in one
+    transaction; `(email_type, unique_id)` drops a repeat for good, which River's uniqueness can't, since
+    it lasts only while finished jobs are retained (`--jobs-retention`).
+  - **Feeds refresh one job per feed**, with every download outside a transaction; only the save locks the
+    feed row, and re-checks which items exist. A fetch error is saved on the feed, whose `next_fetch_at` is
+    its backoff; any other error is retried by River.
+  - **A job re-checks at run time what its enqueuer checked.** Between enqueue and work a post can become a
+    draft and a connection can go, so a worker or render method checks visibility again (`maySee` in
+    `pkg/service/posts/jobs.go`) instead of trusting the args.
 - **Errors** (`pkg/service`, which re-exports gogo's `apperr`; code uses the
   `service` names): `ErrNotFound` (also for "exists, but you may not see
   it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and
@@ -122,7 +140,7 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   there by path, get `--max-upload-size` or `--max-import-size` on top. A new route that takes a file adds
   its path there. Every outbound HTTP client has a timeout (S3: `--user-media-timeout`; feeds:
   `--rss-fetch-timeout`, `--rss-image-timeout`; Anthropic: `--proofread-timeout`; Mailjet: `--mj-timeout`,
-  and gogo's sender honours the poller's context).
+  and gogo's sender honours the mail job's context).
 - **Migrations run at deploy, outside the app.** There is no `migrate` subcommand and no migration library
   in `go.mod`: the production image carries the `sql-migrate` binary, `dbconfig.yml` and `migrations/`, and
   fly's `release_command` runs it before the new version takes traffic.
@@ -161,6 +179,7 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 - **Structured fields, not formatted strings**: `logger.Error("send failed", zap.Error(err),
   zap.String("mail_id", id))`. An error is returned or logged, never both: it is logged once, where it is
   handled (the request middleware, a worker loop, a service that deliberately swallows it).
+- Libraries that log with `log/slog` (River) get `logging.Slog(logger, level)`, which writes to zap.
 - Importing `log` or `log/slog` outside `pkg/logging` fails lint (depguard in `.golangci.yml`), tests
   included. Subcommands other than `serve` log in the console format on stderr (`newCLILogger`).
 - `fmt.Print*` is only a CLI subcommand's output to its user. A test asserts log entries with

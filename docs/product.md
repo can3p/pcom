@@ -51,6 +51,10 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 - **Comment mails and feed entries reach only who may read the comments now.** A participant who lost the
   connection gets no more of them, and nobody hears about the comments of a post that is a draft again. The
   asker of a prompt is mailed the answer only if they may read it.
+- **A mail shows what is true when it goes out.** Mail is built when it is sent, not when the change that
+  causes it is saved: a post edited before its notifications go out is mailed as edited, a reader who may no
+  longer see the post by then gets nothing, and a post made a draft again (or deleted) before then is mailed
+  to nobody. Two edits of a comment before its mails go out send each recipient one mail, showing the last.
 - **Nobody comments on a draft**, its author included, also on a post that was published before; the
   comment form and the Reply and Edit actions are hidden there.
 
