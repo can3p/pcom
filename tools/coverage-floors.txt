@@ -9,6 +9,7 @@ github.com/can3p/pcom/pkg/web/app 74.4
 github.com/can3p/pcom/pkg/auth 90.8
 github.com/can3p/pcom/pkg/forms 87.6
 github.com/can3p/pcom/pkg/postops 90.9
+github.com/can3p/pcom/pkg/jobs 90.6
 github.com/can3p/pcom/pkg/repo 88.0
 github.com/can3p/pcom/pkg/service/accounts 87.9
 github.com/can3p/pcom/pkg/service/connections 78.2
