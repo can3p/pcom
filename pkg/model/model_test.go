@@ -19,7 +19,6 @@ var models = []any{
 	(*model.LoginAttempt)(nil),
 	(*model.MediaUpload)(nil),
 	(*model.NormalizedURL)(nil),
-	(*model.OutgoingEmail)(nil),
 	(*model.Post)(nil),
 	(*model.PostComment)(nil),
 	(*model.PostPrompt)(nil),

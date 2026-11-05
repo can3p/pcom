@@ -162,16 +162,16 @@ func TestBun_EnumsAndJSONRoundTrip(t *testing.T) {
 	require.NoError(t, q.NewSelect().Model(&feed).Where("id = ?", f.ID).Scan(ctx))
 	require.Equal(t, &reason, feed.DisableReason)
 
-	mail := &model.OutgoingEmail{
+	mail := &model.SentEmail{
 		ID: uuid.NewString(), UniqueID: uuid.NewString(), EmailType: "test",
-		Payload: []byte(`{"to": "a@example.com", "n": 1}`), Status: model.OutgoingEmailStatusNew, TryAt: time.Now(),
+		Payload: []byte(`{"to": "a@example.com", "n": 1}`), SentAt: time.Now(),
 	}
 	_, err = q.NewInsert().Model(mail).Exec(ctx)
 	require.NoError(t, err)
 
-	var got model.OutgoingEmail
+	var got model.SentEmail
 	require.NoError(t, q.NewSelect().Model(&got).Where("id = ?", mail.ID).Scan(ctx))
-	require.Equal(t, model.OutgoingEmailStatusNew, got.Status)
+	require.Equal(t, mail.EmailType, got.EmailType)
 	require.JSONEq(t, string(mail.Payload), string(got.Payload))
 }
 

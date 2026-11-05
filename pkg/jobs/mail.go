@@ -30,8 +30,9 @@ func RegisterMail[A river.JobArgs](r *Registry, render func(ctx context.Context,
 }
 
 // RenderedMailArgs is a mail rendered before the job queue existed: the
-// unsent rows of outgoing_emails, which the migration that created River's
-// tables turned into jobs. UniqueKey is already the SHA-1 uuid.
+// unsent rows of the old outgoing_emails table, which
+// 20261105121000-sent_emails.sql and 20261105130000-drop_outgoing_emails.sql
+// turned into jobs. UniqueKey is already the SHA-1 uuid.
 type RenderedMailArgs struct {
 	UniqueKey string      `json:"unique_key"`
 	EmailType string      `json:"email_type"`
