@@ -55,8 +55,12 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   - **Mail is rendered at send.** A mail job's args hold ids and only what the database doesn't keep (a
     login code, a page failure report); the service's `Render<Mail>` method loads the rows when the job runs
     and returns nil when there is nothing to send any more (`docs/product.md`). So a template fix reaches
-    queued mail, and fan-out (`posts.published` → one `mail.post_notification` per reader) runs in the
-    worker, not in the request.
+    queued mail.
+  - **The request records what happened; a job decides who hears of it.** A change that tells several
+    people enqueues one job naming the event (`posts.published`, `posts.comment_posted`), and its worker
+    picks the recipients and enqueues one mail job each. The request does no work per recipient, and the
+    recipients are chosen as they are when the job runs. A mail for a single, known recipient (a login code,
+    a prompt) is enqueued directly.
   - **`sent_emails` is the sent-mail record and the dedup.** The worker inserts the row and delivers in one
     transaction; `(email_type, unique_id)` drops a repeat for good, which River's uniqueness can't, since
     it lasts only while finished jobs are retained (`--jobs-retention`).
