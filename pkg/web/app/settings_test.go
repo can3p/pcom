@@ -10,7 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/pgsession"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
@@ -18,6 +22,27 @@ import (
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/stretchr/testify/require"
 )
+
+// renderPageFailures builds the mail of every page failure job q recorded, the
+// way the mail worker does. The failures here are anonymous, so rendering
+// reads nothing from the database.
+func renderPageFailures(t *testing.T, cfg app.Config, q *fakequeue.Queue) []*mail.Envelope {
+	t.Helper()
+
+	svc := accounts.New(repo.New(nil), nil, nil, accounts.WithIdentity(mail.Identity{From: cfg.SenderAddress, AdminAddress: cfg.AdminAddress}))
+
+	var out []*mail.Envelope
+
+	for _, a := range fakequeue.Of[accounts.AdminPageFailureMailArgs](q) {
+		env, err := svc.RenderAdminPageFailure(t.Context(), a)
+		require.NoError(t, err)
+		require.NotNil(t, env)
+
+		out = append(out, env)
+	}
+
+	return out
+}
 
 func settingsConfig() app.Config {
 	return app.Config{
@@ -117,9 +142,9 @@ func TestRouter_ReportPanics(t *testing.T) {
 
 			// a closed database makes the user styles page panic on its query
 			db := testdb.New(t).DB
-			snd := fakesender.New()
+			snd := fakequeue.New()
 			logger, logs := testlog.New()
-			h := app.New(&app.Deps{DB: db, Sender: snd, MediaStorage: fakestorage.New(), Logger: logger, Config: cfg})
+			h := app.New(&app.Deps{DB: db, Jobs: snd, MediaStorage: fakestorage.New(), Logger: logger, Config: cfg})
 			require.NoError(t, db.Close())
 
 			req := httptest.NewRequest(http.MethodGet, "/users/nobody/user_styles", nil)
@@ -133,13 +158,16 @@ func TestRouter_ReportPanics(t *testing.T) {
 			require.Equal(t, http.StatusInternalServerError, rec.Code)
 
 			if !on {
-				require.Empty(t, snd.Sent())
+				require.Empty(t, snd.Inserted())
 				return
 			}
 
-			require.Len(t, snd.Sent(), 1)
-			got := snd.Sent()[0]
-			require.Equal(t, "panic_notification", got.EmailType)
+			require.Len(t, fakequeue.Of[accounts.AdminPageFailureMailArgs](snd), 1)
+
+			sent := renderPageFailures(t, cfg, snd)
+			require.Len(t, sent, 1)
+			got := sent[0]
+			require.Equal(t, "panic_notification", got.Type)
 			require.Equal(t, cfg.SenderAddress, got.Mail.From.Address)
 			require.Len(t, got.Mail.To, 1)
 			require.Equal(t, cfg.AdminAddress, got.Mail.To[0].Address)
@@ -158,15 +186,18 @@ func TestRouter_ReportPanics_NoSession(t *testing.T) {
 	storage := fakestorage.New()
 	storage.FailExistsWith(errors.New("storage down"))
 	storage.FailDownloadWith(errors.New("storage down"))
-	snd := fakesender.New()
-	h := app.New(&app.Deps{DB: testdb.New(t).DB, Sender: snd, MediaStorage: storage, Config: cfg})
+	snd := fakequeue.New()
+	h := app.New(&app.Deps{DB: testdb.New(t).DB, Jobs: snd, MediaStorage: storage, Config: cfg})
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/user-media/some.jpg/thumb", nil))
 
-	require.Len(t, snd.Sent(), 1)
-	got := snd.Sent()[0]
-	require.Equal(t, "panic_notification", got.EmailType)
+	require.Len(t, fakequeue.Of[accounts.AdminPageFailureMailArgs](snd), 1)
+
+	sent := renderPageFailures(t, cfg, snd)
+	require.Len(t, sent, 1)
+	got := sent[0]
+	require.Equal(t, "panic_notification", got.Type)
 	require.Contains(t, got.Mail.Text, "User: Anonymous")
 }
 

@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func TestSignupWaitingListForm_Validate(t *testing.T) {
 			t.Parallel()
 
 			c, _ := ginctx.New(t, http.MethodPost, "/signup_waitlist", nil)
-			form := forms.SignupWaitingListFormNew(accountsFor(db, fakesender.New())).(*forms.SignupWaitingListForm)
+			form := forms.SignupWaitingListFormNew(accountsFor(db, fakequeue.New())).(*forms.SignupWaitingListForm)
 			form.Input.Email = tt.email(t)
 
 			err := form.Validate(c)
@@ -54,7 +55,7 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	form := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	form.Input.Email = "newrequest@example.test"
@@ -68,9 +69,12 @@ func TestSignupWaitingListForm_SaveCreatesRequest(t *testing.T) {
 	exists := testutil.Must(factory.SignupRequestExists(ctx, db, form.Input.Email))(t)
 	require.True(t, exists)
 
-	sent := sender.Sent()
+	require.Len(t, fakequeue.Of[accounts.ConfirmWaitingListMailArgs](sender), 1)
+	require.Len(t, fakequeue.Of[accounts.AdminNewWaitingListMemberMailArgs](sender), 1)
+
+	sent := rendered(t, ctx, accountsFor(db, sender), sender)
 	require.Len(t, sent, 2)
-	require.Equal(t, "waiting_list_confirm", sent[0].EmailType)
+	require.Equal(t, "waiting_list_confirm", sent[0].Type)
 	require.Equal(t, form.Input.Email, sent[0].Mail.To[0].Address)
 }
 
@@ -82,7 +86,7 @@ func TestSignupWaitingListForm_SaveNormalizesEmail(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	form := forms.SignupWaitingListFormNew(accountsFor(db, sender)).(*forms.SignupWaitingListForm)
 	form.Input.Email = "  Dup@EXAMPLE.TEST  "

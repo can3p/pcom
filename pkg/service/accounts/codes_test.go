@@ -14,15 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/can3p/gogo/sender"
-	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/testlog"
 	"github.com/samber/lo"
@@ -40,30 +38,72 @@ type clock struct{ t time.Time }
 func (c *clock) now() time.Time          { return c.t }
 func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
-// codeSvc is the accounts service over the real mail queue, timed by c and
+// jobQueue is the real job queue over db.
+func jobQueue(t *testing.T, db *sql.DB) *jobs.Inserter {
+	t.Helper()
+
+	return testutil.Must(jobs.NewInserter(db))(t)
+}
+
+// codeSvc is the accounts service over the real job queue, timed by c and
 // keyed with key ("" for none).
 func codeSvc(db *sql.DB, c *clock, key string) *accounts.Service {
-	queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
-	opts := []accounts.Option{accounts.WithClock(c.now)}
+	queue, err := jobs.NewInserter(db)
+	if err != nil {
+		panic(err)
+	}
+
+	opts := []accounts.Option{accounts.WithClock(c.now), accounts.WithJobs(queue)}
 	if key != "" {
 		opts = append(opts, accounts.WithCodeKey(key))
 	}
 
-	return accounts.New(repo.New(db), queue, nil, opts...)
+	return accounts.New(repo.New(db), nil, nil, opts...)
 }
 
 var codeRe = regexp.MustCompile(`login code is (\d{8})`)
+
+// queuedArgs returns the args of the jobs of kind queued in db, oldest first.
+func queuedArgs[T any](t *testing.T, db *sql.DB, kind string) []T {
+	t.Helper()
+
+	rows, err := db.QueryContext(context.Background(), `SELECT args FROM river_job WHERE kind = $1 ORDER BY id`, kind)
+	require.NoError(t, err)
+
+	defer func() { require.NoError(t, rows.Close()) }()
+
+	var out []T
+
+	for rows.Next() {
+		var raw []byte
+		require.NoError(t, rows.Scan(&raw))
+
+		var a T
+		require.NoError(t, json.Unmarshal(raw, &a))
+
+		out = append(out, a)
+	}
+
+	require.NoError(t, rows.Err())
+
+	return out
+}
+
+// renderSvc is the service the mail workers render with.
+func renderSvc(db *sql.DB) *accounts.Service {
+	return accounts.New(repo.New(db), nil, nil)
+}
 
 // mailedCodes returns the codes queued for the address, in no order.
 func mailedCodes(t *testing.T, db *sql.DB, to string) []string {
 	t.Helper()
 
 	var codes []string
-	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, factory.EmailType("login_code")))(t) {
-		var m sender.Mail
-		require.NoError(t, json.Unmarshal(e.Payload, &m))
-		if m.To[0].Address == to {
-			codes = append(codes, codeRe.FindStringSubmatch(m.Text)[1])
+	for _, a := range queuedArgs[accounts.LoginCodeMailArgs](t, db, accounts.LoginCodeMailArgs{}.Kind()) {
+		m := testutil.Must(renderSvc(db).RenderLoginCode(context.Background(), a))(t)
+		require.NotNil(t, m)
+		if m.Mail.To[0].Address == to {
+			codes = append(codes, codeRe.FindStringSubmatch(m.Mail.Text)[1])
 		}
 	}
 
@@ -93,10 +133,10 @@ func signupConfirmed(t *testing.T, db *sql.DB, email string) int {
 	t.Helper()
 
 	n := 0
-	for _, e := range testutil.Must(factory.ListOutgoingEmails(context.Background(), db, factory.EmailType("signup_confirmed")))(t) {
-		var m sender.Mail
-		require.NoError(t, json.Unmarshal(e.Payload, &m))
-		if strings.Contains(m.Text, email) {
+	for _, a := range queuedArgs[accounts.AdminSignupConfirmedMailArgs](t, db, accounts.AdminSignupConfirmedMailArgs{}.Kind()) {
+		m := testutil.Must(renderSvc(db).RenderAdminSignupConfirmed(context.Background(), a))(t)
+		require.NotNil(t, m)
+		if strings.Contains(m.Mail.Text, email) {
 			n++
 		}
 	}
@@ -161,11 +201,11 @@ func TestLoginCodes(t *testing.T) {
 		before := signupConfirmed(t, db, email)
 
 		var code string
-		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, factory.EmailType("confirm_signup")))(t) {
-			var m sender.Mail
-			require.NoError(t, json.Unmarshal(e.Payload, &m))
-			if m.To[0].Address == email {
-				code = regexp.MustCompile(`confirmation code is (\d{8})`).FindStringSubmatch(m.Text)[1]
+		for _, a := range queuedArgs[accounts.ConfirmSignupMailArgs](t, db, accounts.ConfirmSignupMailArgs{}.Kind()) {
+			m := testutil.Must(renderSvc(db).RenderConfirmSignup(ctx, a))(t)
+			require.NotNil(t, m)
+			if m.Mail.To[0].Address == email {
+				code = regexp.MustCompile(`confirmation code is (\d{8})`).FindStringSubmatch(m.Mail.Text)[1]
 			}
 		}
 		require.NotEmpty(t, code)
@@ -392,8 +432,7 @@ func TestLoginCodes(t *testing.T) {
 	t.Run("the limits are settings: a set one applies, the others keep their defaults", func(t *testing.T) {
 		t.Parallel()
 
-		queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
-		svc := accounts.New(repo.New(db), queue, nil, accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
+		svc := accounts.New(repo.New(db), nil, nil, accounts.WithJobs(jobQueue(t, db)), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
 		u := newUser(t)
 		id, code := start(t, ctx, db, svc, u, "")
 

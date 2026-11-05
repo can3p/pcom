@@ -16,11 +16,12 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
@@ -33,8 +34,51 @@ const (
 )
 
 // codeAccounts is the accounts service with the code key logging in needs.
-func codeAccounts(db *sql.DB, snd *fakesender.Sender) *accounts.Service {
-	return accounts.New(repo.New(db), snd, nil, accounts.WithCodeKey("test-key"))
+func codeAccounts(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
+	if q == nil {
+		q = fakequeue.New()
+	}
+
+	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithJobs(q))
+}
+
+// rendered builds the mail of every account job q recorded, in order, the way
+// the mail workers do when they run.
+func rendered(t *testing.T, ctx context.Context, svc *accounts.Service, q *fakequeue.Queue) []*mail.Envelope {
+	t.Helper()
+
+	var out []*mail.Envelope
+
+	for _, args := range q.Inserted() {
+		var (
+			env *mail.Envelope
+			err error
+		)
+
+		switch a := args.(type) {
+		case accounts.InvitationMailArgs:
+			env, err = svc.RenderInvitation(ctx, a)
+		case accounts.AdminNewUserMailArgs:
+			env, err = svc.RenderAdminNewUser(ctx, a)
+		case accounts.ConfirmWaitingListMailArgs:
+			env, err = svc.RenderConfirmWaitingList(ctx, a)
+		case accounts.AdminNewWaitingListMemberMailArgs:
+			env, err = svc.RenderAdminNewWaitingListMember(ctx, a)
+		case accounts.LoginCodeMailArgs:
+			env, err = svc.RenderLoginCode(ctx, a)
+		case accounts.ConfirmSignupMailArgs:
+			env, err = svc.RenderConfirmSignup(ctx, a)
+		default:
+			t.Fatalf("unexpected job %T", args)
+		}
+
+		require.NoError(t, err, args.Kind())
+		require.NotNil(t, env, args.Kind())
+
+		out = append(out, env)
+	}
+
+	return out
 }
 
 func TestLoginForm_ValidateNeedsAnEmail(t *testing.T) {
@@ -55,7 +99,7 @@ func TestLoginForm_SaveAnswersAnyAddressTheSame(t *testing.T) {
 
 	db := testdb.New(t).DB
 	user := testutil.Must(factory.User(context.Background(), db))(t)
-	snd := fakesender.New()
+	snd := fakequeue.New()
 	tmpl := template.Must(template.New("").Funcs(template.FuncMap{"link": func(...string) string { return "/x" }}).
 		ParseFiles("../../cmd/web/client/html/form--login-code.html"))
 
@@ -77,7 +121,7 @@ func TestLoginForm_SaveAnswersAnyAddressTheSame(t *testing.T) {
 		r.ServeHTTP(w, req)
 
 		mailed := false
-		for _, m := range snd.Sent() {
+		for _, m := range rendered(t, context.Background(), codeAccounts(db, snd), snd) {
 			mailed = mailed || m.Mail.To[0].Address == email
 		}
 

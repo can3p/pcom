@@ -79,7 +79,7 @@ func (s *Service) SendInvite(ctx context.Context, actor *model.User, to string) 
 			return fmt.Errorf("failed to save the invite: %w", err)
 		}
 
-		return s.send(ctx, tx, mail.Invitation(s.ident.Site, s.ident.From, invite, to))
+		return tx.Enqueue(ctx, s.jobs, InvitationMailArgs{InviteID: invite.ID, To: to})
 	})
 }
 
@@ -119,7 +119,7 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *model.UserInvitation
 			return err
 		}
 
-		if err := s.send(ctx, tx, mail.AdminNewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
+		if err := tx.Enqueue(ctx, s.jobs, AdminNewUserMailArgs{UserID: u.ID}); err != nil {
 			return err
 		}
 
@@ -127,8 +127,8 @@ func (s *Service) AcceptInvite(ctx context.Context, invite *model.UserInvitation
 			return err
 		}
 
-		attemptID, err = s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
-			return mail.LoginCode(s.ident.Site, s.ident.From, id, u.Email, code, s.login.CodeLifetime)
+		attemptID, err = s.startAttempt(ctx, tx, u, func(id, userID, code string) repo.JobArgs {
+			return LoginCodeMailArgs{AttemptID: id, UserID: userID, Code: code}
 		})
 
 		return err

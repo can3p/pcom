@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/logging"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
@@ -186,7 +185,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 			return err
 		}
 
-		return s.send(ctx, tx, mail.LoginCode(s.ident.Site, s.ident.From, attempt.ID, user.Email, code, s.login.CodeLifetime))
+		return tx.Enqueue(ctx, s.jobs, LoginCodeMailArgs{AttemptID: attempt.ID, UserID: user.ID, Code: code})
 	})
 	if err != nil {
 		return "", err
@@ -199,7 +198,7 @@ func (s *Service) StartLogin(ctx context.Context, email, returnURL string) (stri
 // queues the mail build makes for its code, so the user, the attempt and the
 // mail exist together or not at all. It does not look at the mail limit: the
 // user is new.
-func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *model.User, build func(attemptID, code string) *mail.Envelope) (string, error) {
+func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *model.User, build func(attemptID, userID, code string) repo.JobArgs) (string, error) {
 	if len(s.codeKey) == 0 {
 		return "", errNoCodeKey
 	}
@@ -228,7 +227,7 @@ func (s *Service) startAttempt(ctx context.Context, tx *repo.Store, user *model.
 		return "", err
 	}
 
-	return attempt.ID, s.send(ctx, tx, build(attempt.ID, code))
+	return attempt.ID, tx.Enqueue(ctx, s.jobs, build(attempt.ID, user.ID, code))
 }
 
 // FinishLogin checks code against the attempt and counts a wrong one. A match
@@ -310,7 +309,7 @@ func (s *Service) FinishLogin(ctx context.Context, attemptID, code string) (*mod
 	}
 
 	if confirmed {
-		s.notifyAdmin(ctx, "signup confirmed", mail.AdminSignupConfirmed(s.ident.Site, s.ident.From, s.ident.AdminAddress, user))
+		s.notifyAdmin(ctx, "signup confirmed", AdminSignupConfirmedMailArgs{UserID: user.ID})
 	}
 
 	return user, returnURL, nil

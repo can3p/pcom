@@ -12,7 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
@@ -20,8 +20,12 @@ import (
 )
 
 // accountsFor is the accounts service the forms under test call, over db.
-func accountsFor(db *sql.DB, s repo.MailQueue) *accounts.Service {
-	return accounts.New(repo.New(db), s, nil)
+func accountsFor(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
+	if q == nil {
+		q = fakequeue.New()
+	}
+
+	return accounts.New(repo.New(db), nil, nil, accounts.WithJobs(q))
 }
 
 func TestSignupForm_Validate(t *testing.T) {
@@ -64,7 +68,7 @@ func TestSignupForm_Validate(t *testing.T) {
 			c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
 			email, username := tt.setup(t)
 
-			form := forms.SignupFormNew(codeAccounts(db, fakesender.New())).(*forms.SignupForm)
+			form := forms.SignupFormNew(codeAccounts(db, fakequeue.New())).(*forms.SignupForm)
 			form.Input.Email = email
 			form.Input.Username = username
 
@@ -87,7 +91,7 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	form := forms.SignupFormNew(codeAccounts(db, sender)).(*forms.SignupForm)
 	form.Input.Email = "newuser@example.test"
@@ -104,10 +108,13 @@ func TestSignupForm_SaveSanitizesInvalidAttribution(t *testing.T) {
 	require.Equal(t, "newuser", newUser.Username)
 	require.Equal(t, "unknown", lo.FromPtr(newUser.SignupAttribution))
 
-	sent := sender.Sent()
+	require.Len(t, fakequeue.Of[accounts.AdminNewUserMailArgs](sender), 1)
+	require.Len(t, fakequeue.Of[accounts.ConfirmSignupMailArgs](sender), 1)
+
+	sent := rendered(t, ctx, codeAccounts(db, sender), sender)
 	require.Len(t, sent, 2)
-	require.Equal(t, "admin_new_user", sent[0].EmailType)
-	require.Equal(t, "confirm_signup", sent[1].EmailType)
+	require.Equal(t, "admin_new_user", sent[0].Type)
+	require.Equal(t, "confirm_signup", sent[1].Type)
 	require.Equal(t, newUser.Email, sent[1].Mail.To[0].Address)
 	require.NotEmpty(t, auth.LoginAttempt(c), "the visitor's session carries the attempt the code form finishes")
 }
@@ -116,7 +123,7 @@ func TestSignupForm_SaveTrimsWhitespace(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	c, _ := ginctx.New(t, http.MethodPost, "/signup", nil)
 

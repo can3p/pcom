@@ -12,7 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
@@ -34,7 +34,7 @@ func TestLoginCodeForm_Save(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	svc := codeAccounts(db, fakesender.New())
+	svc := codeAccounts(db, fakequeue.New())
 
 	// attempt returns a context whose session holds a fresh attempt of a user
 	// and the code that logs it in.

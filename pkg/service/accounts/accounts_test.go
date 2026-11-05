@@ -10,32 +10,82 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/can3p/pcom/pkg/mail/sender/dbsender"
+	"github.com/can3p/pcom/pkg/jobs"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// svcWith is the accounts service over db that sends through snd.
-func svcWith(db *sql.DB, snd repo.MailQueue) *accounts.Service {
-	return accounts.New(repo.New(db), snd, nil, accounts.WithCodeKey("test-key"))
+// svcWith is the accounts service over db that enqueues its jobs on q.
+func svcWith(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
+	if q == nil {
+		q = fakequeue.New()
+	}
+
+	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithJobs(q))
 }
 
-func acceptInvite(ctx context.Context, db *sql.DB, s repo.MailQueue, invite *model.UserInvitation, username string) error {
+// rendered builds the mail of every job q recorded, in order, the way the
+// mail workers do when they run.
+func rendered(t *testing.T, ctx context.Context, svc *accounts.Service, q *fakequeue.Queue) []*mail.Envelope {
+	t.Helper()
+
+	var out []*mail.Envelope
+
+	for _, args := range q.Inserted() {
+		var (
+			env *mail.Envelope
+			err error
+		)
+
+		switch a := args.(type) {
+		case accounts.InvitationMailArgs:
+			env, err = svc.RenderInvitation(ctx, a)
+		case accounts.AdminNewUserMailArgs:
+			env, err = svc.RenderAdminNewUser(ctx, a)
+		case accounts.AdminThrowAwayEmailMailArgs:
+			env, err = svc.RenderAdminThrowAwayEmail(ctx, a)
+		case accounts.ConfirmWaitingListMailArgs:
+			env, err = svc.RenderConfirmWaitingList(ctx, a)
+		case accounts.AdminNewWaitingListMemberMailArgs:
+			env, err = svc.RenderAdminNewWaitingListMember(ctx, a)
+		case accounts.LoginCodeMailArgs:
+			env, err = svc.RenderLoginCode(ctx, a)
+		case accounts.ConfirmSignupMailArgs:
+			env, err = svc.RenderConfirmSignup(ctx, a)
+		case accounts.AdminSignupConfirmedMailArgs:
+			env, err = svc.RenderAdminSignupConfirmed(ctx, a)
+		case accounts.AdminPageFailureMailArgs:
+			env, err = svc.RenderAdminPageFailure(ctx, a)
+		default:
+			t.Fatalf("unexpected job %T", args)
+		}
+
+		require.NoError(t, err, args.Kind())
+		require.NotNil(t, env, args.Kind())
+
+		out = append(out, env)
+	}
+
+	return out
+}
+
+func acceptInvite(ctx context.Context, db *sql.DB, s *fakequeue.Queue, invite *model.UserInvitation, username string) error {
 	_, err := svcWith(db, s).AcceptInvite(ctx, invite, username)
 
 	return err
 }
 
-func sendInvite(ctx context.Context, db *sql.DB, s repo.MailQueue, inviter *model.User, to string) error {
+func sendInvite(ctx context.Context, db *sql.DB, s *fakequeue.Queue, inviter *model.User, to string) error {
 	return svcWith(db, s).SendInvite(ctx, inviter, to)
 }
 
@@ -74,9 +124,10 @@ func TestRegister(t *testing.T) {
 	t.Run("creates an unconfirmed user without a password, tells the admin and mails the code", func(t *testing.T) {
 		t.Parallel()
 
-		sender := fakesender.New()
+		q := fakequeue.New()
+		svc := svcWith(db, q)
 
-		id, err := svcWith(db, sender).Register(ctx, "New-Signup@example.test", "newsignup", "some-campaign")
+		id, err := svc.Register(ctx, "New-Signup@example.test", "newsignup", "some-campaign")
 		require.NoError(t, err)
 		require.NotEmpty(t, id)
 
@@ -86,10 +137,14 @@ func TestRegister(t *testing.T) {
 		require.Nil(t, got.Pwdhash)
 		require.Equal(t, "some-campaign", lo.FromPtr(got.SignupAttribution))
 
-		sent := sender.Sent()
+		require.Len(t, q.Inserted(), 2)
+		require.Len(t, fakequeue.Of[accounts.AdminNewUserMailArgs](q), 1)
+		require.Len(t, fakequeue.Of[accounts.ConfirmSignupMailArgs](q), 1)
+
+		sent := rendered(t, ctx, svc, q)
 		require.Len(t, sent, 2)
-		require.Equal(t, "admin_new_user", sent[0].EmailType)
-		require.Equal(t, "confirm_signup", sent[1].EmailType)
+		require.Equal(t, "admin_new_user", sent[0].Type)
+		require.Equal(t, "confirm_signup", sent[1].Type)
 		require.Equal(t, "new-signup@example.test", sent[1].Mail.To[0].Address)
 		require.Equal(t, id, sent[1].UniqueID)
 	})
@@ -97,7 +152,7 @@ func TestRegister(t *testing.T) {
 	t.Run("missing fields", func(t *testing.T) {
 		t.Parallel()
 
-		sender := fakesender.New()
+		sender := fakequeue.New()
 
 		_, err := svcWith(db, sender).Register(ctx, "", "user", "")
 		require.Error(t, err)
@@ -105,7 +160,7 @@ func TestRegister(t *testing.T) {
 		_, err = svcWith(db, sender).Register(ctx, "a@b.example.test", "", "")
 		require.Error(t, err)
 
-		require.Empty(t, sender.Sent(), "a rejected signup must not notify anyone")
+		require.Empty(t, sender.Inserted(), "a rejected signup must not notify anyone")
 	})
 
 	t.Run("a mailbox in use, under any spelling", func(t *testing.T) {
@@ -114,13 +169,13 @@ func TestRegister(t *testing.T) {
 		existing := testutil.Must(factory.User(ctx, db, factory.WithEmail("in.use@gmail.com")))(t)
 
 		for i, email := range []string{existing.Email, "in.use+again@gmail.com", "inuse@googlemail.com"} {
-			sender := fakesender.New()
+			sender := fakequeue.New()
 
 			_, err := svcWith(db, sender).Register(ctx, email, "someoneelse"+strconv.Itoa(i), "")
 			msg, ok := problem(err)
 			require.False(t, ok, email)
 			require.Equal(t, "Email is already used in the system", msg)
-			require.Empty(t, sender.Sent(), "a failed signup must not notify anyone")
+			require.Empty(t, sender.Inserted(), "a failed signup must not notify anyone")
 		}
 	})
 
@@ -134,7 +189,7 @@ func TestRegister(t *testing.T) {
 		for i := range 10 {
 			wg.Go(func() {
 				email := "race+" + strconv.Itoa(i) + "@example.test"
-				if _, err := svcWith(db, fakesender.New()).Register(ctx, email, "racer"+strconv.Itoa(i), ""); err == nil {
+				if _, err := svcWith(db, fakequeue.New()).Register(ctx, email, "racer"+strconv.Itoa(i), ""); err == nil {
 					created.Add(1)
 				} else {
 					var invalid *service.ValidationError
@@ -163,10 +218,12 @@ func TestAcceptInvite(t *testing.T) {
 	t.Run("creates a confirmed user without a password, connects it and mails the code", func(t *testing.T) {
 		t.Parallel()
 
-		sender := fakesender.New()
+		sender := fakequeue.New()
 		inviter, invite := newInvite(t, "invitee@example.test")
 
-		id, err := svcWith(db, sender).AcceptInvite(ctx, invite, "invitee")
+		svc := svcWith(db, sender)
+
+		id, err := svc.AcceptInvite(ctx, invite, "invitee")
 		require.NoError(t, err)
 		require.NotEmpty(t, id)
 
@@ -184,33 +241,37 @@ func TestAcceptInvite(t *testing.T) {
 
 		require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t))
 
-		sent := sender.Sent()
+		require.Len(t, sender.Inserted(), 2)
+		require.Len(t, fakequeue.Of[accounts.AdminNewUserMailArgs](sender), 1)
+		require.Len(t, fakequeue.Of[accounts.LoginCodeMailArgs](sender), 1)
+
+		sent := rendered(t, ctx, svc, sender)
 		require.Len(t, sent, 2)
-		require.Equal(t, "admin_new_user", sent[0].EmailType)
-		require.Equal(t, "login_code", sent[1].EmailType)
+		require.Equal(t, "admin_new_user", sent[0].Type)
+		require.Equal(t, "login_code", sent[1].Type)
 		require.Equal(t, "invitee@example.test", sent[1].Mail.To[0].Address)
 	})
 
 	t.Run("an empty username consumes nothing", func(t *testing.T) {
 		t.Parallel()
 
-		sender := fakesender.New()
+		sender := fakequeue.New()
 		_, invite := newInvite(t, "invitee2@example.test")
 
 		require.Error(t, acceptInvite(ctx, db, sender, invite, ""))
 		require.Nil(t, invite.CreatedUserID)
-		require.Empty(t, sender.Sent())
+		require.Empty(t, sender.Inserted())
 	})
 
 	t.Run("an address in use", func(t *testing.T) {
 		t.Parallel()
 
-		sender := fakesender.New()
+		sender := fakequeue.New()
 		_, invite := newInvite(t, newUser(t, ctx, db).Email)
 
 		require.Error(t, acceptInvite(ctx, db, sender, invite, "someoneelse"), "the email column is unique")
 		require.Nil(t, invite.CreatedUserID)
-		require.Empty(t, sender.Sent())
+		require.Empty(t, sender.Inserted())
 	})
 }
 
@@ -224,13 +285,13 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 	cases := []struct {
 		name  string
 		email string
-		run   func(s *fakesender.Sender) (*model.UserInvitation, error)
+		run   func(s *fakequeue.Queue) (*model.UserInvitation, error)
 	}{
-		{name: "signup", email: "fail-signup@x.test", run: func(s *fakesender.Sender) (*model.UserInvitation, error) {
+		{name: "signup", email: "fail-signup@x.test", run: func(s *fakequeue.Queue) (*model.UserInvitation, error) {
 			_, err := svcWith(db, s).Register(ctx, "fail-signup@x.test", "failsignup", "")
 			return nil, err
 		}},
-		{name: "accept invite", email: "fail-invitee@x.test", run: func(s *fakesender.Sender) (*model.UserInvitation, error) {
+		{name: "accept invite", email: "fail-invitee@x.test", run: func(s *fakequeue.Queue) (*model.UserInvitation, error) {
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("fail-invitee@x.test")))(t)
 
@@ -242,7 +303,7 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := fakesender.New()
+			s := fakequeue.New()
 			s.FailWith(boom)
 
 			invite, err := tc.run(s)
@@ -259,19 +320,21 @@ func TestSignupAndAcceptInvite_ReturnAdminNotificationError(t *testing.T) {
 }
 
 // A failure after the user insert (here: no code key, so no attempt can start)
-// leaves no user and no queued mail, through the real queue.
+// leaves no user and no queued mail job, through the real job queue.
 func TestRegisterAndAcceptInvite_AreAtomic(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
-	svc := accounts.New(repo.New(db), queue, nil)
+	queue, err := jobs.NewInserter(db)
+	require.NoError(t, err)
+
+	svc := accounts.New(repo.New(db), nil, nil, accounts.WithJobs(queue))
 
 	inviter := newUser(t, ctx, db)
 	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("atomic-invitee@x.test")))(t)
 
-	_, err := svc.Register(ctx, "atomic-signup@x.test", "atomicsignup", "")
+	_, err = svc.Register(ctx, "atomic-signup@x.test", "atomicsignup", "")
 	require.Error(t, err)
 
 	_, err = svc.AcceptInvite(ctx, invite, "atomicinvitee")
@@ -283,21 +346,23 @@ func TestRegisterAndAcceptInvite_AreAtomic(t *testing.T) {
 		require.Error(t, err, email)
 	}
 
-	require.Empty(t, testutil.Must(factory.ListOutgoingEmails(ctx, db))(t), "no mail is queued, so no attempt was started either")
+	var queued int
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM river_job WHERE kind LIKE 'mail.%'`).Scan(&queued))
+	require.Zero(t, queued, "no mail is queued, so no attempt was started either")
 }
 
-// TestSendInvite_Queue goes through the real email queue, which the fake
-// sender doesn't imitate: the queue drops a mail whose (type, unique key)
-// it has already seen.
+// TestSendInvite_Queue checks the jobs an invitation enqueues and the mail
+// each renders.
 func TestSendInvite_Queue(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	queued := func(t *testing.T, db *sql.DB) []string {
+	queued := func(t *testing.T, svc *accounts.Service, q *fakequeue.Queue) []string {
 		t.Helper()
 		var to []string
-		for _, e := range testutil.Must(factory.ListOutgoingEmails(ctx, db, factory.EmailType("user_invitation")))(t) {
-			to = append(to, string(e.Payload))
+		for _, e := range rendered(t, ctx, svc, q) {
+			require.Equal(t, "user_invitation", e.Type)
+			to = append(to, e.Mail.To[0].Address)
 		}
 
 		return to
@@ -310,9 +375,10 @@ func TestSendInvite_Queue(t *testing.T) {
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		testutil.Must(factory.User(ctx, db, factory.WithEmail("john.doe@mail.test")))(t)
+		q := fakequeue.New()
 
-		require.NoError(t, sendInvite(ctx, db, dbsender.NewSender(repo.New(db), fakesender.New().Delivery()), inviter, "john.doe+prefix@mail.test"))
-		to := queued(t, db)
+		require.NoError(t, sendInvite(ctx, db, q, inviter, "john.doe+prefix@mail.test"))
+		to := queued(t, svcWith(db, q), q)
 		require.Len(t, to, 1)
 		require.Contains(t, to[0], "john.doe+prefix@mail.test")
 	})
@@ -324,11 +390,11 @@ func TestSendInvite_Queue(t *testing.T) {
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		newInvitation(t, ctx, db, inviter.ID)
-		queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
+		queue := fakequeue.New()
 
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "same@example.test"))
 		require.Error(t, sendInvite(ctx, db, queue, inviter, " SAME@example.test "))
-		require.Len(t, queued(t, db), 1)
+		require.Len(t, queued(t, svcWith(db, queue), queue), 1)
 	})
 
 	t.Run("every invitation from one user queues its own mail", func(t *testing.T) {
@@ -338,16 +404,20 @@ func TestSendInvite_Queue(t *testing.T) {
 		inviter := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, inviter.ID)
 		newInvitation(t, ctx, db, inviter.ID)
-		queue := dbsender.NewSender(repo.New(db), fakesender.New().Delivery())
+		queue := fakequeue.New()
 
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "first@example.test"))
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "second@example.test"))
-		to := queued(t, db)
+
+		args := fakequeue.Of[accounts.InvitationMailArgs](queue)
+		require.Len(t, args, 2)
+		require.NotEqual(t, args[0].InviteID, args[1].InviteID)
+
+		to := queued(t, svcWith(db, queue), queue)
 		require.Len(t, to, 2)
 		require.Contains(t, to[0], "first@example.test")
 		require.Contains(t, to[1], "second@example.test")
 	})
-
 }
 
 func TestSendInvite(t *testing.T) {
@@ -361,13 +431,15 @@ func TestSendInvite(t *testing.T) {
 
 		senderUser := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, senderUser.ID)
-		s := fakesender.New()
+		s := fakequeue.New()
 
 		require.NoError(t, sendInvite(ctx, db, s, senderUser, "first-invitee@example.test"))
 
-		sent := s.Sent()
+		require.Len(t, fakequeue.Of[accounts.InvitationMailArgs](s), 1)
+
+		sent := rendered(t, ctx, svcWith(db, s), s)
 		require.Len(t, sent, 1)
-		require.Equal(t, "user_invitation", sent[0].EmailType)
+		require.Equal(t, "user_invitation", sent[0].Type)
 		require.Equal(t, "first-invitee@example.test", sent[0].Mail.To[0].Address)
 
 		// The only invitation slot senderUser had is now used, so a second
@@ -376,19 +448,19 @@ func TestSendInvite(t *testing.T) {
 		err := sendInvite(ctx, db, s, senderUser, "second-invitee@example.test")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not have any unused invites")
-		require.Len(t, s.Sent(), 1, "no mail should have been sent for the rejected invite")
+		require.Len(t, s.Inserted(), 1, "no mail should have been sent for the rejected invite")
 	})
 
 	t.Run("fails without unused invite", func(t *testing.T) {
 		t.Parallel()
 
 		senderUser := newUser(t, ctx, db)
-		s := fakesender.New()
+		s := fakequeue.New()
 
 		err := sendInvite(ctx, db, s, senderUser, "invitee@example.test")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not have any unused invites")
-		require.Empty(t, s.Sent())
+		require.Empty(t, s.Inserted())
 	})
 
 	t.Run("rejects existing email", func(t *testing.T) {
@@ -397,17 +469,17 @@ func TestSendInvite(t *testing.T) {
 		senderUser := newUser(t, ctx, db)
 		newInvitation(t, ctx, db, senderUser.ID)
 		existingUser := newUser(t, ctx, db)
-		s := fakesender.New()
+		s := fakequeue.New()
 
 		err := sendInvite(ctx, db, s, senderUser, existingUser.Email)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
-		require.Empty(t, s.Sent(), "no mail should have been sent for an existing email")
+		require.Empty(t, s.Inserted(), "no mail should have been sent for an existing email")
 
 		// The invite slot is left untouched by the rejection: it can still be
 		// used for a genuinely new email address.
 		require.NoError(t, sendInvite(ctx, db, s, senderUser, "new-invitee@example.test"))
-		require.Len(t, s.Sent(), 1)
+		require.Len(t, s.Inserted(), 1)
 	})
 }
 
@@ -440,7 +512,7 @@ func TestCheckSignupEmail_InvalidFormat(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	testCases := []string{
 		"invalid",
@@ -486,7 +558,7 @@ func TestCheckSignupEmail(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	// registered makes an account for email and returns the address to check
 	registered := func(email, check string) func(t *testing.T) string {

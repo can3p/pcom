@@ -11,7 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-contrib/sessions"
@@ -33,7 +33,7 @@ func TestAcceptInviteForm_Validate(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	tests := []struct {
 		name         string
@@ -74,7 +74,7 @@ func TestAcceptInviteForm_SaveStartsTheCodeLogin(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
 	invite := newInvite(t, ctx, db)
@@ -99,7 +99,7 @@ func TestAcceptInviteForm_SaveGivesNewUserAFreshInvite(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/accept_invite", nil)
 
 	invite := newInvite(t, ctx, db)

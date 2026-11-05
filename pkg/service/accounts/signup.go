@@ -8,7 +8,6 @@ import (
 	disposable "github.com/can3p/anti-disposable-email"
 	"github.com/can3p/pcom/pkg/forms/validation"
 	"github.com/can3p/pcom/pkg/logging"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/repo"
@@ -43,7 +42,7 @@ func (s *Service) CheckSignupEmail(ctx context.Context, address string) error {
 		logger := logging.FromContext(ctx)
 
 		go func() {
-			if err := s.send(ctx, s.store, mail.AdminThrowAwayEmailSignupAttempt(s.ident.Site, s.ident.From, s.ident.AdminAddress, address)); err != nil {
+			if err := s.store.Enqueue(ctx, s.jobs, AdminThrowAwayEmailMailArgs{Email: address}); err != nil {
 				logger.Warn("failed to queue the throwaway email notification", zap.Error(err))
 			}
 		}()
@@ -140,12 +139,12 @@ func (s *Service) Register(ctx context.Context, email, username, attribution str
 			return err
 		}
 
-		if err := s.send(ctx, tx, mail.AdminNewUser(s.ident.Site, s.ident.From, s.ident.AdminAddress, u)); err != nil {
+		if err := tx.Enqueue(ctx, s.jobs, AdminNewUserMailArgs{UserID: u.ID}); err != nil {
 			return err
 		}
 
-		id, err := s.startAttempt(ctx, tx, u, func(id, code string) *mail.Envelope {
-			return mail.ConfirmSignup(s.ident.Site, s.ident.From, id, u.Email, code, s.login.CodeLifetime)
+		id, err := s.startAttempt(ctx, tx, u, func(id, userID, code string) repo.JobArgs {
+			return ConfirmSignupMailArgs{AttemptID: id, UserID: userID, Code: code}
 		})
 		attemptID = id
 
@@ -179,11 +178,11 @@ func (s *Service) JoinWaitingList(ctx context.Context, email, reason, attributio
 			return fatal(err)
 		}
 
-		if err := s.send(ctx, tx, mail.ConfirmWaitingList(s.ident.Site, s.ident.From, request)); err != nil {
+		if err := tx.Enqueue(ctx, s.jobs, ConfirmWaitingListMailArgs{RequestID: request.ID}); err != nil {
 			return fatal(err)
 		}
 
-		return s.send(ctx, tx, mail.AdminNewWaitingListMember(s.ident.Site, s.ident.From, s.ident.AdminAddress, request))
+		return tx.Enqueue(ctx, s.jobs, AdminNewWaitingListMemberMailArgs{RequestID: request.ID})
 	})
 }
 

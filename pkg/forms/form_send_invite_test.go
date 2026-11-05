@@ -8,9 +8,10 @@ import (
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
@@ -50,7 +51,7 @@ func TestSendInviteForm_Validate(t *testing.T) {
 			inviter := testutil.Must(factory.User(ctx, db))(t)
 			c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
-			form := forms.SendInviteFormNew(accountsFor(db, fakesender.New()), inviter).(*forms.SendInviteForm)
+			form := forms.SendInviteFormNew(accountsFor(db, fakequeue.New()), inviter).(*forms.SendInviteForm)
 			form.Input.Email = tt.email(t, inviter)
 
 			err := form.Validate(c)
@@ -69,7 +70,7 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
 	inviter := testutil.Must(factory.User(ctx, db))(t)
@@ -82,9 +83,11 @@ func TestSendInviteForm_SaveSendsInvite(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, action)
 
-	sent := sender.Sent()
+	require.Len(t, fakequeue.Of[accounts.InvitationMailArgs](sender), 1)
+
+	sent := rendered(t, ctx, accountsFor(db, sender), sender)
 	require.Len(t, sent, 1)
-	require.Equal(t, "user_invitation", sent[0].EmailType)
+	require.Equal(t, "user_invitation", sent[0].Type)
 	require.Equal(t, "newinvitee@example.test", sent[0].Mail.To[0].Address)
 
 	invites := testutil.Must(repo.Using(db).SentInvitations(ctx, inviter.ID))(t)
@@ -101,7 +104,7 @@ func TestSendInviteForm_SaveRefusalIsAFieldError(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakesender.New()
+	sender := fakequeue.New()
 	c, _ := ginctx.New(t, http.MethodPost, "/send_invite", nil)
 
 	inviter := testutil.Must(factory.User(ctx, db))(t)
@@ -114,5 +117,5 @@ func TestSendInviteForm_SaveRefusalIsAFieldError(t *testing.T) {
 	require.NotNil(t, action)
 	require.True(t, form.Errors.HasError("email"))
 	require.False(t, form.FormSaved)
-	require.Empty(t, sender.Sent())
+	require.Empty(t, sender.Inserted())
 }
