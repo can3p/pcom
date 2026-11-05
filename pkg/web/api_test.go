@@ -109,6 +109,8 @@ func sentMails(t *testing.T, ctx context.Context, db *sql.DB, q *fakequeue.Queue
 		switch a := q.Inserted()[i].(type) {
 		case posts.PublishedArgs:
 			err = svc.FanOutPublished(ctx, a)
+		case posts.CommentPostedArgs:
+			err = svc.FanOutComment(ctx, a)
 		case posts.NewPostMailArgs:
 			env, err = svc.RenderNewPost(ctx, a)
 		default:

@@ -102,6 +102,7 @@ func TestRenderMails_ConnectionLostAfterEnqueue(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, s.FanOutPublished(ctx, posts.PublishedArgs{PostID: saved.Post.ID}))
 	require.NoError(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: saved.Post.ID, Body: "a fine comment"}))
+	runCommentFanOut(t, ctx, s, q)
 
 	answer := fakequeue.Of[posts.PromptAnswerMailArgs](q)
 	newPost := fakequeue.Of[posts.NewPostMailArgs](q)
@@ -144,6 +145,8 @@ func TestRenderComment_AuthorAndParticipant(t *testing.T) {
 	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
 	testutil.Must(factory.Comment(ctx, db, post.ID, other.ID))(t)
 	require.NoError(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: post.ID, Body: "a fine new comment"}))
+	require.Empty(t, fakequeue.Of[posts.CommentMailArgs](q), "the request records the comment; the job picks the recipients")
+	runCommentFanOut(t, ctx, s, q)
 
 	args := fakequeue.Of[posts.CommentMailArgs](q)
 	require.Len(t, args, 2)
@@ -325,4 +328,89 @@ func TestPromptAnswer_EnqueuesTheMail(t *testing.T) {
 	require.Equal(t, w.direct.Email, answer.Mail.To[0].Address)
 	require.Equal(t, "Response to your prompt from "+w.author.Username, answer.Mail.Subject)
 	require.Contains(t, answer.Mail.Text, "the answer")
+}
+
+// runCommentFanOut asserts that one comment was posted, not edited, and
+// runs its fan-out job, as the worker would.
+func runCommentFanOut(t *testing.T, ctx context.Context, s *posts.Service, q *fakequeue.Queue) {
+	t.Helper()
+
+	posted := fakequeue.Of[posts.CommentPostedArgs](q)
+	require.Len(t, posted, 1)
+	require.False(t, posted[0].Edited)
+	require.Equal(t, "posts.comment_posted", posted[0].Kind())
+	require.NoError(t, s.FanOutComment(ctx, posted[0]))
+}
+
+// A comment deleted before its fan-out runs tells nobody.
+func TestFanOutComment_CommentGoneEnqueuesNothing(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	q := fakequeue.New()
+	s := svcWith(db, q)
+
+	require.NoError(t, s.FanOutComment(ctx, posts.CommentPostedArgs{CommentID: "00000000-0000-0000-0000-000000000000"}))
+	require.Empty(t, q.Inserted())
+}
+
+// The fan-out enqueues a comment mail for the post's author and for the
+// participants who may still read the comments, never for the comment's own
+// author.
+func TestFanOutComment_EnqueuesWhoMayRead(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	w := newWorld(t, ctx, db)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+	store := repo.New(db)
+
+	stays := testutil.Must(factory.User(ctx, db))(t)
+	leaves := testutil.Must(factory.User(ctx, db))(t)
+
+	for _, u := range []*model.User{stays, leaves} {
+		_, _, err := factory.Connect(ctx, db, w.author.ID, u.ID)
+		require.NoError(t, err)
+	}
+
+	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
+	testutil.Must(factory.Comment(ctx, db, post.ID, stays.ID))(t)
+	testutil.Must(factory.Comment(ctx, db, post.ID, leaves.ID))(t)
+	testutil.Must(factory.Comment(ctx, db, post.ID, w.direct.ID))(t)
+	require.NoError(t, store.DeleteConnectionsBetween(ctx, w.author.ID, leaves.ID))
+
+	require.NoError(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: post.ID, Body: "another one"}))
+	runCommentFanOut(t, ctx, s, q)
+
+	var recipients []string
+	for _, a := range fakequeue.Of[posts.CommentMailArgs](q) {
+		recipients = append(recipients, a.RecipientID)
+	}
+
+	require.ElementsMatch(t, []string{w.author.ID, stays.ID}, recipients)
+}
+
+// The post's author commenting on their own post tells the participants, not
+// the author.
+func TestFanOutComment_AuthorsOwnCommentSkipsAuthor(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	w := newWorld(t, ctx, db)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+
+	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
+	testutil.Must(factory.Comment(ctx, db, post.ID, w.direct.ID))(t)
+
+	require.NoError(t, s.AddComment(ctx, w.author, posts.CommentInput{PostID: post.ID, Body: "thanks"}))
+	runCommentFanOut(t, ctx, s, q)
+
+	args := fakequeue.Of[posts.CommentMailArgs](q)
+	require.Len(t, args, 1)
+	require.Equal(t, w.direct.ID, args[0].RecipientID)
 }

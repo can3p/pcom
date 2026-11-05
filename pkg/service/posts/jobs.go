@@ -23,6 +23,7 @@ func WithJobs(q repo.JobQueue) Option {
 // RegisterJobs registers the workers of the service's job kinds on r.
 func (s *Service) RegisterJobs(r *jobs.Registry) {
 	jobs.Register(r, s.FanOutPublished)
+	jobs.Register(r, s.FanOutComment)
 	jobs.RegisterMail(r, s.RenderPrompt)
 	jobs.RegisterMail(r, s.RenderPromptAnswer)
 	jobs.RegisterMail(r, s.RenderNewPost)
@@ -43,6 +44,18 @@ func (PublishedArgs) Kind() string { return "posts.published" }
 func (PublishedArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true}}
 }
+
+// CommentPostedArgs is the job adding or editing a comment enqueues: its
+// worker tells the post's author and the other participants. It is not
+// unique: an edit made while an earlier fan-out runs gets a fan-out of its
+// own, and sent_emails drops the mails that end up the same.
+type CommentPostedArgs struct {
+	CommentID string `json:"comment_id"`
+	Edited    bool   `json:"edited"`
+}
+
+// Kind names the job kind.
+func (CommentPostedArgs) Kind() string { return "posts.comment_posted" }
 
 // PromptMailArgs is the mail that tells a user about a prompt to write.
 type PromptMailArgs struct {
@@ -184,6 +197,60 @@ func (s *Service) RenderNewPost(ctx context.Context, a NewPostMailArgs) (*mail.E
 	}
 
 	return mail.NewPost(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, post.User, conn, post), nil
+}
+
+// FanOutComment enqueues the comment mail of the post's author and of every
+// other participant who may read the comments now, except the comment's own
+// author, in one transaction. A comment or post gone since enqueues nothing.
+func (s *Service) FanOutComment(ctx context.Context, a CommentPostedArgs) error {
+	comment, missing, err := gone(s.store.CommentByID(ctx, a.CommentID))
+	if missing || err != nil {
+		return err
+	}
+
+	return s.store.Tx(ctx, func(tx *repo.Store) error {
+		post, missing, err := gone(tx.PostWithAuthorAndURL(ctx, comment.PostID))
+		if missing || err != nil {
+			return err
+		}
+
+		// we're not sending email notifications to ourselves
+		if comment.UserID != post.UserID {
+			if err := tx.Enqueue(ctx, s.jobs, CommentMailArgs{CommentID: comment.ID, RecipientID: post.UserID, Edited: a.Edited}); err != nil {
+				return err
+			}
+		}
+
+		// we might want to notify users per thread, not in a blanket way,
+		// and give them an ability to unsubscribe
+		participants, err := tx.CommentParticipants(ctx, post.ID, post.UserID)
+		if err != nil {
+			return err
+		}
+
+		for _, cmt := range participants {
+			if cmt.User.ID == comment.UserID {
+				continue
+			}
+
+			// a participant who lost the connection, or whose post went
+			// back to draft, is told nothing more
+			mayRead, err := mayReadComments(ctx, tx, cmt.User.ID, post)
+			if err != nil {
+				return err
+			}
+
+			if !mayRead {
+				continue
+			}
+
+			if err := tx.Enqueue(ctx, s.jobs, CommentMailArgs{CommentID: comment.ID, RecipientID: cmt.User.ID, Edited: a.Edited}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // RenderComment builds the mail about a comment, as the comment and its post

@@ -74,8 +74,8 @@ func TestEditComment(t *testing.T) {
 		require.True(t, lo.FromPtr(got.EditedAt).After(lo.FromPtr(prevEditedAt)), "edited_at moves on every edit")
 		prevEditedAt = got.EditedAt
 
-		// one job per recipient, each run before the next edit
-		require.Len(t, q.Inserted()[enqueued:], 2)
+		// the edit records one fan-out job, run before the next edit
+		require.Equal(t, []repo.JobArgs{posts.CommentPostedArgs{CommentID: comment.ID, Edited: true}}, q.Inserted()[enqueued:])
 
 		recipients := map[string]int{}
 		for _, m := range out.Sent() {
@@ -112,7 +112,10 @@ func TestEditComment(t *testing.T) {
 
 	require.NoError(t, s2.EditComment(ctx, w.direct, comment.ID, "third edit"))
 	require.NoError(t, s2.EditComment(ctx, w.direct, comment.ID, "fourth edit"))
-	require.Len(t, q2.Inserted(), 4)
+	require.Equal(t, []repo.JobArgs{
+		posts.CommentPostedArgs{CommentID: comment.ID, Edited: true},
+		posts.CommentPostedArgs{CommentID: comment.ID, Edited: true},
+	}, q2.Inserted(), "each edit records its own fan-out")
 
 	lateIDs := map[string]bool{}
 
@@ -123,7 +126,7 @@ func TestEditComment(t *testing.T) {
 		lateIDs[m.Mail.To[0].Address+m.UniqueID] = true
 	}
 
-	require.Len(t, late.Sent(), 4, "four jobs, each rendering the last edit")
+	require.Len(t, late.Sent(), 4, "two fan-outs of two mails, each rendering the last edit")
 	require.Len(t, lateIDs, 2, "one mail per recipient once the sent record drops the repeat")
 
 	// an edit is not a new comment
