@@ -66,6 +66,12 @@
   </section>
   {{ end }}
 
+  {{ with .Subscribe }}
+  <section class="box subscribe" data-testid="subscribe-box">
+    {{ template "partial--subscribe.html" toMap "Username" .Username "Challenge" .Challenge }}
+  </section>
+  {{ end }}
+
   {{ if eq (len .Posts) 0 }}
     {{ if .ConnectionRadius.IsSecondDegree }}<p class="empty">Author has no posts shared outside of direct connetions</p>
     {{- else }}<p class="empty">No posts yet</p>{{ end }}

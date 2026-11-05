@@ -1,0 +1,48 @@
+{{ template "header.html" . }}
+<main class="auth">
+  <h1 class="auth-title" data-testid="auth-title">Your email subscriptions</h1>
+  <p class="field-help auth-note">Lost the link to manage them? Enter your address and we will mail it, if it subscribes to anyone.</p>
+  {{ template "partial--subscriptions-lost-form" toMap "Challenge" .Challenge }}
+</main>
+{{ template "footer.html" . }}
+
+{{/* The form of the page, and what gogo renders in its place after a submit: Input, Errors, FormError, FormSaved. Challenge: the proof of work. */}}
+{{ define "partial--subscriptions-lost-form" }}
+{{ if .FormSaved }}
+<p class="auth-note" role="status" data-testid="lost-sent">If that address subscribes to anyone, we have mailed it a link to manage its subscriptions.</p>
+{{ else }}
+<form method="POST"
+      action="/form/subscriptions/lost"
+      hx-post="/form/subscriptions/lost"
+      hx-swap="outerHTML"
+      hx-disabled-elt="this"
+      data-controller="pow"
+      data-pow-challenge-value="{{ .Challenge }}"
+      data-testid="lost-form"
+  >
+  <input type="hidden" name="pow_challenge" value="{{ .Challenge }}" />
+  <input type="hidden" name="pow_nonce" value="" data-pow-target="nonce" />
+  <div hidden aria-hidden="true">
+    <label for="lostWebsite">Leave this field empty</label>
+    <input type="text" name="website" id="lostWebsite" value="" tabindex="-1" autocomplete="off" />
+  </div>
+
+  <div class="field">
+    <label for="lostEmail">Email address</label>
+    <input name="email" type="email" autocomplete="email"
+                        value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
+                        {{ with .Errors }}{{ if .HasError "email" }}aria-invalid="true" aria-describedby="lostEmailError"{{ end }}{{ end }}
+                        id="lostEmail"
+                        required>
+    {{ with .Errors }}{{ if .HasError "email" }}
+    <p class="field-error" id="lostEmailError" data-testid="field-error-email">{{ .email }}</p>
+    {{ end }}{{ end }}
+  </div>
+
+  <div class="auth-submit">
+    <button type="submit" class="btn btn-primary">Mail me the link</button>
+    {{ with .FormError }}<span class="status err" role="alert" data-testid="form-error">{{ . }}</span>{{ end }}
+  </div>
+</form>
+{{ end }}
+{{ end }}

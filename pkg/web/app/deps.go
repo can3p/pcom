@@ -3,6 +3,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"time"
@@ -23,6 +24,9 @@ type Deps struct {
 	DB *sql.DB
 	// Services is built from DB by New when it is nil.
 	Services *registry.Services
+	// Guard keeps scripts out of the public forms that mail an address;
+	// New builds it from Config.Abuse and Config.SessionSalt when it is nil.
+	Guard *AbuseGuard
 	// Jobs is the queue services enqueue background jobs on.
 	Jobs         repo.JobQueue
 	MediaStorage server.MediaStorage
@@ -107,4 +111,44 @@ type Proofread struct {
 	Claude claude.Options
 	Limits proofreadsvc.Limits
 	Models proofreadsvc.Models
+}
+
+// AbuseGuard is pkg/abuse's guard with the store that remembers which
+// challenges were answered, so a handler verifies a submission with one call.
+type AbuseGuard struct {
+	*abuse.Guard
+	store *repo.Store
+}
+
+// NewAbuseGuard builds the guard of d's public forms.
+func NewAbuseGuard(d *Deps) *AbuseGuard {
+	return &AbuseGuard{Guard: abuse.New(d.Config.SessionSalt, d.Config.Abuse...), store: repo.New(d.DB)}
+}
+
+// Verify checks a submitted proof of work, honeypot and fill time; see
+// abuse.Guard.Verify.
+func (g *AbuseGuard) Verify(ctx context.Context, sub abuse.Submission) error {
+	return g.Guard.Verify(ctx, g.store, sub)
+}
+
+// RunPruner forgets answered challenges too old to be answered again, every
+// `every` (subscriptions.DefaultPruneEvery when zero), until ctx is done. A
+// failure is retried on the next round.
+func (g *AbuseGuard) RunPruner(ctx context.Context, every time.Duration) {
+	if every <= 0 {
+		every = subscriptions.DefaultPruneEvery
+	}
+
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+
+	for {
+		_ = g.Prune(ctx, g.store)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }

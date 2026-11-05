@@ -8,6 +8,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/shares"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -31,11 +32,22 @@ func SharedPost(c *gin.Context, userData *auth.UserData, shared *shares.Shared) 
 	}
 }
 
+// SubscribeOffer is the email subscription form a journal or a public post
+// shows to a visitor without an account: whose posts it subscribes to, and the
+// challenge the form carries (abuse.Challenge.Token). A page the visitor may
+// not subscribe from has none.
+type SubscribeOffer struct {
+	Username  string
+	Challenge string
+}
+
 type SinglePostPage struct {
 	*BasePage
 	Post      *postops.Post
 	PostShare *model.PostShare
 	Comments  []*postops.Comment
+	// Subscribe is set when the subscribe form should be shown.
+	Subscribe *SubscribeOffer
 }
 
 // PostPage is the page of a single post, /posts/:id.
@@ -57,6 +69,8 @@ type UserHomePage struct {
 	Posts             []*postops.Post
 	About             string
 	Next              string // cursor of the next page, empty on the last
+	// Subscribe is set when the subscribe form should be shown.
+	Subscribe *SubscribeOffer
 }
 
 // UserHome is a user's journal, /users/:username. Only a public profile
@@ -124,5 +138,75 @@ func Explore(c *gin.Context, userData *auth.UserData, posts []*postops.Post) *Fe
 		}),
 		LoadMoreURL:  links.Link("explore"),
 		Capabilities: FeedPageCapabilities{ShowPromptForm: false},
+	}
+}
+
+// SubscriptionConfirmPage is the page a confirmation link opens.
+type SubscriptionConfirmPage struct {
+	*BasePage
+	Token string
+	// Author is the journal the link subscribes to.
+	Author string
+	// Paused is set when the author takes no subscriptions right now.
+	Paused bool
+	// Done is set once the subscription is confirmed.
+	Done bool
+	// Expired is set for an unknown or expired link.
+	Expired bool
+}
+
+// SubscriptionConfirm is the page of a confirmation link: asking to confirm,
+// or (done) confirmed; a nil view is a link that has expired.
+func SubscriptionConfirm(c *gin.Context, userData *auth.UserData, token string, view *subscriptions.ConfirmView, done bool) *SubscriptionConfirmPage {
+	page := &SubscriptionConfirmPage{
+		BasePage: getBasePage(c, "Confirm your subscription", userData),
+		Token:    token,
+		Done:     done,
+		Expired:  view == nil,
+	}
+
+	if view != nil {
+		page.Author, page.Paused = view.AuthorUsername, view.Paused
+	}
+
+	return page
+}
+
+// SubscriptionsManagePage is the page of a manage link.
+type SubscriptionsManagePage struct {
+	*BasePage
+	Token string
+	// View is nil for an unknown link, or when nothing is left to manage.
+	View *subscriptions.ManageView
+	// Notice tells what the request just made did.
+	Notice string
+	// Expired is set for an unknown link.
+	Expired bool
+}
+
+// SubscriptionsManage is the manage page; a nil view without a notice is an
+// unknown link.
+func SubscriptionsManage(c *gin.Context, userData *auth.UserData, token string, view *subscriptions.ManageView, notice string) *SubscriptionsManagePage {
+	return &SubscriptionsManagePage{
+		BasePage: getBasePage(c, "Your email subscriptions", userData),
+		Token:    token,
+		View:     view,
+		Notice:   notice,
+		Expired:  view == nil && notice == "",
+	}
+}
+
+// SubscriptionsLostPage is the form of a subscriber who lost the link to
+// their subscriptions.
+type SubscriptionsLostPage struct {
+	*BasePage
+	Challenge string
+}
+
+// SubscriptionsLost is the lost-link page, carrying the form's challenge.
+func SubscriptionsLost(c *gin.Context, userData *auth.UserData, challenge string) *SubscriptionsLostPage {
+	return &SubscriptionsLostPage{
+		BasePage:  getBasePage(c, "Your email subscriptions", userData),
+		Challenge: challenge,
 	}
 }

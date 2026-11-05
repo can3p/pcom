@@ -1,0 +1,35 @@
+{{ template "header.html" . }}
+<main class="auth">
+  <h1 class="auth-title" data-testid="auth-title">Your email subscriptions</h1>
+  {{ with .Notice }}<p class="auth-note" role="status" data-testid="subscriptions-notice">{{ . }}</p>{{ end }}
+  {{ if .Expired }}
+  <p class="auth-note" data-testid="subscription-expired">This link has expired. <a href="{{ link "subscriptions_lost" }}">Get a new one by email.</a></p>
+  {{ else if .View }}
+  {{ if .View.Rows }}
+  <p class="auth-note">{{ .View.Email }} gets public posts by email from:</p>
+  <ul class="subscriptions" data-testid="subscriptions-list">
+    {{ range .View.Rows }}
+    <li data-testid="subscription-{{ .AuthorUsername }}">
+      <a href="{{ link "user" .AuthorUsername }}">{{ .AuthorUsername }}</a>
+      {{ if .Paused }}<span class="field-help">@{{ .AuthorUsername }} isn't sending posts by email right now</span>{{ end }}
+      <form method="POST" action="{{ link "subscription_unsubscribe" $.Token .ID }}">
+        <button type="submit" class="btn btn-secondary"
+                data-controller="confirm"
+                data-confirm-message-value="Stop getting @{{ .AuthorUsername }}'s posts by email?"
+                >Unsubscribe</button>
+      </form>
+    </li>
+    {{ end }}
+  </ul>
+  <form method="POST" action="{{ link "subscriptions_manage" .Token }}/unsubscribe">
+    <button type="submit" class="btn btn-danger"
+            data-controller="confirm"
+            data-confirm-message-value="Stop getting posts by email from everyone?"
+            >Unsubscribe from all</button>
+  </form>
+  {{ else }}
+  <p class="auth-note">You get no posts by email.</p>
+  {{ end }}
+  {{ end }}
+</main>
+{{ template "footer.html" . }}

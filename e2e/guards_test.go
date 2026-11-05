@@ -304,6 +304,7 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string { return map[string]string{"post_id": w.published.ID} }},
 	{http.MethodPost, "/controls/action/settings/export", staticPath("/controls/action/settings/export"), noExtra},
 	{http.MethodPost, "/controls/action/settings/import", staticPath("/controls/action/settings/import"), noExtra},
+	{http.MethodPost, "/controls/action/subscribers/:id/remove", staticPath("/controls/action/subscribers/" + uuid.Nil.String() + "/remove"), noExtra},
 
 	// /controls/form
 	{http.MethodPost, "/controls/form/whitelist_connection", staticPath("/controls/form/whitelist_connection"),
@@ -357,6 +358,10 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"email": w.waiterEmail, "reason": "curious"}
 		}},
+	{http.MethodPost, "/form/subscribe/:username", func(w *guardWorld) string { return "/form/subscribe/" + w.owner.Username },
+		func(w *guardWorld) map[string]string { return map[string]string{"email": w.newcomerEmail} }},
+	{http.MethodPost, "/form/subscriptions/lost", staticPath("/form/subscriptions/lost"),
+		func(w *guardWorld) map[string]string { return map[string]string{"email": w.waiterEmail} }},
 }
 
 // excludedRoutes are routes of the scanned files deliberately left out of the
@@ -367,6 +372,10 @@ var excludedRoutes = map[string]string{
 	"POST /api/v1/posts/:id":   "bearer-token API, covered in api_test.go",
 	"DELETE /api/v1/posts/:id": "bearer-token API, covered in api_test.go",
 	"PUT /api/v1/image":        "bearer-token API, covered in api_test.go",
+
+	"POST /subscriptions/confirm/:token":                             "authorized by the token in the URL, so it takes no CSRF token; subscriptions_test.go",
+	"POST /subscriptions/:manage_token/unsubscribe":                  "authorized by the token in the URL, so it takes no CSRF token; subscriptions_test.go",
+	"POST /subscriptions/:manage_token/unsubscribe/:subscription_id": "the one-click unsubscribe of RFC 8058: the mail client posts it with no session and no CSRF token; subscriptions_test.go",
 }
 
 var routeRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)
@@ -377,26 +386,27 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 	t.Parallel()
 
 	prefixes := map[string]map[string]string{
-		"../pkg/web/app/routes_media.go":        {"router": ""},
-		"../pkg/web/app/routes_public.go":       {"r": ""},
-		"../pkg/web/app/routes_rss.go":          {"r": ""},
-		"../pkg/web/app/routes_dev.go":          {"dev": "/dev"},
-		"../pkg/web/app/routes_auth.go":         {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
-		"../pkg/web/app/routes_connections.go":  {"controls": "/controls", "controlsForms": "/controls/form"},
-		"../pkg/web/app/routes_posts.go":        {"r": "", "controlsForms": "/controls/form"},
-		"../pkg/web/app/routes_settings.go":     {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
-		"../pkg/web/app/routes_feeds.go":        {"controlsForms": "/controls/form"},
-		"../pkg/web/app/actions_export.go":      {"r": "/controls/action"},
-		"../pkg/web/app/actions_connections.go": {"r": "/controls/action"},
-		"../pkg/web/app/actions_mediation.go":   {"r": "/controls/action"},
-		"../pkg/web/app/actions_posts.go":       {"r": "/controls/action"},
-		"../pkg/web/app/actions_shares.go":      {"r": "/controls/action"},
-		"../pkg/web/app/actions_prompts.go":     {"r": "/controls/action"},
-		"../pkg/web/app/actions_rss.go":         {"r": "/controls/action"},
-		"../pkg/web/app/actions_settings.go":    {"r": "/controls/action"},
-		"../pkg/web/app/actions_media.go":       {"r": "/controls/action"},
-		"../pkg/web/app/actions_proofread.go":   {"controls": "/controls", "actions": "/controls/action"},
-		"../pkg/web/app/api.go":                 {"r": "/api/v1"},
+		"../pkg/web/app/routes_media.go":         {"router": ""},
+		"../pkg/web/app/routes_public.go":        {"r": ""},
+		"../pkg/web/app/routes_rss.go":           {"r": ""},
+		"../pkg/web/app/routes_subscriptions.go": {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
+		"../pkg/web/app/routes_dev.go":           {"dev": "/dev"},
+		"../pkg/web/app/routes_auth.go":          {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
+		"../pkg/web/app/routes_connections.go":   {"controls": "/controls", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_posts.go":         {"r": "", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_settings.go":      {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_feeds.go":         {"controlsForms": "/controls/form"},
+		"../pkg/web/app/actions_export.go":       {"r": "/controls/action"},
+		"../pkg/web/app/actions_connections.go":  {"r": "/controls/action"},
+		"../pkg/web/app/actions_mediation.go":    {"r": "/controls/action"},
+		"../pkg/web/app/actions_posts.go":        {"r": "/controls/action"},
+		"../pkg/web/app/actions_shares.go":       {"r": "/controls/action"},
+		"../pkg/web/app/actions_prompts.go":      {"r": "/controls/action"},
+		"../pkg/web/app/actions_rss.go":          {"r": "/controls/action"},
+		"../pkg/web/app/actions_settings.go":     {"r": "/controls/action"},
+		"../pkg/web/app/actions_media.go":        {"r": "/controls/action"},
+		"../pkg/web/app/actions_proofread.go":    {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/api.go":                  {"r": "/api/v1"},
 	}
 
 	want := map[string]bool{}
