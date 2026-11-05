@@ -41,6 +41,12 @@ type Web struct {
 	ForceSignup Switch          `long:"force-signup" env:"FORCE_SIGNUP" description:"Allow new signups even when system settings close them" optional:"true" optional-value:"true" default:"false"`
 	StaticCDN   string          `long:"static-cdn" env:"STATIC_CDN" description:"Origin that serves /static, such as https://cdn.example; served by the app if empty"`
 
+	ReadHeaderTimeout time.Duration `long:"read-header-timeout" env:"READ_HEADER_TIMEOUT" description:"How long a client may take to send the request headers" default:"10s"`
+	ReadTimeout       time.Duration `long:"read-timeout" env:"READ_TIMEOUT" description:"How long a client may take to send a whole request, upload included" default:"60s"`
+	WriteTimeout      time.Duration `long:"write-timeout" env:"WRITE_TIMEOUT" description:"How long a response may take from the end of the request headers; keep it above --proofread-timeout" default:"120s"`
+	IdleTimeout       time.Duration `long:"idle-timeout" env:"IDLE_TIMEOUT" description:"How long an idle keep-alive connection stays open" default:"120s"`
+	ShutdownTimeout   time.Duration `long:"shutdown-timeout" env:"SHUTDOWN_TIMEOUT" description:"How long requests in flight may run after SIGINT or SIGTERM before the server closes them" default:"4s"`
+
 	SessionMaxAge          time.Duration `long:"session-max-age" env:"SESSION_MAX_AGE" description:"How long a session lasts after its last save; the session cookie and its row expire then" default:"720h"`
 	SessionCleanupInterval time.Duration `long:"session-cleanup-interval" env:"SESSION_CLEANUP_INTERVAL" description:"How often expired sessions are deleted from the database" default:"1h"`
 
@@ -74,6 +80,18 @@ type Limits struct {
 	UserStylesMaxLength   int `long:"user-styles-max-length" env:"USER_STYLES_MAX_LENGTH" description:"Most characters a user's custom CSS may have" default:"10000"`
 	PageSize              int `long:"page-size" env:"PAGE_SIZE" description:"Items per page of the feed, explore, the index and a journal" default:"30"`
 	RSSLimit              int `long:"rss-limit" env:"RSS_LIMIT" description:"Items in every RSS output" default:"50"`
+
+	MaxBodySize   int64 `long:"max-body-size" env:"MAX_BODY_SIZE" description:"Most bytes of a request body; the upload routes add their own cap to it" default:"1048576"`
+	MaxUploadSize int64 `long:"max-upload-size" env:"MAX_UPLOAD_SIZE" description:"Most bytes of an uploaded or imported image" default:"20971520"`
+	MaxImportSize int64 `long:"max-import-size" env:"MAX_IMPORT_SIZE" description:"Most bytes of a blog archive to import" default:"104857600"`
+}
+
+// Feeds bounds fetching the RSS feeds users follow. The defaults are
+// reader.Default*.
+type Feeds struct {
+	FetchTimeout time.Duration `long:"rss-fetch-timeout" env:"RSS_FETCH_TIMEOUT" description:"How long fetching one feed document may take" default:"5s"`
+	ImageTimeout time.Duration `long:"rss-image-timeout" env:"RSS_IMAGE_TIMEOUT" description:"How long downloading one image of a feed item may take" default:"30s"`
+	MaxFeedSize  int64         `long:"rss-max-feed-size" env:"RSS_MAX_FEED_SIZE" description:"Most bytes of a feed document" default:"5242880"`
 }
 
 // Login is the limits of login by emailed code. Their defaults are
@@ -110,6 +128,7 @@ type Media struct {
 	Secret    settings.Secret `long:"secret" env:"SECRET" description:"Secret access key" required:"true"`
 	PathStyle Switch          `long:"path-style" env:"PATH_STYLE" description:"Path-style addressing (endpoint/bucket/key), as tommy needs" optional:"true" optional-value:"true" default:"false"`
 	CDN       string          `long:"cdn" env:"CDN" description:"Origin that serves user media, such as https://media.example; served by the app if empty"`
+	Timeout   time.Duration   `long:"timeout" env:"TIMEOUT" description:"How long one request to the bucket may take" default:"60s"`
 }
 
 // Proofread is the grammar check and style review of posts by Claude. Embed
@@ -138,6 +157,7 @@ type Serve struct {
 	Mail      Mail      `group:"Mail"`
 	Limits    Limits    `group:"Limits"`
 	Login     Login     `group:"Login"`
+	Feeds     Feeds     `group:"RSS feeds"`
 	Media     Media     `group:"User media" namespace:"user-media" env-namespace:"USER_MEDIA"`
 	Proofread Proofread `group:"Proofread" namespace:"proofread" env-namespace:"PROOFREAD"`
 }

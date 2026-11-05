@@ -20,6 +20,9 @@ type Service struct {
 	storage server.MediaStorage
 	ident   mail.Identity
 	limits  TextLimits
+	// maxUploadSize is the most bytes an image may have;
+	// mediasvc.DefaultMaxUploadSize when zero.
+	maxUploadSize int64
 }
 
 // Default text limits, used for every limit the configuration leaves zero;
@@ -82,6 +85,12 @@ func (s *Service) TextLimits() TextLimits {
 
 // Option changes how New builds the service.
 type Option func(*Service)
+
+// WithMaxUploadSize sets the most bytes an uploaded or imported image may
+// have; zero keeps the media service's default.
+func WithMaxUploadSize(n int64) Option {
+	return func(s *Service) { s.maxUploadSize = n }
+}
 
 // WithIdentity tells the service the site its mail links point to and the
 // address the mail comes from.

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
@@ -67,6 +68,14 @@ type Config struct {
 	ShowErrors bool
 	// ReportPanics mails AdminAddress when a page panics.
 	ReportPanics bool
+	// MaxBodySize caps every request body; MaxUploadSize an uploaded image
+	// and MaxImportSize a blog archive to import, on top of it. Zero keeps
+	// DefaultMaxBodySize, media.DefaultMaxUploadSize and
+	// DefaultMaxImportSize.
+	MaxBodySize, MaxUploadSize, MaxImportSize int64
+	// FeedFetch bounds fetching RSS feeds; zero fields keep the reader's
+	// defaults.
+	FeedFetch reader.Limits
 	// PageSize is how many items a page of a list holds, RSSLimit how many
 	// items an RSS output lists; zero means the reading service's default.
 	PageSize, RSSLimit int

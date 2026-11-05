@@ -29,8 +29,16 @@ type Item struct {
 
 const (
 	MaxMediaSize               = 10 * 1024 * 1024
-	MediaDownloadTimeout       = 30 * time.Second
 	GlobalImageDownloadTimeout = 2 * time.Minute
+
+	// DefaultFeedTimeout is how long fetching one feed document may take,
+	// body included.
+	DefaultFeedTimeout = 5 * time.Second
+	// DefaultMediaTimeout is how long downloading one image may take, body
+	// included.
+	DefaultMediaTimeout = 30 * time.Second
+	// DefaultMaxFeedSize is the most bytes a feed document may have.
+	DefaultMaxFeedSize = 5 * 1024 * 1024
 )
 
 var (
@@ -38,22 +46,72 @@ var (
 	ErrMediaTimeout  = errors.New("media download exceeded timeout limit")
 )
 
+// Limits bound what fetching a feed may cost; a zero field keeps its
+// default (DefaultFeedTimeout, DefaultMediaTimeout, DefaultMaxFeedSize).
+type Limits struct {
+	FeedTimeout  time.Duration
+	MediaTimeout time.Duration
+	MaxFeedSize  int64
+}
+
+func (l Limits) withDefaults() Limits {
+	if l.FeedTimeout <= 0 {
+		l.FeedTimeout = DefaultFeedTimeout
+	}
+
+	if l.MediaTimeout <= 0 {
+		l.MediaTimeout = DefaultMediaTimeout
+	}
+
+	if l.MaxFeedSize <= 0 {
+		l.MaxFeedSize = DefaultMaxFeedSize
+	}
+
+	return l
+}
+
 type Fetcher struct {
 	parser     *gofeed.Parser
 	httpClient *http.Client
+	limits     Limits
 }
 
-func NewFetcher(httpClient *http.Client) *Fetcher {
-	p := gofeed.NewParser()
-	p.Client = httpClient
+// FetcherOption changes how NewFetcher builds the fetcher.
+type FetcherOption func(*Fetcher)
 
-	return &Fetcher{
-		parser:     p,
+// WithLimits sets the timeouts and the feed size cap; zero fields keep the
+// defaults.
+func WithLimits(l Limits) FetcherOption {
+	return func(f *Fetcher) { f.limits = l.withDefaults() }
+}
+
+// NewFetcher fetches with httpClient. The timeouts come from the limits, as
+// a context deadline per request, so the client needs no Timeout of its own:
+// one would cut image downloads short of their own timeout.
+func NewFetcher(httpClient *http.Client, opts ...FetcherOption) *Fetcher {
+	f := &Fetcher{
+		parser:     gofeed.NewParser(),
 		httpClient: httpClient,
+		limits:     Limits{}.withDefaults(),
 	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	f.parser.Client = httpClient
+	// a larger document fails with gofeed.ErrResponseTooLarge
+	f.parser.MaxByteSize = f.limits.MaxFeedSize
+
+	return f
 }
 
+// Fetch downloads the feed document at rssURL, at most limits.MaxFeedSize
+// bytes within limits.FeedTimeout, and parses it.
 func (f *Fetcher) Fetch(ctx context.Context, rssURL string) (*Feed, error) {
+	ctx, cancel := context.WithTimeout(ctx, f.limits.FeedTimeout)
+	defer cancel()
+
 	feed, err := f.parser.ParseURLWithContext(rssURL, ctx)
 	if err != nil {
 		return nil, err
@@ -85,7 +143,7 @@ func (lrc *limitedReadCloser) Close() error {
 }
 
 func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error) {
-	ctx, cancel := context.WithTimeout(ctx, MediaDownloadTimeout)
+	ctx, cancel := context.WithTimeout(ctx, f.limits.MediaTimeout)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
 	if err != nil {
@@ -133,7 +191,7 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 	}
 
 	combinedReader := io.MultiReader(bytes.NewReader(peekBuf[:n]), resp.Body)
-	limitedReader := io.LimitReader(combinedReader, MaxMediaSize)
+	limitedReader := newCappedReader(combinedReader, MaxMediaSize, ErrMediaTooLarge)
 
 	return &limitedReadCloser{
 		Reader: limitedReader,
@@ -152,4 +210,38 @@ type closeFunc struct {
 func (cf *closeFunc) Close() error {
 	defer cf.cancel()
 	return cf.body.Close()
+}
+
+// cappedReader reads at most maxBytes of r and fails with tooLarge when r
+// has more, rather than cutting it short silently as io.LimitReader does.
+type cappedReader struct {
+	r        io.Reader
+	left     int64
+	tooLarge error
+}
+
+func newCappedReader(r io.Reader, maxBytes int64, tooLarge error) *cappedReader {
+	return &cappedReader{r: r, left: maxBytes, tooLarge: tooLarge}
+}
+
+func (c *cappedReader) Read(p []byte) (int, error) {
+	if c.left <= 0 {
+		var probe [1]byte
+
+		n, err := c.r.Read(probe[:])
+		if n > 0 {
+			return 0, c.tooLarge
+		}
+
+		return 0, err
+	}
+
+	if int64(len(p)) > c.left {
+		p = p[:c.left]
+	}
+
+	n, err := c.r.Read(p)
+	c.left -= int64(n)
+
+	return n, err
 }

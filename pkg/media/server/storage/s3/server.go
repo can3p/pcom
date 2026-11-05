@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -18,17 +20,30 @@ type s3Server struct {
 	bucket string
 }
 
+// DefaultTimeout is how long one request to the bucket may take, response
+// body included.
+const DefaultTimeout = 60 * time.Second
+
 // Options is the bucket to store user media in.
 type Options struct {
 	Endpoint, Bucket, Region, Key, Secret string
 	// PathStyle addresses objects as endpoint/bucket/key, which tommy needs.
 	PathStyle bool
+	// Timeout bounds every request, so callers without a deadline of their
+	// own (the feed poller, the export) can't hang; DefaultTimeout when zero.
+	Timeout time.Duration
 }
 
 // New builds the client from o alone: it never reads AWS_* variables or
 // ~/.aws.
 func New(o Options) (*s3Server, error) {
+	timeout := o.Timeout
+	if timeout <= 0 {
+		timeout = DefaultTimeout
+	}
+
 	client := s3.New(s3.Options{
+		HTTPClient:   awshttp.NewBuildableClient().WithTimeout(timeout),
 		Region:       o.Region,
 		Credentials:  awscreds.NewStaticCredentialsProvider(o.Key, o.Secret, ""),
 		BaseEndpoint: aws.String(o.Endpoint),

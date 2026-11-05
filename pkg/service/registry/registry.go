@@ -5,6 +5,8 @@ package registry
 
 import (
 	"database/sql"
+
+	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media/server"
@@ -35,6 +37,12 @@ type Deps struct {
 	// PageSize and RSSLimit size the reading service's lists; zero means its
 	// defaults.
 	PageSize, RSSLimit int
+	// MaxUploadSize is the most bytes an uploaded or imported image may
+	// have; media's default when zero.
+	MaxUploadSize int64
+	// FeedFetch bounds fetching RSS feeds; zero fields keep the reader's
+	// defaults.
+	FeedFetch reader.Limits
 	// CodeKey keys the HMAC of login codes. Empty means no login codes can
 	// be issued or checked.
 	CodeKey string
@@ -67,16 +75,16 @@ func New(db *sql.DB, deps Deps) *Services {
 	store := repo.New(db)
 	ident := mail.Identity{Site: deps.Site, From: deps.SenderAddress, AdminAddress: deps.AdminAddress}
 
-	feedSvc := feeds.New(store, deps.MediaStorage)
+	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch))
 
-	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
+	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
 
 	return &Services{
 		Connections: connections.New(store),
 		Feeds:       feedSvc,
 		Shares:      shares.New(store),
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
-		Media:       media.New(store, deps.MediaStorage),
+		Media:       media.New(store, deps.MediaStorage, media.WithMaxUploadSize(deps.MaxUploadSize)),
 		Posts:       postsSvc,
 		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:   proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),

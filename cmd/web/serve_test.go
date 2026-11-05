@@ -106,6 +106,9 @@ func TestAppConfig(t *testing.T) {
 		{"STATIC_CACHE=false", "StaticCache", false},
 		{"SHOW_ERRORS=true", "ShowErrors", true},
 		{"REPORT_PANICS=false", "ReportPanics", false},
+		{"MAX_BODY_SIZE=2048", "MaxBodySize", int64(2048)},
+		{"MAX_UPLOAD_SIZE=4096", "MaxUploadSize", int64(4096)},
+		{"MAX_IMPORT_SIZE=8192", "MaxImportSize", int64(8192)},
 	}
 
 	for _, r := range rows {

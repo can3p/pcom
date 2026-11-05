@@ -253,7 +253,7 @@ func (s *Service) saveFeedItem(ctx context.Context, tx *repo.Store, feedID strin
 			defer func() { _ = readerIO.Close() }()
 
 			// XXX: using download context for upload to maintain timeout consistency
-			return media.StoreUpload(downloadCtx, tx, s.mediaStorage, nil, &feedID, readerIO)
+			return media.StoreUpload(downloadCtx, tx, s.mediaStorage, nil, &feedID, readerIO, reader.MaxMediaSize)
 		}
 
 		replacer := reader.CreateImageReplacer(logging.FromContext(ctx), markdownContent, uploadFunc)

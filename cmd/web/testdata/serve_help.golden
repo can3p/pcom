@@ -40,6 +40,32 @@ Help Options:
                                                        https://cdn.example;
                                                        served by the app if
                                                        empty [$STATIC_CDN]
+          --read-header-timeout=                       How long a client may
+                                                       take to send the request
+                                                       headers (default: 10s)
+                                                       [$READ_HEADER_TIMEOUT]
+          --read-timeout=                              How long a client may
+                                                       take to send a whole
+                                                       request, upload included
+                                                       (default: 60s)
+                                                       [$READ_TIMEOUT]
+          --write-timeout=                             How long a response may
+                                                       take from the end of the
+                                                       request headers; keep it
+                                                       above
+                                                       --proofread-timeout
+                                                       (default: 120s)
+                                                       [$WRITE_TIMEOUT]
+          --idle-timeout=                              How long an idle
+                                                       keep-alive connection
+                                                       stays open (default:
+                                                       120s) [$IDLE_TIMEOUT]
+          --shutdown-timeout=                          How long requests in
+                                                       flight may run after
+                                                       SIGINT or SIGTERM before
+                                                       the server closes them
+                                                       (default: 4s)
+                                                       [$SHUTDOWN_TIMEOUT]
           --session-max-age=                           How long a session lasts
                                                        after its last save; the
                                                        session cookie and its
@@ -164,6 +190,20 @@ Help Options:
           --rss-limit=                                 Items in every RSS
                                                        output (default: 50)
                                                        [$RSS_LIMIT]
+          --max-body-size=                             Most bytes of a request
+                                                       body; the upload routes
+                                                       add their own cap to it
+                                                       (default: 1048576)
+                                                       [$MAX_BODY_SIZE]
+          --max-upload-size=                           Most bytes of an
+                                                       uploaded or imported
+                                                       image (default:
+                                                       20971520)
+                                                       [$MAX_UPLOAD_SIZE]
+          --max-import-size=                           Most bytes of a blog
+                                                       archive to import
+                                                       (default: 104857600)
+                                                       [$MAX_IMPORT_SIZE]
 
     Login:
           --login-code-lifetime=                       How long a mailed login
@@ -211,6 +251,20 @@ Help Options:
                                                        (default: 1h)
                                                        [$LOGIN_PRUNE_EVERY]
 
+    RSS feeds:
+          --rss-fetch-timeout=                         How long fetching one
+                                                       feed document may take
+                                                       (default: 5s)
+                                                       [$RSS_FETCH_TIMEOUT]
+          --rss-image-timeout=                         How long downloading one
+                                                       image of a feed item may
+                                                       take (default: 30s)
+                                                       [$RSS_IMAGE_TIMEOUT]
+          --rss-max-feed-size=                         Most bytes of a feed
+                                                       document (default:
+                                                       5242880)
+                                                       [$RSS_MAX_FEED_SIZE]
+
     User media:
           --user-media-endpoint=                       S3 endpoint URL
                                                        [$USER_MEDIA_ENDPOINT]
@@ -232,6 +286,10 @@ Help Options:
                                                        https://media.example;
                                                        served by the app if
                                                        empty [$USER_MEDIA_CDN]
+          --user-media-timeout=                        How long one request to
+                                                       the bucket may take
+                                                       (default: 60s)
+                                                       [$USER_MEDIA_TIMEOUT]
 
     Proofread:
           --proofread-anthropic-key=                   Anthropic API key;
