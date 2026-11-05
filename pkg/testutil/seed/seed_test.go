@@ -48,7 +48,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 
 	var out bytes.Buffer
 
-	require.NoError(t, Run(ctx, db.DB, &out, options(false)))
+	require.NoError(t, Run(ctx, db, &out, options(false)))
 
 	assert.Equal(t, 5, count(t, db, `SELECT count(*) FROM users`))
 
@@ -109,13 +109,13 @@ func TestSeed_SecondRunFailsAndChangesNothing(t *testing.T) {
 	ctx := context.Background()
 	db := testdb.New(t).DB
 
-	require.NoError(t, Run(ctx, db.DB, &bytes.Buffer{}, options(false)))
+	require.NoError(t, Run(ctx, db, &bytes.Buffer{}, options(false)))
 
 	before := count(t, db, `SELECT count(*) FROM posts`)
 
 	var out bytes.Buffer
 
-	require.Error(t, Run(ctx, db.DB, &out, options(false)))
+	require.Error(t, Run(ctx, db, &out, options(false)))
 	assert.Empty(t, out.String())
 	assert.Equal(t, 5, count(t, db, `SELECT count(*) FROM users`))
 	assert.Equal(t, before, count(t, db, `SELECT count(*) FROM posts`))
@@ -127,7 +127,7 @@ func TestSeed_ResetKeepsMigrationsAndSettings(t *testing.T) {
 	ctx := context.Background()
 	db := testdb.New(t).DB
 
-	require.NoError(t, Run(ctx, db.DB, &bytes.Buffer{}, options(false)))
+	require.NoError(t, Run(ctx, db, &bytes.Buffer{}, options(false)))
 
 	migrations := count(t, db, `SELECT count(*) FROM migrations`)
 	require.Positive(t, migrations)
@@ -135,7 +135,7 @@ func TestSeed_ResetKeepsMigrationsAndSettings(t *testing.T) {
 	_, err := db.Exec(`UPDATE system_settings SET registration_open = false`)
 	require.NoError(t, err)
 
-	require.NoError(t, Run(ctx, db.DB, &bytes.Buffer{}, options(true)))
+	require.NoError(t, Run(ctx, db, &bytes.Buffer{}, options(true)))
 
 	assert.Equal(t, migrations, count(t, db, `SELECT count(*) FROM migrations`))
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM system_settings`))
@@ -154,7 +154,7 @@ func TestSeed_RefusesOnFly(t *testing.T) {
 
 	var out bytes.Buffer
 
-	require.ErrorContains(t, Run(context.Background(), db.DB, &out, o), "FLY_APP_NAME")
+	require.ErrorContains(t, Run(context.Background(), db, &out, o), "FLY_APP_NAME")
 	assert.Empty(t, out.String())
 	assert.Equal(t, 0, count(t, db, `SELECT count(*) FROM users`))
 }
@@ -168,7 +168,7 @@ func TestSeed_FillsEveryPagedList(t *testing.T) {
 	ctx := context.Background()
 	db := testdb.New(t).DB
 
-	require.NoError(t, Run(ctx, db.DB, &bytes.Buffer{}, options(false)))
+	require.NoError(t, Run(ctx, db, &bytes.Buffer{}, options(false)))
 
 	svc := reading.New(repo.New(db))
 	alice := testutil.Must(factory.GetUser(ctx, db, userID(t, db, "alice")))(t)

@@ -19,7 +19,7 @@ func (c *seedCmd) Execute([]string) error {
 	}
 	defer closeDB()
 
-	return seed.Run(context.Background(), db.DB, os.Stdout, seed.Options{
+	return seed.Run(context.Background(), db, os.Stdout, seed.Options{
 		Reset:      c.Reset,
 		Production: c.Production != "",
 		SiteRoot:   c.SiteRoot,
