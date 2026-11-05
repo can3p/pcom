@@ -7,7 +7,7 @@ import (
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +23,7 @@ func TestEditCommentForm_SaveAndValidate(t *testing.T) {
 	comment := testutil.Must(factory.Comment(ctx, db, post.ID, author.ID, factory.WithCommentBody("a typpo")))(t)
 
 	newForm := func(body string) *forms.EditCommentForm {
-		f, ok := forms.EditCommentFormNew(postsService(db, fakesender.New()), author, comment.ID).(*forms.EditCommentForm)
+		f, ok := forms.EditCommentFormNew(postsService(db, fakequeue.New()), author, comment.ID).(*forms.EditCommentForm)
 		require.True(t, ok)
 		f.Input.Body = body
 

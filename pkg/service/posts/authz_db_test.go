@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
@@ -92,7 +91,7 @@ func TestEditAndSave_OnlyTheAuthor(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	s := posts.New(repo.New(db), fakesender.New(), nil)
+	s := svcWith(db, fakequeue.New())
 
 	for _, tc := range []struct {
 		name  string
@@ -149,7 +148,7 @@ func TestComment_ByRadius(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	s := posts.New(repo.New(db), fakesender.New(), nil)
+	s := svcWith(db, fakequeue.New())
 
 	otherPost := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
 	otherComment := testutil.Must(factory.Comment(ctx, db, otherPost.ID, w.author.ID))(t)

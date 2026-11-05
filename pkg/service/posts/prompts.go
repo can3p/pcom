@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
@@ -147,7 +146,7 @@ func (s *Service) SendPrompt(ctx context.Context, actor, recipient *model.User, 
 			return err
 		}
 
-		return s.queue(ctx, tx, mail.PostPrompt(s.ident.Site, s.ident.From, actor, recipient, prompt))
+		return tx.Enqueue(ctx, s.jobs, PromptMailArgs{PromptID: prompt.ID, RecipientID: recipient.ID})
 	})
 }
 

@@ -11,14 +11,14 @@ import (
 
 	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
@@ -31,10 +31,51 @@ import (
 // reaching the not-found path.
 const missingID = "00000000-0000-0000-0000-000000000000"
 
-// postsService is the service the forms call, over db and a sender that
-// records instead of sending.
-func postsService(db *sql.DB, s repo.MailQueue) *posts.Service {
-	return registry.New(db, registry.Deps{Sender: s}).Posts
+// postsService is the service the forms call, over db and a queue that
+// records the jobs instead of inserting them.
+func postsService(db *sql.DB, q *fakequeue.Queue) *posts.Service {
+	return registry.New(db, registry.Deps{Jobs: q}).Posts
+}
+
+// sentMails runs the jobs the posts service enqueued on q, in order, the
+// way the workers do (the post-published job enqueues its mails, which run
+// in turn), and returns the mails they build.
+func sentMails(t *testing.T, ctx context.Context, db *sql.DB, q *fakequeue.Queue) []*mail.Envelope {
+	t.Helper()
+
+	svc := postsService(db, q)
+
+	var out []*mail.Envelope
+
+	for i := 0; i < len(q.Inserted()); i++ {
+		var (
+			env *mail.Envelope
+			err error
+		)
+
+		switch a := q.Inserted()[i].(type) {
+		case posts.PublishedArgs:
+			err = svc.FanOutPublished(ctx, a)
+		case posts.PromptMailArgs:
+			env, err = svc.RenderPrompt(ctx, a)
+		case posts.PromptAnswerMailArgs:
+			env, err = svc.RenderPromptAnswer(ctx, a)
+		case posts.NewPostMailArgs:
+			env, err = svc.RenderNewPost(ctx, a)
+		case posts.CommentMailArgs:
+			env, err = svc.RenderComment(ctx, a)
+		default:
+			t.Fatalf("unexpected job %T", a)
+		}
+
+		require.NoError(t, err)
+
+		if env != nil {
+			out = append(out, env)
+		}
+	}
+
+	return out
 }
 
 // renderStub makes c.HTML a no-op: the forms' fallback save action renders
@@ -99,7 +140,7 @@ func TestNewPostFormNew(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			form := testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), user, tc.promptID))(t)
+			form := testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), user, tc.promptID))(t)
 			if tc.wantPromptID == "" {
 				require.Nil(t, form.Prompt)
 			} else {
@@ -118,12 +159,12 @@ func TestEditPostFormNew(t *testing.T) {
 	other := testutil.Must(factory.User(ctx, db))(t)
 	post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
 
-	form := testutil.Must(forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), author, post.ID))(t)
+	form := testutil.Must(forms.EditPostFormNew(ctx, postsService(db, fakequeue.New()), author, post.ID))(t)
 	require.Equal(t, post.ID, form.Post.ID)
 
-	_, err := forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), other, post.ID)
+	_, err := forms.EditPostFormNew(ctx, postsService(db, fakequeue.New()), other, post.ID)
 	require.ErrorIs(t, err, service.ErrNotFound, "another user's post")
-	_, err = forms.EditPostFormNew(ctx, postsService(db, fakesender.New()), author, missingID)
+	_, err = forms.EditPostFormNew(ctx, postsService(db, fakequeue.New()), author, missingID)
 	require.ErrorIs(t, err, service.ErrNotFound, "an unknown post")
 }
 
@@ -159,7 +200,7 @@ func TestPostForm_Validate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), user, ""))(t), forms.PostFormActionAutosave)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), user, ""))(t), forms.PostFormActionAutosave)
 			if tc.edit != nil {
 				tc.edit(form)
 			}
@@ -199,7 +240,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			conn := testutil.Must(factory.User(ctx, db))(t)
 			connect(t, ctx, db, author.ID, conn.ID)
 
-			sender := fakesender.New()
+			sender := fakequeue.New()
 			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, sender), author, ""))(t), action)
 			w := savePost(t, ctx, db, form)
 
@@ -210,9 +251,9 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			if action == forms.PostFormActionPublish {
 				require.NotNil(t, post.PublishedAt)
 				require.Equal(t, links.Link("post", post.ID), w.Header().Get("HX-Redirect"))
-				sent := sender.Sent()
+				sent := sentMails(t, ctx, db, sender)
 				require.Len(t, sent, 1)
-				require.Equal(t, "post_notification", sent[0].EmailType)
+				require.Equal(t, "post_notification", sent[0].Type)
 				require.Equal(t, conn.Email, sent[0].Mail.To[0].Address)
 
 				return
@@ -224,7 +265,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
 			require.Equal(t, links.Link("edit_post", post.ID), w.Header().Get("HX-Replace-Url"))
 			require.Contains(t, w.Header().Get("HX-Trigger"), "draft_saved")
-			require.Empty(t, sender.Sent())
+			require.Empty(t, sentMails(t, ctx, db, sender))
 		})
 	}
 
@@ -232,7 +273,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 		t.Parallel()
 
 		author := testutil.Must(factory.User(ctx, db))(t)
-		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), author, ""))(t), forms.PostFormActionDelete)
+		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), author, ""))(t), forms.PostFormActionDelete)
 		savePost(t, ctx, db, form)
 		require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, author.ID))(t))
 	})
@@ -242,7 +283,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			t.Parallel()
 
 			author := testutil.Must(factory.User(ctx, db))(t)
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakesender.New()), author, ""))(t), forms.PostFormActionAutosave)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), author, ""))(t), forms.PostFormActionAutosave)
 			form.Input.URL = url
 			savePost(t, ctx, db, form)
 
@@ -268,7 +309,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			if publish {
 				action = forms.PostFormActionPublish
 			}
-			sender := fakesender.New()
+			sender := fakequeue.New()
 			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, sender), author, prompt.ID))(t), action)
 			require.NotNil(t, form.Prompt)
 			savePost(t, ctx, db, form)
@@ -280,8 +321,8 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			require.Equal(t, publish, stored.DismissedAt != nil)
 
 			var answeredTo []string
-			for _, s := range sender.Sent() {
-				if s.EmailType == "post_prompt_answer" {
+			for _, s := range sentMails(t, ctx, db, sender) {
+				if s.Type == "post_prompt_answer" {
 					answeredTo = append(answeredTo, s.Mail.To[0].Address)
 				}
 			}
@@ -344,7 +385,7 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 			// read back, as the zone is lost on the way through Postgres
 			before := testutil.Must(factory.GetPost(ctx, db, post.ID))(t)
 
-			sender := fakesender.New()
+			sender := fakequeue.New()
 			form := fillPost(testutil.Must(forms.EditPostFormNew(ctx, postsService(db, sender), author, post.ID))(t), tc.action)
 			w := savePost(t, ctx, db, form)
 
@@ -361,11 +402,11 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 				}
 			}
 			if tc.wantMail {
-				sent := sender.Sent()
+				sent := sentMails(t, ctx, db, sender)
 				require.Len(t, sent, 1)
 				require.Equal(t, conn.Email, sent[0].Mail.To[0].Address)
 			} else {
-				require.Empty(t, sender.Sent())
+				require.Empty(t, sentMails(t, ctx, db, sender))
 			}
 		})
 	}

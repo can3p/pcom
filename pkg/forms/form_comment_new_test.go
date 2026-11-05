@@ -10,7 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ func connect(t *testing.T, ctx context.Context, db *sql.DB, aID, bID string) {
 	require.NoError(t, err)
 }
 
-func newCommentForm(t *testing.T, db *sql.DB, sender *fakesender.Sender, u *model.User, postID, replyTo string) *forms.NewCommentForm {
+func newCommentForm(t *testing.T, db *sql.DB, sender *fakequeue.Queue, u *model.User, postID, replyTo string) *forms.NewCommentForm {
 	t.Helper()
 	form, ok := forms.NewCommentFormNew(postsService(db, sender), u, postID).(*forms.NewCommentForm)
 	require.True(t, ok)
@@ -79,7 +79,7 @@ func TestNewCommentForm_Validate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			form := newCommentForm(t, db, fakesender.New(), tc.user, post.ID, tc.replyTo)
+			form := newCommentForm(t, db, fakequeue.New(), tc.user, post.ID, tc.replyTo)
 			if tc.postID != "" {
 				form.Input.PostID = tc.postID
 			}
@@ -119,16 +119,16 @@ func TestNewCommentForm_Save(t *testing.T) {
 		connect(t, ctx, db, author.ID, commenter.ID)
 		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
-		sender := fakesender.New()
+		sender := fakequeue.New()
 		saveComment(t, ctx, db, newCommentForm(t, db, sender, commenter, post.ID, ""))
 
 		comments := testutil.Must(factory.ListComments(ctx, db, post.ID))(t)
 		require.Len(t, comments, 1)
 		require.Equal(t, comments[0].ID, comments[0].TopCommentID)
 
-		sent := sender.Sent()
+		sent := sentMails(t, ctx, db, sender)
 		require.Len(t, sent, 1)
-		require.Equal(t, "comment_notification", sent[0].EmailType)
+		require.Equal(t, "comment_notification", sent[0].Type)
 		require.Equal(t, author.Email, sent[0].Mail.To[0].Address)
 	})
 
@@ -144,7 +144,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		require.Error(t, err, "no stat row before the first comment")
 
 		for i, u := range []*model.User{commenter, author} {
-			saveComment(t, ctx, db, newCommentForm(t, db, fakesender.New(), u, post.ID, ""))
+			saveComment(t, ctx, db, newCommentForm(t, db, fakequeue.New(), u, post.ID, ""))
 			stat := testutil.Must(factory.GetPostStat(ctx, db, post.ID))(t)
 			require.Equal(t, int64(i+1), stat.CommentsNumber)
 		}
@@ -157,7 +157,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
 		// Save without Validate, as a race with a deleted comment would.
-		_, err := newCommentForm(t, db, fakesender.New(), author, post.ID, missingID).Save(ctx)
+		_, err := newCommentForm(t, db, fakequeue.New(), author, post.ID, missingID).Save(ctx)
 		require.Error(t, err)
 		require.Empty(t, testutil.Must(factory.ListComments(ctx, db, post.ID))(t))
 	})
@@ -173,7 +173,7 @@ func TestNewCommentForm_Save(t *testing.T) {
 		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 		topComment := testutil.Must(factory.Comment(ctx, db, post.ID, firstCommenter.ID))(t)
 
-		sender := fakesender.New()
+		sender := fakequeue.New()
 		saveComment(t, ctx, db, newCommentForm(t, db, sender, replier, post.ID, topComment.ID))
 
 		comments := testutil.Must(factory.ListComments(ctx, db, post.ID))(t)
@@ -186,8 +186,8 @@ func TestNewCommentForm_Save(t *testing.T) {
 		}
 
 		var recipients []string
-		for _, s := range sender.Sent() {
-			require.Equal(t, "comment_notification", s.EmailType)
+		for _, s := range sentMails(t, ctx, db, sender) {
+			require.Equal(t, "comment_notification", s.Type)
 			recipients = append(recipients, s.Mail.To[0].Address)
 		}
 		require.ElementsMatch(t, []string{author.Email, firstCommenter.Email}, recipients)

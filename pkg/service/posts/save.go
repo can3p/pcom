@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
@@ -248,7 +247,8 @@ func (s *Service) promptOf(ctx context.Context, tx *repo.Store, actor *model.Use
 }
 
 // notifyPublished tells the asker of the prompt the post answers, if they may
-// read it, then every direct connection of the author.
+// read it, then every direct connection of the author (through the job that
+// enqueues their mails).
 func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *model.User, post *model.Post, prompt *postops.PostPrompt) error {
 	if prompt != nil && prompt.Prompt.DismissedAt == nil {
 		dbPrompt := prompt.Prompt
@@ -268,29 +268,14 @@ func (s *Service) notifyPublished(ctx context.Context, tx *repo.Store, actor *mo
 		// the mail names the post, so an asker who may not read it is not
 		// told
 		if postops.CanSeePost(post, radius) {
-			if err := s.queue(ctx, tx, mail.PostPromptAnswer(s.ident.Site, s.ident.From, prompt.Author, actor, post, dbPrompt)); err != nil {
+			if err := tx.Enqueue(ctx, s.jobs, PromptAnswerMailArgs{PostID: post.ID}); err != nil {
 				return err
 			}
 		}
 	}
 
-	directIDs, err := graph.DirectUserIDs(ctx, tx, post.UserID)
-	if err != nil {
-		return err
-	}
-
-	connections, err := tx.UsersByIDs(ctx, directIDs)
-	if err != nil {
-		return err
-	}
-
-	for _, conn := range connections {
-		if err := s.queue(ctx, tx, mail.NewPost(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, conn, post)); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	// the connections are told by the job, which loads them when it runs
+	return tx.Enqueue(ctx, s.jobs, PublishedArgs{PostID: post.ID})
 }
 
 // EditView is a post as the edit page shows it.

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
@@ -21,7 +22,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/web"
@@ -79,10 +80,54 @@ func multipartFileContext(t *testing.T, fieldName string, data []byte) *gin.Cont
 	return c
 }
 
-// postsService is the posts service over db and a sender that records
-// instead of sending.
-func postsService(db *sql.DB, s repo.MailQueue) *posts.Service {
-	return registry.New(db, registry.Deps{Sender: s, Site: testSite}).Posts
+// postsService is the posts service over db and a queue that records the jobs
+// instead of inserting them; a nil queue is a fresh one.
+func postsService(db *sql.DB, q *fakequeue.Queue) *posts.Service {
+	if q == nil {
+		q = fakequeue.New()
+	}
+
+	return registry.New(db, registry.Deps{Jobs: q, Site: testSite}).Posts
+}
+
+// sentMails runs the jobs the posts service enqueued on q, in order, the
+// way the workers do (the post-published job enqueues its mails, which run
+// in turn), and returns the mails they build.
+func sentMails(t *testing.T, ctx context.Context, db *sql.DB, q *fakequeue.Queue) []*mail.Envelope {
+	t.Helper()
+
+	svc := postsService(db, q)
+
+	var out []*mail.Envelope
+
+	// like sent_emails, a mail with a unique id seen before is not sent again
+	seen := map[string]bool{}
+
+	for i := 0; i < len(q.Inserted()); i++ {
+		var (
+			env *mail.Envelope
+			err error
+		)
+
+		switch a := q.Inserted()[i].(type) {
+		case posts.PublishedArgs:
+			err = svc.FanOutPublished(ctx, a)
+		case posts.NewPostMailArgs:
+			env, err = svc.RenderNewPost(ctx, a)
+		default:
+			t.Fatalf("unexpected job %T", a)
+		}
+
+		require.NoError(t, err)
+
+		if env != nil && !seen[env.UniqueID] {
+			seen[env.UniqueID] = true
+
+			out = append(out, env)
+		}
+	}
+
+	return out
 }
 
 var testSite = links.Site{Root: "https://site.test"}
@@ -253,7 +298,7 @@ func TestApiNewPost(t *testing.T) {
 			friend := testutil.Must(factory.User(ctx, testDB.DB))(t)
 			connect(t, testDB.DB, ctx, author.ID, friend.ID)
 
-			sender := fakesender.New()
+			sender := fakequeue.New()
 
 			c := jsonContext(t, "/api/v1/posts", &web.ApiPost{
 				Subject:     "Hello world",
@@ -275,12 +320,12 @@ func TestApiNewPost(t *testing.T) {
 				require.Equal(t, testSite.Abs("post", resp.ID), resp.PublicURL)
 				require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
 
-				sent := sender.Sent()
+				sent := sentMails(t, ctx, testDB.DB, sender)
 				require.Len(t, sent, 1, "publishing should notify the author's direct connections")
-				require.Equal(t, "post_notification", sent[0].EmailType)
+				require.Equal(t, "post_notification", sent[0].Type)
 				require.Equal(t, friend.Email, sent[0].Mail.To[0].Address)
 			} else {
-				require.Empty(t, sender.Sent(), "a draft must not notify anybody")
+				require.Empty(t, sentMails(t, ctx, testDB.DB, sender), "a draft must not notify anybody")
 			}
 		})
 	}
@@ -297,7 +342,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	connect(t, testDB.DB, ctx, author.ID, friend.ID)
 
 	post := testutil.Must(factory.Post(ctx, testDB.DB, author.ID))(t)
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	c := jsonContext(t, "/api/v1/posts/"+post.ID, &web.ApiPost{
 		Subject:     "Edited subject",
@@ -315,7 +360,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 	require.NotNil(t, got.PublishedAt, "publish must set the post live")
 	require.Equal(t, "edited body", got.Body)
 
-	sent := sender.Sent()
+	sent := sentMails(t, ctx, testDB.DB, sender)
 	require.Len(t, sent, 1, "publishing an edit should notify the author's direct connections")
 	require.Equal(t, friend.Email, sent[0].Mail.To[0].Address)
 
@@ -333,7 +378,7 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 
 	got = testutil.Must(factory.GetPost(ctx, testDB.DB, post.ID))(t)
 	require.Nil(t, got.PublishedAt, "is_published=false must move the post back to draft")
-	require.Len(t, sender.Sent(), 1, "moving back to draft must not send another notification")
+	require.Len(t, sentMails(t, ctx, testDB.DB, sender), 1, "moving back to draft must not send another notification")
 }
 
 func TestApiEditPost_UnknownPost(t *testing.T) {
@@ -343,7 +388,7 @@ func TestApiEditPost_UnknownPost(t *testing.T) {
 	ctx := context.Background()
 
 	author := testutil.Must(factory.User(ctx, testDB.DB))(t)
-	sender := fakesender.New()
+	sender := fakequeue.New()
 
 	c := jsonContext(t, "/api/v1/posts/unknown", &web.ApiPost{
 		Subject: "x",

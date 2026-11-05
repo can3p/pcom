@@ -12,7 +12,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
+	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -38,8 +38,9 @@ func TestEditComment(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	out := fakesender.New()
-	s := posts.New(repo.New(db), out, nil)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+	out := newMailbox(t, ctx, s, q)
 
 	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
 	comment := testutil.Must(factory.Comment(ctx, db, post.ID, w.direct.ID))(t)
@@ -64,6 +65,7 @@ func TestEditComment(t *testing.T) {
 	var prevEditedAt = stored().EditedAt
 
 	for i, body := range []string{"first edit", "second edit"} {
+		enqueued := len(q.Inserted())
 		require.NoError(t, s.EditComment(ctx, w.direct, comment.ID, "  "+body+"\n"))
 
 		got := stored()
@@ -71,6 +73,9 @@ func TestEditComment(t *testing.T) {
 		require.NotNil(t, got.EditedAt)
 		require.True(t, lo.FromPtr(got.EditedAt).After(lo.FromPtr(prevEditedAt)), "edited_at moves on every edit")
 		prevEditedAt = got.EditedAt
+
+		// one job per recipient, each run before the next edit
+		require.Len(t, q.Inserted()[enqueued:], 2)
 
 		recipients := map[string]int{}
 		for _, m := range out.Sent() {
@@ -108,8 +113,9 @@ func TestEditComment_Refused(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	out := fakesender.New()
-	s := posts.New(repo.New(db), out, nil)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+	out := newMailbox(t, ctx, s, q)
 
 	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
 	comment := testutil.Must(factory.Comment(ctx, db, post.ID, w.direct.ID))(t)
@@ -145,8 +151,9 @@ func TestEditComment_LostConnection(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	out := fakesender.New()
-	s := posts.New(repo.New(db), out, nil)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+	out := newMailbox(t, ctx, s, q)
 
 	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
 	comment := testutil.Must(factory.Comment(ctx, db, post.ID, w.direct.ID))(t)
@@ -168,10 +175,10 @@ func TestSaveAndComment_SenderFailureRollsBack(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 	w := newWorld(t, ctx, db)
-	out := fakesender.New()
-	s := posts.New(repo.New(db), out, nil)
+	q := fakequeue.New()
+	s := svcWith(db, q)
 	sendErr := errors.New("queue is gone")
-	out.FailWith(sendErr)
+	q.FailWith(sendErr)
 
 	_, err := s.Save(ctx, w.author, posts.SaveInput{
 		Subject: "published", Body: "a body for the post", Visibility: model.PostVisibilityPublic, Action: posts.ActionPublish,
