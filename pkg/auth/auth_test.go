@@ -1,7 +1,6 @@
 package auth_test
 
 import (
-	"database/sql"
 	"net/http"
 	"net/url"
 	"testing"

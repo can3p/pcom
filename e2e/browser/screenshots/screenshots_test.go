@@ -90,7 +90,7 @@ func checkGrammar(t *testing.T, page playwright.Page) {
 
 func TestScreenshots(t *testing.T) {
 	app := e2e.Start(t, e2e.WithRealAssets(), e2e.WithWireMock())
-	require.NoError(t, seed.Run(context.Background(), app.DB.DB, io.Discard, seed.Options{}))
+	require.NoError(t, seed.Run(context.Background(), app.DB, io.Discard, seed.Options{}))
 	require.NoError(t, os.MkdirAll(outDir, 0o755))
 
 	var postID string
