@@ -103,6 +103,29 @@ func TestEditComment(t *testing.T) {
 	require.Equal(t, editedAt, stored().EditedAt)
 	require.Len(t, out.Sent(), 4)
 
+	// two edits before any job runs: every job renders the comment as it is
+	// then, so each recipient gets one mail (the unique id is the same) with
+	// the last edit
+	q2 := fakequeue.New()
+	s2 := svcWith(db, q2)
+	late := newMailbox(t, ctx, s2, q2)
+
+	require.NoError(t, s2.EditComment(ctx, w.direct, comment.ID, "third edit"))
+	require.NoError(t, s2.EditComment(ctx, w.direct, comment.ID, "fourth edit"))
+	require.Len(t, q2.Inserted(), 4)
+
+	lateIDs := map[string]bool{}
+
+	for _, m := range late.Sent() {
+		require.Contains(t, m.Mail.Text, "fourth edit")
+		require.NotContains(t, m.Mail.Text, "third edit")
+
+		lateIDs[m.Mail.To[0].Address+m.UniqueID] = true
+	}
+
+	require.Len(t, late.Sent(), 4, "four jobs, each rendering the last edit")
+	require.Len(t, lateIDs, 2, "one mail per recipient once the sent record drops the repeat")
+
 	// an edit is not a new comment
 	require.Equal(t, counter, commentsNumber(t, ctx, db, post.ID))
 }

@@ -4,7 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/jobs"
+	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -12,6 +15,161 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/stretchr/testify/require"
 )
+
+// A draft made before the job runs is told to nobody.
+func TestFanOutPublished_DraftEnqueuesNothing(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	w := newWorld(t, ctx, db)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+
+	post := publish(t, ctx, s, w, "withdrawn")
+	_, err := s.Save(ctx, w.author, posts.SaveInput{PostID: post.ID, Subject: "withdrawn", Body: "a body for the post",
+		Visibility: model.PostVisibilityPublic, Action: posts.ActionMakeDraft})
+	require.NoError(t, err)
+
+	require.NoError(t, s.FanOutPublished(ctx, posts.PublishedArgs{PostID: post.ID}))
+	require.Empty(t, fakequeue.Of[posts.NewPostMailArgs](q))
+}
+
+// Whatever the visibility of the post, the direct connections of the author
+// are told and nobody else.
+func TestFanOutPublished_ToWhoMayRead(t *testing.T) {
+	t.Parallel()
+
+	for _, v := range []model.PostVisibility{model.PostVisibilityDirectOnly, model.PostVisibilitySecondDegree, model.PostVisibilityPublic} {
+		t.Run(string(v), func(t *testing.T) {
+			t.Parallel()
+
+			db := testdb.New(t).DB
+			ctx := context.Background()
+			w := newWorld(t, ctx, db) // second is a second degree connection, stranger is unrelated
+			q := fakequeue.New()
+			s := svcWith(db, q)
+
+			saved, err := s.Save(ctx, w.author, posts.SaveInput{Subject: "visible", Body: "a body for the post",
+				Visibility: v, Action: posts.ActionPublish})
+			require.NoError(t, err)
+
+			require.NoError(t, s.FanOutPublished(ctx, posts.PublishedArgs{PostID: saved.Post.ID}))
+			require.Equal(t, []posts.NewPostMailArgs{{PostID: saved.Post.ID, ConnectionID: w.direct.ID}}, fakequeue.Of[posts.NewPostMailArgs](q))
+		})
+	}
+}
+
+// The inserter drops a second post-published job of the same post.
+func TestPublishedArgs_UniqueByPost(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	ins, err := jobs.NewInserter(db)
+	require.NoError(t, err)
+
+	count := func() int {
+		var n int
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT count(*) FROM river_job WHERE kind = 'posts.published'`).Scan(&n))
+
+		return n
+	}
+
+	require.NoError(t, ins.Insert(ctx, db, posts.PublishedArgs{PostID: "p1"}))
+	require.NoError(t, ins.Insert(ctx, db, posts.PublishedArgs{PostID: "p1"}))
+	require.Equal(t, 1, count())
+
+	require.NoError(t, ins.Insert(ctx, db, posts.PublishedArgs{PostID: "p2"}))
+	require.Equal(t, 2, count())
+}
+
+// Mails are rendered for who may read the post when they are sent: a
+// connection removed after the enqueue is told nothing.
+func TestRenderMails_ConnectionLostAfterEnqueue(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	w := newWorld(t, ctx, db)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+	store := repo.New(db)
+
+	prompt := testutil.Must(factory.PostPrompt(ctx, db, w.direct.ID, w.author.ID))(t)
+	saved, err := s.Save(ctx, w.author, posts.SaveInput{PromptID: prompt.ID, Subject: "the answer",
+		Body: "a body for the post", Visibility: model.PostVisibilityDirectOnly, Action: posts.ActionPublish})
+	require.NoError(t, err)
+	require.NoError(t, s.FanOutPublished(ctx, posts.PublishedArgs{PostID: saved.Post.ID}))
+	require.NoError(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: saved.Post.ID, Body: "a fine comment"}))
+
+	answer := fakequeue.Of[posts.PromptAnswerMailArgs](q)
+	newPost := fakequeue.Of[posts.NewPostMailArgs](q)
+	comment := fakequeue.Of[posts.CommentMailArgs](q)
+	require.Len(t, answer, 1)
+	require.Len(t, newPost, 1)
+	require.Len(t, comment, 1)
+
+	require.NoError(t, store.DeleteConnectionsBetween(ctx, w.author.ID, w.direct.ID))
+
+	env, err := s.RenderPromptAnswer(ctx, answer[0])
+	require.NoError(t, err)
+	require.Nil(t, env)
+
+	env, err = s.RenderNewPost(ctx, newPost[0])
+	require.NoError(t, err)
+	require.Nil(t, env)
+
+	// the author's own mail about the comment stays: the author may read it
+	env, err = s.RenderComment(ctx, posts.CommentMailArgs{CommentID: comment[0].CommentID, RecipientID: w.direct.ID})
+	require.NoError(t, err)
+	require.Nil(t, env)
+}
+
+// A new comment mails the post's author and the other participants, each
+// with the wording of their mail.
+func TestRenderComment_AuthorAndParticipant(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	w := newWorld(t, ctx, db)
+	q := fakequeue.New()
+	s := svcWith(db, q)
+
+	other := testutil.Must(factory.User(ctx, db))(t)
+	_, _, err := factory.Connect(ctx, db, w.author.ID, other.ID)
+	require.NoError(t, err)
+
+	post := testutil.Must(factory.Post(ctx, db, w.author.ID, factory.Published()))(t)
+	testutil.Must(factory.Comment(ctx, db, post.ID, other.ID))(t)
+	require.NoError(t, s.AddComment(ctx, w.direct, posts.CommentInput{PostID: post.ID, Body: "a fine new comment"}))
+
+	args := fakequeue.Of[posts.CommentMailArgs](q)
+	require.Len(t, args, 2)
+
+	byRecipient := map[string]*mail.Envelope{}
+
+	for _, a := range args {
+		env, err := s.RenderComment(ctx, a)
+		require.NoError(t, err)
+		require.NotNil(t, env)
+
+		byRecipient[env.Mail.To[0].Address] = env
+	}
+
+	require.Len(t, byRecipient, 2)
+
+	author := byRecipient[w.author.Email]
+	require.NotNil(t, author)
+	require.Contains(t, author.Mail.Subject, "New comment in your post")
+	require.Contains(t, author.Mail.Text, "a fine new comment")
+
+	participant := byRecipient[other.Email]
+	require.NotNil(t, participant)
+	require.Contains(t, participant.Mail.Subject, "New comment in the post")
+	require.Contains(t, participant.Mail.Text, "a fine new comment")
+}
 
 func publish(t *testing.T, ctx context.Context, s *posts.Service, w world, subject string) *model.Post {
 	t.Helper()
@@ -48,13 +206,15 @@ func TestPublish_EnqueuesOneFanOutJob(t *testing.T) {
 	both := fakequeue.Of[posts.NewPostMailArgs](q)
 	require.Len(t, both, 2)
 
-	first, err := s.RenderNewPost(ctx, both[0])
-	require.NoError(t, err)
-	second, err := s.RenderNewPost(ctx, both[1])
-	require.NoError(t, err)
-	require.Equal(t, first.UniqueID, second.UniqueID, "a re-run sends nothing twice")
-	require.Equal(t, "post_notification", first.Type)
-	require.Equal(t, w.direct.Email, first.Mail.To[0].Address)
+	// a re-run enqueues the same mails, whose unique id is the post and the
+	// connection, so the sent mail record drops the repeat
+	for _, a := range both {
+		env, err := s.RenderNewPost(ctx, a)
+		require.NoError(t, err)
+		require.Equal(t, post.ID+w.direct.ID, env.UniqueID)
+		require.Equal(t, "post_notification", env.Type)
+		require.Equal(t, w.direct.Email, env.Mail.To[0].Address)
+	}
 }
 
 // The mail is built when the job runs, so it shows the post as it was
@@ -138,6 +298,7 @@ func TestSendPrompt_EnqueuesTheMail(t *testing.T) {
 	require.Len(t, sent, 1)
 	require.Equal(t, "post_prompt", sent[0].Type)
 	require.Equal(t, w.direct.Email, sent[0].Mail.To[0].Address)
+	require.Equal(t, "New prompt from "+w.author.Username, sent[0].Mail.Subject)
 	require.Contains(t, sent[0].Mail.Text, "Tell us about your week!")
 }
 
@@ -162,5 +323,6 @@ func TestPromptAnswer_EnqueuesTheMail(t *testing.T) {
 	var answer = sent[0]
 	require.Equal(t, "post_prompt_answer", answer.Type)
 	require.Equal(t, w.direct.Email, answer.Mail.To[0].Address)
+	require.Equal(t, "Response to your prompt from "+w.author.Username, answer.Mail.Subject)
 	require.Contains(t, answer.Mail.Text, "the answer")
 }

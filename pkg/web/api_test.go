@@ -100,9 +100,6 @@ func sentMails(t *testing.T, ctx context.Context, db *sql.DB, q *fakequeue.Queue
 
 	var out []*mail.Envelope
 
-	// like sent_emails, a mail with a unique id seen before is not sent again
-	seen := map[string]bool{}
-
 	for i := 0; i < len(q.Inserted()); i++ {
 		var (
 			env *mail.Envelope
@@ -120,9 +117,7 @@ func sentMails(t *testing.T, ctx context.Context, db *sql.DB, q *fakequeue.Queue
 
 		require.NoError(t, err)
 
-		if env != nil && !seen[env.UniqueID] {
-			seen[env.UniqueID] = true
-
+		if env != nil {
 			out = append(out, env)
 		}
 	}
@@ -320,6 +315,8 @@ func TestApiNewPost(t *testing.T) {
 				require.Equal(t, testSite.Abs("post", resp.ID), resp.PublicURL)
 				require.Equal(t, model.PostVisibilityPublic, post.VisibilityRadius)
 
+				require.Len(t, fakequeue.Of[posts.PublishedArgs](sender), 1)
+
 				sent := sentMails(t, ctx, testDB.DB, sender)
 				require.Len(t, sent, 1, "publishing should notify the author's direct connections")
 				require.Equal(t, "post_notification", sent[0].Type)
@@ -378,7 +375,8 @@ func TestApiEditPost_PublishAndMakeDraft(t *testing.T) {
 
 	got = testutil.Must(factory.GetPost(ctx, testDB.DB, post.ID))(t)
 	require.Nil(t, got.PublishedAt, "is_published=false must move the post back to draft")
-	require.Len(t, sentMails(t, ctx, testDB.DB, sender), 1, "moving back to draft must not send another notification")
+	require.Len(t, fakequeue.Of[posts.PublishedArgs](sender), 1, "moving back to draft must not enqueue another notification")
+	require.Len(t, sent, 1)
 }
 
 func TestApiEditPost_UnknownPost(t *testing.T) {

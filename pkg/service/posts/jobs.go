@@ -6,6 +6,8 @@ import (
 
 	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/mail"
+	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/riverqueue/river"
@@ -100,6 +102,11 @@ func (s *Service) FanOutPublished(ctx context.Context, a PublishedArgs) error {
 		return err
 	}
 
+	// a post made draft since it was saved is told to nobody
+	if post.PublishedAt == nil {
+		return nil
+	}
+
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
 		ids, err := graph.DirectUserIDs(ctx, tx, post.UserID)
 		if err != nil {
@@ -149,6 +156,12 @@ func (s *Service) RenderPromptAnswer(ctx context.Context, a PromptAnswerMailArgs
 		return nil, err
 	}
 
+	// the mail names the post, so an asker who may not read it now is not told
+	mayRead, err := s.maySee(ctx, prompt.Asker.ID, post)
+	if !mayRead || err != nil {
+		return nil, err
+	}
+
 	return mail.PostPromptAnswer(s.ident.Site, s.ident.From, prompt.Asker, post.User, post, prompt), nil
 }
 
@@ -162,6 +175,11 @@ func (s *Service) RenderNewPost(ctx context.Context, a NewPostMailArgs) (*mail.E
 
 	conn, missing, err := gone(s.store.UserByID(ctx, a.ConnectionID))
 	if missing || err != nil {
+		return nil, err
+	}
+
+	mayRead, err := s.maySee(ctx, conn.ID, post)
+	if !mayRead || err != nil {
 		return nil, err
 	}
 
@@ -191,9 +209,24 @@ func (s *Service) RenderComment(ctx context.Context, a CommentMailArgs) (*mail.E
 		return nil, err
 	}
 
+	mayRead, err := mayReadComments(ctx, s.store, recipient.ID, post)
+	if !mayRead || err != nil {
+		return nil, err
+	}
+
 	if recipient.ID == post.UserID {
 		return mail.PostCommentAuthor(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, post.User, post, comment, a.Edited)
 	}
 
 	return mail.PostCommentParticipants(s.ident.Site, s.ident.From, s.ident.Site.MediaReplacer, actor, recipient, post, comment, a.Edited)
+}
+
+// maySee reports whether the user may read the post now.
+func (s *Service) maySee(ctx context.Context, userID string, post *model.Post) (bool, error) {
+	radius, err := graph.RadiusBetween(ctx, s.store, userID, post.UserID)
+	if err != nil {
+		return false, err
+	}
+
+	return postops.CanSeePost(post, radius), nil
 }
