@@ -21,7 +21,6 @@ type Deps struct {
 	DB *sql.DB
 	// Services is built from DB by New when it is nil.
 	Services *registry.Services
-	Sender   repo.MailQueue
 	// Jobs is the queue services enqueue background jobs on.
 	Jobs         repo.JobQueue
 	MediaStorage server.MediaStorage

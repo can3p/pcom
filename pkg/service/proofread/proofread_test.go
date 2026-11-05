@@ -52,7 +52,7 @@ type env struct {
 
 func newEnv(store *repo.Store, opts ...proofreadsvc.Option) *env {
 	e := &env{store: store, fake: proofreadtest.New(), clock: &clock{now: time.Now()}}
-	e.svc = proofreadsvc.New(store, posts.New(store, nil, nil), e.fake, append([]proofreadsvc.Option{proofreadsvc.WithClock(e.clock.Now)}, opts...)...)
+	e.svc = proofreadsvc.New(store, posts.New(store, nil), e.fake, append([]proofreadsvc.Option{proofreadsvc.WithClock(e.clock.Now)}, opts...)...)
 
 	return e
 }
@@ -177,7 +177,7 @@ func TestAccess(t *testing.T) {
 		t.Parallel()
 
 		me := testutil.Must(factory.User(ctx, db))(t)
-		svc := proofreadsvc.New(store, posts.New(store, nil, nil), nil)
+		svc := proofreadsvc.New(store, posts.New(store, nil), nil)
 		require.False(t, svc.Enabled())
 
 		_, err := svc.CheckGrammar(ctx, me, proofreadsvc.GrammarRequest{Body: "x"})
@@ -464,7 +464,7 @@ func TestStyleReviews_GoAway(t *testing.T) {
 			return e.svc.ResetStyle(ctx, me, post.ID)
 		}},
 		{"post deleted", func(_ *env, me *model.User, post *model.Post) error {
-			return posts.New(store, nil, nil).Delete(ctx, me, post.ID)
+			return posts.New(store, nil).Delete(ctx, me, post.ID)
 		}},
 	}
 

@@ -121,7 +121,6 @@ type Jobs struct {
 type Mail struct {
 	SenderAddress  string          `long:"sender-address" env:"SENDER_ADDRESS" description:"From address of every mail" required:"true"`
 	AdminAddress   string          `long:"admin-address" env:"ADMIN_ADDRESS" description:"Where admin notifications (signups, page failures) go"`
-	PollInterval   time.Duration   `long:"email-poll-interval" env:"EMAIL_POLL_INTERVAL" description:"How often the mail queue is sent" default:"10s"`
 	RetryIntervals []time.Duration `long:"email-retry-intervals" env:"EMAIL_RETRY_INTERVALS" env-delim:"," description:"Waits between attempts to send a mail; a mail fails after one attempt more than there are waits" default:"10s" default:"60s" default:"30m"`
 
 	Mailjet mjconfig.Config `group:"Mailjet" namespace:"mj" env-namespace:"MJ"`

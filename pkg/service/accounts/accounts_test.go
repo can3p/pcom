@@ -39,7 +39,7 @@ func svcWith(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
 		q = fakequeue.New()
 	}
 
-	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithIdentity(testIdent), accounts.WithJobs(q))
+	return accounts.New(repo.New(db), nil, accounts.WithCodeKey("test-key"), accounts.WithIdentity(testIdent), accounts.WithJobs(q))
 }
 
 // rendered builds the mail of every job q recorded, in order, the way the
@@ -339,7 +339,7 @@ func TestRegisterAndAcceptInvite_AreAtomic(t *testing.T) {
 	queue, err := jobs.NewInserter(db)
 	require.NoError(t, err)
 
-	svc := accounts.New(repo.New(db), nil, nil, accounts.WithJobs(queue))
+	svc := accounts.New(repo.New(db), nil, accounts.WithJobs(queue))
 
 	inviter := newUser(t, ctx, db)
 	invite := testutil.Must(factory.Invitation(ctx, db, inviter.ID, factory.Sent("atomic-invitee@x.test")))(t)

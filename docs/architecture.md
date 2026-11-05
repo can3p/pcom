@@ -26,12 +26,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   package (`pkg/proofread/claude`) built in `pkg/web/app/router.go` and passed in through `registry.Deps`,
   because services may not import `net/http`. A nil client means the feature is off; tests use an
   in-memory fake (`pkg/proofread/proofreadtest`) and the client's own tests run against WireMock.
-- **Mail** is sent with `tx.SendMail(ctx, sender, ...)` inside the
-  transaction, so it is queued only if the change commits. Services get the
-  queue, `repo.MailQueue`, in their constructor; it delivers through gogo's
-  `sender.Sender`. The queue drops a repeated (type, unique id), so a
-  feature that notifies again about the same object needs its own key, and
-  its test sends two events in a row.
+- **Mail** is enqueued, not built: a service calls `tx.Enqueue(ctx, s.jobs, args)` inside the transaction, so
+  the mail exists only if the change commits. The args hold ids and the values the database doesn't keep; the
+  service's `Render<Mail>` method builds the `pkg/mail` envelope when the worker sends it, so the mail shows the
+  rows as they are then. `sent_emails` is unique on (type, unique id) and drops a repeat, so a feature that
+  notifies again about the same object needs its own key, and its test enqueues two events in a row.
 - **Mail content** is declared in `pkg/mail`, one file per mail: a typed input,
   samples built from in-memory models, and templates in `pkg/mail/templates`
   (subject and text through `text/template`, HTML through `html/template`).
@@ -41,10 +40,14 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   package doc of `pkg/mail/mail.go` is the how-to for adding a mail. Every HTML
   mail is wrapped in `templates/_layout.html`, and `templates/mail.css` is inlined
   into style attributes at render (go-premailer); the rules are in that package doc.
-- **Delivery.** `dbsender` sends each due mail in its own transaction, so one
-  failure doesn't resend the others; the waits between attempts are
-  `--email-retry-intervals`, and a mail fails after one attempt more than
-  there are waits.
+- **Delivery.** A mail worker records the mail in `sent_emails` and hands it to gogo's `sender.Sender` in one
+  transaction, so one failure doesn't resend the others; the waits between attempts are
+  `--email-retry-intervals`, and a mail fails after one attempt more than there are waits.
+- **Background jobs.** `pkg/jobs` runs work on River over the same database: services enqueue args on their
+  transaction (`repo.JobQueue`, from `WithJobs`), and `web serve` starts the runner that works them. Each service
+  with jobs has a `RegisterJobs(r *jobs.Registry)` method that `registry.Services.RegisterJobs` calls. To add a
+  job kind (args struct with `Kind`, worker, registration, tests with `fakequeue`), follow the package doc of
+  `pkg/jobs`.
 - **Errors** (`pkg/service`, which re-exports gogo's `apperr`; code uses the
   `service` names): `ErrNotFound` (also for "exists, but you may not see
   it"), `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, and
@@ -91,7 +94,7 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   by exactly one of a user or an RSS feed on the caller's `tx`; posts (import)
   and feeds (feed images) call it, so no service writes `media_uploads` itself.
 - **Exemptions.** `pkg/pgsession` (it hands the database to gogo's
-  `sessions/pgstore`) and the `dbsender` mail queue own their tables and are
+  `sessions/pgstore`) and `pkg/jobs` (River's tables) are
   exempt from the layering (see `pkg/arch`).
 - **Sessions live in `http_sessions`**, gogo's `sessions/pgstore`. Its table is
   the `gogo-pgstore` migration in `migrations/`, copied with
@@ -146,7 +149,7 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
 ## Logging
 
 - **One `*zap.Logger`, passed explicitly.** No global logger, no `zap.ReplaceGlobals`. Long-running workers
-  (mail sender, feed poller, login pruner) take it through a `WithLogger` option defaulting to a no-op
+  (job workers, login pruner) take it through a `WithLogger` option defaulting to a no-op
   logger, and put it into the context they pass down. Handlers, services and the media server take it
   from the context with `logging.FromContext(ctx)`, which works on a `*gin.Context` and on its
   `c.Request.Context()`, and returns a no-op logger when none is set, so a test or a CLI subcommand needs

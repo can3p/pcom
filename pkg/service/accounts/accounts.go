@@ -119,7 +119,7 @@ func WithLoginLimits(l LoginLimits) Option {
 	}
 }
 
-func New(store *repo.Store, _ repo.MailQueue, subscriptions *feeds.Service, opts ...Option) *Service {
+func New(store *repo.Store, subscriptions *feeds.Service, opts ...Option) *Service {
 	s := &Service{store: store, feeds: subscriptions, aboutMaxLength: DefaultProfileAboutMaxLength, stylesMaxLength: DefaultUserStylesMaxLength, now: time.Now, login: DefaultLoginLimits, logger: zap.NewNop()}
 	for _, opt := range opts {
 		opt(s)

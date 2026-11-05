@@ -439,7 +439,7 @@ func TestApiUploadImage(t *testing.T) {
 			storage := fakestorage.New()
 			c := multipartFileContext(t, tc.fieldName, tc.data)
 
-			res := web.ApiUploadImageWith(c, posts.New(repo.New(testDB.DB), nil, storage), user)
+			res := web.ApiUploadImageWith(c, posts.New(repo.New(testDB.DB), storage), user)
 
 			if !tc.wantOk {
 				require.True(t, res.IsError())

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/testutil/factory"
-	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
 	"github.com/can3p/pcom/pkg/testutil/testlog"
@@ -27,7 +26,7 @@ func TestRouter_RequestLogCarriesUser(t *testing.T) {
 	require.NoError(t, err)
 
 	logger, logs := testlog.New()
-	h := app.New(&app.Deps{DB: db, Sender: fakesender.New(), MediaStorage: fakestorage.New(), Logger: logger, Config: settingsConfig()})
+	h := app.New(&app.Deps{DB: db, MediaStorage: fakestorage.New(), Logger: logger, Config: settingsConfig()})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/posts", nil)
 	req.Header.Set("Authorization", "Bearer "+key.APIKey)

@@ -1,6 +1,7 @@
 // Package mail formats the mail pcom sends. It builds messages and never
-// sends them: a service queues the Envelope a constructor returns with
-// tx.SendMail, in the transaction of the change it reports.
+// sends them: a service enqueues job args with tx.Enqueue in the transaction
+// of the change it reports, and its Render method calls the constructor when
+// the mail worker sends it.
 //
 // # Declaring a mail
 //
@@ -15,7 +16,7 @@
 //     logic-free;
 //   - the declaration, a package-level
 //     var <name>Mail = declare("<email_type>", "<name>", <name>Samples),
-//     where <email_type> is the outgoing queue's email_type. declare
+//     where <email_type> is the email_type, recorded in sent_emails. declare
 //     registers the mail itself, so adding a mail touches no shared list;
 //   - the samples, func <name>Samples() []Sample[<Name>Input], returning named
 //     inputs built from in-memory model structs with fixed values (SampleFrom,

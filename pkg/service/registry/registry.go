@@ -27,7 +27,6 @@ import (
 
 // Deps is what services are built from besides the database.
 type Deps struct {
-	Sender repo.MailQueue
 	// Jobs is the queue services enqueue background jobs on.
 	Jobs         repo.JobQueue
 	MediaStorage server.MediaStorage
@@ -88,7 +87,7 @@ func New(db *sql.DB, deps Deps) *Services {
 
 	feedSvc := feeds.New(store, deps.MediaStorage, feeds.WithFetchLimits(deps.FeedFetch), feeds.WithPollInterval(deps.FeedPollInterval), feeds.WithJobs(deps.Jobs), feeds.WithLogger(deps.Logger))
 
-	postsSvc := posts.New(store, deps.Sender, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
+	postsSvc := posts.New(store, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}))
 
 	return &Services{
 		Connections: connections.New(store),
@@ -97,7 +96,7 @@ func New(db *sql.DB, deps Deps) *Services {
 		Reading:     reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),
 		Media:       media.New(store, deps.MediaStorage, media.WithMaxUploadSize(deps.MaxUploadSize)),
 		Posts:       postsSvc,
-		Accounts:    accounts.New(store, deps.Sender, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
+		Accounts:    accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:   proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
 	}
 }

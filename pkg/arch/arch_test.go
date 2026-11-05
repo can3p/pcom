@@ -33,7 +33,6 @@ var exempt = []string{
 	"pkg/testutil/",
 	"pkg/feedops/testutil",
 	"pkg/pgsession",
-	"pkg/mail/sender/dbsender",
 	"pkg/jobs",
 	"pkg/service/registry",
 	"cmd/web/cmd_seed.go",
@@ -172,7 +171,7 @@ func forbiddenImport(rel, path string) string {
 	case isORM(path):
 		return "only repositories query the database"
 	case path == module+"/pkg/repo":
-		if !strings.HasPrefix(rel, "pkg/service/") && !strings.HasPrefix(rel, "cmd/") && rel != "pkg/mail/sender/dbsender" && rel != "pkg/jobs" {
+		if !strings.HasPrefix(rel, "pkg/service/") && !strings.HasPrefix(rel, "cmd/") && rel != "pkg/jobs" {
 			return "only services use repositories"
 		}
 	case strings.HasPrefix(rel, "pkg/service/") && (path == "github.com/gin-gonic/gin" || path == "net/http"):
