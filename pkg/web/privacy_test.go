@@ -307,6 +307,8 @@ func TestPrivacyMatrix(t *testing.T) {
 				case notFound:
 					require.ErrorIs(t, res.Error(), service.ErrNotFound)
 					return
+				default:
+					// the viewer gets the page; checked below
 				}
 
 				page, err := res.Get()

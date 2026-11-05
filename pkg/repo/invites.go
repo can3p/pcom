@@ -73,7 +73,7 @@ func (s *Store) InsertInvitation(ctx context.Context, inv *model.UserInvitation)
 func (s *Store) InvitationCount(ctx context.Context, userID string) (int64, error) {
 	n, err := s.query().NewSelect().Model((*model.UserInvitation)(nil)).Where("user_id = ?", userID).Count(ctx)
 
-	return int64(n), err
+	return n, err
 }
 
 // SentInvitations returns the user's invitations that went to an email.

@@ -225,7 +225,7 @@ func TestProfileAbout(t *testing.T) {
 	rows := func() int64 {
 		n, err := repo.Query(db).NewSelect().Model((*model.UserProfile)(nil)).Where("user_id = ?", user.ID).Count(ctx)
 		require.NoError(t, err)
-		return int64(n)
+		return n
 	}
 
 	require.Empty(t, about())

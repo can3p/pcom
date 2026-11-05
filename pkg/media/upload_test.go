@@ -75,7 +75,7 @@ func TestValidateImageType(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err)
-				require.Equal(t, "", ext)
+				require.Empty(t, ext)
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tt.wantExt, ext)

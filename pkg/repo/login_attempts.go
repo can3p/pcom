@@ -47,7 +47,7 @@ func (s *Store) LoginCodesSince(ctx context.Context, userID string, since time.T
 		Where("created_at > ?", since).
 		Count(ctx)
 
-	return int64(n), err
+	return n, err
 }
 
 // WrongLoginTriesSince sums the wrong codes tried on the user's attempts

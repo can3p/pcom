@@ -243,7 +243,7 @@ func TestStartPprof(t *testing.T) {
 			startPprof(enabled, addr, zap.NewNop())
 
 			// the default mux the app could serve from never carries pprof
-			_, pattern := http.DefaultServeMux.Handler(httptest.NewRequest("GET", "/debug/pprof/", nil))
+			_, pattern := http.DefaultServeMux.Handler(httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil))
 			require.Empty(t, pattern)
 
 			get := func() (int, error) {
@@ -296,7 +296,7 @@ func TestNewMediaServer_PermaCache(t *testing.T) {
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 			c.Params = gin.Params{{Key: "class", Value: "thumb"}}
-			req := httptest.NewRequest("GET", "/media/thumb/a.jpg", nil)
+			req := httptest.NewRequest(http.MethodGet, "/media/thumb/a.jpg", nil)
 
 			require.NoError(t, ms.ServeImage(c, ms, req, w, "a.jpg"))
 

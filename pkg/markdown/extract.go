@@ -39,7 +39,7 @@ func (t *parsedText) Render(writer io.Writer) error {
 func (t *parsedText) ExtractImageUrls() []*EmbeddedLink {
 	out := []*EmbeddedLink{}
 
-	walkNode([]byte(t.s), t.node, 0, func(ch goldmarkAst.Node) {
+	walkNode(t.s, t.node, 0, func(ch goldmarkAst.Node) {
 		if l, ok := ch.(*goldmarkAst.Image); ok {
 			out = append(out, &EmbeddedLink{
 				URL: string(l.Destination),

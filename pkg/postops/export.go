@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -94,7 +95,7 @@ func SerializeBlogSlice(ctx context.Context, posts []*model.Post, mediaStorage s
 
 		r, _, _, err := mediaStorage.DownloadFile(ctx, img.URL)
 
-		if err == media.ErrNotFound {
+		if errors.Is(err, media.ErrNotFound) {
 			missingImages = append(missingImages, img.URL)
 			written[img.URL] = true
 			continue

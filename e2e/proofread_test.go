@@ -64,7 +64,7 @@ func TestProofread_GrammarAndStyle(t *testing.T) {
 
 	got = decode(t, c.PostJSON("/controls/action/proofread_style",
 		map[string]any{"post_id": post.ID, "subject": "Cats", "body": styleBody, "author_note": "be gentle"}).RequireStatus(http.StatusOK))
-	require.Equal(t, 2.0, got["remaining"].(map[string]any)["style"])
+	require.InDelta(t, 2.0, got["remaining"].(map[string]any)["style"], 0)
 
 	posted := got["review"].(map[string]any)
 	require.Equal(t, "A solid first draft.", posted["summary"])
@@ -74,11 +74,11 @@ func TestProofread_GrammarAndStyle(t *testing.T) {
 	require.Equal(t, "The ending is abrupt.", pn[0].(map[string]any)["text"])
 	require.Equal(t, "Then it ended.", pn[0].(map[string]any)["quote"])
 	require.Equal(t, "pacing", pn[0].(map[string]any)["kind"])
-	require.Equal(t, 0.0, pn[0].(map[string]any)["occurrence"])
+	require.InDelta(t, 0.0, pn[0].(map[string]any)["occurrence"], 0)
 
 	state := decode(t, c.Get(stateURL).RequireStatus(http.StatusOK))
 	review := state["review"].(map[string]any)
-	require.Equal(t, 1.0, review["number"])
+	require.InDelta(t, 1.0, review["number"], 0)
 	require.Equal(t, "be gentle", review["author_note"])
 
 	notes := review["notes"].([]any)

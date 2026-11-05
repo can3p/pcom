@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"net/http"
 
 	gogoForms "github.com/can3p/gogo/forms"
@@ -80,7 +81,7 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 			form, err = forms.EditPostFormNew(c, posts, dbUser, postID)
 
 			if err != nil {
-				if err == service.ErrNotFound {
+				if errors.Is(err, service.ErrNotFound) {
 					c.Status(http.StatusNotFound)
 					return
 				}

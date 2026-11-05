@@ -39,7 +39,7 @@ func TestSendPrompt_DirectConnectionsOnly(t *testing.T) {
 
 			if tc.ok {
 				require.NoError(t, err)
-				require.EqualValues(t, 1, n)
+				require.Equal(t, 1, n)
 
 				return
 			}

@@ -198,8 +198,8 @@ with some *markdown* in it`,
 
 	posts, images, err := DeserializeArchive(b)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(posts))
-	require.Equal(t, 0, len(images))
+	require.Len(t, posts, 1)
+	require.Empty(t, images)
 
 	// Clear R field before comparison as it's not part of serialization
 	post.URL = nil

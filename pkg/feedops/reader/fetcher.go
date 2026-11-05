@@ -87,7 +87,7 @@ func (lrc *limitedReadCloser) Close() error {
 func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error) {
 	ctx, cancel := context.WithTimeout(ctx, MediaDownloadTimeout)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", mediaURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -116,7 +116,7 @@ func (f *Fetcher) FetchMedia(ctx context.Context, mediaURL string) (io.ReadClose
 
 	peekBuf := make([]byte, 512)
 	n, err := io.ReadFull(resp.Body, peekBuf)
-	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
 		_ = resp.Body.Close()
 		cancel()
 		if ctx.Err() == context.DeadlineExceeded {

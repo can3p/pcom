@@ -17,8 +17,8 @@ func (l *YoutubeLink) Key() string {
 }
 
 func (l *YoutubeLink) EmbedCode() template.HTML {
-	return template.HTML(
-		fmt.Sprintf(`<lite-youtube videoid="%s" playlabel="Play Video" nocookie disablenoscript></lite-youtube>`, l.ID),
+	return template.HTML( //nolint:gosec // the only value in it is escaped
+		fmt.Sprintf(`<lite-youtube videoid="%s" playlabel="Play Video" nocookie disablenoscript></lite-youtube>`, template.HTMLEscapeString(l.ID)),
 	)
 }
 

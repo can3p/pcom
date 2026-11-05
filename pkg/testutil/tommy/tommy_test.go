@@ -95,7 +95,7 @@ func TestCapacityKeepsMoreThanTheDefault(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 	}
 
-	require.Equal(t, total, len(tm.ListMails(t, to, nil)))
+	require.Len(t, tm.ListMails(t, to, nil), total)
 }
 
 // TestS3Objects lists objects by prefix and reads one back, with the content

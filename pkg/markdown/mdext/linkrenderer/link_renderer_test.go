@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer"
@@ -55,7 +56,7 @@ func TestLinkRenderer_WithNewTab(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			err := parser.Convert([]byte(tt.input), &buf)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			output := strings.TrimSpace(buf.String())
 			// Remove wrapping <p> tags for comparison
@@ -100,7 +101,7 @@ func TestLinkRenderer_WithoutNewTab(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			err := parser.Convert([]byte(tt.input), &buf)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			output := strings.TrimSpace(buf.String())
 			// Remove wrapping <p> tags for comparison

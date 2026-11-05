@@ -2,6 +2,7 @@ package shares_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/can3p/pcom/pkg/model"
@@ -85,7 +86,7 @@ func TestShares(t *testing.T) {
 			postID := tc.postID(t)
 			err := svc.Create(ctx, tc.actor, postID)
 
-			if want, ok := tc.wantErr.(*service.ValidationError); ok {
+			if want := (*service.ValidationError)(nil); errors.As(tc.wantErr, &want) {
 				require.Equal(t, want, err)
 			} else {
 				require.ErrorIs(t, err, tc.wantErr)
