@@ -16,6 +16,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
@@ -33,13 +34,19 @@ const (
 	testSiteRoot = "https://site.test"
 )
 
+// testAdmin is the address the admin's mails go to.
+const testAdmin = "admin@site.test"
+
+// testIdent is the identity the accounts services under test mail with.
+var testIdent = mail.Identity{Site: links.Site{Root: testSiteRoot}, From: "sender@site.test", AdminAddress: testAdmin}
+
 // codeAccounts is the accounts service with the code key logging in needs.
 func codeAccounts(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
 	if q == nil {
 		q = fakequeue.New()
 	}
 
-	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithJobs(q))
+	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithIdentity(testIdent), accounts.WithJobs(q))
 }
 
 // rendered builds the mail of every account job q recorded, in order, the way

@@ -9,8 +9,10 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/pkg/jobs"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/mail"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
@@ -25,13 +27,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testAdmin is the address the admin's mails go to.
+const testAdmin = "admin@pcom.test"
+
+// testIdent is the identity the services under test mail with.
+var testIdent = mail.Identity{Site: links.Site{Root: "https://pcom.test"}, From: "sender@pcom.test", AdminAddress: testAdmin}
+
 // svcWith is the accounts service over db that enqueues its jobs on q.
 func svcWith(db *sql.DB, q *fakequeue.Queue) *accounts.Service {
 	if q == nil {
 		q = fakequeue.New()
 	}
 
-	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithJobs(q))
+	return accounts.New(repo.New(db), nil, nil, accounts.WithCodeKey("test-key"), accounts.WithIdentity(testIdent), accounts.WithJobs(q))
 }
 
 // rendered builds the mail of every job q recorded, in order, the way the
@@ -137,13 +145,14 @@ func TestRegister(t *testing.T) {
 		require.Nil(t, got.Pwdhash)
 		require.Equal(t, "some-campaign", lo.FromPtr(got.SignupAttribution))
 
-		require.Len(t, q.Inserted(), 2)
 		require.Len(t, fakequeue.Of[accounts.AdminNewUserMailArgs](q), 1)
 		require.Len(t, fakequeue.Of[accounts.ConfirmSignupMailArgs](q), 1)
 
 		sent := rendered(t, ctx, svc, q)
 		require.Len(t, sent, 2)
 		require.Equal(t, "admin_new_user", sent[0].Type)
+		require.Equal(t, testAdmin, sent[0].Mail.To[0].Address)
+		require.Contains(t, sent[0].Mail.Text, "new-signup@example.test")
 		require.Equal(t, "confirm_signup", sent[1].Type)
 		require.Equal(t, "new-signup@example.test", sent[1].Mail.To[0].Address)
 		require.Equal(t, id, sent[1].UniqueID)
@@ -241,13 +250,14 @@ func TestAcceptInvite(t *testing.T) {
 
 		require.True(t, testutil.Must(factory.ConnectionExists(ctx, db, inviter.ID, newUserID))(t))
 
-		require.Len(t, sender.Inserted(), 2)
 		require.Len(t, fakequeue.Of[accounts.AdminNewUserMailArgs](sender), 1)
 		require.Len(t, fakequeue.Of[accounts.LoginCodeMailArgs](sender), 1)
 
 		sent := rendered(t, ctx, svc, sender)
 		require.Len(t, sent, 2)
 		require.Equal(t, "admin_new_user", sent[0].Type)
+		require.Equal(t, testAdmin, sent[0].Mail.To[0].Address)
+		require.Contains(t, sent[0].Mail.Text, "invitee@example.test")
 		require.Equal(t, "login_code", sent[1].Type)
 		require.Equal(t, "invitee@example.test", sent[1].Mail.To[0].Address)
 	})
@@ -395,6 +405,16 @@ func TestSendInvite_Queue(t *testing.T) {
 		require.NoError(t, sendInvite(ctx, db, queue, inviter, "same@example.test"))
 		require.Error(t, sendInvite(ctx, db, queue, inviter, " SAME@example.test "))
 		require.Len(t, queued(t, svcWith(db, queue), queue), 1)
+
+		// a repeated job for one invitation renders the same (type, unique
+		// id), which is what sent_emails drops a second send by (pinned in
+		// pkg/jobs)
+		svc := svcWith(db, queue)
+		args := fakequeue.Of[accounts.InvitationMailArgs](queue)[0]
+		first := testutil.Must(svc.RenderInvitation(ctx, args))(t)
+		second := testutil.Must(svc.RenderInvitation(ctx, args))(t)
+		require.Equal(t, first.Type, second.Type)
+		require.Equal(t, first.UniqueID, second.UniqueID)
 	})
 
 	t.Run("every invitation from one user queues its own mail", func(t *testing.T) {
@@ -441,6 +461,7 @@ func TestSendInvite(t *testing.T) {
 		require.Len(t, sent, 1)
 		require.Equal(t, "user_invitation", sent[0].Type)
 		require.Equal(t, "first-invitee@example.test", sent[0].Mail.To[0].Address)
+		require.Contains(t, sent[0].Mail.Text, "/invite/"+fakequeue.Of[accounts.InvitationMailArgs](s)[0].InviteID)
 
 		// The only invitation slot senderUser had is now used, so a second
 		// invite fails: it proves SendInvite marked the row as used rather
@@ -512,7 +533,6 @@ func TestCheckSignupEmail_InvalidFormat(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	sender := fakequeue.New()
 
 	testCases := []string{
 		"invalid",
@@ -524,7 +544,7 @@ func TestCheckSignupEmail_InvalidFormat(t *testing.T) {
 	for _, email := range testCases {
 		t.Run(email, func(t *testing.T) {
 			// Invalid email format check happens before any DB access
-			msg, ok := problem(svcWith(nil, sender).CheckSignupEmail(ctx, email))
+			msg, ok := problem(svcWith(nil, nil).CheckSignupEmail(ctx, email))
 			require.False(t, ok, "email: %s", email)
 			require.Equal(t, "Invalid email", msg)
 		})
@@ -558,7 +578,6 @@ func TestCheckSignupEmail(t *testing.T) {
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
-	sender := fakequeue.New()
 
 	// registered makes an account for email and returns the address to check
 	registered := func(email, check string) func(t *testing.T) string {
@@ -589,8 +608,22 @@ func TestCheckSignupEmail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, isOK := problem(svcWith(db, sender).CheckSignupEmail(ctx, tt.email(t)))
+
+			q := fakequeue.New()
+			address := tt.email(t)
+
+			_, isOK := problem(svcWith(db, q).CheckSignupEmail(ctx, address))
 			require.Equal(t, tt.wantOK, isOK)
+
+			if address != "test@mailinator.com" {
+				require.Empty(t, q.Inserted(), "only a throwaway address notifies the admin")
+
+				return
+			}
+
+			// the notification is queued in the background
+			require.Eventually(t, func() bool { return len(q.Inserted()) == 1 }, 5*time.Second, 5*time.Millisecond)
+			require.Equal(t, []accounts.AdminThrowAwayEmailMailArgs{{Email: address}}, fakequeue.Of[accounts.AdminThrowAwayEmailMailArgs](q))
 		})
 	}
 }

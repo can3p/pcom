@@ -28,7 +28,6 @@ func TestJoinWaitingList(t *testing.T) {
 
 	require.NoError(t, svc.JoinWaitingList(ctx, " Waiter@Example.test ", "curious", "index_page"))
 
-	require.Len(t, q.Inserted(), 2)
 	require.Len(t, fakequeue.Of[accounts.ConfirmWaitingListMailArgs](q), 1)
 	require.Len(t, fakequeue.Of[accounts.AdminNewWaitingListMemberMailArgs](q), 1)
 
@@ -43,7 +42,10 @@ func TestJoinWaitingList(t *testing.T) {
 	require.Equal(t, 1, confirms)
 	require.Equal(t, "waiting_list_confirm", sent[0].Type)
 	require.Equal(t, "waiter@example.test", sent[0].Mail.To[0].Address)
+	require.Contains(t, sent[0].Mail.Text, "/confirm_waiting_list/"+sent[0].UniqueID, "the link carries the request id")
 	require.Equal(t, "new_waiting_list_member", sent[1].Type)
+	require.Equal(t, testAdmin, sent[1].Mail.To[0].Address)
+	require.Contains(t, sent[1].Mail.Text, "waiter@example.test")
 
 	row := testutil.Must(factory.GetSignupRequest(ctx, db, sent[0].UniqueID))(t)
 	require.Equal(t, "waiter@example.test", row.Email)

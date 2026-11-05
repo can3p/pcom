@@ -39,21 +39,19 @@ func (c *clock) now() time.Time          { return c.t }
 func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
 // jobQueue is the real job queue over db.
-func jobQueue(t *testing.T, db *sql.DB) *jobs.Inserter {
-	t.Helper()
-
-	return testutil.Must(jobs.NewInserter(db))(t)
-}
-
-// codeSvc is the accounts service over the real job queue, timed by c and
-// keyed with key ("" for none).
-func codeSvc(db *sql.DB, c *clock, key string) *accounts.Service {
+func jobQueue(db *sql.DB) *jobs.Inserter {
 	queue, err := jobs.NewInserter(db)
 	if err != nil {
 		panic(err)
 	}
 
-	opts := []accounts.Option{accounts.WithClock(c.now), accounts.WithJobs(queue)}
+	return queue
+}
+
+// codeSvc is the accounts service over the real job queue, timed by c and
+// keyed with key ("" for none).
+func codeSvc(db *sql.DB, c *clock, key string) *accounts.Service {
+	opts := []accounts.Option{accounts.WithClock(c.now), accounts.WithJobs(jobQueue(db))}
 	if key != "" {
 		opts = append(opts, accounts.WithCodeKey(key))
 	}
@@ -91,7 +89,7 @@ func queuedArgs[T any](t *testing.T, db *sql.DB, kind string) []T {
 
 // renderSvc is the service the mail workers render with.
 func renderSvc(db *sql.DB) *accounts.Service {
-	return accounts.New(repo.New(db), nil, nil)
+	return accounts.New(repo.New(db), nil, nil, accounts.WithIdentity(testIdent))
 }
 
 // mailedCodes returns the codes queued for the address, in no order.
@@ -136,6 +134,7 @@ func signupConfirmed(t *testing.T, db *sql.DB, email string) int {
 	for _, a := range queuedArgs[accounts.AdminSignupConfirmedMailArgs](t, db, accounts.AdminSignupConfirmedMailArgs{}.Kind()) {
 		m := testutil.Must(renderSvc(db).RenderAdminSignupConfirmed(context.Background(), a))(t)
 		require.NotNil(t, m)
+		require.Equal(t, testAdmin, m.Mail.To[0].Address)
 		if strings.Contains(m.Mail.Text, email) {
 			n++
 		}
@@ -432,7 +431,7 @@ func TestLoginCodes(t *testing.T) {
 	t.Run("the limits are settings: a set one applies, the others keep their defaults", func(t *testing.T) {
 		t.Parallel()
 
-		svc := accounts.New(repo.New(db), nil, nil, accounts.WithJobs(jobQueue(t, db)), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
+		svc := accounts.New(repo.New(db), nil, nil, accounts.WithJobs(jobQueue(db)), accounts.WithCodeKey("test-key"), accounts.WithLoginLimits(accounts.LoginLimits{CodeTries: 2}))
 		u := newUser(t)
 		id, code := start(t, ctx, db, svc, u, "")
 
