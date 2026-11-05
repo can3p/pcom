@@ -10,7 +10,6 @@ support read directly. Rules for reading and verifying code cheaply are in `AGEN
 
 Where the modernization is going:
 
-- one job queue for mail and feeds (R8);
 - shared plumbing in [gogo](https://github.com/can3p/gogo) (`docs/gogo-extraction.md`).
 
 F-waves are product features, planned from an issue; unlike R-waves they change behavior on purpose, as
@@ -31,9 +30,9 @@ A wave is `R<n>` (refactor) or `F<n>` (feature), numbered on from the highest id
 `docs/archive/history/`. Its file starts with one line of state:
 
 ```markdown
-## R8 — One job queue
+## R9 — Example
 
-Status: planned · Depends on: — · Branch: `refactor/r8-jobs`
+Status: planned · Depends on: — · Branch: `refactor/r9-example`
 ```
 
 `Status` is `planned` or `running`; `Depends on` names only waves or outside events still pending. Then the
@@ -61,7 +60,8 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   and the route that builds it, not only the partial the feature lives in.
 - **Every text a user can store has a length setting.** A note, a reason, a label: list each new free-text
   field with its `pkg/config` limit, or the service stores it unbounded.
-- **Tasks that share a file are not parallel.** Run them in sequence rather than plan a merge. Split a mixed
+- **Tasks that share a file are not parallel**, and that includes a test helper: two services whose tests
+  build each other's helpers in one package (`pkg/forms`) make their tasks sequential. Run them in sequence rather than plan a merge. Split a mixed
   file by area in a step 0 before parallel work, so later merges conflict only in registries. A breaking
   library bump is sequential too: order its tasks by import graph, each with the packages that compile at
   its point.

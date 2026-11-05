@@ -69,7 +69,7 @@ subagents, whose context is thrown away.
   serve stub assets and need neither; only the browser tests (`make test-ui`) need a build. A task that
   runs them links `node_modules` from the main checkout and lets `make test-ui` build. Don't link the main
   checkout's `dist`: it exists only after a `make test-ui` there, and a dangling link breaks E2E. Parallel worktrees share golangci-lint's lock: "parallel golangci-lint is running" means
-  retry, not a lint failure. Delete finished worktrees (`git worktree remove`) once merged; their copies
+  retry, not a lint failure. Delete finished worktrees (`git worktree remove`) once merged and audited: an agent whose worktree is gone can't be resumed, so audit fixes would need a fresh agent; their copies
   of the tree show up in every repository-wide grep. `.claude/worktrees/` is gitignored, so running agents' trees don't trip the
   stop hook's "untracked files" check.
   With a worktree of its own, an agent may run `make test-ui` freely. After merging parallel tasks, run the
