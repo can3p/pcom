@@ -52,6 +52,8 @@ func (m *mailbox) Sent() []*mail.Envelope {
 		switch a := args.(type) {
 		case posts.PublishedArgs:
 			require.NoError(m.t, m.svc.FanOutPublished(m.ctx, a))
+		case posts.CommentPostedArgs:
+			require.NoError(m.t, m.svc.FanOutComment(m.ctx, a))
 		case posts.PromptMailArgs:
 			env, err = m.svc.RenderPrompt(m.ctx, a)
 		case posts.PromptAnswerMailArgs:

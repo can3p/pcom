@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/can3p/pcom/pkg/forms/validation"
-	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/repo"
@@ -14,7 +13,6 @@ import (
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"go.uber.org/zap"
 )
 
 // CommentInput is a comment as its author submitted it.
@@ -135,7 +133,7 @@ func (s *Service) addComment(ctx context.Context, tx *repo.Store, actor *model.U
 		return err
 	}
 
-	if err := s.notifyComment(ctx, tx, actor, comment, false); err != nil {
+	if err := s.notifyComment(ctx, tx, comment, false); err != nil {
 		return err
 	}
 
@@ -180,61 +178,14 @@ func (s *Service) EditComment(ctx context.Context, actor *model.User, commentID,
 			return err
 		}
 
-		return s.notifyComment(ctx, tx, actor, comment, true)
+		return s.notifyComment(ctx, tx, comment, true)
 	})
 }
 
-// notifyComment tells the post's author and everybody else who commented on
-// the post and may still read its comments about a new comment, or an
-// edited one.
-func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, actor *model.User, comment *model.PostComment, edited bool) error {
-	post, err := tx.PostWithAuthorAndURL(ctx, comment.PostID)
-	if err != nil {
-		return err
-	}
-
-	// notify post author about discussion
-	// we're not sending email notifications to ourselves
-	if actor.ID != post.UserID {
-		if err := tx.Enqueue(ctx, s.jobs, CommentMailArgs{CommentID: comment.ID, RecipientID: post.UserID, Edited: edited}); err != nil {
-			return err
-		}
-	}
-
-	// notify anyone else who left a comment to the post about discussion
-	// @TODO: it's a lame implementation, we should schedule all emails and send them
-	// in a separate process
-	// also, we might want to notify users per thread, not in a blanket way
-	// and give them an ability to unsubscribe
-	participants, err := tx.CommentParticipants(ctx, post.ID, post.UserID)
-	if err != nil {
-		return err
-	}
-
-	logging.FromContext(ctx).Debug("comment in the post", zap.Int("participants", len(participants)))
-
-	for _, cmt := range participants {
-		mayRead, err := mayReadComments(ctx, tx, cmt.User.ID, post)
-		if err != nil {
-			return err
-		}
-
-		// a participant who lost the connection, or whose post went back
-		// to draft, is told nothing more
-		if !mayRead {
-			continue
-		}
-
-		if cmt.User.ID == actor.ID {
-			continue
-		}
-
-		if err := tx.Enqueue(ctx, s.jobs, CommentMailArgs{CommentID: comment.ID, RecipientID: cmt.User.ID, Edited: edited}); err != nil {
-			return err
-		}
-	}
-
-	return nil
+// notifyComment records that the comment was added or edited: the
+// comments.posted job it enqueues decides who is told (FanOutComment).
+func (s *Service) notifyComment(ctx context.Context, tx *repo.Store, comment *model.PostComment, edited bool) error {
+	return tx.Enqueue(ctx, s.jobs, CommentPostedArgs{CommentID: comment.ID, Edited: edited})
 }
 
 // mayReadComments reports whether the user may read the post and its
