@@ -235,6 +235,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		FeedPollInterval:      cfg.Feeds.PollInterval,
 		Login:                 loginLimits(cfg.Login),
 		Proofread:             proofreadConfig(cfg.Proofread),
+		Subscriptions:         subscriptionsOptions(cfg.Subscriptions, newEmailChecker(cfg.Email)),
 	}
 }
 

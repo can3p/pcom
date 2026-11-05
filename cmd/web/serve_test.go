@@ -133,6 +133,9 @@ func TestAppConfig(t *testing.T) {
 
 			reflect.ValueOf(&got).Elem().FieldByName(r.field).SetZero()
 			reflect.ValueOf(&want).Elem().FieldByName(r.field).SetZero()
+			// Options are functions, which never compare equal; their mapping
+			// is TestSubscriptionsOptions.
+			got.Subscriptions, want.Subscriptions = nil, nil
 			require.Equal(t, want, got, "%s changed another field", r.set)
 		})
 	}
