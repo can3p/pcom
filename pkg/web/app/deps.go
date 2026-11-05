@@ -4,6 +4,7 @@ package app
 
 import (
 	"database/sql"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"time"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
@@ -89,6 +90,9 @@ type Config struct {
 	// Proofread is the grammar check and style review; an empty
 	// Claude.APIKey turns the feature off.
 	Proofread Proofread
+	// Subscriptions configures the email subscriptions service: its limits
+	// and the address checker.
+	Subscriptions []subscriptions.Option
 }
 
 // Proofread is the settings of the grammar check and style review: the
