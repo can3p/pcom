@@ -225,7 +225,9 @@ func startPprof(enabled bool, addr string, logger *zap.Logger) {
 
 	if enabled {
 		go func() {
-			srv := &http.Server{
+			// fly.toml publishes only the app's port; this one is reachable from
+			// the private network alone.
+			srv := &http.Server{ //nolint:gosec // G112: private debug listener
 				Addr:    addr,
 				Handler: pprofMux,
 			}

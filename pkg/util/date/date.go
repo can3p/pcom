@@ -38,5 +38,5 @@ func RelativeTime(t time.Time, now time.Time) string {
 func RenderTimeHTML(t time.Time, user *model.User, now time.Time) template.HTML {
 	timestamp := FormatTimestamp(t, user)
 	relative := RelativeTime(t, now)
-	return template.HTML(fmt.Sprintf(`<span title="%s">%s</span>`, template.HTMLEscapeString(timestamp), template.HTMLEscapeString(relative)))
+	return template.HTML(fmt.Sprintf(`<span title="%s">%s</span>`, template.HTMLEscapeString(timestamp), template.HTMLEscapeString(relative))) //nolint:gosec // both values are escaped
 }

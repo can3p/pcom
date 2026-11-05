@@ -5,8 +5,16 @@ run:
     - browser
 linters:
   enable:
+    - bodyclose
     - depguard
+    - errorlint
+    - exhaustive
+    - gosec
     - misspell
+    - nolintlint
+    - testifylint
+    - unconvert
+    - usestdlibvars
   settings:
     depguard:
       rules:
@@ -26,13 +34,35 @@ linters:
               desc: use the standard errors package and fmt.Errorf with %w
             - pkg: github.com/antonlindstrom/pgstore
               desc: use github.com/can3p/gogo/sessions/pgstore (pgsession.NewStore)
+    exhaustive:
+      # A switch with a default case has decided what happens to the other
+      # values; only switches without one must list every value.
+      default-signifies-exhaustive: true
+    gosec:
+      # Only the rules that find real problems in a server-rendered app.
+      # The rest (file paths and permissions, taint-based SSRF, integer
+      # conversions) flag the feed fetcher, tests and tooling by design.
+      includes:
+        - G101 # hardcoded credentials
+        - G112 # http.Server without ReadHeaderTimeout
+        - G201 # SQL built with fmt
+        - G202 # SQL built by concatenation
+        - G203 # template.HTML and friends: every raw-HTML conversion is an XSS trust boundary
+        - G401 # weak hash
+        - G402 # bad TLS settings
+        - G404 # math/rand where crypto/rand is needed
+        - G501 # crypto/md5 import
+        - G505 # crypto/sha1 import
+    nolintlint:
+      require-explanation: true
+      require-specific: true
   exclusions:
     generated: lax
-    paths:
-      - vendor
-      - third_party$
-      - builtin$
-      - examples$
+    rules:
+      # tests spell out made-up credentials in URLs and fixtures
+      - path: _test\.go
+        linters: [gosec]
+        text: G101
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -41,8 +71,3 @@ formatters:
     - gofmt
   exclusions:
     generated: lax
-    paths:
-      - vendor
-      - third_party$
-      - builtin$
-      - examples$

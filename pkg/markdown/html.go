@@ -26,7 +26,7 @@ import (
 // Same thing as https://github.com/yuin/goldmark/blob/master/extension/linkify.go#L16
 // but with closing brace excluded.
 // Note: proper fix is probably something else
-var urlRegexpNoClosingBrace = regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(;,'">\^{}\[\]` + "`" + `]*)?`) //nolint:golint,lll
+var urlRegexpNoClosingBrace = regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(;,'">\^{}\[\]` + "`" + `]*)?`)
 
 func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link types.Link) goldmark.Markdown {
 	extensions := []goldmark.Extender{
@@ -100,5 +100,7 @@ func ToEnrichedTemplate(s string, view types.HTMLView, mediaReplacer types.Repla
 		panic(err)
 	}
 
-	return template.HTML(buf.String())
+	// goldmark without html.WithUnsafe drops raw HTML from the source and
+	// escapes the text it renders.
+	return template.HTML(buf.String()) //nolint:gosec // see above
 }

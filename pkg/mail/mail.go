@@ -208,7 +208,7 @@ func (d *Definition[In]) Render(in In) (*Envelope, error) {
 	h := in.Header()
 	// content is the output of html/template, every value in it escaped, so
 	// it is trusted HTML.
-	data := layoutData{Content: htmltemplate.HTML(content), Site: h.Site, NoAccount: h.NoAccount}
+	data := layoutData{Content: htmltemplate.HTML(content), Site: h.Site, NoAccount: h.NoAccount} //nolint:gosec // see above
 
 	page, err := execute(d.layout, data)
 	if err != nil {
