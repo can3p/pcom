@@ -168,12 +168,15 @@ func TestFeeds_RefreshAndLock(t *testing.T) {
 		_, err := tx.LockFeed(ctx, due.ID)
 		require.NoError(t, err)
 
-		waitCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+		wait := 200 * time.Millisecond
+		start := time.Now()
+
+		waitCtx, cancel := context.WithTimeout(ctx, wait)
 		defer cancel()
 
 		_, err = store.LockFeed(waitCtx, due.ID)
-		require.Error(t, err)
-		require.NotErrorIs(t, err, repo.ErrNotFound)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.GreaterOrEqual(t, time.Since(start), wait, "LockFeed waits for the lock until its context ends")
 
 		_, err = store.FeedByID(ctx, due.ID)
 		require.NoError(t, err)

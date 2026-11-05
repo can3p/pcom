@@ -3,6 +3,7 @@ package feeds
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
 	feedutil "github.com/can3p/pcom/pkg/feedops/testutil"
+	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
@@ -21,6 +23,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/google/uuid"
 	. "github.com/ovechkin-dm/mockio/v2/mock"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -61,7 +64,8 @@ func (s *fnameCapturingStorage) Fnames() []string {
 	return out
 }
 
-// TestRefresh exercises the refresh worker's two outcomes.
+// TestRefresh exercises the refresh worker's outcomes other than a
+// successful fetch, which TestScheduleAndRefresh covers.
 func TestRefresh(t *testing.T) {
 	t.Parallel()
 
@@ -82,41 +86,50 @@ func TestRefresh(t *testing.T) {
 
 		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
 
-		// A fetch failure must be recorded on the feed (via saveFetchFailure)
-		// rather than propagated: the job completes, and the feed's
-		// next_fetch_at is its backoff.
+		// A fetch failure is recorded on the feed rather than propagated: the
+		// job completes, and the feed's next_fetch_at is its backoff.
 		require.NoError(t, f.Refresh(ctx, RefreshArgs{FeedID: feedRow.ID}))
-		feedRow = testutil.Must(feedutil.GetRSSFeed(ctx, testDB.DB, feedRow.ID))(t)
-		require.Equal(t, fetchErr.Error(), lo.FromPtr(feedRow.LastFetchError))
-		require.NotNil(t, feedRow.NextFetchAt)
+
+		reloaded := testutil.Must(repo.Using(testDB.DB).FeedByID(ctx, feedRow.ID))(t)
+		require.Equal(t, fetchErr.Error(), lo.FromPtr(reloaded.LastFetchError))
+		require.Equal(t, 0, reloaded.LastItemsCount)
+		require.NotNil(t, reloaded.NextFetchAt)
+		require.WithinDuration(t, time.Now().Add(reader.ErrorFetchInterval), *reloaded.NextFetchAt, 5*time.Second)
+		require.NotNil(t, reloaded.LastFetchedAt)
+		require.WithinDuration(t, time.Now(), *reloaded.LastFetchedAt, 5*time.Second)
 	})
 
-	t.Run("fetch success saves feed", func(t *testing.T) {
+	t.Run("a deleted feed is skipped", func(t *testing.T) {
 		t.Parallel()
 
-		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.WithoutTitle()))(t)
+		// a nil fetcher panics if called, and the panic comes back as an error
+		f := newService(repo.New(testDB.DB), nil, nil, nil)
+		require.NoError(t, f.Refresh(ctx, RefreshArgs{FeedID: uuid.NewString()}))
+	})
+
+	t.Run("recovers from a panic in per-feed processing", func(t *testing.T) {
+		t.Parallel()
+
+		user := testutil.Must(factory.User(ctx, testDB.DB))(t)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
+		testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID))(t)
 
 		ctrl := NewMockController(t)
 		fetcherMock := Mock[fetcher](ctrl)
 		cleanerMock := Mock[cleaner](ctrl)
 
-		content := &reader.Feed{Title: "fetched title", Description: "fetched description"}
-		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenReturn(content, nil)
-		WhenSingle(cleanerMock.CleanField(Any[string]())).ThenAnswer(func(args []any) string {
-			return args[0].(string)
+		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenAnswer(func(args []any) (*reader.Feed, error) {
+			panic("boom")
 		})
 
 		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
-		require.NoError(t, f.Refresh(ctx, RefreshArgs{FeedID: feedRow.ID}))
 
-		// LockFeed doubles as the feed reader here: pkg/testutil/factory has
-		// no RSSFeed reader.
-		reloaded := testutil.Must(repo.Using(testDB.DB).LockFeed(ctx, feedRow.ID))(t)
-		require.Empty(t, lo.FromPtr(reloaded.LastFetchError))
-		require.NotNil(t, reloaded.LastFetchedAt)
-		require.NotNil(t, reloaded.NextFetchAt, "a successful fetch schedules the next one")
-		require.True(t, lo.FromPtr(reloaded.NextFetchAt).After(time.Now()), "the next fetch is scheduled in the future")
-		require.Equal(t, "fetched title", lo.FromPtr(reloaded.Title), "a feed with no title yet should get the fetched title persisted")
+		// A panic anywhere in the per-feed processing (a bad fetcher, a bug
+		// in a cleaner) must not crash the runner; it comes back as an
+		// error instead.
+		err := f.Refresh(ctx, RefreshArgs{FeedID: feedRow.ID})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "refreshing feed "+feedRow.ID+" panicked")
 	})
 }
 
@@ -170,6 +183,10 @@ func TestScheduleAndRefresh(t *testing.T) {
 		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour)), factory.WithoutTitle()))(t)
 		testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID))(t)
 
+		future := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(time.Hour))))(t)
+		testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, future.ID))(t)
+		testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour))))(t)
+
 		ctrl := NewMockController(t)
 		fetcherMock := Mock[fetcher](ctrl)
 		cleanerMock := Mock[cleaner](ctrl)
@@ -185,7 +202,7 @@ func TestScheduleAndRefresh(t *testing.T) {
 		require.NoError(t, f.ScheduleRefreshes(ctx, ScheduleArgs{}))
 
 		refreshes := fakequeue.Of[RefreshArgs](q)
-		require.Equal(t, []RefreshArgs{{FeedID: feedRow.ID}}, refreshes, "the due feed is queued for a refresh")
+		require.Equal(t, []RefreshArgs{{FeedID: feedRow.ID}}, refreshes, "only the due feed with a subscriber is queued for a refresh")
 
 		for _, args := range refreshes {
 			require.NoError(t, f.Refresh(ctx, args))
@@ -202,33 +219,36 @@ func TestScheduleAndRefresh(t *testing.T) {
 		require.Equal(t, "fetched title", lo.FromPtr(reloaded.Title), "a feed with no title yet should get the fetched title persisted")
 	})
 
-	t.Run("recovers from a panic in per-feed processing", func(t *testing.T) {
+	t.Run("queues one refresh per feed until it finishes", func(t *testing.T) {
 		t.Parallel()
 
 		testDB := testdb.New(t)
 		user := testutil.Must(factory.User(ctx, testDB.DB))(t)
-		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
+		feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB, factory.NextFetchAt(time.Now().Add(-time.Hour))))(t)
 		testutil.Must(factory.Subscription(ctx, testDB.DB, user.ID, feedRow.ID))(t)
 
-		ctrl := NewMockController(t)
-		fetcherMock := Mock[fetcher](ctrl)
-		cleanerMock := Mock[cleaner](ctrl)
+		q := testutil.Must(jobs.NewInserter(testDB.DB))(t)
+		f := newService(repo.New(testDB.DB), nil, nil, nil, WithJobs(q))
 
-		WhenDouble(fetcherMock.Fetch(Any[context.Context](), Any[string]())).ThenAnswer(func(args []any) (*reader.Feed, error) {
-			panic("boom")
-		})
+		refreshJobs := func() int {
+			var n int
+			require.NoError(t, testDB.DB.QueryRowContext(ctx, "SELECT count(*) FROM river_job WHERE kind = $1", RefreshArgs{}.Kind()).Scan(&n))
 
-		f := newService(repo.New(testDB.DB), fetcherMock, cleanerMock, nil)
+			return n
+		}
 
-		// A panic anywhere in the per-feed processing (a bad fetcher, a bug
-		// in a cleaner) must not crash the runner; it comes back as an
-		// error instead.
-		err := f.Refresh(ctx, RefreshArgs{FeedID: feedRow.ID})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "refreshing feed "+feedRow.ID+" panicked")
+		require.NoError(t, f.ScheduleRefreshes(ctx, ScheduleArgs{}))
+		require.NoError(t, f.ScheduleRefreshes(ctx, ScheduleArgs{}))
+		require.Equal(t, 1, refreshJobs(), "an unfinished refresh of the feed is not queued again")
+
+		_, err := testDB.DB.ExecContext(ctx, "UPDATE river_job SET state = 'completed', finalized_at = now() WHERE kind = $1", RefreshArgs{}.Kind())
+		require.NoError(t, err)
+
+		require.NoError(t, f.ScheduleRefreshes(ctx, ScheduleArgs{}))
+		require.Equal(t, 2, refreshJobs(), "a feed whose refresh finished is queued again")
 	})
 
-	t.Run("propagates a GetFeedsToRefresh error", func(t *testing.T) {
+	t.Run("propagates a FeedsToRefresh error", func(t *testing.T) {
 		t.Parallel()
 
 		db := testdb.New(t)
@@ -243,10 +263,11 @@ func TestScheduleAndRefresh(t *testing.T) {
 }
 
 // rowCheckingFetcher serves one feed with one item that references an image,
-// and on every download checks that the feed row can be updated from another
-// connection: a transaction holding the row would block the update.
+// and on every download checks, from another connection, that no transaction
+// is open on the database: the feed row can be locked without waiting, and no
+// session is idle in a transaction.
 type rowCheckingFetcher struct {
-	db     repo.Executor
+	db     *sql.DB
 	feedID string
 
 	mu     sync.Mutex
@@ -257,16 +278,29 @@ func (f *rowCheckingFetcher) checkRow(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	store := repo.Using(f.db)
+	var id string
 
-	feed, err := store.FeedByID(ctx, f.feedID)
+	err := f.db.QueryRowContext(ctx, "SELECT id FROM rss_feeds WHERE id = $1 FOR UPDATE NOWAIT", f.feedID).Scan(&id)
 	if err == nil {
-		err = store.SaveFeed(ctx, feed)
+		var idle int
+
+		err = f.db.QueryRowContext(ctx, `SELECT count(*) FROM pg_stat_activity
+			WHERE datname = current_database() AND pid <> pg_backend_pid() AND state LIKE 'idle in transaction%'`).Scan(&idle)
+		if err == nil && idle > 0 {
+			err = fmt.Errorf("%d sessions are idle in a transaction", idle)
+		}
 	}
 
 	f.mu.Lock()
 	f.checks = append(f.checks, err)
 	f.mu.Unlock()
+}
+
+func (f *rowCheckingFetcher) Checks() []error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]error(nil), f.checks...)
 }
 
 func (f *rowCheckingFetcher) Fetch(ctx context.Context, _ string) (*reader.Feed, error) {
@@ -281,9 +315,31 @@ func (f *rowCheckingFetcher) FetchMedia(ctx context.Context, _ string) (io.ReadC
 	return io.NopCloser(bytes.NewReader([]byte("\x89PNG\r\n\x1a\nrest-of-file"))), nil
 }
 
+// refreshWithin runs Refresh and fails the test if it hasn't returned within
+// a few seconds, so a refresh that deadlocks fails fast instead of hanging to
+// the go test timeout.
+func refreshWithin(t *testing.T, f *Service, args RefreshArgs) error {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+
+	go func() { done <- f.Refresh(ctx, args) }()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatal("Refresh did not return")
+
+		return nil
+	}
+}
+
 // TestRefresh_NoTransactionDuringDownload proves the refresh fetches the feed
-// and its images outside any transaction: during each download, the feed row
-// can be updated from another connection.
+// and its images outside any transaction.
 func TestRefresh_NoTransactionDuringDownload(t *testing.T) {
 	t.Parallel()
 
@@ -302,16 +358,95 @@ func TestRefresh_NoTransactionDuringDownload(t *testing.T) {
 	fetcher := &rowCheckingFetcher{db: testDB.DB, feedID: feedRow.ID}
 	f := newService(repo.New(testDB.DB), fetcher, cleanerMock, fakestorage.New())
 
-	require.NoError(t, f.Refresh(ctx, RefreshArgs{FeedID: feedRow.ID}))
+	require.NoError(t, refreshWithin(t, f, RefreshArgs{FeedID: feedRow.ID}))
 
-	require.Len(t, fetcher.checks, 2, "the feed and its one image are downloaded")
+	checks := fetcher.Checks()
+	require.Len(t, checks, 2, "the feed and its one image are downloaded")
 
-	for _, err := range fetcher.checks {
-		require.NoError(t, err, "no transaction holds the feed row during a download")
+	for _, err := range checks {
+		require.NoError(t, err, "no transaction is open during a download")
 	}
 
 	items := testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t)
 	require.Len(t, items, 1, "the item is saved after the downloads")
+}
+
+// racingFetcher serves one feed with one item that references an image. Its
+// image download, which comes after the refresh has found the item new, saves
+// the same item through another service first, as a concurrent refresh would.
+type racingFetcher struct {
+	db     *sql.DB
+	other  *Service
+	feedID string
+	item   *reader.Item
+}
+
+func (f *racingFetcher) Fetch(context.Context, string) (*reader.Feed, error) {
+	return &reader.Feed{Title: "t", Items: []*reader.Item{f.item}}, nil
+}
+
+func (f *racingFetcher) FetchMedia(ctx context.Context, _ string) (io.ReadCloser, error) {
+	subscribers, err := repo.New(f.db).FeedSubscriptions(ctx, f.feedID)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := f.other.saveFeedItem(ctx, f.feedID, f.item, subscribers); err != nil {
+		return nil, err
+	}
+
+	return io.NopCloser(bytes.NewReader([]byte("\x89PNG\r\n\x1a\nrest-of-file"))), nil
+}
+
+// TestRefresh_ItemSavedConcurrently pins saveItem's re-check: an item another
+// refresh saved after this one prepared it is neither stored nor shown twice,
+// and doesn't count as new.
+func TestRefresh_ItemSavedConcurrently(t *testing.T) {
+	t.Parallel()
+
+	testDB := testdb.New(t)
+	ctx := context.Background()
+
+	feedRow := testutil.Must(factory.RSSFeed(ctx, testDB.DB))(t)
+	users := []*model.User{
+		testutil.Must(factory.User(ctx, testDB.DB))(t),
+		testutil.Must(factory.User(ctx, testDB.DB))(t),
+	}
+
+	for _, u := range users {
+		testutil.Must(factory.Subscription(ctx, testDB.DB, u.ID, feedRow.ID))(t)
+	}
+
+	ctrl := NewMockController(t)
+	imageCleaner := Mock[cleaner](ctrl)
+	WhenDouble(imageCleaner.HTMLToMarkdown(Any[string]())).ThenReturn("![alt](https://img.example.test/pic.png)", nil)
+	WhenSingle(imageCleaner.CleanField(Any[string]())).ThenAnswer(func(args []any) string { return args[0].(string) })
+
+	plainCleaner := Mock[cleaner](ctrl)
+	WhenDouble(plainCleaner.HTMLToMarkdown(Any[string]())).ThenReturn("plain", nil)
+	WhenSingle(plainCleaner.CleanField(Any[string]())).ThenAnswer(func(args []any) string { return args[0].(string) })
+
+	fetcher := &racingFetcher{
+		db:     testDB.DB,
+		other:  newService(repo.New(testDB.DB), nil, plainCleaner, nil),
+		feedID: feedRow.ID,
+		item:   &reader.Item{URL: "https://example.com/raced", Title: "t", Summary: "s"},
+	}
+	f := newService(repo.New(testDB.DB), fetcher, imageCleaner, fakestorage.New())
+
+	require.NoError(t, refreshWithin(t, f, RefreshArgs{FeedID: feedRow.ID}))
+
+	items := testutil.Must(factory.ListRSSItems(ctx, testDB.DB, feedRow.ID))(t)
+	require.Len(t, items, 1, "the item is stored once")
+	require.Equal(t, "plain", items[0].SanitizedDescription, "the first save wins")
+
+	for _, u := range users {
+		require.Len(t, testutil.Must(readItems(ctx, testDB.DB, u))(t), 1, "each subscriber is shown the item once")
+	}
+
+	reloaded := testutil.Must(repo.Using(testDB.DB).FeedByID(ctx, feedRow.ID))(t)
+	require.Equal(t, 0, reloaded.LastItemsCount, "an item saved by another refresh isn't new")
+	require.Equal(t, feedRow.ConsecutiveEmptyFetches+1, reloaded.ConsecutiveEmptyFetches)
 }
 
 // TestLockFeed_NotFound pins LockFeed's error path for an id that doesn't
