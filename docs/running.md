@@ -91,7 +91,7 @@ Readers subscribe to an author's posts by email; the `SUBSCRIBE_*` settings boun
 | `SUBSCRIBE_CONFIRMS_PER_ADDRESS` (3) | Confirmation mails one address may get |
 | `SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS` (3) | Mails with the manage link one address may get |
 | `SUBSCRIBE_CONFIRMS_PER_HOUR` (100) | Confirmation mails the whole site may send per hour |
-| `SUBSCRIBE_POW_DIFFICULTY` (18) | Leading zero bits of the proof of work the subscribe form's browser solves |
+| `SUBSCRIBE_POW_DIFFICULTY` (15) | Leading zero bits of the proof of work the subscribe form's browser solves |
 | `SUBSCRIBE_POW_MAX_AGE` (30m) | How long a proof-of-work challenge may be answered |
 | `SUBSCRIBE_MIN_FILL_TIME` (2s) | Least time between showing the subscribe form and submitting it |
 | `SUBSCRIBE_PRUNE_EVERY` (1h) | How often expired subscriptions and old mail records are deleted |

@@ -24,10 +24,10 @@ import (
 
 const (
 	// A mid-range phone is about four times slower than a desktop. The
-	// budget is generous because CI machines are slow too: the average
-	// challenge takes about 2.5s here unthrottled and 9.5s throttled.
+	// default difficulty is set so the average challenge takes about a second
+	// throttled; the budget leaves room for slow CI machines.
 	powCPUThrottle = 4
-	powBudget      = 20 * time.Second
+	powBudget      = 5 * time.Second
 )
 
 // averageChallenge issues challenges until one needs about the expected
@@ -95,7 +95,7 @@ func TestPow_SolvesTheChallengeAtDefaultDifficulty(t *testing.T) {
 	_, err = page.WaitForFunction(`() => window.sent !== undefined`, nil,
 		playwright.PageWaitForFunctionOptions{Timeout: new(float64(powBudget.Milliseconds()))})
 	require.NoError(t, err, "the challenge was not solved within %s at %dx CPU throttling", powBudget, powCPUThrottle)
-	t.Logf("solved at %d bits in %s with %dx CPU throttling", abuse.DefaultPowDifficulty, time.Since(start), powCPUThrottle)
+	t.Logf("solved at %d bits in %s with %dx CPU throttling", guard.Difficulty(), time.Since(start), powCPUThrottle)
 
 	require.NoError(t, browser.Expect.Locator(button).ToHaveText("Subscribe"))
 
