@@ -28,6 +28,9 @@ require (
 	github.com/mmcdole/gofeed v1.5.0
 	github.com/mxschmitt/playwright-go v0.6201.1
 	github.com/ovechkin-dm/mockio/v2 v2.0.5
+	github.com/riverqueue/river v0.51.0
+	github.com/riverqueue/river/riverdriver/riverdatabasesql v0.51.0
+	github.com/riverqueue/river/rivertype v0.51.0
 	github.com/samber/lo v1.53.0
 	github.com/samber/mo v1.17.0
 	github.com/stretchr/testify v1.12.1
@@ -142,12 +145,9 @@ require (
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
-	github.com/riverqueue/river v0.51.0 // indirect
 	github.com/riverqueue/river/riverdriver v0.51.0 // indirect
-	github.com/riverqueue/river/riverdriver/riverdatabasesql v0.51.0 // indirect
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.51.0 // indirect
 	github.com/riverqueue/river/rivershared v0.51.0 // indirect
-	github.com/riverqueue/river/rivertype v0.51.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rubenv/sql-migrate v1.8.1 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect

@@ -298,6 +298,7 @@ func subscriptionsOptions(cfg config.Subscriptions, checker *emailaddr.Checker) 
 		subscriptions.WithConfirmsPerAddress(cfg.ConfirmsPerAddress),
 		subscriptions.WithManageLinksPerAddress(cfg.ManageLinksPerAddress),
 		subscriptions.WithConfirmsPerHour(cfg.ConfirmsPerHour),
+		subscriptions.WithDomainLookupsPerHour(cfg.DomainLookupsPerHour),
 		subscriptions.WithPruneEvery(cfg.PruneEvery),
 		subscriptions.WithEmailChecker(checker),
 	}

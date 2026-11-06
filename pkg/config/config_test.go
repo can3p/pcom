@@ -211,6 +211,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"SUBSCRIBE_CONFIRMS_PER_ADDRESS", "5", func(s *config.Serve) any { return s.Subscriptions.ConfirmsPerAddress }, subscriptions.DefaultConfirmsPerAddress, 5},
 		{"SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS", "6", func(s *config.Serve) any { return s.Subscriptions.ManageLinksPerAddress }, subscriptions.DefaultManageLinksPerAddress, 6},
 		{"SUBSCRIBE_CONFIRMS_PER_HOUR", "7", func(s *config.Serve) any { return s.Subscriptions.ConfirmsPerHour }, subscriptions.DefaultConfirmsPerHour, 7},
+		{"SUBSCRIBE_DOMAIN_LOOKUPS_PER_HOUR", "8", func(s *config.Serve) any { return s.Subscriptions.DomainLookupsPerHour }, subscriptions.DefaultDomainLookupsPerHour, 8},
 		{"SUBSCRIBE_POW_DIFFICULTY", "12", func(s *config.Serve) any { return s.Subscriptions.PowDifficulty }, abuse.DefaultPowDifficulty, 12},
 		{"SUBSCRIBE_POW_MAX_AGE", "5m", func(s *config.Serve) any { return s.Subscriptions.PowMaxAge }, abuse.DefaultPowMaxAge, 5 * time.Minute},
 		{"SUBSCRIBE_MIN_FILL_TIME", "0s", func(s *config.Serve) any { return s.Subscriptions.MinFillTime }, abuse.DefaultMinFillTime, time.Duration(0)},

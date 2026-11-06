@@ -343,6 +343,7 @@ func TestSubscriptionsOptions(t *testing.T) {
 		{"SUBSCRIBE_CONFIRMS_PER_ADDRESS=5", "ConfirmsPerAddress", 5},
 		{"SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS=6", "ManageLinksPerAddress", 6},
 		{"SUBSCRIBE_CONFIRMS_PER_HOUR=7", "ConfirmsPerHour", 7},
+		{"SUBSCRIBE_DOMAIN_LOOKUPS_PER_HOUR=8", "DomainLookupsPerHour", 8},
 		{"SUBSCRIBE_PRUNE_EVERY=10m", "PruneEvery", 10 * time.Minute},
 	}
 
@@ -441,9 +442,8 @@ func TestNewEmailChecker_MXCache(t *testing.T) {
 		domains []string
 		lookups int
 	}{
-		{map[string]string{}, emailaddr.DefaultCacheTTL - time.Second, []string{"a.test", "a.test"}, 1},
-		{map[string]string{}, emailaddr.DefaultCacheTTL, []string{"a.test", "a.test"}, 2},
-		{map[string]string{"EMAIL_MX_CACHE": "5m"}, 5 * time.Minute, []string{"a.test", "a.test"}, 2},
+		{map[string]string{}, 30 * time.Millisecond, []string{"a.test", "a.test"}, 1},
+		{map[string]string{"EMAIL_MX_CACHE": "10ms"}, 30 * time.Millisecond, []string{"a.test", "a.test"}, 2},
 		{map[string]string{"EMAIL_MX_CACHE": "0s"}, 0, []string{"a.test", "a.test"}, 2},
 		{map[string]string{"EMAIL_MX_CACHE_SIZE": "1"}, 0, []string{"a.test", "b.test", "a.test"}, 3},
 		{map[string]string{"EMAIL_MX_CACHE_SIZE": "2"}, 0, []string{"a.test", "b.test", "a.test"}, 2},
@@ -451,16 +451,16 @@ func TestNewEmailChecker_MXCache(t *testing.T) {
 		cfg, err := parseServe(t, r.env)
 		require.NoError(t, err)
 
-		now := time.Now()
 		resolver := &deadlineResolver{}
-		checker := newEmailChecker(cfg.Email, emailaddr.WithResolver(resolver), emailaddr.WithClock(func() time.Time { return now }))
+		checker := newEmailChecker(cfg.Email, emailaddr.WithResolver(resolver))
 
 		for i, domain := range r.domains {
 			if i == 1 {
-				now = now.Add(r.after)
+				time.Sleep(r.after)
 			}
 
-			require.NoError(t, checker.CheckDomain(context.Background(), domain))
+			_, err := checker.CheckDomain(context.Background(), domain)
+			require.NoError(t, err)
 		}
 
 		require.Len(t, resolver.deadlines, r.lookups, "%v after %v", r.env, r.after)
@@ -480,7 +480,8 @@ func TestNewEmailChecker_MXTimeout(t *testing.T) {
 			require.NoError(t, err)
 
 			resolver := &deadlineResolver{}
-			require.NoError(t, newEmailChecker(cfg.Email, emailaddr.WithResolver(resolver)).CheckDomain(context.Background(), "example.test"))
+			_, err = newEmailChecker(cfg.Email, emailaddr.WithResolver(resolver)).CheckDomain(context.Background(), "example.test")
+			require.NoError(t, err)
 
 			if r.want == 0 {
 				require.Empty(t, resolver.deadlines, "the check ran although it is off")

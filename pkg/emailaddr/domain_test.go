@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -68,7 +70,8 @@ func TestCheckDomain(t *testing.T) {
 			ctx, logs := testlog.Context(context.Background())
 			checker := emailaddr.NewChecker(emailaddr.WithResolver(tt.resolver), emailaddr.WithTimeout(50*time.Millisecond))
 
-			err := checker.CheckDomain(ctx, "Mail.test")
+			looked, err := checker.CheckDomain(ctx, "Mail.test")
+			require.True(t, looked)
 			if tt.want == nil {
 				require.NoError(t, err)
 			} else {
@@ -84,24 +87,23 @@ func TestCheckDomain_ZeroTimeoutIsOff(t *testing.T) {
 	t.Parallel()
 
 	r := &fakeResolver{mxErr: errors.New("must not be called")}
-	err := emailaddr.NewChecker(emailaddr.WithResolver(r), emailaddr.WithTimeout(0)).CheckDomain(context.Background(), "mail.test")
+	checker := emailaddr.NewChecker(emailaddr.WithResolver(r), emailaddr.WithTimeout(0))
+	looked, err := checker.CheckDomain(context.Background(), "mail.test")
 
 	require.NoError(t, err)
+	require.False(t, looked)
+	require.False(t, checker.NeedsLookup("mail.test"))
 	require.Empty(t, r.lookup)
 }
 
-// clock is a settable time for one checker.
-type clock struct{ t time.Time }
-
-func (c *clock) now() time.Time { return c.t }
-
+// Only an accepted domain is remembered: a refusal, or a lookup that failed
+// and let the domain through, is asked again.
 func TestCheckDomain_Cache(t *testing.T) {
 	t.Parallel()
 
 	notFound := &net.DNSError{Err: "no such host", Name: "mail.test.", IsNotFound: true}
 	servfail := &net.DNSError{Err: "server misbehaving", Name: "mail.test.", IsTemporary: true}
 	mx := []*net.MX{{Host: "mx.mail.test.", Pref: 10}}
-	ttl := time.Minute
 
 	tests := []struct {
 		name     string
@@ -110,7 +112,7 @@ func TestCheckDomain_Cache(t *testing.T) {
 		cached   bool
 	}{
 		{"accepted", &fakeResolver{mx: mx}, nil, true},
-		{"refused", &fakeResolver{mxErr: notFound, ipErr: notFound}, emailaddr.ErrCantReceiveMail, true},
+		{"refused", &fakeResolver{mxErr: notFound, ipErr: notFound}, emailaddr.ErrCantReceiveMail, false},
 		{"SERVFAIL", &fakeResolver{mxErr: servfail}, nil, false},
 		{"timeout", &fakeResolver{block: true}, nil, false},
 	}
@@ -119,13 +121,14 @@ func TestCheckDomain_Cache(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			c := &clock{t: time.Now()}
-			checker := emailaddr.NewChecker(emailaddr.WithResolver(tt.resolver), emailaddr.WithTimeout(50*time.Millisecond),
-				emailaddr.WithCacheTTL(ttl), emailaddr.WithClock(c.now))
-			check := func() {
+			checker := emailaddr.NewChecker(emailaddr.WithResolver(tt.resolver), emailaddr.WithTimeout(50*time.Millisecond))
+			check := func(wantLooked bool) {
 				t.Helper()
 
-				err := checker.CheckDomain(context.Background(), "Mail.test")
+				require.Equal(t, wantLooked, checker.NeedsLookup("Mail.test"))
+
+				looked, err := checker.CheckDomain(context.Background(), "Mail.test")
+				require.Equal(t, wantLooked, looked)
 				if tt.want == nil {
 					require.NoError(t, err)
 				} else {
@@ -133,24 +136,113 @@ func TestCheckDomain_Cache(t *testing.T) {
 				}
 			}
 
-			check()
+			check(true)
 			first := len(tt.resolver.lookup)
 
-			c.t = c.t.Add(ttl - time.Second)
-			check()
+			check(!tt.cached)
 
-			if !tt.cached {
-				require.Len(t, tt.resolver.lookup, 2*first, "a failed lookup is asked again")
-				return
+			if tt.cached {
+				require.Len(t, tt.resolver.lookup, first, "an accepted domain is remembered")
+			} else {
+				require.Len(t, tt.resolver.lookup, 2*first, "only an accepted domain is remembered")
 			}
-
-			require.Len(t, tt.resolver.lookup, first, "the answer is remembered within the TTL")
-
-			c.t = c.t.Add(time.Second)
-			check()
-			require.Len(t, tt.resolver.lookup, 2*first, "the answer expires after the TTL")
 		})
 	}
+}
+
+// A refused domain that has mail since is accepted on the next check.
+func TestCheckDomain_RefusalNotCached(t *testing.T) {
+	t.Parallel()
+
+	r := &fakeResolver{mxErr: &net.DNSError{Err: "no such host", Name: "mail.test.", IsNotFound: true}, ipErr: &net.DNSError{IsNotFound: true}}
+	checker := emailaddr.NewChecker(emailaddr.WithResolver(r))
+
+	_, err := checker.CheckDomain(context.Background(), "mail.test")
+	require.ErrorIs(t, err, emailaddr.ErrCantReceiveMail)
+
+	r.mx, r.mxErr = []*net.MX{{Host: "mx.mail.test.", Pref: 10}}, nil
+	looked, err := checker.CheckDomain(context.Background(), "mail.test")
+	require.NoError(t, err)
+	require.True(t, looked)
+}
+
+func TestCheckDomain_CacheExpires(t *testing.T) {
+	t.Parallel()
+
+	r := byName{}
+	ttl := 300 * time.Millisecond // wide enough that two calls in a row fall inside it on a slow machine
+	checker := emailaddr.NewChecker(emailaddr.WithResolver(r), emailaddr.WithCacheTTL(ttl))
+
+	for _, wait := range []time.Duration{0, 0, 2 * ttl} {
+		time.Sleep(wait)
+
+		_, err := checker.CheckDomain(context.Background(), "a.test")
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, byName{"a.test.": 2}, r, "remembered within the TTL, asked again after it")
+}
+
+// gated blocks every MX lookup until open is closed, and counts them.
+type gated struct {
+	entered chan struct{}
+	open    chan struct{}
+	calls   atomic.Int32
+}
+
+func (g *gated) LookupMX(context.Context, string) ([]*net.MX, error) {
+	if g.calls.Add(1) == 1 {
+		close(g.entered)
+	}
+
+	<-g.open
+
+	return []*net.MX{{Host: "mx.a.test.", Pref: 10}}, nil
+}
+
+func (g *gated) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) { return nil, nil }
+
+// Concurrent checks of one domain share one lookup, and only the call that
+// made it reports it. The cache is off, so only the merging can save them.
+func TestCheckDomain_ConcurrentChecksShareALookup(t *testing.T) {
+	t.Parallel()
+
+	g := &gated{entered: make(chan struct{}), open: make(chan struct{})}
+	checker := emailaddr.NewChecker(emailaddr.WithResolver(g), emailaddr.WithCacheTTL(0))
+
+	const n = 8
+
+	var (
+		wg     sync.WaitGroup
+		looked atomic.Int32
+		errs   = make(chan error, n)
+	)
+
+	for range n {
+		wg.Go(func() {
+			l, err := checker.CheckDomain(context.Background(), "A.test")
+			errs <- err
+
+			if l {
+				looked.Add(1)
+			}
+		})
+	}
+
+	<-g.entered
+	// Let the other calls join the lookup in flight: they start within
+	// microseconds, so the wait is a wide margin, not a guess.
+	time.Sleep(200 * time.Millisecond)
+	close(g.open)
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, int32(1), g.calls.Load())
+	require.Equal(t, int32(1), looked.Load())
 }
 
 // byName answers that every domain has an MX, and counts lookups by name.
@@ -173,7 +265,8 @@ func TestCheckDomain_CacheSize(t *testing.T) {
 	ctx := context.Background()
 
 	for _, domain := range []string{"a.test", "b.test", "a.test", "c.test", "a.test", "b.test"} {
-		require.NoError(t, checker.CheckDomain(ctx, domain))
+		_, err := checker.CheckDomain(ctx, domain)
+		require.NoError(t, err)
 	}
 
 	// c.test pushed out b.test, the least recently used; a.test stayed.
@@ -187,8 +280,11 @@ func TestCheckDomain_CacheOff(t *testing.T) {
 		r := byName{}
 		checker := emailaddr.NewChecker(emailaddr.WithResolver(r), opt)
 
-		require.NoError(t, checker.CheckDomain(context.Background(), "a.test"))
-		require.NoError(t, checker.CheckDomain(context.Background(), "a.test"))
+		for range 2 {
+			_, err := checker.CheckDomain(context.Background(), "a.test")
+			require.NoError(t, err)
+		}
+
 		require.Equal(t, byName{"a.test.": 2}, r, name)
 	}
 }
