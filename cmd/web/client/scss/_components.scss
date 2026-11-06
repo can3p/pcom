@@ -139,6 +139,12 @@
       color: var(--accent);
     }
   }
+
+  // A destructive action stays red in the quiet row.
+  .btn-danger,
+  .btn-danger:hover {
+    color: var(--err);
+  }
 }
 
 // A feed entry: not boxed, separated by space and a hairline.
