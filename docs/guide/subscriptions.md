@@ -33,10 +33,10 @@ Anyone who confirms a subscription while you are paused is still added, and you 
 
 ## For readers
 
-When you aren't logged in, a subscribe form appears on the journal and on each public post of an author who takes
-subscriptions. Enter your
+When you aren't logged in, a "Subscribe by email" button sits beside the title of the journal of an author who takes
+subscriptions. It opens a small form under the title, and each public post of that author ends with the same form. Enter your
 address and press Subscribe. The button says "Checking…" for a moment while your browser does a small check that stops
-bots, so subscribing needs JavaScript. The page then says "Check your inbox to confirm your subscription."
+bots, so subscribing needs JavaScript. The form is then replaced by "Check your inbox: we sent a confirmation link."
 
 ![The subscribe form on a journal.](screenshots/subscribe.png)
 

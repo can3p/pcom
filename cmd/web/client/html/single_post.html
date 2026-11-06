@@ -79,9 +79,10 @@
   </article>
 
   {{ with $.Subscribe }}
-  <section class="box subscribe" data-testid="subscribe-box">
+  <aside class="subscribe-aside" aria-label="Subscribe by email" data-testid="subscribe-box">
+    <p class="subscribe-lead">Get @{{ .Username }}'s next public posts by email.</p>
     {{ template "partial--subscribe.html" toMap "Username" .Username "Challenge" .Challenge }}
-  </section>
+  </aside>
   {{ end }}
 
   {{ if not .EditPreview }}

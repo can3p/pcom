@@ -98,7 +98,7 @@ func TestSubscribeForm_Save(t *testing.T) {
 	}{
 		{name: "a person subscribes", author: author.Username, email: "reader@example.test", wantCode: http.StatusOK, wantBody: "Check your inbox", wantQueue: 1},
 		{name: "a script gets the same reply and no mail", author: author.Username, email: "bot@example.test", guardErr: abuse.ErrSilent, wantCode: http.StatusOK, wantBody: "Check your inbox"},
-		{name: "a refused proof of work asks to retry with a fresh challenge", author: author.Username, email: "slow@example.test", guardErr: abuse.ErrInvalid, wantCode: http.StatusOK, wantBody: forms.RetryMessage + `</span>`},
+		{name: "a refused proof of work asks to retry with a fresh challenge", author: author.Username, email: "slow@example.test", guardErr: abuse.ErrInvalid, wantCode: http.StatusOK, wantBody: `data-testid="form-error">` + forms.RetryMessage},
 		{name: "a throwaway address is refused on the field", author: author.Username, email: "x@mailinator.com", wantCode: http.StatusOK, wantBody: subscriptions.DisposableMessage},
 		{name: "an empty address", author: author.Username, email: " ", wantCode: http.StatusOK, wantBody: "email is required"},
 		{name: "an author who takes no subscriptions", author: private.Username, email: "reader2@example.test", wantCode: http.StatusNotFound},

@@ -147,6 +147,8 @@ type SubscriptionConfirmPage struct {
 	Token string
 	// Author is the journal the link subscribes to.
 	Author string
+	// Email is the address the link subscribes.
+	Email string
 	// Paused is set when the author takes no subscriptions right now.
 	Paused bool
 	// Done is set once the subscription is confirmed.
@@ -166,7 +168,7 @@ func SubscriptionConfirm(c *gin.Context, userData *auth.UserData, token string, 
 	}
 
 	if view != nil {
-		page.Author, page.Paused = view.AuthorUsername, view.Paused
+		page.Author, page.Email, page.Paused = view.AuthorUsername, view.Email, view.Paused
 	}
 
 	return page

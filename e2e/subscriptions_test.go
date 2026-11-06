@@ -90,7 +90,7 @@ func TestSubscriptions_SubscribeAndConfirm(t *testing.T) {
 
 	page := visitor.Get(confirm).RequireStatus(http.StatusOK)
 	require.Contains(t, page.Body, "Confirm subscription")
-	require.Contains(t, page.Body, "@"+author.Username+" will see your email address")
+	require.Contains(t, page.Body, "@"+author.Username+" will see this address")
 	require.Equal(t, []model.SubscriptionStatus{model.SubscriptionStatusPending}, subscriptionsOf(t, app, email))
 	app.NoMails(t, author.Email, func(m tommy.Mail) bool { return strings.Contains(m.Text, email) })
 

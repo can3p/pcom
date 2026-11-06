@@ -104,7 +104,7 @@ func (s *Store) EmailSubscriptionByID(ctx context.Context, id string) (*model.Em
 // token was mailed for, or ErrNotFound.
 func (s *Store) EmailSubscriptionByConfirmToken(ctx context.Context, token string) (*model.EmailSubscription, error) {
 	sub := new(model.EmailSubscription)
-	if err := s.query().NewSelect().Model(sub).Where("confirm_token = ?", token).Scan(ctx); err != nil {
+	if err := s.query().NewSelect().Model(sub).Relation("Subscriber").Where("confirm_token = ?", token).Scan(ctx); err != nil {
 		return nil, notFound(err)
 	}
 

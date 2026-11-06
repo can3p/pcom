@@ -1,8 +1,12 @@
 {{/* The email subscription form of a journal or a public post. Username: the author; Challenge: the proof of work (abuse.Challenge.Token). Also the form gogo renders after a submit: Input, Errors, FormError, FormSaved. */}}
 {{ if .FormSaved }}
-<p class="auth-note" role="status" data-testid="subscribe-sent">Check your inbox to confirm your subscription.</p>
+<p class="subscribe-sent" role="status" data-testid="subscribe-sent">
+  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"></path></svg>
+  Check your inbox: we sent a confirmation link.
+</p>
 {{ else }}
 <form method="POST"
+      class="subscribe-form"
       action="{{ link "subscribe" .Username }}"
       hx-post="{{ link "subscribe" .Username }}"
       hx-swap="outerHTML"
@@ -11,8 +15,6 @@
       data-pow-challenge-value="{{ .Challenge }}"
       data-testid="subscribe-form"
   >
-  <p class="field-help">Get @{{ .Username }}'s public posts by email. @{{ .Username }} will see your email address.</p>
-
   <input type="hidden" name="pow_challenge" value="{{ .Challenge }}" />
   <input type="hidden" name="pow_nonce" value="" data-pow-target="nonce" />
   <div hidden aria-hidden="true">
@@ -20,21 +22,19 @@
     <input type="text" name="website" id="subscribeWebsite" value="" tabindex="-1" autocomplete="off" />
   </div>
 
-  <div class="field">
-    <label for="subscribeEmail">Email address</label>
-    <input name="email" type="email" autocomplete="email"
+  <div class="subscribe-row">
+    <label for="subscribeEmail" class="sr-only">Email address</label>
+    <input name="email" type="email" autocomplete="email" placeholder="you@example.com"
                         value="{{ if .Input }}{{ .Input.Email }}{{ end }}"
                         {{ with .Errors }}{{ if .HasError "email" }}aria-invalid="true" aria-describedby="subscribeEmailError"{{ end }}{{ end }}
                         id="subscribeEmail"
                         required>
-    {{ with .Errors }}{{ if .HasError "email" }}
-    <p class="field-error" id="subscribeEmailError" data-testid="field-error-email">{{ .email }}</p>
-    {{ end }}{{ end }}
-  </div>
-
-  <div class="auth-submit">
     <button type="submit" class="btn btn-primary">Subscribe</button>
-    {{ with .FormError }}<span class="status err" role="alert" data-testid="form-error">{{ . }}</span>{{ end }}
   </div>
+  {{ with .Errors }}{{ if .HasError "email" }}
+  <p class="field-error" id="subscribeEmailError" data-testid="field-error-email">{{ .email }}</p>
+  {{ end }}{{ end }}
+  {{ with .FormError }}<p class="field-error" role="alert" data-testid="form-error">{{ . }}</p>{{ end }}
+  <p class="field-help">Public posts only. @{{ .Username }} will see your address. Unsubscribe from any mail.</p>
 </form>
 {{ end }}
