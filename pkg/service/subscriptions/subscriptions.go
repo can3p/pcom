@@ -198,7 +198,9 @@ func (s *Service) Limits() Limits {
 // subscriptions.
 type ConfirmView struct {
 	AuthorUsername string
-	Paused         bool
+	// Email is the address the subscription is for.
+	Email  string
+	Paused bool
 }
 
 // ManageView is a subscriber's subscriptions, for the page their manage link
@@ -209,10 +211,12 @@ type ManageView struct {
 }
 
 // ManageRow is one subscription on the manage page. Paused is set when the
-// author no longer takes subscriptions, so no posts are mailed.
+// author no longer takes subscriptions, so no posts are mailed. Since is when
+// the subscription was confirmed.
 type ManageRow struct {
 	ID             string
 	AuthorUsername string
+	Since          time.Time
 	Paused         bool
 }
 
@@ -337,7 +341,7 @@ func (s *Service) ConfirmView(ctx context.Context, token string) (*ConfirmView, 
 		return nil, err
 	}
 
-	return &ConfirmView{AuthorUsername: author.Username, Paused: !s.Subscribable(author)}, nil
+	return &ConfirmView{AuthorUsername: author.Username, Email: sub.Subscriber.Email, Paused: !s.Subscribable(author)}, nil
 }
 
 // Confirm activates the subscription the token was mailed for and tells the
@@ -398,7 +402,12 @@ func (s *Service) Manage(ctx context.Context, manageToken string) (*ManageView, 
 
 	view := &ManageView{Email: subscriber.Email, Rows: make([]ManageRow, 0, len(subs))}
 	for _, sub := range subs {
-		view.Rows = append(view.Rows, ManageRow{ID: sub.ID, AuthorUsername: sub.Author.Username, Paused: !s.Subscribable(sub.Author)})
+		since := sub.CreatedAt
+		if sub.ConfirmedAt != nil {
+			since = *sub.ConfirmedAt
+		}
+
+		view.Rows = append(view.Rows, ManageRow{ID: sub.ID, AuthorUsername: sub.Author.Username, Since: since, Paused: !s.Subscribable(sub.Author)})
 	}
 
 	return view, nil

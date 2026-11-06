@@ -5,7 +5,25 @@
 <main class="posts-page">
   <div class="posts-head">
     <h1 class="us-user-header user-header page-title"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> &#8594; Latest Posts</h1>
+    {{ with .Subscribe }}
+    <button type="button" class="btn btn-secondary"
+            data-controller="toggle"
+            data-toggle-target-value="#subscribe-panel"
+            data-toggle-focus-value="#subscribeEmail"
+            aria-expanded="false"
+            aria-controls="subscribe-panel"
+            data-testid="subscribe-toggle">
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>
+      Subscribe by email
+    </button>
+    {{ end }}
   </div>
+
+  {{ with .Subscribe }}
+  <section class="inplace subscribe-panel" id="subscribe-panel" aria-label="Subscribe by email" data-testid="subscribe-box">
+    {{ template "partial--subscribe.html" toMap "Username" .Username "Challenge" .Challenge }}
+  </section>
+  {{ end }}
 
   {{ if .User.IsLoggedIn }}
   <div class="conn">
@@ -61,14 +79,8 @@
 
   {{ with .About }}
   <section class="about">
-    <h2 class="sect-title">About</h2>
+    <h2 class="about-label">About</h2>
     <div class="prose us-profile-about">{{ markdown_profile . }}</div>
-  </section>
-  {{ end }}
-
-  {{ with .Subscribe }}
-  <section class="box subscribe" data-testid="subscribe-box">
-    {{ template "partial--subscribe.html" toMap "Username" .Username "Challenge" .Challenge }}
   </section>
   {{ end }}
 

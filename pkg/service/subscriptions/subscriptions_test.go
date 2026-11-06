@@ -402,7 +402,7 @@ func TestConfirm(t *testing.T) {
 	token := subscriptionsOf(t, db, "reader@mail.test")[0].ConfirmToken
 	view, err := svc.ConfirmView(ctx, token)
 	require.NoError(t, err)
-	require.Equal(t, &subscriptions.ConfirmView{AuthorUsername: author.Username}, view)
+	require.Equal(t, &subscriptions.ConfirmView{AuthorUsername: author.Username, Email: "reader@mail.test"}, view)
 	require.Equal(t, model.SubscriptionStatusPending, subscriptionsOf(t, db, "reader@mail.test")[0].Status)
 
 	require.NoError(t, svc.Confirm(ctx, token))
@@ -539,6 +539,10 @@ func TestManage(t *testing.T) {
 
 	view, err := svc.Manage(ctx, toZed.Subscriber.ManageToken)
 	require.NoError(t, err)
+	for i := range view.Rows {
+		require.False(t, view.Rows[i].Since.IsZero(), "a row says since when")
+		view.Rows[i].Since = time.Time{}
+	}
 	require.Equal(t, &subscriptions.ManageView{Email: "reader@mail.test", Rows: []subscriptions.ManageRow{
 		{ID: toAmy.ID, AuthorUsername: "amy", Paused: true},
 		{ID: toZed.ID, AuthorUsername: "zed"},

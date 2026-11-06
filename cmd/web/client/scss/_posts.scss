@@ -188,11 +188,109 @@
   }
 }
 
+// The profile text: a card on the surface, a small label and the bio as lead.
 .about {
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+
+  .prose {
+    font-size: 20px;
+    line-height: 1.45;
+    color: var(--title);
+  }
+}
+
+.about-label {
+  margin: 0;
+  font: 600 12px var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+// The email subscription: a panel under the journal's title row, opened by a
+// button, and an aside after a post's article.
+.subscribe-panel.inplace {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+}
+
+.subscribe-aside {
+  margin: var(--space-6) 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.subscribe-lead {
+  margin: 0 0 var(--space-3);
+  font-weight: 600;
+  color: var(--title);
+}
+
+.subscribe-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  input {
+    flex: 1 1 260px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--ground);
+    color: var(--title);
+    font: 400 16px var(--font-ui);
+
+    &::placeholder {
+      color: var(--muted);
+    }
+
+    &:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: -1px;
+    }
+
+    &[aria-invalid="true"] {
+      border-color: var(--err);
+    }
+  }
+
+  .btn {
+    min-height: 44px;
+    padding: 0 20px;
+  }
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+
+    input {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.subscribe-form .field-help,
+.subscribe-form .field-error {
+  margin-top: var(--space-2);
+  font-size: 14px;
+}
+
+.subscribe-sent {
+  display: flex;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-5) 0 0;
+  margin: 0;
+  color: var(--ok);
 }
 
 // The single post.

@@ -48,8 +48,20 @@ func TestSubscriptions_SubscribeFromJournal(t *testing.T) {
 	_, err = page.Goto("/users/" + author.Username)
 	require.NoError(t, err)
 
+	// the form sits in a panel that stays closed until the button is pressed
+	toggle := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Subscribe by email"})
 	form := page.GetByTestId("subscribe-form")
-	require.NoError(t, browser.Expect.Locator(form).ToContainText("@"+author.Username+" will see your email address"))
+	require.NoError(t, browser.Expect.Locator(form).ToBeHidden())
+	require.NoError(t, browser.Expect.Locator(toggle).ToHaveAttribute("aria-expanded", "false"))
+	require.NoError(t, toggle.Click())
+	require.NoError(t, browser.Expect.Locator(toggle).ToHaveAttribute("aria-expanded", "true"))
+	require.NoError(t, browser.Expect.Locator(form).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(form.GetByLabel("Email address")).ToBeFocused())
+	require.NoError(t, toggle.Click())
+	require.NoError(t, browser.Expect.Locator(toggle).ToHaveAttribute("aria-expanded", "false"))
+	require.NoError(t, browser.Expect.Locator(form).ToBeHidden())
+	require.NoError(t, toggle.Click())
+	require.NoError(t, browser.Expect.Locator(form).ToContainText("@"+author.Username+" will see your address"))
 
 	require.NoError(t, form.GetByLabel("Email address").Fill("someone@mailinator.com"))
 	require.NoError(t, form.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Subscribe"}).Click())

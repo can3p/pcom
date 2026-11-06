@@ -61,7 +61,7 @@ var shots = []shot{
 	{file: "grammar.png", user: "alice", path: "/write", prepare: checkGrammar, ready: ".pr-card"},
 	{file: "settings.png", user: "alice", path: "/controls/settings", ready: "h1"},
 	{file: "explore.png", user: "alice", path: "/explore", ready: "h1"},
-	{file: "subscribe.png", path: "/users/carol", ready: "[data-testid=subscribe-form]"},
+	{file: "subscribe.png", path: "/users/carol", prepare: openSubscribe, ready: "[data-testid=subscribe-form]"},
 	{file: "subscriptions.png", path: "/subscriptions/{token}", ready: "[data-testid=subscriptions-list]"},
 	{file: "controls.png", user: "alice", path: "/controls", ready: "#email-subscribers-title"},
 }
@@ -156,4 +156,11 @@ func TestScreenshots(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+// openSubscribe opens the journal's subscribe panel.
+func openSubscribe(t *testing.T, page playwright.Page) {
+	t.Helper()
+
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Subscribe by email"}).Click())
 }

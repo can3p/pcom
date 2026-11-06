@@ -71,8 +71,8 @@ A reader without an account subscribes by email to an author's public posts (`pk
 Subscribers are a third audience of mail, after accounts and addresses that have none (`docs/guide/subscriptions.md`
 is the user's view).
 
-- **Only visitors who aren't logged in see the subscribe form**, on the journal and on public posts of an author
-  who takes subscriptions.
+- **Only visitors who aren't logged in see the subscribe form**: behind a "Subscribe by email" button under the
+  journal's title (closed until pressed), and after the article of public posts, of an author who takes subscriptions.
 - **The author opts in, and can be paused.** `users.email_subscriptions_enabled` is off until the author turns it on
   under Audience in Settings. Readers can subscribe only while the journal is open to everybody on the internet and
   the setting is on. Otherwise the author's subscriptions are paused: they are kept, nothing is mailed, the subscribe
