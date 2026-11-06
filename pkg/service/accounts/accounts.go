@@ -218,10 +218,6 @@ func (s *Service) SaveProfile(ctx context.Context, actor *model.User, about stri
 	return s.store.SaveProfileAbout(ctx, actor.ID, about)
 }
 
-// emailSubscriptionsColumn is users.email_subscriptions_enabled, named for
-// the partial save.
-const emailSubscriptionsColumn = "email_subscriptions_enabled"
-
 // SaveGeneralSettings changes the actor's timezone, who can read their
 // journal and whether people without an account may subscribe to it by
 // email. Subscriptions need a journal open to everybody, so enabling them
@@ -242,7 +238,7 @@ func (s *Service) SaveGeneralSettings(ctx context.Context, actor *model.User, ti
 	return s.store.SaveUser(ctx, actor,
 		model.UserColumns.Timezone,
 		model.UserColumns.ProfileVisibility,
-		emailSubscriptionsColumn,
+		model.UserColumns.EmailSubscriptionsEnabled,
 		model.UserColumns.UpdatedAt,
 	)
 }
