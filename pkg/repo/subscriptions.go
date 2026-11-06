@@ -196,7 +196,8 @@ func (s *Store) DeletePendingEmailSubscriptionsSentBefore(ctx context.Context, t
 	return res.RowsAffected()
 }
 
-// LogSubscriptionMail records a confirmation or manage-link mail.
+// LogSubscriptionMail records a confirmation or manage-link mail, or a
+// subscribe attempt refused for its domain.
 func (s *Store) LogSubscriptionMail(ctx context.Context, row *model.SubscriptionMailLog) error {
 	_, err := s.query().NewInsert().Model(row).Exec(ctx)
 
@@ -206,25 +207,28 @@ func (s *Store) LogSubscriptionMail(ctx context.Context, row *model.Subscription
 // SubscriptionMailsTo counts the mails of kind sent to the mailbox canonical
 // since t.
 func (s *Store) SubscriptionMailsTo(ctx context.Context, canonical string, kind model.SubscriptionMailKind, since time.Time) (int, error) {
-	n, err := s.subscriptionMails(kind, since).Where("email_canonical = ?", canonical).Count(ctx)
-
-	return int(n), err
-}
-
-// SubscriptionMailsSince counts the mails of kind sent to anybody since t.
-func (s *Store) SubscriptionMailsSince(ctx context.Context, kind model.SubscriptionMailKind, since time.Time) (int, error) {
-	n, err := s.subscriptionMails(kind, since).Count(ctx)
-
-	return int(n), err
-}
-
-func (s *Store) subscriptionMails(kind model.SubscriptionMailKind, since time.Time) *bun.SelectQuery {
-	return s.query().NewSelect().Model((*model.SubscriptionMailLog)(nil)).
+	n, err := s.query().NewSelect().Model((*model.SubscriptionMailLog)(nil)).
+		Where("email_canonical = ?", canonical).
 		Where("kind = ?", kind).
-		Where("sent_at >= ?", since)
+		Where("sent_at >= ?", since).
+		Count(ctx)
+
+	return int(n), err
 }
 
-// DeleteSubscriptionMailsBefore deletes the mail log rows sent before t.
+// SubscriptionMailsSince counts the rows of any of kinds logged for anybody
+// since t.
+func (s *Store) SubscriptionMailsSince(ctx context.Context, since time.Time, kinds ...model.SubscriptionMailKind) (int, error) {
+	n, err := s.query().NewSelect().Model((*model.SubscriptionMailLog)(nil)).
+		Where("kind IN (?)", bun.List(kinds)).
+		Where("sent_at >= ?", since).
+		Count(ctx)
+
+	return int(n), err
+}
+
+// DeleteSubscriptionMailsBefore deletes the mail log rows of every kind
+// logged before t.
 func (s *Store) DeleteSubscriptionMailsBefore(ctx context.Context, t time.Time) (int64, error) {
 	res, err := s.query().NewDelete().Model((*model.SubscriptionMailLog)(nil)).
 		Where("sent_at < ?", t).

@@ -17,13 +17,17 @@ const (
 	SubscriptionStatusActive  SubscriptionStatus = "active"
 )
 
-// SubscriptionMailKind is the kind of mail a subscription_mail_log row counts.
+// SubscriptionMailKind is the kind of event a subscription_mail_log row
+// counts: a mail sent, or a subscribe attempt refused for its domain.
 type SubscriptionMailKind string
 
-// The values of SubscriptionMailKind.
+// The values of SubscriptionMailKind. SubscriptionMailKindDomainRefused is a
+// subscribe attempt whose address's domain can't receive mail: no mail is
+// sent, but the DNS lookup counts toward the site-wide hourly brake.
 const (
-	SubscriptionMailKindConfirm    SubscriptionMailKind = "confirm"
-	SubscriptionMailKindManageLink SubscriptionMailKind = "manage_link"
+	SubscriptionMailKindConfirm       SubscriptionMailKind = "confirm"
+	SubscriptionMailKindManageLink    SubscriptionMailKind = "manage_link"
+	SubscriptionMailKindDomainRefused SubscriptionMailKind = "domain_refused"
 )
 
 // EmailSubscriber is a row of email_subscribers: a reader without an account
@@ -77,7 +81,8 @@ func (m *EmailSubscription) BeforeAppendModel(_ context.Context, query bun.Query
 }
 
 // SubscriptionMailLog is a row of subscription_mail_log: one confirmation or
-// manage-link mail sent to a mailbox, counted by the sending limits.
+// manage-link mail sent to a mailbox, or one subscribe attempt refused for its
+// domain, counted by the sending limits.
 type SubscriptionMailLog struct {
 	bun.BaseModel `bun:"table:subscription_mail_log"`
 

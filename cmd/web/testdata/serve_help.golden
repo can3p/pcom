@@ -266,6 +266,16 @@ Help Options:
                                                        may take; 0 turns the
                                                        check off (default: 2s)
                                                        [$EMAIL_MX_TIMEOUT]
+          --email-mx-cache=                            How long the answer of a
+                                                       domain's DNS check is
+                                                       remembered; 0 turns the
+                                                       cache off (default: 1h)
+                                                       [$EMAIL_MX_CACHE]
+          --email-mx-cache-size=                       How many domains' DNS
+                                                       answers are remembered;
+                                                       0 turns the cache off
+                                                       (default: 10000)
+                                                       [$EMAIL_MX_CACHE_SIZE]
           --email-allow-disposable=                    Accept throwaway
                                                        addresses on the
                                                        subscribe form; local
@@ -418,9 +428,12 @@ Help Options:
 
                                                        _PER_ADDRESS]
           --subscribe-confirms-per-hour=               Subscription
-                                                       confirmation mails the
-                                                       whole site may send per
-                                                       hour (default: 100)
+                                                       confirmation mails, and
+                                                       subscribe attempts
+                                                       refused for their
+                                                       domain, the whole site
+                                                       may have per hour
+                                                       (default: 100)
                                                        [$SUBSCRIBE_CONFIRMS_PER-
 
                                                        _HOUR]

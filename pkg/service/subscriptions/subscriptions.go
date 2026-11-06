@@ -239,7 +239,8 @@ type AuthorRow struct {
 // answer is the same whatever the address's state: a new subscription, or a
 // pending one whose link expired, gets a confirmation mail unless the
 // mailbox had its share of them today; a pending one whose link still works
-// and an active one get nothing.
+// and an active one get nothing. An address whose domain can't receive mail
+// is refused, and the refusal counts toward the site-wide brake.
 func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) error {
 	author, err := notFound(s.store.UserByUsername(ctx, authorUsername))
 	if err != nil {
@@ -260,7 +261,11 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 		return service.Invalid("email", DisposableMessage)
 	}
 
-	return s.store.Tx(ctx, func(tx *repo.Store) error {
+	// A refused domain commits its log row, so the transaction ends without
+	// an error and the refusal is returned after it.
+	refused := false
+
+	err = s.store.Tx(ctx, func(tx *repo.Store) error {
 		if err := tx.LockMailbox(ctx, repo.LockSubscribeMailbox, addr.Canonical); err != nil {
 			return err
 		}
@@ -292,7 +297,9 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 		}
 
 		if err := s.checker.CheckDomain(ctx, domainOf(addr.Stored)); errors.Is(err, emailaddr.ErrCantReceiveMail) {
-			return service.Invalid("email", emailaddr.UndeliverableMessage)
+			refused = true
+
+			return tx.LogSubscriptionMail(ctx, &model.SubscriptionMailLog{EmailCanonical: addr.Canonical, Kind: model.SubscriptionMailKindDomainRefused, SentAt: now})
 		} else if err != nil {
 			return err
 		}
@@ -325,6 +332,11 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 
 		return tx.Enqueue(ctx, s.jobs, ConfirmMailArgs{SubscriptionID: sub.ID})
 	})
+	if err == nil && refused {
+		return service.Invalid("email", emailaddr.UndeliverableMessage)
+	}
+
+	return err
 }
 
 // ConfirmView is what the confirmation link's page shows. It changes
@@ -624,7 +636,7 @@ func (s *Service) RunPruner(ctx context.Context) {
 
 // Prune deletes the pending subscriptions whose link expired, the
 // subscribers left without a subscription, and the mail log rows no limit
-// counts any more.
+// counts any more, whatever their kind.
 func (s *Service) Prune(ctx context.Context) error {
 	now := s.now()
 
@@ -643,8 +655,9 @@ func (s *Service) Prune(ctx context.Context) error {
 
 // address checks what both forms check before they touch a mailbox: the
 // address's syntax and the site-wide brake. Past ConfirmsPerHour
-// confirmation mails in the last hour the forms are paused, and the admin is
-// told once per hour: the alert's job is unique by hour.
+// confirmation mails and refused domains in the last hour the forms are
+// paused, and the admin is told once per hour: the alert's job is unique by
+// hour. Refused domains count because each costs DNS lookups.
 func (s *Service) address(ctx context.Context, email string) (emailaddr.Address, error) {
 	if !validation.EmailRE.MatchString(emailaddr.Normalize(email)) {
 		return emailaddr.Address{}, service.Invalid("email", InvalidEmailMessage)
@@ -652,7 +665,7 @@ func (s *Service) address(ctx context.Context, email string) (emailaddr.Address,
 
 	now := s.now()
 
-	sent, err := s.store.SubscriptionMailsSince(ctx, model.SubscriptionMailKindConfirm, now.Add(-brakeWindow))
+	sent, err := s.store.SubscriptionMailsSince(ctx, now.Add(-brakeWindow), model.SubscriptionMailKindConfirm, model.SubscriptionMailKindDomainRefused)
 	if err != nil {
 		return emailaddr.Address{}, err
 	}
