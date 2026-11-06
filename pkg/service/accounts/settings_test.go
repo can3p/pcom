@@ -198,6 +198,11 @@ func TestSettingsChanges(t *testing.T) {
 		require.Equal(t, "email_subscriptions_enabled", invalid.Field)
 	}
 
+	got = testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
+	require.Equal(t, model.ProfileVisibilityPublic, got.ProfileVisibility, "refused saves change nothing")
+	require.True(t, got.EmailSubscriptionsEnabled, "refused saves change nothing")
+	require.Equal(t, "Europe/Berlin", got.Timezone, "refused saves change nothing")
+
 	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "UTC", model.ProfileVisibilityConnections, false))
 	got = testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
 	require.Equal(t, model.ProfileVisibilityConnections, got.ProfileVisibility)
