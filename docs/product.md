@@ -20,9 +20,16 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   user and mails a code, typed on the same page. An unconfirmed user can also log in from the login page,
   which confirms them. Accounts nobody confirms within `LOGIN_UNCONFIRMED_LIFETIME` are deleted, except
   those an operator gave invitations to.
-- **One account per mailbox.** Signup treats a `+tag`, and on Gmail extra dots or `googlemail.com`, as the same
-  mailbox (`pgsession.CanonicalEmail`). Invitations may still go to a `+tag` address. A second pending
-  invitation to the same address, compared lowercased, is a form error, backed by a partial unique index.
+- **One account per mailbox.** Signup treats two addresses as one mailbox when they deliver to the same place
+  (`pgsession.CanonicalEmail`, which uses `emailaddr.Parse`): a `+tag` on every domain; Gmail's extra dots and
+  `googlemail.com`; Outlook, Hotmail and Live; iCloud and Proton aliases; Yahoo's `-keyword`; and Fastmail's
+  `x@user.fastmail.com`. Existing `users.email_canonical` values are not recomputed, so an alias of an existing
+  account on a provider added later can still sign up; signups are closed, which keeps that small. Invitations
+  may still go to a `+tag` address. A second pending invitation to the same address, compared lowercased, is a
+  form error, backed by a partial unique index.
+- **Signup refuses disposable addresses and accepts relays.** Relays (duck.com, SimpleLogin, Apple Hide My Email)
+  are usually a real person hiding their address, so they are a mailbox like any other. Signup checks no DNS:
+  it is closed, and the check belongs with reopening it (#123).
 - **The operator's way in when mail is down** is `web admin login-code --email`, which prints a fresh code
   for the user's newest open attempt. It must run with the server's `LOGIN_*` settings.
 - **`users.pwdhash` is unused.** Migration M4 on the branch `feat/f5-drop-pwdhash` drops it; it merges, as
@@ -57,6 +64,66 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   to nobody. Two edits of a comment before its mails go out send each recipient one mail, showing the last.
 - **Nobody comments on a draft**, its author included, also on a post that was published before; the
   comment form and the Reply and Edit actions are hidden there.
+
+## Email subscriptions
+
+A reader without an account subscribes by email to an author's public posts (`pkg/service/subscriptions`).
+Subscribers are a third audience of mail, after accounts and addresses that have none (`docs/guide/subscriptions.md`
+is the user's view).
+
+- **The author opts in, and can be paused.** `users.email_subscriptions_enabled` is off until the author turns it on
+  under Audience in Settings. Readers can subscribe only while the journal is open to everybody on the internet and
+  the setting is on. Otherwise the author's subscriptions are paused: they are kept, nothing is mailed, the subscribe
+  form is hidden, and the manage page says that the author isn't sending posts by email. Narrowing the journal turns
+  the setting off (its checkbox is disabled, so the form sends none) and keeps the subscriptions.
+- **Settings warns before the author cuts subscribers off.** Switching the setting off or narrowing the journal
+  while there are subscribers shows "N people subscribed by email won't get your posts while …". Subscribers are
+  told nothing about it.
+- **A paused author's subscribers can still confirm.** The confirmation page works, the author is told about the new
+  subscriber, and nothing is mailed to subscribers until the author is open again.
+- **The author sees the addresses.** Confirmed subscribers are listed on the controls page with the date each
+  subscribed, and the author can remove one. A removed subscriber gets no mail, and the author gets no mail for a
+  removal. Pending subscriptions are neither counted nor listed. The subscribe form, the confirmation page and the
+  privacy policy say that the author sees the address, which is why the reader is told.
+- **The author is mailed** when a subscription is confirmed, not when it is requested, so that bots cannot fill the
+  author's inbox, and when a subscriber unsubscribes. Both mails name the address.
+- **Which posts are mailed.** Only public posts, and each at most once: `posts.subscribers_mailed_at` records it, so
+  republishing after a draft, or switching visibility back and forth, mails nobody twice. The post form offers one
+  checkbox, "Email this post to N subscribers", when the post is public, the author can be subscribed to, there is at
+  least one subscriber, and the post was never mailed to them. It is checked on a first publish, and unchecked when an
+  already published post becomes public. An explicit request mails a published public post that was never mailed.
+  An autosave never mails. Mails to connections are unchanged, and a subscriber who is also a connection gets both.
+- **Confirming is a button, not a link.** Opening a confirmation link changes nothing, because mail scanners open
+  links; the page has a Confirm button. Confirming an active subscription again changes nothing. An unknown or expired
+  link says "This link has expired" and sends the reader to subscribe again from the author's journal. Unsubscribing
+  deletes the subscription, and the subscriber's row once it has no subscriptions left. The manage page lists the
+  authors the address follows, marks the paused ones, and ends one or all of them with a POST that asks first.
+- **The Unsubscribe link in a mail opens the manage page** (a GET that changes nothing); the reader unsubscribes there
+  with a POST. The one-click unsubscribe that mail clients post (`List-Unsubscribe-Post`, RFC 8058) is the one form
+  exempt from CSRF, since the token in its URL is what authorizes it. Subscriber mail carries those headers because
+  Gmail and Yahoo require them of bulk senders.
+- **Lost the link.** The page for it mails the manage link to the address when the address has subscriptions. It gives
+  the same answer whether or not it does, so it shows nothing about who subscribes.
+- **Caps are by the target address**, which an attacker cannot rotate: one open confirmation per address and author,
+  and a number of confirmation and manage-link mails per address per day (`SUBSCRIBE_CONFIRMS_PER_ADDRESS`,
+  `SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS`). Past the cap the answer is the same and nothing is sent. The whole site has an
+  hourly cap on confirmation mails (`SUBSCRIBE_CONFIRMS_PER_HOUR`); past it, the subscribe and manage-link forms say
+  that subscriptions are paused, and the admin gets one mail an hour.
+- **A reader pays for each attempt in the browser.** Subscribing needs JavaScript, which solves a proof of work: the
+  leading zero bits of a SHA-256 hash, `SUBSCRIBE_POW_DIFFICULTY` (15 bits by default), about a second for a person and
+  a cost to a bot on every attempt. A challenge is signed, expires (`SUBSCRIBE_POW_MAX_AGE`) and works once. A
+  honeypot field that people never see, and a minimum time between showing the form and submitting it
+  (`SUBSCRIBE_MIN_FILL_TIME`), turn away bots; both answer as if the subscription succeeded.
+- **Addresses are checked for mail, not only for syntax** (`pkg/emailaddr`). A disposable address is refused, with
+  "Please use a permanent address", and logged by domain only; there is no admin mail, since bots would flood it.
+  Relays are accepted: their users are the readers this suits, and the author sees the relay address. An address whose
+  domain can't receive mail is refused ("This address can't receive mail") when its domain doesn't exist, has a null
+  MX, or has neither MX nor address records. A DNS error or timeout lets the address through, so a slow resolver blocks
+  nobody. The DNS check runs after the proof of work and the caps, so a bot can't make pcom resolve names for free.
+- **Pending subscriptions expire** after `SUBSCRIBE_CONFIRM_LIFETIME`, and a pruner deletes them with the subscribers
+  left without subscriptions and the mail log rows no cap counts any more (`SUBSCRIBE_PRUNE_EVERY`).
+- **Confirmed subscriptions last until** the subscriber unsubscribes, the author removes them, or the author's account
+  is deleted.
 
 ## Profiles
 
@@ -110,7 +177,7 @@ code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
   results of actions without a form. Destructive actions are red and always ask first.
 - **A first visit stays light**: CSS, fonts and JS have byte budgets that `TestFirstVisitWeight` enforces,
   because the site must open fast on a phone. pcom uses no CSS framework.
-- **Mails share one layout** in the site's light colours (its dark ones where the mail client follows dark mode), with system fonts and no images of their own or tracking. The HTML footer says why the reader gets the mail: an account at pcom, or, for invitations and waiting-list confirmations, that somebody entered the address.
+- **Mails share one layout** in the site's light colours (its dark ones where the mail client follows dark mode), with system fonts and no images of their own or tracking. The HTML footer says why the reader gets the mail, for each of three audiences: an account at pcom; an address with no account, for invitations and waiting-list confirmations, where somebody entered the address; and a subscriber, who subscribed to the author's public posts, with links to manage and to unsubscribe. The text footer says the same for subscribers.
 
 ## Website
 

@@ -13,7 +13,7 @@ Nothing is shared by default. A post reaches your direct connections, optionally
 - Write in markdown, keep drafts and publish when ready: [Writing](writing.md).
 - Read what your connections wrote, browse public posts and follow outside RSS feeds: [Feed and RSS](feed.md).
 - Talk about a post with the people who can see its comments: [Comments](comments.md).
-- Choose who can see your profile and take your posts with you: [Settings](settings.md).
+- Choose who can read your journal, let people subscribe to it by email, and take your posts with you: [Settings](settings.md).
 - Post from the command line or your own scripts: [API and blg](api.md).
 - Run your own copy: [Self-hosting](self-hosting.md).
 

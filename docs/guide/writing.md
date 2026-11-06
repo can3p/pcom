@@ -30,9 +30,11 @@ Once the draft is saved, or after your first check, a line under the editor show
 
 Below the body you choose who can read the post: "Show to direct connections only", "Show to their connections as well" (the default for a new post) or "Public". You can change it later. [Connections](connections.md) spells out what each choice means.
 
+While you take email subscriptions (see [Subscriptions](subscriptions.md)), the Public choice reads "Public and your N email subscribers". Then, once you choose Public, a checkbox "Email this post to N subscribers" appears under it, provided you have subscribers and the post has not been mailed to them before. It is checked for a post that is being published for the first time and unchecked for a published post that becomes public. A post is mailed to subscribers at most once: publishing a draft again, or switching its visibility back and forth, does not mail it again. Autosaves never mail anybody. Mails to your connections are not affected.
+
 ## Publishing
 
-Publishing makes the post visible according to its visibility and emails your direct connections about it. You can turn a published post back into a draft or delete it; publishing it again emails your direct connections again. Only you can edit your posts.
+Publishing makes the post visible according to its visibility and emails your direct connections about it. A public post can also be emailed to your email subscribers, with the checkbox described under Visibility. You can turn a published post back into a draft or delete it; publishing it again emails your direct connections again. Only you can edit your posts.
 
 ## Images
 

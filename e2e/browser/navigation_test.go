@@ -176,7 +176,7 @@ func TestNavigation_SettingsFlashAutoDismisses(t *testing.T) {
 	_, err := page.Goto("/controls/settings")
 	require.NoError(t, err)
 
-	general := page.GetByRole("region", playwright.PageGetByRoleOptions{Name: "General", Exact: playwright.Bool(true)})
+	general := page.GetByRole("region", playwright.PageGetByRoleOptions{Name: "General", Exact: new(true)})
 	require.NoError(t, general.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Save"}).Click())
 
 	flash := general.GetByRole("status").Filter(playwright.LocatorFilterOptions{HasText: "Saved"})

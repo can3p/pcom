@@ -100,6 +100,7 @@ var docPages = []struct {
 	{GroupGuide, "docs/guide/writing.md", "docs/guide/writing.html", "Writing"},
 	{GroupGuide, "docs/guide/feed.md", "docs/guide/feed.html", "Feed and RSS"},
 	{GroupGuide, "docs/guide/comments.md", "docs/guide/comments.html", "Comments"},
+	{GroupGuide, "docs/guide/subscriptions.md", "docs/guide/subscriptions.html", "Subscriptions"},
 	{GroupGuide, "docs/guide/settings.md", "docs/guide/settings.html", "Settings"},
 	{GroupGuide, "docs/guide/api.md", "docs/guide/api.html", "API and blg"},
 	{GroupGuide, "docs/guide/self-hosting.md", "docs/guide/self-hosting.html", "Self-hosting"},

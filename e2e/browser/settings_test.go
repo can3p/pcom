@@ -88,11 +88,11 @@ func requireSamePage(t *testing.T, page playwright.Page) {
 
 // section is the settings section with the given heading.
 func section(page playwright.Page, name string) playwright.Locator {
-	return page.GetByRole("region", playwright.PageGetByRoleOptions{Name: name, Exact: playwright.Bool(true)})
+	return page.GetByRole("region", playwright.PageGetByRoleOptions{Name: name, Exact: new(true)})
 }
 
 func saveButton(sec playwright.Locator, name string) playwright.Locator {
-	return sec.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: name, Exact: playwright.Bool(true)})
+	return sec.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: name, Exact: new(true)})
 }
 
 // Saving the general settings reports "Saved" next to the button without a
@@ -906,7 +906,7 @@ func TestSettings_SectionIndexFollowsScroll(t *testing.T) {
 
 	index := page.GetByRole("navigation", playwright.PageGetByRoleOptions{Name: "Settings sections"})
 	link := func(name string) playwright.Locator {
-		return index.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: name, Exact: playwright.Bool(true)})
+		return index.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: name, Exact: new(true)})
 	}
 
 	require.NoError(t, browser.Expect.Locator(link("General")).ToHaveAttribute("aria-current", "location"))

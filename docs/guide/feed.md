@@ -20,7 +20,7 @@ The feed, Explore, the public index and a journal show a page of 30 items at a t
 
 ## Explore
 
-Explore needs a login; anonymous visitors are sent to the front page. It lists public posts of authors who are open to you without a connection: public profiles, and profiles open to registered users. Nobody can comment or act from there.
+Explore needs a login; anonymous visitors are sent to the front page. It lists public posts of authors who are open to you without a connection: journals open to anyone on the internet, and journals open to anyone with a pcom account. Nobody can comment or act from there.
 
 ![Explore: public posts, signed in.](screenshots/explore.png)
 

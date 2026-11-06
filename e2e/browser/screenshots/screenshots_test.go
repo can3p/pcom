@@ -11,8 +11,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
@@ -40,7 +40,8 @@ var outDir = func() string {
 
 // shot is one screenshot: the page, the seeded user who views it (empty for
 // an anonymous visitor), the file name and what to wait for before capturing.
-// Path may use the {post} placeholder: the id of a seeded post with comments.
+// Path may use the {post} placeholder (the id of a seeded post with comments)
+// and {token} (the manage token of a subscriber).
 type shot struct {
 	file string
 	user string
@@ -60,6 +61,9 @@ var shots = []shot{
 	{file: "grammar.png", user: "alice", path: "/write", prepare: checkGrammar, ready: ".pr-card"},
 	{file: "settings.png", user: "alice", path: "/controls/settings", ready: "h1"},
 	{file: "explore.png", user: "alice", path: "/explore", ready: "h1"},
+	{file: "subscribe.png", path: "/users/carol", ready: "[data-testid=subscribe-form]"},
+	{file: "subscriptions.png", path: "/subscriptions/{token}", ready: "[data-testid=subscriptions-list]"},
+	{file: "controls.png", user: "alice", path: "/controls", ready: "#email-subscribers-title"},
 }
 
 const editorBody = `Hello from **pcom**!
@@ -96,6 +100,25 @@ func TestScreenshots(t *testing.T) {
 	var postID string
 	require.NoError(t, app.DB.QueryRow(`SELECT post_id FROM post_comments LIMIT 1`).Scan(&postID))
 
+	// The subscription shots need subscriptions: carol takes them, alice has
+	// two subscribers, and dana follows carol.
+	ctx := context.Background()
+	_, err := app.DB.Exec(`UPDATE users SET email_subscriptions_enabled = true WHERE username = 'carol'`)
+	require.NoError(t, err)
+	alice, err := factory.GetUserByEmail(ctx, app.DB, "alice@example.test")
+	require.NoError(t, err)
+	carol, err := factory.GetUserByEmail(ctx, app.DB, "carol@example.test")
+	require.NoError(t, err)
+	for _, email := range []string{"dana@example.test", "erin@example.test"} {
+		_, err := factory.EmailSubscription(ctx, app.DB, alice.ID, email)
+		require.NoError(t, err)
+	}
+	_, err = factory.EmailSubscription(ctx, app.DB, carol.ID, "dana@example.test")
+	require.NoError(t, err)
+	dana, err := factory.GetEmailSubscriber(ctx, app.DB, "dana@example.test")
+	require.NoError(t, err)
+	placeholders := strings.NewReplacer("{post}", postID, "{token}", dana.ManageToken)
+
 	for _, s := range shots {
 		t.Run(s.file, func(t *testing.T) {
 			opts := []browser.PageOption{browser.Configure(func(o *playwright.BrowserNewContextOptions) {
@@ -112,8 +135,7 @@ func TestScreenshots(t *testing.T) {
 
 			page := browser.Page(t, app, opts...)
 
-			path := regexp.MustCompile(`\{post\}`).ReplaceAllString(s.path, postID)
-			_, err := page.Goto(path)
+			_, err := page.Goto(placeholders.Replace(s.path))
 			require.NoError(t, err)
 
 			if s.prepare != nil {
