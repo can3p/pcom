@@ -346,7 +346,18 @@ func TestControls_EmailSubscribersRemove(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(goneRow.Locator("[title*='14 Mar 2024']")).ToBeVisible())
 
 	remove := goneRow.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Remove"})
-	require.NoError(t, browser.Expect.Locator(remove).ToHaveClass(regexp.MustCompile(`\bbtn-danger\b`)))
+	// Remove is red: its color is the error token's, not the row's quiet grey.
+	colors, err := remove.Evaluate(`b => {
+		const probe = document.createElement("span");
+		probe.style.color = "var(--err)";
+		document.body.append(probe);
+		const want = getComputedStyle(probe).color;
+		probe.remove();
+		return [getComputedStyle(b).color, want];
+	}`, nil)
+	require.NoError(t, err)
+	got := colors.([]any)
+	require.Equal(t, got[1], got[0])
 	require.NoError(t, remove.Click())
 
 	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(2))
