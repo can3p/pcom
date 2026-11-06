@@ -132,6 +132,8 @@ services:
       MEDIA_PERMA_CACHE: "false"
       SHOW_ERRORS: "true"
       DEV_ROUTES: "true"
+      EMAIL_MX_TIMEOUT: "0"
+      EMAIL_ALLOW_DISPOSABLE: "true"
       REPORT_PANICS: "false"
       LOG_LEVEL: debug
       LOG_FORMAT: console

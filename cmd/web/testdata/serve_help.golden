@@ -266,6 +266,12 @@ Help Options:
                                                        may take; 0 turns the
                                                        check off (default: 2s)
                                                        [$EMAIL_MX_TIMEOUT]
+          --email-allow-disposable=                    Accept throwaway
+                                                       addresses on the
+                                                       subscribe form; local
+                                                       development only
+                                                       (default: false)
+                                                       [$EMAIL_ALLOW_DISPOSABLE]
 
     RSS feeds:
           --rss-poll-interval=                         How often feeds due for

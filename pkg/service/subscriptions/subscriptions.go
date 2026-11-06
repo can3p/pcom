@@ -251,7 +251,7 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 		return err
 	}
 
-	if addr.Disposable {
+	if addr.Disposable && !s.checker.AllowsDisposable() {
 		logging.FromContext(ctx).Info("refused a disposable address", zap.String("domain", domainOf(addr.Stored)))
 		return service.Invalid("email", DisposableMessage)
 	}

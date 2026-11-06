@@ -98,7 +98,8 @@ type Feeds struct {
 // Email is how pcom checks the addresses users give. The default is
 // emailaddr.DefaultMXTimeout.
 type Email struct {
-	MXTimeout time.Duration `long:"email-mx-timeout" env:"EMAIL_MX_TIMEOUT" description:"How long the DNS lookups of an address's domain may take; 0 turns the check off" default:"2s"`
+	MXTimeout       time.Duration `long:"email-mx-timeout" env:"EMAIL_MX_TIMEOUT" description:"How long the DNS lookups of an address's domain may take; 0 turns the check off" default:"2s"`
+	AllowDisposable Switch        `long:"email-allow-disposable" env:"EMAIL_ALLOW_DISPOSABLE" description:"Accept throwaway addresses on the subscribe form; local development only" optional:"true" optional-value:"true" default:"false"`
 }
 
 // Login is the limits of login by emailed code. Their defaults are

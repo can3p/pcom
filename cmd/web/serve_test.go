@@ -425,6 +425,14 @@ func (r *deadlineResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, 
 	return nil, nil
 }
 
+func TestNewEmailChecker_AllowDisposable(t *testing.T) {
+	for value, want := range map[string]bool{"false": false, "true": true} {
+		cfg, err := parseServe(t, map[string]string{"EMAIL_ALLOW_DISPOSABLE": value})
+		require.NoError(t, err)
+		require.Equal(t, want, newEmailChecker(cfg.Email).AllowsDisposable(), "EMAIL_ALLOW_DISPOSABLE=%q", value)
+	}
+}
+
 func TestNewEmailChecker_MXTimeout(t *testing.T) {
 	for _, r := range []struct {
 		value string
