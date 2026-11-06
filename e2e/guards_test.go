@@ -362,6 +362,16 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string { return map[string]string{"email": w.newcomerEmail} }},
 	{http.MethodPost, "/form/subscriptions/lost", staticPath("/form/subscriptions/lost"),
 		func(w *guardWorld) map[string]string { return map[string]string{"email": w.waiterEmail} }},
+
+	// subscription pages: public, but their POSTs check the CSRF token
+	{http.MethodPost, "/subscriptions/confirm/:token", staticPath("/subscriptions/confirm/no-such-token"), noExtra},
+	{http.MethodPost, "/subscriptions/:manage_token/unsubscribe", staticPath("/subscriptions/no-such-token/unsubscribe"), noExtra},
+}
+
+// isPublicPost is a POST an anonymous visitor makes: a /form or a
+// subscription page, none behind EnforceAuth.
+func isPublicPost(r guardRoute) bool {
+	return strings.HasPrefix(r.pattern, "/form/") || strings.HasPrefix(r.pattern, "/subscriptions/")
 }
 
 // excludedRoutes are routes of the scanned files deliberately left out of the
@@ -373,8 +383,6 @@ var excludedRoutes = map[string]string{
 	"DELETE /api/v1/posts/:id": "bearer-token API, covered in api_test.go",
 	"PUT /api/v1/image":        "bearer-token API, covered in api_test.go",
 
-	"POST /subscriptions/confirm/:token":                             "authorized by the token in the URL, so it takes no CSRF token; subscriptions_test.go",
-	"POST /subscriptions/:manage_token/unsubscribe":                  "authorized by the token in the URL, so it takes no CSRF token; subscriptions_test.go",
 	"POST /subscriptions/:manage_token/unsubscribe/:subscription_id": "the one-click unsubscribe of RFC 8058: the mail client posts it with no session and no CSRF token; subscriptions_test.go",
 }
 
@@ -389,7 +397,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_media.go":         {"router": ""},
 		"../pkg/web/app/routes_public.go":        {"r": ""},
 		"../pkg/web/app/routes_rss.go":           {"r": ""},
-		"../pkg/web/app/routes_subscriptions.go": {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
+		"../pkg/web/app/routes_subscriptions.go": {"r": "", "checkedPages": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_dev.go":           {"dev": "/dev"},
 		"../pkg/web/app/routes_auth.go":          {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_connections.go":   {"controls": "/controls", "controlsForms": "/controls/form"},
@@ -530,7 +538,7 @@ func TestGuards_AnonymousRedirectsToLogin(t *testing.T) {
 	before := w.snapshot(t)
 
 	for _, r := range guardRoutes {
-		if strings.HasPrefix(r.pattern, "/form/") {
+		if isPublicPost(r) {
 			continue // not behind EnforceAuth
 		}
 
@@ -599,7 +607,7 @@ func TestGuards_CSRFRequired(t *testing.T) {
 				field: url.Values{"header_csrf": {""}}},
 		}
 
-		if strings.HasPrefix(r.pattern, "/form/") {
+		if isPublicPost(r) {
 			variants = append(variants,
 				variant{name: "anonymous missing"},
 				variant{name: "anonymous wrong header", header: "not-the-token"},
