@@ -31,8 +31,9 @@ type Resolver interface {
 
 // Checker looks up whether a domain can receive mail.
 type Checker struct {
-	resolver Resolver
-	timeout  time.Duration
+	resolver        Resolver
+	timeout         time.Duration
+	allowDisposable bool
 }
 
 // Option configures a Checker.
@@ -48,6 +49,15 @@ func WithResolver(r Resolver) Option {
 func WithTimeout(d time.Duration) Option {
 	return func(c *Checker) { c.timeout = d }
 }
+
+// WithAllowDisposable makes AllowsDisposable true, so that a caller accepts
+// throwaway addresses: for local development, where every address is made up.
+func WithAllowDisposable(allow bool) Option {
+	return func(c *Checker) { c.allowDisposable = allow }
+}
+
+// AllowsDisposable reports whether a disposable address is accepted.
+func (c *Checker) AllowsDisposable() bool { return c.allowDisposable }
 
 // NewChecker builds a Checker on net.DefaultResolver with DefaultMXTimeout.
 func NewChecker(opts ...Option) *Checker {

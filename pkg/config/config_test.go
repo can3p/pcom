@@ -203,6 +203,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"RSS_IMAGE_TIMEOUT", "5s", func(s *config.Serve) any { return s.Feeds.ImageTimeout }, reader.DefaultMediaTimeout, 5 * time.Second},
 		{"RSS_MAX_FEED_SIZE", "1024", func(s *config.Serve) any { return s.Feeds.MaxFeedSize }, int64(reader.DefaultMaxFeedSize), int64(1024)},
 		{"EMAIL_MX_TIMEOUT", "0s", func(s *config.Serve) any { return s.Email.MXTimeout }, emailaddr.DefaultMXTimeout, time.Duration(0)},
+		{"EMAIL_ALLOW_DISPOSABLE", "true", func(s *config.Serve) any { return s.Email.AllowDisposable.On() }, false, true},
 		{"USER_MEDIA_TIMEOUT", "5s", func(s *config.Serve) any { return s.Media.Timeout }, s3.DefaultTimeout, 5 * time.Second},
 		{"SUBSCRIBE_CONFIRM_LIFETIME", "24h", func(s *config.Serve) any { return s.Subscriptions.ConfirmLifetime }, subscriptions.DefaultConfirmLifetime, 24 * time.Hour},
 		{"SUBSCRIBE_CONFIRMS_PER_ADDRESS", "5", func(s *config.Serve) any { return s.Subscriptions.ConfirmsPerAddress }, subscriptions.DefaultConfirmsPerAddress, 5},

@@ -97,7 +97,8 @@ Readers subscribe to an author's posts by email; the `SUBSCRIBE_*` settings boun
 | `SUBSCRIBE_PRUNE_EVERY` (1h) | How often expired subscriptions and old mail records are deleted |
 
 The subscribe form also checks that the address's domain can receive mail, within `EMAIL_MX_TIMEOUT` (2s; 0
-turns the DNS check off).
+turns the DNS check off), and refuses throwaway addresses unless `EMAIL_ALLOW_DISPOSABLE` is true. The
+development compose file sets both, so any made-up address subscribes; tommy catches the mail.
 
 ## Seeding
 

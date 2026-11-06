@@ -226,6 +226,8 @@ func TestSubscribe(t *testing.T) {
 		name   string
 		paused bool
 		email  string
+		// opts configure the service beyond newSvc's.
+		opts []subscriptions.Option
 		// before runs ahead of the subscription the row checks.
 		before       func(t *testing.T, svc *subscriptions.Service, c *clock, author *model.User, email string)
 		wantErr      error
@@ -284,6 +286,11 @@ func TestSubscribe(t *testing.T) {
 		{name: "invalid address", email: "not an address", wantErr: service.Invalid("email", subscriptions.InvalidEmailMessage)},
 		{name: "disposable address", email: "x@mailinator.com", wantErr: service.Invalid("email", subscriptions.DisposableMessage)},
 		{name: "disposable subdomain", email: "x@foo.mailinator.com", wantErr: service.Invalid("email", subscriptions.DisposableMessage)},
+		{
+			name: "disposable address where they are allowed", email: "y@mailinator.com",
+			opts:         []subscriptions.Option{subscriptions.WithEmailChecker(emailaddr.NewChecker(emailaddr.WithResolver(resolver{}), emailaddr.WithAllowDisposable(true)))},
+			wantConfirms: 1, wantLogged: 1, wantStatus: model.SubscriptionStatusPending,
+		},
 		{name: "relay", email: "reader@duck.com", wantConfirms: 1, wantLogged: 1, wantStatus: model.SubscriptionStatusPending},
 		{name: "domain without mail", email: "x@" + noMailHost, wantErr: service.Invalid("email", emailaddr.UndeliverableMessage)},
 	} {
@@ -296,7 +303,7 @@ func TestSubscribe(t *testing.T) {
 			}
 
 			author := testutil.Must(factory.User(ctx, db, opts...))(t)
-			svc, c, q := newSvc(db)
+			svc, c, q := newSvc(db, r.opts...)
 
 			if r.before != nil {
 				r.before(t, svc, c, author, r.email)
