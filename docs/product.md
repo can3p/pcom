@@ -71,6 +71,8 @@ A reader without an account subscribes by email to an author's public posts (`pk
 Subscribers are a third audience of mail, after accounts and addresses that have none (`docs/guide/subscriptions.md`
 is the user's view).
 
+- **Only visitors who aren't logged in see the subscribe form**, on the journal and on public posts of an author
+  who takes subscriptions.
 - **The author opts in, and can be paused.** `users.email_subscriptions_enabled` is off until the author turns it on
   under Audience in Settings. Readers can subscribe only while the journal is open to everybody on the internet and
   the setting is on. Otherwise the author's subscriptions are paused: they are kept, nothing is mailed, the subscribe
@@ -100,7 +102,7 @@ is the user's view).
   authors the address follows, marks the paused ones, and ends one or all of them with a POST that asks first.
 - **The Unsubscribe link in a mail opens the manage page** (a GET that changes nothing); the reader unsubscribes there
   with a POST. The one-click unsubscribe that mail clients post (`List-Unsubscribe-Post`, RFC 8058) is the one form
-  exempt from CSRF, since the token in its URL is what authorizes it. Subscriber mail carries those headers because
+  exempt from CSRF, since the token in its URL is what authorizes it. Post mails to subscribers carry those headers because
   Gmail and Yahoo require them of bulk senders.
 - **Lost the link.** The page for it mails the manage link to the address when the address has subscriptions. It gives
   the same answer whether or not it does, so it shows nothing about who subscribes.
@@ -177,7 +179,7 @@ code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
   results of actions without a form. Destructive actions are red and always ask first.
 - **A first visit stays light**: CSS, fonts and JS have byte budgets that `TestFirstVisitWeight` enforces,
   because the site must open fast on a phone. pcom uses no CSS framework.
-- **Mails share one layout** in the site's light colours (its dark ones where the mail client follows dark mode), with system fonts and no images of their own or tracking. The HTML footer says why the reader gets the mail, for each of three audiences: an account at pcom; an address with no account, for invitations and waiting-list confirmations, where somebody entered the address; and a subscriber, who subscribed to the author's public posts, with links to manage and to unsubscribe. The text footer says the same for subscribers.
+- **Mails share one layout** in the site's light colours (its dark ones where the mail client follows dark mode), with system fonts and no images of their own or tracking. The HTML footer says why the reader gets the mail, for each of three audiences: an account at pcom; an address with no account, for invitations, waiting-list confirmations and the subscription confirmation and manage-link mails, where somebody entered the address; and a subscriber, who subscribed to the author's public posts, with links to manage and to unsubscribe, on post mails, which alone carry the one-click unsubscribe headers. The text footer says the same for subscribers.
 
 ## Website
 

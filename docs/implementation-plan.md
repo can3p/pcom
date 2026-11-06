@@ -65,6 +65,9 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   file by area in a step 0 before parallel work, so later merges conflict only in registries. A breaking
   library bump is sequential too: order its tasks by import graph, each with the packages that compile at
   its point.
+- **Plan against the plumbing as it will be.** If another planned or running wave rewrites what yours builds on
+  (how mail is sent, a service's constructor), depend on it or plan against its contracts. A wave planned
+  against the old shape gets its finished tasks rewritten when the other wave merges first.
 - **Name what parallel tasks share**: a constant, a limit, a helper, and which task defines it. Otherwise
   each invents its own.
 - **A contract task leaves the tree runnable.** If it removes a fallback, the replacement's plumbing

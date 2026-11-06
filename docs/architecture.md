@@ -95,16 +95,18 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   through a check use `example.test`.
 - **Abuse guard.** `pkg/abuse` keeps scripts out of public forms that mail an address anyone types in: a signed
   proof-of-work challenge (`Issue`; the `pow` Stimulus controller solves it in the browser), a honeypot field
-  and a minimum fill time (`Verify`). It knows nothing of its callers: a service issues a challenge, a template
-  renders it with the field names `abuse` exports, and the service passes the submitted fields and its `tx` to
-  `Verify`, which records the challenge as used there (`pkg/repo/abuse.go`; `UsedStore` is the interface, so
-  the package imports no repository). `ErrSilent` (honeypot, fill time) is answered as if it succeeded;
+  and a minimum fill time (`Verify`). It knows nothing of its callers: the route or form constructor issues a challenge, a template renders it
+  with the field names `abuse` exports, and the form passes the submitted fields to `Verify` before it calls
+  the service. `app.AbuseGuard` (`pkg/web/app/deps.go`) gives `Verify` the store that records the challenge
+  as used (`pkg/repo/abuse.go`; `UsedStore` is the interface, so the package imports no repository). `ErrSilent` (honeypot, fill time) is answered as if it succeeded;
   `ErrInvalid` is shown to the reader. The key derives from the session salt, passed to `abuse.New`. Something
   must call `Guard.Prune` now and then.
 - **Wiring.** `pkg/service/registry` builds every service; `app.New` fills
   `Deps.Services` from `Deps.DB` when it is nil. A new service adds one field
   to `registry.Services` and one line to `registry.New`. Handlers reach it
-  as `d.Services.<Area>`.
+  as `d.Services.<Area>`. A service that calls another takes it through an
+  option, built first in `registry.New` (posts takes subscriptions, proofread
+  takes posts), never by constructing it, so it gets the configured one.
 - **Forms.** gogo's forms take no executor. `Save` calls a service (at most
   one that writes, as `DefaultHandler` opens no transaction); `Validate`
   keeps the field checks. Form constructors take the service they need.

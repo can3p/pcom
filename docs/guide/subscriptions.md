@@ -33,7 +33,8 @@ Anyone who confirms a subscription while you are paused is still added, and you 
 
 ## For readers
 
-A subscribe form appears on the journal and on each public post of an author who takes subscriptions. Enter your
+When you aren't logged in, a subscribe form appears on the journal and on each public post of an author who takes
+subscriptions. Enter your
 address and press Subscribe. The button says "Checking…" for a moment while your browser does a small check that stops
 bots, so subscribing needs JavaScript. The page then says "Check your inbox to confirm your subscription."
 
@@ -54,8 +55,6 @@ unsubscribe from one author, or from all of them. Both ask first.
 
 If you have lost the link, open "Your email subscriptions" at `/subscriptions`, enter your address, and pcom mails you
 the link if the address subscribes to anyone. The page gives the same answer whether or not it does.
-
-The privacy policy says what pcom keeps about an address that has no account.
 
 Subscriptions use your address only to send you mail and show it to the author. Accounts and invitations are described
 in [Connections](connections.md). The privacy policy says what pcom keeps about an address that has no account.
