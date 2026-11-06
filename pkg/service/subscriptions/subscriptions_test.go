@@ -1078,3 +1078,50 @@ func TestPrune(t *testing.T) {
 	require.Equal(t, 1, testutil.Must(store.SubscriptionMailsSince(ctx, time.Time{}, model.SubscriptionMailKindConfirm, model.SubscriptionMailKindDomainLookup))(t),
 		"the mail log keeps the last day only, of every kind")
 }
+
+// A post reaches subscribers only while it is published and public and its
+// author can be subscribed to. Every combination of post visibility,
+// publication, profile visibility and the author's switch is tried at each of
+// the three steps that check it, each as if the state had changed since the
+// step before: the save that enqueues, the fan-out and the mail's render.
+func TestPostMail_OnlyPublishedPublicPosts(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	for _, vis := range model.AllPostVisibility() {
+		for _, published := range []bool{true, false} {
+			for _, profile := range model.AllProfileVisibility() {
+				for _, enabled := range []bool{true, false} {
+					want := vis == model.PostVisibilityPublic && published && profile == model.ProfileVisibilityPublic && enabled
+
+					t.Run(fmt.Sprintf("%s/published=%t/%s/subscriptions=%t", vis, published, profile, enabled), func(t *testing.T) {
+						t.Parallel()
+
+						author := testutil.Must(factory.User(ctx, db, factory.WithVisibility(profile),
+							func(u *model.User) { u.EmailSubscriptionsEnabled = enabled }))(t)
+
+						postOpts := []factory.PostOpt{factory.Visibility(vis)}
+						if published {
+							postOpts = append(postOpts, factory.Published())
+						}
+
+						post := testutil.Must(factory.Post(ctx, db, author.ID, postOpts...))(t)
+						sub := testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "reader-"+post.ID+"@mail.test"))(t)
+						svc, _, q := newSvc(db)
+
+						require.NoError(t, svc.NotifyPost(ctx, nil, author, post))
+						require.Equal(t, want, len(fakequeue.Of[subscriptions.PostPublishedArgs](q)) == 1, "the save enqueues the fan-out")
+
+						require.NoError(t, svc.FanOutPost(ctx, subscriptions.PostPublishedArgs{PostID: post.ID}))
+						require.Equal(t, want, len(fakequeue.Of[subscriptions.NewPostMailArgs](q)) == 1, "the fan-out enqueues the mail")
+
+						env := render(t, svc, subscriptions.NewPostMailArgs{PostID: post.ID, SubscriptionID: sub.ID})
+						require.Equal(t, want, env != nil, "the mail is rendered")
+					})
+				}
+			}
+		}
+	}
+}
