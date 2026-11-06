@@ -23,3 +23,6 @@ github.com/can3p/pcom/pkg/service/shares 95.7
 github.com/can3p/pcom/pkg/proofread 96.0
 github.com/can3p/pcom/pkg/proofread/claude 92.4
 github.com/can3p/pcom/pkg/service/proofread 86.4
+github.com/can3p/pcom/pkg/service/subscriptions 85.9
+github.com/can3p/pcom/pkg/abuse 94.7
+github.com/can3p/pcom/pkg/emailaddr 99.0
