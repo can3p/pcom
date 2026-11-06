@@ -159,11 +159,12 @@ func (m *UserStyle) BeforeAppendModel(_ context.Context, query bun.Query) error 
 // UserColumns names the users columns a caller may list in a partial save
 // (repo.SaveUser).
 var UserColumns = struct {
-	Timezone, ProfileVisibility, UpdatedAt string
+	Timezone, ProfileVisibility, EmailSubscriptionsEnabled, UpdatedAt string
 }{
-	Timezone:          "timezone",
-	ProfileVisibility: "profile_visibility",
-	UpdatedAt:         "updated_at",
+	Timezone:                  "timezone",
+	ProfileVisibility:         "profile_visibility",
+	EmailSubscriptionsEnabled: "email_subscriptions_enabled",
+	UpdatedAt:                 "updated_at",
 }
 
 // LoginAttemptColumns names the login_attempts columns a caller may list in
