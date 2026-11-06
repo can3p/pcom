@@ -90,15 +90,18 @@ Readers subscribe to an author's posts by email; the `SUBSCRIBE_*` settings boun
 | `SUBSCRIBE_CONFIRM_LIFETIME` (72h) | How long a mailed confirmation link works |
 | `SUBSCRIBE_CONFIRMS_PER_ADDRESS` (3) | Confirmation mails one address may get |
 | `SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS` (3) | Mails with the manage link one address may get |
-| `SUBSCRIBE_CONFIRMS_PER_HOUR` (100) | Confirmation mails the whole site may send per hour |
+| `SUBSCRIBE_CONFIRMS_PER_HOUR` (100) | Confirmation mails, and subscribe attempts refused for their domain, the whole site may have per hour |
 | `SUBSCRIBE_POW_DIFFICULTY` (15) | Leading zero bits of the proof of work the subscribe form's browser solves |
 | `SUBSCRIBE_POW_MAX_AGE` (30m) | How long a proof-of-work challenge may be answered |
 | `SUBSCRIBE_MIN_FILL_TIME` (2s) | Least time between showing the subscribe form and submitting it |
 | `SUBSCRIBE_PRUNE_EVERY` (1h) | How often expired subscriptions and old mail records are deleted |
 
 The subscribe form also checks that the address's domain can receive mail, within `EMAIL_MX_TIMEOUT` (2s; 0
-turns the DNS check off), and refuses throwaway addresses unless `EMAIL_ALLOW_DISPOSABLE` is true. The
-development compose file sets both, so any made-up address subscribes; tommy catches the mail.
+turns the DNS check off). A domain's answer is remembered for `EMAIL_MX_CACHE` (1h), for up to
+`EMAIL_MX_CACHE_SIZE` domains (10000, the least recently used forgotten first); 0 in either turns the cache off,
+and a lookup that failed or timed out is never remembered. A refused domain counts toward
+`SUBSCRIBE_CONFIRMS_PER_HOUR`. The form refuses throwaway addresses unless `EMAIL_ALLOW_DISPOSABLE` is true. The
+development compose file sets `EMAIL_MX_TIMEOUT` to 0 and `EMAIL_ALLOW_DISPOSABLE` to true, so any made-up address subscribes; tommy catches the mail.
 
 ## Seeding
 

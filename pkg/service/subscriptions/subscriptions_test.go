@@ -361,6 +361,37 @@ func TestSubscribe_Brake(t *testing.T) {
 	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "second@mail.test"))
 }
 
+// A refused domain logs a domain_refused row, which the site-wide brake counts
+// and the mailbox's cap doesn't.
+func TestSubscribe_RefusedDomain(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	store := repo.New(db)
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	perHour := subscriptions.DefaultConfirmsPerAddress + 1
+	svc, c, q := newSvc(db, subscriptions.WithConfirmsPerHour(perHour))
+	refused := "x@" + noMailHost
+	canonical := emailaddr.Parse(refused).Canonical
+
+	// More attempts than the mailbox's cap: each one still looks the domain up.
+	for range perHour {
+		require.Equal(t, service.Invalid("email", emailaddr.UndeliverableMessage), svc.Subscribe(ctx, author.Username, refused))
+	}
+
+	require.Equal(t, perHour, testutil.Must(store.SubscriptionMailsTo(ctx, canonical, model.SubscriptionMailKindDomainRefused, time.Time{}))(t))
+	require.Zero(t, testutil.Must(store.SubscriptionMailsTo(ctx, canonical, model.SubscriptionMailKindConfirm, time.Time{}))(t))
+	require.Empty(t, subscriptionsOf(t, db, refused))
+	require.Empty(t, fakequeue.Of[subscriptions.ConfirmMailArgs](q))
+
+	require.Equal(t, service.Invalid("", subscriptions.PausedMessage), svc.Subscribe(ctx, author.Username, "reader@mail.test"))
+
+	c.advance(time.Hour + time.Second)
+	require.NoError(t, svc.Subscribe(ctx, author.Username, "reader@mail.test"))
+	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "reader@mail.test"))
+}
+
 // The inserter keeps one admin alert per hour.
 func TestBrakedMailArgs_UniqueByHour(t *testing.T) {
 	t.Parallel()
@@ -898,6 +929,7 @@ func TestPrune(t *testing.T) {
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
 	testutil.Must(factory.EmailSubscription(ctx, db, author.ID, "active@mail.test"))(t)
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "expired@mail.test"))
+	require.Error(t, svc.Subscribe(ctx, author.Username, "x@"+noMailHost))
 
 	c.advance(subscriptions.DefaultConfirmLifetime + time.Second)
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "fresh@mail.test"))
@@ -907,6 +939,6 @@ func TestPrune(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 	require.Len(t, subscriptionsOf(t, db, "fresh@mail.test"), 1)
 	require.Len(t, subscriptionsOf(t, db, "active@mail.test"), 1)
-	require.Equal(t, 1, testutil.Must(store.SubscriptionMailsSince(ctx, model.SubscriptionMailKindConfirm, time.Time{}))(t),
-		"the mail log keeps the last day only")
+	require.Equal(t, 1, testutil.Must(store.SubscriptionMailsSince(ctx, time.Time{}, model.SubscriptionMailKindConfirm, model.SubscriptionMailKindDomainRefused))(t),
+		"the mail log keeps the last day only, of every kind")
 }

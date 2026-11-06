@@ -433,6 +433,40 @@ func TestNewEmailChecker_AllowDisposable(t *testing.T) {
 	}
 }
 
+func TestNewEmailChecker_MXCache(t *testing.T) {
+	for _, r := range []struct {
+		env map[string]string
+		// after is how long after the first check the second one runs.
+		after   time.Duration
+		domains []string
+		lookups int
+	}{
+		{map[string]string{}, emailaddr.DefaultCacheTTL - time.Second, []string{"a.test", "a.test"}, 1},
+		{map[string]string{}, emailaddr.DefaultCacheTTL, []string{"a.test", "a.test"}, 2},
+		{map[string]string{"EMAIL_MX_CACHE": "5m"}, 5 * time.Minute, []string{"a.test", "a.test"}, 2},
+		{map[string]string{"EMAIL_MX_CACHE": "0s"}, 0, []string{"a.test", "a.test"}, 2},
+		{map[string]string{"EMAIL_MX_CACHE_SIZE": "1"}, 0, []string{"a.test", "b.test", "a.test"}, 3},
+		{map[string]string{"EMAIL_MX_CACHE_SIZE": "2"}, 0, []string{"a.test", "b.test", "a.test"}, 2},
+	} {
+		cfg, err := parseServe(t, r.env)
+		require.NoError(t, err)
+
+		now := time.Now()
+		resolver := &deadlineResolver{}
+		checker := newEmailChecker(cfg.Email, emailaddr.WithResolver(resolver), emailaddr.WithClock(func() time.Time { return now }))
+
+		for i, domain := range r.domains {
+			if i == 1 {
+				now = now.Add(r.after)
+			}
+
+			require.NoError(t, checker.CheckDomain(context.Background(), domain))
+		}
+
+		require.Len(t, resolver.deadlines, r.lookups, "%v after %v", r.env, r.after)
+	}
+}
+
 func TestNewEmailChecker_MXTimeout(t *testing.T) {
 	for _, r := range []struct {
 		value string

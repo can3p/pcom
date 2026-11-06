@@ -95,10 +95,13 @@ type Feeds struct {
 	MaxFeedSize  int64         `long:"rss-max-feed-size" env:"RSS_MAX_FEED_SIZE" description:"Most bytes of a feed document" default:"5242880"`
 }
 
-// Email is how pcom checks the addresses users give. The default is
-// emailaddr.DefaultMXTimeout.
+// Email is how pcom checks the addresses users give. The defaults are
+// emailaddr.DefaultMXTimeout, emailaddr.DefaultCacheTTL and
+// emailaddr.DefaultCacheSize.
 type Email struct {
 	MXTimeout       time.Duration `long:"email-mx-timeout" env:"EMAIL_MX_TIMEOUT" description:"How long the DNS lookups of an address's domain may take; 0 turns the check off" default:"2s"`
+	MXCache         time.Duration `long:"email-mx-cache" env:"EMAIL_MX_CACHE" description:"How long the answer of a domain's DNS check is remembered; 0 turns the cache off" default:"1h"`
+	MXCacheSize     int           `long:"email-mx-cache-size" env:"EMAIL_MX_CACHE_SIZE" description:"How many domains' DNS answers are remembered; 0 turns the cache off" default:"10000"`
 	AllowDisposable Switch        `long:"email-allow-disposable" env:"EMAIL_ALLOW_DISPOSABLE" description:"Accept throwaway addresses on the subscribe form; local development only" optional:"true" optional-value:"true" default:"false"`
 }
 
@@ -173,7 +176,7 @@ type Subscriptions struct {
 	ConfirmLifetime       time.Duration `long:"confirm-lifetime" env:"CONFIRM_LIFETIME" description:"How long a mailed subscription confirmation link works" default:"72h"`
 	ConfirmsPerAddress    int           `long:"confirms-per-address" env:"CONFIRMS_PER_ADDRESS" description:"Subscription confirmation mails one address may get" default:"3"`
 	ManageLinksPerAddress int           `long:"manage-links-per-address" env:"MANAGE_LINKS_PER_ADDRESS" description:"Mails with the link to manage subscriptions one address may get" default:"3"`
-	ConfirmsPerHour       int           `long:"confirms-per-hour" env:"CONFIRMS_PER_HOUR" description:"Subscription confirmation mails the whole site may send per hour" default:"100"`
+	ConfirmsPerHour       int           `long:"confirms-per-hour" env:"CONFIRMS_PER_HOUR" description:"Subscription confirmation mails, and subscribe attempts refused for their domain, the whole site may have per hour" default:"100"`
 	PowDifficulty         int           `long:"pow-difficulty" env:"POW_DIFFICULTY" description:"Leading zero bits of the proof of work the subscribe form's browser solves" default:"15"`
 	PowMaxAge             time.Duration `long:"pow-max-age" env:"POW_MAX_AGE" description:"How long a proof-of-work challenge may be answered" default:"30m"`
 	MinFillTime           time.Duration `long:"min-fill-time" env:"MIN_FILL_TIME" description:"Least time between showing the subscribe form and submitting it" default:"2s"`

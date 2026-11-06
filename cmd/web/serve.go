@@ -283,7 +283,12 @@ func loginLimits(cfg config.Login) accounts.LoginLimits {
 // newEmailChecker is what asks DNS whether an address's domain can receive
 // mail; opts replace its resolver in tests.
 func newEmailChecker(cfg config.Email, opts ...emailaddr.Option) *emailaddr.Checker {
-	return emailaddr.NewChecker(append([]emailaddr.Option{emailaddr.WithTimeout(cfg.MXTimeout), emailaddr.WithAllowDisposable(cfg.AllowDisposable.On())}, opts...)...)
+	return emailaddr.NewChecker(append([]emailaddr.Option{
+		emailaddr.WithTimeout(cfg.MXTimeout),
+		emailaddr.WithCacheTTL(cfg.MXCache),
+		emailaddr.WithCacheSize(cfg.MXCacheSize),
+		emailaddr.WithAllowDisposable(cfg.AllowDisposable.On()),
+	}, opts...)...)
 }
 
 // subscriptionsOptions is the subscriptions service's view of its settings.
