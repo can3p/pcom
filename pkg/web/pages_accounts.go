@@ -23,7 +23,8 @@ type SettingsPage struct {
 	InvitesSection   map[string]any // partial--settings_invites.html
 }
 
-func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, view *accounts.SettingsView) *SettingsPage {
+// Settings builds the settings page; subscribers is the author's confirmed email subscriber count.
+func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, view *accounts.SettingsView, subscribers int) *SettingsPage {
 	formUserStyles := forms.SettingsUserStylesNew(svc, userData.DBUser)
 	formUserStyles.Input.Styles = view.UserStyles
 
@@ -40,7 +41,7 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 		UsedInvites:      view.UsedInvites,
 		ActiveAPIKey:     view.APIKey,
 		FeedURL:          view.FeedURL,
-		GeneralSettings:  forms.SettingsGeneralFormNew(svc, userData.DBUser),
+		GeneralSettings:  forms.SettingsGeneralFormNew(svc, userData.DBUser, subscribers),
 		UserStyles:       formUserStyles,
 		Profile:          formProfile,
 		Feeds:            view.Feeds,

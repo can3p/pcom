@@ -25,7 +25,13 @@ func mountConnectionRoutes(d *Deps, controls, controlsForms *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "controls.html", web.Controls(c, &userData, view))
+		subscribers, err := d.Services.Subscriptions.ForAuthor(c, userData.DBUser)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "controls.html", web.Controls(c, &userData, view, subscribers))
 	})
 
 	controlsForms.POST("/whitelist_connection", func(c *gin.Context) {

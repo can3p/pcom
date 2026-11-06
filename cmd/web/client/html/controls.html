@@ -46,6 +46,34 @@
         </table>
       </section>
       {{ end }}
+
+      {{ with .Subscribers }}
+      <section class="controls-section" aria-labelledby="email-subscribers-title">
+        <h2 id="email-subscribers-title">Email subscribers</h2>
+        {{ if gt .Count 0 }}
+        <p class="field-help">{{ .Count }} {{ if eq .Count 1 }}person gets{{ else }}people get{{ end }} your public posts by email. You see their addresses, and they know that.</p>
+        <ul class="controls-list">
+          {{ range .Rows }}
+          <li class="controls-row">
+            <span>{{ .Email }}</span>
+            <span class="meta">subscribed {{ with .ConfirmedAt }}{{ renderHumanTime . $.User.DBUser }}{{ end }}</span>
+            <span class="acts">
+              <button type="button"
+                      class="btn btn-danger"
+                      data-controller="action"
+                      data-action="action#run"
+                      data-action-action-value="subscribers/{{ .ID }}/remove"
+                      data-action-prompt-value="Remove {{ .Email }} from your email subscribers? They get no mail about it."
+                      >Remove</button>
+            </span>
+          </li>
+          {{ end }}
+        </ul>
+        {{ else }}
+        <p class="field-help">Nobody subscribes to your posts by email. You can let people subscribe under Audience in <a href="{{ link "settings" }}">Settings</a>.</p>
+        {{ end }}
+      </section>
+      {{ end }}
     </div>
 
     <div class="controls-col">

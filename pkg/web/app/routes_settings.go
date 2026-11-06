@@ -17,6 +17,7 @@ import (
 // mountSettingsRoutes registers the settings page, its forms, invitations and the user styles.
 func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 	accounts := d.Services.Accounts
+	subs := d.Services.Subscriptions
 
 	r.GET("/users/:username/user_styles", auth.EnforceReferer(d.Config.SiteRoot), func(c *gin.Context) {
 		css, err := accounts.UserStyles(c, c.Param("username"))
@@ -49,7 +50,13 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "settings.html", web.Settings(c, accounts, &userData, view))
+		subscribers, err := subs.ActiveCount(c, nil, userData.DBUser.ID)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "settings.html", web.Settings(c, accounts, &userData, view, subscribers))
 	})
 
 	// form maps a settings form to its route: the form is built for the
@@ -64,9 +71,17 @@ func mountSettingsRoutes(d *Deps, r, controls, controlsForms *gin.RouterGroup) {
 		return forms.SendInviteFormNew(accounts, auth.GetUserData(c).DBUser)
 	}))
 
-	controlsForms.POST("/save_settings", form(func(c *gin.Context) gogoForms.Form {
-		return forms.SettingsGeneralFormNew(accounts, auth.GetUserData(c).DBUser)
-	}))
+	controlsForms.POST("/save_settings", func(c *gin.Context) {
+		user := auth.GetUserData(c).DBUser
+
+		subscribers, err := subs.ActiveCount(c, nil, user.ID)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.SettingsGeneralFormNew(accounts, user, subscribers))
+	})
 
 	controlsForms.POST("/save_user_styles", form(func(c *gin.Context) gogoForms.Form {
 		return forms.SettingsUserStylesNew(accounts, auth.GetUserData(c).DBUser)
