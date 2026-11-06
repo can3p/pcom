@@ -26,8 +26,9 @@ account.
 
 You can subscribe by email to an author's public posts without an account. To do that, pcom stores:
 
-- the address you entered, and the mailbox it delivers to, which pcom uses to count subscriptions per mailbox;
-- a secret link that opens the page where you see and end your subscriptions, which every mail to you carries;
+- the address you entered, and the mailbox it delivers to, which pcom uses to count the mails it sends to one mailbox;
+- a secret link that opens the page where you see and end your subscriptions, which every post mail and the
+  mail with the link to your subscriptions carry;
 - your subscriptions: the author, whether you have confirmed, and when you confirmed;
 - a record of each confirmation mail and each mail with the link to your subscriptions, kept for about a day so
   that pcom can limit how many it sends to one address;
@@ -38,7 +39,7 @@ remove you there. They are told when you confirm and when you unsubscribe, and t
 
 A subscription that is not confirmed is deleted after three days, if the link in its confirmation mail has not
 been used by then. A confirmed subscription lasts until you end it, the author removes you, or the author's
-account is deleted. You can end it from the link in any mail, or from the page that the link opens, with
+account is deleted. You can end it from the links in any post mail, or from the page that the link opens, with
 Unsubscribe or Unsubscribe from all. If you have lost the link, the Subscriptions page sends it to your address
 again while you have a subscription. Ending a subscription deletes it. The copies of mail kept under the last
 item above are not deleted when you unsubscribe; to have them deleted, ask the service administration.

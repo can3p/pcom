@@ -29,6 +29,10 @@
 //     returns <name>Mail.Render(in), or <name>Mail.MustRender(in) when its
 //     signature has no error.
 //
+// Two package tests list mails by hand: a sample's footer wording goes into
+// the reasons table of TestMails_FooterReason (css_test.go), and a
+// constructor that shows user content goes into mailers() in escape_test.go.
+//
 // # Templates
 //
 // The templates are embedded from pkg/mail/templates/: <name>.subject.txt and

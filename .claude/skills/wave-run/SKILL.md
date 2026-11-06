@@ -33,7 +33,9 @@ Never read another wave's file, `docs/archive/`, or `docs/gogo-extraction.md` un
 ```
 
 It pastes the task's table row or `###` section into a preamble and prints the `model` to use on the first
-line. Replace every `<FILL: ...>`, above all the owned files, before dispatching, and check the `PKG=` paths:
+line. Replace every `<FILL: ...>`, above all the owned files, before dispatching, and read the owned-files line
+back: when the table says "see TX" or the section lists files in bullets, the script pastes a fragment or the
+literal "see TX". Check the `PKG=` paths too:
 the script guesses them from the paths in the excerpt and can name a package that doesn't exist. If the excerpt names
 something a subagent can't read (another wave's matrix, an issue by number, an open question), paste its
 definition or a one-line summary into the prompt: subagents read no other wave files and have no GitHub
