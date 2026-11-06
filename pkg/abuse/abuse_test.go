@@ -105,6 +105,7 @@ func TestVerify(t *testing.T) {
 		{"wrong nonce", abuse.DefaultMinFillTime, func(c abuse.Challenge, s *abuse.Submission) {
 			s.Nonce = nonceFor(t, c.Token, testBits, false)
 		}, abuse.ErrInvalid, true},
+		{"no nonce", abuse.DefaultMinFillTime, func(c abuse.Challenge, s *abuse.Submission) { s.Nonce = "" }, abuse.ErrInvalid, true},
 		{"honeypot filled", abuse.DefaultMinFillTime, func(c abuse.Challenge, s *abuse.Submission) { s.Honeypot = "http://spam" }, abuse.ErrSilent, true},
 		{"honeypot and bad token", abuse.DefaultMinFillTime, func(c abuse.Challenge, s *abuse.Submission) {
 			s.Token, s.Honeypot = "x", "http://spam"

@@ -47,10 +47,11 @@ func orExpired[T any](v *T, err error) (*T, error) {
 }
 
 // mountSubscriptionRoutes registers email subscriptions: the public forms, the
-// pages the mailed links open (a link's token authorizes them, so they take
-// no CSRF token: a request without the token does nothing) and the author's
-// removal of a subscriber.
-func mountSubscriptionRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGroup) {
+// pages the mailed links open and the author's removal of a subscriber. The
+// one-click unsubscribe is the only POST without a CSRF token, as the mail
+// client posts it with no session; the other POSTs of the pages (confirm,
+// unsubscribe from all) go through checkedPages, which checks the token.
+func mountSubscriptionRoutes(d *Deps, r, actions, nonControlsForms, checkedPages *gin.RouterGroup) {
 	subs := d.Services.Subscriptions
 
 	nonControlsForms.POST("/subscribe/:username", func(c *gin.Context) {
@@ -81,7 +82,7 @@ func mountSubscriptionRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGr
 		c.HTML(http.StatusOK, "subscription_confirm.html", web.SubscriptionConfirm(c, &userData, c.Param("token"), view, false))
 	})
 
-	r.POST("/subscriptions/confirm/:token", func(c *gin.Context) {
+	checkedPages.POST("/subscriptions/confirm/:token", func(c *gin.Context) {
 		tokenPage(c)
 
 		userData := auth.GetUserData(c)
@@ -154,7 +155,7 @@ func mountSubscriptionRoutes(d *Deps, r, actions, nonControlsForms *gin.RouterGr
 		c.HTML(http.StatusOK, "subscriptions_manage.html", web.SubscriptionsManage(c, &userData, token, view, unsubscribedNotice))
 	})
 
-	r.POST("/subscriptions/:manage_token/unsubscribe", func(c *gin.Context) {
+	checkedPages.POST("/subscriptions/:manage_token/unsubscribe", func(c *gin.Context) {
 		tokenPage(c)
 
 		userData := auth.GetUserData(c)

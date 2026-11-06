@@ -248,8 +248,9 @@ func (g *Guard) Verify(ctx context.Context, store UsedStore, sub Submission) err
 		return ErrSilent
 	}
 
+	// An empty nonce is no answer, however its hash happens to start.
 	sum := sha256.Sum256([]byte(sub.Token + sub.Nonce))
-	if leadingZeroBits(sum[:]) < c.Difficulty {
+	if sub.Nonce == "" || leadingZeroBits(sum[:]) < c.Difficulty {
 		return ErrInvalid
 	}
 

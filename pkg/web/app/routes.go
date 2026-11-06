@@ -11,14 +11,14 @@ import (
 var articlesRE = regexp.MustCompile("^[a-z0-9]+(_[a-z0-9]+)*$")
 
 // mountRoutes registers every route on the groups New creates; each area's routes are in its own file.
-func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, nonControlsForms, controlsForms *gin.RouterGroup) {
+func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, nonControlsForms, controlsForms, checkedPages *gin.RouterGroup) {
 	mountMediaRoutes(d, router)
 	mountDevRoutes(d, router)
 	setupApi(apiGroup, d)
 	mountPublicRoutes(d, r)
 	mountAuthRoutes(d, r, actions, nonControlsForms)
 	mountRSSRoutes(d, r)
-	mountSubscriptionRoutes(d, r, actions, nonControlsForms)
+	mountSubscriptionRoutes(d, r, actions, nonControlsForms, checkedPages)
 	mountConnectionRoutes(d, controls, controlsForms)
 	mountPostRoutes(d, r, controlsForms)
 	mountSettingsRoutes(d, r, controls, controlsForms)

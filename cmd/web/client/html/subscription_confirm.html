@@ -12,6 +12,7 @@
   <p class="auth-note">Get @{{ .Author }}'s public posts by email. @{{ .Author }} will see your email address.</p>
   {{ if .Paused }}<p class="field-help auth-note">@{{ .Author }} isn't sending posts by email right now.</p>{{ end }}
   <form method="POST" action="{{ link "subscription_confirm" .Token }}">
+    <input type="hidden" name="header_csrf" value="{{ .User.CSRFToken }}" />
     <div class="auth-submit">
       <button type="submit" class="btn btn-primary">Confirm subscription</button>
     </div>

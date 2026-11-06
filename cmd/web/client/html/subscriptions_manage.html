@@ -22,6 +22,7 @@
     {{ end }}
   </ul>
   <form method="POST" action="{{ link "subscriptions_manage" .Token }}/unsubscribe">
+    <input type="hidden" name="header_csrf" value="{{ .User.CSRFToken }}" />
     <button type="submit" class="btn btn-danger"
             data-controller="confirm"
             data-confirm-message-value="Stop getting posts by email from everyone?"

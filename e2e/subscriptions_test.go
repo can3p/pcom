@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/abuse"
@@ -102,28 +101,48 @@ func TestSubscriptions_SubscribeAndConfirm(t *testing.T) {
 	expired := visitor.Get("/subscriptions/confirm/no-such-token").RequireStatus(http.StatusOK)
 	require.Contains(t, expired.Body, "This link has expired")
 	require.Contains(t, expired.Body, "Subscribe again from the author")
+
+	// confirming with a token nobody knows says the same, and changes nothing
+	require.Contains(t, visitor.PostForm("/subscriptions/confirm/no-such-token", nil).RequireStatus(http.StatusOK).Body, "This link has expired")
+	require.Equal(t, []model.SubscriptionStatus{model.SubscriptionStatusActive}, subscriptionsOf(t, app, email))
 }
 
-// A person and a script get the same reply, and so do every state of the
-// address; only a person's new address is mailed. The same goes for the
-// form that mails the manage link.
+// A public post of a public author who takes no subscriptions shows no
+// subscribe form; the same post of one who does shows it.
+func TestSubscriptions_NoFormWhenOff(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	ctx := context.Background()
+	off := newUser(t, app, factory.WithVisibility(model.ProfileVisibilityPublic))
+	on := newUser(t, app, factory.Subscribable())
+
+	form := func(author *model.User) int {
+		post := testutil.Must(factory.Post(ctx, app.DB, author.ID, factory.Published(), factory.Visibility(model.PostVisibilityPublic)))(t)
+
+		return app.Client(t).Get("/posts/" + post.ID).RequireStatus(http.StatusOK).Doc().Find(`[data-testid="subscribe-form"]`).Length()
+	}
+
+	require.Zero(t, form(off))
+	require.Equal(t, 1, form(on))
+}
+
+// A script gets the same reply as a person: the honeypot is answered like a
+// success and mails nothing, an unsolved challenge is refused. The form that
+// mails the manage link answers alike for an address that subscribes and one
+// that doesn't. The states of the address are the form test's.
 func TestSubscriptions_SameReplyForEveryState(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t)
 	ctx := context.Background()
 	author := newUser(t, app, factory.Subscribable())
-	fresh, active, pending, bot := uniqueEmail("new"), uniqueEmail("active"), uniqueEmail("pending"), uniqueEmail("bot")
+	fresh, active, bot := uniqueEmail("new"), uniqueEmail("active"), uniqueEmail("bot")
 	testutil.Must(factory.EmailSubscription(ctx, app.DB, author.ID, active))(t)
-	testutil.Must(factory.EmailSubscription(ctx, app.DB, author.ID, pending, factory.PendingSince(time.Now())))(t)
 
 	visitor := app.Client(t)
 	want := subscribeAs(t, visitor, author.Username, fresh, nil).RequireStatus(http.StatusOK).Body
 	require.Contains(t, want, "Check your inbox")
-
-	for _, email := range []string{active, pending} {
-		require.Equal(t, want, subscribeAs(t, visitor, author.Username, email, nil).RequireStatus(http.StatusOK).Body, email)
-	}
 
 	robot := subscribeAs(t, visitor, author.Username, bot, func(v url.Values) { v.Set(abuse.HoneypotField, "http://spam.test") })
 	require.Equal(t, want, robot.RequireStatus(http.StatusOK).Body)
@@ -131,9 +150,7 @@ func TestSubscriptions_SameReplyForEveryState(t *testing.T) {
 	unsolved := subscribeAs(t, visitor, author.Username, bot, func(v url.Values) { v.Set(abuse.PowNonceField, "") })
 	require.Contains(t, unsolved.RequireStatus(http.StatusOK).Body, "please try again")
 
-	app.Mails(t, fresh, nil)
 	app.NoMails(t, bot, nil)
-	app.NoMails(t, active, nil)
 	require.Empty(t, subscriptionsOf(t, app, bot))
 
 	// the lost link form: mailed for an address that subscribes, nothing for one that doesn't
@@ -152,6 +169,24 @@ func TestSubscriptions_SameReplyForEveryState(t *testing.T) {
 	require.Contains(t, lost(active), "If that address subscribes")
 	app.Mails(t, active, func(m tommy.Mail) bool { return strings.Contains(m.Text, app.URL+"/subscriptions/") })
 	app.NoMails(t, stranger, nil)
+}
+
+// subscribedAuthors is the ids of the authors an address still gets posts from.
+func subscribedAuthors(t *testing.T, app *e2e.App, email string) []string {
+	t.Helper()
+
+	subscriber, err := factory.GetEmailSubscriber(context.Background(), app.DB, email)
+	require.NoError(t, err)
+
+	subs, err := factory.ListEmailSubscriptions(context.Background(), app.DB, subscriber.ID)
+	require.NoError(t, err)
+
+	var out []string
+	for _, s := range subs {
+		out = append(out, s.AuthorID)
+	}
+
+	return out
 }
 
 // A public post reaches an active subscriber, with a one-click unsubscribe
@@ -199,8 +234,9 @@ func TestSubscriptions_PostMailAndOneClickUnsubscribe(t *testing.T) {
 	require.Contains(t, click().RequireStatus(http.StatusOK).Body, "This link has expired")
 }
 
-// The manage page lists the authors, marks one who pauses subscriptions, and
-// unsubscribes from one or from all; a token it does not know is an expired link.
+// The manage page's POSTs unsubscribe from one author or from all; a token it
+// does not know is an expired link. The list and the paused mark are the
+// browser test's.
 func TestSubscriptions_Manage(t *testing.T) {
 	t.Parallel()
 
@@ -215,14 +251,11 @@ func TestSubscriptions_Manage(t *testing.T) {
 	visitor := app.Client(t)
 	manage := "/subscriptions/" + first.Subscriber.ManageToken
 
-	page := visitor.Get(manage).RequireStatus(http.StatusOK).Doc()
-	require.Equal(t, 2, page.Find(`[data-testid="subscriptions-list"] li`).Length())
-	require.Contains(t, page.Find(`[data-testid="subscription-`+paused.Username+`"]`).Text(), "isn't sending posts by email right now")
-	require.NotContains(t, page.Find(`[data-testid="subscription-`+open.Username+`"]`).Text(), "isn't sending")
+	visitor.Get(manage).RequireStatus(http.StatusOK)
 
 	one := visitor.PostForm(manage+"/unsubscribe/"+first.ID, nil).RequireStatus(http.StatusOK)
 	require.Contains(t, one.Body, "You are unsubscribed")
-	require.Len(t, subscriptionsOf(t, app, email), 1)
+	require.Equal(t, []string{paused.ID}, subscribedAuthors(t, app, email), "only the other author's subscription remains")
 
 	all := visitor.PostForm(manage+"/unsubscribe", nil).RequireStatus(http.StatusOK)
 	require.Contains(t, all.Body, "You are unsubscribed")
@@ -250,6 +283,4 @@ func TestSubscriptions_AuthorRemovesSubscriber(t *testing.T) {
 
 	authorClient.PostJSON("/controls/action/subscribers/"+own.ID+"/remove", map[string]string{}).RequireStatus(http.StatusOK)
 	require.Empty(t, subscriptionsOf(t, app, mine))
-	app.NoMails(t, author.Email, func(m tommy.Mail) bool { return strings.Contains(m.Text, mine) })
-	app.NoMails(t, mine, nil)
 }

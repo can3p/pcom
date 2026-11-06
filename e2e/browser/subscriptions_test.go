@@ -149,11 +149,13 @@ func TestSubscriptions_ManagePage(t *testing.T) {
 	accept = true
 
 	require.NoError(t, row.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Unsubscribe"}).Click())
+	require.Contains(t, <-asked, "@"+open.Username)
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("subscriptions-notice")).ToHaveText("You are unsubscribed."))
 	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("subscription-"+open.Username)).ToHaveCount(0))
 
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Unsubscribe from all"}).Click())
+	require.Equal(t, "Stop getting posts by email from everyone?", <-asked)
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("subscriptions-notice")).ToHaveText("You are unsubscribed."))
 	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(0))
 

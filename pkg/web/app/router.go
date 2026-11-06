@@ -98,8 +98,9 @@ func New(d *Deps) *gin.Engine {
 	actions := controls.Group("/action", csrfCheck)
 	nonControlsForms := r.Group("/form", csrfCheck)
 	controlsForms := controls.Group("/form", csrfCheck)
+	checkedPages := r.Group("/", csrfCheck)
 
-	mountRoutes(d, router, apiGroup, r, controls, actions, nonControlsForms, controlsForms)
+	mountRoutes(d, router, apiGroup, r, controls, actions, nonControlsForms, controlsForms, checkedPages)
 
 	return router
 }
