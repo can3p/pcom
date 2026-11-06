@@ -11,31 +11,44 @@
     <input name="email" type="email" value="{{ .User.Email }}" id="settingsEmail" readonly>
   </div>
 
-  <div class="settings-pair">
-    <div class="field">
-      <label for="settingsTimeZone">Time zone</label>
-      {{ $selected_tz := .User.Timezone }}
-      {{ if (and .Input .Input.Timezone) }}
-        {{ $selected_tz = .Input.Timezone }}
+  <div class="field">
+    <label for="settingsTimeZone">Time zone</label>
+    {{ $selected_tz := .User.Timezone }}
+    {{ if (and .Input .Input.Timezone) }}
+      {{ $selected_tz = .Input.Timezone }}
+    {{ end }}
+    <select name="timezone" id="settingsTimeZone"
+            {{ if (.Errors.HasError "timezone") }}aria-invalid="true" aria-describedby="settingsTimeZoneError"{{ end }}>
+      {{ range tzlist }}
+        <option value="{{ . }}" {{ if eq . $selected_tz }}selected{{ end }}>{{ . }}</option>
       {{ end }}
-      <select name="timezone" id="settingsTimeZone"
-              {{ if (.Errors.HasError "timezone") }}aria-invalid="true" aria-describedby="settingsTimeZoneError"{{ end }}>
-        {{ range tzlist }}
-          <option value="{{ . }}" {{ if eq . $selected_tz }}selected{{ end }}>{{ . }}</option>
-        {{ end }}
-      </select>
-      {{ if (.Errors.HasError "timezone") }}
-      <p class="field-error" id="settingsTimeZoneError">{{ .Errors.timezone }}</p>
-      {{ end }}
-    </div>
+    </select>
+    {{ if (.Errors.HasError "timezone") }}
+    <p class="field-error" id="settingsTimeZoneError">{{ .Errors.timezone }}</p>
+    {{ end }}
+  </div>
+
+  {{ $selected := .User.ProfileVisibility }}
+  {{ $subscribe := .User.EmailSubscriptionsEnabled }}
+  {{/* the input is empty until the form is submitted; a submit always carries the time zone */}}
+  {{ if (and .Input .Input.Timezone) }}
+    {{ if .Input.ProfileVisibility }}{{ $selected = .Input.ProfileVisibility }}{{ end }}
+    {{ $subscribe = .Input.EmailSubscriptions }}
+  {{ end }}
+  {{ $open := eq $selected .PublicValue }}
+
+  {{/* audience keeps the checkbox enabled only for the public option and shows the subscriber warning while the
+       stored settings let people subscribe and the form is about to take that away */}}
+  <div class="settings-audience"
+       data-controller="audience"
+       data-audience-public-value="{{ .PublicValue }}"
+       data-audience-live-value="{{ and (eq .User.ProfileVisibility .PublicValue) .User.EmailSubscriptionsEnabled }}">
+    <h3>Audience</h3>
 
     <div class="field">
-      <label for="settingsProfileVisibility">Who can see your journal</label>
-      {{ $selected := .User.ProfileVisibility }}
-      {{ if (and .Input .Input.ProfileVisibility) }}
-        {{ $selected = .Input.ProfileVisibility }}
-      {{ end }}
+      <label for="settingsProfileVisibility">Who can read your journal</label>
       <select name="profile_visibility" id="settingsProfileVisibility"
+              data-audience-target="select" data-action="audience#update"
               {{ if (.Errors.HasError "profile_visibility") }}aria-invalid="true" aria-describedby="settingsProfileVisibilityError"{{ end }}>
         {{ range .ProfileVisibility }}
           <option value="{{ .Value }}" {{ if eq .Value $selected }}selected{{ end }}>{{ .Label }}</option>
@@ -43,6 +56,25 @@
       </select>
       {{ if (.Errors.HasError "profile_visibility") }}
       <p class="field-error" id="settingsProfileVisibilityError">{{ .Errors.profile_visibility }}</p>
+      {{ end }}
+      <p class="field-help" data-audience-target="explain" {{ if not $open }}hidden{{ end }}>Your journal and public posts appear on pcom's front page and public RSS feed, and you can let people subscribe by email.</p>
+    </div>
+
+    <div class="field">
+      <label for="settingsEmailSubscriptions">
+        <input type="checkbox" name="email_subscriptions_enabled" id="settingsEmailSubscriptions" value="true"
+               data-audience-target="box" data-action="audience#update"
+               {{ if $subscribe }}{{ if $open }}checked{{ end }}{{ end }} {{ if not $open }}disabled{{ end }}
+               {{ if (.Errors.HasError "email_subscriptions_enabled") }}aria-invalid="true" aria-describedby="settingsEmailSubscriptionsError"{{ end }}>
+        Let people without an account subscribe to your public posts by email
+      </label>
+      {{ if (.Errors.HasError "email_subscriptions_enabled") }}
+      <p class="field-error" id="settingsEmailSubscriptionsError">{{ .Errors.email_subscriptions_enabled }}</p>
+      {{ end }}
+      {{ if gt .Subscribers 0 }}
+      <p class="field-error" role="alert" data-audience-target="warning" hidden>
+        {{ .Subscribers }} {{ if eq .Subscribers 1 }}person subscribed{{ else }}people subscribed{{ end }} by email won't get your posts while your journal isn't open to anyone on the internet or email subscriptions are off.
+      </p>
       {{ end }}
     </div>
   </div>

@@ -19,6 +19,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/service/registry"
+	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -111,7 +112,7 @@ func settingsPage(c *gin.Context, exec repo.Executor, user *model.User) (*Settin
 		return nil, err
 	}
 
-	return Settings(c, svc, userDataFor(user), view), nil
+	return Settings(c, svc, userDataFor(user), view, 0), nil
 }
 
 func TestInvite(t *testing.T) {
@@ -229,7 +230,7 @@ func controlsPage(t *testing.T, db *sql.DB, user *model.User) *ControlsPage {
 
 	view := testutil.Must(connections.New(repo.New(db)).Controls(context.Background(), user))(t)
 
-	return Controls(newTestContext(t, http.MethodGet, "/controls"), userDataFor(user), view)
+	return Controls(newTestContext(t, http.MethodGet, "/controls"), userDataFor(user), view, &subscriptions.AuthorView{})
 }
 
 func TestControls(t *testing.T) {

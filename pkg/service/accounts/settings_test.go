@@ -138,7 +138,7 @@ func TestAPIKeyAndFeedToken(t *testing.T) {
 		"RegenerateFeedToken": func(u *model.User) error { return svc.RegenerateFeedToken(ctx, u) },
 		"SaveUserStyles":      func(u *model.User) error { return svc.SaveUserStyles(ctx, u, "x") },
 		"SaveGeneralSettings": func(u *model.User) error {
-			return svc.SaveGeneralSettings(ctx, u, "UTC", model.ProfileVisibilityPublic)
+			return svc.SaveGeneralSettings(ctx, u, "UTC", model.ProfileVisibilityPublic, false)
 		},
 		"SendInvite": func(u *model.User) error { return svc.SendInvite(ctx, u, "a@example.test") },
 	} {
@@ -186,10 +186,22 @@ func TestSettingsChanges(t *testing.T) {
 	svc := svcWith(db, nil)
 	user := testutil.Must(factory.User(ctx, db))(t)
 
-	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "Europe/Berlin", model.ProfileVisibilityPublic))
+	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "Europe/Berlin", model.ProfileVisibilityPublic, true))
 	got := testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
 	require.Equal(t, "Europe/Berlin", got.Timezone)
 	require.Equal(t, model.ProfileVisibilityPublic, got.ProfileVisibility)
+	require.True(t, got.EmailSubscriptionsEnabled)
+
+	var invalid *service.ValidationError
+	for _, v := range []model.ProfileVisibility{model.ProfileVisibilityConnections, model.ProfileVisibilityRegisteredUsers} {
+		require.ErrorAs(t, svc.SaveGeneralSettings(ctx, user, "UTC", v, true), &invalid, v)
+		require.Equal(t, "email_subscriptions_enabled", invalid.Field)
+	}
+
+	require.NoError(t, svc.SaveGeneralSettings(ctx, user, "UTC", model.ProfileVisibilityConnections, false))
+	got = testutil.Must(factory.GetUser(ctx, db, user.ID))(t)
+	require.Equal(t, model.ProfileVisibilityConnections, got.ProfileVisibility)
+	require.False(t, got.EmailSubscriptionsEnabled)
 }
 
 func TestRegistrationOpenAndInvites(t *testing.T) {
