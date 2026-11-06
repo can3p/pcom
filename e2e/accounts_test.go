@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/e2e"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/samber/lo"
@@ -234,4 +235,26 @@ func TestAccounts_ConfirmWaitingList(t *testing.T) {
 	t.Run("unknown", func(t *testing.T) {
 		app.Client(t).Get("/confirm_waiting_list/00000000-0000-0000-0000-000000000000").RequireStatus(http.StatusNotFound)
 	})
+}
+
+// TestAccounts_SettingsRefuseEmailSubscriptionsOnNarrowJournal posts the
+// general settings form with email subscriptions on for a journal that is not
+// public: the form answers with the field error and stores nothing.
+func TestAccounts_SettingsRefuseEmailSubscriptionsOnNarrowJournal(t *testing.T) {
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user, client := newLoggedIn(t, app)
+
+	resp := client.PostForm("/controls/form/save_settings", url.Values{
+		"timezone":                    {"Europe/Berlin"},
+		"profile_visibility":          {string(model.ProfileVisibilityConnections)},
+		"email_subscriptions_enabled": {"true"},
+	})
+	require.Contains(t, resp.Doc().Find("#settingsEmailSubscriptionsError").Text(), "Email subscriptions need a journal")
+
+	stored, err := factory.GetUser(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, user.ProfileVisibility, stored.ProfileVisibility)
+	require.Equal(t, user.EmailSubscriptionsEnabled, stored.EmailSubscriptionsEnabled)
+	require.Equal(t, user.Timezone, stored.Timezone)
 }

@@ -5,7 +5,6 @@ package browser_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 	"image"
 	"image/color"
@@ -14,6 +13,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -171,7 +171,8 @@ func TestSettings_AudienceSubscribeCheckbox(t *testing.T) {
 
 // An author with subscribers is told how many stop getting their posts
 // before the journal is narrowed or subscriptions are switched off; pending
-// subscriptions are not counted.
+// subscriptions are not counted, and without subscribers or without public
+// subscriptions to lose there is nothing to warn about.
 func TestSettings_AudienceWarnsAboutSubscribers(t *testing.T) {
 	t.Parallel()
 
@@ -193,7 +194,7 @@ func TestSettings_AudienceWarnsAboutSubscribers(t *testing.T) {
 	general := section(page, "General")
 	audience := general.GetByLabel("Who can read your journal")
 	box := general.GetByLabel("Let people without an account subscribe to your public posts by email")
-	warning := general.Locator("[data-audience-target=warning]")
+	warning := general.GetByRole("alert")
 
 	require.NoError(t, browser.Expect.Locator(warning).ToBeHidden())
 
@@ -218,8 +219,86 @@ func TestSettings_AudienceWarnsAboutSubscribers(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(warning).ToBeHidden(), "nothing is lost a second time")
 }
 
+// One subscriber is counted in the singular.
+func TestSettings_AudienceWarnsAboutOneSubscriber(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app, factory.Subscribable())
+	_, err := factory.EmailSubscription(context.Background(), app.DB, user.ID, "one@example.test")
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	openSettings(t, page)
+
+	general := section(page, "General")
+	_, err = general.GetByLabel("Who can read your journal").SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Your connections"}})
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(general.GetByRole("alert")).ToContainText("1 person subscribed by email won't get your posts while"))
+}
+
+// Without subscribers, narrowing the journal or switching subscriptions off
+// warns about nothing.
+func TestSettings_AudienceNoWarningWithoutSubscribers(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app, factory.Subscribable())
+
+	page := browser.Page(t, app, browser.As(user))
+	openSettings(t, page)
+
+	general := section(page, "General")
+	warning := general.GetByRole("alert")
+	box := general.GetByLabel("Let people without an account subscribe to your public posts by email")
+
+	require.NoError(t, browser.Expect.Locator(box).ToBeChecked())
+	require.NoError(t, box.Uncheck())
+	require.NoError(t, browser.Expect.Locator(warning).ToBeHidden())
+
+	_, err := general.GetByLabel("Who can read your journal").SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Your connections"}})
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(general.GetByLabel("Who can read your journal")).ToHaveValue(string(model.ProfileVisibilityConnections)))
+	require.NoError(t, browser.Expect.Locator(warning).ToBeHidden())
+}
+
+// An author with subscribers whose stored settings are not public with the
+// box ticked has nothing to lose, so no change on the page warns.
+func TestSettings_AudienceNoWarningWhenNotPublicWithSubscriptions(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	ctx := context.Background()
+	user := browser.NewUser(t, app, factory.Subscribable())
+	_, err := factory.EmailSubscription(ctx, app.DB, user.ID, "one@example.test")
+	require.NoError(t, err)
+
+	_, err = app.DB.ExecContext(ctx, "UPDATE users SET profile_visibility = $1, email_subscriptions_enabled = false WHERE id = $2",
+		string(model.ProfileVisibilityConnections), user.ID)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	openSettings(t, page)
+
+	general := section(page, "General")
+	warning := general.GetByRole("alert")
+	box := general.GetByLabel("Let people without an account subscribe to your public posts by email")
+
+	require.NoError(t, browser.Expect.Locator(box).Not().ToBeChecked())
+	audience := general.GetByLabel("Who can read your journal")
+	_, err = audience.SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Anyone on the internet"}})
+	require.NoError(t, err)
+	require.NoError(t, box.Check())
+	require.NoError(t, box.Uncheck())
+	require.NoError(t, browser.Expect.Locator(warning).ToBeHidden())
+
+	_, err = audience.SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Anyone with a pcom account"}})
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(warning).ToBeHidden())
+}
+
 // The controls page lists the confirmed subscribers with their addresses and
-// removes one after asking; a dismissed question changes nothing.
+// removes one after asking; a dismissed question sends nothing.
 func TestControls_EmailSubscribersRemove(t *testing.T) {
 	t.Parallel()
 
@@ -227,9 +306,10 @@ func TestControls_EmailSubscribersRemove(t *testing.T) {
 	ctx := context.Background()
 	user := browser.NewUser(t, app, factory.Subscribable())
 
-	keep, err := factory.EmailSubscription(ctx, app.DB, user.ID, "keep@example.test")
+	confirmed := time.Date(2024, time.March, 14, 12, 0, 0, 0, time.UTC)
+	_, err := factory.EmailSubscription(ctx, app.DB, user.ID, "keep@example.test", factory.ConfirmedAt(confirmed))
 	require.NoError(t, err)
-	gone, err := factory.EmailSubscription(ctx, app.DB, user.ID, "gone@example.test")
+	gone, err := factory.EmailSubscription(ctx, app.DB, user.ID, "gone@example.test", factory.ConfirmedAt(confirmed))
 	require.NoError(t, err)
 	_, err = factory.EmailSubscription(ctx, app.DB, user.ID, "pending@example.test", factory.PendingSince(time.Now()))
 	require.NoError(t, err)
@@ -244,6 +324,15 @@ func TestControls_EmailSubscribersRemove(t *testing.T) {
 		}
 	})
 
+	var removeRequests atomic.Int32
+
+	removeURL := "/controls/action/subscribers/" + gone.ID + "/remove"
+	page.OnRequest(func(r playwright.Request) {
+		if strings.HasSuffix(r.URL(), removeURL) {
+			removeRequests.Add(1)
+		}
+	})
+
 	_, err = page.Goto("/controls/")
 	require.NoError(t, err)
 
@@ -253,13 +342,15 @@ func TestControls_EmailSubscribersRemove(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(2))
 	require.NoError(t, browser.Expect.Locator(subs).Not().ToContainText("pending@example.test"))
 
-	remove := rows.Filter(playwright.LocatorFilterOptions{HasText: "gone@example.test"}).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Remove"})
+	goneRow := rows.Filter(playwright.LocatorFilterOptions{HasText: "gone@example.test"})
+	require.NoError(t, browser.Expect.Locator(goneRow.Locator("[title*='14 Mar 2024']")).ToBeVisible())
+
+	remove := goneRow.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Remove"})
+	require.NoError(t, browser.Expect.Locator(remove).ToHaveClass(regexp.MustCompile(`\bbtn-danger\b`)))
 	require.NoError(t, remove.Click())
 
-	still, err := factory.GetEmailSubscription(ctx, app.DB, gone.ID)
-	require.NoError(t, err)
-	require.NotNil(t, still, "a dismissed question changes nothing")
 	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(2))
+	require.EqualValues(t, 0, removeRequests.Load(), "a dismissed question sends nothing")
 
 	accept = true
 
@@ -267,13 +358,24 @@ func TestControls_EmailSubscribersRemove(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(subs).ToContainText("1 person gets your public posts by email"))
 	require.NoError(t, browser.Expect.Locator(subs).ToContainText("keep@example.test"))
+	require.NoError(t, browser.Expect.Locator(subs).Not().ToContainText("gone@example.test"))
+}
 
-	_, err = factory.GetEmailSubscription(ctx, app.DB, gone.ID)
-	require.ErrorIs(t, err, sql.ErrNoRows)
+// Without subscribers the section says so and points to the settings.
+func TestControls_EmailSubscribersEmpty(t *testing.T) {
+	t.Parallel()
 
-	kept, err := factory.GetEmailSubscription(ctx, app.DB, keep.ID)
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app, factory.Subscribable())
+
+	page := browser.Page(t, app, browser.As(user))
+	_, err := page.Goto("/controls/")
 	require.NoError(t, err)
-	require.NotNil(t, kept)
+
+	subs := section(page, "Email subscribers")
+	require.NoError(t, browser.Expect.Locator(subs).ToContainText("Nobody subscribes to your posts by email."))
+	require.NoError(t, browser.Expect.Locator(subs.GetByRole("listitem")).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(subs.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Settings"})).ToHaveAttribute("href", "/controls/settings"))
 }
 
 // Styles over the limit are not saved and the field says why; valid styles
