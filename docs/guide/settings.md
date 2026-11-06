@@ -1,12 +1,28 @@
 # Settings
 
-Settings is where you manage your account: who can see your profile, invitations, feeds, API key and a backup of your posts. Open it from the Settings link in the header menu.
+Settings is where you manage your account: your audience, invitations, feeds, API key and a backup of your posts. Open it from the Settings link in the header menu.
 
 ![The settings page.](screenshots/settings.png)
 
 ## General
 
-You can see your email address, set your time zone, which decides how times are shown to you, and choose your profile visibility: public, registered users, or direct and indirect connections. What each means is in [Connections](connections.md).
+You can see your email address and set your time zone, which decides how times are shown to you.
+
+## Audience
+
+Choose who can read your journal: your connections, anyone with a pcom account, or anyone on the internet. What each
+option means for your posts is in [Connections](connections.md).
+
+Under "Anyone on the internet" one line says what that means: your journal and public posts appear on pcom's front
+page and public RSS feed, and you can let people subscribe by email. Below it, the checkbox "Let people without an
+account subscribe to your public posts by email" is enabled only for that option. Leave it off, and nobody can
+subscribe. Turn it on, and people can subscribe to your public posts, and you see their addresses on your
+[controls page](subscriptions.md).
+
+If you have subscribers, a warning appears when you switch the checkbox off or choose a narrower audience: "N people
+subscribed by email won't get your posts while your journal isn't open to anyone on the internet or email
+subscriptions are off." Their subscriptions are kept, and they start getting your posts again when you open the
+journal and turn the checkbox on. Subscribers are not told. See [Subscriptions](subscriptions.md).
 
 ## Invitations
 

@@ -21,3 +21,24 @@ Style reviews, including the text they reviewed, are stored with the post and ar
 no grammar-check text, only a record of each request: who made it, for which post, its kind, the model, token
 counts, whether it succeeded and when. These records stay when a post is deleted and are deleted with your
 account.
+
+## Email subscriptions without an account
+
+You can subscribe by email to an author's public posts without an account. To do that, pcom stores:
+
+- the address you entered, and the mailbox it delivers to, which pcom uses to count subscriptions per mailbox;
+- a secret link that opens the page where you see and end your subscriptions, which every mail to you carries;
+- your subscriptions: the author, whether you have confirmed, and when you confirmed;
+- a record of each confirmation mail and each mail with the link to your subscriptions, kept for about a day so
+  that pcom can limit how many it sends to one address;
+- a copy of each mail pcom sends you, with the address it was sent to.
+
+The author you subscribe to sees your address, and the date you confirmed, on their controls page. They can
+remove you there. They are told when you confirm and when you unsubscribe, and the mail names your address.
+
+A subscription that is not confirmed is deleted after three days, if the link in its confirmation mail has not
+been used by then. A confirmed subscription lasts until you end it, the author removes you, or the author's
+account is deleted. You can end it from the link in any mail, or from the page that the link opens, with
+Unsubscribe or Unsubscribe from all. If you have lost the link, the Subscriptions page sends it to your address
+again while you have a subscription. Ending a subscription deletes it. The copies of mail kept under the last
+item above are not deleted when you unsubscribe; to have them deleted, ask the service administration.

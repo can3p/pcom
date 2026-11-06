@@ -7,7 +7,7 @@ Connections decide who sees your posts and who can talk to you. You can invite s
 A connection is mutual. There are three ways to get one.
 
 - **Invite someone.** In [Settings](settings.md) you send an invitation to an email address. When the person accepts and creates an account, you are connected from the start. Invitations are limited: an account created from an invitation gets one of its own, accounts from open signup get none, and more are handed out by the site admin.
-- **Allow someone to connect.** On the Controls page you add a username to your whitelist. That user then sees a connect button on your profile and can use it once. It does not open your profile to them: they must already be able to see it, as set by your profile visibility. You can withdraw the permission before they do.
+- **Allow someone to connect.** On the Controls page you add a username to your whitelist. That user then sees a connect button on your profile and can use it once. It does not open your profile to them: they must already be able to see it, as set by your audience. You can withdraw the permission before they do.
 - **Ask for mediation.** On the profile of someone you share a connection with, you can ask your common connections to vouch for you, with a note. Each of them can sign or dismiss the request. Once at least one has signed, the person you asked sees the request with the signatures and approves or dismisses it. Approving creates the connection. You can withdraw a request that is still open.
 
 The Controls page lists your connections, your connections' connections, drafts, whitelist entries and the mediation and connection requests waiting for you. You can drop a connection from the other person's profile. You can also send a connection a prompt, a short question that shows up in their feed and offers to start a post as the answer; prompts are rate limited.
@@ -32,11 +32,11 @@ Only you and your direct connections can read and write comments on a post, what
 
 ## Who can see a profile
 
-Your profile visibility, set in [Settings](settings.md), decides who can open your journal page at all:
+Your audience, set under Audience in [Settings](settings.md), decides who can open your journal page at all:
 
-- **Public**: anybody, with or without an account.
-- **Registered users**: anybody who is logged in.
-- **Direct and indirect connections**: your direct and second-degree connections only.
+- **Anyone on the internet**: anybody, with or without an account. Your journal and public posts appear on pcom's front page and public RSS feed, and you can let people subscribe to them by email (see [Subscriptions](subscriptions.md)).
+- **Anyone with a pcom account**: anybody who is logged in.
+- **Your connections**: your direct and second-degree connections only.
 
 The About text from [Settings](settings.md) is shown on the journal to everyone who can open it. Opening a profile does not open every post in it. On a journal, you and direct connections see all published posts, second-degree connections see the second-degree and public ones, and everyone else, logged in or not, sees the public ones. A public post of a profile that is not public is still readable at its own address but is left out of the public index and the public RSS feed. [Feed and RSS](feed.md) covers where public posts are listed.
 
