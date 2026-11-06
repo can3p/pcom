@@ -155,6 +155,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   error pages) is each its own setting with a production-safe default; development, compose and tests
   turn them off. There is no "production mode" switch: `FLY_APP_NAME` only makes `seed` refuse to run.
   Limits and tunables are settings too ("No magic numbers" in `AGENTS.md`).
+- **Everything stays testable locally, offline.** Every feature works in `docker compose` and in the tests
+  with no outside service and no real data: mail goes to tommy, media to its S3, Mailjet's API to its stub, and
+  a check that needs the outside world (DNS for an address's domain, a disposable-address list that refuses the
+  made-up addresses people type when trying things) has a setting that turns it off, which the compose file
+  and the E2E harness set. A feature that can't be clicked through on a laptop with any address is not done.
 - **Nothing a peer controls is unbounded.** The app server (`app.NewServer`) has read, write and idle
   timeouts and shuts down gracefully on SIGINT/SIGTERM; `--write-timeout` stays above `--proofread-timeout`,
   since the proofread actions wait on the Anthropic API. Every request body is capped by the `bodyLimits`
