@@ -37,10 +37,11 @@ const (
 
 // The windows the limits count mails in. They are part of what the limits
 // mean, not settings: ConfirmsPerAddress and ManageLinksPerAddress are per
-// day, ConfirmsPerHour per hour.
+// day, ConfirmsPerHour and DomainLookupsPerHour per hour.
 const (
 	addressWindow = 24 * time.Hour
 	brakeWindow   = time.Hour
+	lookupWindow  = time.Hour
 )
 
 // The settings' values when the configuration sets none; they are also the
@@ -57,6 +58,9 @@ const (
 	// DefaultConfirmsPerHour is how many confirmation mails the whole site
 	// sends per hour.
 	DefaultConfirmsPerHour = 100
+	// DefaultDomainLookupsPerHour is how many DNS lookups of subscribing
+	// addresses' domains the whole site makes per hour.
+	DefaultDomainLookupsPerHour = 300
 	// DefaultPruneEvery is how often RunPruner deletes expired rows.
 	DefaultPruneEvery = time.Hour
 )
@@ -67,6 +71,7 @@ type Limits struct {
 	ConfirmsPerAddress    int
 	ManageLinksPerAddress int
 	ConfirmsPerHour       int
+	DomainLookupsPerHour  int
 	PruneEvery            time.Duration
 }
 
@@ -124,6 +129,17 @@ func WithConfirmsPerHour(n int) Option {
 	}
 }
 
+// WithDomainLookupsPerHour sets how many DNS lookups of subscribing
+// addresses' domains the site makes per hour; zero keeps
+// DefaultDomainLookupsPerHour.
+func WithDomainLookupsPerHour(n int) Option {
+	return func(s *Service) {
+		if n > 0 {
+			s.limits.DomainLookupsPerHour = n
+		}
+	}
+}
+
 // WithPruneEvery sets how often RunPruner runs; zero keeps
 // DefaultPruneEvery.
 func WithPruneEvery(d time.Duration) Option {
@@ -176,6 +192,7 @@ func New(store *repo.Store, opts ...Option) *Service {
 			ConfirmsPerAddress:    DefaultConfirmsPerAddress,
 			ManageLinksPerAddress: DefaultManageLinksPerAddress,
 			ConfirmsPerHour:       DefaultConfirmsPerHour,
+			DomainLookupsPerHour:  DefaultDomainLookupsPerHour,
 			PruneEvery:            DefaultPruneEvery,
 		},
 		now:    time.Now,
@@ -239,8 +256,9 @@ type AuthorRow struct {
 // answer is the same whatever the address's state: a new subscription, or a
 // pending one whose link expired, gets a confirmation mail unless the
 // mailbox had its share of them today; a pending one whose link still works
-// and an active one get nothing. An address whose domain can't receive mail
-// is refused, and the refusal counts toward the site-wide brake.
+// and an active one get nothing. Only an address that would get a mail has
+// its domain checked (checkDomain), and one whose domain can't receive mail
+// is refused.
 func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) error {
 	author, err := notFound(s.store.UserByUsername(ctx, authorUsername))
 	if err != nil {
@@ -261,49 +279,33 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 		return service.Invalid("email", DisposableMessage)
 	}
 
-	// A refused domain commits its log row, so the transaction ends without
-	// an error and the refusal is returned after it.
-	refused := false
+	now := s.now()
 
-	err = s.store.Tx(ctx, func(tx *repo.Store) error {
+	// The DNS lookup runs outside the transaction, so it holds neither the
+	// mailbox lock nor a connection: a read without locks tells whether a
+	// mail is due, and the transaction asks again under the lock.
+	st, err := s.subscribeState(ctx, s.store, author, addr, now, false)
+	if err != nil || !st.due {
+		return err
+	}
+
+	if err := s.checkDomain(ctx, addr, now); err != nil {
+		return err
+	}
+
+	return s.store.Tx(ctx, func(tx *repo.Store) error {
 		if err := tx.LockMailbox(ctx, repo.LockSubscribeMailbox, addr.Canonical); err != nil {
 			return err
 		}
 
-		subscriber, err := orNil(tx.SubscriberByEmail(ctx, addr.Stored))
-		if err != nil {
+		// A mail that stopped being due since the read, as a concurrent
+		// request sent it, isn't sent again.
+		st, err := s.subscribeState(ctx, tx, author, addr, now, true)
+		if err != nil || !st.due {
 			return err
 		}
 
-		var sub *model.EmailSubscription
-
-		if subscriber != nil {
-			if subscriber, err = tx.LockSubscriber(ctx, subscriber.ID); err != nil {
-				return err
-			}
-
-			if sub, err = tx.EmailSubscriptionOf(ctx, subscriber.ID, author.ID); err != nil {
-				return err
-			}
-		}
-
-		now := s.now()
-		if sub != nil && (sub.Status == model.SubscriptionStatusActive || !s.expired(sub, now)) {
-			return nil
-		}
-
-		if ok, err := s.underCap(ctx, tx, addr.Canonical, model.SubscriptionMailKindConfirm, s.limits.ConfirmsPerAddress, now); err != nil || !ok {
-			return err
-		}
-
-		if err := s.checker.CheckDomain(ctx, domainOf(addr.Stored)); errors.Is(err, emailaddr.ErrCantReceiveMail) {
-			refused = true
-
-			return tx.LogSubscriptionMail(ctx, &model.SubscriptionMailLog{EmailCanonical: addr.Canonical, Kind: model.SubscriptionMailKindDomainRefused, SentAt: now})
-		} else if err != nil {
-			return err
-		}
-
+		subscriber, sub := st.subscriber, st.sub
 		if subscriber == nil {
 			subscriber = &model.EmailSubscriber{ID: uuid.NewString(), Email: addr.Stored, EmailCanonical: addr.Canonical, ManageToken: newToken()}
 			if err := tx.InsertSubscriber(ctx, subscriber); err != nil {
@@ -332,7 +334,81 @@ func (s *Service) Subscribe(ctx context.Context, authorUsername, email string) e
 
 		return tx.Enqueue(ctx, s.jobs, ConfirmMailArgs{SubscriptionID: sub.ID})
 	})
-	if err == nil && refused {
+}
+
+// subscribeState is an address's subscriber and subscription to the author,
+// either nil when there is none, and whether a confirmation mail is due.
+type subscribeState struct {
+	subscriber *model.EmailSubscriber
+	sub        *model.EmailSubscription
+	due        bool
+}
+
+// subscribeState reads the address's state on store: a confirmation mail is
+// due for a new subscription or a pending one whose link expired, unless the
+// mailbox had its share of them today. lock locks the subscriber's row, inside
+// a transaction.
+func (s *Service) subscribeState(ctx context.Context, store *repo.Store, author *model.User, addr emailaddr.Address, now time.Time, lock bool) (subscribeState, error) {
+	var st subscribeState
+
+	subscriber, err := orNil(store.SubscriberByEmail(ctx, addr.Stored))
+	if err != nil {
+		return st, err
+	}
+
+	if subscriber != nil {
+		if lock {
+			if subscriber, err = store.LockSubscriber(ctx, subscriber.ID); err != nil {
+				return st, err
+			}
+		}
+
+		if st.sub, err = store.EmailSubscriptionOf(ctx, subscriber.ID, author.ID); err != nil {
+			return st, err
+		}
+	}
+
+	st.subscriber = subscriber
+
+	if st.sub != nil && (st.sub.Status == model.SubscriptionStatusActive || !s.expired(st.sub, now)) {
+		return st, nil
+	}
+
+	st.due, err = s.underCap(ctx, store, addr.Canonical, model.SubscriptionMailKindConfirm, s.limits.ConfirmsPerAddress, now)
+
+	return st, err
+}
+
+// checkDomain refuses an address whose domain can't receive mail. A DNS
+// lookup it makes is logged as a domain_lookup row, which commits whatever
+// the request returns; past DomainLookupsPerHour of them in the last hour the
+// check is skipped and the address goes through, as when DNS times out. A
+// domain the checker remembers as accepted costs no lookup and no budget.
+func (s *Service) checkDomain(ctx context.Context, addr emailaddr.Address, now time.Time) error {
+	domain := domainOf(addr.Stored)
+	if !s.checker.NeedsLookup(domain) {
+		return nil
+	}
+
+	lookups, err := s.store.SubscriptionMailsSince(ctx, now.Add(-lookupWindow), model.SubscriptionMailKindDomainLookup)
+	if err != nil {
+		return err
+	}
+
+	if lookups >= s.limits.DomainLookupsPerHour {
+		logging.FromContext(ctx).Info("domain lookup budget spent, letting the address through", zap.String("domain", domain))
+		return nil
+	}
+
+	looked, err := s.checker.CheckDomain(ctx, domain)
+	if looked {
+		row := &model.SubscriptionMailLog{EmailCanonical: addr.Canonical, Kind: model.SubscriptionMailKindDomainLookup, SentAt: now}
+		if lerr := s.store.LogSubscriptionMail(context.WithoutCancel(ctx), row); lerr != nil {
+			return lerr
+		}
+	}
+
+	if errors.Is(err, emailaddr.ErrCantReceiveMail) {
 		return service.Invalid("email", emailaddr.UndeliverableMessage)
 	}
 
@@ -655,9 +731,8 @@ func (s *Service) Prune(ctx context.Context) error {
 
 // address checks what both forms check before they touch a mailbox: the
 // address's syntax and the site-wide brake. Past ConfirmsPerHour
-// confirmation mails and refused domains in the last hour the forms are
-// paused, and the admin is told once per hour: the alert's job is unique by
-// hour. Refused domains count because each costs DNS lookups.
+// confirmation mails in the last hour the forms are paused, and the admin is
+// told once per hour: the alert's job is unique by hour.
 func (s *Service) address(ctx context.Context, email string) (emailaddr.Address, error) {
 	if !validation.EmailRE.MatchString(emailaddr.Normalize(email)) {
 		return emailaddr.Address{}, service.Invalid("email", InvalidEmailMessage)
@@ -665,7 +740,7 @@ func (s *Service) address(ctx context.Context, email string) (emailaddr.Address,
 
 	now := s.now()
 
-	sent, err := s.store.SubscriptionMailsSince(ctx, now.Add(-brakeWindow), model.SubscriptionMailKindConfirm, model.SubscriptionMailKindDomainRefused)
+	sent, err := s.store.SubscriptionMailsSince(ctx, now.Add(-brakeWindow), model.SubscriptionMailKindConfirm)
 	if err != nil {
 		return emailaddr.Address{}, err
 	}
@@ -683,8 +758,8 @@ func (s *Service) address(ctx context.Context, email string) (emailaddr.Address,
 
 // underCap reports whether the mailbox got fewer than limit mails of kind in
 // the last day.
-func (s *Service) underCap(ctx context.Context, tx *repo.Store, canonical string, kind model.SubscriptionMailKind, limit int, now time.Time) (bool, error) {
-	sent, err := tx.SubscriptionMailsTo(ctx, canonical, kind, now.Add(-addressWindow))
+func (s *Service) underCap(ctx context.Context, store *repo.Store, canonical string, kind model.SubscriptionMailKind, limit int, now time.Time) (bool, error) {
+	sent, err := store.SubscriptionMailsTo(ctx, canonical, kind, now.Add(-addressWindow))
 
 	return sent < limit, err
 }

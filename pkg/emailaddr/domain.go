@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/logging"
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 )
 
 // The settings' values when the Checker is built without the options; they
@@ -18,10 +19,10 @@ const (
 	// DefaultMXTimeout is how long CheckDomain waits for DNS when built
 	// without WithTimeout.
 	DefaultMXTimeout = 2 * time.Second
-	// DefaultCacheTTL is how long CheckDomain remembers a domain's answer
+	// DefaultCacheTTL is how long CheckDomain remembers an accepted domain
 	// when built without WithCacheTTL.
 	DefaultCacheTTL = time.Hour
-	// DefaultCacheSize is how many domains' answers CheckDomain remembers
+	// DefaultCacheSize is how many accepted domains CheckDomain remembers
 	// when built without WithCacheSize.
 	DefaultCacheSize = 10000
 )
@@ -41,23 +42,18 @@ type Resolver interface {
 }
 
 // Checker looks up whether a domain can receive mail. It remembers the
-// answers of lookups that got one for a while, so a domain asked about again
-// costs no DNS traffic.
+// domains it accepted for a while, so a domain asked about again costs no DNS
+// traffic; a refusal is never remembered, so a domain fixed since is accepted
+// on the next try. Concurrent checks of one domain share one lookup.
 type Checker struct {
 	resolver        Resolver
 	timeout         time.Duration
 	allowDisposable bool
 	cacheTTL        time.Duration
 	cacheSize       int
-	now             func() time.Time
-	// cache is nil when caching is off.
-	cache *lru.Cache[string, answer]
-}
-
-// answer is a cached CheckDomain result: nil or ErrCantReceiveMail.
-type answer struct {
-	err     error
-	expires time.Time
+	// cache holds the accepted domains; nil when caching is off.
+	cache   *expirable.LRU[string, struct{}]
+	lookups singleflight.Group
 }
 
 // Option configures a Checker.
@@ -74,22 +70,17 @@ func WithTimeout(d time.Duration) Option {
 	return func(c *Checker) { c.timeout = d }
 }
 
-// WithCacheTTL sets how long a domain's answer is remembered; 0 turns the
-// cache off. Only definite answers are remembered: a failed or timed-out
-// lookup, which lets the address through, is asked again next time.
+// WithCacheTTL sets how long an accepted domain is remembered; 0 turns the
+// cache off. Only domains a lookup accepted are remembered: a refused domain,
+// or a failed or timed-out lookup, is asked again next time.
 func WithCacheTTL(d time.Duration) Option {
 	return func(c *Checker) { c.cacheTTL = d }
 }
 
-// WithCacheSize sets how many domains' answers are remembered; past it the
+// WithCacheSize sets how many accepted domains are remembered; past it the
 // least recently used is forgotten. 0 turns the cache off.
 func WithCacheSize(n int) Option {
 	return func(c *Checker) { c.cacheSize = n }
-}
-
-// WithClock replaces the clock the cache's answers expire by, for tests.
-func WithClock(now func() time.Time) Option {
-	return func(c *Checker) { c.now = now }
 }
 
 // WithAllowDisposable makes AllowsDisposable true, so that a caller accepts
@@ -109,49 +100,71 @@ func NewChecker(opts ...Option) *Checker {
 		timeout:   DefaultMXTimeout,
 		cacheTTL:  DefaultCacheTTL,
 		cacheSize: DefaultCacheSize,
-		now:       time.Now,
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
 
 	if c.cacheTTL > 0 && c.cacheSize > 0 {
-		// New fails only for a size below one.
-		c.cache, _ = lru.New[string, answer](c.cacheSize)
+		c.cache = expirable.NewLRU[string, struct{}](c.cacheSize, nil, c.cacheTTL)
 	}
 
 	return c
+}
+
+// NeedsLookup reports whether CheckDomain would ask DNS about the domain now:
+// the check is on and the domain isn't remembered as accepted. A caller that
+// budgets lookups asks this first.
+func (c *Checker) NeedsLookup(domain string) bool {
+	return c.timeout > 0 && !c.cached(fqdn(domain))
 }
 
 // CheckDomain returns ErrCantReceiveMail when the domain doesn't exist, has a
 // null MX (RFC 7505: a single MX of "."), or has neither an MX nor an A or
 // AAAA record. Any other DNS failure, a timeout included, lets the domain
 // through and is logged: an outage on our side must not refuse addresses.
-// The answer of a lookup that got one is remembered for the cache's TTL.
-func (c *Checker) CheckDomain(ctx context.Context, domain string) error {
+// An accepted domain is remembered for the cache's TTL. looked reports
+// whether this call asked DNS itself: false for a remembered domain, a check
+// that is off, and a call that shared a concurrent call's lookup.
+func (c *Checker) CheckDomain(ctx context.Context, domain string) (looked bool, err error) {
 	if c.timeout <= 0 {
-		return nil
+		return false, nil
 	}
 
-	// A fully qualified name, so the resolver doesn't try the search domains.
-	name := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(domain)), ".") + "."
+	name := fqdn(domain)
+	if c.cached(name) {
+		return false, nil
+	}
 
-	if c.cache != nil {
-		if a, ok := c.cache.Get(name); ok {
-			if c.now().Before(a.expires) {
-				return a.err
-			}
+	_, err, _ = c.lookups.Do(name, func() (any, error) {
+		looked = true
 
-			c.cache.Remove(name)
+		definite, err := c.lookup(ctx, domain, name)
+		if definite && err == nil && c.cache != nil {
+			c.cache.Add(name, struct{}{})
 		}
+
+		return nil, err
+	})
+
+	return looked, err
+}
+
+// fqdn is the domain as a fully qualified name, so the resolver doesn't try
+// the search domains.
+func fqdn(domain string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(domain)), ".") + "."
+}
+
+// cached reports whether the fully qualified name is remembered as accepted.
+func (c *Checker) cached(name string) bool {
+	if c.cache == nil {
+		return false
 	}
 
-	definite, err := c.lookup(ctx, domain, name)
-	if definite && c.cache != nil {
-		c.cache.Add(name, answer{err: err, expires: c.now().Add(c.cacheTTL)})
-	}
+	_, ok := c.cache.Get(name)
 
-	return err
+	return ok
 }
 
 // lookup asks DNS whether the fully qualified name can receive mail. definite

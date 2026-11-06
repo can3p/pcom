@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,7 +23,9 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakequeue"
 	"github.com/can3p/pcom/pkg/testutil/testdb"
+	"github.com/can3p/pcom/pkg/testutil/testlog"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 const (
@@ -361,8 +364,16 @@ func TestSubscribe_Brake(t *testing.T) {
 	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "second@mail.test"))
 }
 
-// A refused domain logs a domain_refused row, which the site-wide brake counts
-// and the mailbox's cap doesn't.
+// lookups counts the domain_lookup rows logged for anybody.
+func lookups(t *testing.T, db *sql.DB) int {
+	t.Helper()
+
+	return testutil.Must(repo.New(db).SubscriptionMailsSince(context.Background(), time.Time{}, model.SubscriptionMailKindDomainLookup))(t)
+}
+
+// A refused domain logs a domain_lookup row and no confirm row, and the
+// site-wide brake doesn't count it: one address refused over and over pauses
+// nobody. A refusal isn't remembered, so each attempt looks the domain up.
 func TestSubscribe_RefusedDomain(t *testing.T) {
 	t.Parallel()
 
@@ -370,26 +381,151 @@ func TestSubscribe_RefusedDomain(t *testing.T) {
 	ctx := context.Background()
 	store := repo.New(db)
 	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
-	perHour := subscriptions.DefaultConfirmsPerAddress + 1
-	svc, c, q := newSvc(db, subscriptions.WithConfirmsPerHour(perHour))
+	svc, _, q := newSvc(db, subscriptions.WithConfirmsPerHour(1))
 	refused := "x@" + noMailHost
 	canonical := emailaddr.Parse(refused).Canonical
+	const attempts = 100
 
-	// More attempts than the mailbox's cap: each one still looks the domain up.
-	for range perHour {
+	for range attempts {
 		require.Equal(t, service.Invalid("email", emailaddr.UndeliverableMessage), svc.Subscribe(ctx, author.Username, refused))
 	}
 
-	require.Equal(t, perHour, testutil.Must(store.SubscriptionMailsTo(ctx, canonical, model.SubscriptionMailKindDomainRefused, time.Time{}))(t))
+	require.Equal(t, attempts, testutil.Must(store.SubscriptionMailsTo(ctx, canonical, model.SubscriptionMailKindDomainLookup, time.Time{}))(t))
 	require.Zero(t, testutil.Must(store.SubscriptionMailsTo(ctx, canonical, model.SubscriptionMailKindConfirm, time.Time{}))(t))
 	require.Empty(t, subscriptionsOf(t, db, refused))
 	require.Empty(t, fakequeue.Of[subscriptions.ConfirmMailArgs](q))
 
-	require.Equal(t, service.Invalid("", subscriptions.PausedMessage), svc.Subscribe(ctx, author.Username, "reader@mail.test"))
-
-	c.advance(time.Hour + time.Second)
+	require.NoError(t, svc.RequestManageLink(ctx, "reader@mail.test"), "the brake stays open")
 	require.NoError(t, svc.Subscribe(ctx, author.Username, "reader@mail.test"))
 	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "reader@mail.test"))
+	require.Empty(t, fakequeue.Of[subscriptions.BrakedMailArgs](q))
+}
+
+// A domain the checker remembers as accepted costs no lookup and logs no row.
+func TestSubscribe_CachedDomainLogsNoLookup(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	svc, _, _ := newSvc(db)
+
+	require.NoError(t, svc.Subscribe(ctx, author.Username, "first@mail.test"))
+	require.Equal(t, 1, lookups(t, db))
+
+	require.NoError(t, svc.Subscribe(ctx, author.Username, "second@mail.test"))
+	require.Equal(t, 1, lookups(t, db))
+	require.Len(t, subscriptionsOf(t, db, "second@mail.test"), 1)
+}
+
+// Past the hourly lookup budget the domain isn't checked and the address goes
+// through, as when DNS times out; an hour later the budget is back.
+func TestSubscribe_LookupBudget(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx, logs := testlog.Context(context.Background())
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	svc, c, q := newSvc(db, subscriptions.WithDomainLookupsPerHour(1))
+	undeliverable := service.Invalid("email", emailaddr.UndeliverableMessage)
+
+	require.Equal(t, undeliverable, svc.Subscribe(ctx, author.Username, "x@"+noMailHost))
+	require.Equal(t, 1, lookups(t, db))
+	require.Zero(t, logs.Len())
+
+	require.NoError(t, svc.Subscribe(ctx, author.Username, "y@"+noMailHost))
+	require.Equal(t, 1, lookups(t, db), "a skipped check logs no lookup")
+	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "y@"+noMailHost))
+	require.Equal(t, 1, logs.FilterMessage("domain lookup budget spent, letting the address through").FilterField(zap.String("domain", noMailHost)).Len())
+
+	c.advance(time.Hour + time.Second)
+	require.Equal(t, undeliverable, svc.Subscribe(ctx, author.Username, "z@"+noMailHost))
+	require.Equal(t, 2, lookups(t, db))
+}
+
+// switchable answers that no domain exists while refuse is set, and that
+// every domain has an MX otherwise.
+type switchable struct{ refuse atomic.Bool }
+
+func (r *switchable) LookupMX(_ context.Context, name string) ([]*net.MX, error) {
+	if r.refuse.Load() {
+		return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+	}
+
+	return []*net.MX{{Host: "mx.pcom.test.", Pref: 10}}, nil
+}
+
+func (r *switchable) LookupIPAddr(_ context.Context, name string) ([]net.IPAddr, error) {
+	return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+}
+
+// A domain refused once is asked again next time, so one that gets mail
+// since is accepted.
+func TestSubscribe_RefusalIsNotRemembered(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	r := &switchable{}
+	r.refuse.Store(true)
+	svc, _, q := newSvc(db, subscriptions.WithEmailChecker(emailaddr.NewChecker(emailaddr.WithResolver(r))))
+
+	require.Equal(t, service.Invalid("email", emailaddr.UndeliverableMessage), svc.Subscribe(ctx, author.Username, "reader@new.test"))
+
+	r.refuse.Store(false)
+	require.NoError(t, svc.Subscribe(ctx, author.Username, "reader@new.test"))
+	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, "reader@new.test"))
+	require.Equal(t, 2, lookups(t, db))
+}
+
+// blocking holds its MX lookup until release is closed, telling entered
+// when it starts.
+type blocking struct{ entered, release chan struct{} }
+
+func (b blocking) LookupMX(context.Context, string) ([]*net.MX, error) {
+	close(b.entered)
+	<-b.release
+
+	return []*net.MX{{Host: "mx.pcom.test.", Pref: 10}}, nil
+}
+
+func (blocking) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) { return nil, nil }
+
+// The DNS lookup runs outside the transaction: while it waits, the mailbox's
+// lock is free and no transaction of the service's is open.
+func TestSubscribe_LookupOutsideTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	author := testutil.Must(factory.User(ctx, db, factory.Subscribable()))(t)
+	r := blocking{entered: make(chan struct{}), release: make(chan struct{})}
+	svc, _, q := newSvc(db, subscriptions.WithEmailChecker(emailaddr.NewChecker(emailaddr.WithResolver(r), emailaddr.WithTimeout(time.Minute))))
+	email := "reader@slow.test"
+
+	done := make(chan error, 1)
+	go func() { done <- svc.Subscribe(ctx, author.Username, email) }()
+
+	<-r.entered
+
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+
+	var free bool
+	require.NoError(t, tx.QueryRowContext(ctx, `select pg_try_advisory_xact_lock(hashtextextended($1, 0))`,
+		string(repo.LockSubscribeMailbox)+":"+emailaddr.Parse(email).Canonical).Scan(&free))
+	require.NoError(t, tx.Rollback())
+	require.True(t, free, "the mailbox lock is held during the lookup")
+
+	var open int
+	require.NoError(t, db.QueryRowContext(ctx, `select count(*) from pg_stat_activity
+		where datname = current_database() and state like 'idle in transaction%'`).Scan(&open))
+	require.Zero(t, open, "a transaction is open during the lookup")
+
+	close(r.release)
+	require.NoError(t, <-done)
+	require.Equal(t, 1, mailsTo(t, svc, q, confirmType, email))
 }
 
 // The inserter keeps one admin alert per hour.
@@ -939,6 +1075,6 @@ func TestPrune(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 	require.Len(t, subscriptionsOf(t, db, "fresh@mail.test"), 1)
 	require.Len(t, subscriptionsOf(t, db, "active@mail.test"), 1)
-	require.Equal(t, 1, testutil.Must(store.SubscriptionMailsSince(ctx, time.Time{}, model.SubscriptionMailKindConfirm, model.SubscriptionMailKindDomainRefused))(t),
+	require.Equal(t, 1, testutil.Must(store.SubscriptionMailsSince(ctx, time.Time{}, model.SubscriptionMailKindConfirm, model.SubscriptionMailKindDomainLookup))(t),
 		"the mail log keeps the last day only, of every kind")
 }

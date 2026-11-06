@@ -109,9 +109,9 @@ is the user's view).
 - **Caps are by the target address**, which an attacker cannot rotate: one open confirmation per address and author,
   and a number of confirmation and manage-link mails per address per day (`SUBSCRIBE_CONFIRMS_PER_ADDRESS`,
   `SUBSCRIBE_MANAGE_LINKS_PER_ADDRESS`). Past the cap the answer is the same and nothing is sent. The whole site has an
-  hourly cap on confirmation mails (`SUBSCRIBE_CONFIRMS_PER_HOUR`), toward which an address refused because its domain
-  can't receive mail counts too, since each one costs DNS lookups (it doesn't count toward the address's own caps);
-  past it, the subscribe and manage-link forms say that subscriptions are paused, and the admin gets one mail an hour.
+  hourly cap on confirmation mails (`SUBSCRIBE_CONFIRMS_PER_HOUR`); past it, the subscribe and manage-link forms say
+  that subscriptions are paused, and the admin gets one mail an hour. Only confirmation mails count toward it, so
+  refused addresses can't pause subscriptions for everybody.
 - **A reader pays for each attempt in the browser.** Subscribing needs JavaScript, which solves a proof of work: the
   leading zero bits of a SHA-256 hash, `SUBSCRIBE_POW_DIFFICULTY` (15 bits by default), about a second for a person and
   a cost to a bot on every attempt. A challenge is signed, expires (`SUBSCRIBE_POW_MAX_AGE`) and works once. A
@@ -122,8 +122,13 @@ is the user's view).
   Relays are accepted: their users are the readers this suits, and the author sees the relay address. An address whose
   domain can't receive mail is refused ("This address can't receive mail") when its domain doesn't exist, has a null
   MX, or has neither MX nor address records. A DNS error or timeout lets the address through, so a slow resolver blocks
-  nobody. The DNS check runs after the proof of work and the caps, so a bot can't make pcom resolve names for free, and a
-  domain's definite answer is remembered for a while (`EMAIL_MX_CACHE`), so asking again costs no lookup.
+  nobody. The DNS check runs after the proof of work and the caps, so a bot can't make pcom resolve names for free, and
+  outside any transaction, so a slow resolver holds no lock. A domain the check accepted is remembered for a while
+  (`EMAIL_MX_CACHE`), so asking again costs no lookup; a refused domain is not, so it is checked again next time and a
+  domain fixed or registered since is accepted, since a problem on pcom's side, a stale answer included, never refuses
+  an address. Concurrent checks of one domain share one lookup. The site makes at most
+  `SUBSCRIBE_DOMAIN_LOOKUPS_PER_HOUR` lookups an hour; past that the check is skipped and the address goes through, as
+  on a timeout, and the skip is logged with the domain only.
 - **Pending subscriptions expire** after `SUBSCRIBE_CONFIRM_LIFETIME`, and a pruner deletes them with the subscribers
   left without subscriptions and the mail log rows no cap counts any more (`SUBSCRIBE_PRUNE_EVERY`).
 - **Confirmed subscriptions last until** the subscriber unsubscribes, the author removes them, or the author's account

@@ -18,16 +18,16 @@ const (
 )
 
 // SubscriptionMailKind is the kind of event a subscription_mail_log row
-// counts: a mail sent, or a subscribe attempt refused for its domain.
+// counts: a mail sent, or a DNS lookup of an address's domain.
 type SubscriptionMailKind string
 
-// The values of SubscriptionMailKind. SubscriptionMailKindDomainRefused is a
-// subscribe attempt whose address's domain can't receive mail: no mail is
-// sent, but the DNS lookup counts toward the site-wide hourly brake.
+// The values of SubscriptionMailKind. SubscriptionMailKindDomainLookup is a
+// DNS lookup the subscribe form made of an address's domain, whatever its
+// answer; the site-wide hourly lookup budget counts them.
 const (
-	SubscriptionMailKindConfirm       SubscriptionMailKind = "confirm"
-	SubscriptionMailKindManageLink    SubscriptionMailKind = "manage_link"
-	SubscriptionMailKindDomainRefused SubscriptionMailKind = "domain_refused"
+	SubscriptionMailKindConfirm      SubscriptionMailKind = "confirm"
+	SubscriptionMailKindManageLink   SubscriptionMailKind = "manage_link"
+	SubscriptionMailKindDomainLookup SubscriptionMailKind = "domain_lookup"
 )
 
 // EmailSubscriber is a row of email_subscribers: a reader without an account

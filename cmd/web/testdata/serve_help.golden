@@ -266,15 +266,18 @@ Help Options:
                                                        may take; 0 turns the
                                                        check off (default: 2s)
                                                        [$EMAIL_MX_TIMEOUT]
-          --email-mx-cache=                            How long the answer of a
-                                                       domain's DNS check is
-                                                       remembered; 0 turns the
+          --email-mx-cache=                            How long a domain the
+                                                       DNS check accepted is
+                                                       remembered (a refused
+                                                       one is checked again
+                                                       next time); 0 turns the
                                                        cache off (default: 1h)
                                                        [$EMAIL_MX_CACHE]
-          --email-mx-cache-size=                       How many domains' DNS
-                                                       answers are remembered;
-                                                       0 turns the cache off
-                                                       (default: 10000)
+          --email-mx-cache-size=                       How many domains the DNS
+                                                       check accepted are
+                                                       remembered; 0 turns the
+                                                       cache off (default:
+                                                       10000)
                                                        [$EMAIL_MX_CACHE_SIZE]
           --email-allow-disposable=                    Accept throwaway
                                                        addresses on the
@@ -428,15 +431,21 @@ Help Options:
 
                                                        _PER_ADDRESS]
           --subscribe-confirms-per-hour=               Subscription
-                                                       confirmation mails, and
-                                                       subscribe attempts
-                                                       refused for their
-                                                       domain, the whole site
-                                                       may have per hour
-                                                       (default: 100)
+                                                       confirmation mails the
+                                                       whole site may send per
+                                                       hour (default: 100)
                                                        [$SUBSCRIBE_CONFIRMS_PER-
 
                                                        _HOUR]
+          --subscribe-domain-lookups-per-hour=         DNS lookups of
+                                                       subscribing addresses'
+                                                       domains the whole site
+                                                       may make per hour; past
+                                                       it addresses go
+                                                       unchecked (default: 300)
+                                                       [$SUBSCRIBE_DOMAIN_LOOKU-
+
+                                                       PS_PER_HOUR]
           --subscribe-pow-difficulty=                  Leading zero bits of the
                                                        proof of work the
                                                        subscribe form's browser
