@@ -102,6 +102,8 @@ func (c *serveCmd) Execute([]string) error {
 	}
 	deps.Services = app.NewServices(deps)
 
+	go app.NewAbuseGuard(deps).RunPruner(ctx, cfg.Subscriptions.PruneEvery)
+
 	stopJobs, err := startJobs(ctx, db, deps.Services, delivery, cfg, logger)
 	if err != nil {
 		return err
