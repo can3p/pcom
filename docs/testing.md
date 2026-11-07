@@ -269,6 +269,8 @@ Cloud sessions get a fresh container that lacks some of what the tests need. The
 step fails:
 
 - installs `libvips-dev` (cgo headers for `pkg/media`; without them `cmd/web` and `e2e` don't compile);
+- installs `libheif-plugin-libde265`, the HEVC decoder libheif needs to read iPhone HEIC photos; the HEIC tests
+  skip without it, and fail under `CI` (which installs it too) so they never pass unrun there;
 - starts `dockerd` (testcontainers Postgres for `testdb` and E2E; log in `/tmp/dockerd.log`), first removing
   the containerd pid file a container restart leaves behind, which otherwise stops dockerd from starting;
 - installs the frontend's `node_modules` and downloads Go modules;

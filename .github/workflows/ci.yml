@@ -27,7 +27,7 @@ jobs:
           cache: true
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265
 
       - name: Run tests
         run: make cover
@@ -55,7 +55,7 @@ jobs:
           cache: true
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265
 
       - name: sql-migrate is pinned to one version
         run: |
@@ -87,7 +87,7 @@ jobs:
           cache: true
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265
 
       - name: Build Go
         run: make check
@@ -110,7 +110,7 @@ jobs:
           cache: true
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265
 
       - name: Run go fix
         run: make fix
@@ -141,7 +141,7 @@ jobs:
           cache-dependency-path: cmd/web/yarn.lock
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265
 
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile

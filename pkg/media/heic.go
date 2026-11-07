@@ -46,7 +46,9 @@ func HEICToJPEG(heic []byte) ([]byte, error) {
 	// libvips decodes lazily, so a missing codec shows up here
 	out, _, err := img.ExportJpeg(params)
 	if err != nil {
-		if strings.Contains(err.Error(), "Unsupported") {
+		// libvips says "Unsupported"; libheif without the codec's plugin says
+		// "No decoding plugin installed"
+		if msg := err.Error(); strings.Contains(msg, "Unsupported") || strings.Contains(msg, "No decoding plugin") {
 			return nil, fmt.Errorf("%w: %w", ErrHEICUnsupported, err)
 		}
 
