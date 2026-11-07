@@ -228,8 +228,13 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 	_, err := page.Goto("/controls/notes/manage")
 	require.NoError(t, err)
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Focus on #walk"}).Click())
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("tag-row")).ToContainText("focus"))
+	// The action reloads the page once saved. The row's "focus" button holds
+	// the word before the click too, so wait for the reloaded row: no button,
+	// and "focus" in its counts. Going on earlier races the reload.
+	focusOn := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Focus on #walk"})
+	require.NoError(t, focusOn.Click())
+	require.NoError(t, browser.Expect.Locator(focusOn).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("tag-row").Locator(".meta")).ToHaveText("1 note, focus"))
 
 	_, err = page.Goto("/controls/notes/new")
 	require.NoError(t, err)
