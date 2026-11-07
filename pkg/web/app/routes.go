@@ -13,6 +13,7 @@ var articlesRE = regexp.MustCompile("^[a-z0-9]+(_[a-z0-9]+)*$")
 // mountRoutes registers every route on the groups New creates; each area's routes are in its own file.
 func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, nonControlsForms, controlsForms, checkedPages *gin.RouterGroup) {
 	mountMediaRoutes(d, router)
+	mountManifestRoute(d, router)
 	mountDevRoutes(d, router)
 	setupApi(apiGroup, d)
 	mountPublicRoutes(d, r)
@@ -37,6 +38,7 @@ func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, no
 	mountNoteRoutes(d, controls, controlsForms, actions)
 	mountNotePickerRoutes(d, controls, actions)
 	mountNoteCaptureRoutes(d, controls, actions)
+	mountNoteShareRoutes(d, controls)
 }
 
 // requireUUIDParam answers 404 when the path parameter is not a valid UUID,

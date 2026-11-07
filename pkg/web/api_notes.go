@@ -60,7 +60,8 @@ func BindCapture(c *gin.Context) (notes.CaptureInput, error) {
 		return in, service.Invalid("body", "The capture is not a form.")
 	}
 
-	in.Text = c.PostForm(CaptureFieldText)
+	// a multipart form sends line breaks as CRLF; a note keeps LF, as typed
+	in.Text = strings.ReplaceAll(c.PostForm(CaptureFieldText), "\r\n", "\n")
 
 	for _, t := range c.PostFormArray(CaptureFieldTags) {
 		for tag := range strings.SplitSeq(t, ",") {

@@ -5,7 +5,8 @@
       data-notes-capture-start-value="{{ .Start }}"
       data-notes-capture-max-seconds-value="{{ .AudioMaxSeconds }}"
       data-notes-capture-max-dimension-value="{{ .PhotoMaxDimension }}"
-      data-notes-capture-csrf-value="{{ .User.CSRFToken }}">
+      data-notes-capture-csrf-value="{{ .User.CSRFToken }}"
+      {{- with .Shared }} data-notes-capture-shared-value="{{ . }}"{{ end }}>
   <header class="notes-head">
     <h1 class="controls-title">New note</h1>
     <p class="acts"><a href="/controls/notes">All notes</a></p>

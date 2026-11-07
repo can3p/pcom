@@ -583,8 +583,8 @@ func workDir(t testing.TB, realAssets bool) string {
 	}
 
 	// Assets the Go code asks for rather than a template:
-	// the /user-media/favicon.ico redirect.
-	keys = append(keys, "static/favicon.ico")
+	// the /user-media/favicon.ico redirect and the icons of /site.webmanifest.
+	keys = append(keys, "static/favicon.ico", "static/android-chrome-192x192.png", "static/android-chrome-512x512.png")
 
 	manifest := map[string]string{}
 

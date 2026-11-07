@@ -380,6 +380,8 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/subscribers/:id/remove", staticPath("/controls/action/subscribers/" + uuid.Nil.String() + "/remove"), noExtra},
 
 	// notes
+	{http.MethodPost, "/controls/notes/share", staticPath("/controls/notes/share"),
+		func(*guardWorld) map[string]string { return map[string]string{"text": "A forged share"} }},
 	{http.MethodPost, "/controls/action/note_mark_used", staticPath("/controls/action/note_mark_used"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
@@ -503,6 +505,12 @@ var excludedRoutes = map[string]string{
 	"POST /subscriptions/:manage_token/unsubscribe/:subscription_id": "the one-click unsubscribe of RFC 8058: the mail client posts it with no session and no CSRF token; subscriptions_test.go",
 }
 
+// csrfExempt are the guarded POSTs that take no CSRF token, with the reason;
+// TestGuards_CSRFRequired leaves them out, and each has its own test.
+var csrfExempt = map[string]string{
+	"POST /controls/notes/share": "the share target of the installed app: the phone posts the share sheet's form, which can't carry a token; TestGuards_ShareTarget",
+}
+
 var routeRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)
 
 // TestGuards_RouteTableMatchesSource builds the list of guarded routes from
@@ -535,6 +543,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_notes_audio.go":   {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/routes_notes_picker.go":  {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/routes_notes_capture.go": {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_share.go":   {"controls": "/controls"},
 		"../pkg/web/app/api.go":                  {"r": "/api/v1"},
 		"../pkg/web/app/api_notes.go":            {"r": "/api/v1"},
 	}
@@ -716,7 +725,7 @@ func TestGuards_CSRFRequired(t *testing.T) {
 	}
 
 	for _, r := range guardRoutes {
-		if !isMutating(r) {
+		if !isMutating(r) || csrfExempt[r.key()] != "" {
 			continue
 		}
 
@@ -779,6 +788,43 @@ func TestGuards_CSRFTokenAccepted(t *testing.T) {
 	resp = rawRequest(t, app, other.Cookies(), http.MethodPost, "/controls/action/generate_api_key",
 		"application/json", "{}", token)
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+// TestGuards_ShareTarget: the share target takes the session alone, as the
+// phone's share sheet sends no CSRF token, and saves the share as the
+// session's user's note. A cross-site POST carries no session (the cookie is
+// SameSite=Lax), so it lands on the login page and creates nothing.
+func TestGuards_ShareTarget(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	w := newGuardWorld(t, app)
+	before := w.snapshot(t)
+	share := func(cookies []*http.Cookie, text string) rawResponse {
+		return rawRequest(t, app, cookies, http.MethodPost, "/controls/notes/share",
+			"application/x-www-form-urlencoded", url.Values{"text": {text}}.Encode(), "")
+	}
+
+	resp := share(nil, "A forged share")
+	require.Equal(t, http.StatusFound, resp.StatusCode)
+	require.True(t, strings.HasPrefix(resp.Header.Get("Location"), "/login?"))
+	require.Equal(t, before, w.snapshot(t))
+
+	resp = share(w.ownerSessionCookie, "   ")
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Equal(t, before, w.snapshot(t))
+
+	resp = share(w.ownerSessionCookie, "A shared passage")
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	loc, err := url.Parse(resp.Header.Get("Location"))
+	require.NoError(t, err)
+	require.Equal(t, "/controls/notes/new", loc.Path)
+
+	note, err := repo.New(app.DB).NoteByID(context.Background(), loc.Query().Get("shared"))
+	require.NoError(t, err)
+	require.Equal(t, w.owner.ID, note.UserID)
+	require.Equal(t, "> A shared passage", note.Body)
 }
 
 // TestGuards_ForeignObjects: acting on objects that belong to someone else is

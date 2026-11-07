@@ -86,20 +86,7 @@ func TestBodyLimits_UploadPaths(t *testing.T) {
 		routes[r.Method+" "+r.Path] = true
 	}
 
-	// The notes capture routes other tasks of the notes wave add; once one
-	// exists, its entry here goes.
-	notYet := map[string]string{
-		"POST " + noteSharePath: "the share target (F15 T8)",
-	}
-
 	for _, want := range []string{"POST " + uploadMediaPath, "PUT " + apiImagePath, "POST " + importPath, "POST " + noteAudioPath, "POST " + noteCapturePath, "POST " + noteSharePath, "POST " + apiNotesPath} {
-		if by, ok := notYet[want]; ok {
-			require.False(t, routes[want], "%s exists now: drop it from notYet", want)
-			t.Logf("%s is not checked: %s doesn't exist yet", want, by)
-
-			continue
-		}
-
 		require.True(t, routes[want], "no route %s", want)
 	}
 }

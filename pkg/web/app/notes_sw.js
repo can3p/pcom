@@ -7,6 +7,12 @@
 // and the assets that page names, so the page opens without a network; every
 // other request goes to the network as it would without it.
 //
+// It is also the share target's first stop (site.webmanifest): what another
+// app shares is queued like a capture made on the page, so a share works
+// offline too, and the phone is sent on to the capture page, which shows it
+// as the last capture. Only a share made while no worker controls the page
+// reaches the server's route.
+//
 // The record format is shared with cmd/web/client/js/notes/capture.js.
 
 const DB_NAME = "pcom-notes"
@@ -16,6 +22,7 @@ const CACHE = "pcom-notes-capture-1"
 const PAGE = "/controls/notes/new"
 const UPLOAD = "/controls/action/note_capture"
 const DELETE = "/controls/action/note_delete"
+const SHARE = "/controls/notes/share"
 const SYNC_TAG = "notes-upload"
 // waits between attempts double from the first to the last, which repeats
 // until the attempts run out; a message from a page or a sync starts over
@@ -55,6 +62,11 @@ self.addEventListener("sync", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request
 
+  if (req.method === "POST" && new URL(req.url).pathname === SHARE) {
+    event.respondWith(share(req))
+    return
+  }
+
   if (req.method !== "GET") return
 
   if (req.mode === "navigate") {
@@ -87,6 +99,55 @@ async function page(req) {
 
     throw err
   }
+}
+
+// share queues what the share sheet sent and sends the phone to the capture
+// page. The record has no CSRF token yet: the page gives it the session's
+// when it opens, and asks for the upload. When the share can't be kept, the
+// server's route takes it.
+async function share(req) {
+  const fallback = req.clone()
+
+  try {
+    const form = await req.formData()
+    const files = (name) => form.getAll(name).filter((f) => f instanceof Blob && f.size > 0)
+    const text = shareText(form.get("title"), form.get("text"), form.get("url"))
+    const images = files("image")
+    const audio = files("audio")[0] || null
+
+    if (text || images.length || audio) {
+      await withStore("readwrite", (s) => s.put({
+        id: crypto.randomUUID(),
+        savedAt: Date.now(),
+        capturedAt: new Date().toISOString(),
+        csrf: "",
+        status: "queued",
+        kind: "share",
+        text,
+        images,
+        audio,
+        seconds: 0,
+        photos: images.length,
+        voice: !!audio,
+      }))
+    }
+  } catch (_) {
+    return fetch(fallback)
+  }
+
+  return Response.redirect(PAGE, 303)
+}
+
+// shareText joins the title, text and link of a share, one per line, leaving
+// out a part another one already holds; a link alone stays a bare link, and
+// the CRLF line breaks of the form become LF. It matches shareText in
+// pkg/web/app/routes_notes_share.go.
+function shareText(...values) {
+  const parts = values.map((v) => (typeof v === "string" ? v.replaceAll("\r\n", "\n").trim() : ""))
+
+  return parts
+    .filter((p, i) => p && !parts.some((o, j) => j !== i && o.includes(p) && (o !== p || j < i)))
+    .join("\n")
 }
 
 // keep stores the capture page and the assets it loaded.
@@ -209,10 +270,10 @@ function pause(ms) {
 }
 
 // uploadAll sends the queued captures, oldest first, and says whether none
-// is left to retry.
+// is left to retry. A share waits for the page to give it a CSRF token.
 async function uploadAll() {
   const queued = (await records())
-    .filter((r) => r.status === "queued")
+    .filter((r) => r.status === "queued" && r.csrf)
     .sort((a, b) => a.savedAt - b.savedAt)
 
   for (const rec of queued) {
@@ -227,7 +288,7 @@ async function uploadAll() {
 // login (a redirect) is retried.
 async function upload(rec) {
   const form = new FormData()
-  form.append("kind", "note")
+  form.append("kind", rec.kind || "note")
   form.append("captured_at", rec.capturedAt)
   if (rec.text) form.append("text", rec.text)
 

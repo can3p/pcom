@@ -46,9 +46,21 @@ page loads whole.
   `postops.CommentCapabilities`, ...). Don't compare ids (`eq $.User.DBUser.ID .UserID`) or combine
   permissions in the template: add a field computed in Go, next to the rule the service enforces, with a
   unit test. A control and the form it opens use the same capability.
+- **Static files get a content hash.** webpack copies `client/static/*` to `static/<name>.<hash>.<ext>`
+  (possibly on `STATIC_CDN`), so a template names them only through `{{ static_asset "static/<name>" }}`;
+  a literal `/static/...` path is a 404. A file that needs a fixed URL on the app's origin is served by a
+  route instead: the web app manifest is `pkg/web/app/site.webmanifest`, served at `/site.webmanifest`
+  with its icons' `src` turned into asset URLs. An asset that only Go code asks for goes into the e2e
+  harness's stub list (`workDir` in `e2e/harness.go`), since `static_asset` panics on an unknown name.
 
 ### CSRF Protection
 - Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
+- **One route is exempt: `POST /controls/notes/share`**, the share target of the installed app, because the
+  phone posts the share sheet's form and can't add a token. It is safe because the session cookie is
+  `SameSite=Lax`, so a cross-site POST arrives without a session and lands on the login page; and the route
+  only creates a note of the session's own user and reads nothing back to the sender. It is mounted on
+  `controls` (no `csrfCheck`) and listed in `csrfExempt` in `e2e/guards_test.go`, which
+  `TestGuards_CSRFRequired` skips. A new exemption needs the same argument, written down next to the route.
 
 ### Action Controller Pattern
 **Location**: `cmd/web/client/js/controllers/action_controller.js`

@@ -1,6 +1,8 @@
 package web
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"slices"
@@ -9,9 +11,12 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/notes/capture"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/util/date"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/samber/mo"
 )
 
@@ -647,6 +652,20 @@ const (
 	CaptureStartPhoto = "photo"
 )
 
+// CaptureSharedParam names the note the share target saved, which the
+// capture page shows as the last capture.
+const CaptureSharedParam = "shared"
+
+// CapturedNote is a saved note as the capture page's last-capture card shows
+// it; the field names are those of the page's queue records.
+type CapturedNote struct {
+	NoteID       string `json:"noteId"`
+	Text         string `json:"text"`
+	Photos       int    `json:"photos"`
+	Voice        bool   `json:"voice"`
+	DeletePrompt string `json:"deletePrompt"`
+}
+
 // NoteCapturePage is /controls/notes/new. It holds no list: it only captures.
 type NoteCapturePage struct {
 	*BasePage
@@ -661,6 +680,9 @@ type NoteCapturePage struct {
 	// side a photo is scaled down to before it is sent.
 	AudioMaxSeconds   int
 	PhotoMaxDimension int
+	// Shared is the note ?shared= names, as JSON for the page's card, when
+	// it is the viewer's; empty otherwise.
+	Shared string
 }
 
 // NoteCapture is the capture page for the viewer.
@@ -683,5 +705,38 @@ func NoteCapture(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo
 		out.Start = start
 	}
 
+	shared, err := sharedNote(c, svc, userData)
+	if err != nil {
+		return mo.Err[*NoteCapturePage](err)
+	}
+
+	out.Shared = shared
+
 	return mo.Ok(out)
+}
+
+// sharedNote is the card of the note ?shared= names, as JSON, or "" when the
+// parameter names no note of the viewer.
+func sharedNote(c *gin.Context, svc *notes.Service, userData *auth.UserData) (string, error) {
+	id := c.Query(CaptureSharedParam)
+	if uuid.Validate(id) != nil {
+		return "", nil
+	}
+
+	n, err := svc.Get(c, userData.DBUser, id)
+	if errors.Is(err, service.ErrNotFound) {
+		return "", nil
+	} else if err != nil {
+		return "", err
+	}
+
+	b, err := json.Marshal(CapturedNote{
+		NoteID:       n.ID,
+		Text:         capture.Unquote(n.Body),
+		Photos:       len(n.Images),
+		Voice:        n.AudioUploadID != nil,
+		DeletePrompt: NoteDeletePrompt(n, false),
+	})
+
+	return string(b), err
 }

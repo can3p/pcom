@@ -19,6 +19,8 @@ const AUDIO_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
 const JPEG_QUALITY = 0.85
 const TICK_MS = 250
 const EXCERPT_LENGTH = 80
+// the query parameter the share target's redirect names its note in
+const SHARED_PARAM = "shared"
 
 const STATUS_QUEUED = "Saved on the phone, uploading…"
 const STATUS_SAVED = "Saved"
@@ -58,8 +60,31 @@ export class Capture {
   async init() {
     await this.register()
     await refreshCsrf(this.c.csrfValue)
+    await this.adoptShared()
     await this.render()
     this.kick()
+  }
+
+  // adoptShared keeps the note the share target saved (?shared=) as the last
+  // capture, already uploaded, and takes the parameter off the URL, so a
+  // reload doesn't bring it back after a delete.
+  async adoptShared() {
+    const note = this.c.sharedValue
+    if (!note?.noteId) return
+
+    const rec = { id: "shared-" + note.noteId, savedAt: Date.now(), status: "uploaded", images: [], audio: null, seconds: 0, ...note }
+    this.shared = rec
+
+    try {
+      await withStore("readwrite", (s) => s.put(rec))
+      await prune(rec.id)
+    } catch (_) {
+      // no IndexedDB: render shows it from memory
+    }
+
+    const url = new URL(window.location.href)
+    url.searchParams.delete(SHARED_PARAM)
+    window.history.replaceState(window.history.state, "", url)
   }
 
   async register() {
@@ -274,7 +299,7 @@ export class Capture {
   async render() {
     if (this.gone) return
 
-    const rec = await latest()
+    const rec = (await latest()) || this.shared
     const c = this.c
 
     this.last = rec
@@ -282,6 +307,7 @@ export class Capture {
     if (!rec) return
 
     c.cardWhatTarget.textContent = describe(rec)
+    if (rec.voice && !rec.photos && !rec.seconds) this.measure(rec)
 
     const s = c.cardStatusTarget
     s.classList.toggle("ok", rec.status === "uploaded")
@@ -322,8 +348,48 @@ export class Capture {
       }
     }
 
+    if (rec.id === this.shared?.id) this.shared = null
     await withStore("readwrite", (s) => s.delete(rec.id))
     await this.render()
+  }
+
+  // measure puts the length of a recording on the card once it is known: a
+  // shared recording comes without one. It reads the recording itself (the
+  // queued file, or the uploaded note's), and the card keeps no length when
+  // the browser can't decode it.
+  async measure(rec) {
+    this.lengths ??= new Map()
+
+    const show = (seconds) => {
+      if (seconds > 0 && this.last === rec && !this.gone) {
+        this.c.cardWhatTarget.textContent = describe({ ...rec, seconds })
+      }
+    }
+
+    if (this.lengths.has(rec.id)) {
+      show(this.lengths.get(rec.id))
+      return
+    }
+
+    this.lengths.set(rec.id, 0)
+
+    let ctx
+
+    try {
+      const data = rec.audio
+        ? await rec.audio.arrayBuffer()
+        : await (await fetch(`/controls/notes/${rec.noteId}/audio`)).arrayBuffer()
+
+      ctx = new AudioContext()
+      const seconds = Math.round((await ctx.decodeAudioData(data)).duration)
+
+      this.lengths.set(rec.id, seconds)
+      show(seconds)
+    } catch (_) {
+      // no length
+    } finally {
+      ctx?.close()
+    }
   }
 
   // stopFocus clears the focus tag and reloads the page, which shows it gone.
@@ -415,7 +481,7 @@ function describe(rec) {
   if (rec.photos && rec.voice) return `${photos} with a voice caption`
   if (rec.photos) return photos
 
-  return `A recording of ${clock(rec.seconds)}`
+  return rec.seconds ? `A recording of ${clock(rec.seconds)}` : "A recording"
 }
 
 function clock(seconds) {
