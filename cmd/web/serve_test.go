@@ -372,6 +372,14 @@ func TestNotesOptions(t *testing.T) {
 			require.Equal(t, want, got, "%s changed another field", r.set)
 		})
 	}
+
+	attempts := func(cfg config.Serve) int { return notes.New(nil, notesOptions(cfg.Notes, cfg.STT)...).STTAttempts() }
+	require.Equal(t, notes.DefaultSTTAttempts, attempts(baseSettings))
+
+	cfg, err := parseServe(t, map[string]string{"STT_ATTEMPTS": "3"})
+	require.NoError(t, err)
+	require.Equal(t, 3, attempts(cfg))
+	require.Equal(t, base, limitsOf(cfg), "STT_ATTEMPTS changed a limit")
 }
 
 func TestSubscriptionsOptions(t *testing.T) {

@@ -46,7 +46,10 @@ func uploadRecording(t *testing.T, app *e2e.App, c *e2e.Client, contentType stri
 func TestNotes_AudioIsTheOwners(t *testing.T) {
 	t.Parallel()
 
-	app := e2e.Start(t)
+	// Transcription is on, against a backend nobody answers at: the note
+	// waits for its transcription through the whole test.
+	app := e2e.Start(t, e2e.WithEnv("STT_PROVIDER", "openai-compat"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_ENDPOINT", "http://127.0.0.1:9/stt"), e2e.WithEnv("STT_OPENAI_COMPAT_KEY", "unused"))
 	owner := loginAs(t, app, newUser(t, app))
 	other := loginAs(t, app, newUser(t, app))
 	data := []byte("\x1a\x45\xdf\xa3\x9f\x42\x86\x81\x01\x42\x82\x84webm and the rest of a memo")
@@ -79,6 +82,7 @@ func TestNotes_AudioIsTheOwners(t *testing.T) {
 	other.Get(audio).RequireStatus(http.StatusNotFound)
 	require.True(t, strings.HasPrefix(app.Client(t).Get(audio).RequireStatus(http.StatusFound).Location(), "/login"))
 
-	owner.Get("/controls/notes/" + created.NoteID + "/status").RequireStatus(http.StatusOK)
+	status := owner.Get("/controls/notes/" + created.NoteID + "/status").RequireStatus(http.StatusOK)
+	require.Contains(t, status.Body, "Transcribing…")
 	other.Get("/controls/notes/" + created.NoteID + "/status").RequireStatus(http.StatusNotFound)
 }

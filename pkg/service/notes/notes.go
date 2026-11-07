@@ -44,6 +44,10 @@ const (
 	DefaultSTTTimeout = 2 * time.Minute
 	// DefaultSTTWorkers is how many transcriptions run at once, on QueueSTT.
 	DefaultSTTWorkers = 2
+	// DefaultSTTAttempts is how many times a transcription job runs before
+	// the note is marked failed. River's backoff spreads five over about
+	// twenty minutes, on top of the retries pkg/stt makes within each.
+	DefaultSTTAttempts = 5
 	// DefaultSTTEndpoint and DefaultSTTModel are the OpenAI-compatible
 	// backend's base URL and model.
 	DefaultSTTEndpoint = "https://api.groq.com/openai/v1"
@@ -97,11 +101,13 @@ var DefaultLimits = Limits{
 
 // Service is the notes of every user.
 type Service struct {
-	store  *repo.Store
-	jobs   repo.JobQueue
-	media  server.MediaStorage
-	stt    STT
-	limits Limits
+	store *repo.Store
+	jobs  repo.JobQueue
+	media server.MediaStorage
+	stt   STT
+	// sttAttempts is how many times a transcription job runs.
+	sttAttempts int
+	limits      Limits
 	// pageSize is how many notes a page of List holds.
 	pageSize int
 	now      func() time.Time
@@ -123,6 +129,12 @@ func WithMediaStorage(m server.MediaStorage) Option {
 // WithSTT sets the speech-to-text backend; nil keeps transcription off.
 func WithSTT(stt STT) Option {
 	return func(s *Service) { s.stt = stt }
+}
+
+// WithSTTAttempts sets how many times a transcription job runs before the
+// note is marked failed; a value below one keeps DefaultSTTAttempts.
+func WithSTTAttempts(n int) Option {
+	return func(s *Service) { setIfPositive(&s.sttAttempts, n) }
 }
 
 // WithPageSize sets how many notes a page of the list holds; a value below
@@ -166,10 +178,11 @@ func setIfPositive[T int | int64 | time.Duration](field *T, v T) {
 // New builds the service. It takes no other service.
 func New(store *repo.Store, opts ...Option) *Service {
 	s := &Service{
-		store:    store,
-		limits:   DefaultLimits,
-		pageSize: DefaultPageSize,
-		now:      time.Now,
+		store:       store,
+		limits:      DefaultLimits,
+		pageSize:    DefaultPageSize,
+		sttAttempts: DefaultSTTAttempts,
+		now:         time.Now,
 	}
 
 	for _, o := range opts {
@@ -181,6 +194,10 @@ func New(store *repo.Store, opts ...Option) *Service {
 
 // Limits are the service's limits.
 func (s *Service) Limits() Limits { return s.limits }
+
+// STTAttempts is how many times a transcription job runs before the note is
+// marked failed.
+func (s *Service) STTAttempts() int { return s.sttAttempts }
 
 // TranscriptionEnabled reports whether recordings are transcribed.
 func (s *Service) TranscriptionEnabled() bool { return s.stt != nil }

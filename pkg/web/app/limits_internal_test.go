@@ -50,8 +50,10 @@ func TestBodyLimits(t *testing.T) {
 		{http.MethodPost, importPath, maxBody + maxImport + 1, http.StatusRequestEntityTooLarge},
 		{http.MethodPost, noteAudioPath, maxBody + maxCapture, http.StatusOK},
 		{http.MethodPost, noteAudioPath, maxBody + maxCapture + 1, http.StatusRequestEntityTooLarge},
+		{http.MethodPost, noteSharePath, maxBody + maxCapture, http.StatusOK},
 		{http.MethodPost, noteSharePath, maxBody + maxCapture + 1, http.StatusRequestEntityTooLarge},
 		{http.MethodPost, apiNotesPath, maxBody + maxCapture, http.StatusOK},
+		{http.MethodPost, apiNotesPath, maxBody + maxCapture + 1, http.StatusRequestEntityTooLarge},
 	} {
 		req := httptest.NewRequest(r.method, r.path, bytes.NewReader(make([]byte, r.size)))
 		rec := httptest.NewRecorder()
@@ -82,7 +84,21 @@ func TestBodyLimits_UploadPaths(t *testing.T) {
 		routes[r.Method+" "+r.Path] = true
 	}
 
-	for _, want := range []string{"POST " + uploadMediaPath, "PUT " + apiImagePath, "POST " + importPath, "POST " + noteAudioPath} {
+	// The notes capture routes other tasks of the notes wave add; once one
+	// exists, its entry here goes.
+	notYet := map[string]string{
+		"POST " + noteSharePath: "the share target (F15 T8)",
+		"POST " + apiNotesPath:  "the notes API (F15 T5)",
+	}
+
+	for _, want := range []string{"POST " + uploadMediaPath, "PUT " + apiImagePath, "POST " + importPath, "POST " + noteAudioPath, "POST " + noteSharePath, "POST " + apiNotesPath} {
+		if by, ok := notYet[want]; ok {
+			require.False(t, routes[want], "%s exists now: drop it from notYet", want)
+			t.Logf("%s is not checked: %s doesn't exist yet", want, by)
+
+			continue
+		}
+
 		require.True(t, routes[want], "no route %s", want)
 	}
 }

@@ -299,6 +299,7 @@ func notesOptions(cfg config.Notes, stt config.STT) []notes.Option {
 			STTMinutesPerDay:     stt.MinutesPerDay,
 			STTSiteMinutesPerDay: stt.SiteMinutesPerDay,
 		}),
+		notes.WithSTTAttempts(stt.Attempts),
 	}
 }
 

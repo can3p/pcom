@@ -231,6 +231,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"STT_PROVIDER", "openai-compat", func(s *config.Serve) any { return s.STT.Provider }, "", "openai-compat"},
 		{"STT_TIMEOUT", "30s", func(s *config.Serve) any { return s.STT.Timeout }, notes.DefaultSTTTimeout, 30 * time.Second},
 		{"STT_WORKERS", "4", func(s *config.Serve) any { return s.STT.Workers }, notes.DefaultSTTWorkers, 4},
+		{"STT_ATTEMPTS", "3", func(s *config.Serve) any { return s.STT.Attempts }, notes.DefaultSTTAttempts, 3},
 		{"STT_MINUTES_PER_DAY", "15", func(s *config.Serve) any { return s.STT.MinutesPerDay }, notes.DefaultSTTMinutesPerDay, 15},
 		{"STT_SITE_MINUTES_PER_DAY", "600", func(s *config.Serve) any { return s.STT.SiteMinutesPerDay }, notes.DefaultSTTSiteMinutesPerDay, 600},
 		{"STT_OPENAI_COMPAT_ENDPOINT", "http://wiremock:8080/stt", func(s *config.Serve) any { return s.STT.OpenAICompat.Endpoint }, notes.DefaultSTTEndpoint, "http://wiremock:8080/stt"},

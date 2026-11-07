@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/stt"
 	"github.com/can3p/pcom/pkg/stt/openaicompat"
 	"github.com/can3p/pcom/pkg/testutil"
+	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakesender"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/testutil/wiremock"
@@ -39,14 +40,14 @@ type jobWorld struct {
 	wm      *wiremock.WireMock
 }
 
-func newJobWorld(t *testing.T) *jobWorld {
+func newJobWorld(t *testing.T, opts ...notes.Option) *jobWorld {
 	t.Helper()
 
 	w := &jobWorld{world: newWorld(t), storage: fakestorage.New(), wm: wiremock.Shared(t)}
 	backend := stt.Retry(openaicompat.New(openaicompat.Options{Endpoint: w.wm.Watch(t, "stt"), Model: "whisper-test", Key: "test-key"}),
 		stt.RetryOptions{Attempts: 1})
 	inserter := testutil.Must(jobs.NewInserter(w.db))(t)
-	w.svc = notes.New(repo.New(w.db), notes.WithJobs(inserter), notes.WithMediaStorage(w.storage), notes.WithSTT(backend))
+	w.svc = notes.New(repo.New(w.db), append([]notes.Option{notes.WithJobs(inserter), notes.WithMediaStorage(w.storage), notes.WithSTT(backend)}, opts...)...)
 
 	return w
 }
@@ -142,15 +143,53 @@ func TestNotes_TranscribeJobAfterDelete(t *testing.T) {
 	w.wm.Verify(t, 0, sentSTT("wm-notes-deleted"))
 }
 
+// A recording replaced before its job runs is not transcribed, and the note
+// keeps what the replacement gave it; the old recording leaves the bucket.
+func TestNotes_TranscribeJobAfterReplace(t *testing.T) {
+	t.Parallel()
+
+	w := newJobWorld(t)
+	note := w.record(t, "wm-notes-replaced")
+	old := testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t)
+
+	// replaced by a service with transcription off, so only the old job runs
+	inserter := testutil.Must(jobs.NewInserter(w.db))(t)
+	off := notes.New(repo.New(w.db), notes.WithJobs(inserter), notes.WithMediaStorage(w.storage))
+	replaced := testutil.Must(off.AttachAudio(w.ctx, w.me, note.ID, strings.NewReader(oggHead), "audio/ogg"))(t)
+	w.work(t)
+
+	require.Eventually(t, func() bool {
+		return w.count(t, "select count(*) from river_job where state = 'completed'") == 2
+	}, 20*time.Second, 50*time.Millisecond, "the old transcription and the deletion should both finish")
+
+	got := testutil.Must(w.svc.Get(w.ctx, w.me, note.ID))(t)
+	require.Equal(t, note.Body, got.Body)
+	require.Equal(t, model.NoteTranscriptionNone, got.TranscriptionStatus)
+	require.Equal(t, *replaced.AudioUploadID, *got.AudioUploadID)
+	require.Equal(t, 0, w.count(t, "select count(*) from stt_requests"))
+	require.False(t, testutil.Must(w.storage.ObjectExists(w.ctx, old.UploadedFname))(t))
+	w.wm.Verify(t, 0, sentSTT("wm-notes-replaced"))
+}
+
+// Deleting a recording whose object is gone already removes its row.
+func TestNotes_DeleteAudioWithoutObject(t *testing.T) {
+	t.Parallel()
+
+	w, _ := audioWorld(t)
+	upload := testutil.Must(factory.NoteAudio(w.ctx, w.db, w.me.ID))(t)
+
+	require.NoError(t, w.svc.DeleteAudio(w.ctx, notes.DeleteAudioArgs{UploadID: upload.ID}))
+	_, err := repo.New(w.db).MediaUploadByID(w.ctx, upload.ID)
+	require.ErrorIs(t, err, repo.ErrNotFound)
+}
+
 // A failed call is retried with the note still pending; the last attempt
 // marks it failed with the error, and every call is recorded.
 func TestNotes_TranscribeJobLastAttemptFails(t *testing.T) {
 	t.Parallel()
 
-	w := newJobWorld(t)
+	w := newJobWorld(t, notes.WithSTTAttempts(2))
 	note := w.record(t, "wm-notes-unavailable")
-	_, err := w.db.ExecContext(w.ctx, "update river_job set max_attempts = 2 where kind = 'notes.transcribe'")
-	require.NoError(t, err)
 	w.work(t)
 
 	require.Eventually(t, func() bool {
@@ -166,7 +205,8 @@ func TestNotes_TranscribeJobLastAttemptFails(t *testing.T) {
 	}, 20*time.Second, 20*time.Millisecond, "the job should not be retried after its last attempt")
 }
 
-// One transcription waits per note and recording, whoever enqueues it twice.
+// One transcription waits per note and recording, whoever enqueues it twice;
+// another recording of the note is a job of its own.
 func TestNotes_TranscribeJobIsUnique(t *testing.T) {
 	t.Parallel()
 
@@ -176,4 +216,7 @@ func TestNotes_TranscribeJobIsUnique(t *testing.T) {
 
 	require.NoError(t, inserter.Insert(w.ctx, w.db, notes.TranscribeArgs{NoteID: note.ID, UploadID: *note.AudioUploadID}))
 	require.Equal(t, 1, w.count(t, "select count(*) from river_job where kind = 'notes.transcribe' and queue = $1", notes.QueueSTT))
+
+	require.NoError(t, inserter.Insert(w.ctx, w.db, notes.TranscribeArgs{NoteID: note.ID, UploadID: uuid.NewString()}))
+	require.Equal(t, 2, w.count(t, "select count(*) from river_job where kind = 'notes.transcribe'"))
 }

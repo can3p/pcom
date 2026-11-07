@@ -210,6 +210,7 @@ type STT struct {
 	Provider          string        `long:"provider" env:"PROVIDER" description:"Speech-to-text backend; empty turns transcription off" choice:"" choice:"openai-compat" default:""`
 	Timeout           time.Duration `long:"timeout" env:"TIMEOUT" description:"How long one call to the backend may take" default:"2m"`
 	Workers           int           `long:"workers" env:"WORKERS" description:"How many transcriptions run at once" default:"2"`
+	Attempts          int           `long:"attempts" env:"ATTEMPTS" description:"How many times a transcription is tried before the note is marked failed" default:"5"`
 	MinutesPerDay     int           `long:"minutes-per-day" env:"MINUTES_PER_DAY" description:"Minutes of recordings one user may have transcribed per day" default:"60"`
 	SiteMinutesPerDay int           `long:"site-minutes-per-day" env:"SITE_MINUTES_PER_DAY" description:"Minutes of recordings the whole site may have transcribed per day; 0 is no cap" default:"0"`
 

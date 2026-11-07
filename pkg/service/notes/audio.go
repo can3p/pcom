@@ -178,8 +178,9 @@ func (s *Service) within(tx *repo.Store) *Service {
 	return &c
 }
 
-// attach records rec as n's recording on tx and stores its object, which
-// comes last, so a failed upload rolls the rest back.
+// attach records rec as n's recording on tx, stores its object and enqueues
+// its jobs on tx. A failed upload rolls the rows back before any job is
+// enqueued; a failed enqueue rolls them back and removes the object again.
 func (s *Service) attach(ctx context.Context, tx *repo.Store, n *model.Note, rec *recording) error {
 	if s.media == nil {
 		return errors.New("notes: no media storage to keep a recording in")
@@ -219,19 +220,31 @@ func (s *Service) attach(ctx context.Context, tx *repo.Store, n *model.Note, rec
 		return err
 	}
 
+	if err := s.media.UploadFile(ctx, upload.UploadedFname, rec.bytes, rec.contentType); err != nil {
+		return err
+	}
+
+	if err := s.enqueueAudioJobs(ctx, tx, n, old); err != nil {
+		return errors.Join(err, s.media.DeleteFile(ctx, upload.UploadedFname))
+	}
+
+	return nil
+}
+
+// enqueueAudioJobs enqueues the deletion of the recording n had, if any, and
+// the transcription of the one it has now when transcription is on.
+func (s *Service) enqueueAudioJobs(ctx context.Context, tx *repo.Store, n *model.Note, old *string) error {
 	if old != nil {
 		if err := tx.Enqueue(ctx, s.jobs, DeleteAudioArgs{UploadID: *old}); err != nil {
 			return err
 		}
 	}
 
-	if s.stt != nil {
-		if err := tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, UploadID: upload.ID}); err != nil {
-			return err
-		}
+	if s.stt == nil {
+		return nil
 	}
 
-	return s.media.UploadFile(ctx, upload.UploadedFname, rec.bytes, rec.contentType)
+	return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, UploadID: *n.AudioUploadID, Attempts: s.sttAttempts})
 }
 
 // Recording is a note's recording, read whole: it is at most AudioMaxBytes.
@@ -348,6 +361,6 @@ func (s *Service) Retranscribe(ctx context.Context, actor *model.User, noteID, l
 			return err
 		}
 
-		return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, UploadID: *n.AudioUploadID, Language: language, Request: request.String()})
+		return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, UploadID: *n.AudioUploadID, Language: language, Request: request.String(), Attempts: s.sttAttempts})
 	})
 }

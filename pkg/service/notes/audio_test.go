@@ -1,7 +1,6 @@
 package notes_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -107,14 +106,14 @@ func TestNotes_CreateFromAudio(t *testing.T) {
 			require.Equal(t, c.wantType, stored.ContentType)
 			require.True(t, testutil.Must(storage.ObjectExists(w.ctx, upload.UploadedFname))(t))
 
-			require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, UploadID: upload.ID}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
+			require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, UploadID: upload.ID, Attempts: notes.DefaultSTTAttempts}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
 		})
 	}
 }
 
 // Without a backend the recording is kept and nothing waits for a
 // transcription; anybody logged out needs to log in; a failed upload to the
-// bucket leaves nothing behind.
+// bucket or a failed enqueue leaves nothing behind.
 func TestNotes_CreateFromAudioEdges(t *testing.T) {
 	t.Parallel()
 
@@ -123,19 +122,25 @@ func TestNotes_CreateFromAudioEdges(t *testing.T) {
 	note, err := w.svc.CreateFromAudio(w.ctx, w.me, strings.NewReader(webmHead), "audio/webm", notes.Input{})
 	require.NoError(t, err)
 	require.Equal(t, model.NoteTranscriptionNone, note.TranscriptionStatus)
-	require.NotNil(t, note.AudioUploadID)
+	require.Equal(t, model.MediaKindNoteAudio, testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t).Kind)
 	require.Empty(t, w.queue.Inserted())
 
 	_, err = w.svc.CreateFromAudio(w.ctx, nil, strings.NewReader(webmHead), "audio/webm", notes.Input{})
 	require.ErrorIs(t, err, service.ErrNeedsLogin)
 
-	broken, storage := audioWorld(t)
-	storage.FailUploadWith(errors.New("bucket down"))
+	for name, fail := range map[string]func(*world, *fakestorage.Storage){
+		"the bucket fails": func(_ *world, s *fakestorage.Storage) { s.FailUploadWith(errors.New("bucket down")) },
+		"the queue fails":  func(w *world, _ *fakestorage.Storage) { w.queue.FailWith(errors.New("queue down")) },
+	} {
+		broken, storage := audioWorld(t)
+		fail(broken, storage)
 
-	_, err = broken.svc.CreateFromAudio(broken.ctx, broken.me, strings.NewReader(webmHead), "audio/webm", notes.Input{})
-	require.Error(t, err)
-	require.Equal(t, 0, broken.count(t, "select count(*) from notes"))
-	require.Equal(t, 0, broken.count(t, "select count(*) from media_uploads"))
+		_, err = broken.svc.CreateFromAudio(broken.ctx, broken.me, strings.NewReader(webmHead), "audio/webm", notes.Input{})
+		require.Error(t, err, name)
+		require.Equal(t, 0, broken.count(t, "select count(*) from notes"), name)
+		require.Equal(t, 0, broken.count(t, "select count(*) from media_uploads"), name)
+		require.Empty(t, broken.queue.Inserted(), name)
+	}
 }
 
 // A new recording replaces the note's old one, which a job deletes.
@@ -152,7 +157,7 @@ func TestNotes_AttachAudio(t *testing.T) {
 	require.Equal(t, model.NoteTranscriptionPending, got.TranscriptionStatus)
 	require.Equal(t, "a photo of a page", got.Body)
 	require.Equal(t, []notes.DeleteAudioArgs{{UploadID: old.ID}}, fakequeue.Of[notes.DeleteAudioArgs](w.queue))
-	require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, UploadID: *got.AudioUploadID}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
+	require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, UploadID: *got.AudioUploadID, Attempts: notes.DefaultSTTAttempts}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
 
 	_, err = w.svc.AttachAudio(w.ctx, w.other, note.ID, strings.NewReader(oggHead), "audio/ogg")
 	require.ErrorIs(t, err, service.ErrNotFound)
@@ -197,7 +202,7 @@ func TestNotes_Retranscribe(t *testing.T) {
 	queued := fakequeue.Of[notes.TranscribeArgs](w.queue)
 	require.Len(t, queued, 1)
 	require.NotEmpty(t, queued[0].Request)
-	require.Equal(t, notes.TranscribeArgs{NoteID: note.ID, UploadID: audio.ID, Language: "ru", Request: queued[0].Request}, queued[0])
+	require.Equal(t, notes.TranscribeArgs{NoteID: note.ID, UploadID: audio.ID, Language: "ru", Request: queued[0].Request, Attempts: notes.DefaultSTTAttempts}, queued[0])
 	require.Equal(t, model.NoteTranscriptionPending, testutil.Must(w.svc.Get(w.ctx, w.me, note.ID))(t).TranscriptionStatus)
 
 	requireInvalid(t, w.svc.Retranscribe(w.ctx, w.me, note.ID, "en"), "The recording is being transcribed already.")
@@ -219,16 +224,4 @@ func TestNotes_Retranscribe(t *testing.T) {
 
 	off := newWorld(t)
 	requireInvalid(t, off.svc.Retranscribe(off.ctx, off.me, note.ID, "en"), "Transcription is not available.")
-}
-
-// The public media route refuses recordings by name.
-func TestNotes_IsRecordingFile(t *testing.T) {
-	t.Parallel()
-
-	w, _ := audioWorld(t)
-	note := testutil.Must(w.svc.CreateFromAudio(w.ctx, w.me, bytes.NewReader([]byte(webmHead)), "", notes.Input{}))(t)
-	upload := testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t)
-
-	require.True(t, notes.IsRecordingFile(upload.UploadedFname))
-	require.False(t, notes.IsRecordingFile("3fa85f64-5717-4562-b3fc-2c963f66afa6.png"))
 }

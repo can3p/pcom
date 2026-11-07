@@ -15,11 +15,6 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-// TranscribeAttempts is how many times a transcription job runs before the
-// note is marked failed. River's backoff spreads them over about twenty
-// minutes, on top of the retries pkg/stt makes within each.
-const TranscribeAttempts = 5
-
 // TranscribeArgs is the job turning a note's recording into its text. It is
 // unique per note and recording while it waits or runs, so a double tap
 // transcribes once; each Retranscribe is a request of its own, since the job
@@ -33,17 +28,25 @@ type TranscribeArgs struct {
 	Language string `json:"language,omitempty"`
 	// Request tells a Retranscribe apart from the jobs before it.
 	Request string `json:"request,omitempty" river:"unique"`
+	// Attempts is how many times the job runs before the note is marked
+	// failed (STT_ATTEMPTS); zero is DefaultSTTAttempts.
+	Attempts int `json:"attempts,omitempty"`
 }
 
 // Kind names the job kind.
 func (TranscribeArgs) Kind() string { return "notes.transcribe" }
 
-// InsertOpts puts the job on the stt queue, unique per note and recording
-// until it finishes.
-func (TranscribeArgs) InsertOpts() river.InsertOpts {
+// InsertOpts puts the job on the stt queue with its attempts, unique per note
+// and recording until it finishes. River reads it from the args inserted.
+func (a TranscribeArgs) InsertOpts() river.InsertOpts {
+	attempts := a.Attempts
+	if attempts <= 0 {
+		attempts = DefaultSTTAttempts
+	}
+
 	return river.InsertOpts{
 		Queue:       QueueSTT,
-		MaxAttempts: TranscribeAttempts,
+		MaxAttempts: attempts,
 		UniqueOpts: river.UniqueOpts{
 			ByArgs: true,
 			ByState: []rivertype.JobState{

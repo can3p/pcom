@@ -535,6 +535,11 @@ Help Options:
           --stt-workers=                               How many transcriptions
                                                        run at once (default: 2)
                                                        [$STT_WORKERS]
+          --stt-attempts=                              How many times a
+                                                       transcription is tried
+                                                       before the note is
+                                                       marked failed (default:
+                                                       5) [$STT_ATTEMPTS]
           --stt-minutes-per-day=                       Minutes of recordings
                                                        one user may have
                                                        transcribed per day
