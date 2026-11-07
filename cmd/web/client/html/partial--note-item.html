@@ -10,7 +10,7 @@
     <p class="meta">{{ renderHumanTime $n.CapturedAt .User.DBUser }}
       {{ with $n.Source }}<span class="dot">&middot;</span><a href="/controls/notes?source={{ .ID }}">{{ .Title }}</a>{{ with $n.Locator }}, {{ . }}{{ end }}{{ end }}
       {{ if .Item.Used }}<span class="dot">&middot;</span>used in a post{{ end }}</p>
-    {{ if $n.AudioUploadID }}{{ template "partial--note-status.html" $n }}{{ end }}
+    {{ if $n.AudioUploadID }}{{ template "partial--note-status.html" .Item.Status }}{{ end }}
     {{ if $n.Body }}<div class="prose note-body">{{ markdown_feed $n.Body }}</div>{{ end }}
     {{ if $n.Images }}
     <p class="note-photos">{{ range $n.Images }}<img src="{{ link "uploaded_media" .Upload.UploadedFname }}" alt="Photo of the note" loading="lazy">{{ end }}</p>

@@ -227,6 +227,91 @@ type NoteItem struct {
 	Suggestions []string
 	// DeletePrompt is what the confirmation of its Delete says.
 	DeletePrompt string
+	// Status is the transcription status the item shows for a recording.
+	Status *NoteStatus
+}
+
+// Where a note's transcription status shows; its poll answers for that place.
+const (
+	NoteStatusList = "list"
+	NoteStatusEdit = "edit"
+)
+
+// NoteStatus is the transcription status of a note's recording, as
+// partial--note-status.html shows it. View is NoteStatusList, NoteStatusEdit
+// or "" for the status alone. On the list, Stack is the stack the note shows
+// in and Suggest whether its tag suggestions show, so the item that replaces
+// it once the text is there looks the same. On the edit page, Base is the
+// body the page was opened with, which every poll sends back with the text
+// being edited; Typed says the two differ, so the author changed the text
+// while the recording was transcribed: the form keeps it and Transcript shows
+// next to it instead.
+type NoteStatus struct {
+	Note       *model.Note
+	View       string
+	Stack      string
+	Suggest    bool
+	Base       string
+	Typed      bool
+	Transcript string
+}
+
+// Query is the query string of the status poll, which tells the handler
+// where the status shows.
+func (s *NoteStatus) Query() string {
+	v := url.Values{}
+
+	if s.View != "" {
+		v.Set("view", s.View)
+	}
+
+	if s.Stack != "" {
+		v.Set("stack", s.Stack)
+	}
+
+	if s.Suggest {
+		v.Set("suggest", "1")
+	}
+
+	return v.Encode()
+}
+
+// NoteItemOf is the list item of the viewer's note n, as the list the status
+// at shows in has it.
+func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.Note, at *NoteStatus) (*NoteItem, error) {
+	links, err := svc.PostLinks(c, user, n.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	item := &NoteItem{
+		Note: n, Used: links > 0, Tags: NoteTagsOf(n),
+		DeletePrompt: NoteDeletePrompt(n, links > 0),
+		Status:       &NoteStatus{Note: n, View: NoteStatusList, Stack: at.Stack, Suggest: at.Suggest},
+	}
+
+	if at.Suggest {
+		if item.Suggestions, err = svc.SuggestTags(c, user, n.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	return item, nil
+}
+
+// TranscriptOf is what the transcription added to a note's body, given what
+// the body may have been before it: the notes service appends the text after
+// a blank line, or makes it the body of a note without text. A body that
+// starts with none of them is all transcript, as far as can be told.
+func TranscriptOf(body string, before ...string) string {
+	for _, b := range before {
+		b = strings.TrimRight(b, "\n")
+		if strings.TrimSpace(b) != "" && strings.HasPrefix(body, b+"\n\n") {
+			return strings.TrimPrefix(body, b+"\n\n")
+		}
+	}
+
+	return body
 }
 
 // NoteGroup is the notes of a list under one heading: the notes of a stack
@@ -352,6 +437,11 @@ func noteGroups(svc *notes.Service, c *gin.Context, user *model.User, entries []
 		item := &NoteItem{
 			Note: e.Note, Used: e.Used, Tags: NoteTagsOf(e.Note),
 			DeletePrompt: NoteDeletePrompt(e.Note, e.Used),
+			Status:       &NoteStatus{Note: e.Note, View: NoteStatusList, Suggest: suggest},
+		}
+
+		if e.StackSize > 1 {
+			item.Status.Stack = e.StackID
 		}
 
 		if suggest {
@@ -481,6 +571,8 @@ type EditNotePage struct {
 	DeletePrompt string
 	// Chips are all the tags of the note, the ones of its text included.
 	Chips []NoteTag
+	// Status is the transcription status the form shows for a recording.
+	Status *NoteStatus
 }
 
 // EditNote loads the note for its edit page; a note that isn't the viewer's
@@ -502,6 +594,7 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		Tags:         strings.Join(note.Tags, " "),
 		Chips:        NoteTagsOf(note),
 		DeletePrompt: NoteDeletePrompt(note, links > 0),
+		Status:       &NoteStatus{Note: note, View: NoteStatusEdit, Base: note.Body},
 	})
 }
 

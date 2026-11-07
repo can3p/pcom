@@ -18,6 +18,7 @@
       "language": "english",
       "duration": 2.0,
       "text": "Walking past the river I thought of the essay."
-    }
+    },
+    "fixedDelayMilliseconds": 6000
   }
 }

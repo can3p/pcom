@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"net/url"
 	"sync"
 	"testing"
 
@@ -72,12 +73,14 @@ func TestFirstVisitWeight(t *testing.T) {
 	for _, row := range []struct {
 		path  string
 		maxJS int
+		// the page runs its own bundle, not main.js
+		ownBundle bool
 	}{
-		{"/feed", maxJSBytes},
-		{"/posts/" + russian.ID, maxJSBytes},
-		{"/posts/" + english.ID, maxJSBytes},
+		{"/feed", maxJSBytes, false},
+		{"/posts/" + russian.ID, maxJSBytes, false},
+		{"/posts/" + english.ID, maxJSBytes, false},
 		// opened on a phone outdoors, often on a weak network
-		{"/controls/notes/new", maxCaptureJSBytes},
+		{"/controls/notes/new", maxCaptureJSBytes, true},
 	} {
 		path := row.path
 		page := browser.Page(t, app, browser.As(user))
@@ -114,6 +117,12 @@ func TestFirstVisitWeight(t *testing.T) {
 		}
 
 		for _, r := range responses["script"] {
+			if row.ownBundle {
+				u, err := url.Parse(r.URL())
+				require.NoError(t, err)
+				require.NotContains(t, u.Path, "main", "%s loads %s", path, u.Path)
+			}
+
 			body, err := r.Body()
 			require.NoError(t, err)
 

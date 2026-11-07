@@ -11,6 +11,16 @@ export default class extends Controller {
     this.refresh()
   }
 
+  // A note replaced in place (its transcript came in) comes back unpicked,
+  // so the bar follows the boxes there are.
+  pickTargetConnected() {
+    this.refresh()
+  }
+
+  pickTargetDisconnected() {
+    this.refresh()
+  }
+
   selectStack(event) {
     const stack = event.target.dataset.stack
 
@@ -24,6 +34,9 @@ export default class extends Controller {
   }
 
   refresh() {
+    // the manage page has no selection bar
+    if (!this.hasBarTarget) return
+
     const picked = this.pickTargets.filter((box) => box.checked)
     const recordings = picked.filter((box) => box.dataset.recording === "1").length
     const ids = picked.map((box) => box.value).join(",")

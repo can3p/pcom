@@ -39,6 +39,25 @@ func TestNotes_DeletePrompt(t *testing.T) {
 	}
 }
 
+func TestNotes_TranscriptOfTheBodyBeforeIt(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "Spoken.", web.TranscriptOf("Spoken."))
+	require.Equal(t, "Spoken.", web.TranscriptOf("Spoken.", "", " \n"))
+	require.Equal(t, "Spoken.", web.TranscriptOf("Typed.\n\nSpoken.", "Typed.\n"))
+	require.Equal(t, "Spoken.", web.TranscriptOf("Saved.\n\nSpoken.", "Saved. And more", "Saved."))
+	// a body that starts with none of them is shown whole
+	require.Equal(t, "Other.\n\nSpoken.", web.TranscriptOf("Other.\n\nSpoken.", "Typed."))
+}
+
+func TestNotes_StatusPollSaysWhereTheStatusShows(t *testing.T) {
+	t.Parallel()
+
+	require.Empty(t, (&web.NoteStatus{}).Query())
+	require.Equal(t, "view=edit", (&web.NoteStatus{View: web.NoteStatusEdit}).Query())
+	require.Equal(t, "stack=s1&suggest=1&view=list", (&web.NoteStatus{View: web.NoteStatusList, Stack: "s1", Suggest: true}).Query())
+}
+
 func TestNotes_QueryCyclesATagThroughIncludeExcludeOff(t *testing.T) {
 	t.Parallel()
 
