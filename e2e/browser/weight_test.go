@@ -1,7 +1,8 @@
 //go:build browser
 
 // What a first-time visitor downloads: the stylesheet, the fonts and the
-// scripts of the feed and of a single post, each against a budget.
+// scripts of the feed, of a single post and of the notes capture page, each
+// against a budget.
 package browser_test
 
 import (
@@ -29,6 +30,10 @@ const (
 	// 45.5 KB gzipped when the budget was set, plus 10% headroom. Growing
 	// past it needs a reason.
 	maxJSBytes = 50 * 1024
+	// The notes capture page loads only its own bundle (client/js/capture.js:
+	// Stimulus and its controller), 14.1 KB gzipped when the budget was set,
+	// plus 10% headroom.
+	maxCaptureJSBytes = 15_500
 )
 
 // gzipped is what the production server would send for body: the test server
@@ -47,9 +52,9 @@ func gzipped(t *testing.T, body []byte) int {
 	return buf.Len()
 }
 
-// Opening the feed and a post in a fresh browser stays within the CSS, font
-// and JS budgets. The feed and the post hold both a Russian and an English
-// post, so the Latin and Cyrillic faces both load.
+// Opening the feed, a post and the notes capture page in a fresh browser
+// stays within the CSS, font and JS budgets. The feed and the post hold both
+// a Russian and an English post, so the Latin and Cyrillic faces both load.
 func TestFirstVisitWeight(t *testing.T) {
 	t.Parallel()
 
@@ -64,7 +69,17 @@ func TestFirstVisitWeight(t *testing.T) {
 		factory.WithSubject("Hello, world"), factory.WithBody("The first post in English."))
 	require.NoError(t, err)
 
-	for _, path := range []string{"/feed", "/posts/" + russian.ID, "/posts/" + english.ID} {
+	for _, row := range []struct {
+		path  string
+		maxJS int
+	}{
+		{"/feed", maxJSBytes},
+		{"/posts/" + russian.ID, maxJSBytes},
+		{"/posts/" + english.ID, maxJSBytes},
+		// opened on a phone outdoors, often on a weak network
+		{"/controls/notes/new", maxCaptureJSBytes},
+	} {
+		path := row.path
 		page := browser.Page(t, app, browser.As(user))
 
 		var (
@@ -121,6 +136,6 @@ func TestFirstVisitWeight(t *testing.T) {
 		require.NotZero(t, fonts, path)
 		require.LessOrEqual(t, css, maxCSSBytes, "%s: stylesheet over budget", path)
 		require.LessOrEqual(t, fonts, maxFontBytes, "%s: fonts over budget", path)
-		require.LessOrEqual(t, js, maxJSBytes, "%s: scripts over budget", path)
+		require.LessOrEqual(t, js, row.maxJS, "%s: scripts over budget", path)
 	}
 }

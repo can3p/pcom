@@ -26,9 +26,10 @@ const (
 	apiImagePath    = "/api/v1/image"
 	importPath      = "/controls/action/settings/import"
 	// The notes captures: a recording, photos and text in one request.
-	noteAudioPath = "/controls/action/note_audio"
-	noteSharePath = "/controls/notes/share"
-	apiNotesPath  = "/api/v1/notes"
+	noteAudioPath   = "/controls/action/note_audio"
+	noteCapturePath = "/controls/action/note_capture"
+	noteSharePath   = "/controls/notes/share"
+	apiNotesPath    = "/api/v1/notes"
 )
 
 // bodyLimits caps every request body before anything reads it: login,
@@ -65,7 +66,7 @@ func bodyLimits(maxBody, maxUpload, maxImport, maxCapture int64) gin.HandlerFunc
 			limit += maxUpload
 		case importPath:
 			limit += maxImport
-		case noteAudioPath, noteSharePath, apiNotesPath:
+		case noteAudioPath, noteCapturePath, noteSharePath, apiNotesPath:
 			limit += maxCapture
 		}
 

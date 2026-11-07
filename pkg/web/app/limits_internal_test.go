@@ -29,7 +29,7 @@ func TestBodyLimits(t *testing.T) {
 		c.Status(http.StatusOK)
 	}
 
-	for _, p := range []string{"/form/login", uploadMediaPath, apiImagePath, importPath, noteAudioPath, noteSharePath, apiNotesPath} {
+	for _, p := range []string{"/form/login", uploadMediaPath, apiImagePath, importPath, noteAudioPath, noteCapturePath, noteSharePath, apiNotesPath} {
 		router.POST(p, read)
 	}
 
@@ -50,6 +50,8 @@ func TestBodyLimits(t *testing.T) {
 		{http.MethodPost, importPath, maxBody + maxImport + 1, http.StatusRequestEntityTooLarge},
 		{http.MethodPost, noteAudioPath, maxBody + maxCapture, http.StatusOK},
 		{http.MethodPost, noteAudioPath, maxBody + maxCapture + 1, http.StatusRequestEntityTooLarge},
+		{http.MethodPost, noteCapturePath, maxBody + maxCapture, http.StatusOK},
+		{http.MethodPost, noteCapturePath, maxBody + maxCapture + 1, http.StatusRequestEntityTooLarge},
 		{http.MethodPost, noteSharePath, maxBody + maxCapture, http.StatusOK},
 		{http.MethodPost, noteSharePath, maxBody + maxCapture + 1, http.StatusRequestEntityTooLarge},
 		{http.MethodPost, apiNotesPath, maxBody + maxCapture, http.StatusOK},
@@ -90,7 +92,7 @@ func TestBodyLimits_UploadPaths(t *testing.T) {
 		"POST " + noteSharePath: "the share target (F15 T8)",
 	}
 
-	for _, want := range []string{"POST " + uploadMediaPath, "PUT " + apiImagePath, "POST " + importPath, "POST " + noteAudioPath, "POST " + noteSharePath, "POST " + apiNotesPath} {
+	for _, want := range []string{"POST " + uploadMediaPath, "PUT " + apiImagePath, "POST " + importPath, "POST " + noteAudioPath, "POST " + noteCapturePath, "POST " + noteSharePath, "POST " + apiNotesPath} {
 		if by, ok := notYet[want]; ok {
 			require.False(t, routes[want], "%s exists now: drop it from notYet", want)
 			t.Logf("%s is not checked: %s doesn't exist yet", want, by)

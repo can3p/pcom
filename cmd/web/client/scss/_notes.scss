@@ -268,3 +268,83 @@
 .note-form .field input {
   width: 100%;
 }
+
+// The capture page (/controls/notes/new): big buttons for one thumb.
+.capture {
+  max-width: var(--prose-width);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.capture-chip {
+  margin-right: var(--space-1);
+  color: var(--on-accent);
+}
+
+.capture-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.capture-mode,
+.capture-tap {
+  min-height: 72px;
+  font-size: 18px;
+}
+
+.capture-tap {
+  min-height: 160px;
+  font-size: 22px;
+}
+
+.capture-disclosure {
+  margin: 0;
+}
+
+.capture-rec {
+  align-items: stretch;
+  text-align: center;
+}
+
+.capture-timer {
+  margin: 0;
+  font: 800 40px/1.2 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--title);
+}
+
+.capture-type textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--ground);
+  color: var(--text);
+  font: 400 16px/1.5 var(--font-ui);
+}
+
+.capture-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.capture-last {
+  p {
+    margin: 0;
+  }
+}
+
+.capture-last-title {
+  margin: 0;
+  font: 600 13px var(--font-mono);
+  color: var(--muted);
+}
+
+.capture-last-what {
+  overflow-wrap: anywhere;
+}

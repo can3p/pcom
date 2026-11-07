@@ -544,3 +544,51 @@ func ControlsNotes(c *gin.Context, svc *notes.Service, page *ControlsPage) (*Con
 
 	return &ControlsNotesPage{ControlsPage: page, Notes: sum}, nil
 }
+
+// NoteCapturePath is the capture page: Dictate, Photo and Type.
+const NoteCapturePath = NotesPath + "/new"
+
+// The modes ?start= opens the capture page in.
+const (
+	CaptureStartVoice = "voice"
+	CaptureStartPhoto = "photo"
+)
+
+// NoteCapturePage is /controls/notes/new. It holds no list: it only captures.
+type NoteCapturePage struct {
+	*BasePage
+	// Focus is the tag every capture gets, empty without one.
+	Focus string
+	// Dictate is set when recordings are transcribed; without a
+	// speech-to-text provider the page has no record button.
+	Dictate bool
+	// Start is the mode ?start= asks for, when the page offers it.
+	Start string
+	// AudioMaxSeconds stops a recording; PhotoMaxDimension is the longest
+	// side a photo is scaled down to before it is sent.
+	AudioMaxSeconds   int
+	PhotoMaxDimension int
+}
+
+// NoteCapture is the capture page for the viewer.
+func NoteCapture(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NoteCapturePage] {
+	focus, err := svc.Focus(c, userData.DBUser)
+	if err != nil {
+		return mo.Err[*NoteCapturePage](err)
+	}
+
+	limits := svc.Limits()
+	out := &NoteCapturePage{
+		BasePage:          getBasePage(c, "New note", userData),
+		Focus:             focus,
+		Dictate:           svc.TranscriptionEnabled(),
+		AudioMaxSeconds:   int(limits.AudioMaxDuration / time.Second),
+		PhotoMaxDimension: limits.PhotoMaxDimension,
+	}
+
+	if start := c.Query("start"); start == CaptureStartPhoto || start == CaptureStartVoice && out.Dictate {
+		out.Start = start
+	}
+
+	return mo.Ok(out)
+}
