@@ -66,6 +66,15 @@ The `us-*` classes are the stable contract for your CSS; every other class may c
 
 Export downloads all your posts with their images as a zip file; import reads such a file back, into the same or another account. Importing into the same account updates the posts you already own and skips images already uploaded under the same name; importing into another account creates new copies.
 
-## API key
+## API keys
 
-Generate an API key to use pcom from scripts or the [blg](api.md) command-line client. The key is shown once, right after you generate it: copy it then. pcom stores only a hash of it, so afterwards Settings only says that you have a key and can never show it again. Once created, the key stays the same; keep it secret.
+Make API keys for scripts, the [blg](api.md) command-line client and the iPhone Shortcut. You can have several. Give each a name, and choose its access:
+
+- **Full access** opens the whole [API](api.md).
+- **Notes only** can create and list your notes and nothing else. Use it for a phone: a key stored on a phone can't change or delete anything.
+
+Each key in the list shows its name, its access and when it was last used. **Revoke** stops a key working at once, and asks first.
+
+The key is shown once, right after you create it: copy it then. pcom stores only a hash of it, so afterwards Settings can't show it again. A key stays the same until you revoke it; keep it secret.
+
+![The API keys section of Settings, with a notes-only key and a full-access key.](screenshots/api-keys.png)

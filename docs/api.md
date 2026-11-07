@@ -92,7 +92,8 @@ curl -v -H'Authorization: Bearer <api-key>' -XDELETE http://localhost:8080/api/v
 ## Capture a note
 
 `POST /api/v1/notes` makes one note from a `multipart/form-data` (or url-encoded) form. Every field is
-optional, but a capture needs text, a photo or a recording.
+optional, but a capture needs text, a photo or a recording. The API only creates and lists notes; edit and
+delete them in pcom.
 
 | Field | |
 |---|---|

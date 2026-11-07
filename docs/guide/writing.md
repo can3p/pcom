@@ -26,6 +26,16 @@ Two buttons in the editor ask Claude to read your post: **Check grammar** and **
 
 Once the draft is saved, or after your first check, a line under the editor shows how many grammar checks and style reviews you have left this hour. When you have used one kind up, its button is disabled until the hour frees one; a request refused for the limit says in how many minutes the next one is available. A request that fails is not counted.
 
+## Notes in a post
+
+The **Notes** button in the toolbar opens your notes beside the editor, with the same tags, search and sources as the
+[notes list](notes.md). Pick a note and press **Insert** to put its text in at the cursor, or **Append** to add it to
+the end of the post; **Open** shows the note in a new tab. A quote goes in with its source, as *— Author, *Title*, p. 12*.
+The editor saves the post as usual. Inserting a note marks it used. Only one of the grammar panel and the notes
+panel is open at a time.
+
+![The post editor with the Notes panel open beside it, listing notes with their tags.](screenshots/notes-panel.png)
+
 ## Visibility
 
 Below the body you choose who can read the post: "Show to direct connections only", "Show to their connections as well" (the default for a new post) or "Public". You can change it later. [Connections](connections.md) spells out what each choice means.

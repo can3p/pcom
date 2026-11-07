@@ -4,7 +4,7 @@ You can create, edit, publish, list and delete your posts, and upload images, ov
 
 ## Getting a key
 
-Open [Settings](settings.md) and generate an API key. It is shown only once, right after you generate it, because pcom stores only a hash of it; copy it then. Send it as a bearer token in the `Authorization` header of every request.
+Open [Settings](settings.md) and create an API key: give it a name and choose its access. A full key opens the whole API; a notes-only key can only create and list notes, which is what a phone should hold. A key is shown only once, right after you create it, because pcom stores only a hash of it; copy it then. Send it as a bearer token in the `Authorization` header of every request.
 
 ## blg
 
@@ -12,7 +12,7 @@ Open [Settings](settings.md) and generate an API key. It is shown only once, rig
 
 ## The API
 
-The API works with the same posts, visibilities and drafts as the web editor: list your posts, upload an image, create a post, update it, publish it or delete it. Requests and responses are in [the API reference](../api.md).
+The API works with the same posts, visibilities and drafts as the web editor: list your posts, upload an image, create a post, update it, publish it or delete it. It also creates and lists your [notes](notes.md), including the voice notes and photos a phone sends. Requests and responses are in [the API reference](../api.md).
 
 ## Developing against pcom
 

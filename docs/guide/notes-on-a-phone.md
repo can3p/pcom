@@ -63,3 +63,42 @@ of this Shortcut whose step 1 to 3 are **Get Clipboard**.
 
 The exact fields each run sends are listed in [the API documentation](../api.md), under "The requests of
 the iPhone Shortcut".
+
+## Quotes from books
+
+Quotes need no retyping: the phone's own reader or its text recognition has the words already, and pcom stores
+what you send. A quote keeps its source and page; a passage with no source waits in the Inbox to be given one.
+
+| Where the passage is | iPhone | Android |
+|---|---|---|
+| Kindle app | Select the passage, then **Copy** (the Kindle app for iPhone has no Share for a highlight), then run the copy of "pcom note" described above, whose input is the clipboard | Select the passage, then **Share**, then **pcom** |
+| Paper book | Camera, then Live Text, select the passage, **Share**, then **pcom note**; or run "Quote from photo" | Google Lens or the camera's text selection, select, **Share**, then **pcom** |
+
+Kindle and Live Text share only the selected words, with no title, author or location, so each passage arrives
+bare. The source is the one of your previous quote while that is recent, which means the quotes of one reading
+session join one book without any setup.
+
+## On Android
+
+pcom runs as an installed web app, which adds the share target and the app shortcuts.
+
+1. Open pcom in Chrome and sign in.
+2. Open the Chrome menu and choose **Install app** (or **Add to Home screen**). The app opens on the capture
+   page and has its own icon.
+3. Long-press the icon for two shortcuts, **Dictate** and **Photo**, which start that capture at once.
+
+After installing, **Share** from any app to pcom: text and passages from a reader, links, photos, and an audio
+file such as a voice memo. Text is stored as a quote, a lone link as a link, and a photo or recording as a note of
+its own. The share needs the installed app: a browser tab doesn't receive shares.
+
+A share carries only its text, link, photos or audio. Tags, a source and a time can't be set by a share: the tags
+are the `#words` in its text, and the note is dated when it is received. A share is sent to pcom at once. If the
+network fails, the share is kept on the phone and uploaded when the connection returns.
+
+On Android, dictation runs in the browser with the screen on, so keep the phone unlocked while you record.
+
+## Testing from a phone
+
+A phone can't record through a plain-HTTP address, since browsers give the microphone and camera only to HTTPS
+and `localhost`. To try the capture page from a phone while developing, serve pcom over HTTPS through a tunnel to
+the local server. [Running pcom locally](../running.md) lists the speech-to-text settings the local stack uses.

@@ -179,6 +179,49 @@ code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
 - **A new post has no review until it is saved.** Style review is disabled until the first autosave gives the
   post an id.
 
+## Notes
+
+Notes are private snippets, typed or dictated, that the author later uses in posts. The user guide's
+[notes page](guide/notes.md) describes the screens; the rules are here.
+
+- **Private, always.** A note has no visibility, feed, RSS, comments or mail. Every read and write checks that
+  the note is the actor's; a note of somebody else is `ErrNotFound`, never forbidden. Recordings are served only
+  by `GET /controls/notes/:id/audio`, and never by `user-media` or the CDN, which serve public files by name.
+- **Tags are columns, the text is the note.** `tags` (set by actions) and `text_tags` (the `#word`s of the body,
+  rewritten on every save) are both filtered on as `tags || text_tags`. Editing the text edits the text tags, and
+  a tag from an action goes with its chip.
+- **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
+  object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay (Q-N17): an image is public by
+  URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
+  so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there.
+- **A recording is transcribed once.** The upload enqueues `notes.transcribe` in its own transaction, unique per
+  note and upload. The job re-checks the note and the upload when it runs, and does nothing if either is gone. The
+  transcript becomes the body; editing it later never calls the provider. Language is detected, never set in
+  advance: a forced language makes speech in any other language come out translated or garbled, so a per-user
+  setting would spoil every memo in another language.
+- **Limits.** `STT_MINUTES_PER_DAY` per user and `STT_SITE_MINUTES_PER_DAY` for the site are counted over the last
+  24 hours from `stt_requests` rows with `status = 'ok'`, as the proofreading limits are. Without a provider
+  (`STT_PROVIDER` empty) there is no record button, and typed notes work.
+- **Quotes never lose text.** Shared text is stored as a blockquote, a lone link stays a link, and typed text is
+  stored as typed. A quote takes the previous quote's source only within `NOTE_FOCUS_IDLE`; otherwise it waits in
+  the Inbox. The source is found or made by normalized title and author, so one book is one group.
+- **Groups are computed, not stored.** A stack is the notes captured less than `NOTE_SESSION_GAP` apart, worked
+  out in the list query. The focus is a tag applied to every capture until `NOTE_FOCUS_IDLE` passes without one.
+- **No location, no AI.** No location is stored with a note. No model call is made on notes: no transcript
+  cleanup, no tag suggestions by a model.
+- **Capture is stop-is-save.** Stopping a recording or taking a photo creates the note, with nothing to fill in.
+  The capture is written to the phone's IndexedDB before it is uploaded, and the service worker
+  (`/controls/notes/sw.js`, scoped to `/controls/notes/`) uploads it with retries. `captured_at` is the time of the
+  capture, not of the upload.
+- **The share target is CSRF-exempt**, because a share sheet can't send a token. A cross-site POST carries no
+  session cookie (SameSite=Lax), so a forged share lands on the login page. The only thing a share can do is add a
+  note to the sharing user's own notes. A share reads only its title, text, url and files: it can't set tags, a
+  source or `captured_at`. The capture page's service worker sends a share at once and queues it on the phone only when the
+  network fails; the queued share uploads when the network returns.
+- **API keys are scoped.** A `notes` key opens `POST` and `GET /api/v1/notes` and gets `403` on every other route;
+  a `full` key opens the whole API. Keys are hashed, named, and show their last use; revoking one is immediate.
+  The notes API has no edit or delete: a phone can't change what it has stored.
+
 ## Interface
 
 - **Every form saves in place** and reports next to its submit button (saved / not saved), with field errors
