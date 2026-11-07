@@ -8,8 +8,8 @@ sources, and put them into a post from the post editor.
 
 ## Capturing a note
 
-Open **Notes** in the top bar, or **Capture** in the Notes section of the Controls page, to get the capture
-page. On a phone it is the page to keep open or to install (see [Notes on a phone](notes-on-a-phone.md)).
+Open **Capture** in the Notes section of the Controls page, or go to `/controls/notes/new`, to get the capture
+page (**Notes** in the top bar opens the list). On a phone it is the page to keep open or to install (see [Notes on a phone](notes-on-a-phone.md)).
 
 - **Dictate** records a memo. Press **Stop** when you are done: stopping saves it. The screen stays on while you
   record, because a phone's browser stops recording when the screen goes dark.
@@ -34,8 +34,8 @@ while it is still waiting to upload. The capture page's photos are scaled down o
 keeps them quick to send.
 
 **Focus.** A focus is one tag that every new note gets, for a project you are writing. Choose one from the tags
-under **Tags and sources** (its **focus** button); the capture page then shows **Now writing: #essay** with a
-**Stop** link. The focus ends on its own when no capture has been made under it for twelve hours by default.
+under **Tags and sources** (its **focus** button); the list then shows **Now writing: #essay** with a **Stop**
+link, and the capture page shows the *#essay* chip with a **Stop** button. The focus ends on its own when no capture has been made under it for twelve hours by default.
 
 ## The list
 
@@ -50,8 +50,8 @@ box are:
   *include* (the notes must have it), *exclude* (they must not have it) and off. The filters are in the address, so
   a filtered view can be bookmarked.
 
-A tag can be **hidden**: its notes leave the list, for tags like *done* or a project that is finished. Hide is on
-each chip. **Show hidden** brings them back for one view.
+A tag can be **hidden**: its notes leave the list, for tags like *done* or a project that is finished. **hide** is on
+each chip. **Show hidden (N)** brings them back for one view, and **Leave hidden out** hides them again.
 
 Notes captured close together form a **stack**, labelled with the day and the part of it, such as
 "Tuesday evening, 7 notes". A stack is one group in the list. Its heading opens the stack by itself, and selecting
