@@ -29,6 +29,9 @@ const (
 	DefaultCaptureMaxBytes      = 32 << 20
 	DefaultSessionGap           = 30 * time.Minute
 	DefaultFocusIdle            = 12 * time.Hour
+	// DefaultPageSize is how many notes a page of the list holds unless
+	// WithPageSize sets it.
+	DefaultPageSize = 30
 
 	DefaultSTTMinutesPerDay     = 60
 	DefaultSTTSiteMinutesPerDay = 0 // no cap
@@ -99,7 +102,9 @@ type Service struct {
 	media  server.MediaStorage
 	stt    STT
 	limits Limits
-	now    func() time.Time
+	// pageSize is how many notes a page of List holds.
+	pageSize int
+	now      func() time.Time
 }
 
 // Option changes how New builds the service.
@@ -118,6 +123,12 @@ func WithMediaStorage(m server.MediaStorage) Option {
 // WithSTT sets the speech-to-text backend; nil keeps transcription off.
 func WithSTT(stt STT) Option {
 	return func(s *Service) { s.stt = stt }
+}
+
+// WithPageSize sets how many notes a page of the list holds; a value below
+// one keeps the default.
+func WithPageSize(n int) Option {
+	return func(s *Service) { setIfPositive(&s.pageSize, n) }
 }
 
 // WithClock replaces the clock captures and the focus are timed by, for
@@ -155,9 +166,10 @@ func setIfPositive[T int | int64 | time.Duration](field *T, v T) {
 // New builds the service. It takes no other service.
 func New(store *repo.Store, opts ...Option) *Service {
 	s := &Service{
-		store:  store,
-		limits: DefaultLimits,
-		now:    time.Now,
+		store:    store,
+		limits:   DefaultLimits,
+		pageSize: DefaultPageSize,
+		now:      time.Now,
 	}
 
 	for _, o := range opts {
