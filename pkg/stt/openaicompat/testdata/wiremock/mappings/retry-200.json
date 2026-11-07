@@ -1,0 +1,32 @@
+{
+  "priority": 1,
+  "scenarioName": "stt-retry",
+  "requiredScenarioState": "Retried",
+  "newScenarioState": "Started",
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "wm-retry"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "task": "transcribe",
+      "language": "english",
+      "duration": 3.5,
+      "text": "After the retry."
+    }
+  }
+}

@@ -32,6 +32,8 @@ type Deps struct {
 	Jobs         repo.JobQueue
 	MediaStorage server.MediaStorage
 	MediaServer  server.MediaServer
+	// STT is the speech-to-text backend; nil turns transcription off.
+	STT notes.STT
 	// Logger is the base of every request's logger; nil logs nothing.
 	Logger *zap.Logger
 	Config Config

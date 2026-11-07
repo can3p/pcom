@@ -7,7 +7,6 @@ package notes
 import (
 	"context"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/can3p/pcom/pkg/jobs"
@@ -91,22 +90,6 @@ var DefaultLimits = Limits{
 	FocusIdle:            DefaultFocusIdle,
 	STTMinutesPerDay:     DefaultSTTMinutesPerDay,
 	STTSiteMinutesPerDay: DefaultSTTSiteMinutesPerDay,
-}
-
-// STT is a speech-to-text backend. Its client lives in its own package and
-// is built in the composition root; a nil STT turns transcription off.
-type STT interface {
-	// Transcribe returns the text spoken in the recording and its length.
-	Transcribe(ctx context.Context, audio io.Reader, filename string) (*Transcript, error)
-	// Provider and Model name the backend in stt_requests.
-	Provider() string
-	Model() string
-}
-
-// Transcript is what a backend heard in a recording.
-type Transcript struct {
-	Text    string
-	Seconds float64
 }
 
 // Service is the notes of every user.

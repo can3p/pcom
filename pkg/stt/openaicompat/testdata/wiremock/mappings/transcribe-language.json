@@ -1,0 +1,29 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "matches": "^Bearer (test-key|dev)$"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "name=\"language\""
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "task": "transcribe",
+      "language": "russian",
+      "duration": 12.0,
+      "text": "Это локальная расшифровка."
+    }
+  }
+}

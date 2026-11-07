@@ -32,6 +32,8 @@ import (
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
+	"github.com/can3p/pcom/pkg/stt"
+	"github.com/can3p/pcom/pkg/stt/openaicompat"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -97,10 +99,16 @@ func (c *serveCmd) Execute([]string) error {
 		return err
 	}
 
+	sttBackend, err := newSTT(cfg.STT)
+	if err != nil {
+		return err
+	}
+
 	deps := &app.Deps{
 		DB:           db,
 		Jobs:         inserter,
 		MediaStorage: mediaStorage,
+		STT:          sttBackend,
 		MediaServer:  mediaServer,
 		Logger:       logger,
 		Config:       appConfig(cfg, app.LoadStaticManifest(cfg.Web.StaticCDN)),
@@ -247,6 +255,28 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		Abuse:                 abuseOptions(cfg.Subscriptions),
 		Notes:                 notesOptions(cfg.Notes, cfg.STT),
 	}
+}
+
+// newSTT builds the speech-to-text backend STT_PROVIDER names, wrapped in
+// the shared retries; nil when no provider is set and transcription is off.
+func newSTT(cfg config.STT) (notes.STT, error) {
+	registry := stt.Registry{
+		config.STTProviderOpenAICompat: func() (stt.Backend, error) {
+			return openaicompat.New(openaicompat.Options{
+				Endpoint: cfg.OpenAICompat.Endpoint,
+				Model:    cfg.OpenAICompat.Model,
+				Key:      cfg.OpenAICompat.Key.Reveal(),
+				Timeout:  cfg.Timeout,
+			}), nil
+		},
+	}
+
+	b, err := registry.Backend(cfg.Provider)
+	if err != nil || b == nil {
+		return nil, err
+	}
+
+	return stt.Retry(b, stt.RetryOptions{}), nil
 }
 
 // notesOptions is the notes service's view of the notes and speech-to-text
