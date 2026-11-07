@@ -191,7 +191,7 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   rewritten on every save) are both filtered on as `tags || text_tags`. Editing the text edits the text tags, and
   a tag from an action goes with its chip.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
-  object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay (Q-N17): an image is public by
+  object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
   so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there.
 - **A recording is transcribed once.** The upload enqueues `notes.transcribe` in its own transaction, unique per
@@ -209,6 +209,16 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   the Inbox. The source is found or made by normalized title and author, so one book is one group.
 - **Groups are computed, not stored.** A stack is the notes captured less than `NOTE_SESSION_GAP` apart, worked
   out in the list query. The focus is a tag applied to every capture until `NOTE_FOCUS_IDLE` passes without one.
+- **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
+  CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
+  PNG, JPEG and WebP are accepted; HEIC is refused with a message to convert to JPEG in the phone's Shortcut,
+  since the deployed libvips is built without libheif. Text in a photo is recognized on the phone (Live Text,
+  Lens), never on the server. Quotes come in one at a time by sharing or copying; there is no Kindle notebook
+  import.
+- **Speech-to-text is pluggable and cheap.** `STT_PROVIDER` picks a backend in `pkg/stt`; the first one speaks
+  the OpenAI-compatible `/audio/transcriptions` API and defaults to Groq's `whisper-large-v3-turbo`, the cheapest
+  multilingual option weighed. Recordings are sent as recorded (Opus in WebM or AAC in MP4): the server never
+  transcodes.
 - **No location, no AI.** No location is stored with a note. No model call is made on notes: no transcript
   cleanup, no tag suggestions by a model.
 - **Capture is stop-is-save.** Stopping a recording or taking a photo creates the note, with nothing to fill in.
@@ -221,7 +231,8 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   source or `captured_at`. The capture page's service worker sends a share at once and queues it on the phone only when the
   network fails; the queued share uploads when the network returns.
 - **API keys are scoped.** A `notes` key opens `POST` and `GET /api/v1/notes` and gets `403` on every other route;
-  a `full` key opens the whole API. Keys are hashed, named, and show their last use; revoking one is immediate.
+  a `full` key opens the whole API. Keys are stored as a SHA-256 hash and shown once, at creation; they are named, show their last use, and
+  revoking one is immediate. A missing or bad key gets `401`.
   The notes API has no edit or delete: a phone can't change what it has stored.
 
 ## Interface
