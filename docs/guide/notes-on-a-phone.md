@@ -30,10 +30,9 @@ actions in order:
 4. **Otherwise**: the run from the share sheet.
    1. **Get Images from** *Shortcut Input*.
    2. **If** *Images* **has any value**:
-      1. **Convert** *Images* **to** JPEG (an iPhone photo is HEIC, which pcom doesn't read).
-      2. **Get Contents of URL** as in step 3.2, with the Form fields `kind` = `share`,
-         `captured_at` = *Formatted Date*, and `image` (File) = *Converted Image*. Shortcuts sends one
-         `image` file for each photo.
+      1. **Get Contents of URL** as in step 3.2, with the Form fields `kind` = `share`,
+         `captured_at` = *Formatted Date*, and `image` (File) = *Images*. Shortcuts sends one
+         `image` file for each photo; an iPhone photo (HEIC) is converted to JPEG by pcom.
    3. **Otherwise**: **Get Contents of URL** as in step 3.2, with the Form fields `kind` = `share`,
       `captured_at` = *Formatted Date* and `text` (Text) = *Shortcut Input*. A link arrives as text and
       is stored as a bare link.
@@ -48,16 +47,15 @@ Control Center or lock-screen control.
 ### Build "Quote from photo"
 
 1. **Take Photo**: *Show Camera Preview* on.
-2. **Convert** *Photo* **to** JPEG.
-3. **Extract Text from** *Converted Image* (done on the phone).
-4. **Date**: *Current Date*, then **Format Date** as ISO 8601, as above.
-5. **Get Contents of URL**: the same URL, method and header, **Request Body** Form with `kind` = `quote`,
-   `captured_at` = *Formatted Date*, `text` = *Text from Image* and `image` (File) = *Converted Image*.
+2. **Extract Text from** *Photo* (done on the phone).
+3. **Date**: *Current Date*, then **Format Date** as ISO 8601, as above.
+4. **Get Contents of URL**: the same URL, method and header, **Request Body** Form with `kind` = `quote`,
+   `captured_at` = *Formatted Date*, `text` = *Text from Image* and `image` (File) = *Photo*.
 
 The text is stored as a quote. If your previous quote came from a book within the focus idle time, the
 new one takes that book as its source; otherwise it waits in the Inbox, where you give it a source with
 one tap. To quote from the Kindle app, which has no Share for a highlight, copy the passage and run a copy
-of this Shortcut whose step 1 to 3 are **Get Clipboard**.
+of this Shortcut whose step 1 and 2 are **Get Clipboard**.
 
 ### What the request looks like
 

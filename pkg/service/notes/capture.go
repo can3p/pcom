@@ -26,7 +26,7 @@ const ListMax = 100
 const (
 	msgCaptureEmpty = "Send some text, a photo or a recording."
 	msgImageFormat  = "pcom keeps photos in JPEG, PNG or WebP."
-	msgImageHEIC    = "pcom can't read HEIC photos: add \"Convert to JPEG\" before sending the photo in the Shortcut."
+	msgImageHEIC    = "pcom can't read HEIC photos right now: send the photo as JPEG."
 	msgImageTooBig  = "A photo can be at most %d MiB."
 )
 
@@ -165,8 +165,8 @@ func asField(err error, field string) error {
 	return err
 }
 
-// readImages reads every photo of a capture and checks that pcom keeps it,
-// so that a bad photo refuses the capture before anything is stored.
+// readImages reads every photo of a capture, converts a HEIC one to JPEG and
+// checks that pcom keeps it, so that a bad photo refuses the capture before anything is stored.
 func readImages(uploads []Upload, maxSize int64) ([][]byte, error) {
 	images := make([][]byte, 0, len(uploads))
 
@@ -176,11 +176,21 @@ func readImages(uploads []Upload, maxSize int64) ([][]byte, error) {
 			return nil, err
 		}
 
-		switch {
-		case int64(len(b)) > maxSize:
+		if int64(len(b)) > maxSize {
 			return nil, service.Invalid("image", fmt.Sprintf(msgImageTooBig, maxSize>>20))
-		case isHEIC(b):
-			return nil, service.Invalid("image", msgImageHEIC)
+		}
+
+		if isHEIC(b) {
+			b, err = media.HEICToJPEG(b)
+
+			switch {
+			case errors.Is(err, media.ErrHEICUnsupported):
+				return nil, service.Invalid("image", msgImageHEIC)
+			case errors.Is(err, media.ErrHEICInvalid):
+				return nil, service.Invalid("image", msgImageFormat)
+			case err != nil:
+				return nil, err
+			}
 		}
 
 		if _, _, err := media.DetectAndValidateImageTypeAndExt(b); errors.Is(err, media.ErrUnsupportedMimeType) {

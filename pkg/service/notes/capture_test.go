@@ -1,13 +1,16 @@
 package notes_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/service"
@@ -131,7 +134,7 @@ func TestCapture_Refused(t *testing.T) {
 	}{
 		{name: "empty", in: notes.CaptureInput{Text: "  "}, field: "text", wantMsg: "Send some text, a photo or a recording."},
 		{name: "not an image", in: notes.CaptureInput{Images: []notes.Upload{photo(pngHead + "ok"), photo("plain text")}}, field: "image", wantMsg: "pcom keeps photos in JPEG, PNG or WebP."},
-		{name: "heic", in: notes.CaptureInput{Images: []notes.Upload{photo(heicHead + "data")}}, field: "image", wantMsg: "pcom can't read HEIC photos: add \"Convert to JPEG\" before sending the photo in the Shortcut."},
+		{name: "heic that is not a photo", in: notes.CaptureInput{Images: []notes.Upload{photo(heicHead + "data")}}, field: "image", wantMsg: "pcom keeps photos in JPEG, PNG or WebP."},
 		{name: "not a recording", in: notes.CaptureInput{Text: "x", Audio: audio(pngHead)}, field: "audio", wantMsg: "pcom keeps recordings in WebM, Ogg, MP4 (M4A) or MP3."},
 		{name: "recording too large", in: notes.CaptureInput{Text: "x", Audio: audio(webmHead + strings.Repeat("x", 1<<20))},
 			opts: []notes.Option{notes.WithLimits(notes.Limits{AudioMaxBytes: 1 << 20})}, field: "audio", wantMsg: "The recording is larger than 1 MiB."},
@@ -218,4 +221,39 @@ func TestCapture_PhotoSize(t *testing.T) {
 			require.Len(t, n.Images, 1, "exactly the cap is kept")
 		})
 	}
+}
+
+// A HEIC photo is stored as the JPEG it is converted to.
+func TestCapture_HEICIsStoredAsJPEG(t *testing.T) {
+	t.Parallel()
+
+	heic, err := os.ReadFile("testdata/photo.heic")
+	require.NoError(t, err)
+
+	if _, err := media.HEICToJPEG(heic); errors.Is(err, media.ErrHEICUnsupported) {
+		if os.Getenv("CI") != "" {
+			t.Fatal("libvips can't decode HEIC: CI must decode HEIC (libheif with an HEVC decoder)")
+		}
+
+		t.Skip("libvips can't decode HEIC")
+	}
+
+	w, storage := audioWorld(t)
+
+	n, err := w.svc.Capture(w.ctx, w.me, notes.CaptureInput{
+		Images: []notes.Upload{{Body: bytes.NewReader(heic), ContentType: "image/heic"}},
+	})
+	require.NoError(t, err)
+	require.Len(t, n.Images, 1)
+
+	rc, _, _, err := storage.DownloadFile(w.ctx, n.Images[0].Upload.UploadedFname)
+	require.NoError(t, err)
+
+	stored := testutil.Must(io.ReadAll(rc))(t)
+	require.NoError(t, rc.Close())
+
+	_, ctype, err := media.DetectAndValidateImageTypeAndExt(stored)
+	require.NoError(t, err)
+	require.Equal(t, "image/jpeg", ctype)
+	require.True(t, strings.HasSuffix(n.Images[0].Upload.UploadedFname, ".jpg"), n.Images[0].Upload.UploadedFname)
 }

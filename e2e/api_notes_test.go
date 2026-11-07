@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -12,12 +13,14 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"os"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/can3p/pcom/e2e"
+	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/notes"
@@ -305,10 +308,9 @@ func smallJPEG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// Recordings and photos as phones make them.
+// A recording as phones make it.
 const (
 	m4aRecording = "\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00isomM4A mp42 and the rest of a memo"
-	heicPhoto    = "\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic and the rest of a photo"
 )
 
 // notesApp starts the app the notes API tests share: transcription on,
@@ -459,8 +461,6 @@ func TestAPINotes_Create(t *testing.T) {
 			}},
 		{name: "a non-image image", parts: []part{file("image", "a.png", "image/png", png1), file("image", "notes.txt", "image/png", []byte("plain text"))},
 			wantField: "image", wantMsg: "pcom keeps photos in JPEG, PNG or WebP."},
-		{name: "HEIC", parts: []part{file("image", "IMG_0001.HEIC", "image/heic", []byte(heicPhoto))}, wantField: "image",
-			wantMsg: "pcom can't read HEIC photos: add \"Convert to JPEG\" before sending the photo in the Shortcut."},
 		{name: "one audio", parts: []part{file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording))}, want: func(t *testing.T, n web.ApiNote, s stored) {
 			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
 			require.Len(t, s.uploads, 1)
@@ -767,4 +767,30 @@ func TestAPINotes_ShortcutRequests(t *testing.T) {
 			c.want(t, n)
 		})
 	}
+}
+
+// A HEIC photo is stored as the JPEG it is converted to.
+func TestAPINotes_HEIC(t *testing.T) {
+	t.Parallel()
+
+	heic := testutil.Must(os.ReadFile("../pkg/media/testdata/photo.heic"))(t)
+	if _, err := media.HEICToJPEG(heic); errors.Is(err, media.ErrHEICUnsupported) {
+		if os.Getenv("CI") != "" {
+			t.Fatal("libvips can't decode HEIC: CI must decode HEIC (libheif with an HEVC decoder)")
+		}
+
+		t.Skip("libvips can't decode HEIC")
+	}
+
+	app := notesApp(t)
+	user := newUser(t, app)
+	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
+
+	n := decodeData[web.ApiNote](t, postNote(t, app, key, file("image", "IMG_0001.HEIC", "image/heic", heic)).RequireStatus(http.StatusOK).Body)
+	st := requireStoredAs(t, app, user.ID, n)
+
+	require.Len(t, n.Images, 1)
+	require.True(t, strings.HasSuffix(n.Images[0], ".jpg"), n.Images[0])
+	require.Len(t, st.uploads, 1)
+	require.Equal(t, "image/jpeg", st.uploads[0].ContentType)
 }

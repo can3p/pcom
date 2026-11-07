@@ -186,11 +186,11 @@ func TestShareRoute(t *testing.T) {
 		refused(t, postShare(t, svc, db, user, nil, photo("p.png", "image/png", big)), user, "A photo can be at most")
 	})
 
-	t.Run("HEIC", func(t *testing.T) {
+	t.Run("HEIC that is not a photo", func(t *testing.T) {
 		t.Parallel()
 
 		user := newUser(t)
-		refused(t, postShare(t, svc, db, user, nil, photo("p.heic", "image/heic", heic)), user, "HEIC")
+		refused(t, postShare(t, svc, db, user, nil, photo("p.heic", "image/heic", heic)), user, "keeps photos")
 	})
 
 	t.Run("not an image", func(t *testing.T) {

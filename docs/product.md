@@ -211,8 +211,9 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   out in the list query. The focus is a tag applied to every capture until `NOTE_FOCUS_IDLE` passes without one.
 - **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
   CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
-  PNG, JPEG and WebP are accepted; HEIC is refused with a message to convert to JPEG in the phone's Shortcut,
-  since the deployed libvips is built without libheif. Text in a photo is recognized on the phone (Live Text,
+  PNG, JPEG and WebP are accepted, and a HEIC photo (an iPhone's) is converted to JPEG on upload with its
+  orientation applied and its metadata, GPS included, dropped; the size cap applies to the upload as sent. The
+  image needs libvips with a HEIF loader (`vips-heif` on Alpine); without it HEIC is refused with a message. Text in a photo is recognized on the phone (Live Text,
   Lens), never on the server. Quotes come in one at a time by sharing or copying; there is no Kindle notebook
   import.
 - **Speech-to-text is pluggable and cheap.** `STT_PROVIDER` picks a backend in `pkg/stt`; the first one speaks

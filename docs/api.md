@@ -102,7 +102,7 @@ delete them in pcom.
 | `tags` | Tags, repeated or comma-separated (`tags=walk,idea`); `#` and case don't matter. The `#words` of the text are tags too. |
 | `captured_at` | When the note was taken, RFC 3339 (`2026-11-07T09:30:00+01:00`); now when left out. |
 | `source` | The title of the book the note comes from; a source with that title (whatever the case and spacing) is reused, otherwise made. A `quote` without a source takes the source of your previous quote while that was within the focus idle time. |
-| `image` | A photo, JPEG, PNG or WebP; repeat the field for several. HEIC is refused: convert it to JPEG first. |
+| `image` | A photo, JPEG, PNG or WebP; repeat the field for several. A HEIC photo is converted to JPEG on upload. |
 | `audio` | One recording, WebM, Ogg, MP4 (M4A) or MP3, transcribed into the note's text when the server has a speech-to-text backend. |
 
 The notes focus, when set, is added to the note's tags and renewed. The answer is the note:

@@ -144,10 +144,10 @@ func TestScreenshots(t *testing.T) {
 	for _, s := range shots {
 		t.Run(s.file, func(t *testing.T) {
 			viewport := playwright.Size{Width: 1280, Height: 800}
-				if s.phone {
-					viewport = playwright.Size{Width: 390, Height: 844}
-				}
-				opts := []browser.PageOption{browser.Configure(func(o *playwright.BrowserNewContextOptions) {
+			if s.phone {
+				viewport = playwright.Size{Width: 390, Height: 844}
+			}
+			opts := []browser.PageOption{browser.Configure(func(o *playwright.BrowserNewContextOptions) {
 				o.Viewport = &viewport
 				o.IsMobile = new(s.phone)
 				o.HasTouch = new(s.phone)
