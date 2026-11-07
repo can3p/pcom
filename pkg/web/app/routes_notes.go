@@ -85,9 +85,13 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 	controlsForms.POST("/note_edit/:id", requireUUIDParam("id"), func(c *gin.Context) {
 		body, tags, locator := c.PostForm("body"), noteTagsOf(c.PostForm("tags")), c.PostForm("locator")
 
-		_, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Body: &body, Tags: &tags, Locator: &locator})
+		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Body: &body, Tags: &tags, Locator: &locator})
+		if err != nil {
+			noteFormResult(c, err, "", false)
+			return
+		}
 
-		noteFormResult(c, err, "Saved", false)
+		c.HTML(http.StatusOK, "note_saved", gin.H{"Tags": web.NoteTagsOf(note)})
 	})
 
 	actions.POST("/note_delete", jsonAction(d, func(c *gin.Context, u *model.User, in struct {

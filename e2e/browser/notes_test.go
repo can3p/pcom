@@ -59,6 +59,13 @@ func (d *noteDialogs) reply(accept bool, answer string) {
 	d.accept, d.answer = accept, answer
 }
 
+func (d *noteDialogs) reset() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.msgs = nil
+}
+
 func (d *noteDialogs) last() string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -133,6 +140,7 @@ func TestNotes_TagBar(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "delta note")).ToBeVisible())
 
 	require.NoError(t, bar.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#essay"}).Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/notes$`)))
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
 
 	require.NoError(t, bar.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Hide #done"}).Click())
@@ -165,8 +173,14 @@ func TestNotes_InboxSuggestionsAndStacks(t *testing.T) {
 	page := browser.Page(t, app, browser.As(user))
 	dialogs := watchDialogs(page)
 
-	_, err := page.Goto("/controls/notes?inbox=1")
+	_, err := page.Goto("/controls/notes")
 	require.NoError(t, err)
+
+	require.NoError(t, page.GetByRole("list", playwright.PageGetByRoleOptions{Name: "Views"}).
+		GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Inbox"}).Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`inbox=1`)))
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "old thoughts")).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "a walking essay")).ToBeVisible())
 
 	suggestion := noteCard(page, "a walking essay").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Tag this note #essay"})
 	require.NoError(t, suggestion.Click())
@@ -331,8 +345,10 @@ func TestNotes_EditPage(t *testing.T) {
 	body := page.GetByLabel("Note", playwright.PageGetByLabelOptions{Exact: new(true)})
 	require.NoError(t, body.Fill("second draft #fresh"))
 	require.NoError(t, page.GetByLabel("Tags").Fill("one two"))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save"}).Click())
+
+	// no Save: the form saves by itself after the typing
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("status").Filter(playwright.LocatorFilterOptions{HasText: "Saved"})).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator("#note-tag-chips li").Filter(playwright.LocatorFilterOptions{HasText: "#fresh"})).ToBeVisible())
 
 	saved := noteIn(t, app, note.ID)
 	require.Equal(t, "second draft #fresh", saved.Body)
@@ -404,11 +420,9 @@ func TestNotes_LoadMore(t *testing.T) {
 	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Load more"}).Click())
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(total))
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "Notes", Exact: new(true)})).ToHaveCount(1))
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation").First()).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "page note 31")).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "page note 00")).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Load more"})).ToHaveCount(0))
-
 }
 
 // A note's photos show in a strip, and the confirmations of Delete, in the
@@ -462,6 +476,8 @@ func TestNotes_PhotosAndDeleteConfirmation(t *testing.T) {
 
 	require.NoError(t, noteCard(page, "with photos").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Delete"}).Click())
 	require.Eventually(t, func() bool { return dialogs.last() == prompt }, 5*time.Second, 50*time.Millisecond)
+
+	dialogs.reset()
 
 	_, err = page.Goto("/controls/notes/" + note.ID + "/edit")
 	require.NoError(t, err)

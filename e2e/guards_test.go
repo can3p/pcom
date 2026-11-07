@@ -13,9 +13,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/google/uuid"
@@ -41,6 +43,8 @@ type guardWorld struct {
 	subscription       *model.UserFeedSubscription
 	feedItem           *model.UserFeedItem
 	prompt             *model.PostPrompt
+	note               *model.Note
+	source, source2    *model.NoteSource
 	ownerClient        *e2e.Client
 	ownerSessionCookie []*http.Cookie
 }
@@ -91,6 +95,13 @@ func newGuardWorld(t *testing.T, app *e2e.App) *guardWorld {
 	w.prompt, err = factory.PostPrompt(ctx, db, w.friend.ID, w.owner.ID)
 	require.NoError(t, err)
 
+	w.source, err = factory.NoteSource(ctx, db, w.owner.ID)
+	require.NoError(t, err)
+	w.source2, err = factory.NoteSource(ctx, db, w.owner.ID)
+	require.NoError(t, err)
+	w.note, err = factory.Note(ctx, db, w.owner.ID, factory.WithNoteBody("a note"), factory.WithNoteTags("keep"), factory.FromSource(w.source.ID))
+	require.NoError(t, err)
+
 	require.NoError(t, factory.SetRegistrationOpen(ctx, db, true))
 
 	w.ownerClient = app.Client(t)
@@ -114,6 +125,8 @@ type dbSnapshot struct {
 	ItemHidden bool
 	Prompt     bool
 	LoggedInAs string
+	// Notes, tags and sources of every user of the world
+	Notes []string
 }
 
 // isWorldMail matches the mail a route could send in this world: mail
@@ -203,9 +216,50 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	require.NoError(t, err)
 	s.Prompt = prompt.DismissedAt != nil
 
+	s.Notes = w.notesSnapshot(t)
+
 	s.LoggedInAs = currentUsername(t, w.ownerClient)
 
 	return s
+}
+
+// notesSnapshot lists the notes, tags with their hidden flags and sources of
+// the world's users.
+func (w *guardWorld) notesSnapshot(t *testing.T) []string {
+	t.Helper()
+
+	ctx := context.Background()
+	store := repo.New(w.app.DB)
+
+	var out []string
+
+	for _, u := range []*model.User{w.owner, w.friend, w.stranger, w.requester} {
+		rows, err := store.ListNotes(ctx, repo.NoteFilter{UserID: u.ID, ShowHidden: true, Gap: time.Minute})
+		require.NoError(t, err)
+
+		for _, r := range rows {
+			n := r.Note
+			out = append(out, fmt.Sprintf("note|%s|%s|%s|%v|%v|%s", n.ID, n.Body, n.UserID, n.Tags, n.TextTags, lo.FromPtr(n.SourceID)))
+		}
+
+		tags, err := store.NoteTagCounts(ctx, u.ID)
+		require.NoError(t, err)
+
+		for _, tc := range tags {
+			out = append(out, fmt.Sprintf("tag|%s|%s|%d|%v", u.ID, tc.Tag, tc.Count, tc.Hidden))
+		}
+
+		sources, err := store.NoteSourcesWithNotes(ctx, u.ID)
+		require.NoError(t, err)
+
+		for _, sc := range sources {
+			out = append(out, fmt.Sprintf("source|%s|%s|%d", u.ID, sc.Source.Title, sc.Notes))
+		}
+	}
+
+	slices.Sort(out)
+
+	return out
 }
 
 // currentUsername is the username the navbar greets on /feed, or "" when the
@@ -252,7 +306,7 @@ var guardRoutes = []guardRoute{
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
 	{http.MethodGet, "/controls/notes", staticPath("/controls/notes"), noExtra},
 	{http.MethodGet, "/controls/notes/manage", staticPath("/controls/notes/manage"), noExtra},
-	{http.MethodGet, "/controls/notes/:id/edit", staticPath("/controls/notes/" + uuid.Nil.String() + "/edit"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/edit", func(w *guardWorld) string { return "/controls/notes/" + w.note.ID + "/edit" }, noExtra},
 	{http.MethodGet, "/controls/settings", staticPath("/controls/settings"), noExtra},
 
 	// /controls/action (actions.go and logout)
@@ -314,34 +368,34 @@ var guardRoutes = []guardRoute{
 
 	// notes
 	{http.MethodPost, "/controls/action/note_delete", staticPath("/controls/action/note_delete"),
-		func(*guardWorld) map[string]string { return map[string]string{"noteId": uuid.Nil.String()} }},
+		func(w *guardWorld) map[string]string { return map[string]string{"noteId": w.note.ID} }},
 	{http.MethodPost, "/controls/action/note_delete_many", staticPath("/controls/action/note_delete_many"),
-		func(*guardWorld) map[string]string { return map[string]string{"ids": uuid.Nil.String()} }},
+		func(w *guardWorld) map[string]string { return map[string]string{"ids": w.note.ID} }},
 	{http.MethodPost, "/controls/action/note_tag_many", staticPath("/controls/action/note_tag_many"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"ids": uuid.Nil.String(), "tags": "forged"}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"ids": w.note.ID, "tags": "forged"}
 		}},
 	{http.MethodPost, "/controls/action/note_tag", staticPath("/controls/action/note_tag"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"noteId": uuid.Nil.String(), "tag": "forged"}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "tag": "forged"}
 		}},
 	{http.MethodPost, "/controls/action/note_tag_hide", staticPath("/controls/action/note_tag_hide"),
-		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "keep"} }},
 	{http.MethodPost, "/controls/action/note_tag_unhide", staticPath("/controls/action/note_tag_unhide"),
 		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
 	{http.MethodPost, "/controls/action/note_tag_rename", staticPath("/controls/action/note_tag_rename"),
-		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged", "to": "forged2"} }},
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "keep", "to": "forged2"} }},
 	{http.MethodPost, "/controls/action/note_source_set", staticPath("/controls/action/note_source_set"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"ids": uuid.Nil.String(), "title": "Forged"}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"ids": w.note.ID, "title": "Forged"}
 		}},
 	{http.MethodPost, "/controls/action/note_source_rename", staticPath("/controls/action/note_source_rename"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"sourceId": uuid.Nil.String(), "title": "Forged", "kind": "book"}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"sourceId": w.source.ID, "title": "Forged", "kind": "book"}
 		}},
 	{http.MethodPost, "/controls/action/note_source_merge", staticPath("/controls/action/note_source_merge"),
-		func(*guardWorld) map[string]string {
-			return map[string]string{"from": uuid.Nil.String(), "into": uuid.Nil.String()}
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"from": w.source.ID, "into": w.source2.ID}
 		}},
 	{http.MethodPost, "/controls/action/note_focus", staticPath("/controls/action/note_focus"),
 		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
@@ -360,7 +414,7 @@ var guardRoutes = []guardRoute{
 		}},
 	{http.MethodPost, "/controls/form/note_create", staticPath("/controls/form/note_create"),
 		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged note"} }},
-	{http.MethodPost, "/controls/form/note_edit/:id", staticPath("/controls/form/note_edit/" + uuid.Nil.String()),
+	{http.MethodPost, "/controls/form/note_edit/:id", func(w *guardWorld) string { return "/controls/form/note_edit/" + w.note.ID },
 		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged edit"} }},
 	{http.MethodPost, "/controls/form/new_comment", staticPath("/controls/form/new_comment"),
 		func(w *guardWorld) map[string]string {
@@ -761,6 +815,57 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		mine, err := factory.ListPosts(ctx, db, p.attacker.ID)
 		require.NoError(t, err)
 		require.Empty(t, mine)
+	})
+
+	t.Run("change someone else's note", func(t *testing.T) {
+		t.Parallel()
+
+		p := newPair(t)
+		src, err := factory.NoteSource(ctx, db, p.victim.ID)
+		require.NoError(t, err)
+		src2, err := factory.NoteSource(ctx, db, p.victim.ID)
+		require.NoError(t, err)
+		note, err := factory.Note(ctx, db, p.victim.ID, factory.WithNoteBody("private"), factory.WithNoteTags("mine"), factory.FromSource(src.ID))
+		require.NoError(t, err)
+
+		store := repo.New(db)
+		snapshot := func() string {
+			n, err := store.NoteByID(ctx, note.ID)
+			require.NoError(t, err)
+
+			tags, err := store.NoteTagCounts(ctx, p.victim.ID)
+			require.NoError(t, err)
+
+			sources, err := store.NoteSourcesWithNotes(ctx, p.victim.ID)
+			require.NoError(t, err)
+
+			return fmt.Sprintf("%s|%v|%v|%s|%v|%v", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, len(sources))
+		}
+
+		before := snapshot()
+
+		p.attackerClient.Get("/controls/notes/" + note.ID + "/edit").RequireStatus(http.StatusNotFound)
+
+		// the edit form answers in place, with the failure as its status
+		resp := p.attackerClient.PostForm("/controls/form/note_edit/"+note.ID, url.Values{"body": {"hijacked"}, "tags": {"forged"}})
+		require.Contains(t, resp.Body, "Not saved")
+
+		for action, payload := range map[string]map[string]string{
+			"note_delete":       {"noteId": note.ID},
+			"note_delete_many":  {"ids": note.ID},
+			"note_tag":          {"noteId": note.ID, "tag": "forged"},
+			"note_tag_many":     {"ids": note.ID, "tags": "forged"},
+			"note_source_set":   {"ids": note.ID, "title": "Forged"},
+			"note_source_merge": {"from": src.ID, "into": src2.ID},
+		} {
+			p.attackerClient.PostJSON("/controls/action/"+action, payload).RequireStatus(http.StatusBadRequest)
+		}
+
+		require.Equal(t, before, snapshot())
+
+		mine, err := store.NoteInboxCount(ctx, p.attacker.ID)
+		require.NoError(t, err)
+		require.Zero(t, mine)
 	})
 
 	t.Run("delete someone else's draft", func(t *testing.T) {

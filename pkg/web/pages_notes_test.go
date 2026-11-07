@@ -25,6 +25,8 @@ func TestNotes_DeletePrompt(t *testing.T) {
 		{"photo", model.Note{Images: photos(1)}, false, "Delete this note and 1 photo? This can't be undone."},
 		{"recording and photos", model.Note{AudioUploadID: &audio, Images: photos(2)}, false,
 			"Delete this note, its recording and 2 photos? This can't be undone."},
+		{"recording, photos and posts", model.Note{AudioUploadID: &audio, Images: photos(2)}, true,
+			"Delete this note, its recording and 2 photos? This can't be undone. The text already inserted into posts stays there."},
 		{"used in posts", model.Note{}, true,
 			"Delete this note? This can't be undone. The text already inserted into posts stays there."},
 	}
@@ -47,6 +49,7 @@ func TestNotes_QueryCyclesATagThroughIncludeExcludeOff(t *testing.T) {
 	q = q.Cycle("essay")
 	require.Empty(t, q.Tags)
 	require.Equal(t, []string{"essay"}, q.Not)
+	require.Equal(t, "/controls/notes?not=essay", q.URL(web.NotesPath))
 
 	q = q.Cycle("essay")
 	require.Equal(t, web.NotesPath, q.URL(web.NotesPath))

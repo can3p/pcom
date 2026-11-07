@@ -1,5 +1,9 @@
 {{/* The form of a note's edit page; it saves in place, the result shows next to the button.
      The page: a web.EditNotePage. */}}
+{{ define "note_tag_chips" }}<ul id="note-tag-chips" class="nt-tags"{{ if .OOB }} hx-swap-oob="true"{{ end }}>{{ range .Tags }}<li class="nt-tag">#{{ .Tag }}{{ if .FromText }}<span class="sr-only"> (written in the text)</span>{{ end }}</li>{{ end }}</ul>{{ end }}
+{{/* What a save in place answers: the status and, out of band, the tags the note now has. */}}
+{{ define "note_saved" }}{{ template "partial--success-message.html" toMap "Message" "Saved" }}{{ template "note_tag_chips" toMap "Tags" .Tags "OOB" true }}{{ end }}
+
 <form class="ed-form note-form"
       method="post"
       action="/controls/form/note_edit/{{ .Note.ID }}"
@@ -20,6 +24,7 @@
     <label for="note-tags">Tags</label>
     <input id="note-tags" name="tags" type="text" value="{{ .Tags }}" placeholder="essay walking">
     <p class="field-help">Separated by spaces. A #word in the text is a tag too.</p>
+    {{ template "note_tag_chips" toMap "Tags" .Chips "OOB" false }}
   </div>
 
   {{ with .Note.Source }}

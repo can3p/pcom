@@ -326,8 +326,8 @@ func stackLabel(t time.Time, user *model.User, size int) string {
 	return fmt.Sprintf("%s %s, %d notes", at.Weekday(), part, size)
 }
 
-// noteTagsOf lists the tags of a note, the ones set by hand first.
-func noteTagsOf(n *model.Note) []NoteTag {
+// NoteTagsOf lists the tags of a note, the ones set by hand first.
+func NoteTagsOf(n *model.Note) []NoteTag {
 	var out []NoteTag
 
 	for _, t := range n.Tags {
@@ -350,7 +350,7 @@ func noteGroups(svc *notes.Service, c *gin.Context, user *model.User, entries []
 
 	for _, e := range entries {
 		item := &NoteItem{
-			Note: e.Note, Used: e.Used, Tags: noteTagsOf(e.Note),
+			Note: e.Note, Used: e.Used, Tags: NoteTagsOf(e.Note),
 			DeletePrompt: NoteDeletePrompt(e.Note, e.Used),
 		}
 
@@ -479,8 +479,8 @@ type EditNotePage struct {
 	// Tags is the tags set by hand, as the form shows them.
 	Tags         string
 	DeletePrompt string
-	// Used is whether the note is in a post.
-	Used bool
+	// Chips are all the tags of the note, the ones of its text included.
+	Chips []NoteTag
 }
 
 // EditNote loads the note for its edit page; a note that isn't the viewer's
@@ -500,6 +500,7 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		BasePage:     getBasePage(c, "Edit note", userData),
 		Note:         note,
 		Tags:         strings.Join(note.Tags, " "),
+		Chips:        NoteTagsOf(note),
 		DeletePrompt: NoteDeletePrompt(note, links > 0),
 	})
 }

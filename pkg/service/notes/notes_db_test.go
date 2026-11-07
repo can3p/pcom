@@ -518,6 +518,8 @@ func TestNilActorNeedsLogin(t *testing.T) {
 		"MarkUsed":     func(u *model.User) error { return w.svc.MarkUsed(w.ctx, u, n.ID, post.ID) },
 		"List":         func(u *model.User) error { _, err := w.svc.List(w.ctx, u, notes.Filter{}); return err },
 		"Tags":         func(u *model.User) error { _, err := w.svc.Tags(w.ctx, u); return err },
+		"InboxCount":   func(u *model.User) error { _, err := w.svc.InboxCount(w.ctx, u); return err },
+		"PostLinks":    func(u *model.User) error { _, err := w.svc.PostLinks(w.ctx, u, n.ID); return err },
 		"SuggestTags":  func(u *model.User) error { _, err := w.svc.SuggestTags(w.ctx, u, n.ID); return err },
 		"HideTag":      func(u *model.User) error { return w.svc.HideTag(w.ctx, u, "a") },
 		"UnhideTag":    func(u *model.User) error { return w.svc.UnhideTag(w.ctx, u, "a") },

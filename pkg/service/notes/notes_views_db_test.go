@@ -71,8 +71,6 @@ func TestInboxCount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, n)
 
-	_, err = w.svc.InboxCount(w.ctx, nil)
-	require.ErrorIs(t, err, service.ErrNeedsLogin)
 }
 
 func TestPostLinks(t *testing.T) {
@@ -97,10 +95,4 @@ func TestPostLinks(t *testing.T) {
 
 	_, err = w.svc.PostLinks(w.ctx, w.me, theirs.ID)
 	require.ErrorIs(t, err, service.ErrNotFound)
-
-	_, err = w.svc.PostLinks(w.ctx, nil, note.ID)
-	require.ErrorIs(t, err, service.ErrNeedsLogin)
-
-	_, err = w.svc.List(w.ctx, nil, notes.Filter{StackID: note.ID})
-	require.ErrorIs(t, err, service.ErrNeedsLogin)
 }
