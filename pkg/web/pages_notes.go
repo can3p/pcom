@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -656,6 +657,19 @@ const (
 // capture page shows as the last capture.
 const CaptureSharedParam = "shared"
 
+// NoteWorkerPath is the capture page's service worker; its scope is the notes
+// pages.
+const NoteWorkerPath = NotesPath + "/sw.js"
+
+// The query parameters of the service worker's URL: the caps of a share it
+// keeps offline, in bytes, the same as the server's (NOTE_AUDIO_MAX_BYTES,
+// MAX_UPLOAD_SIZE per photo, NOTE_CAPTURE_MAX_BYTES in all).
+const (
+	WorkerParamAudioMax   = "audio_max"
+	WorkerParamImageMax   = "image_max"
+	WorkerParamCaptureMax = "capture_max"
+)
+
 // CapturedNote is a saved note as the capture page's last-capture card shows
 // it; the field names are those of the page's queue records.
 type CapturedNote struct {
@@ -683,6 +697,9 @@ type NoteCapturePage struct {
 	// Shared is the note ?shared= names, as JSON for the page's card, when
 	// it is the viewer's; empty otherwise.
 	Shared string
+	// Worker is the URL the page registers its service worker with, which
+	// carries the caps of a share the worker keeps offline.
+	Worker string
 }
 
 // NoteCapture is the capture page for the viewer.
@@ -699,6 +716,11 @@ func NoteCapture(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo
 		Dictate:           svc.TranscriptionEnabled(),
 		AudioMaxSeconds:   int(limits.AudioMaxDuration / time.Second),
 		PhotoMaxDimension: limits.PhotoMaxDimension,
+		Worker: NoteWorkerPath + "?" + url.Values{
+			WorkerParamAudioMax:   {strconv.FormatInt(limits.AudioMaxBytes, 10)},
+			WorkerParamImageMax:   {strconv.FormatInt(svc.MaxUploadSize(), 10)},
+			WorkerParamCaptureMax: {strconv.FormatInt(limits.CaptureMaxBytes, 10)},
+		}.Encode(),
 	}
 
 	if start := c.Query("start"); start == CaptureStartPhoto || start == CaptureStartVoice && out.Dictate {

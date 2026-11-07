@@ -1,12 +1,15 @@
 package app
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/notes/capture"
+	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
@@ -19,26 +22,43 @@ const (
 	shareFieldURL   = "url"
 )
 
+// shareIgnored are the capture fields a share sheet never sends; the share
+// route drops them, so a share is only its text, link and files.
+var shareIgnored = []string{web.CaptureFieldTags, web.CaptureFieldSource, web.CaptureFieldCapturedAt, web.CaptureFieldKind}
+
 // mountNoteShareRoutes registers the share target of the installed app: what
 // another app shares into pcom (a passage, a link, a photo, a recording)
 // becomes a note of the user.
 //
 // The route takes no CSRF token, because a share target can't send one: the
-// phone posts the share sheet's form to the manifest's action. Leaving the
-// check out is safe here: a cross-site POST carries no session cookie (it is
-// SameSite=Lax), so a forged share lands on the login page like any anonymous
-// request, and the most a share can do is add a note to the sharing user's
-// own notes, which nothing else reads before the user does. Every other POST
-// keeps the check.
+// phone posts the share sheet's form to the manifest's action. Besides it,
+// only POST /subscriptions/:manage_token/unsubscribe/:subscription_id (the
+// one-click unsubscribe, authorized by the token in its URL) takes none.
+// Leaving the check out is safe here because of two things together. A
+// cross-site POST carries no session cookie (it is SameSite=Lax), so a forged
+// share lands on the login page like any anonymous request. And the capture
+// page's service worker, which sees the share first, sends it on to this
+// route and only queues it (to upload later with the session's token) when
+// the network fails, so it never turns a forged share into a note. The most a
+// share can do is add a note to the sharing user's own notes, which nothing
+// else reads before the user does. Every other POST keeps the check.
 //
-// The capture page's service worker answers a share itself when it controls
-// the page (it queues the capture like the page's own, so it works offline);
-// this route takes the shares it doesn't, such as one made before the page
-// was ever opened.
+// A share is its title, text and link (shareText) and its files: the tags,
+// source and captured_at a capture may carry are ignored. The focus and
+// quote-source rules apply as to any shared capture.
 func mountNoteShareRoutes(d *Deps, controls *gin.RouterGroup) {
-	svc := d.Services.Notes
+	controls.POST("/notes/share", shareNote(d.Services.Notes))
+}
 
-	controls.POST("/notes/share", func(c *gin.Context) {
+// shareNote saves a share as a note of the session's user and sends the
+// phone to the capture page, which shows it as the last capture.
+func shareNote(svc *notes.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if err := parseShareForm(c); err != nil {
+			c.String(http.StatusBadRequest, actionMessage(err))
+			return
+		}
+
 		in, err := web.BindCapture(c)
 		if err != nil {
 			c.String(http.StatusBadRequest, actionMessage(err))
@@ -54,9 +74,38 @@ func mountNoteShareRoutes(d *Deps, controls *gin.RouterGroup) {
 			return
 		}
 
-		// the capture page shows the note as the last capture
 		c.Redirect(http.StatusSeeOther, web.NoteCapturePath+"?"+url.Values{web.CaptureSharedParam: {note.ID}}.Encode())
-	})
+	}
+}
+
+// parseShareForm parses the share's form as web.BindCapture does and drops
+// the fields of shareIgnored, before web.BindCapture reads the parsed form.
+func parseShareForm(c *gin.Context) error {
+	r := c.Request
+
+	_, err := c.MultipartForm()
+	if errors.Is(err, http.ErrNotMultipart) {
+		err = r.ParseForm()
+	}
+
+	if err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			return err
+		}
+
+		return service.Invalid("body", "The share is not a form.")
+	}
+
+	for _, f := range shareIgnored {
+		r.Form.Del(f)
+		r.PostForm.Del(f)
+
+		if r.MultipartForm != nil {
+			delete(r.MultipartForm.Value, f)
+		}
+	}
+
+	return nil
 }
 
 // shareText is the text of a share: its title, text and link, one per line,

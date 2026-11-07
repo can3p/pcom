@@ -6,7 +6,7 @@ import { Capture } from "../notes/capture.js"
 // (../capture.js), not of main.js.
 export default class extends Controller {
   static targets = ["tap", "modes", "camera", "recorder", "timer", "limit", "recHint", "typer", "text", "error", "card", "cardWhat", "cardStatus"]
-  static values = { start: String, maxSeconds: Number, maxDimension: Number, csrf: String, shared: Object }
+  static values = { start: String, maxSeconds: Number, maxDimension: Number, csrf: String, shared: Object, worker: String }
 
   connect() {
     this.impl = new Capture(this)

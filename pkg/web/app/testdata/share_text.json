@@ -1,0 +1,10 @@
+[
+  {"name": "nothing", "title": "", "text": " ", "url": "", "want": ""},
+  {"name": "link alone", "title": "", "text": "", "url": " https://example.com/a ", "want": "https://example.com/a"},
+  {"name": "text alone", "title": "", "text": "A passage", "url": "", "want": "A passage"},
+  {"name": "all three", "title": "Page", "text": "A passage", "url": "https://example.com/a", "want": "Page\nA passage\nhttps://example.com/a"},
+  {"name": "link repeated in the text", "title": "", "text": "A passage https://example.com/a", "url": "https://example.com/a", "want": "A passage https://example.com/a"},
+  {"name": "title repeated in the text", "title": "Book", "text": "A passage from Book", "url": "", "want": "A passage from Book"},
+  {"name": "the same part twice", "title": "Same", "text": "Same", "url": "", "want": "Same"},
+  {"name": "CRLF line breaks", "title": "", "text": "One\r\nTwo\r\n", "url": "", "want": "One\nTwo"}
+]

@@ -91,8 +91,11 @@ export class Capture {
     if (!navigator.serviceWorker) return
 
     try {
-      await navigator.serviceWorker.register(WORKER, { scope: SCOPE })
+      // the server's URL carries the caps of a share the worker keeps
+      await navigator.serviceWorker.register(this.c.workerValue || WORKER, { scope: SCOPE })
       const reg = await navigator.serviceWorker.ready
+      // the fonts load once the page is laid out; kept with the rest
+      await document.fonts?.ready
       reg.active?.postMessage({ type: "keep", urls: assetURLs() })
     } catch (err) {
       console.warn("notes: no service worker", err)
@@ -307,7 +310,8 @@ export class Capture {
     if (!rec) return
 
     c.cardWhatTarget.textContent = describe(rec)
-    if (rec.voice && !rec.photos && !rec.seconds) this.measure(rec)
+    // a share the worker refused keeps no recording to measure
+    if (rec.voice && !rec.photos && !rec.seconds && (rec.audio || rec.noteId)) this.measure(rec)
 
     const s = c.cardStatusTarget
     s.classList.toggle("ok", rec.status === "uploaded")
@@ -495,7 +499,7 @@ function clock(seconds) {
 function assetURLs() {
   return performance.getEntriesByType("resource")
     .map((e) => e.name)
-    .filter((u) => /\.(js|css|woff2)(\?|$)/.test(u) && !u.endsWith(WORKER))
+    .filter((u) => /\.(js|css|woff2)(\?|$)/.test(u) && new URL(u).pathname !== WORKER)
 }
 
 function openDB() {

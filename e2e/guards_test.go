@@ -508,7 +508,23 @@ var excludedRoutes = map[string]string{
 // csrfExempt are the guarded POSTs that take no CSRF token, with the reason;
 // TestGuards_CSRFRequired leaves them out, and each has its own test.
 var csrfExempt = map[string]string{
-	"POST /controls/notes/share": "the share target of the installed app: the phone posts the share sheet's form, which can't carry a token; TestGuards_ShareTarget",
+	"POST /controls/notes/share": "the share target of the installed app: the phone posts the share sheet's form, which can't carry a token; safe because the session cookie is SameSite=Lax and the notes service worker queues a share only on a network failure; TestGuards_ShareTarget, TestNotesShare_CrossSiteCreatesNothing",
+}
+
+// TestGuards_CSRFExemptAreGuardRoutes keeps csrfExempt to routes of
+// guardRoutes: a key that names no route (a typo, a removed route) would
+// exempt nothing and hide that.
+func TestGuards_CSRFExemptAreGuardRoutes(t *testing.T) {
+	t.Parallel()
+
+	keys := map[string]bool{}
+	for _, r := range guardRoutes {
+		keys[r.key()] = true
+	}
+
+	for k := range csrfExempt {
+		require.True(t, keys[k], "csrfExempt names %q, which is not in guardRoutes", k)
+	}
 }
 
 var routeRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)

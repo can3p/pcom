@@ -7,11 +7,18 @@
 // and the assets that page names, so the page opens without a network; every
 // other request goes to the network as it would without it.
 //
-// It is also the share target's first stop (site.webmanifest): what another
-// app shares is queued like a capture made on the page, so a share works
-// offline too, and the phone is sent on to the capture page, which shows it
-// as the last capture. Only a share made while no worker controls the page
-// reaches the server's route.
+// It is also the share target's first stop (site.webmanifest). A share goes
+// to the server's route as it is; only when the network fails is it queued
+// like a capture made on the page, so a share works offline too, and the
+// phone is sent on to the capture page, which shows it as the last capture.
+// Queuing only on a network failure is what keeps a forged share out: a
+// cross-site POST reaches the server without the session cookie (SameSite=Lax)
+// and is sent to the login page, and the worker never keeps it to upload it
+// later under the session's token.
+//
+// The registration URL carries the caps of what a queued share may hold, the
+// same as the server's: audio_max for the recording, image_max for each photo
+// and capture_max for all of it.
 //
 // The record format is shared with cmd/web/client/js/notes/capture.js.
 
@@ -24,11 +31,22 @@ const UPLOAD = "/controls/action/note_capture"
 const DELETE = "/controls/action/note_delete"
 const SHARE = "/controls/notes/share"
 const SYNC_TAG = "notes-upload"
+// the assets the capture page loads live under this path of their origin
+const STATIC = "/static/"
+const caps = new URL(self.location.href).searchParams
+// a cap the URL leaves out keeps no share: 0 refuses any file and any text
+const AUDIO_MAX = Number(caps.get("audio_max")) || 0
+const IMAGE_MAX = Number(caps.get("image_max")) || 0
+const CAPTURE_MAX = Number(caps.get("capture_max")) || 0
 // waits between attempts double from the first to the last, which repeats
 // until the attempts run out; a message from a page or a sync starts over
 const FIRST_WAIT = 1000
 const LAST_WAIT = 30000
 const ATTEMPTS = 12
+// a refused share keeps this much of its text, for the page's card
+const EXCERPT_LENGTH = 80
+const KIB = 1024
+const MIB = 1024 * KIB
 
 self.addEventListener("install", () => self.skipWaiting())
 
@@ -101,41 +119,90 @@ async function page(req) {
   }
 }
 
-// share queues what the share sheet sent and sends the phone to the capture
-// page. The record has no CSRF token yet: the page gives it the session's
-// when it opens, and asks for the upload. When the share can't be kept, the
-// server's route takes it.
+// share sends what the share sheet sent to the server's route, whose answer
+// (the capture page, or the login page for a request without a session) the
+// phone follows. Only when the network fails is the share queued.
 async function share(req) {
-  const fallback = req.clone()
+  const offline = req.clone()
+
+  try {
+    return await fetch(req)
+  } catch (_) {
+    return queueShare(offline)
+  }
+}
+
+// queueShare keeps a share made offline and sends the phone to the capture
+// page. The record has no CSRF token yet: the page gives it the session's
+// when it opens, and asks for the upload. A share over the caps is not kept:
+// its record holds no files, only why, which the page shows.
+async function queueShare(req) {
+  const rec = {
+    id: crypto.randomUUID(),
+    savedAt: Date.now(),
+    capturedAt: new Date().toISOString(),
+    csrf: "",
+    status: "queued",
+    kind: "share",
+    text: "",
+    images: [],
+    audio: null,
+    seconds: 0,
+    photos: 0,
+    voice: false,
+  }
 
   try {
     const form = await req.formData()
     const files = (name) => form.getAll(name).filter((f) => f instanceof Blob && f.size > 0)
     const text = shareText(form.get("title"), form.get("text"), form.get("url"))
     const images = files("image")
-    const audio = files("audio")[0] || null
+    const audio = files("audio")
 
-    if (text || images.length || audio) {
-      await withStore("readwrite", (s) => s.put({
-        id: crypto.randomUUID(),
-        savedAt: Date.now(),
-        capturedAt: new Date().toISOString(),
-        csrf: "",
-        status: "queued",
-        kind: "share",
-        text,
-        images,
-        audio,
-        seconds: 0,
-        photos: images.length,
-        voice: !!audio,
-      }))
+    if (!text && !images.length && !audio.length) return Response.redirect(PAGE, 303)
+
+    rec.photos = images.length
+    rec.voice = audio.length > 0
+
+    const refused = overCaps(text, images, audio)
+    if (refused) {
+      rec.status = "failed"
+      rec.error = refused
+      rec.text = text.slice(0, EXCERPT_LENGTH)
+    } else {
+      rec.text = text
+      rec.images = images
+      rec.audio = audio[0] || null
     }
   } catch (_) {
-    return fetch(fallback)
+    rec.status = "failed"
+    rec.error = "The share can't be read."
+  }
+
+  try {
+    await withStore("readwrite", (s) => s.put(rec))
+  } catch (_) {
+    // no IndexedDB: the page says it can't keep notes
   }
 
   return Response.redirect(PAGE, 303)
+}
+
+// overCaps says why a share can't be kept offline, or "" when it can: the
+// server's caps, as the registration URL gives them.
+function overCaps(text, images, audio) {
+  if (audio.length > 1) return "Send at most one recording."
+  if (audio.some((a) => a.size > AUDIO_MAX)) return `The recording is larger than ${bytes(AUDIO_MAX)}.`
+  if (images.some((i) => i.size > IMAGE_MAX)) return `A photo can be at most ${bytes(IMAGE_MAX)}.`
+
+  const total = [...images, ...audio].reduce((sum, f) => sum + f.size, new Blob([text]).size)
+  if (total > CAPTURE_MAX) return `The share is larger than ${bytes(CAPTURE_MAX)}.`
+
+  return ""
+}
+
+function bytes(n) {
+  return n >= MIB ? `${Math.floor(n / MIB)} MiB` : `${Math.ceil(n / KIB)} KiB`
 }
 
 // shareText joins the title, text and link of a share, one per line, leaving
@@ -150,18 +217,57 @@ function shareText(...values) {
     .join("\n")
 }
 
-// keep stores the capture page and the assets it loaded.
+// keep stores the capture page and the assets it loaded. Only assets are
+// kept: a URL under /static/ of this origin, or of the origin the page loads
+// its assets from (STATIC_CDN).
 async function keep(urls) {
   const cache = await caches.open(CACHE)
+  const roots = [new URL(STATIC, self.location.origin).href]
 
-  for (const url of [PAGE, ...urls]) {
+  try {
+    const resp = await fetch(PAGE, { credentials: "same-origin" })
+    if (resp.ok && !resp.redirected) {
+      roots.push(...assetRoots(await resp.clone().text()))
+      await cache.put(PAGE, resp)
+    }
+  } catch (_) {
+    // offline or refused: kept on the next visit
+  }
+
+  for (const url of urls) {
+    let abs
+
     try {
-      const resp = await fetch(url, { credentials: "same-origin" })
-      if (resp.ok && !resp.redirected) await cache.put(url, resp)
+      abs = new URL(url, self.location.origin)
+    } catch (_) {
+      continue
+    }
+
+    if (!roots.some((r) => abs.href.startsWith(r))) continue
+
+    try {
+      const resp = await fetch(abs.href, { credentials: "same-origin" })
+      if (resp.ok && !resp.redirected) await cache.put(abs.href, resp)
     } catch (_) {
       // offline or refused: kept on the next visit
     }
   }
+}
+
+// assetRoots are the /static/ roots of the scripts and styles the capture
+// page names.
+function assetRoots(html) {
+  const roots = []
+
+  for (const m of html.matchAll(/\b(?:src|href)="([^"]*?\/static\/)/g)) {
+    try {
+      roots.push(new URL(m[1], self.location.origin).href)
+    } catch (_) {
+      // not a URL
+    }
+  }
+
+  return roots
 }
 
 function openDB() {

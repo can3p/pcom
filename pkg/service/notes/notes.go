@@ -206,6 +206,9 @@ func New(store *repo.Store, opts ...Option) *Service {
 // Limits are the service's limits.
 func (s *Service) Limits() Limits { return s.limits }
 
+// MaxUploadSize is the most bytes of one photo of a capture.
+func (s *Service) MaxUploadSize() int64 { return s.maxUploadSize }
+
 // STTAttempts is how many times a transcription job runs before the note is
 // marked failed.
 func (s *Service) STTAttempts() int { return s.sttAttempts }

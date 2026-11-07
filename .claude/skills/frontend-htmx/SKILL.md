@@ -55,12 +55,18 @@ page loads whole.
 
 ### CSRF Protection
 - Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
-- **One route is exempt: `POST /controls/notes/share`**, the share target of the installed app, because the
-  phone posts the share sheet's form and can't add a token. It is safe because the session cookie is
-  `SameSite=Lax`, so a cross-site POST arrives without a session and lands on the login page; and the route
-  only creates a note of the session's own user and reads nothing back to the sender. It is mounted on
-  `controls` (no `csrfCheck`) and listed in `csrfExempt` in `e2e/guards_test.go`, which
-  `TestGuards_CSRFRequired` skips. A new exemption needs the same argument, written down next to the route.
+- **Two POSTs take no token.** `POST /subscriptions/:manage_token/unsubscribe/:subscription_id` is the
+  one-click unsubscribe of a mail client, authorized by the token in its URL (in `excludedRoutes` of
+  `e2e/guards_test.go`). `POST /controls/notes/share` is the share target of the installed app, because the
+  phone posts the share sheet's form and can't add a token. Its safety rests on two things together: the
+  session cookie is `SameSite=Lax`, so a cross-site POST arrives without a session and lands on the login
+  page; and the capture page's service worker (`pkg/web/app/notes_sw.js`), which sees the share first,
+  sends it on to the server and queues it (to upload later with the session's token) only when the network
+  fails, within the server's caps. A worker that queued every share would turn a forged one into a note;
+  `TestNotesShare_CrossSiteCreatesNothing` guards this. The route creates only a note of the session's own
+  user and reads nothing back to the sender. It is mounted on `controls` (no `csrfCheck`) and listed in
+  `csrfExempt` in `e2e/guards_test.go`, which `TestGuards_CSRFRequired` skips. A new exemption needs the
+  same argument, written down next to the route.
 
 ### Action Controller Pattern
 **Location**: `cmd/web/client/js/controllers/action_controller.js`
