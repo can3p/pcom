@@ -839,7 +839,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		victimKeys, err := factory.ListAPIKeys(ctx, db, p.victim.ID)
 		require.NoError(t, err)
 		require.Len(t, victimKeys, 1)
-		require.Equal(t, key.APIKey, victimKeys[0].APIKey)
+		require.Equal(t, key.KeyHash, victimKeys[0].KeyHash)
 	})
 
 	t.Run("remove someone else's feed subscription", func(t *testing.T) {

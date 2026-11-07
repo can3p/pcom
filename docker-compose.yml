@@ -16,6 +16,8 @@
 #   9555       tommy S3 (path-style, any creds),     tommy:9000            [PCOM_S3_PORT]
 #              bucket `pcom-media`; objects: GET :8811/api/v1/s3/buckets/pcom-media/objects
 #              (not 9000/9090/9091: MinIO, `make pprof_tunnel`, `make pprof_heap`)
+#   8833       WireMock: the speech-to-text API      wiremock:8080         [PCOM_WIREMOCK_PORT]
+#              under /openai-compat, from the stubs in pkg/stt/openaicompat/testdata/wiremock
 #   8080       the app (profile `dev`, `make dev`)   app:8080              [PCOM_APP_PORT]
 #
 # No service sets container_name, so the project name (-p) keeps checkouts apart.
@@ -54,6 +56,17 @@ services:
       - "${PCOM_S3_PORT:-9555}:9000"
     volumes:
       - tommydata:/data
+
+  # Stubs of the third-party APIs pcom calls for an answer, the same canned
+  # exchanges the tests use: the OpenAI-compatible speech-to-text API under
+  # /openai-compat, so voice notes are transcribed with no outside service.
+  wiremock:
+    # The same image as the test harness (pkg/testutil/wiremock).
+    image: wiremock/wiremock:3.13.2
+    ports:
+      - "${PCOM_WIREMOCK_PORT:-8833}:8080"
+    volumes:
+      - ./pkg/stt/openaicompat/testdata/wiremock:/home/wiremock:ro
 
   # Dev tooling: sql-migrate, psql, go run. Run through make
   # (`make tools-shell`, `make migrate`, ...), which sets HOST_UID/HOST_GID so
@@ -137,6 +150,9 @@ services:
       REPORT_PANICS: "false"
       LOG_LEVEL: debug
       LOG_FORMAT: console
+      STT_PROVIDER: openai-compat
+      STT_OPENAI_COMPAT_ENDPOINT: http://wiremock:8080/openai-compat
+      STT_OPENAI_COMPAT_KEY: dev
       PCOM_WATCH_POLL: ${PCOM_WATCH_POLL:-}
     ports:
       - "${PCOM_APP_PORT:-8080}:8080"
@@ -149,6 +165,8 @@ services:
       postgres:
         condition: service_healthy
       tommy:
+        condition: service_started
+      wiremock:
         condition: service_started
       assets:
         condition: service_healthy

@@ -1,15 +1,19 @@
-{{/* The API key section. APIKey: the user's key, nil until one is generated. */}}
+{{/* The API key section. APIKey: the user's key, nil until one is generated.
+     NewKey: the key in plain, only in the response that created it, the one
+     time it can be shown. */}}
 <section class="settings-sec" id="api" aria-labelledby="api-title">
   <h2 id="api-title">API key</h2>
   <p class="settings-lead">For scripts and the blg command-line client. Keep it secret.</p>
   <div class="settings-row">
-    {{ with .APIKey }}
-      <code class="settings-secret" aria-label="API key, hidden">••••••••••••••••</code>
+    {{ if .NewKey }}
+      <code class="settings-secret" aria-label="Your new API key">{{ .NewKey }}</code>
       <button type="button"
               class="btn btn-secondary"
               data-controller="clipboard"
-              data-clipboard-copy-value="{{ .APIKey }}"
+              data-clipboard-copy-value="{{ .NewKey }}"
               >Copy</button>
+    {{ else if .APIKey }}
+      <span>You have an API key.</span>
     {{ else }}
       <button type="button"
               class="btn btn-secondary"
@@ -22,4 +26,7 @@
               >Generate an API key</button>
     {{ end }}
   </div>
+  {{ if .NewKey }}
+    <p class="settings-lead">Copy it now: it is not shown again.</p>
+  {{ end }}
 </section>

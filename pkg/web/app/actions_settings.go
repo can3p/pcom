@@ -13,12 +13,12 @@ import (
 func mountSettingsActions(d *Deps, r *gin.RouterGroup) {
 	accounts := d.Services.Accounts
 
-	// no key rotation for now
-	// feel free to implement/change
+	// no key rotation for now; the new key is shown in this response only
 	r.POST("/generate_api_key", func(c *gin.Context) {
 		user := auth.GetUserData(c).DBUser
 
-		if err := accounts.GenerateAPIKey(c, user); err != nil {
+		newKey, err := accounts.GenerateAPIKey(c, user)
+		if err != nil {
 			reportError(c, fmt.Sprintf("Operation Failed: %s", err.Error()))
 			return
 		}
@@ -29,7 +29,7 @@ func mountSettingsActions(d *Deps, r *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "partial--settings_api.html", gin.H{"APIKey": view.APIKey})
+		c.HTML(http.StatusOK, "partial--settings_api.html", gin.H{"APIKey": view.APIKey, "NewKey": newKey})
 	})
 
 	// creates the private feed token or replaces it; the old feed URL stops working

@@ -493,26 +493,42 @@ func TestSettings_GenerateAPIKey(t *testing.T) {
 	require.Len(t, keys, 1)
 }
 
-// The Copy button next to an existing API key copies the key.
+// The settings page shows that a key exists but never the key, which is
+// shown only once, right after it is generated; its Copy button copies a key
+// that opens the API.
 func TestSettings_CopyAPIKey(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
-	key, err := factory.APIKey(context.Background(), app.DB, user.ID)
+	other := browser.NewUser(t, app)
+	_, err := factory.APIKey(context.Background(), app.DB, other.ID)
 	require.NoError(t, err)
+
+	otherPage := browser.Page(t, app, browser.As(other))
+	openSettings(t, otherPage)
+	require.NoError(t, browser.Expect.Locator(section(otherPage, "API key").GetByText("You have an API key.")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(section(otherPage, "API key").GetByRole("button")).ToHaveCount(0), "no Copy, no Generate")
 
 	page := browser.Page(t, app, browser.As(user), browser.Configure(func(o *playwright.BrowserNewContextOptions) {
 		o.Permissions = []string{"clipboard-read", "clipboard-write"}
 	}))
 	openSettings(t, page)
 
-	require.NoError(t, browser.Expect.Locator(page.GetByText(key.APIKey)).ToHaveCount(0), "the key is not shown")
-	require.NoError(t, section(page, "API key").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Copy"}).Click())
+	api := section(page, "API key")
+	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Generate an API key"}).Click())
+	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Copy"}).Click())
 
 	copied, err := page.Evaluate(`() => navigator.clipboard.readText()`)
 	require.NoError(t, err)
-	require.Equal(t, key.APIKey, copied)
+	key, ok := copied.(string)
+	require.True(t, ok)
+	require.NotEmpty(t, key)
+
+	req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+key)
+	app.Client(t).Do(req).RequireStatus(http.StatusOK)
 }
 
 // Creating the private feed URL shows, in place, a URL that serves the feed;

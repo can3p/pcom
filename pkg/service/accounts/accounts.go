@@ -7,6 +7,7 @@ package accounts
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"strings"
@@ -147,7 +148,7 @@ func (s *Service) UserByID(ctx context.Context, id string) (*model.User, error) 
 
 // UserByAPIKey loads the user an API key belongs to.
 func (s *Service) UserByAPIKey(ctx context.Context, key string) (*model.User, error) {
-	return notFound(s.store.UserByAPIKey(ctx, key))
+	return notFound(s.store.UserByAPIKeyHash(ctx, model.HashAPIKey(key)))
 }
 
 // RegistrationOpen reports whether anybody may sign up.
@@ -243,16 +244,42 @@ func (s *Service) SaveGeneralSettings(ctx context.Context, actor *model.User, ti
 	)
 }
 
-// GenerateAPIKey gives the actor an API key. There is no rotation: a user
-// who has a key keeps it.
-func (s *Service) GenerateAPIKey(ctx context.Context, actor *model.User) error {
+// GenerateAPIKey gives the actor a full API key and returns it, the one time
+// it is shown: only its hash is stored. There is no rotation: a user who has
+// a key keeps it, and gets "" back.
+func (s *Service) GenerateAPIKey(ctx context.Context, actor *model.User) (string, error) {
 	if actor == nil {
-		return service.ErrNeedsLogin
+		return "", service.ErrNeedsLogin
 	}
 
-	return s.store.Tx(ctx, func(tx *repo.Store) error {
-		return tx.CreateAPIKey(ctx, actor.ID)
+	var key string
+
+	err := s.store.Tx(ctx, func(tx *repo.Store) error {
+		if err := tx.LockUser(ctx, repo.LockAPIKeys, actor.ID); err != nil {
+			return err
+		}
+
+		existing, err := tx.APIKeyForUser(ctx, actor.ID)
+		if err != nil || existing != nil {
+			return err
+		}
+
+		id, err := uuid.NewV7()
+		if err != nil {
+			return err
+		}
+
+		plain := rand.Text()
+		if err := tx.CreateAPIKey(ctx, &model.UserAPIKey{ID: id.String(), KeyHash: model.HashAPIKey(plain), UserID: actor.ID, Scope: model.APIKeyScopeFull}); err != nil {
+			return err
+		}
+
+		key = plain
+
+		return nil
 	})
+
+	return key, err
 }
 
 // RegenerateFeedToken creates the actor's private feed token or replaces it;

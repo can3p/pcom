@@ -4,13 +4,16 @@ import (
 	"context"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/google/uuid"
 )
 
-// UserByAPIKey returns the user an API key belongs to, or ErrNotFound.
-func (s *Store) UserByAPIKey(ctx context.Context, key string) (*model.User, error) {
+// LockAPIKeys guards the check of the keys a user has before one is added.
+const LockAPIKeys LockScope = "api_keys"
+
+// UserByAPIKeyHash returns the user of the API key whose hash is keyHash
+// (model.HashAPIKey), or ErrNotFound.
+func (s *Store) UserByAPIKeyHash(ctx context.Context, keyHash string) (*model.User, error) {
 	k := new(model.UserAPIKey)
-	err := s.query().NewSelect().Model(k).Where("api_key = ?", key).Limit(1).Scan(ctx)
+	err := s.query().NewSelect().Model(k).Where("key_hash = ?", keyHash).Limit(1).Scan(ctx)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -18,30 +21,17 @@ func (s *Store) UserByAPIKey(ctx context.Context, key string) (*model.User, erro
 	return s.UserByID(ctx, k.UserID)
 }
 
-// APIKeyForUser returns the user's API key, or nil when they have none.
+// APIKeyForUser returns the user's oldest API key, or nil when they have none.
 func (s *Store) APIKeyForUser(ctx context.Context, userID string) (*model.UserAPIKey, error) {
 	k := new(model.UserAPIKey)
-	err := s.query().NewSelect().Model(k).Where("user_id = ?", userID).Limit(1).Scan(ctx)
+	err := s.query().NewSelect().Model(k).Where("user_id = ?", userID).Order("created_at", "id").Limit(1).Scan(ctx)
 
 	return orNil(k, err)
 }
 
-// CreateAPIKey gives the user an API key. A user has at most one, and
-// there is no rotation: creating again keeps the existing key.
-func (s *Store) CreateAPIKey(ctx context.Context, userID string) error {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-
-	key, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-
-	record := &model.UserAPIKey{ID: id.String(), APIKey: key.String(), UserID: userID}
-
-	_, err = s.query().NewInsert().Model(record).On("CONFLICT (user_id) DO NOTHING").Exec(ctx)
+// CreateAPIKey stores k, which carries the key's hash.
+func (s *Store) CreateAPIKey(ctx context.Context, k *model.UserAPIKey) error {
+	_, err := s.query().NewInsert().Model(k).Exec(ctx)
 
 	return err
 }

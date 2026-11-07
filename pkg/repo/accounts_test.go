@@ -149,7 +149,7 @@ func TestProfiles_AboutUpsert(t *testing.T) {
 	require.Empty(t, about)
 }
 
-func TestAPIKeys_OnePerUser(t *testing.T) {
+func TestAPIKeys_ByHash(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -161,21 +161,17 @@ func TestAPIKeys_OnePerUser(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, k)
 
-	require.NoError(t, store.CreateAPIKey(ctx, u.ID))
+	hash := model.HashAPIKey("the-key")
+	require.NoError(t, store.CreateAPIKey(ctx, &model.UserAPIKey{ID: uuid.NewString(), KeyHash: hash, UserID: u.ID, Scope: model.APIKeyScopeFull}))
 	k, err = store.APIKeyForUser(ctx, u.ID)
 	require.NoError(t, err)
-	require.NotNil(t, k)
+	require.Equal(t, hash, k.KeyHash)
 
-	require.NoError(t, store.CreateAPIKey(ctx, u.ID))
-	again, err := store.APIKeyForUser(ctx, u.ID)
-	require.NoError(t, err)
-	require.Equal(t, k.APIKey, again.APIKey)
-
-	owner, err := store.UserByAPIKey(ctx, k.APIKey)
+	owner, err := store.UserByAPIKeyHash(ctx, hash)
 	require.NoError(t, err)
 	require.Equal(t, u.ID, owner.ID)
 
-	_, err = store.UserByAPIKey(ctx, uuid.NewString())
+	_, err = store.UserByAPIKeyHash(ctx, model.HashAPIKey("another-key"))
 	require.ErrorIs(t, err, repo.ErrNotFound)
 }
 

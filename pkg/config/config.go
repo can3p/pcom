@@ -184,6 +184,54 @@ type Subscriptions struct {
 	PruneEvery            time.Duration `long:"prune-every" env:"PRUNE_EVERY" description:"How often expired subscriptions and old subscription mail records are deleted" default:"1h"`
 }
 
+// Notes is the limits of notes and their captures. The defaults are
+// notes.Default*.
+type Notes struct {
+	BodyMaxLength        int           `long:"note-body-max-length" env:"NOTE_BODY_MAX_LENGTH" description:"Most characters a note may have" default:"20000"`
+	TagMaxLength         int           `long:"note-tag-max-length" env:"NOTE_TAG_MAX_LENGTH" description:"Most characters of a note tag" default:"40"`
+	TagsMax              int           `long:"note-tags-max" env:"NOTE_TAGS_MAX" description:"Most tags set by hand on one note" default:"10"`
+	SourceTitleMaxLength int           `long:"note-source-title-max-length" env:"NOTE_SOURCE_TITLE_MAX_LENGTH" description:"Most characters of the title of a note's source" default:"300"`
+	PhotoMaxDimension    int           `long:"note-photo-max-dimension" env:"NOTE_PHOTO_MAX_DIMENSION" description:"Longest side in pixels a note's photo is scaled down to" default:"2048"`
+	AudioMaxDuration     time.Duration `long:"note-audio-max-duration" env:"NOTE_AUDIO_MAX_DURATION" description:"Longest recording of one note" default:"10m"`
+	AudioMaxBytes        int64         `long:"note-audio-max-bytes" env:"NOTE_AUDIO_MAX_BYTES" description:"Most bytes of one note's recording" default:"8388608"`
+	AudioBitrate         int           `long:"note-audio-bitrate" env:"NOTE_AUDIO_BITRATE" description:"Bits per second the browser records notes at" default:"24000"`
+	CaptureMaxBytes      int64         `long:"note-capture-max-bytes" env:"NOTE_CAPTURE_MAX_BYTES" description:"Most bytes of one capture with its photos and recording" default:"33554432"`
+	SessionGap           time.Duration `long:"note-session-gap" env:"NOTE_SESSION_GAP" description:"Most time between two notes shown as one capture session" default:"30m"`
+	FocusIdle            time.Duration `long:"note-focus-idle" env:"NOTE_FOCUS_IDLE" description:"How long the notes focus lasts after the last capture under it" default:"12h"`
+}
+
+// STTProviderOpenAICompat is the OpenAI-compatible speech-to-text backend.
+const STTProviderOpenAICompat = "openai-compat"
+
+// STT is the speech-to-text backend that transcribes notes' recordings.
+// Embed it with `namespace:"stt" env-namespace:"STT"`. Without a provider
+// transcription is off. The defaults are notes.Default*.
+type STT struct {
+	Provider          string        `long:"provider" env:"PROVIDER" description:"Speech-to-text backend; empty turns transcription off" choice:"" choice:"openai-compat" default:""`
+	Timeout           time.Duration `long:"timeout" env:"TIMEOUT" description:"How long one call to the backend may take" default:"2m"`
+	Workers           int           `long:"workers" env:"WORKERS" description:"How many transcriptions run at once" default:"2"`
+	MinutesPerDay     int           `long:"minutes-per-day" env:"MINUTES_PER_DAY" description:"Minutes of recordings one user may have transcribed per day" default:"60"`
+	SiteMinutesPerDay int           `long:"site-minutes-per-day" env:"SITE_MINUTES_PER_DAY" description:"Minutes of recordings the whole site may have transcribed per day; 0 is no cap" default:"0"`
+
+	OpenAICompat STTOpenAICompat `group:"OpenAI-compatible speech-to-text" namespace:"openai-compat" env-namespace:"OPENAI_COMPAT"`
+}
+
+// STTOpenAICompat is a backend speaking OpenAI's /audio/transcriptions API.
+type STTOpenAICompat struct {
+	Endpoint string          `long:"endpoint" env:"ENDPOINT" description:"Base URL of the API" default:"https://api.groq.com/openai/v1"`
+	Model    string          `long:"model" env:"MODEL" description:"Transcription model" default:"whisper-large-v3-turbo"`
+	Key      settings.Secret `long:"key" env:"KEY" description:"API key; required with --stt-provider=openai-compat"`
+}
+
+// Validate rejects a selected backend without its key.
+func (s STT) Validate() error {
+	if s.Provider == STTProviderOpenAICompat && s.OpenAICompat.Key.Reveal() == "" {
+		return fmt.Errorf("--stt-provider=%s needs --stt-openai-compat-key ($STT_OPENAI_COMPAT_KEY)", STTProviderOpenAICompat)
+	}
+
+	return nil
+}
+
 // Serve is the settings of the serve command.
 type Serve struct {
 	Database  Database  `group:"Database"`
@@ -198,6 +246,15 @@ type Serve struct {
 	Proofread Proofread `group:"Proofread" namespace:"proofread" env-namespace:"PROOFREAD"`
 
 	Subscriptions Subscriptions `group:"Email subscriptions" namespace:"subscribe" env-namespace:"SUBSCRIBE"`
+
+	Notes Notes `group:"Notes"`
+	STT   STT   `group:"Speech to text" namespace:"stt" env-namespace:"STT"`
+}
+
+// Validate checks what go-flags can't: settings that depend on each other.
+// The serve command calls it before it starts.
+func (s Serve) Validate() error {
+	return s.STT.Validate()
 }
 
 // Switch is a boolean setting that may default to true, which go-flags
