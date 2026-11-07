@@ -80,6 +80,8 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	w := newWorld(t)
 	note := w.note(t, w.other)
 	src := testutil.Must(factory.NoteSource(w.ctx, w.db, w.other.ID))(t)
+	// What the database holds, to compare with afterwards.
+	note = testutil.Must(repo.New(w.db).NoteByID(w.ctx, note.ID))(t)
 	mine := w.note(t, w.me)
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.other.ID))(t)
 	body := "x"
@@ -109,6 +111,22 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	// Nothing of the other user's changed, and the failed bulk calls left mine alone.
 	require.Equal(t, 2, w.count(t, "select count(*) from notes"))
 	require.Equal(t, 0, w.count(t, "select count(*) from notes where tags <> '{}'"))
+
+	store := repo.New(w.db)
+	noteAfter, err := store.NoteByID(w.ctx, note.ID)
+	require.NoError(t, err)
+	require.Equal(t, note.Body, noteAfter.Body)
+	require.Equal(t, note.Tags, noteAfter.Tags)
+	require.Equal(t, note.TextTags, noteAfter.TextTags)
+	require.Equal(t, note.SourceID, noteAfter.SourceID)
+	require.True(t, note.UpdatedAt.Equal(noteAfter.UpdatedAt))
+
+	srcAfter, err := store.NoteSourceByID(w.ctx, src.ID)
+	require.NoError(t, err)
+	require.Equal(t, src.Title, srcAfter.Title)
+	require.Equal(t, src.MatchKey, srcAfter.MatchKey)
+	require.Equal(t, src.Author, srcAfter.Author)
+	require.Equal(t, src.URL, srcAfter.URL)
 
 	tags, err := w.svc.Tags(w.ctx, w.me)
 	require.NoError(t, err)
@@ -169,30 +187,36 @@ func TestListFilters(t *testing.T) {
 
 	book := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 	a := w.note(t, w.me, at(0), factory.WithNoteTags("go"), factory.WithNoteBody("Walking in the Park"))
-	b := w.note(t, w.me, at(1), factory.WithNoteTextTags("go", "web"), factory.FromSource(book.ID))
+	b := w.note(t, w.me, at(1), factory.WithNoteTextTags("go", "web", "draft"), factory.FromSource(book.ID))
 	c := w.note(t, w.me, at(2), factory.WithNoteTags("web", "done"))
 	d := w.note(t, w.me, at(200))
 	w.note(t, w.other, at(3), factory.WithNoteTags("go"))
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.me.ID))(t)
 	testutil.Must(factory.NotePostLink(w.ctx, w.db, a.ID, post.ID))(t)
+	// "done" is hidden through the tags column, "draft" through text_tags only.
 	require.NoError(t, w.svc.HideTag(w.ctx, w.me, "Done"))
+	require.NoError(t, w.svc.HideTag(w.ctx, w.me, "draft"))
+
+	all := func(f notes.Filter) notes.Filter { f.ShowHidden = true; return f }
 
 	cases := map[string]struct {
 		f    notes.Filter
 		want []string
 	}{
-		"hidden tags are left out":      {notes.Filter{}, []string{d.ID, b.ID, a.ID}},
-		"show hidden":                   {notes.Filter{ShowHidden: true}, []string{d.ID, c.ID, b.ID, a.ID}},
-		"tags of both columns":          {notes.Filter{Tags: []string{"go"}}, []string{b.ID, a.ID}},
-		"all of the tags":               {notes.Filter{Tags: []string{"Go", "web"}}, []string{b.ID}},
-		"a hidden tag asked for":        {notes.Filter{Tags: []string{"done"}}, []string{c.ID}},
-		"not tags":                      {notes.Filter{NotTags: []string{"web"}}, []string{d.ID, a.ID}},
-		"inbox":                         {notes.Filter{Inbox: true}, []string{d.ID}},
-		"unused":                        {notes.Filter{Unused: true}, []string{d.ID, b.ID}},
-		"source":                        {notes.Filter{SourceID: book.ID}, []string{b.ID}},
-		"search ignores case":           {notes.Filter{Query: "walking IN"}, []string{a.ID}},
-		"search is not a pattern":       {notes.Filter{Query: "%"}, []string{}},
-		"inbox of a tag that has notes": {notes.Filter{Inbox: true, Tags: []string{"go"}}, []string{}},
+		"hidden tags of both columns are left out": {notes.Filter{}, []string{d.ID, a.ID}},
+		"show hidden":                        {all(notes.Filter{}), []string{d.ID, c.ID, b.ID, a.ID}},
+		"tags of both columns":               {all(notes.Filter{Tags: []string{"go"}}), []string{b.ID, a.ID}},
+		"all of the tags":                    {all(notes.Filter{Tags: []string{"Go", "web"}}), []string{b.ID}},
+		"a tags-column hidden tag asked for": {notes.Filter{Tags: []string{"done"}}, []string{c.ID}},
+		"a text-column hidden tag asked for": {notes.Filter{Tags: []string{"draft"}}, []string{b.ID}},
+		"not tags, both columns":             {all(notes.Filter{NotTags: []string{"web"}}), []string{d.ID, a.ID}},
+		"not a tag of the tags column":       {all(notes.Filter{NotTags: []string{"done"}}), []string{d.ID, b.ID, a.ID}},
+		"inbox":                              {notes.Filter{Inbox: true}, []string{d.ID}},
+		"unused":                             {all(notes.Filter{Unused: true}), []string{d.ID, c.ID, b.ID}},
+		"source":                             {all(notes.Filter{SourceID: book.ID}), []string{b.ID}},
+		"search ignores case":                {notes.Filter{Query: "walking IN"}, []string{a.ID}},
+		"search is not a pattern":            {notes.Filter{Query: "%"}, []string{}},
+		"inbox of a tag that has notes":      {notes.Filter{Inbox: true, Tags: []string{"go"}}, []string{}},
 	}
 
 	for name, tc := range cases {
@@ -201,20 +225,49 @@ func TestListFilters(t *testing.T) {
 
 	// a, b, c are within the gap of each other, d is a stack of its own; the
 	// stack counts notes the filter leaves out.
-	p, err := w.svc.List(w.ctx, w.me, notes.Filter{})
+	p, err := w.svc.List(w.ctx, w.me, notes.Filter{ShowHidden: true})
 	require.NoError(t, err)
 	require.Equal(t, d.ID, p.Entries[0].StackID)
 	require.Equal(t, 1, p.Entries[0].StackSize)
 	require.Equal(t, a.ID, p.Entries[1].StackID)
 	require.Equal(t, 3, p.Entries[1].StackSize)
-	require.Equal(t, a.ID, p.Entries[2].StackID)
-	require.True(t, p.Entries[2].Used)
 	require.False(t, p.Entries[1].Used)
-	require.Equal(t, book.ID, p.Entries[1].Note.Source.ID)
+	require.Equal(t, book.ID, p.Entries[2].Note.Source.ID)
+	require.Equal(t, a.ID, p.Entries[3].StackID)
+	require.True(t, p.Entries[3].Used)
+
+	p, err = w.svc.List(w.ctx, w.me, notes.Filter{})
+	require.NoError(t, err)
+	require.Equal(t, 3, p.Entries[1].StackSize)
 
 	tags, err := w.svc.Tags(w.ctx, w.me)
 	require.NoError(t, err)
-	require.Equal(t, []notes.TagCount{{Tag: "go", Count: 2}, {Tag: "web", Count: 2}, {Tag: "done", Count: 1, Hidden: true}}, tags)
+	require.Equal(t, []notes.TagCount{{Tag: "go", Count: 2}, {Tag: "web", Count: 2}, {Tag: "done", Count: 1, Hidden: true}, {Tag: "draft", Count: 1, Hidden: true}}, tags)
+}
+
+// A note starts a new stack when it is more than the gap after the previous
+// one: exactly the gap still joins, a second more doesn't.
+func TestStackBoundary(t *testing.T) {
+	t.Parallel()
+
+	for name, gap := range map[string]time.Duration{"default gap": notes.DefaultSessionGap, "custom gap": 5 * time.Minute} {
+		w := newWorld(t, notes.WithLimits(notes.Limits{SessionGap: gap}))
+		base := w.now.Add(-24 * time.Hour)
+
+		n0 := w.note(t, w.me, factory.CapturedAt(base))
+		n1 := w.note(t, w.me, factory.CapturedAt(base.Add(gap)))
+		n2 := w.note(t, w.me, factory.CapturedAt(base.Add(2*gap+time.Second)))
+
+		p, err := w.svc.List(w.ctx, w.me, notes.Filter{})
+		require.NoError(t, err, name)
+		require.Equal(t, []string{n2.ID, n1.ID, n0.ID}, ids(p), name)
+
+		require.Equal(t, n2.ID, p.Entries[0].StackID, name)
+		require.Equal(t, 1, p.Entries[0].StackSize, name)
+		require.Equal(t, n0.ID, p.Entries[1].StackID, name)
+		require.Equal(t, n0.ID, p.Entries[2].StackID, name)
+		require.Equal(t, 2, p.Entries[2].StackSize, name)
+	}
 }
 
 func TestPagingIsStableOverEqualCaptureTimes(t *testing.T) {
@@ -229,13 +282,19 @@ func TestPagingIsStableOverEqualCaptureTimes(t *testing.T) {
 
 	var got []string
 
-	cursor := ""
+	cursor, pages := "", 0
 
-	for pages := 0; ; pages++ {
-		require.Less(t, pages, 5)
+	for {
+		pages++
+		require.LessOrEqual(t, pages, 3)
 
 		p, err := w.svc.List(w.ctx, w.me, notes.Filter{Cursor: cursor})
 		require.NoError(t, err)
+
+		if pages == 1 {
+			require.Len(t, p.Entries, 2)
+			require.NotEmpty(t, p.Next)
+		}
 
 		got = append(got, ids(p)...)
 
@@ -244,6 +303,7 @@ func TestPagingIsStableOverEqualCaptureTimes(t *testing.T) {
 		}
 	}
 
+	require.Equal(t, 3, pages)
 	require.Len(t, got, 5)
 	require.Len(t, map[string]bool{got[0]: true, got[1]: true, got[2]: true, got[3]: true, got[4]: true}, 5)
 	require.IsDecreasing(t, got)
@@ -331,31 +391,38 @@ func TestTagManagement(t *testing.T) {
 	t.Parallel()
 
 	w := newWorld(t)
-	a := w.note(t, w.me, factory.WithNoteBody("Read #Walks today"), factory.WithNoteTextTags("walks"), factory.WithNoteTags("old"))
+	a := w.note(t, w.me, factory.WithNoteBody("Read #Walks today #old"), factory.WithNoteTextTags("walks", "old"), factory.WithNoteTags("old", "walks"))
 	b := w.note(t, w.me, factory.WithNoteTags("walk", "old", "keep"))
-	other := w.note(t, w.other, factory.WithNoteTags("old"))
+	other := w.note(t, w.other, factory.WithNoteBody("#old"), factory.WithNoteTextTags("old"), factory.WithNoteTags("old"))
 
 	require.NoError(t, w.svc.HideTag(w.ctx, w.me, "old"))
 	require.NoError(t, w.svc.TagMany(w.ctx, w.me, []string{a.ID, b.ID}, []string{"Bulk", "keep"}))
 	require.NoError(t, w.svc.RenameTag(w.ctx, w.me, "walks", "walk"))
 	require.NoError(t, w.svc.MergeTags(w.ctx, w.me, []string{"old", "bulk"}, "new"))
 
-	a, _ = w.svc.Get(w.ctx, w.me, a.ID)
-	b, _ = w.svc.Get(w.ctx, w.me, b.ID)
-	require.Equal(t, "Read #walk today", a.Body)
-	require.Equal(t, []string{"walk"}, a.TextTags)
-	require.Equal(t, []string{"new", "keep"}, a.Tags)
+	a, err := w.svc.Get(w.ctx, w.me, a.ID)
+	require.NoError(t, err)
+
+	b, err = w.svc.Get(w.ctx, w.me, b.ID)
+	require.NoError(t, err)
+
+	// Both columns, the body and the preference are rewritten.
+	require.Equal(t, "Read #walk today #new", a.Body)
+	require.Equal(t, []string{"walk", "new"}, a.TextTags)
+	require.Equal(t, []string{"new", "walk", "keep"}, a.Tags)
 	require.Equal(t, []string{"walk", "new", "keep"}, b.Tags)
 
 	untouched, err := repo.New(w.db).NoteByID(w.ctx, other.ID)
 	require.NoError(t, err)
+	require.Equal(t, "#old", untouched.Body)
 	require.Equal(t, []string{"old"}, untouched.Tags)
+	require.Equal(t, []string{"old"}, untouched.TextTags)
 
-	// The hidden preference moved with the tag.
 	tags, err := w.svc.Tags(w.ctx, w.me)
 	require.NoError(t, err)
 	require.Equal(t, []notes.TagCount{{Tag: "keep", Count: 2}, {Tag: "new", Count: 2, Hidden: true}, {Tag: "walk", Count: 2}}, tags)
 	require.Equal(t, 0, w.count(t, "select count(*) from note_tag_prefs where tag = 'old'"))
+	require.Equal(t, 1, w.count(t, "select count(*) from note_tag_prefs where tag = 'new' and hidden"))
 
 	require.NoError(t, w.svc.UnhideTag(w.ctx, w.me, "new"))
 	require.Equal(t, 0, w.count(t, "select count(*) from note_tag_prefs where hidden"))
@@ -368,16 +435,19 @@ func TestSuggestTags(t *testing.T) {
 	base := w.now.Add(-72 * time.Hour)
 	book := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 
+	// Far from the target: only its tags and, for the source one, its source count.
 	w.note(t, w.me, factory.CapturedAt(base.Add(-48*time.Hour)), factory.WithNoteTags("deep-work", "unrelated", "walking"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(-47*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("quotes", "rare"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(-46*time.Hour)), factory.WithNoteTags("rare"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(time.Minute)), factory.WithNoteTags("session", "walking"))
+	w.note(t, w.me, factory.CapturedAt(base.Add(-47*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("quotes"))
+	// The stack neighbours: zeta is carried by two of them, session by one.
+	w.note(t, w.me, factory.CapturedAt(base.Add(time.Minute)), factory.WithNoteTags("session", "zeta"))
+	w.note(t, w.me, factory.CapturedAt(base.Add(2*time.Minute)), factory.WithNoteTextTags("zeta"))
 	target := w.note(t, w.me, factory.CapturedAt(base), factory.FromSource(book.ID), factory.WithNoteBody("some deep work on a Walking day"), factory.WithNoteTags("walking"))
 
 	got, err := w.svc.SuggestTags(w.ctx, w.me, target.ID)
 	require.NoError(t, err)
-	// The text's tag, then the ones of its source and stack, most carried first; not what it has.
-	require.Equal(t, []string{"deep-work", "quotes", "rare"}, got)
+	// The text's tag first, then the neighbours' tags, most carried first
+	// (not alphabetical), and not what the note has; "session" is cut.
+	require.Equal(t, []string{"deep-work", "zeta", "quotes"}, got)
 }
 
 func TestSources(t *testing.T) {
@@ -401,6 +471,12 @@ func TestSources(t *testing.T) {
 	require.ErrorIs(t, w.svc.RenameSource(w.ctx, w.me, page.ID, notes.SourceInput{Kind: model.NoteSourceBook, Title: "walden", Author: "Henry Thoreau"}), service.ErrConflict)
 	require.NoError(t, w.svc.RenameSource(w.ctx, w.me, page.ID, notes.SourceInput{Kind: model.NoteSourceWeb, Title: "Renamed"}))
 
+	srcs, err = w.svc.Sources(w.ctx, w.me)
+	require.NoError(t, err)
+	require.Equal(t, "Renamed", srcs[0].Source.Title)
+	require.Equal(t, model.NoteSourceWeb, srcs[0].Source.Kind)
+	require.Nil(t, srcs[0].Source.URL)
+
 	require.NoError(t, w.svc.MergeSources(w.ctx, w.me, []string{page.ID}, id))
 	require.Equal(t, 1, w.count(t, "select count(*) from note_sources"))
 	require.Equal(t, 3, w.count(t, "select count(*) from notes where source_id = $1", id))
@@ -412,8 +488,54 @@ func TestSources(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, srcs)
 
+	var verr *service.ValidationError
+
 	err = w.svc.SetSource(w.ctx, w.me, []string{a.ID}, &notes.SourceInput{Kind: model.NoteSourceBook})
-	require.ErrorAs(t, err, new(*service.ValidationError))
+	require.ErrorAs(t, err, &verr)
+	require.Equal(t, "title", verr.Field)
+
+	err = w.svc.SetSource(w.ctx, w.me, []string{a.ID}, &notes.SourceInput{Kind: "film", Title: "x"})
+	require.ErrorAs(t, err, &verr)
+	require.Equal(t, "kind", verr.Field)
+}
+
+// Every method that takes an actor asks an anonymous one to log in.
+func TestNilActorNeedsLogin(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t)
+	n := w.note(t, w.me)
+	src := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
+	post := testutil.Must(factory.Post(w.ctx, w.db, w.me.ID))(t)
+	noteIDs, body, book := []string{n.ID}, "x", notes.SourceInput{Kind: model.NoteSourceBook, Title: "T"}
+
+	calls := map[string]func(u *model.User) error{
+		"Create":       func(u *model.User) error { _, err := w.svc.Create(w.ctx, u, notes.Input{Body: body}); return err },
+		"Update":       func(u *model.User) error { _, err := w.svc.Update(w.ctx, u, n.ID, notes.Edit{Body: &body}); return err },
+		"Get":          func(u *model.User) error { _, err := w.svc.Get(w.ctx, u, n.ID); return err },
+		"Delete":       func(u *model.User) error { return w.svc.Delete(w.ctx, u, n.ID) },
+		"DeleteMany":   func(u *model.User) error { _, err := w.svc.DeleteMany(w.ctx, u, noteIDs); return err },
+		"MarkUsed":     func(u *model.User) error { return w.svc.MarkUsed(w.ctx, u, n.ID, post.ID) },
+		"List":         func(u *model.User) error { _, err := w.svc.List(w.ctx, u, notes.Filter{}); return err },
+		"Tags":         func(u *model.User) error { _, err := w.svc.Tags(w.ctx, u); return err },
+		"SuggestTags":  func(u *model.User) error { _, err := w.svc.SuggestTags(w.ctx, u, n.ID); return err },
+		"HideTag":      func(u *model.User) error { return w.svc.HideTag(w.ctx, u, "a") },
+		"UnhideTag":    func(u *model.User) error { return w.svc.UnhideTag(w.ctx, u, "a") },
+		"TagMany":      func(u *model.User) error { return w.svc.TagMany(w.ctx, u, noteIDs, []string{"a"}) },
+		"RenameTag":    func(u *model.User) error { return w.svc.RenameTag(w.ctx, u, "a", "b") },
+		"MergeTags":    func(u *model.User) error { return w.svc.MergeTags(w.ctx, u, []string{"a"}, "b") },
+		"SetFocus":     func(u *model.User) error { return w.svc.SetFocus(w.ctx, u, "a") },
+		"Focus":        func(u *model.User) error { _, err := w.svc.Focus(w.ctx, u); return err },
+		"TouchFocus":   func(u *model.User) error { return w.svc.TouchFocus(w.ctx, u) },
+		"Sources":      func(u *model.User) error { _, err := w.svc.Sources(w.ctx, u); return err },
+		"SetSource":    func(u *model.User) error { return w.svc.SetSource(w.ctx, u, noteIDs, &book) },
+		"RenameSource": func(u *model.User) error { return w.svc.RenameSource(w.ctx, u, src.ID, book) },
+		"MergeSources": func(u *model.User) error { return w.svc.MergeSources(w.ctx, u, []string{src.ID}, src.ID) },
+	}
+
+	for name, call := range calls {
+		require.ErrorIs(t, call(nil), service.ErrNeedsLogin, name)
+	}
 }
 
 func TestMarkUsed(t *testing.T) {
