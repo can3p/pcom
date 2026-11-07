@@ -32,6 +32,12 @@ controller that only one page needs and that is large (the editor's grammar pane
 fetched only where the controller appears (`index.js` sets `__webpack_public_path__` to `/static/` for those
 chunks). Raising the budget instead needs the owner's reason.
 
+A page that must open fast on a phone loads its own webpack entry instead of `main.js`: the notes capture
+page (`/controls/notes/new`) ends with `footer--chrome.html` and `capture.js` (Stimulus, its controller and
+the header's menu toggle), has its own row in `TestFirstVisitWeight`, and has neither htmx nor the action
+controller, so its controller makes its own requests. A boosted link to such a page gets `HX-Redirect` so the
+page loads whole.
+
 ### Template Structure
 - Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
 - Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
