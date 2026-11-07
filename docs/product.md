@@ -198,7 +198,9 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   note and upload. The job re-checks the note and the upload when it runs, and does nothing if either is gone. The
   transcript becomes the body; editing it later never calls the provider. Language is detected, never set in
   advance: a forced language makes speech in any other language come out translated or garbled, so a per-user
-  setting would spoil every memo in another language.
+  setting would spoil every memo in another language. "Transcribe again as…" sends the recording once more with the
+  language forced, for a memo the detection got wrong; it counts against the limits and replaces the text, after a
+  confirmation whenever the note has text (the note doesn't keep its last transcript to compare with).
 - **Limits.** `STT_MINUTES_PER_DAY` per user and `STT_SITE_MINUTES_PER_DAY` for the site are counted over the last
   24 hours from `stt_requests` rows with `status = 'ok'`, as the proofreading limits are. Without a provider
   (`STT_PROVIDER` empty) there is no record button, and typed notes work.

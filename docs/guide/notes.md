@@ -110,6 +110,9 @@ so next to the record button: a recording is sent to that service, and nothing e
   recording.
 - The language is detected for each recording. Nothing is set in advance, so a memo in another language comes out
   right.
+- A very short or mixed-language memo can come out in the wrong language. **Transcribe again as…** on the note
+  (in the list or on its edit page) sends the recording once more in the language you pick. It counts against the
+  daily minutes, and since it replaces the note's text, it asks first when the note has text.
 - The transcription minutes are limited per day. A limit reached says so; the minutes count over the last 24 hours.
 - A recording is at most ten minutes long by default.
 
