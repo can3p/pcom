@@ -14,8 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 )
 
-// TagCount is a tag of the actor, how many notes carry it and whether the
-// actor hides it.
+// TagCount is a tag of the actor and how many notes carry it.
 type TagCount = repo.TagCount
 
 // maxSuggestions is how many tags SuggestTags offers.
@@ -178,7 +177,7 @@ func (s *Service) Tags(ctx context.Context, actor *model.User) ([]TagCount, erro
 
 // SuggestTags returns up to three of the actor's tags for a note: the ones
 // whose words appear in the note's text come first, then the ones the other
-// notes of its source or stack carry, most carried first. Tags the note has
+// notes of its source carry, most carried first. Tags the note has
 // are not suggested.
 func (s *Service) SuggestTags(ctx context.Context, actor *model.User, noteID string) ([]string, error) {
 	note, err := s.ownNote(ctx, s.store, actor, noteID, read)
@@ -191,7 +190,7 @@ func (s *Service) SuggestTags(ctx context.Context, actor *model.User, noteID str
 		return nil, err
 	}
 
-	neighbors, err := s.store.NeighborTagCounts(ctx, actor.ID, noteID, s.limits.SessionGap)
+	fromSource, err := s.store.SourceTagCounts(ctx, actor.ID, noteID)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +216,7 @@ func (s *Service) SuggestTags(ctx context.Context, actor *model.User, noteID str
 		}
 	}
 
-	for _, c := range neighbors {
+	for _, c := range fromSource {
 		add(c.Tag)
 	}
 
@@ -233,30 +232,6 @@ func inText(tag string, words map[string]bool) bool {
 	}
 
 	return true
-}
-
-// HideTag keeps the notes with the tag out of the list unless the view
-// shows hidden ones.
-func (s *Service) HideTag(ctx context.Context, actor *model.User, tag string) error {
-	return s.setHidden(ctx, actor, tag, true)
-}
-
-// UnhideTag undoes HideTag.
-func (s *Service) UnhideTag(ctx context.Context, actor *model.User, tag string) error {
-	return s.setHidden(ctx, actor, tag, false)
-}
-
-func (s *Service) setHidden(ctx context.Context, actor *model.User, tag string, hidden bool) error {
-	if actor == nil {
-		return service.ErrNeedsLogin
-	}
-
-	tag, err := s.normalizeTag("tag", tag)
-	if err != nil {
-		return err
-	}
-
-	return s.store.SetTagHidden(ctx, actor.ID, tag, hidden)
 }
 
 // TagMany adds tags to the notes, all or none: a note that would have too
@@ -288,15 +263,14 @@ func (s *Service) TagMany(ctx context.Context, actor *model.User, noteIDs, tags 
 	})
 }
 
-// RenameTag renames a tag in the actor's notes, the #words of their bodies
-// and the hidden preference. Renaming to a tag that exists merges them.
+// RenameTag renames a tag in the actor's notes and the #words of their
+// bodies. Renaming to a tag that exists merges them.
 func (s *Service) RenameTag(ctx context.Context, actor *model.User, from, to string) error {
 	return s.MergeTags(ctx, actor, []string{from}, to)
 }
 
-// MergeTags rewrites the tags into one: in the notes' tags and text_tags,
-// in the #words of the bodies and in the hidden preference, which into keeps
-// if it has one.
+// MergeTags rewrites the tags into one: in the notes' tags and text_tags
+// and in the #words of the bodies.
 func (s *Service) MergeTags(ctx context.Context, actor *model.User, from []string, into string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
@@ -347,7 +321,7 @@ func (s *Service) MergeTags(ctx context.Context, actor *model.User, from []strin
 			}
 		}
 
-		return s.carryPrefs(ctx, tx, actor.ID, olds, into)
+		return nil
 	})
 }
 
@@ -366,38 +340,4 @@ func renameIn(tags []string, renames map[string]string) []string {
 	}
 
 	return out
-}
-
-// carryPrefs gives into the hidden preference of the tags that go away,
-// unless it has one, and deletes theirs.
-func (s *Service) carryPrefs(ctx context.Context, tx *repo.Store, userID string, olds []string, into string) error {
-	target, err := tx.NoteTagPref(ctx, userID, into)
-	if err != nil {
-		return err
-	}
-
-	for _, old := range olds {
-		pref, err := tx.NoteTagPref(ctx, userID, old)
-		if err != nil {
-			return err
-		}
-
-		if pref == nil {
-			continue
-		}
-
-		if target == nil {
-			if err := tx.SetTagHidden(ctx, userID, into, pref.Hidden); err != nil {
-				return err
-			}
-
-			target = &model.NoteTagPref{UserID: userID, Tag: into, Hidden: pref.Hidden}
-		}
-
-		if err := tx.DeleteNoteTagPref(ctx, userID, old); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

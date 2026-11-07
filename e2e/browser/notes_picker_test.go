@@ -1,14 +1,13 @@
 //go:build browser
 
 // The post editor's Notes panel: it filters with the tag bar, the search and
-// by source and stack, inserts a note at the cursor, appends one, adds a
+// by source, inserts a note at the cursor, appends one, adds a
 // quote's attribution, and the post saves with the text and records the notes
 // as used.
 package browser_test
 
 import (
 	"context"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -52,7 +51,7 @@ func TestNotesPicker_FiltersInsertsAndAppends(t *testing.T) {
 		factory.FromSource(src.ID), factory.CapturedAt(now.Add(-48*time.Hour)))
 	mustNote(t, app, user.ID, factory.WithNoteBody("bravo idea"), factory.WithNoteTags("walk"), factory.CapturedAt(now.Add(-24*time.Hour)))
 
-	for i, body := range []string{"stacked one", "stacked two"} {
+	for i, body := range []string{"loose one", "loose two"} {
 		mustNote(t, app, user.ID, factory.WithNoteBody(body), factory.CapturedAt(now.Add(-time.Duration(30-i*5)*time.Minute)))
 	}
 
@@ -139,10 +138,11 @@ func TestNotesPicker_FiltersInsertsAndAppends(t *testing.T) {
 	require.NoError(t, search.Press("Enter"))
 	require.NoError(t, browser.Expect.Locator(picked).ToHaveCount(3))
 
-	// by stack: the heading opens the stack alone
-	require.NoError(t, link(regexp.MustCompile(`, 2 notes$`)).Click())
-	require.NoError(t, browser.Expect.Locator(picked).ToHaveCount(2))
-	require.NoError(t, browser.Expect.Locator(card("stacked one")).ToBeVisible())
+	// the search takes a tag too
+	require.NoError(t, search.Fill("#walk"))
+	require.NoError(t, search.Press("Enter"))
+	require.NoError(t, browser.Expect.Locator(picked).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(card("bravo idea")).ToBeVisible())
 
 	// the panel closes
 	require.NoError(t, panel.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Close notes"}).Click())

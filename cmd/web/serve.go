@@ -294,7 +294,6 @@ func notesOptions(cfg config.Notes, stt config.STT) []notes.Option {
 			AudioMaxBytes:        cfg.AudioMaxBytes,
 			AudioBitrate:         cfg.AudioBitrate,
 			CaptureMaxBytes:      cfg.CaptureMaxBytes,
-			SessionGap:           cfg.SessionGap,
 			FocusIdle:            cfg.FocusIdle,
 			STTMinutesPerDay:     stt.MinutesPerDay,
 			STTSiteMinutesPerDay: stt.SiteMinutesPerDay,

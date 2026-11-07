@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
@@ -223,7 +222,7 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	return s
 }
 
-// notesSnapshot lists the notes, tags with their hidden flags and sources of
+// notesSnapshot lists the notes, tags and sources of
 // the world's users.
 func (w *guardWorld) notesSnapshot(t *testing.T) []string {
 	t.Helper()
@@ -234,7 +233,7 @@ func (w *guardWorld) notesSnapshot(t *testing.T) []string {
 	var out []string
 
 	for _, u := range []*model.User{w.owner, w.friend, w.stranger, w.requester} {
-		rows, err := store.ListNotes(ctx, repo.NoteFilter{UserID: u.ID, ShowHidden: true, Gap: time.Minute})
+		rows, err := store.ListNotes(ctx, repo.NoteFilter{UserID: u.ID})
 		require.NoError(t, err)
 
 		for _, r := range rows {
@@ -251,7 +250,7 @@ func (w *guardWorld) notesSnapshot(t *testing.T) []string {
 		require.NoError(t, err)
 
 		for _, tc := range tags {
-			out = append(out, fmt.Sprintf("tag|%s|%s|%d|%v", u.ID, tc.Tag, tc.Count, tc.Hidden))
+			out = append(out, fmt.Sprintf("tag|%s|%s|%d", u.ID, tc.Tag, tc.Count))
 		}
 
 		sources, err := store.NoteSourcesWithNotes(ctx, u.ID)
@@ -402,10 +401,6 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"noteId": w.note.ID, "tag": "forged"}
 		}},
-	{http.MethodPost, "/controls/action/note_tag_hide", staticPath("/controls/action/note_tag_hide"),
-		func(*guardWorld) map[string]string { return map[string]string{"tag": "keep"} }},
-	{http.MethodPost, "/controls/action/note_tag_unhide", staticPath("/controls/action/note_tag_unhide"),
-		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
 	{http.MethodPost, "/controls/action/note_tag_rename", staticPath("/controls/action/note_tag_rename"),
 		func(*guardWorld) map[string]string { return map[string]string{"tag": "keep", "to": "forged2"} }},
 	{http.MethodPost, "/controls/action/note_source_set", staticPath("/controls/action/note_source_set"),

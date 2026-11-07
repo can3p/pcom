@@ -226,7 +226,6 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"NOTE_AUDIO_MAX_BYTES", "4096", func(s *config.Serve) any { return s.Notes.AudioMaxBytes }, int64(notes.DefaultAudioMaxBytes), int64(4096)},
 		{"NOTE_AUDIO_BITRATE", "16000", func(s *config.Serve) any { return s.Notes.AudioBitrate }, notes.DefaultAudioBitrate, 16000},
 		{"NOTE_CAPTURE_MAX_BYTES", "8192", func(s *config.Serve) any { return s.Notes.CaptureMaxBytes }, int64(notes.DefaultCaptureMaxBytes), int64(8192)},
-		{"NOTE_SESSION_GAP", "10m", func(s *config.Serve) any { return s.Notes.SessionGap }, notes.DefaultSessionGap, 10 * time.Minute},
 		{"NOTE_FOCUS_IDLE", "1h", func(s *config.Serve) any { return s.Notes.FocusIdle }, notes.DefaultFocusIdle, time.Hour},
 		{"STT_PROVIDER", "openai-compat", func(s *config.Serve) any { return s.STT.Provider }, "", "openai-compat"},
 		{"STT_TIMEOUT", "30s", func(s *config.Serve) any { return s.STT.Timeout }, notes.DefaultSTTTimeout, 30 * time.Second},

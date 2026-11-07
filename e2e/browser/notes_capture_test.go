@@ -98,7 +98,7 @@ func userNotes(t *testing.T, app *e2e.App, userID string) []*model.Note {
 
 	store := repo.New(app.DB)
 
-	rows, err := store.ListNotes(context.Background(), repo.NoteFilter{UserID: userID, ShowHidden: true, Limit: 50})
+	rows, err := store.ListNotes(context.Background(), repo.NoteFilter{UserID: userID, Limit: 50})
 	require.NoError(t, err)
 
 	out := make([]*model.Note, 0, len(rows))

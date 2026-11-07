@@ -5,7 +5,7 @@ import { Controller } from "@hotwired/stimulus"
 // action controllers; this one hands them the selected ids and the text their
 // confirmation shows.
 export default class extends Controller {
-  static targets = ["pick", "stackPick", "bar", "count", "tagButton", "sourceButton", "deleteButton", "capture"]
+  static targets = ["pick", "bar", "count", "tagButton", "sourceButton", "deleteButton", "capture"]
 
   select() {
     this.refresh()
@@ -21,18 +21,6 @@ export default class extends Controller {
     this.refresh()
   }
 
-  selectStack(event) {
-    const stack = event.target.dataset.stack
-
-    for (const box of this.pickTargets) {
-      if (box.dataset.stack === stack) {
-        box.checked = event.target.checked
-      }
-    }
-
-    this.refresh()
-  }
-
   refresh() {
     // the manage page has no selection bar
     if (!this.hasBarTarget) return
@@ -40,12 +28,6 @@ export default class extends Controller {
     const picked = this.pickTargets.filter((box) => box.checked)
     const recordings = picked.filter((box) => box.dataset.recording === "1").length
     const ids = picked.map((box) => box.value).join(",")
-
-    // a stack's box shows whether all its notes are picked
-    for (const head of this.stackPickTargets) {
-      const own = this.pickTargets.filter((box) => box.dataset.stack === head.dataset.stack)
-      head.checked = own.length > 0 && own.every((box) => box.checked)
-    }
 
     this.barTarget.hidden = picked.length === 0
     this.countTarget.textContent = `${picked.length} selected`

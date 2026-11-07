@@ -190,6 +190,11 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
 - **Tags are columns, the text is the note.** `tags` (set by actions) and `text_tags` (the `#word`s of the body,
   rewritten on every save) are both filtered on as `tags || text_tags`. Editing the text edits the text tags, and
   a tag from an action goes with its chip.
+- **One search box, no hidden tags.** The list narrows by one query (`notes.ParseSearch`): `#tag` must be on the
+  note, `-#tag` must not, and every other word is text searched for in the body, case-insensitively. A tag token
+  is normalized like any tag, and one that can't be a tag (`#`, `-#`, `#2024`) is text. A tag both included and
+  excluded is excluded. Nothing is hidden by a preference: a tag the author no longer wants to see is left out by
+  `-#tag`, so what the list shows is always what its query says.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
   object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
@@ -207,8 +212,9 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
 - **Quotes never lose text.** Shared text is stored as a blockquote, a lone link stays a link, and typed text is
   stored as typed. A quote takes the previous quote's source only within `NOTE_FOCUS_IDLE`; otherwise it waits in
   the Inbox. The source is found or made by normalized title and author, so one book is one group.
-- **Groups are computed, not stored.** A stack is the notes captured less than `NOTE_SESSION_GAP` apart, worked
-  out in the list query. The focus is a tag applied to every capture until `NOTE_FOCUS_IDLE` passes without one.
+- **The list is flat.** Notes are listed newest capture first, never grouped by when they were captured. Tag
+  suggestions are the author's tags whose words are in the note's text, then the tags the other notes of its
+  source carry. The focus is a tag applied to every capture until `NOTE_FOCUS_IDLE` passes without one.
 - **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
   CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
   PNG, JPEG and WebP are accepted, and a HEIC photo (an iPhone's) is converted to JPEG on upload with its

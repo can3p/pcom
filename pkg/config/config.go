@@ -196,7 +196,6 @@ type Notes struct {
 	AudioMaxBytes        int64         `long:"note-audio-max-bytes" env:"NOTE_AUDIO_MAX_BYTES" description:"Most bytes of one note's recording" default:"8388608"`
 	AudioBitrate         int           `long:"note-audio-bitrate" env:"NOTE_AUDIO_BITRATE" description:"Bits per second the browser records notes at" default:"24000"`
 	CaptureMaxBytes      int64         `long:"note-capture-max-bytes" env:"NOTE_CAPTURE_MAX_BYTES" description:"Most bytes of one capture with its photos and recording" default:"33554432"`
-	SessionGap           time.Duration `long:"note-session-gap" env:"NOTE_SESSION_GAP" description:"Most time between two notes shown as one capture session" default:"30m"`
 	FocusIdle            time.Duration `long:"note-focus-idle" env:"NOTE_FOCUS_IDLE" description:"How long the notes focus lasts after the last capture under it" default:"12h"`
 }
 

@@ -82,15 +82,6 @@ func (m *Note) BeforeAppendModel(_ context.Context, query bun.Query) error {
 	return nil
 }
 
-// NoteTagPref is a row of note_tag_prefs: a user's preferences for one tag.
-type NoteTagPref struct {
-	bun.BaseModel `bun:"table:note_tag_prefs"`
-
-	UserID string `bun:"user_id,pk"`
-	Tag    string `bun:"tag,pk"`
-	Hidden bool   `bun:"hidden,default:false"`
-}
-
 // NoteSource is a row of note_sources: a book or web page notes come from.
 // MatchKey is the normalized title and author, unique per user.
 type NoteSource struct {

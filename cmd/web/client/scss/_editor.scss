@@ -324,19 +324,9 @@
   }
 }
 
-.np-note,
-.np-stack {
+.np-note {
   padding-top: var(--space-3);
   border-top: 1px solid var(--line);
-}
-
-.np-stack .np-note {
-  padding-left: var(--space-3);
-}
-
-.np-stack-head {
-  margin: 0;
-  font: 600 13px var(--font-mono);
 }
 
 .np-text {

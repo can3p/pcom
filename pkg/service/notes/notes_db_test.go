@@ -187,87 +187,52 @@ func TestListFilters(t *testing.T) {
 
 	book := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 	a := w.note(t, w.me, at(0), factory.WithNoteTags("go"), factory.WithNoteBody("Walking in the Park"))
-	b := w.note(t, w.me, at(1), factory.WithNoteTextTags("go", "web", "draft"), factory.FromSource(book.ID))
+	b := w.note(t, w.me, at(1), factory.WithNoteTextTags("go", "web", "draft"), factory.FromSource(book.ID), factory.WithNoteBody("walking to work"))
 	c := w.note(t, w.me, at(2), factory.WithNoteTags("web", "done"))
 	d := w.note(t, w.me, at(200))
 	w.note(t, w.other, at(3), factory.WithNoteTags("go"))
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.me.ID))(t)
 	testutil.Must(factory.NotePostLink(w.ctx, w.db, a.ID, post.ID))(t)
-	// "done" is hidden through the tags column, "draft" through text_tags only.
-	require.NoError(t, w.svc.HideTag(w.ctx, w.me, "Done"))
-	require.NoError(t, w.svc.HideTag(w.ctx, w.me, "draft"))
 
-	all := func(f notes.Filter) notes.Filter { f.ShowHidden = true; return f }
+	search := func(q string) notes.Filter {
+		s := notes.ParseSearch(q)
+		return notes.Filter{Tags: s.Tags, NotTags: s.NotTags, Query: s.Query}
+	}
 
 	cases := map[string]struct {
 		f    notes.Filter
 		want []string
 	}{
-		"hidden tags of both columns are left out": {notes.Filter{}, []string{d.ID, a.ID}},
-		"show hidden":                        {all(notes.Filter{}), []string{d.ID, c.ID, b.ID, a.ID}},
-		"tags of both columns":               {all(notes.Filter{Tags: []string{"go"}}), []string{b.ID, a.ID}},
-		"all of the tags":                    {all(notes.Filter{Tags: []string{"Go", "web"}}), []string{b.ID}},
-		"a tags-column hidden tag asked for": {notes.Filter{Tags: []string{"done"}}, []string{c.ID}},
-		"a text-column hidden tag asked for": {notes.Filter{Tags: []string{"draft"}}, []string{b.ID}},
-		"not tags, both columns":             {all(notes.Filter{NotTags: []string{"web"}}), []string{d.ID, a.ID}},
-		"not a tag of the tags column":       {all(notes.Filter{NotTags: []string{"done"}}), []string{d.ID, b.ID, a.ID}},
-		"inbox":                              {notes.Filter{Inbox: true}, []string{d.ID}},
-		"unused":                             {all(notes.Filter{Unused: true}), []string{d.ID, c.ID, b.ID}},
-		"source":                             {all(notes.Filter{SourceID: book.ID}), []string{b.ID}},
-		"search ignores case":                {notes.Filter{Query: "walking IN"}, []string{a.ID}},
-		"search is not a pattern":            {notes.Filter{Query: "%"}, []string{}},
-		"inbox of a tag that has notes":      {notes.Filter{Inbox: true, Tags: []string{"go"}}, []string{}},
+		"all":                           {notes.Filter{}, []string{d.ID, c.ID, b.ID, a.ID}},
+		"tags of both columns":          {notes.Filter{Tags: []string{"go"}}, []string{b.ID, a.ID}},
+		"all of the tags":               {notes.Filter{Tags: []string{"Go", "web"}}, []string{b.ID}},
+		"a text-column tag":             {notes.Filter{Tags: []string{"draft"}}, []string{b.ID}},
+		"not tags, both columns":        {notes.Filter{NotTags: []string{"web"}}, []string{d.ID, a.ID}},
+		"not a tag of the tags column":  {notes.Filter{NotTags: []string{"done"}}, []string{d.ID, b.ID, a.ID}},
+		"inbox":                         {notes.Filter{Inbox: true}, []string{d.ID}},
+		"unused":                        {notes.Filter{Unused: true}, []string{d.ID, c.ID, b.ID}},
+		"source":                        {notes.Filter{SourceID: book.ID}, []string{b.ID}},
+		"search ignores case":           {notes.Filter{Query: "walking IN"}, []string{a.ID}},
+		"search is not a pattern":       {notes.Filter{Query: "%"}, []string{}},
+		"inbox of a tag that has notes": {notes.Filter{Inbox: true, Tags: []string{"go"}}, []string{}},
+		"search box: tag and text":      {search("#GO walking"), []string{b.ID, a.ID}},
+		"search box: tag left out":      {search("walking -#web"), []string{a.ID}},
+		"search box: tags and text":     {search("#go #draft walking to"), []string{b.ID}},
 	}
 
 	for name, tc := range cases {
 		require.Equal(t, tc.want, w.list(t, tc.f), name)
 	}
 
-	// a, b, c are within the gap of each other, d is a stack of its own; the
-	// stack counts notes the filter leaves out.
-	p, err := w.svc.List(w.ctx, w.me, notes.Filter{ShowHidden: true})
+	p, err := w.svc.List(w.ctx, w.me, notes.Filter{})
 	require.NoError(t, err)
-	require.Equal(t, d.ID, p.Entries[0].StackID)
-	require.Equal(t, 1, p.Entries[0].StackSize)
-	require.Equal(t, a.ID, p.Entries[1].StackID)
-	require.Equal(t, 3, p.Entries[1].StackSize)
 	require.False(t, p.Entries[1].Used)
 	require.Equal(t, book.ID, p.Entries[2].Note.Source.ID)
-	require.Equal(t, a.ID, p.Entries[3].StackID)
 	require.True(t, p.Entries[3].Used)
-
-	p, err = w.svc.List(w.ctx, w.me, notes.Filter{})
-	require.NoError(t, err)
-	require.Equal(t, 3, p.Entries[1].StackSize)
 
 	tags, err := w.svc.Tags(w.ctx, w.me)
 	require.NoError(t, err)
-	require.Equal(t, []notes.TagCount{{Tag: "go", Count: 2}, {Tag: "web", Count: 2}, {Tag: "done", Count: 1, Hidden: true}, {Tag: "draft", Count: 1, Hidden: true}}, tags)
-}
-
-// A note starts a new stack when it is more than the gap after the previous
-// one: exactly the gap still joins, a second more doesn't.
-func TestStackBoundary(t *testing.T) {
-	t.Parallel()
-
-	for name, gap := range map[string]time.Duration{"default gap": notes.DefaultSessionGap, "custom gap": 5 * time.Minute} {
-		w := newWorld(t, notes.WithLimits(notes.Limits{SessionGap: gap}))
-		base := w.now.Add(-24 * time.Hour)
-
-		n0 := w.note(t, w.me, factory.CapturedAt(base))
-		n1 := w.note(t, w.me, factory.CapturedAt(base.Add(gap)))
-		n2 := w.note(t, w.me, factory.CapturedAt(base.Add(2*gap+time.Second)))
-
-		p, err := w.svc.List(w.ctx, w.me, notes.Filter{})
-		require.NoError(t, err, name)
-		require.Equal(t, []string{n2.ID, n1.ID, n0.ID}, ids(p), name)
-
-		require.Equal(t, n2.ID, p.Entries[0].StackID, name)
-		require.Equal(t, 1, p.Entries[0].StackSize, name)
-		require.Equal(t, n0.ID, p.Entries[1].StackID, name)
-		require.Equal(t, n0.ID, p.Entries[2].StackID, name)
-		require.Equal(t, 2, p.Entries[2].StackSize, name)
-	}
+	require.Equal(t, []notes.TagCount{{Tag: "go", Count: 2}, {Tag: "web", Count: 2}, {Tag: "done", Count: 1}, {Tag: "draft", Count: 1}}, tags)
 }
 
 func TestPagingIsStableOverEqualCaptureTimes(t *testing.T) {
@@ -395,7 +360,6 @@ func TestTagManagement(t *testing.T) {
 	b := w.note(t, w.me, factory.WithNoteTags("walk", "old", "keep"))
 	other := w.note(t, w.other, factory.WithNoteBody("#old"), factory.WithNoteTextTags("old"), factory.WithNoteTags("old"))
 
-	require.NoError(t, w.svc.HideTag(w.ctx, w.me, "old"))
 	require.NoError(t, w.svc.TagMany(w.ctx, w.me, []string{a.ID, b.ID}, []string{"Bulk", "keep"}))
 	require.NoError(t, w.svc.RenameTag(w.ctx, w.me, "walks", "walk"))
 	require.NoError(t, w.svc.MergeTags(w.ctx, w.me, []string{"old", "bulk"}, "new"))
@@ -406,7 +370,7 @@ func TestTagManagement(t *testing.T) {
 	b, err = w.svc.Get(w.ctx, w.me, b.ID)
 	require.NoError(t, err)
 
-	// Both columns, the body and the preference are rewritten.
+	// Both columns and the body are rewritten.
 	require.Equal(t, "Read #walk today #new", a.Body)
 	require.Equal(t, []string{"walk", "new"}, a.TextTags)
 	require.Equal(t, []string{"new", "walk", "keep"}, a.Tags)
@@ -420,12 +384,7 @@ func TestTagManagement(t *testing.T) {
 
 	tags, err := w.svc.Tags(w.ctx, w.me)
 	require.NoError(t, err)
-	require.Equal(t, []notes.TagCount{{Tag: "keep", Count: 2}, {Tag: "new", Count: 2, Hidden: true}, {Tag: "walk", Count: 2}}, tags)
-	require.Equal(t, 0, w.count(t, "select count(*) from note_tag_prefs where tag = 'old'"))
-	require.Equal(t, 1, w.count(t, "select count(*) from note_tag_prefs where tag = 'new' and hidden"))
-
-	require.NoError(t, w.svc.UnhideTag(w.ctx, w.me, "new"))
-	require.Equal(t, 0, w.count(t, "select count(*) from note_tag_prefs where hidden"))
+	require.Equal(t, []notes.TagCount{{Tag: "keep", Count: 2}, {Tag: "new", Count: 2}, {Tag: "walk", Count: 2}}, tags)
 }
 
 func TestSuggestTags(t *testing.T) {
@@ -434,20 +393,29 @@ func TestSuggestTags(t *testing.T) {
 	w := newWorld(t)
 	base := w.now.Add(-72 * time.Hour)
 	book := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
+	otherBook := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 
-	// Far from the target: only its tags and, for the source one, its source count.
 	w.note(t, w.me, factory.CapturedAt(base.Add(-48*time.Hour)), factory.WithNoteTags("deep-work", "unrelated", "walking"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(-47*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("quotes"))
-	// The stack neighbours: zeta is carried by two of them, session by one.
-	w.note(t, w.me, factory.CapturedAt(base.Add(time.Minute)), factory.WithNoteTags("session", "zeta"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(2*time.Minute)), factory.WithNoteTextTags("zeta"))
+	// The other notes of the source: quotes is carried by two, aside by one.
+	w.note(t, w.me, factory.CapturedAt(base.Add(-47*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("aside"))
+	w.note(t, w.me, factory.CapturedAt(base.Add(-46*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("quotes"))
+	w.note(t, w.me, factory.CapturedAt(base.Add(-45*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTextTags("quotes"))
+	// Captured right next to the target, but from no source or another one.
+	w.note(t, w.me, factory.CapturedAt(base.Add(time.Minute)), factory.WithNoteTags("session"))
+	w.note(t, w.me, factory.CapturedAt(base.Add(2*time.Minute)), factory.FromSource(otherBook.ID), factory.WithNoteTags("elsewhere"))
 	target := w.note(t, w.me, factory.CapturedAt(base), factory.FromSource(book.ID), factory.WithNoteBody("some deep work on a Walking day"), factory.WithNoteTags("walking"))
+	loose := w.note(t, w.me, factory.CapturedAt(base.Add(3*time.Minute)), factory.WithNoteBody("more deep work"))
 
 	got, err := w.svc.SuggestTags(w.ctx, w.me, target.ID)
 	require.NoError(t, err)
-	// The text's tag first, then the neighbours' tags, most carried first
-	// (not alphabetical), and not what the note has; "session" is cut.
-	require.Equal(t, []string{"deep-work", "zeta", "quotes"}, got)
+	// The text's tag first, then the source's tags, most carried first (not
+	// alphabetical), and not what the note has; nothing from the notes
+	// captured around it.
+	require.Equal(t, []string{"deep-work", "quotes", "aside"}, got)
+
+	got, err = w.svc.SuggestTags(w.ctx, w.me, loose.ID)
+	require.NoError(t, err)
+	require.Equal(t, []string{"deep-work"}, got, "a note without a source gets no other sourceless note's tags")
 }
 
 func TestSources(t *testing.T) {
@@ -521,8 +489,6 @@ func TestNilActorNeedsLogin(t *testing.T) {
 		"InboxCount":   func(u *model.User) error { _, err := w.svc.InboxCount(w.ctx, u); return err },
 		"PostLinks":    func(u *model.User) error { _, err := w.svc.PostLinks(w.ctx, u, n.ID); return err },
 		"SuggestTags":  func(u *model.User) error { _, err := w.svc.SuggestTags(w.ctx, u, n.ID); return err },
-		"HideTag":      func(u *model.User) error { return w.svc.HideTag(w.ctx, u, "a") },
-		"UnhideTag":    func(u *model.User) error { return w.svc.UnhideTag(w.ctx, u, "a") },
 		"TagMany":      func(u *model.User) error { return w.svc.TagMany(w.ctx, u, noteIDs, []string{"a"}) },
 		"RenameTag":    func(u *model.User) error { return w.svc.RenameTag(w.ctx, u, "a", "b") },
 		"MergeTags":    func(u *model.User) error { return w.svc.MergeTags(w.ctx, u, []string{"a"}, "b") },

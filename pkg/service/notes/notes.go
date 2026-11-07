@@ -28,7 +28,6 @@ const (
 	DefaultAudioMaxBytes        = 8 << 20
 	DefaultAudioBitrate         = 24000
 	DefaultCaptureMaxBytes      = 32 << 20
-	DefaultSessionGap           = 30 * time.Minute
 	DefaultFocusIdle            = 12 * time.Hour
 	// DefaultPageSize is how many notes a page of the list holds unless
 	// WithPageSize sets it.
@@ -73,8 +72,6 @@ type Limits struct {
 	AudioBitrate int
 	// CaptureMaxBytes is the most bytes of one capture with all its files.
 	CaptureMaxBytes int64
-	// SessionGap is the most time between two captures of one session.
-	SessionGap time.Duration
 	// FocusIdle is how long the focus lasts after the last capture under it.
 	FocusIdle time.Duration
 	// STTMinutesPerDay is the minutes of recordings one user may have
@@ -94,7 +91,6 @@ var DefaultLimits = Limits{
 	AudioMaxBytes:        DefaultAudioMaxBytes,
 	AudioBitrate:         DefaultAudioBitrate,
 	CaptureMaxBytes:      DefaultCaptureMaxBytes,
-	SessionGap:           DefaultSessionGap,
 	FocusIdle:            DefaultFocusIdle,
 	STTMinutesPerDay:     DefaultSTTMinutesPerDay,
 	STTSiteMinutesPerDay: DefaultSTTSiteMinutesPerDay,
@@ -171,7 +167,6 @@ func WithLimits(l Limits) Option {
 		setIfPositive(&s.limits.AudioMaxBytes, l.AudioMaxBytes)
 		setIfPositive(&s.limits.AudioBitrate, l.AudioBitrate)
 		setIfPositive(&s.limits.CaptureMaxBytes, l.CaptureMaxBytes)
-		setIfPositive(&s.limits.SessionGap, l.SessionGap)
 		setIfPositive(&s.limits.FocusIdle, l.FocusIdle)
 		setIfPositive(&s.limits.STTMinutesPerDay, l.STTMinutesPerDay)
 		setIfPositive(&s.limits.STTSiteMinutesPerDay, l.STTSiteMinutesPerDay)

@@ -1,9 +1,9 @@
-{{/* A note of the list. Item: a web.NoteItem, User: the viewer's auth.UserData, Stack: the ID of its stack or "". */}}
+{{/* A note of the list. Item: a web.NoteItem, User: the viewer's auth.UserData. */}}
 {{ $n := .Item.Note }}
 <article class="item note" id="note-{{ $n.ID }}" data-testid="note">
   <label class="note-pick">
     <input type="checkbox" value="{{ $n.ID }}" data-notes-target="pick" data-action="notes#select"
-           data-recording="{{ if $n.AudioUploadID }}1{{ else }}0{{ end }}"{{ with .Stack }} data-stack="{{ . }}"{{ end }}
+           data-recording="{{ if $n.AudioUploadID }}1{{ else }}0{{ end }}"
            aria-label="Select this note">
   </label>
   <div class="note-main">

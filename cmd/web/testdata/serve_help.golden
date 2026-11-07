@@ -512,11 +512,6 @@ Help Options:
                                                        and recording (default:
                                                        33554432)
                                                        [$NOTE_CAPTURE_MAX_BYTES]
-          --note-session-gap=                          Most time between two
-                                                       notes shown as one
-                                                       capture session
-                                                       (default: 30m)
-                                                       [$NOTE_SESSION_GAP]
           --note-focus-idle=                           How long the notes focus
                                                        lasts after the last
                                                        capture under it

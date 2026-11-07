@@ -133,18 +133,6 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		return svc.TagMany(c, u, []string{in.NoteID}, []string{in.Tag})
 	}))
 
-	actions.POST("/note_tag_hide", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
-		Tag string `json:"tag"`
-	}) error {
-		return svc.HideTag(c, u, in.Tag)
-	}))
-
-	actions.POST("/note_tag_unhide", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
-		Tag string `json:"tag"`
-	}) error {
-		return svc.UnhideTag(c, u, in.Tag)
-	}))
-
 	// renaming a tag to one that exists merges them
 	actions.POST("/note_tag_rename", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		Tag string `json:"tag"`

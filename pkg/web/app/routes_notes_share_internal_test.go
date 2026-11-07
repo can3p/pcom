@@ -141,7 +141,7 @@ func TestShareRoute(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 		require.Contains(t, rec.Body.String(), msg)
 
-		rows, err := store.ListNotes(ctx, repo.NoteFilter{UserID: userID, ShowHidden: true, Limit: 10})
+		rows, err := store.ListNotes(ctx, repo.NoteFilter{UserID: userID, Limit: 10})
 		require.NoError(t, err)
 		require.Empty(t, rows)
 	}

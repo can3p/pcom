@@ -41,9 +41,6 @@
     </div>
   </form>
 
-  {{ if .Query.StackID }}
-  <p class="acts"><a href="/controls/notes">All notes</a></p>
-  {{ else }}
   <div class="nt-views">
     <ul class="nt-chips" aria-label="Views">
       {{ range .Views }}
@@ -60,7 +57,6 @@
     <form class="nt-search" method="get" action="/controls/notes" role="search">
       {{ range .Query.Tags }}<input type="hidden" name="tag" value="{{ . }}">{{ end }}
       {{ range .Query.Not }}<input type="hidden" name="not" value="{{ . }}">{{ end }}
-      {{ if .Query.ShowHidden }}<input type="hidden" name="hidden" value="1">{{ end }}
       {{ with .Query.SourceID }}<input type="hidden" name="source" value="{{ . }}">{{ end }}
       {{ if .Query.Unused }}<input type="hidden" name="unused" value="1">{{ end }}
       {{ if .Query.Inbox }}<input type="hidden" name="inbox" value="1">{{ end }}
@@ -71,7 +67,6 @@
   </div>
 
   {{ template "partial--note-tag-bar.html" toMap "Bar" .Bar }}
-  {{ end }}
 
   <div class="nt-select box" data-notes-target="bar" hidden role="region" aria-label="Selected notes">
     <span data-notes-target="count" role="status"></span>

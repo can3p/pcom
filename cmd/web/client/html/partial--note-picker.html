@@ -1,11 +1,6 @@
 {{/* The post editor's Notes panel, loaded into #np-body by GET /controls/notes/picker; its filters load the
      next view in place. The page: a web.NotePickerPage. A "Load more" gets note_picker_list alone. */}}
 {{ define "note_picker_list" }}
-{{ range .Groups }}
-{{ if .Group.Stack }}
-<section class="np-stack" aria-label="{{ .Group.Label }}">
-  <p class="np-stack-head"><a href="{{ .Group.Href }}" hx-get="{{ .Group.Href }}" hx-target="#np-body" hx-swap="innerHTML">{{ .Group.Label }}</a></p>
-{{ end }}
 {{ range .Items }}
 {{ $n := .Item.Note }}
 <article class="np-note" data-testid="picker-note">
@@ -17,8 +12,6 @@
     <a href="/controls/notes/{{ $n.ID }}/edit" target="_blank" rel="noopener">Open</a>
   </div>
 </article>
-{{ end }}
-{{ if .Group.Stack }}</section>{{ end }}
 {{ else }}
 <p class="field-help">No notes match.</p>
 {{ end }}
@@ -33,7 +26,6 @@
   {{ range .Query.Tags }}<input type="hidden" name="tag" value="{{ . }}">{{ end }}
   {{ range .Query.Not }}<input type="hidden" name="not" value="{{ . }}">{{ end }}
   {{ if .Query.SourceID }}<input type="hidden" name="source" value="{{ .Query.SourceID }}">{{ end }}
-  {{ if .Query.ShowHidden }}<input type="hidden" name="hidden" value="1">{{ end }}
   <input type="search" name="q" value="{{ .Query.Q }}" placeholder="Search notes" aria-label="Search notes">
 </form>
 {{ template "partial--note-tag-bar.html" toMap "Bar" .Bar }}
@@ -47,7 +39,6 @@
   </ul>
 </details>
 {{ end }}
-{{ with .AllHref }}<p class="np-back"><a href="{{ . }}" hx-get="{{ . }}" hx-target="#np-body" hx-swap="innerHTML">All notes</a></p>{{ end }}
 <div class="np-list">
 {{ template "note_picker_list" . }}
 </div>

@@ -15,9 +15,9 @@ import (
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
-	"github.com/can3p/pcom/pkg/util/date"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
@@ -25,15 +25,12 @@ import (
 const NotesPath = "/controls/notes"
 
 // NoteQuery is the view of the notes list a URL describes: the tags a note
-// must (Tags) and must not (Not) carry, whether hidden tags are shown, the
-// source, the unused and Inbox filters and the text search. The tag bar and the
-// post editor's panel build their links from it.
+// must (Tags) and must not (Not) carry, the source, the unused and Inbox
+// filters and the search box's query (Q, read by notes.ParseSearch). The tag
+// bar and the post editor's panel build their links from it.
 type NoteQuery struct {
-	Tags, Not  []string
-	ShowHidden bool
-	SourceID   string
-	// StackID is the stack the view shows alone (notes.Entry.StackID).
-	StackID       string
+	Tags, Not     []string
+	SourceID      string
 	Unused, Inbox bool
 	Q             string
 }
@@ -41,23 +38,26 @@ type NoteQuery struct {
 // ParseNoteQuery reads a NoteQuery from the request's query string.
 func ParseNoteQuery(c *gin.Context) NoteQuery {
 	return NoteQuery{
-		Tags:       c.QueryArray("tag"),
-		Not:        c.QueryArray("not"),
-		ShowHidden: c.Query("hidden") == "1",
-		SourceID:   c.Query("source"),
-		StackID:    c.Query("stack"),
-		Unused:     c.Query("unused") == "1",
-		Inbox:      c.Query("inbox") == "1",
-		Q:          strings.TrimSpace(c.Query("q")),
+		Tags:     c.QueryArray("tag"),
+		Not:      c.QueryArray("not"),
+		SourceID: c.Query("source"),
+		Unused:   c.Query("unused") == "1",
+		Inbox:    c.Query("inbox") == "1",
+		Q:        strings.TrimSpace(c.Query("q")),
 	}
 }
 
-// Filter is the notes service's filter for q, from the page after cursor.
+// Filter is the notes service's filter for q, from the page after cursor:
+// the tags of the tag bar and of the search box together, a tag left out
+// winning over the same tag included, and the search box's text.
 func (q NoteQuery) Filter(cursor string) notes.Filter {
+	search := notes.ParseSearch(q.Q)
+	not := lo.Union(search.NotTags, q.Not)
+	tags := slices.DeleteFunc(lo.Union(search.Tags, q.Tags), func(t string) bool { return slices.Contains(not, t) })
+
 	return notes.Filter{
-		StackID: q.StackID,
-		Tags:    q.Tags, NotTags: q.Not, ShowHidden: q.ShowHidden, SourceID: q.SourceID,
-		Unused: q.Unused, Inbox: q.Inbox, Query: q.Q, Cursor: cursor,
+		Tags: tags, NotTags: not, Query: search.Query, SourceID: q.SourceID,
+		Unused: q.Unused, Inbox: q.Inbox, Cursor: cursor,
 	}
 }
 
@@ -73,16 +73,8 @@ func (q NoteQuery) Values() url.Values {
 		v.Add("not", t)
 	}
 
-	if q.ShowHidden {
-		v.Set("hidden", "1")
-	}
-
 	if q.SourceID != "" {
 		v.Set("source", q.SourceID)
-	}
-
-	if q.StackID != "" {
-		v.Set("stack", q.StackID)
 	}
 
 	if q.Unused {
@@ -146,57 +138,35 @@ func (q NoteQuery) withSource(id string) NoteQuery {
 	return q
 }
 
-// WithHidden is q with the hidden tags' notes shown or not.
-func (q NoteQuery) WithHidden(show bool) NoteQuery {
-	q.ShowHidden = show
-
-	return q
-}
-
 // Filtered reports whether q narrows the list down at all.
 func (q NoteQuery) Filtered() bool {
-	return len(q.Tags)+len(q.Not) > 0 || q.SourceID != "" || q.StackID != "" || q.Unused || q.Inbox || q.Q != ""
+	return len(q.Tags)+len(q.Not) > 0 || q.SourceID != "" || q.Unused || q.Inbox || q.Q != ""
 }
 
 // NoteChip is a tag of the tag bar: State is "include", "exclude" or "off",
 // and Href the view a tap on it leads to.
 type NoteChip struct {
-	Tag    string
-	Count  int
-	State  string
-	Hidden bool
-	Href   string
+	Tag   string
+	Count int
+	State string
+	Href  string
 }
 
 // NoteTagBar is the tag bar of the notes list and the post editor's panel.
 // A chip is a link to Path with the next state of the tag; with a Target
-// the link is fetched in place into that element instead. Manage adds Hide
-// and Unhide to the chips.
+// the link is fetched in place into that element instead.
 type NoteTagBar struct {
 	Path   string
 	Target string
-	Manage bool
 	Query  NoteQuery
 	Chips  []NoteChip
-	// HiddenTags is how many tags the author hides; ShowHiddenHref flips
-	// whether their notes are in the view.
-	HiddenTags     int
-	ShowHiddenHref string
 }
 
 // NewNoteTagBar builds the tag bar of the tags for the view q at path.
-func NewNoteTagBar(path, target string, manage bool, q NoteQuery, tags []notes.TagCount) *NoteTagBar {
-	bar := &NoteTagBar{Path: path, Target: target, Manage: manage, Query: q}
+func NewNoteTagBar(path, target string, q NoteQuery, tags []notes.TagCount) *NoteTagBar {
+	bar := &NoteTagBar{Path: path, Target: target, Query: q}
 
 	for _, t := range tags {
-		if t.Hidden {
-			bar.HiddenTags++
-
-			if !q.ShowHidden && !slices.Contains(q.Tags, t.Tag) {
-				continue
-			}
-		}
-
 		state := "off"
 
 		switch {
@@ -207,12 +177,10 @@ func NewNoteTagBar(path, target string, manage bool, q NoteQuery, tags []notes.T
 		}
 
 		bar.Chips = append(bar.Chips, NoteChip{
-			Tag: t.Tag, Count: t.Count, State: state, Hidden: t.Hidden,
+			Tag: t.Tag, Count: t.Count, State: state,
 			Href: q.Cycle(t.Tag).URL(path),
 		})
 	}
-
-	bar.ShowHiddenHref = q.WithHidden(!q.ShowHidden).URL(path)
 
 	return bar
 }
@@ -289,9 +257,9 @@ const (
 
 // NoteStatus is the transcription status of a note's recording, as
 // partial--note-status.html shows it. View is NoteStatusList, NoteStatusEdit
-// or "" for the status alone. On the list, Stack is the stack the note shows
-// in and Suggest whether its tag suggestions show, so the item that replaces
-// it once the text is there looks the same. On the edit page, Base is the
+// or "" for the status alone. On the list, Suggest says whether its tag
+// suggestions show, so the item that replaces it once the text is there
+// looks the same. On the edit page, Base is the
 // body the page was opened with, which every poll sends back with the text
 // being edited; Typed says the two differ, so the author changed the text
 // while the recording was transcribed: the form keeps it and Transcript shows
@@ -299,7 +267,6 @@ const (
 type NoteStatus struct {
 	Note       *model.Note
 	View       string
-	Stack      string
 	Suggest    bool
 	Base       string
 	Typed      bool
@@ -313,10 +280,6 @@ func (s *NoteStatus) Query() string {
 
 	if s.View != "" {
 		v.Set("view", s.View)
-	}
-
-	if s.Stack != "" {
-		v.Set("stack", s.Stack)
 	}
 
 	if s.Suggest {
@@ -337,7 +300,7 @@ func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.N
 	item := &NoteItem{
 		Note: n, Used: links > 0, Tags: NoteTagsOf(n),
 		DeletePrompt: NoteDeletePrompt(n, links > 0),
-		Status:       &NoteStatus{Note: n, View: NoteStatusList, Stack: at.Stack, Suggest: at.Suggest},
+		Status:       &NoteStatus{Note: n, View: NoteStatusList, Suggest: at.Suggest},
 		Again:        NoteAgainOf(svc, n, false),
 	}
 
@@ -365,17 +328,6 @@ func TranscriptOf(body string, before ...string) string {
 	return body
 }
 
-// NoteGroup is the notes of a list under one heading: the notes of a stack
-// of several, or a single note.
-type NoteGroup struct {
-	StackID string
-	Stack   bool
-	Label   string
-	// Href is the view of the stack alone.
-	Href  string
-	Items []*NoteItem
-}
-
 // NoteLink is a view of the list the page links to; Active says it is the
 // one on show.
 type NoteLink struct {
@@ -388,9 +340,9 @@ type NoteLink struct {
 // NotesPage is /controls/notes and its management screen.
 type NotesPage struct {
 	*BasePage
-	Query  NoteQuery
-	Bar    *NoteTagBar
-	Groups []*NoteGroup
+	Query NoteQuery
+	Bar   *NoteTagBar
+	Items []*NoteItem
 	// More is the link that loads the next page, empty on the last.
 	More string
 	// Focus is the author's current focus tag.
@@ -444,24 +396,6 @@ func NoteDeletePrompt(n *model.Note, used bool) string {
 	return s
 }
 
-// stackLabel is "Tuesday evening, 7 notes" for the stack captured at t.
-func stackLabel(t time.Time, user *model.User, size int) string {
-	at := date.LocalizeTime(user, t)
-
-	part := "night"
-
-	switch h := at.Hour(); {
-	case h >= 5 && h < 12:
-		part = "morning"
-	case h >= 12 && h < 17:
-		part = "afternoon"
-	case h >= 17 && h < 22:
-		part = "evening"
-	}
-
-	return fmt.Sprintf("%s %s, %d notes", at.Weekday(), part, size)
-}
-
 // NoteTagsOf lists the tags of a note, the ones set by hand first.
 func NoteTagsOf(n *model.Note) []NoteTag {
 	var out []NoteTag
@@ -479,10 +413,10 @@ func NoteTagsOf(n *model.Note) []NoteTag {
 	return out
 }
 
-// noteGroups puts the entries of a list, newest first, into groups: the
-// neighbours of one stack form a group.
-func noteGroups(svc *notes.Service, c *gin.Context, user *model.User, entries []notes.Entry, suggest bool) ([]*NoteGroup, error) {
-	var groups []*NoteGroup
+// noteItems are the items of the entries of a list, with their tag
+// suggestions when suggest is set.
+func noteItems(svc *notes.Service, c *gin.Context, user *model.User, entries []notes.Entry, suggest bool) ([]*NoteItem, error) {
+	items := make([]*NoteItem, 0, len(entries))
 
 	for _, e := range entries {
 		item := &NoteItem{
@@ -490,10 +424,6 @@ func noteGroups(svc *notes.Service, c *gin.Context, user *model.User, entries []
 			DeletePrompt: NoteDeletePrompt(e.Note, e.Used),
 			Status:       &NoteStatus{Note: e.Note, View: NoteStatusList, Suggest: suggest},
 			Again:        NoteAgainOf(svc, e.Note, false),
-		}
-
-		if e.StackSize > 1 {
-			item.Status.Stack = e.StackID
 		}
 
 		if suggest {
@@ -505,26 +435,14 @@ func noteGroups(svc *notes.Service, c *gin.Context, user *model.User, entries []
 			item.Suggestions = s
 		}
 
-		if last := len(groups) - 1; last >= 0 && e.StackSize > 1 && groups[last].StackID == e.StackID {
-			groups[last].Items = append(groups[last].Items, item)
-			continue
-		}
-
-		g := &NoteGroup{StackID: e.StackID, Items: []*NoteItem{item}}
-		if e.StackSize > 1 {
-			g.Stack = true
-			g.Label = stackLabel(e.Note.CapturedAt, user, e.StackSize)
-			g.Href = NoteQuery{StackID: e.StackID}.URL(NotesPath)
-		}
-
-		groups = append(groups, g)
+		items = append(items, item)
 	}
 
-	return groups, nil
+	return items, nil
 }
 
 // Notes is the notes list for the view of the request: the tag bar, the
-// notes grouped by stack and the link to the next page.
+// notes and the link to the next page.
 func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NotesPage] {
 	user := userData.DBUser
 	q := ParseNoteQuery(c)
@@ -539,7 +457,7 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*NotesPage](err)
 	}
 
-	groups, err := noteGroups(svc, c, user, page.Entries, q.Inbox)
+	items, err := noteItems(svc, c, user, page.Entries, q.Inbox)
 	if err != nil {
 		return mo.Err[*NotesPage](err)
 	}
@@ -557,8 +475,8 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 	out := &NotesPage{
 		BasePage: getBasePage(c, "Notes", userData),
 		Query:    q,
-		Bar:      NewNoteTagBar(NotesPath, "", true, q, tags),
-		Groups:   groups,
+		Bar:      NewNoteTagBar(NotesPath, "", q, tags),
+		Items:    items,
 		Focus:    focus,
 		Views: []NoteLink{
 			{Label: "Inbox", Href: q.withInbox(!q.Inbox).URL(NotesPath), Active: q.Inbox},

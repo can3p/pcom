@@ -1,10 +1,6 @@
 {{/* A page of the notes list and the link to the next one: also the whole answer to "Load more". The page: a web.NotesPage. */}}
-{{ range .Groups }}
-{{ if .Stack }}
-{{ template "partial--note-stack.html" toMap "Group" . "User" $.User }}
-{{ else }}
-{{ range .Items }}{{ template "partial--note-item.html" toMap "Item" . "User" $.User "Stack" "" }}{{ end }}
-{{ end }}
+{{ range .Items }}
+{{ template "partial--note-item.html" toMap "Item" . "User" $.User }}
 {{ else }}
 <p class="field-help note-empty">{{ if .Query.Filtered }}No notes match.{{ else }}No notes yet.{{ end }}</p>
 {{ end }}

@@ -45,17 +45,17 @@ box are:
 - **Views.** **Inbox** shows the notes with no tag yet. **Unused** shows the notes you have not put into a post.
 - **Sources**, when you have quotes: a book or article, with the number of its notes. Selecting one shows only its
   notes.
-- **Search**, which looks through the text of your notes.
+- **Search**, one box for tags and text:
+  - `#essay` shows only the notes tagged *essay*;
+  - `-#done` leaves out the notes tagged *done*;
+  - any other word is looked for in the text of your notes, in any case.
+
+  They combine: `#essay -#done streets` is the notes tagged *essay*, not *done*, that mention streets. A tag both
+  asked for and left out is left out. Tags are matched in any case, and a `#` that isn't followed by a tag
+  (such as `#2024`) is searched for as text.
 - **Tags**, the tag bar. Each chip is a tag with its count, most used first. A tap on a chip cycles it through
   *include* (the notes must have it), *exclude* (they must not have it) and off. The filters are in the address, so
   a filtered view can be bookmarked.
-
-A tag can be **hidden**: its notes leave the list, for tags like *done* or a project that is finished. **hide** is on
-each chip. **Show hidden (N)** brings them back for one view, and **Leave hidden out** hides them again.
-
-Notes captured close together form a **stack**, labelled with the day and the part of it, such as
-"Tuesday evening, 7 notes". A stack is one group in the list. Its heading opens the stack by itself, and selecting
-the stack selects all its notes.
 
 Each note shows its text, its tags, its source, and whether it has been used in a post. **Edit** opens the note,
 and **Delete** removes it, after you confirm.
@@ -65,19 +65,18 @@ and **Delete** removes it, after you confirm.
 Tags are free words. You can set them in four ways:
 
 - **A suggestion.** Each untagged note offers up to three of your existing tags whose words appear in its text,
-  or that other notes from its source or stack carry. One tap tags the note.
+  or that other notes from its source carry. One tap tags the note.
 - **`#word` in the text.** Any `#word` in a note is a tag, so there is no tag field to fill. Editing the text edits
   the tag, and its chip says *(written in the text)*. To remove that tag, remove the `#word` from the text.
-- **Selection.** Select several notes, or a stack, and press **Tag** to add tags to all of them.
+- **Selection.** Select several notes and press **Tag** to add tags to all of them.
 - **Speech.** Say "hashtag word" while dictating and the transcript writes `#word`.
 
 **Tags and sources** (the link at the top of the list) is where tags and sources are renamed and merged, since
-free-form words drift. Renaming or merging a tag changes it on every note that has it. The same screen hides and
-unhides tags, and sets the focus.
+free-form words drift. Renaming or merging a tag changes it on every note that has it. The same screen sets the focus.
 
 ### Several notes at once
 
-Tick the boxes of several notes, or of a stack, and a bar appears with **Tag**, **Source** and **Delete**. **Source**
+Tick the boxes of several notes and a bar appears with **Tag**, **Source** and **Delete**. **Source**
 gives the selected notes one book or article, and an empty title clears it. **Delete** asks first and says how many
 notes and recordings it removes.
 
@@ -124,8 +123,8 @@ but their files stay on the server, as the images of deleted posts do.
 
 ## Using notes in a post
 
-In the post editor, the **Notes** button in the toolbar opens a panel beside the text. It has the same tags, search,
-sources and stacks as the list. Each note shows **Insert** (at the cursor), **Append** (at the end of the post) and
+In the post editor, the **Notes** button in the toolbar opens a panel beside the text. It has the same tags, search
+and sources as the list. Each note shows **Insert** (at the cursor), **Append** (at the end of the post) and
 **Open** (the note in a new tab). A quote goes in with its attribution, such as *— Author, *Title*, p. 12*. A note
 that you insert is marked as used, so the **Unused** view shows what is left.
 

@@ -78,74 +78,42 @@ func (s *Store) NoteWithRelations(ctx context.Context, id string) (*model.Note, 
 }
 
 // NoteFilter picks the notes of one user. Tags are the ones a note must
-// carry, NotTags the ones it must not, both read from tags || text_tags.
-// Unless ShowHidden, notes with a hidden tag are left out, except for the
-// hidden tags named in Tags. Gap is the most time between two notes of a
-// stack. The page starts right after the note (BeforeAt, BeforeID), newest
-// capture first; Limit caps the rows, 0 means no cap.
+// carry, NotTags the ones it must not, both read from tags || text_tags. The
+// page starts right after the note (BeforeAt, BeforeID), newest capture
+// first; Limit caps the rows, 0 means no cap.
 type NoteFilter struct {
-	UserID     string
-	Tags       []string
-	NotTags    []string
-	ShowHidden bool
-	SourceID   string
-	Unused     bool
-	Inbox      bool
-	Query      string
-	Gap        time.Duration
-	BeforeAt   time.Time
-	BeforeID   string
-	Limit      int
+	UserID   string
+	Tags     []string
+	NotTags  []string
+	SourceID string
+	Unused   bool
+	Inbox    bool
+	Query    string
+	BeforeAt time.Time
+	BeforeID string
+	Limit    int
 }
 
-// NoteRow is a note of a list with the stack it is in: StackID is the ID of
-// the oldest note of the stack, StackSize the notes in it (whatever the
-// filter), Used whether it is linked to a post.
+// NoteRow is a note of a list and whether it is linked to a post.
 type NoteRow struct {
-	Note      *model.Note
-	StackID   string
-	StackSize int
-	Used      bool
+	Note *model.Note
+	Used bool
 }
 
 type noteListRow struct {
-	ID        string `bun:"id"`
-	StackID   string `bun:"stack_id"`
-	StackSize int    `bun:"stack_size"`
-	Used      bool   `bun:"used"`
+	ID   string `bun:"id"`
+	Used bool   `bun:"used"`
 }
 
 // noteTags is the union of the tags of a note, the expression the GIN index
 // is on.
 const noteTags = "(n.tags || n.text_tags)"
 
-// stacksSQL numbers the stacks of a user's notes: a note starts a new one
-// when the previous note (lag over the capture order) is more than the gap
-// older.
-const stacksSQL = `
-SELECT id,
-  first_value(id) OVER (PARTITION BY stack_no ORDER BY captured_at, id) AS stack_id,
-  count(*) OVER (PARTITION BY stack_no) AS stack_size
-FROM (
-  SELECT id, captured_at,
-    sum(starts) OVER (ORDER BY captured_at, id) AS stack_no
-  FROM (
-    SELECT id, captured_at,
-      CASE WHEN lag(captured_at) OVER (ORDER BY captured_at, id) IS NULL
-        OR captured_at - lag(captured_at) OVER (ORDER BY captured_at, id) > make_interval(secs => ?)
-      THEN 1 ELSE 0 END AS starts
-    FROM notes WHERE user_id = ?
-  ) m
-) k`
-
-// ListNotes returns the notes the filter picks with their stacks. The stacks
-// are computed over all the user's notes, not just the picked ones.
+// ListNotes returns the notes the filter picks.
 func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) {
 	q := s.query().NewSelect().
-		With("stacks", s.query().NewRaw(stacksSQL, f.Gap.Seconds(), f.UserID)).
 		TableExpr("notes AS n").
-		Join("JOIN stacks st ON st.id = n.id").
-		ColumnExpr("n.id, st.stack_id, st.stack_size").
+		ColumnExpr("n.id").
 		ColumnExpr("EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = n.id) AS used").
 		Where("n.user_id = ?", f.UserID).
 		OrderExpr("n.captured_at DESC, n.id DESC")
@@ -156,11 +124,6 @@ func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) 
 
 	if len(f.NotTags) > 0 {
 		q = q.Where("NOT ("+noteTags+" && ?::text[])", pgdialect.Array(f.NotTags))
-	}
-
-	if !f.ShowHidden {
-		q = q.Where("NOT ("+noteTags+" && ARRAY(SELECT p.tag FROM note_tag_prefs p WHERE p.user_id = ? AND p.hidden AND NOT (p.tag = ANY (?::text[]))))",
-			f.UserID, pgdialect.Array(f.Tags))
 	}
 
 	if f.SourceID != "" {
@@ -227,7 +190,7 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 
 	rows := make([]NoteRow, 0, len(list))
 	for _, r := range list {
-		rows = append(rows, NoteRow{Note: byID[r.ID], StackID: r.StackID, StackSize: r.StackSize, Used: r.Used})
+		rows = append(rows, NoteRow{Note: byID[r.ID], Used: r.Used})
 	}
 
 	return rows, nil
@@ -235,9 +198,8 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 
 // TagCount is a tag of a user and the notes that carry it.
 type TagCount struct {
-	Tag    string `bun:"tag"`
-	Count  int    `bun:"count"`
-	Hidden bool   `bun:"hidden"`
+	Tag   string `bun:"tag"`
+	Count int    `bun:"count"`
 }
 
 // NoteTagCounts returns the tags of the user's notes (tags || text_tags),
@@ -246,59 +208,32 @@ func (s *Store) NoteTagCounts(ctx context.Context, userID string) ([]TagCount, e
 	var out []TagCount
 
 	err := s.query().NewRaw(`
-SELECT x.tag AS tag, count(*) AS count, coalesce(p.hidden, false) AS hidden
+SELECT x.tag AS tag, count(*) AS count
 FROM (SELECT DISTINCT n.id, unnest(`+noteTags+`) AS tag FROM notes n WHERE n.user_id = ?) x
-LEFT JOIN note_tag_prefs p ON p.user_id = ? AND p.tag = x.tag
-GROUP BY x.tag, p.hidden
-ORDER BY count(*) DESC, x.tag`, userID, userID).Scan(ctx, &out)
+GROUP BY x.tag
+ORDER BY count(*) DESC, x.tag`, userID).Scan(ctx, &out)
 
 	return out, err
 }
 
-// NeighborTagCounts returns the tags the other notes of a note's source and
-// of its stack carry, with how many of those notes carry each.
-func (s *Store) NeighborTagCounts(ctx context.Context, userID, noteID string, gap time.Duration) ([]TagCount, error) {
+// SourceTagCounts returns the tags the other notes of a note's source carry,
+// with how many of those notes carry each, most carried first. A note
+// without a source has none.
+func (s *Store) SourceTagCounts(ctx context.Context, userID, noteID string) ([]TagCount, error) {
 	var out []TagCount
 
 	err := s.query().NewRaw(`
-WITH stacks AS (`+stacksSQL+`)
 SELECT x.tag AS tag, count(*) AS count
 FROM (
   SELECT DISTINCT n.id, unnest(`+noteTags+`) AS tag
   FROM notes n
-  JOIN stacks st ON st.id = n.id
-  JOIN notes me ON me.id = ?
-  JOIN stacks mine ON mine.id = me.id
+  JOIN notes me ON me.id = ? AND me.source_id = n.source_id
   WHERE n.user_id = ? AND n.id <> me.id
-    AND (st.stack_id = mine.stack_id OR (me.source_id IS NOT NULL AND n.source_id = me.source_id))
 ) x
 GROUP BY x.tag
-ORDER BY count(*) DESC, x.tag`, gap.Seconds(), userID, noteID, userID).Scan(ctx, &out)
+ORDER BY count(*) DESC, x.tag`, noteID, userID).Scan(ctx, &out)
 
 	return out, err
-}
-
-// SetTagHidden stores whether the user hides the tag.
-func (s *Store) SetTagHidden(ctx context.Context, userID, tag string, hidden bool) error {
-	_, err := s.query().NewInsert().Model(&model.NoteTagPref{UserID: userID, Tag: tag, Hidden: hidden}).
-		On("CONFLICT (user_id, tag) DO UPDATE").Set("hidden = EXCLUDED.hidden").Exec(ctx)
-
-	return err
-}
-
-// NoteTagPref returns the user's preference for the tag, or nil.
-func (s *Store) NoteTagPref(ctx context.Context, userID, tag string) (*model.NoteTagPref, error) {
-	p := new(model.NoteTagPref)
-
-	return orNil(p, s.query().NewSelect().Model(p).Where("user_id = ?", userID).Where("tag = ?", tag).Scan(ctx))
-}
-
-// DeleteNoteTagPref removes the user's preference for the tag.
-func (s *Store) DeleteNoteTagPref(ctx context.Context, userID, tag string) error {
-	_, err := s.query().NewDelete().Model((*model.NoteTagPref)(nil)).
-		Where("user_id = ?", userID).Where("tag = ?", tag).Exec(ctx)
-
-	return err
 }
 
 // LockNotesWithTags returns the user's notes that carry any of the tags (in

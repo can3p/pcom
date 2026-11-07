@@ -1,4 +1,4 @@
-{{/* The screen that renames and merges tags and sources, hides tags and sets the focus.
+{{/* The screen that renames and merges tags and sources and sets the focus.
      The page: a web.NotesPage with Manage set. */}}
 {{ $m := .Manage }}
 <header class="notes-head">
@@ -13,7 +13,7 @@
     {{ range $m.Tags }}
     <li class="controls-row" data-testid="tag-row">
       <a href="/controls/notes?tag={{ .Tag | urlquery }}">#{{ .Tag }}</a>
-      <span class="meta">{{ .Count }} {{ if eq .Count 1 }}note{{ else }}notes{{ end }}{{ if .Hidden }}, hidden{{ end }}{{ if eq .Tag $m.Focus }}, focus{{ end }}</span>
+      <span class="meta">{{ .Count }} {{ if eq .Count 1 }}note{{ else }}notes{{ end }}{{ if eq .Tag $m.Focus }}, focus{{ end }}</span>
       <span class="acts">
         <button type="button"
                 data-controller="action"
@@ -23,12 +23,6 @@
                 data-action-prompt-field-value="to"
                 data-tag="{{ .Tag }}"
                 aria-label="Rename #{{ .Tag }}">rename</button>
-        <button type="button"
-                data-controller="action"
-                data-action="action#run"
-                data-action-action-value="{{ if .Hidden }}note_tag_unhide{{ else }}note_tag_hide{{ end }}"
-                data-tag="{{ .Tag }}"
-                aria-label="{{ if .Hidden }}Unhide{{ else }}Hide{{ end }} #{{ .Tag }}">{{ if .Hidden }}unhide{{ else }}hide{{ end }}</button>
         {{ if ne .Tag $m.Focus }}
         <button type="button"
                 data-controller="action"

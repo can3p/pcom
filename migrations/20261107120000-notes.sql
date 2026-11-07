@@ -47,14 +47,6 @@ create index on notes(source_id);
 -- Filtering by tag queries this exact expression.
 create index on notes using gin ((tags || text_tags));
 
--- A user's preferences for one tag; renaming or merging a tag carries them.
-create table note_tag_prefs (
-  user_id uuid not null references users(id) on delete cascade,
-  tag text not null,
-  hidden boolean not null default false,
-  primary key (user_id, tag)
-);
-
 -- The photos of a note, in the order of position, shown as a strip and
 -- removable one by one without editing the body.
 create table note_images (
@@ -106,7 +98,6 @@ drop table stt_requests;
 drop table note_post_links;
 drop type note_post_link_how;
 drop table note_images;
-drop table note_tag_prefs;
 drop table notes;
 drop type note_transcription_status;
 alter table media_uploads drop column kind;

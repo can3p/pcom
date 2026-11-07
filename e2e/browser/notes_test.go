@@ -1,8 +1,7 @@
 //go:build browser
 
 // Everything an author does on the notes pages: the tag bar (include,
-// exclude, hide, show hidden), the Inbox with its suggestions, stacks and
-// selections, sources, renaming and merging, the edit page, quick capture and
+// exclude), the search box, the Inbox with its suggestions and selections, sources, renaming and merging, the edit page, quick capture and
 // each delete with its confirmation.
 package browser_test
 
@@ -108,7 +107,7 @@ func mustNote(t *testing.T, app *e2e.App, userID string, opts ...factory.NoteOpt
 }
 
 // A tap on a chip includes the tag, a second tap excludes it, a third clears
-// it; Hide keeps a tag's notes out until "Show hidden" brings them back.
+// it; the search box takes #tags, -#tags and text.
 func TestNotes_TagBar(t *testing.T) {
 	t.Parallel()
 
@@ -143,18 +142,17 @@ func TestNotes_TagBar(t *testing.T) {
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/notes$`)))
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
 
-	require.NoError(t, bar.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Hide #done"}).Click())
-	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(3))
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "bravo note")).ToHaveCount(0))
-
-	require.NoError(t, bar.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Show hidden (1)"}).Click())
-	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "bravo note")).ToBeVisible())
+	search := page.GetByRole("searchbox", playwright.PageGetByRoleOptions{Name: "Search notes"})
+	require.NoError(t, search.Fill("#Essay -#done note"))
+	require.NoError(t, search.Press("Enter"))
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`q=`)))
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "alpha note")).ToBeVisible())
 }
 
 // The Inbox holds the untagged notes and offers the tags that fit one tap
-// away; a stack of notes captured together is tagged as a whole.
-func TestNotes_InboxSuggestionsAndStacks(t *testing.T) {
+// away; a selection of notes is tagged at once.
+func TestNotes_InboxSuggestionsAndSelection(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
@@ -164,10 +162,10 @@ func TestNotes_InboxSuggestionsAndStacks(t *testing.T) {
 	mustNote(t, app, user.ID, factory.WithNoteBody("old thoughts"), factory.WithNoteTags("essay"), factory.CapturedAt(now.Add(-72*time.Hour)))
 	walking := mustNote(t, app, user.ID, factory.WithNoteBody("a walking essay about streets"), factory.CapturedAt(now.Add(-48*time.Hour)))
 
-	var stack []*model.Note
+	var picked []*model.Note
 	for i := range 3 {
-		stack = append(stack, mustNote(t, app, user.ID,
-			factory.WithNoteBody(fmt.Sprintf("stacked %d", i)), factory.CapturedAt(now.Add(-time.Duration(30-i*5)*time.Minute))))
+		picked = append(picked, mustNote(t, app, user.ID,
+			factory.WithNoteBody(fmt.Sprintf("picked %d", i)), factory.CapturedAt(now.Add(-time.Duration(30-i*5)*time.Minute))))
 	}
 
 	page := browser.Page(t, app, browser.As(user))
@@ -187,24 +185,19 @@ func TestNotes_InboxSuggestionsAndStacks(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "a walking essay")).ToHaveCount(0))
 	require.Equal(t, []string{"essay"}, noteIn(t, app, walking.ID).Tags)
 
-	heading := page.GetByRole("region", playwright.PageGetByRoleOptions{Name: regexp.MustCompile(`, 3 notes$`)})
-	require.NoError(t, browser.Expect.Locator(heading).ToBeVisible())
+	for _, n := range picked {
+		require.NoError(t, noteCard(page, n.Body).GetByRole("checkbox", playwright.LocatorGetByRoleOptions{Name: "Select this note"}).Check())
+	}
 
-	// the heading opens the stack alone
-	require.NoError(t, heading.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: regexp.MustCompile(`, 3 notes$`)}).Click())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`stack=`)))
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("note")).ToHaveCount(3))
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("navigation", playwright.PageGetByRoleOptions{Name: "Tags"})).ToHaveCount(0))
-
-	require.NoError(t, heading.GetByRole("checkbox", playwright.LocatorGetByRoleOptions{Name: regexp.MustCompile(`, 3 notes$`)}).Check())
 	require.NoError(t, browser.Expect.Locator(page.GetByText("3 selected")).ToBeVisible())
 
 	dialogs.reply(true, "trip, photos")
 	require.NoError(t, page.GetByRole("region", playwright.PageGetByRoleOptions{Name: "Selected notes"}).
 		GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Tag"}).Click())
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("note").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#trip"})).ToHaveCount(3))
+	// tagged, they leave the Inbox
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "picked")).ToHaveCount(0))
 
-	for _, n := range stack {
+	for _, n := range picked {
 		require.ElementsMatch(t, []string{"trip", "photos"}, noteIn(t, app, n.ID).Tags)
 	}
 

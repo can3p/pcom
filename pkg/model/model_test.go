@@ -25,7 +25,6 @@ var models = []any{
 	(*model.NoteImage)(nil),
 	(*model.NotePostLink)(nil),
 	(*model.NoteSource)(nil),
-	(*model.NoteTagPref)(nil),
 	(*model.Post)(nil),
 	(*model.PostComment)(nil),
 	(*model.PostPrompt)(nil),

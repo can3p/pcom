@@ -1,4 +1,4 @@
-// Notes: the list with its tag bar, stacks and selection, the capture box,
+// Notes: the list with its tag bar and selection, the capture box,
 // the management screen and the edit page. Colours come from tokens.
 .notes {
   max-width: var(--prose-width);
@@ -128,33 +128,11 @@
       text-decoration: line-through;
     }
   }
-
-  &.nt-hidden {
-    border-style: dashed;
-    color: var(--muted);
-  }
 }
 
 .nt-count {
   color: var(--muted);
   font-weight: 400;
-}
-
-.nt-hide {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: 400 12px var(--font-mono);
-  cursor: pointer;
-
-  &:hover {
-    color: var(--accent);
-  }
-}
-
-.nt-showhidden {
-  font: 600 13px var(--font-mono);
 }
 
 .nt-select {
@@ -225,18 +203,6 @@
       color: var(--accent);
     }
   }
-}
-
-.note-stack {
-  margin: var(--space-3) 0;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--line);
-}
-
-.note-stack-head {
-  padding-top: var(--space-2);
-  font: 600 14px var(--font-ui);
-  color: var(--muted);
 }
 
 .note-excerpt {

@@ -121,22 +121,13 @@ type NotePickerItem struct {
 	Text string
 }
 
-// NotePickerGroup is the notes of the panel under one heading, as
-// NoteGroup.
-type NotePickerGroup struct {
-	Group *NoteGroup
-	Items []*NotePickerItem
-}
-
 // NotePickerPage is the fragment of the post editor's Notes panel: the tag
-// bar, the source and stack filters and a page of notes.
+// bar, the source filter and a page of notes.
 type NotePickerPage struct {
 	Query   NoteQuery
 	Bar     *NoteTagBar
 	Sources []NoteLink
-	// AllHref leaves the stack view; set only in one.
-	AllHref string
-	Groups  []*NotePickerGroup
+	Items   []*NotePickerItem
 	// More loads the next page, empty on the last.
 	More string
 }
@@ -180,7 +171,7 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		return mo.Err[*NotePickerPage](err)
 	}
 
-	groups, err := noteGroups(svc, c, user, page.Entries, false)
+	items, err := noteItems(svc, c, user, page.Entries, false)
 	if err != nil {
 		return mo.Err[*NotePickerPage](err)
 	}
@@ -190,23 +181,10 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		return mo.Err[*NotePickerPage](err)
 	}
 
-	out := &NotePickerPage{Query: q, Bar: NewNoteTagBar(NotePickerPath, NotePickerTarget, false, q, tags)}
+	out := &NotePickerPage{Query: q, Bar: NewNoteTagBar(NotePickerPath, NotePickerTarget, q, tags)}
 
-	for _, g := range groups {
-		pg := &NotePickerGroup{Group: g}
-		if g.Stack {
-			g.Href = NoteQuery{StackID: g.StackID}.URL(NotePickerPath)
-		}
-
-		for _, it := range g.Items {
-			pg.Items = append(pg.Items, &NotePickerItem{Item: it, Text: quoteText(it.Note)})
-		}
-
-		out.Groups = append(out.Groups, pg)
-	}
-
-	if q.StackID != "" {
-		out.AllHref = NotePickerPath
+	for _, it := range items {
+		out.Items = append(out.Items, &NotePickerItem{Item: it, Text: quoteText(it.Note)})
 	}
 
 	if page.Next != "" {

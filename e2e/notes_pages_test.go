@@ -35,8 +35,7 @@ func notesPagesApp(t *testing.T, stt string, opts ...e2e.Option) *e2e.App {
 	return e2e.Start(t, opts...)
 }
 
-// day is noon UTC of the day-th day of October 2026: notes a day apart are
-// never one stack.
+// day is noon UTC of the day-th day of October 2026.
 func day(d int) time.Time { return time.Date(2026, 10, d, 12, 0, 0, 0, time.UTC) }
 
 func mustNote(t *testing.T, app *e2e.App, userID string, opts ...factory.NoteOpt) *model.Note {
@@ -60,7 +59,7 @@ func texts(doc interface {
 }
 
 // chip is a tag chip of a tag bar.
-type chip struct{ state, href, hidden string }
+type chip struct{ state, href string }
 
 func chips(doc *goquery.Document) map[string]chip {
 	out := map[string]chip{}
@@ -69,7 +68,7 @@ func chips(doc *goquery.Document) map[string]chip {
 		a := s.Find("a")
 		href, _ := a.Attr("href")
 		state, _ := s.Attr("data-state")
-		out[strings.Fields(a.Text())[0]] = chip{state: state, href: href, hidden: map[bool]string{true: "hidden"}[s.HasClass("nt-hidden")]}
+		out[strings.Fields(a.Text())[0]] = chip{state: state, href: href}
 	})
 
 	return out
@@ -113,27 +112,26 @@ func TestNotesPages_ListFilters(t *testing.T) {
 	post := testutil.Must(factory.Post(ctx, app.DB, user.ID))(t)
 	testutil.Must(factory.NotePostLink(ctx, app.DB, used.ID, post.ID))(t)
 
-	c.PostJSON("/controls/action/note_tag_hide", map[string]string{"tag": "secret"}).RequireStatus(http.StatusOK)
-
 	list := func(query string) []string {
 		return texts(c.Get("/controls/notes"+query).RequireStatus(http.StatusOK).Doc(), "[data-testid=note] .note-body")
 	}
 
-	// newest first; the note with a hidden tag is out, another user's note never in
-	require.Equal(t, []string{"delta date", "charlie Cherry", "bravo banana", "alpha apple"}, list(""))
+	// newest first; another user's note never in
+	require.Equal(t, []string{"echo elder", "delta date", "charlie Cherry", "bravo banana", "alpha apple"}, list(""))
 
 	tests := []struct {
 		name, query string
 		want        []string
 	}{
-		{"hidden", "?hidden=1", []string{"echo elder", "delta date", "charlie Cherry", "bravo banana", "alpha apple"}},
 		{"tag", "?tag=essay", []string{"bravo banana", "alpha apple"}},
 		{"two tags", "?tag=essay&tag=walk", []string{"bravo banana"}},
-		{"not", "?not=essay", []string{"delta date", "charlie Cherry"}},
+		{"not", "?not=essay", []string{"echo elder", "delta date", "charlie Cherry"}},
 		{"tag and not", "?tag=essay&not=walk", []string{"alpha apple"}},
-		{"a hidden tag named", "?tag=secret", []string{"echo elder"}},
+		{"search box tag", "?q=%23Secret", []string{"echo elder"}},
+		{"search box tags and text", "?q=%23essay+-%23walk+apple", []string{"alpha apple"}},
+		{"search box tag left out", "?q=-%23walk+-%23secret", []string{"charlie Cherry", "alpha apple"}},
 		{"inbox", "?inbox=1", []string{"charlie Cherry"}},
-		{"unused", "?unused=1", []string{"charlie Cherry", "bravo banana", "alpha apple"}},
+		{"unused", "?unused=1", []string{"echo elder", "charlie Cherry", "bravo banana", "alpha apple"}},
 		{"source", "?source=" + src.ID, []string{"delta date"}},
 		{"search", "?q=cherry", []string{"charlie Cherry"}},
 		{"search is trimmed", "?q=+banana+", []string{"bravo banana"}},
@@ -170,33 +168,20 @@ func TestNotesPages_TagBarViewsAndSources(t *testing.T) {
 	mustNote(t, app, user.ID, factory.WithNoteTags("essay"), factory.CapturedAt(day(1)))
 	mustNote(t, app, user.ID, factory.WithNoteTags("essay", "walk"), factory.CapturedAt(day(3)))
 	mustNote(t, app, user.ID, factory.WithNoteTags("secret", "walk"), factory.FromSource(src.ID), factory.CapturedAt(day(5)))
-	c.PostJSON("/controls/action/note_tag_hide", map[string]string{"tag": "secret"}).RequireStatus(http.StatusOK)
 
 	doc := c.Get("/controls/notes?tag=essay&not=walk").RequireStatus(http.StatusOK).Doc()
 	got := chips(doc)
 	// include goes to exclude, exclude to off, off to include; the other tags stay
 	require.Equal(t, map[string]chip{
-		"#essay": {"include", "/controls/notes?not=walk&not=essay", ""},
-		"#walk":  {"exclude", "/controls/notes?tag=essay", ""},
+		"#essay":  {"include", "/controls/notes?not=walk&not=essay"},
+		"#walk":   {"exclude", "/controls/notes?tag=essay"},
+		"#secret": {"off", "/controls/notes?not=walk&tag=essay&tag=secret"},
 	}, got)
-	require.Equal(t, []string{"#essay 2 (included)", "#walk 2 (excluded)"}, texts(doc, "nav.nt-bar li.nt-chip a"))
-
-	href, ok := linkTo(doc, "nav.nt-bar a.nt-showhidden", "Show hidden (1)")
-	require.True(t, ok)
-	require.Equal(t, "/controls/notes?hidden=1&not=walk&tag=essay", href)
-
-	// with the hidden notes shown the chip of their tag is there, marked
-	doc = c.Get("/controls/notes?hidden=1").Doc()
-	require.Equal(t, chip{"off", "/controls/notes?hidden=1&tag=secret", "hidden"}, chips(doc)["#secret"])
-	require.Equal(t, chip{"off", "/controls/notes?hidden=1&tag=essay", ""}, chips(doc)["#essay"])
-	href, ok = linkTo(doc, "nav.nt-bar a.nt-showhidden", "Leave hidden out")
-	require.True(t, ok)
-	require.Equal(t, "/controls/notes", href)
-	require.Equal(t, []string{"hide", "hide", "unhide"}, texts(doc, "nav.nt-bar .nt-hide"))
+	require.Equal(t, []string{"#essay 2 (included)", "#walk 2 (excluded)", "#secret 1"}, texts(doc, "nav.nt-bar li.nt-chip a"))
 
 	// views: a filter keeps the others, and the active one toggles off
 	doc = c.Get("/controls/notes?tag=essay").Doc()
-	href, _ = linkTo(doc, ".nt-views ul[aria-label=Views] a", "Inbox")
+	href, _ := linkTo(doc, ".nt-views ul[aria-label=Views] a", "Inbox")
 	require.Equal(t, "/controls/notes?inbox=1&tag=essay", href)
 	href, _ = linkTo(doc, ".nt-views ul[aria-label=Views] a", "Unused")
 	require.Equal(t, "/controls/notes?tag=essay&unused=1", href)
@@ -210,7 +195,7 @@ func TestNotesPages_TagBarViewsAndSources(t *testing.T) {
 
 	// sources: a count, a link that selects it and, selected, one that clears it
 	doc = c.Get("/controls/notes?tag=walk").Doc()
-	href, ok = linkTo(doc, "ul[aria-label=Sources] a", src.Title+" 1")
+	href, ok := linkTo(doc, "ul[aria-label=Sources] a", src.Title+" 1")
 	require.True(t, ok)
 	require.Equal(t, "/controls/notes?source="+src.ID+"&tag=walk", href)
 
@@ -253,39 +238,31 @@ func TestNotesPages_CursorPages(t *testing.T) {
 	require.Equal(t, []string{"untagged", "three"}, texts(doc, "[data-testid=note] .note-body"))
 }
 
-func TestNotesPages_StacksAndTheirLabels(t *testing.T) {
+// Once a recording on the list is transcribed, its poll answers with the
+// whole list item, suggestions included when the list shows them.
+func TestNotesPages_StatusPollOnTheListAnswersTheItem(t *testing.T) {
 	t.Parallel()
 
-	app := notesPagesApp(t, sttOff)
+	app := notesPagesApp(t, sttOn)
+	ctx := context.Background()
 	user, c := newLoggedIn(t, app)
 
-	// Tuesday 3 Nov 2026, evening: two notes ten minutes apart
-	eve := time.Date(2026, 11, 3, 19, 0, 0, 0, time.UTC)
-	oldest := mustNote(t, app, user.ID, factory.WithNoteBody("first of the evening"), factory.CapturedAt(eve))
-	mustNote(t, app, user.ID, factory.WithNoteBody("second of the evening"), factory.CapturedAt(eve.Add(10*time.Minute)))
-	// Wednesday morning, alone
-	mustNote(t, app, user.ID, factory.WithNoteBody("alone"), factory.CapturedAt(eve.Add(14*time.Hour)))
-	// Thursday small hours: three notes
-	night := time.Date(2026, 11, 5, 2, 0, 0, 0, time.UTC)
-	for i := range 3 {
-		mustNote(t, app, user.ID, factory.WithNoteBody("night "+string(rune('a'+i))), factory.CapturedAt(night.Add(time.Duration(i)*time.Minute)))
-	}
+	mustNote(t, app, user.ID, factory.WithNoteTags("essay"))
+	audio := testutil.Must(factory.NoteAudio(ctx, app.DB, user.ID))(t)
+	n := mustNote(t, app, user.ID, factory.WithNoteBody("an essay draft"), factory.WithRecording(audio.ID),
+		factory.WithNoteTranscription(model.NoteTranscriptionDone))
 
-	doc := c.Get("/controls/notes").Doc()
-	require.Equal(t, []string{"Thursday night, 3 notes", "Tuesday evening, 2 notes"}, texts(doc, "section.note-stack .note-stack-head a"))
-	require.Equal(t, 5, doc.Find("section.note-stack [data-testid=note]").Length(), "the lone note is not in a stack")
-	require.Equal(t, []string{"alone"}, texts(doc, ".note-list > [data-testid=note] .note-body"))
+	poll := "/controls/notes/" + n.ID + "/status?view=list"
 
-	sec := doc.Find("section.note-stack[aria-label='Tuesday evening, 2 notes']")
-	require.Equal(t, "/controls/notes?stack="+oldest.ID, sec.Find("a").AttrOr("href", ""))
-	require.Equal(t, oldest.ID, sec.Find("input[data-stack]").AttrOr("data-stack", ""))
-	require.Equal(t, "Select Tuesday evening, 2 notes", sec.Find("input[data-stack]").AttrOr("aria-label", ""))
+	doc := c.Get(poll + "&suggest=1").RequireStatus(http.StatusOK).Doc()
+	item := doc.Find("article#note-" + n.ID)
+	require.Equal(t, 1, item.Length())
+	require.Equal(t, []string{"an essay draft"}, texts(item, ".note-body"))
+	require.Equal(t, []string{"+ #essay"}, texts(item, ".nt-suggest button"))
 
-	// the stack alone, with the way back and without the filters
-	doc = c.Get("/controls/notes?stack=" + oldest.ID).RequireStatus(http.StatusOK).Doc()
-	require.Equal(t, []string{"second of the evening", "first of the evening"}, texts(doc, "[data-testid=note] .note-body"))
-	require.Equal(t, "/controls/notes", doc.Find("main.notes > p.acts a").AttrOr("href", ""))
-	require.Zero(t, doc.Find(".nt-views").Length())
+	doc = c.Get(poll).RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, 1, doc.Find("article#note-"+n.ID).Length())
+	require.Zero(t, doc.Find(".nt-suggest").Length())
 }
 
 func TestNotesPages_ManageScreen(t *testing.T) {
@@ -304,15 +281,14 @@ func TestNotesPages_ManageScreen(t *testing.T) {
 	mustNote(t, app, user.ID, factory.WithNoteTags("essay", "walk"), factory.FromSource(one.ID))
 	mustNote(t, app, user.ID, factory.WithNoteTags("essay"), factory.FromSource(one.ID))
 	mustNote(t, app, user.ID, factory.WithNoteTags("secret"), factory.FromSource(two.ID))
-	c.PostJSON("/controls/action/note_tag_hide", map[string]string{"tag": "secret"}).RequireStatus(http.StatusOK)
 	c.PostJSON("/controls/action/note_focus", map[string]string{"tag": "walk"}).RequireStatus(http.StatusOK)
 
 	doc = c.Get("/controls/notes/manage").RequireStatus(http.StatusOK).Doc()
 	require.Equal(t, "Tags and sources", doc.Find("h1").Text())
 	require.Equal(t, []string{
-		"#essay 2 notes rename hide focus",
-		"#secret 1 note, hidden rename unhide focus",
-		"#walk 1 note, focus rename hide",
+		"#essay 2 notes rename focus",
+		"#secret 1 note rename focus",
+		"#walk 1 note, focus rename",
 	}, texts(doc, "[data-testid=tag-row]"))
 	require.Equal(t, "Rename #essay to (a name that exists merges the two tags)",
 		doc.Find("[data-testid=tag-row] button[aria-label='Rename #essay']").AttrOr("data-action-prompt-value", ""))
@@ -616,23 +592,22 @@ func TestNotesPages_Picker(t *testing.T) {
 	mustNote(t, app, user.ID, factory.WithNoteBody("> charlie cherry\n"), factory.FromSource(bare.ID), factory.CapturedAt(day(5)))
 	mustNote(t, app, user.ID, factory.WithNoteBody("delta date"), factory.WithNoteTags("secret"), factory.CapturedAt(day(7)))
 	mustNote(t, app, newUser(t, app).ID, factory.WithNoteBody("foreign fig"), factory.WithNoteTags("essay"))
-	c.PostJSON("/controls/action/note_tag_hide", map[string]string{"tag": "secret"}).RequireStatus(http.StatusOK)
 
 	picker := func(query string) *goquery.Document {
 		return c.Get("/controls/notes/picker" + query).RequireStatus(http.StatusOK).Doc()
 	}
 	bodies := func(doc *goquery.Document) []string { return texts(doc, "[data-testid=picker-note] .np-text") }
 
-	require.Equal(t, []string{"charlie cherry", "bravo banana", "alpha apple"}, bodies(picker("")))
+	require.Equal(t, []string{"delta date", "charlie cherry", "bravo banana", "alpha apple"}, bodies(picker("")))
 
 	tests := []struct {
 		name, query string
 		want        []string
 	}{
 		{"tag", "?tag=essay", []string{"bravo banana", "alpha apple"}},
-		{"not", "?not=walk", []string{"charlie cherry", "alpha apple"}},
-		{"hidden", "?hidden=1", []string{"delta date", "charlie cherry", "bravo banana", "alpha apple"}},
+		{"not", "?not=walk", []string{"delta date", "charlie cherry", "alpha apple"}},
 		{"search", "?q=apple", []string{"alpha apple"}},
+		{"search box tags", "?q=%23essay+-%23walk", []string{"alpha apple"}},
 		{"source", "?source=" + book.ID, []string{"bravo banana"}},
 		{"nothing", "?q=zzz", []string{}},
 	}
@@ -650,22 +625,21 @@ func TestNotesPages_Picker(t *testing.T) {
 	text := func(i int) string {
 		return doc.Find("[data-testid=picker-note]").Eq(i).Find("button").First().AttrOr("data-text", "")
 	}
-	require.Equal(t, "> charlie cherry\n\n— *"+bare.Title+"*", text(0))
-	require.Equal(t, "> bravo banana\n\n— Ann Author, *"+book.Title+"*, p. 42", text(1))
-	require.Equal(t, "alpha apple", text(2))
+	require.Equal(t, "> charlie cherry\n\n— *"+bare.Title+"*", text(1))
+	require.Equal(t, "> bravo banana\n\n— Ann Author, *"+book.Title+"*, p. 42", text(2))
+	require.Equal(t, "alpha apple", text(3))
 
-	buttons := doc.Find("[data-testid=picker-note]").Eq(1).Find("button")
+	buttons := doc.Find("[data-testid=picker-note]").Eq(2).Find("button")
 	require.Equal(t, []string{"Insert", "Append"}, texts(buttons.Parent(), "button"))
-	require.Equal(t, text(1), buttons.Eq(1).AttrOr("data-text", ""))
-	require.Equal(t, []string{book.Title + ", 42"}, texts(doc.Find("[data-testid=picker-note]").Eq(1), ".meta"))
-	require.Zero(t, doc.Find("[data-testid=picker-note]").Eq(2).Find(".meta").Length())
+	require.Equal(t, text(2), buttons.Eq(1).AttrOr("data-text", ""))
+	require.Equal(t, []string{book.Title + ", 42"}, texts(doc.Find("[data-testid=picker-note]").Eq(2), ".meta"))
+	require.Zero(t, doc.Find("[data-testid=picker-note]").Eq(3).Find(".meta").Length())
 
 	// chips and filters load the picker, not the notes page
 	got := chips(picker("?tag=essay&not=walk"))
-	require.Equal(t, chip{"include", "/controls/notes/picker?not=walk&not=essay", ""}, got["#essay"])
-	require.Equal(t, chip{"exclude", "/controls/notes/picker?tag=essay", ""}, got["#walk"])
+	require.Equal(t, chip{"include", "/controls/notes/picker?not=walk&not=essay"}, got["#essay"])
+	require.Equal(t, chip{"exclude", "/controls/notes/picker?tag=essay"}, got["#walk"])
 	require.Equal(t, "#np-body", picker("?tag=essay").Find("nav.nt-bar li.nt-chip a").First().AttrOr("hx-target", ""))
-	require.Zero(t, picker("?tag=essay").Find("nav.nt-bar .nt-hide").Length(), "the panel doesn't manage tags")
 
 	// sources
 	doc = picker("?source=" + book.ID)
@@ -677,15 +651,11 @@ func TestNotesPages_Picker(t *testing.T) {
 	require.False(t, open)
 }
 
-func TestNotesPages_PickerStackAndCursor(t *testing.T) {
+func TestNotesPages_PickerCursor(t *testing.T) {
 	t.Parallel()
 
 	app := notesPagesApp(t, sttOff, e2e.WithEnv("PAGE_SIZE", "2"))
 	user, c := newLoggedIn(t, app)
-
-	eve := time.Date(2026, 11, 3, 19, 0, 0, 0, time.UTC)
-	oldest := mustNote(t, app, user.ID, factory.WithNoteBody("stack one"), factory.CapturedAt(eve))
-	mustNote(t, app, user.ID, factory.WithNoteBody("stack two"), factory.CapturedAt(eve.Add(5*time.Minute)))
 
 	for i, b := range []string{"day one", "day two", "day three"} {
 		mustNote(t, app, user.ID, factory.WithNoteBody(b), factory.WithNoteTags("x"), factory.CapturedAt(day(i+1)))
@@ -703,16 +673,6 @@ func TestNotesPages_PickerStackAndCursor(t *testing.T) {
 	doc = c.Get(more).RequireStatus(http.StatusOK).Doc()
 	require.Equal(t, []string{"day one"}, texts(doc, "[data-testid=picker-note] .np-text"))
 	require.Zero(t, doc.Find(".load-more").Length())
-
-	// a stack has its own link, and in it the way back
-	doc = c.Get("/controls/notes/picker").Doc()
-	require.Equal(t, []string{"Tuesday evening, 2 notes"}, texts(doc, ".np-stack .np-stack-head a"))
-	require.Equal(t, "/controls/notes/picker?stack="+oldest.ID, doc.Find(".np-stack-head a").AttrOr("href", ""))
-	require.Zero(t, doc.Find(".np-back").Length())
-
-	doc = c.Get("/controls/notes/picker?stack=" + oldest.ID).Doc()
-	require.Equal(t, []string{"stack two", "stack one"}, texts(doc, "[data-testid=picker-note] .np-text"))
-	require.Equal(t, "/controls/notes/picker", doc.Find(".np-back a").AttrOr("href", ""))
 }
 
 func TestNotesPages_ControlsSection(t *testing.T) {

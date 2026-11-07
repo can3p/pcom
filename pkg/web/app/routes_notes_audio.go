@@ -127,7 +127,7 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		}
 
 		status := &web.NoteStatus{
-			Note: note, View: c.Query("view"), Stack: c.Query("stack"), Suggest: c.Query("suggest") == "1",
+			Note: note, View: c.Query("view"), Suggest: c.Query("suggest") == "1",
 			Base: lf(c.Query("base")),
 		}
 
@@ -142,7 +142,7 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 
 			c.Header("HX-Retarget", "#note-"+note.ID)
 			c.Header("HX-Reswap", "outerHTML")
-			c.HTML(http.StatusOK, "partial--note-item.html", gin.H{"Item": item, "User": &userData, "Stack": status.Stack})
+			c.HTML(http.StatusOK, "partial--note-item.html", gin.H{"Item": item, "User": &userData})
 
 			return
 		case status.View == web.NoteStatusEdit && note.TranscriptionStatus == model.NoteTranscriptionDone:
