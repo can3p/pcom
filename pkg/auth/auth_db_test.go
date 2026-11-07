@@ -140,6 +140,7 @@ func TestAuthAPI_Keys(t *testing.T) {
 		name     string
 		scope    factory.APIKeyOpt
 		unknown  bool
+		revoked  bool
 		admitted []model.APIKeyScope
 		want     int
 	}{
@@ -147,6 +148,9 @@ func TestAuthAPI_Keys(t *testing.T) {
 		{name: "notes key on a full route", scope: notesScope, admitted: []model.APIKeyScope{model.APIKeyScopeFull}, want: http.StatusForbidden},
 		{name: "notes key on a notes route", scope: notesScope, admitted: []model.APIKeyScope{model.APIKeyScopeFull, model.APIKeyScopeNotes}, want: http.StatusOK},
 		{name: "unknown key", unknown: true, admitted: []model.APIKeyScope{model.APIKeyScopeFull}, want: http.StatusUnauthorized},
+		{name: "revoked key", revoked: true, admitted: []model.APIKeyScope{model.APIKeyScopeFull}, want: http.StatusUnauthorized},
+		{name: "full key on a group that admits no scope", want: http.StatusForbidden},
+		{name: "notes key on a group that admits no scope", scope: notesScope, want: http.StatusForbidden},
 	}
 
 	for _, tt := range tests {
@@ -165,6 +169,10 @@ func TestAuthAPI_Keys(t *testing.T) {
 
 			if tt.unknown {
 				presented = "not-a-key"
+			}
+
+			if tt.revoked {
+				require.NoError(t, repo.New(db).DeleteAPIKey(ctx, user.ID, key.ID))
 			}
 
 			c, w := ginctx.New(t, http.MethodGet, "/api/whatever", nil)

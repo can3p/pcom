@@ -69,6 +69,12 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 		return nil, service.Invalid("text", msgCaptureEmpty)
 	}
 
+	if in.Source != nil {
+		if _, err := s.validSource(*in.Source); err != nil {
+			return nil, asField(err, "source")
+		}
+	}
+
 	images, err := readImages(in.Images, s.maxUploadSize)
 	if err != nil {
 		return nil, err
@@ -82,11 +88,14 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 
 	if in.Audio != nil {
 		if rec, err = s.readRecording(in.Audio.Body, in.Audio.ContentType); err != nil {
-			return nil, err
+			return nil, asField(err, "audio")
 		}
 	}
 
-	var noteID string
+	var (
+		noteID string
+		stored []string
+	)
 
 	err = s.store.Tx(ctx, func(tx *repo.Store) error {
 		within := s.within(tx)
@@ -119,6 +128,8 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 				return err
 			}
 
+			stored = append(stored, fname)
+
 			uploadID := strings.TrimSuffix(fname, path.Ext(fname))
 			if err := tx.CreateNoteImage(ctx, &model.NoteImage{NoteID: n.ID, UploadID: uploadID, Position: i}); err != nil {
 				return err
@@ -132,10 +143,26 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 		return nil
 	})
 	if err != nil {
+		// the rows are gone with the transaction; so go the photos stored
+		// before it failed
+		for _, fname := range stored {
+			err = errors.Join(err, s.media.DeleteFile(ctx, fname))
+		}
+
 		return nil, err
 	}
 
 	return s.Get(ctx, actor, noteID)
+}
+
+// asField names field in a ValidationError err, which a capture's caller
+// knows by the capture's own field names; other errors stay as they are.
+func asField(err error, field string) error {
+	if invalid, ok := errors.AsType[*service.ValidationError](err); ok {
+		return service.Invalid(field, invalid.Message)
+	}
+
+	return err
 }
 
 // readImages reads every photo of a capture and checks that pcom keeps it,

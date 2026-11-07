@@ -136,6 +136,21 @@ them:
 | Share Sheet, photos | `kind=share`, `captured_at`, `image` once per photo (`IMG_0001.jpeg`, `image/jpeg`) |
 | Quote from photo | `kind=quote`, `captured_at`, `text` (Extract Text from Image), `image` (Take Photo, `image/jpeg`) |
 
+The test builds these requests in Go from the table above. To replace them with what the iPhone really
+sends, record each run's raw request:
+
+1. Make the Shortcut's URL point at a request bin instead of pcom: any endpoint that keeps the raw body
+   and headers, such as a self-hosted `httpbin`-style catcher or `nc -l 8099 > run.http` on a laptop in
+   the same Wi-Fi network (`http://<laptop>:8099/api/v1/notes`). Use a throwaway API key, since the
+   request carries it.
+2. Run the Shortcut each way: from the Action button, from the share sheet with text, a link and two
+   photos, and "Quote from photo".
+3. Save each request as it arrived, headers and body byte for byte, with the `Authorization` value
+   replaced by `Bearer <key>`, in `e2e/testdata/shortcut/` under the names its README lists. Note the
+   iOS version in the README.
+
+Whether "Get Contents of URL" runs with the phone locked is recorded there too.
+
 ## List notes
 
 `GET /api/v1/notes` pages your notes, newest capture first, like `GET /api/v1/posts`: `limit` is the page

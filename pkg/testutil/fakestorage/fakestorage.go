@@ -137,3 +137,16 @@ func (s *Storage) DeleteFile(ctx context.Context, fname string) error {
 
 	return nil
 }
+
+// Names returns the names of the stored objects, in no order.
+func (s *Storage) Names() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	names := make([]string, 0, len(s.objects))
+	for name := range s.objects {
+		names = append(names, name)
+	}
+
+	return names
+}

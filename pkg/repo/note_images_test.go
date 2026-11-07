@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -32,5 +34,9 @@ func TestCreateNoteImage(t *testing.T) {
 	require.Equal(t, []string{first.ID, second.ID}, []string{got.Images[0].UploadID, got.Images[1].UploadID})
 	require.Equal(t, first.UploadedFname, got.Images[0].Upload.UploadedFname)
 
-	require.Error(t, store.CreateNoteImage(ctx, &model.NoteImage{NoteID: note.ID, UploadID: first.ID, Position: 2}), "an upload is in a note once")
+	err := store.CreateNoteImage(ctx, &model.NoteImage{NoteID: note.ID, UploadID: first.ID, Position: 2})
+
+	var pgErr *pgconn.PgError
+	require.ErrorAs(t, err, &pgErr, "an upload is in a note once")
+	require.Equal(t, "23505", pgErr.Code, "a unique violation")
 }

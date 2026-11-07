@@ -110,46 +110,67 @@ func TestCapture_Focus(t *testing.T) {
 	}
 }
 
-// A capture is refused whole: nothing is written when the text, a photo or
-// the recording is refused, or when storing a file fails.
+// A capture is refused whole: nothing is written, enqueued or left in the
+// storage when the text, a photo or the recording is refused, when storing a
+// file fails, or when the recording fails after the photos are stored.
 func TestCapture_Refused(t *testing.T) {
 	t.Parallel()
 
+	boom := errors.New("bucket down")
+	long := strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)
+	audio := func(data string) *notes.Upload { return &notes.Upload{Body: strings.NewReader(data)} }
+
 	cases := []struct {
-		name    string
-		in      notes.CaptureInput
-		fail    bool
-		wantMsg string
+		name      string
+		in        notes.CaptureInput
+		opts      []notes.Option
+		failStore bool
+		wantErr   string
+		field     string
+		wantMsg   string
 	}{
-		{"empty", notes.CaptureInput{Text: "  "}, false, "Send some text, a photo or a recording."},
-		{"not an image", notes.CaptureInput{Images: []notes.Upload{photo(pngHead + "ok"), photo("plain text")}}, false, "pcom keeps photos in JPEG, PNG or WebP."},
-		{"heic", notes.CaptureInput{Images: []notes.Upload{photo(heicHead + "data")}}, false, "pcom can't read HEIC photos: add \"Convert to JPEG\" before sending the photo in the Shortcut."},
-		{"not a recording", notes.CaptureInput{Text: "x", Audio: &notes.Upload{Body: strings.NewReader(pngHead)}}, false, "pcom keeps recordings in WebM, Ogg, MP4 (M4A) or MP3."},
-		{"too many tags", notes.CaptureInput{Text: "x", Tags: []string{"a", "b", "c"}}, false, "A note can have at most 2 tags."},
-		{"storage fails", notes.CaptureInput{Text: "x", Images: []notes.Upload{photo(pngHead + "ok")}}, true, ""},
+		{name: "empty", in: notes.CaptureInput{Text: "  "}, field: "text", wantMsg: "Send some text, a photo or a recording."},
+		{name: "not an image", in: notes.CaptureInput{Images: []notes.Upload{photo(pngHead + "ok"), photo("plain text")}}, field: "image", wantMsg: "pcom keeps photos in JPEG, PNG or WebP."},
+		{name: "heic", in: notes.CaptureInput{Images: []notes.Upload{photo(heicHead + "data")}}, field: "image", wantMsg: "pcom can't read HEIC photos: add \"Convert to JPEG\" before sending the photo in the Shortcut."},
+		{name: "not a recording", in: notes.CaptureInput{Text: "x", Audio: audio(pngHead)}, field: "audio", wantMsg: "pcom keeps recordings in WebM, Ogg, MP4 (M4A) or MP3."},
+		{name: "recording too large", in: notes.CaptureInput{Text: "x", Audio: audio(webmHead + strings.Repeat("x", 1<<20))},
+			opts: []notes.Option{notes.WithLimits(notes.Limits{AudioMaxBytes: 1 << 20})}, field: "audio", wantMsg: "The recording is larger than 1 MiB."},
+		{name: "too many tags", in: notes.CaptureInput{Text: "x", Tags: []string{"a", "b", "c"}}, opts: []notes.Option{notes.WithLimits(notes.Limits{TagsMax: 2})},
+			field: "tags", wantMsg: "A note can have at most 2 tags."},
+		{name: "source too long", in: notes.CaptureInput{Text: "x", Source: &notes.SourceInput{Kind: model.NoteSourceBook, Title: long}}, field: "source",
+			wantMsg: fmt.Sprintf("A title can be at most %d characters long.", notes.DefaultSourceTitleMaxLength)},
+		{name: "storage fails", in: notes.CaptureInput{Text: "x", Images: []notes.Upload{photo(pngHead + "ok")}}, failStore: true, wantErr: boom.Error()},
+		{name: "the recording fails after the photos are stored",
+			in:      notes.CaptureInput{Images: []notes.Upload{photo(pngHead + "a"), photo(pngHead + "b")}, Audio: audio(webmHead + "voice")},
+			opts:    []notes.Option{notes.WithJobs(nil)},
+			wantErr: "notes: no job queue for a recording's jobs"},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			w, storage := audioWorld(t, notes.WithLimits(notes.Limits{TagsMax: 2}))
-			boom := errors.New("bucket down")
+			w, storage := audioWorld(t, c.opts...)
 
-			if c.fail {
+			if c.failStore {
 				storage.FailUploadWith(boom)
 			}
 
 			_, err := w.svc.Capture(w.ctx, w.me, c.in)
-			if c.fail {
-				require.ErrorIs(t, err, boom)
+			if c.wantErr != "" {
+				require.ErrorContains(t, err, c.wantErr)
 			} else {
-				requireInvalid(t, err, c.wantMsg)
+				var invalid *service.ValidationError
+				require.ErrorAs(t, err, &invalid)
+				require.Equal(t, c.field, invalid.Field)
+				require.Equal(t, c.wantMsg, invalid.Message)
 			}
 
 			require.Equal(t, 0, w.count(t, "select count(*) from notes"))
 			require.Equal(t, 0, w.count(t, "select count(*) from note_images"))
 			require.Equal(t, 0, w.count(t, "select count(*) from media_uploads"))
+			require.Empty(t, w.queue.Inserted())
+			require.Empty(t, storage.Names(), "no file is left in the storage")
 		})
 	}
 
@@ -162,13 +183,14 @@ func TestListUpTo(t *testing.T) {
 	t.Parallel()
 
 	w := newWorld(t)
-	for i := range 3 {
-		w.note(t, w.me, factory.CapturedAt(w.now.Add(time.Duration(i)*time.Minute)))
+	for i := range notes.ListMax + 1 {
+		w.note(t, w.me, factory.CapturedAt(w.now.Add(time.Duration(i)*time.Second)))
 	}
 
-	for limit, want := range map[int]int{-1: 1, 0: 1, 2: 2, notes.ListMax + 1: 3} {
+	for limit, want := range map[int]int{-1: 1, 0: 1, 2: 2, notes.ListMax: notes.ListMax, notes.ListMax + 1: notes.ListMax, 1000: notes.ListMax} {
 		p := testutil.Must(w.svc.ListUpTo(w.ctx, w.me, notes.Filter{}, limit))(t)
 		require.Len(t, p.Entries, want, "limit %d", limit)
+		require.NotEmpty(t, p.Next, "limit %d: more notes follow", limit)
 	}
 }
 

@@ -12,54 +12,87 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
-	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/web"
+	webapp "github.com/can3p/pcom/pkg/web/app"
 	"github.com/stretchr/testify/require"
 )
 
-// apiRoute is a route of the API and whether a notes key opens it.
-type apiRoute struct {
-	method, path string
-	notes        bool
+// apiRouteWant is what a route of the API answers a call whose body is "{}"
+// from its owner: path makes the concrete path (a fresh post of the user for
+// a :id), full is the status with a full key, and notes says whether a
+// notes key gets the same answer instead of 403.
+type apiRouteWant struct {
+	path  func(t *testing.T, app *e2e.App, userID string) string
+	full  int
+	notes bool
 }
 
-// apiRoutes are the API's routes, read from their source as
-// TestGuards_RouteTableMatchesSource reads the others, so a new route is
-// covered without a new row: api.go mounts the full-key group, api_notes.go
-// the notes group. Path parameters get a uuid.
-func apiRoutes(t *testing.T) []apiRoute {
+func staticAPIPath(p string) func(*testing.T, *e2e.App, string) string {
+	return func(*testing.T, *e2e.App, string) string { return p }
+}
+
+func postPath(t *testing.T, app *e2e.App, userID string) string {
 	t.Helper()
 
-	var routes []apiRoute
+	return "/api/v1/posts/" + testutil.Must(factory.Post(context.Background(), app.DB, userID))(t).ID
+}
 
-	for file, notes := range map[string]bool{"../pkg/web/app/api.go": false, "../pkg/web/app/api_notes.go": true} {
-		src, err := os.ReadFile(file)
-		require.NoError(t, err)
+// apiRouteWants is every route of /api/v1. TestAPIKeys_EveryRouteByKeyState
+// checks it against the router, so a new route fails until it has a row.
+var apiRouteWants = map[string]apiRouteWant{
+	"GET /api/v1/posts":        {staticAPIPath("/api/v1/posts"), http.StatusOK, false},
+	"POST /api/v1/posts":       {staticAPIPath("/api/v1/posts"), http.StatusBadRequest, false},
+	"POST /api/v1/posts/:id":   {postPath, http.StatusBadRequest, false},
+	"DELETE /api/v1/posts/:id": {postPath, http.StatusOK, false},
+	"PUT /api/v1/image":        {staticAPIPath("/api/v1/image"), http.StatusBadRequest, false},
+	"POST /api/v1/notes":       {staticAPIPath("/api/v1/notes"), http.StatusBadRequest, true},
+	"GET /api/v1/notes":        {staticAPIPath("/api/v1/notes"), http.StatusOK, true},
+}
 
-		for line := range strings.SplitSeq(string(src), "\n") {
-			if m := routeRe.FindStringSubmatch(line); m != nil {
-				path := "/api/v1" + strings.ReplaceAll(m[3], ":id", "0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60")
-				routes = append(routes, apiRoute{m[2], path, notes})
-			}
+// routerAPIRoutes are the /api/v1 routes of the app's router, built as the
+// binary builds it.
+func routerAPIRoutes(t *testing.T, app *e2e.App) []string {
+	t.Helper()
+
+	router := webapp.New(&webapp.Deps{
+		DB:           app.DB,
+		MediaStorage: fakestorage.New(),
+		Config: webapp.Config{
+			HTMLDir:     "../cmd/web/client/html",
+			SessionSalt: "test-salt",
+			StaticAsset: func(n string) string { return "/static/" + n },
+		},
+	})
+
+	var routes []string
+
+	for _, r := range router.Routes() {
+		if strings.HasPrefix(r.Path, "/api/") {
+			routes = append(routes, r.Method+" "+r.Path)
 		}
 	}
 
-	require.NotEmpty(t, routes)
+	slices.Sort(routes)
 
 	return routes
 }
 
 func notesScope(k *model.UserAPIKey) { k.Scope = model.APIKeyScopeNotes }
 
-// apiCall sends an API request with the Authorization header auth ("" for none).
+// apiCall sends an API request with the Authorization header auth ("" for
+// none) and the body "{}".
 func apiCall(t *testing.T, app *e2e.App, method, path, auth string) *e2e.Response {
 	t.Helper()
 
@@ -73,9 +106,10 @@ func apiCall(t *testing.T, app *e2e.App, method, path, auth string) *e2e.Respons
 	return app.Client(t).Do(req)
 }
 
-// TestAPIKeys_EveryRouteByKeyState: without a valid key every API route
-// answers 401, a notes key gets 403 on every route outside the notes API,
-// and a full key passes the key check on all of them.
+// TestAPIKeys_EveryRouteByKeyState: every API route, taken from the router,
+// answers 401 without a valid key, whatever the shape of the header; a
+// notes key gets 403 outside the notes API and the route's own answer in
+// it; a full key gets the route's own answer everywhere.
 func TestAPIKeys_EveryRouteByKeyState(t *testing.T) {
 	t.Parallel()
 
@@ -83,45 +117,61 @@ func TestAPIKeys_EveryRouteByKeyState(t *testing.T) {
 	ctx := context.Background()
 	user, owner := newLoggedIn(t, app)
 
-	full := testutil.Must(factory.APIKey(ctx, app.DB, user.ID))(t)
-	notes := testutil.Must(factory.APIKey(ctx, app.DB, user.ID, notesScope))(t)
+	want := make([]string, 0, len(apiRouteWants))
+	for k := range apiRouteWants {
+		want = append(want, k)
+	}
+
+	slices.Sort(want)
+	require.Equal(t, want, routerAPIRoutes(t, app), "every API route has a row in apiRouteWants")
+
+	full := testutil.Must(factory.APIKey(ctx, app.DB, user.ID))(t).APIKey
+	notesKey := testutil.Must(factory.APIKey(ctx, app.DB, user.ID, notesScope))(t).APIKey
 	revoked := testutil.Must(factory.APIKey(ctx, app.DB, user.ID))(t)
 	owner.PostJSON("/controls/action/revoke_api_key", map[string]string{"id": revoked.ID}).RequireStatus(http.StatusOK)
+	// the private feed token is a secret of the same user, but no API key
+	feedToken := testutil.Must(repo.RegenerateFeedToken(ctx, app.DB, user.ID))(t).Token
+
+	const own = 0 // the route's own answer
 
 	states := []struct {
 		name string
 		auth string
-		// want is the status; 0 is any but 401 and 403.
-		want, wantNotes int
+		want int
 	}{
-		{"no key", "", http.StatusUnauthorized, http.StatusUnauthorized},
-		{"malformed header", "Token " + full.APIKey, http.StatusUnauthorized, http.StatusUnauthorized},
-		{"unknown key", "Bearer not-a-key", http.StatusUnauthorized, http.StatusUnauthorized},
-		{"revoked key", "Bearer " + revoked.APIKey, http.StatusUnauthorized, http.StatusUnauthorized},
-		{"notes key", "Bearer " + notes.APIKey, http.StatusForbidden, 0},
-		{"full key", "Bearer " + full.APIKey, 0, 0},
+		{"no header", "", http.StatusUnauthorized},
+		{"Bearer alone", "Bearer", http.StatusUnauthorized},
+		{"Bearer and a space", "Bearer ", http.StatusUnauthorized},
+		{"lowercase scheme", "bearer " + full, http.StatusUnauthorized},
+		{"other scheme", "Basic " + full, http.StatusUnauthorized},
+		{"two spaces", "Bearer  " + full, http.StatusUnauthorized},
+		{"extra token", "Bearer " + full + " x", http.StatusUnauthorized},
+		{"key alone", full, http.StatusUnauthorized},
+		{"unknown key", "Bearer not-a-key", http.StatusUnauthorized},
+		{"feed token", "Bearer " + feedToken, http.StatusUnauthorized},
+		{"revoked key", "Bearer " + revoked.APIKey, http.StatusUnauthorized},
+		{"notes key", "Bearer " + notesKey, http.StatusForbidden},
+		{"full key", "Bearer " + full, own},
 	}
 
-	for _, r := range apiRoutes(t) {
+	for route, r := range apiRouteWants {
+		method := strings.Fields(route)[0]
+
 		for _, s := range states {
-			t.Run(r.method+" "+r.path+"/"+s.name, func(t *testing.T) {
+			t.Run(route+"/"+s.name, func(t *testing.T) {
 				t.Parallel()
 
-				want := s.want
-				if r.notes {
-					want = s.wantNotes
+				status := s.want
+
+				switch {
+				case status == own, status == http.StatusForbidden && r.notes:
+					status = r.full
 				}
 
-				resp := apiCall(t, app, r.method, r.path, s.auth)
+				resp := apiCall(t, app, method, r.path(t, app, user.ID), s.auth)
+				resp.RequireStatus(status)
 
-				if want == 0 {
-					require.NotContains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, resp.StatusCode, resp.Body)
-					return
-				}
-
-				resp.RequireStatus(want)
-
-				if want == http.StatusUnauthorized {
+				if status == http.StatusUnauthorized {
 					require.Equal(t, "Bearer", resp.Header.Get("WWW-Authenticate"))
 				}
 			})
@@ -163,7 +213,8 @@ func TestAPIKeys_SettingsActions(t *testing.T) {
 	require.Contains(t, bad.Doc().Find(".field-error").Text(), "Choose what the key may do.")
 	require.Empty(t, bad.Doc().Find(`[aria-label="Your new API key"]`).Nodes)
 
-	stranger.PostJSON("/controls/action/revoke_api_key", map[string]string{"id": keys[0].ID}).RequireStatus(http.StatusBadRequest)
+	refused := stranger.PostJSON("/controls/action/revoke_api_key", map[string]string{"id": keys[0].ID}).RequireStatus(http.StatusBadRequest)
+	require.JSONEq(t, `{"explanation":"Not found"}`, refused.Body)
 	require.Len(t, testutil.Must(factory.ListAPIKeys(ctx, app.DB, user.ID))(t), 1, "another user's key stays")
 
 	revoked := owner.PostJSON("/controls/action/revoke_api_key", map[string]string{"id": keys[0].ID}).RequireStatus(http.StatusOK)
@@ -223,7 +274,17 @@ func postNote(t *testing.T, app *e2e.App, key string, parts ...part) *e2e.Respon
 // apiError is the notes API's answer to refused input.
 type apiError struct {
 	Errors []string `json:"errors"`
-	Field  string   `json:"field"`
+	Field  string   `json:"field,omitempty"`
+}
+
+func requireAPIError(t *testing.T, resp *e2e.Response, status int, want apiError) {
+	t.Helper()
+
+	resp.RequireStatus(status)
+
+	var got apiError
+	require.NoError(t, json.Unmarshal([]byte(resp.Body), &got))
+	require.Equal(t, want, got)
 }
 
 func smallPNG(t *testing.T) []byte {
@@ -251,23 +312,73 @@ const (
 )
 
 // notesApp starts the app the notes API tests share: transcription on,
-// against a backend nobody answers at, so a recording's note stays pending,
-// and small caps, so a test can pass them.
-func notesApp(t *testing.T) *e2e.App {
+// against a backend nobody answers at, so a recording's note stays pending.
+func notesApp(t *testing.T, opts ...e2e.Option) *e2e.App {
 	t.Helper()
 
-	return e2e.Start(t,
+	return e2e.Start(t, append([]e2e.Option{
 		e2e.WithEnv("STT_PROVIDER", "openai-compat"),
 		e2e.WithEnv("STT_OPENAI_COMPAT_ENDPOINT", "http://127.0.0.1:9/stt"),
 		e2e.WithEnv("STT_OPENAI_COMPAT_KEY", "unused"),
-		e2e.WithEnv("NOTE_AUDIO_MAX_BYTES", "1024"),
-		e2e.WithEnv("NOTE_CAPTURE_MAX_BYTES", "65536"),
-		e2e.WithEnv("MAX_BODY_SIZE", "65536"),
-	)
+	}, opts...)...)
+}
+
+// stored is what a user has in the database after captures: notes, photos,
+// uploads and transcription jobs.
+type stored struct {
+	notes   []*model.Note
+	images  []*model.NoteImage
+	uploads []*model.MediaUpload
+	jobs    int
+}
+
+func storedOf(t *testing.T, app *e2e.App, userID string) stored {
+	t.Helper()
+
+	ctx := context.Background()
+
+	return stored{
+		notes:   testutil.Must(factory.ListNotes(ctx, app.DB, userID))(t),
+		images:  testutil.Must(factory.ListNoteImages(ctx, app.DB, userID))(t),
+		uploads: testutil.Must(factory.ListMediaUploads(ctx, app.DB, userID))(t),
+		jobs:    testutil.Must(factory.CountNoteJobs(ctx, app.DB, notes.TranscribeArgs{}.Kind(), userID))(t),
+	}
+}
+
+// requireStoredAs checks that n, the API's answer, is the note stored last
+// for userID: its id, and its photos as their URLs in order.
+func requireStoredAs(t *testing.T, app *e2e.App, userID string, n web.ApiNote) stored {
+	t.Helper()
+
+	s := storedOf(t, app, userID)
+	ids := make([]string, 0, len(s.notes))
+
+	for _, sn := range s.notes {
+		ids = append(ids, sn.ID)
+	}
+
+	require.Contains(t, ids, n.ID)
+
+	fnames := map[string]string{}
+	for _, u := range s.uploads {
+		fnames[u.ID] = u.UploadedFname
+	}
+
+	urls := make([]string, len(n.Images))
+
+	for _, img := range s.images {
+		if img.NoteID == n.ID {
+			urls[img.Position] = app.URL + "/user-media/" + fnames[img.UploadID]
+		}
+	}
+
+	require.Equal(t, urls, n.Images)
+
+	return s
 }
 
 // TestAPINotes_Create: every field of POST /api/v1/notes, alone and
-// together, and the refusals, each with the field to fix.
+// together, and the refusals, each with the field to fix and nothing stored.
 func TestAPINotes_Create(t *testing.T) {
 	t.Parallel()
 
@@ -275,103 +386,104 @@ func TestAPINotes_Create(t *testing.T) {
 	ctx := context.Background()
 	png1, jpg := smallPNG(t), smallJPEG(t)
 	at := "2026-11-07T09:30:00+01:00"
-	long := strings.Repeat("x", 301)
+	long := strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)
+	tooLong := []byte(m4aRecording + strings.Repeat("x", notes.DefaultAudioMaxBytes))
 
 	cases := []struct {
 		name string
 		// before are requests sent first with the same key.
-		before [][]part
-		// focus is set through the notes page first.
-		focus     string
+		before    [][]part
 		parts     []part
 		wantField string
 		wantMsg   string
-		want      func(t *testing.T, n web.ApiNote)
+		want      func(t *testing.T, n web.ApiNote, s stored)
 	}{
-		{name: "text only", parts: []part{field("text", " hello ")}, want: func(t *testing.T, n web.ApiNote) {
-			require.Equal(t, "hello", n.Body)
+		{name: "text only", parts: []part{field("text", " hello ")}, want: func(t *testing.T, n web.ApiNote, s stored) {
+			require.Equal(t, "hello", n.Body, "typed text is kept as typed")
 			require.Empty(t, n.Tags)
 			require.Empty(t, n.Source)
 			require.Empty(t, n.Images)
 			require.Equal(t, model.NoteTranscriptionNone, n.TranscriptionStatus)
 			require.WithinDuration(t, time.Now(), n.CapturedAt, time.Minute, "no captured_at is now")
+			require.Empty(t, s.uploads)
+			require.Zero(t, s.jobs)
 		}},
-		{name: "kind note", parts: []part{field("text", "a thought"), field("kind", "note")}, want: func(t *testing.T, n web.ApiNote) {
-			require.Equal(t, "a thought", n.Body)
-		}},
-		{name: "kind share", parts: []part{field("text", "line one\nline two"), field("kind", "share")}, want: func(t *testing.T, n web.ApiNote) {
+		{name: "kind share", parts: []part{field("text", "line one\nline two"), field("kind", "share")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
 			require.Equal(t, "> line one\n> line two", n.Body)
 			require.Empty(t, n.Source)
 		}},
-		{name: "kind quote", parts: []part{field("text", "a passage"), field("kind", "quote"), field("source", "Dune")}, want: func(t *testing.T, n web.ApiNote) {
+		{name: "kind quote", parts: []part{field("text", "a passage"), field("kind", "quote"), field("source", "Dune")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
 			require.Equal(t, "> a passage", n.Body)
 			require.Equal(t, "Dune", n.Source)
 		}},
 		{name: "quote without source takes the previous quote's", before: [][]part{{field("text", "first"), field("kind", "quote"), field("source", "Dune")}},
-			parts: []part{field("text", "second"), field("kind", "quote")}, want: func(t *testing.T, n web.ApiNote) {
+			parts: []part{field("text", "second"), field("kind", "quote")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
 				require.Equal(t, "Dune", n.Source)
 			}},
-		{name: "lone URL stays bare", parts: []part{field("text", " https://example.test/page "), field("kind", "share")}, want: func(t *testing.T, n web.ApiNote) {
+		{name: "lone URL stays bare", parts: []part{field("text", " https://example.test/page "), field("kind", "share")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
 			require.Equal(t, "https://example.test/page", n.Body)
 		}},
 		{name: "unknown kind", parts: []part{field("text", "x"), field("kind", "poem")}, wantField: "kind", wantMsg: "kind is note, quote or share."},
 		{name: "tags repeated and comma-separated, normalized", parts: []part{field("text", "x #Inline"), field("tags", "Walk, #Idea"), field("tags", "book")},
-			want: func(t *testing.T, n web.ApiNote) {
+			want: func(t *testing.T, n web.ApiNote, _ stored) {
 				require.ElementsMatch(t, []string{"walk", "idea", "book", "inline"}, n.Tags)
 			}},
-		{name: "too many tags", parts: []part{field("text", "x"), field("tags", "a,b,c,d,e,f,g,h,i,j,k")}, wantField: "tags", wantMsg: "A note can have at most 10 tags."},
-		{name: "tag too long", parts: []part{field("text", "x"), field("tags", strings.Repeat("t", 41))}, wantField: "tags", wantMsg: "A tag can be at most 40 characters long."},
-		{name: "captured_at", parts: []part{field("text", "x"), field("captured_at", at)}, want: func(t *testing.T, n web.ApiNote) {
+		{name: "too many tags", parts: []part{field("text", "x"), field("tags", "a,b,c,d,e,f,g,h,i,j,k")}, wantField: "tags",
+			wantMsg: fmt.Sprintf("A note can have at most %d tags.", notes.DefaultTagsMax)},
+		{name: "tag too long", parts: []part{field("text", "x"), field("tags", strings.Repeat("t", notes.DefaultTagMaxLength+1))}, wantField: "tags",
+			wantMsg: fmt.Sprintf("A tag can be at most %d characters long.", notes.DefaultTagMaxLength)},
+		{name: "captured_at", parts: []part{field("text", "x"), field("captured_at", at)}, want: func(t *testing.T, n web.ApiNote, _ stored) {
 			want, err := time.Parse(time.RFC3339, at)
 			require.NoError(t, err)
 			require.True(t, want.Equal(n.CapturedAt), "%s", n.CapturedAt)
 		}},
 		{name: "captured_at invalid", parts: []part{field("text", "x"), field("captured_at", "yesterday")}, wantField: "captured_at",
 			wantMsg: "captured_at is not an RFC 3339 time, such as 2026-11-07T09:30:00+01:00."},
-		{name: "source new", parts: []part{field("text", "x"), field("source", "The Book")}, want: func(t *testing.T, n web.ApiNote) {
+		{name: "source new", parts: []part{field("text", "x"), field("source", "The Book")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
 			require.Equal(t, "The Book", n.Source)
 		}},
 		{name: "source existing is reused", before: [][]part{{field("text", "x"), field("source", "The Book")}},
-			parts: []part{field("text", "y"), field("source", " the  book ")}, want: func(t *testing.T, n web.ApiNote) {
+			parts: []part{field("text", "y"), field("source", " the  book ")}, want: func(t *testing.T, n web.ApiNote, s stored) {
 				require.Equal(t, "The Book", n.Source, "found by title whatever the case and spacing")
+				require.Equal(t, *s.notes[0].SourceID, *s.notes[1].SourceID)
 			}},
-		{name: "source too long", parts: []part{field("text", "x"), field("source", long)}, wantField: "title", wantMsg: "A title can be at most 300 characters long."},
+		{name: "source too long", parts: []part{field("text", "x"), field("source", long)}, wantField: "source",
+			wantMsg: fmt.Sprintf("A title can be at most %d characters long.", notes.DefaultSourceTitleMaxLength)},
 		{name: "several images", parts: []part{file("image", "a.png", "image/png", png1), file("image", "b.jpg", "image/jpeg", jpg)},
-			want: func(t *testing.T, n web.ApiNote) {
+			want: func(t *testing.T, n web.ApiNote, s stored) {
 				require.Empty(t, n.Body)
 				require.Len(t, n.Images, 2)
-
-				for _, u := range n.Images {
-					require.True(t, strings.HasPrefix(u, app.URL+"/user-media/"), u)
-				}
-
 				require.True(t, strings.HasSuffix(n.Images[0], ".png"), "in the order sent")
 				require.True(t, strings.HasSuffix(n.Images[1], ".jpg"))
+				require.Len(t, s.uploads, 2)
 			}},
 		{name: "a non-image image", parts: []part{file("image", "a.png", "image/png", png1), file("image", "notes.txt", "image/png", []byte("plain text"))},
 			wantField: "image", wantMsg: "pcom keeps photos in JPEG, PNG or WebP."},
 		{name: "HEIC", parts: []part{file("image", "IMG_0001.HEIC", "image/heic", []byte(heicPhoto))}, wantField: "image",
 			wantMsg: "pcom can't read HEIC photos: add \"Convert to JPEG\" before sending the photo in the Shortcut."},
-		{name: "one audio", parts: []part{file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording))}, want: func(t *testing.T, n web.ApiNote) {
-			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus, "the transcription job is queued")
+		{name: "one audio", parts: []part{file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording))}, want: func(t *testing.T, n web.ApiNote, s stored) {
+			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
+			require.Len(t, s.uploads, 1)
+			require.Equal(t, model.MediaKindNoteAudio, s.uploads[0].Kind)
+			require.Equal(t, s.uploads[0].ID, *s.notes[0].AudioUploadID)
+			require.Equal(t, 1, s.jobs, "one notes.transcribe job is queued")
 		}},
 		{name: "two audio files", parts: []part{file("audio", "a.m4a", "audio/x-m4a", []byte(m4aRecording)), file("audio", "b.m4a", "audio/x-m4a", []byte(m4aRecording))},
 			wantField: "audio", wantMsg: "Send at most one recording."},
-		{name: "audio over NOTE_AUDIO_MAX_BYTES", parts: []part{file("audio", "a.m4a", "audio/x-m4a", []byte(m4aRecording+strings.Repeat("x", 1024)))},
-			wantField: "file", wantMsg: "The recording is larger than 0 MiB."},
+		{name: "audio over NOTE_AUDIO_MAX_BYTES", parts: []part{file("audio", "a.m4a", "audio/x-m4a", tooLong)},
+			wantField: "audio", wantMsg: fmt.Sprintf("The recording is larger than %d MiB.", notes.DefaultAudioMaxBytes>>20)},
 		{name: "empty request", wantField: "text", wantMsg: "Send some text, a photo or a recording."},
-		{name: "focus applied", focus: "trip", parts: []part{field("text", "x"), field("tags", "walk")}, want: func(t *testing.T, n web.ApiNote) {
-			require.ElementsMatch(t, []string{"walk", "trip"}, n.Tags)
-		}},
 		{name: "everything at once", parts: []part{
 			field("text", "a passage"), field("kind", "quote"), field("source", "Dune"), field("tags", "sand"), field("captured_at", at),
 			file("image", "page.jpg", "image/jpeg", jpg), file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording)),
-		}, want: func(t *testing.T, n web.ApiNote) {
+		}, want: func(t *testing.T, n web.ApiNote, s stored) {
 			require.Equal(t, "> a passage", n.Body)
 			require.Equal(t, "Dune", n.Source)
 			require.Equal(t, []string{"sand"}, n.Tags)
 			require.Len(t, n.Images, 1)
 			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
+			require.Len(t, s.uploads, 2, "the photo and the recording")
+			require.Equal(t, 1, s.jobs)
 		}},
 	}
 
@@ -379,47 +491,51 @@ func TestAPINotes_Create(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 
-			user, client := newLoggedIn(t, app)
+			user := newUser(t, app)
 			key := testutil.Must(factory.APIKey(ctx, app.DB, user.ID, notesScope))(t).APIKey
-
-			if c.focus != "" {
-				client.PostJSON("/controls/action/note_focus", map[string]string{"tag": c.focus}).RequireStatus(http.StatusOK)
-			}
 
 			for _, b := range c.before {
 				postNote(t, app, key, b...).RequireStatus(http.StatusOK)
 			}
 
+			before := storedOf(t, app, user.ID)
 			resp := postNote(t, app, key, c.parts...)
 
 			if c.wantMsg != "" {
-				resp.RequireStatus(http.StatusBadRequest)
-
-				var e apiError
-				require.NoError(t, json.Unmarshal([]byte(resp.Body), &e))
-				require.Equal(t, apiError{Errors: []string{c.wantMsg}, Field: c.wantField}, e)
-				require.Len(t, getNotes(t, app, key, url.Values{"limit": {"100"}}).Notes, len(c.before), "nothing is saved")
+				requireAPIError(t, resp, http.StatusBadRequest, apiError{Errors: []string{c.wantMsg}, Field: c.wantField})
+				require.Equal(t, before, storedOf(t, app, user.ID), "nothing is stored")
+				require.Zero(t, testutil.Must(factory.CountOrphanNoteJobs(ctx, app.DB))(t), "no job is queued")
 
 				return
 			}
 
 			n := decodeData[web.ApiNote](t, resp.RequireStatus(http.StatusOK).Body)
-			c.want(t, n)
-
-			saved := getNotes(t, app, key, url.Values{"limit": {"100"}}).Notes
-			require.Len(t, saved, len(c.before)+1)
+			s := requireStoredAs(t, app, user.ID, n)
+			require.Len(t, s.notes, len(c.before)+1)
+			c.want(t, n, s)
 		})
 	}
+}
 
-	t.Run("body over NOTE_CAPTURE_MAX_BYTES", func(t *testing.T) {
-		t.Parallel()
+// The notes cap raises the body cap of POST /api/v1/notes alone: a body
+// over MAX_BODY_SIZE passes it, one over MAX_BODY_SIZE plus
+// NOTE_CAPTURE_MAX_BYTES gets 413 from the notes API, as JSON.
+func TestAPINotes_BodyCap(t *testing.T) {
+	t.Parallel()
 
-		user := newUser(t, app)
-		key := testutil.Must(factory.APIKey(ctx, app.DB, user.ID, notesScope))(t).APIKey
+	const maxBody, maxCapture = 2 << 20, 1 << 20
 
-		postNote(t, app, key, file("image", "big.png", "image/png", make([]byte, 2*65536+1))).RequireStatus(http.StatusRequestEntityTooLarge)
-		require.Empty(t, getNotes(t, app, key, url.Values{"limit": {"100"}}).Notes)
-	})
+	app := notesApp(t, e2e.WithEnv("MAX_BODY_SIZE", fmt.Sprint(maxBody)), e2e.WithEnv("NOTE_CAPTURE_MAX_BYTES", fmt.Sprint(maxCapture)))
+	user := newUser(t, app)
+	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
+
+	between := postNote(t, app, key, file("image", "big.png", "image/png", make([]byte, maxBody+maxCapture/2)))
+	requireAPIError(t, between, http.StatusBadRequest, apiError{Errors: []string{"pcom keeps photos in JPEG, PNG or WebP."}, Field: "image"})
+
+	over := postNote(t, app, key, file("image", "big.png", "image/png", make([]byte, maxBody+maxCapture+1)))
+	requireAPIError(t, over, http.StatusRequestEntityTooLarge, apiError{Errors: []string{"The capture is too large."}})
+
+	require.Equal(t, stored{}, storedOf(t, app, user.ID))
 }
 
 // Without a speech-to-text backend a recording is kept and nothing waits for
@@ -433,6 +549,41 @@ func TestAPINotes_AudioWithoutSTT(t *testing.T) {
 
 	n := decodeData[web.ApiNote](t, postNote(t, app, key, file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording))).RequireStatus(http.StatusOK).Body)
 	require.Equal(t, model.NoteTranscriptionNone, n.TranscriptionStatus)
+
+	s := requireStoredAs(t, app, user.ID, n)
+	require.Len(t, s.uploads, 1)
+	require.Equal(t, model.MediaKindNoteAudio, s.uploads[0].Kind)
+	require.Zero(t, s.jobs, "no transcription job is queued")
+}
+
+// The focus is applied to every capture through the API and renewed by it,
+// so it outlives its idle time while captures keep coming.
+func TestAPINotes_Focus(t *testing.T) {
+	t.Parallel()
+
+	const idle = 3 * time.Second
+
+	app := notesApp(t, e2e.WithEnv("NOTE_FOCUS_IDLE", idle.String()))
+	user, client := newLoggedIn(t, app)
+	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
+
+	client.PostJSON("/controls/action/note_focus", map[string]string{"tag": "trip"}).RequireStatus(http.StatusOK)
+
+	capture := func() []string {
+		return decodeData[web.ApiNote](t, postNote(t, app, key, field("text", "x"), field("tags", "walk")).RequireStatus(http.StatusOK).Body).Tags
+	}
+
+	require.ElementsMatch(t, []string{"walk", "trip"}, capture())
+
+	// two thirds of the idle time each: the second capture is past the idle
+	// time since the focus was set, but not since the first capture
+	time.Sleep(2 * idle / 3)
+	require.ElementsMatch(t, []string{"walk", "trip"}, capture())
+	time.Sleep(2 * idle / 3)
+	require.ElementsMatch(t, []string{"walk", "trip"}, capture(), "the focus was renewed")
+
+	time.Sleep(idle + time.Second)
+	require.Equal(t, []string{"walk"}, capture(), "idle for too long")
 }
 
 // getNotes is GET /api/v1/notes with the query q.
@@ -508,7 +659,6 @@ func TestAPINotes_List(t *testing.T) {
 	}{
 		"no limit is one":        {url.Values{}, all[:1]},
 		"limit below one is one": {url.Values{"limit": {"-5"}}, all[:1]},
-		"limit over the max":     {url.Values{"limit": {"1000"}}, all},
 		"tag":                    {url.Values{"limit": {"10"}, "tag": {"walk"}}, []string{used, walk}},
 		"tags":                   {url.Values{"limit": {"10"}, "tag": {"walk", "idea"}}, []string{walk}},
 		"not":                    {url.Values{"limit": {"10"}, "not": {"idea"}}, []string{plain, used, inbox}},
@@ -526,13 +676,40 @@ func TestAPINotes_List(t *testing.T) {
 	require.Len(t, getNotes(t, app, otherKey, url.Values{"limit": {"10"}}).Notes, 1, "a full key reads the notes too, its owner's only")
 
 	resp := apiCall(t, app, http.MethodGet, "/api/v1/notes?cursor=garbage", "Bearer "+key)
-	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	requireAPIError(t, resp, http.StatusBadRequest, apiError{Errors: []string{"This page link is not valid."}, Field: "cursor"})
+}
+
+// A page holds at most notes.ListMax notes, however many are asked for.
+func TestAPINotes_ListMax(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user := newUser(t, app)
+	key := testutil.Must(factory.APIKey(ctx, app.DB, user.ID, notesScope))(t).APIKey
+	base := time.Now().Add(-time.Hour)
+
+	for i := range notes.ListMax + 1 {
+		testutil.Must(factory.Note(ctx, app.DB, user.ID, factory.CapturedAt(base.Add(time.Duration(i)*time.Second))))(t)
+	}
+
+	for _, limit := range []int{notes.ListMax, notes.ListMax + 1, 1000} {
+		page := getNotes(t, app, key, url.Values{"limit": {fmt.Sprint(limit)}})
+		require.Len(t, page.Notes, notes.ListMax, "limit %d", limit)
+		require.NotEmpty(t, page.Cursor, "limit %d: one more note follows", limit)
+
+		rest := getNotes(t, app, key, url.Values{"limit": {fmt.Sprint(limit)}, "cursor": {page.Cursor}})
+		require.Len(t, rest.Notes, 1)
+		require.Empty(t, rest.Cursor)
+	}
 }
 
 // TestAPINotes_ShortcutRequests replays the requests the "pcom note"
 // Shortcut makes (docs/guide/notes-on-a-phone.md), as Shortcuts' "Get
 // Contents of URL" sends a Form body: text fields, and files under the name
 // of their field with the file name and type the action that made them gives.
+// They are built here until bodies recorded on the owner's iPhone replace
+// them (testdata/shortcut/README.md).
 func TestAPINotes_ShortcutRequests(t *testing.T) {
 	t.Parallel()
 
@@ -585,7 +762,9 @@ func TestAPINotes_ShortcutRequests(t *testing.T) {
 			user := newUser(t, app)
 			key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
 
-			c.want(t, decodeData[web.ApiNote](t, postNote(t, app, key, c.parts...).RequireStatus(http.StatusOK).Body))
+			n := decodeData[web.ApiNote](t, postNote(t, app, key, c.parts...).RequireStatus(http.StatusOK).Body)
+			requireStoredAs(t, app, user.ID, n)
+			c.want(t, n)
 		})
 	}
 }
