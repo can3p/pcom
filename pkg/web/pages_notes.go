@@ -235,6 +235,50 @@ type NoteItem struct {
 	DeletePrompt string
 	// Status is the transcription status the item shows for a recording.
 	Status *NoteStatus
+	// Again is the "Transcribe again as…" control, nil when the note has none.
+	Again *NoteAgain
+}
+
+// TranscribeLanguage is a language the "Transcribe again as…" picker offers:
+// a Whisper language code and its name.
+type TranscribeLanguage struct {
+	Code string
+	Name string
+}
+
+// TranscribeLanguages is the picker's fixed list, in the order it shows.
+var TranscribeLanguages = []TranscribeLanguage{
+	{"en", "English"}, {"ru", "Russian"}, {"nl", "Dutch"}, {"de", "German"}, {"fr", "French"},
+	{"es", "Spanish"}, {"it", "Italian"}, {"pt", "Portuguese"}, {"uk", "Ukrainian"}, {"pl", "Polish"},
+}
+
+// confirmRetranscribe is what the control asks before it replaces text.
+const confirmRetranscribe = "Replace the edited text with a new transcript?"
+
+// NoteAgain is the "Transcribe again as…" control of a note with a recording
+// (partial--note-again.html). Confirm is the question asked before sending,
+// empty when there is no text to lose. The note doesn't keep its last
+// transcript, so the rule is: a note with text confirms, and the edit page
+// always does, since the text box may hold what was typed since it opened.
+type NoteAgain struct {
+	NoteID    string
+	Languages []TranscribeLanguage
+	Confirm   string
+}
+
+// NoteAgainOf is the control of n, nil when the note has no recording,
+// transcription is off or the recording is being transcribed already.
+func NoteAgainOf(svc *notes.Service, n *model.Note, edit bool) *NoteAgain {
+	if n.AudioUploadID == nil || !svc.TranscriptionEnabled() || n.TranscriptionStatus == model.NoteTranscriptionPending {
+		return nil
+	}
+
+	a := &NoteAgain{NoteID: n.ID, Languages: TranscribeLanguages}
+	if edit || strings.TrimSpace(n.Body) != "" {
+		a.Confirm = confirmRetranscribe
+	}
+
+	return a
 }
 
 // Where a note's transcription status shows; its poll answers for that place.
@@ -294,6 +338,7 @@ func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.N
 		Note: n, Used: links > 0, Tags: NoteTagsOf(n),
 		DeletePrompt: NoteDeletePrompt(n, links > 0),
 		Status:       &NoteStatus{Note: n, View: NoteStatusList, Stack: at.Stack, Suggest: at.Suggest},
+		Again:        NoteAgainOf(svc, n, false),
 	}
 
 	if at.Suggest {
@@ -444,6 +489,7 @@ func noteGroups(svc *notes.Service, c *gin.Context, user *model.User, entries []
 			Note: e.Note, Used: e.Used, Tags: NoteTagsOf(e.Note),
 			DeletePrompt: NoteDeletePrompt(e.Note, e.Used),
 			Status:       &NoteStatus{Note: e.Note, View: NoteStatusList, Suggest: suggest},
+			Again:        NoteAgainOf(svc, e.Note, false),
 		}
 
 		if e.StackSize > 1 {
@@ -579,6 +625,8 @@ type EditNotePage struct {
 	Chips []NoteTag
 	// Status is the transcription status the form shows for a recording.
 	Status *NoteStatus
+	// Again is the "Transcribe again as…" control, nil when the note has none.
+	Again *NoteAgain
 }
 
 // EditNote loads the note for its edit page; a note that isn't the viewer's
@@ -601,6 +649,7 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		Chips:        NoteTagsOf(note),
 		DeletePrompt: NoteDeletePrompt(note, links > 0),
 		Status:       &NoteStatus{Note: note, View: NoteStatusEdit, Base: note.Body},
+		Again:        NoteAgainOf(svc, note, true),
 	})
 }
 

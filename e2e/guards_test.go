@@ -359,6 +359,10 @@ var guardRoutes = []guardRoute{
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.published.ID} }},
 	{http.MethodPost, "/controls/action/upload_media", staticPath("/controls/action/upload_media"), noExtra},
 	{http.MethodPost, "/controls/action/note_audio", staticPath("/controls/action/note_audio"), noExtra},
+	{http.MethodPost, "/controls/action/note_retranscribe", staticPath("/controls/action/note_retranscribe"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"note_id": w.note.ID, "language": "ru"}
+		}},
 	{http.MethodPost, "/controls/action/note_capture", staticPath("/controls/action/note_capture"), noExtra},
 	{http.MethodGet, "/controls/notes/:id/audio", staticPath("/controls/notes/0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60/audio"), noExtra},
 	{http.MethodGet, "/controls/notes/:id/status", staticPath("/controls/notes/0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60/status"), noExtra},
@@ -848,7 +852,12 @@ func TestGuards_ShareTarget(t *testing.T) {
 func TestGuards_ForeignObjects(t *testing.T) {
 	t.Parallel()
 
-	app := e2e.Start(t)
+	// transcription is on (never called), so "transcribe again" is refused for
+	// the note's owner, not for the missing backend
+	app := e2e.Start(t,
+		e2e.WithEnv("STT_PROVIDER", "openai-compat"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_ENDPOINT", "http://127.0.0.1:1/stt"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_KEY", "unused"))
 	ctx := context.Background()
 	db := app.DB
 
@@ -947,6 +956,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 			"note_delete_many":  {"ids": note.ID},
 			"note_tag":          {"noteId": note.ID, "tag": "forged"},
 			"note_tag_many":     {"ids": note.ID, "tags": "forged"},
+			"note_retranscribe": {"note_id": note.ID, "language": "ru"},
 			"note_source_set":   {"ids": note.ID, "title": "Forged"},
 			"note_source_merge": {"from": src.ID, "into": src2.ID},
 			// a foreign note in a foreign post

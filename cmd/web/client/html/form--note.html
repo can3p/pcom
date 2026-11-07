@@ -12,7 +12,7 @@
 </div>{{ end }}
 {{/* What the status poll answers on the edit page once an untouched note is transcribed: the status, and out
      of band the text box with the transcript and the tags the note now has. Status: a web.NoteStatus. */}}
-{{ define "note_transcribed" }}{{ template "partial--note-status.html" .Status }}{{ template "note_editor" toMap "Body" .Status.Note.Body "OOB" true }}{{ template "note_tag_chips" toMap "Tags" .Tags "OOB" true }}{{ end }}
+{{ define "note_transcribed" }}{{ template "partial--note-status.html" .Status }}{{ template "note_editor" toMap "Body" .Status.Note.Body "OOB" true }}{{ template "note_tag_chips" toMap "Tags" .Tags "OOB" true }}{{ template "note_again_slot" toMap "Again" .Again "OOB" true }}{{ end }}
 
 <form class="ed-form note-form"
       method="post"
@@ -57,3 +57,4 @@
     </div>
   </div>
 </form>
+{{ template "note_again_slot" toMap "Again" .Again "OOB" false }}

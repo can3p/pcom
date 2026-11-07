@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
@@ -65,6 +67,36 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		c.JSON(http.StatusOK, gin.H{"note_id": note.ID})
 	})
 
+	// "Transcribe again as…": sends the recording once more with the language
+	// the author picked. The page reloads on success; a refusal the author can
+	// act on (limit reached, a transcription running) answers in place, the
+	// rest (a foreign or missing note) as every action does.
+	actions.POST("/note_retranscribe", func(c *gin.Context) {
+		var in struct {
+			NoteID   string `json:"note_id"`
+			Language string `json:"language"`
+		}
+
+		if err := c.BindJSON(&in); err != nil {
+			reportError(c, fmt.Sprintf("Bad input: %s", err.Error()))
+			return
+		}
+
+		err := svc.Retranscribe(c, auth.GetUserData(c).DBUser, in.NoteID, in.Language)
+
+		var invalid *service.ValidationError
+
+		switch {
+		case err == nil:
+			c.Header("HX-Refresh", "true")
+			c.Status(http.StatusOK)
+		case errors.As(err, &invalid):
+			c.HTML(http.StatusOK, "partial--error-message.html", gin.H{"Message": invalid.Message})
+		default:
+			reportError(c, actionMessage(err))
+		}
+	})
+
 	// The recording streams with Range support, for the <audio> element to
 	// seek, and is never cached by anything but the owner's browser.
 	controls.GET("/notes/:id/audio", requireUUIDParam("id"), func(c *gin.Context) {
@@ -116,7 +148,7 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		case status.View == web.NoteStatusEdit && note.TranscriptionStatus == model.NoteTranscriptionDone:
 			body := lf(c.Query("body"))
 			if body == status.Base {
-				c.HTML(http.StatusOK, "note_transcribed", gin.H{"Status": status, "Tags": web.NoteTagsOf(note)})
+				c.HTML(http.StatusOK, "note_transcribed", gin.H{"Status": status, "Tags": web.NoteTagsOf(note), "Again": web.NoteAgainOf(svc, note, true)})
 				return
 			}
 
@@ -125,6 +157,11 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		}
 
 		c.HTML(http.StatusOK, "partial--note-status.html", status)
+
+		// the transcription is over: the edit page's control comes back, out of band
+		if status.View == web.NoteStatusEdit && note.TranscriptionStatus != model.NoteTranscriptionPending {
+			c.HTML(http.StatusOK, "note_again_slot", gin.H{"Again": web.NoteAgainOf(svc, note, true), "OOB": true})
+		}
 	})
 }
 

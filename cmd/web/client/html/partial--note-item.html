@@ -33,6 +33,7 @@
       {{ end }}
     </ul>
     {{ end }}
+    {{ with .Item.Again }}{{ template "partial--note-again.html" . }}{{ end }}
     <div class="acts">
       <a href="/controls/notes/{{ $n.ID }}/edit">Edit</a>
       <button type="button" class="btn-danger"
