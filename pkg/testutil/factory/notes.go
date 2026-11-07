@@ -46,6 +46,16 @@ func WithRecording(uploadID string) NoteOpt {
 	}
 }
 
+// WithNoteLocator sets where in its source the note comes from.
+func WithNoteLocator(locator string) NoteOpt {
+	return func(n *model.Note) { n.Locator = &locator }
+}
+
+// WithNoteTranscription sets the transcription status of the note's recording.
+func WithNoteTranscription(status model.NoteTranscriptionStatus) NoteOpt {
+	return func(n *model.Note) { n.TranscriptionStatus = status }
+}
+
 // Note inserts a note of userID with a made-up body and no tags, captured
 // now.
 func Note(ctx context.Context, exec repo.Executor, userID string, opts ...NoteOpt) (*model.Note, error) {
@@ -70,8 +80,16 @@ func Note(ctx context.Context, exec repo.Executor, userID string, opts ...NoteOp
 	return insertRow(ctx, exec, n)
 }
 
+// NoteSourceOpt customizes a NoteSource before it is inserted.
+type NoteSourceOpt func(*model.NoteSource)
+
+// WithSourceAuthor sets the author of the source.
+func WithSourceAuthor(author string) NoteSourceOpt {
+	return func(s *model.NoteSource) { s.Author = &author }
+}
+
 // NoteSource inserts a book of userID with a made-up title.
-func NoteSource(ctx context.Context, exec repo.Executor, userID string) (*model.NoteSource, error) {
+func NoteSource(ctx context.Context, exec repo.Executor, userID string, opts ...NoteSourceOpt) (*model.NoteSource, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
@@ -79,9 +97,17 @@ func NoteSource(ctx context.Context, exec repo.Executor, userID string) (*model.
 
 	title := fmt.Sprintf("Book %d", next())
 
-	return insertRow(ctx, exec, &model.NoteSource{
-		ID: id, UserID: userID, Kind: model.NoteSourceBook, Title: title, MatchKey: title + "\x1f",
-	})
+	src := &model.NoteSource{ID: id, UserID: userID, Kind: model.NoteSourceBook, Title: title, MatchKey: title + "\x1f"}
+
+	for _, o := range opts {
+		o(src)
+	}
+
+	if src.Author != nil {
+		src.MatchKey += *src.Author
+	}
+
+	return insertRow(ctx, exec, src)
 }
 
 // NoteAudio records a recording of userID, an upload of kind note_audio.
