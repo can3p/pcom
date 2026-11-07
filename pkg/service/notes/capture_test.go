@@ -236,6 +236,9 @@ func TestCapture_HEICIsStoredAsJPEG(t *testing.T) {
 		}
 
 		t.Skip("libvips can't decode HEIC")
+	} else {
+		// the converter's own error says more than the capture's field message
+		require.NoError(t, err)
 	}
 
 	w, storage := audioWorld(t)
