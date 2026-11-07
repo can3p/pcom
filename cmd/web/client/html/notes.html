@@ -1,0 +1,105 @@
+{{ template "header.html" . }}
+
+<main class="notes" data-controller="notes">
+  {{ if .Manage }}
+  {{ template "partial--note-tag-manage.html" . }}
+  {{ else }}
+  <header class="notes-head">
+    <h1 class="controls-title">Notes</h1>
+    <p class="acts">
+      <a href="/controls/notes/manage">Tags and sources</a>
+    </p>
+  </header>
+
+  <p class="nt-focus" data-testid="focus">
+    {{ if .Focus }}
+    Now writing: <a href="/controls/notes?tag={{ .Focus | urlquery }}">#{{ .Focus }}</a>.
+    New notes get this tag.
+    <button type="button" class="nt-link"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_focus"
+            data-tag="">Stop</button>
+    {{ else }}
+    <span class="field-help">No focus tag. Choose one under <a href="/controls/notes/manage">Tags and sources</a> and new notes get it.</span>
+    {{ end }}
+  </p>
+
+  <form class="note-capture box"
+        method="post"
+        action="/controls/form/note_create"
+        hx-post="/controls/form/note_create"
+        hx-target="#note-capture-status"
+        hx-swap="innerHTML"
+        data-notes-target="capture">
+    <label class="sr-only" for="note-capture-body">New note</label>
+    <textarea id="note-capture-body" name="body" rows="3" placeholder="Jot something down. Ctrl+Enter saves."
+              data-action="keydown->notes#captureKey"></textarea>
+    <div class="note-capture-acts">
+      <span id="note-capture-status" aria-live="polite"></span>
+      <button type="submit" class="btn btn-primary">Add note</button>
+    </div>
+  </form>
+
+  {{ if .Query.StackID }}
+  <p class="acts"><a href="/controls/notes">All notes</a></p>
+  {{ else }}
+  <div class="nt-views">
+    <ul class="nt-chips" aria-label="Views">
+      {{ range .Views }}
+      <li class="nt-chip{{ if .Active }} nt-include{{ end }}"><a href="{{ .Href }}"{{ if .Active }} aria-current="true"{{ end }}>{{ .Label }}</a></li>
+      {{ end }}
+    </ul>
+    {{ if .Sources }}
+    <ul class="nt-chips" aria-label="Sources">
+      {{ range .Sources }}
+      <li class="nt-chip{{ if .Active }} nt-include{{ end }}"><a href="{{ .Href }}"{{ if .Active }} aria-current="true"{{ end }}>{{ .Label }} <span class="nt-count">{{ .Count }}</span></a></li>
+      {{ end }}
+    </ul>
+    {{ end }}
+    <form class="nt-search" method="get" action="/controls/notes" role="search">
+      {{ range .Query.Tags }}<input type="hidden" name="tag" value="{{ . }}">{{ end }}
+      {{ range .Query.Not }}<input type="hidden" name="not" value="{{ . }}">{{ end }}
+      {{ if .Query.ShowHidden }}<input type="hidden" name="hidden" value="1">{{ end }}
+      {{ with .Query.SourceID }}<input type="hidden" name="source" value="{{ . }}">{{ end }}
+      {{ if .Query.Unused }}<input type="hidden" name="unused" value="1">{{ end }}
+      {{ if .Query.Inbox }}<input type="hidden" name="inbox" value="1">{{ end }}
+      <label class="sr-only" for="note-search">Search notes</label>
+      <input id="note-search" type="search" name="q" value="{{ .Query.Q }}" placeholder="Search notes">
+      <button type="submit" class="btn btn-secondary">Search</button>
+    </form>
+  </div>
+
+  {{ template "partial--note-tag-bar.html" toMap "Bar" .Bar }}
+  {{ end }}
+
+  <div class="nt-select box" data-notes-target="bar" hidden role="region" aria-label="Selected notes">
+    <span data-notes-target="count" role="status"></span>
+    <button type="button" class="btn btn-secondary"
+            data-notes-target="tagButton"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_tag_many"
+            data-action-prompt-value="Tags to add to the selected notes, separated by spaces or commas"
+            data-action-prompt-field-value="tags">Tag</button>
+    <button type="button" class="btn btn-secondary"
+            data-notes-target="sourceButton"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_source_set"
+            data-action-prompt-value="Title of the book or article the selected notes come from; leave empty to clear it"
+            data-action-prompt-field-value="title">Source</button>
+    <button type="button" class="btn btn-danger"
+            data-notes-target="deleteButton"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_delete_many">Delete</button>
+  </div>
+
+  <div class="note-list" id="note-list">
+    {{ template "partial--note-list.html" . }}
+  </div>
+  {{ end }}
+</main>
+
+{{ template "footer.html" . }}

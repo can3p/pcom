@@ -1,0 +1,27 @@
+{{/* The tag bar of the notes list and of the post editor's panel. Bar: a web.NoteTagBar.
+     A tap on a chip cycles the tag through include, exclude and off; the state lives in the link's URL.
+     With a Bar.Target the links load in place into that element instead of navigating.
+     With Bar.Manage each chip has a Hide (or Unhide) action. */}}
+{{ $bar := .Bar }}
+<nav class="nt-bar" aria-label="Tags">
+  <ul class="nt-chips">
+    {{ range $bar.Chips }}
+    <li class="nt-chip nt-{{ .State }}{{ if .Hidden }} nt-hidden{{ end }}" data-state="{{ .State }}">
+      <a href="{{ .Href }}"{{ if $bar.Target }} hx-get="{{ .Href }}" hx-target="{{ $bar.Target }}" hx-swap="innerHTML"{{ end }}>#{{ .Tag }} <span class="nt-count">{{ .Count }}</span>{{ if eq .State "include" }}<span class="sr-only"> (included)</span>{{ else if eq .State "exclude" }}<span class="sr-only"> (excluded)</span>{{ end }}</a>
+      {{ if $bar.Manage }}
+      <button type="button" class="nt-hide"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="{{ if .Hidden }}note_tag_unhide{{ else }}note_tag_hide{{ end }}"
+              data-tag="{{ .Tag }}"
+              aria-label="{{ if .Hidden }}Unhide{{ else }}Hide{{ end }} #{{ .Tag }}">{{ if .Hidden }}unhide{{ else }}hide{{ end }}</button>
+      {{ end }}
+    </li>
+    {{ else }}
+    <li class="field-help">No tags yet. Write #tags in a note or tag it.</li>
+    {{ end }}
+  </ul>
+  {{ if $bar.HiddenTags }}
+  <a class="nt-showhidden" href="{{ $bar.ShowHiddenHref }}"{{ if $bar.Target }} hx-get="{{ $bar.ShowHiddenHref }}" hx-target="{{ $bar.Target }}" hx-swap="innerHTML"{{ end }}>{{ if $bar.Query.ShowHidden }}Leave hidden out{{ else }}Show hidden ({{ $bar.HiddenTags }}){{ end }}</a>
+  {{ end }}
+</nav>

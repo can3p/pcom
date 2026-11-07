@@ -84,6 +84,6 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 			return
 		}
 
-		c.HTML(http.StatusOK, "partial--note-status.html", gin.H{"Note": note})
+		c.HTML(http.StatusOK, "partial--note-status.html", note)
 	})
 }

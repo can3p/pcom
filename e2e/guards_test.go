@@ -250,6 +250,9 @@ var guardRoutes = []guardRoute{
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
+	{http.MethodGet, "/controls/notes", staticPath("/controls/notes"), noExtra},
+	{http.MethodGet, "/controls/notes/manage", staticPath("/controls/notes/manage"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/edit", staticPath("/controls/notes/" + uuid.Nil.String() + "/edit"), noExtra},
 	{http.MethodGet, "/controls/settings", staticPath("/controls/settings"), noExtra},
 
 	// /controls/action (actions.go and logout)
@@ -309,6 +312,40 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/settings/import", staticPath("/controls/action/settings/import"), noExtra},
 	{http.MethodPost, "/controls/action/subscribers/:id/remove", staticPath("/controls/action/subscribers/" + uuid.Nil.String() + "/remove"), noExtra},
 
+	// notes
+	{http.MethodPost, "/controls/action/note_delete", staticPath("/controls/action/note_delete"),
+		func(*guardWorld) map[string]string { return map[string]string{"noteId": uuid.Nil.String()} }},
+	{http.MethodPost, "/controls/action/note_delete_many", staticPath("/controls/action/note_delete_many"),
+		func(*guardWorld) map[string]string { return map[string]string{"ids": uuid.Nil.String()} }},
+	{http.MethodPost, "/controls/action/note_tag_many", staticPath("/controls/action/note_tag_many"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"ids": uuid.Nil.String(), "tags": "forged"}
+		}},
+	{http.MethodPost, "/controls/action/note_tag", staticPath("/controls/action/note_tag"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"noteId": uuid.Nil.String(), "tag": "forged"}
+		}},
+	{http.MethodPost, "/controls/action/note_tag_hide", staticPath("/controls/action/note_tag_hide"),
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
+	{http.MethodPost, "/controls/action/note_tag_unhide", staticPath("/controls/action/note_tag_unhide"),
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
+	{http.MethodPost, "/controls/action/note_tag_rename", staticPath("/controls/action/note_tag_rename"),
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged", "to": "forged2"} }},
+	{http.MethodPost, "/controls/action/note_source_set", staticPath("/controls/action/note_source_set"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"ids": uuid.Nil.String(), "title": "Forged"}
+		}},
+	{http.MethodPost, "/controls/action/note_source_rename", staticPath("/controls/action/note_source_rename"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"sourceId": uuid.Nil.String(), "title": "Forged", "kind": "book"}
+		}},
+	{http.MethodPost, "/controls/action/note_source_merge", staticPath("/controls/action/note_source_merge"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"from": uuid.Nil.String(), "into": uuid.Nil.String()}
+		}},
+	{http.MethodPost, "/controls/action/note_focus", staticPath("/controls/action/note_focus"),
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "forged"} }},
+
 	// /controls/form
 	{http.MethodPost, "/controls/form/whitelist_connection", staticPath("/controls/form/whitelist_connection"),
 		func(w *guardWorld) map[string]string { return map[string]string{"uname": w.stranger.Username} }},
@@ -321,6 +358,10 @@ var guardRoutes = []guardRoute{
 				"visibility": string(model.PostVisibilityDirectOnly), "save_action": "save_post",
 			}
 		}},
+	{http.MethodPost, "/controls/form/note_create", staticPath("/controls/form/note_create"),
+		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged note"} }},
+	{http.MethodPost, "/controls/form/note_edit/:id", staticPath("/controls/form/note_edit/" + uuid.Nil.String()),
+		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged edit"} }},
 	{http.MethodPost, "/controls/form/new_comment", staticPath("/controls/form/new_comment"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"post_id": w.published.ID, "body": "a forged comment"}
@@ -405,6 +446,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_auth.go":          {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_connections.go":   {"controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_posts.go":         {"r": "", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_notes.go":         {"controls": "/controls", "controlsForms": "/controls/form", "actions": "/controls/action"},
 		"../pkg/web/app/routes_settings.go":      {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_feeds.go":         {"controlsForms": "/controls/form"},
 		"../pkg/web/app/actions_export.go":       {"r": "/controls/action"},

@@ -1,0 +1,88 @@
+{{/* The screen that renames and merges tags and sources, hides tags and sets the focus.
+     The page: a web.NotesPage with Manage set. */}}
+{{ $m := .Manage }}
+<header class="notes-head">
+  <h1 class="controls-title">Tags and sources</h1>
+  <p class="acts"><a href="/controls/notes">All notes</a></p>
+</header>
+
+<section class="controls-section" aria-labelledby="note-tags-title">
+  <h2 id="note-tags-title">Tags</h2>
+  <p class="field-help">Renaming a tag to one that exists merges the two. The #words in your notes change with it.</p>
+  <ul class="controls-list">
+    {{ range $m.Tags }}
+    <li class="controls-row" data-testid="tag-row">
+      <a href="/controls/notes?tag={{ .Tag | urlquery }}">#{{ .Tag }}</a>
+      <span class="meta">{{ .Count }} {{ if eq .Count 1 }}note{{ else }}notes{{ end }}{{ if .Hidden }}, hidden{{ end }}{{ if eq .Tag $m.Focus }}, focus{{ end }}</span>
+      <span class="acts">
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="note_tag_rename"
+                data-action-prompt-value="Rename #{{ .Tag }} to (a name that exists merges the two tags)"
+                data-action-prompt-field-value="to"
+                data-tag="{{ .Tag }}"
+                aria-label="Rename #{{ .Tag }}">rename</button>
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="{{ if .Hidden }}note_tag_unhide{{ else }}note_tag_hide{{ end }}"
+                data-tag="{{ .Tag }}"
+                aria-label="{{ if .Hidden }}Unhide{{ else }}Hide{{ end }} #{{ .Tag }}">{{ if .Hidden }}unhide{{ else }}hide{{ end }}</button>
+        {{ if ne .Tag $m.Focus }}
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="note_focus"
+                data-tag="{{ .Tag }}"
+                aria-label="Focus on #{{ .Tag }}">focus</button>
+        {{ end }}
+      </span>
+    </li>
+    {{ else }}
+    <li class="field-help">No tags yet.</li>
+    {{ end }}
+  </ul>
+</section>
+
+<section class="controls-section" aria-labelledby="note-sources-title">
+  <h2 id="note-sources-title">Sources</h2>
+  <p class="field-help">The books and articles your quotes come from. Merging moves the notes of one source to another.</p>
+  <ul class="controls-list">
+    {{ range $m.Sources }}
+    {{ $s := .Source }}
+    <li class="controls-row" data-testid="source-row">
+      <a href="/controls/notes?source={{ $s.ID }}">{{ $s.Title }}</a>
+      {{ with $s.Author }}<span class="meta">{{ . }}</span>{{ end }}
+      <span class="meta">{{ .Notes }} {{ if eq .Notes 1 }}note{{ else }}notes{{ end }}</span>
+      <span class="acts">
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="note_source_rename"
+                data-action-prompt-value="New title for {{ $s.Title }}"
+                data-action-prompt-field-value="title"
+                data-source-id="{{ $s.ID }}"
+                data-kind="{{ $s.Kind }}"
+                data-author="{{ with $s.Author }}{{ . }}{{ end }}"
+                data-url="{{ with $s.URL }}{{ . }}{{ end }}"
+                aria-label="Rename {{ $s.Title }}">rename</button>
+      </span>
+      {{ if gt (len $m.Sources) 1 }}
+      <form class="nt-merge" hx-post="/controls/action/note_source_merge" hx-ext="json-enc" hx-swap="none">
+        <input type="hidden" name="from" value="{{ $s.ID }}">
+        <label class="sr-only" for="merge-{{ $s.ID }}">Merge {{ $s.Title }} into</label>
+        <select id="merge-{{ $s.ID }}" name="into">
+          {{ range $m.Sources }}{{ if ne .Source.ID $s.ID }}<option value="{{ .Source.ID }}">{{ .Source.Title }}</option>{{ end }}{{ end }}
+        </select>
+        <button type="submit" class="btn btn-secondary"
+                data-controller="confirm"
+                data-confirm-message-value="Merge {{ $s.Title }} into the source you chose? Its notes move there.">Merge into</button>
+      </form>
+      {{ end }}
+    </li>
+    {{ else }}
+    <li class="field-help">No sources yet. Tag a selection of notes with a source from the notes list.</li>
+    {{ end }}
+  </ul>
+</section>

@@ -1,11 +1,9 @@
-{{/* Where the transcription of a note's recording stands. Takes .Note. While it is pending the fragment
-     replaces itself every 3s from /controls/notes/:id/status; done or failed, it stops asking. */}}
-{{ with .Note }}
-  {{ if eq .TranscriptionStatus "pending" }}
-    <span class="status meta" hx-get="/controls/notes/{{ .ID }}/status" hx-trigger="every 3s" hx-swap="outerHTML">Transcribing…</span>
-  {{ else if eq .TranscriptionStatus "failed" }}
-    <span class="status meta">Transcription failed — try again.{{ with .TranscriptionError }} {{ . }}{{ end }}</span>
-  {{ else }}
-    <span class="status meta"></span>
-  {{ end }}
+{{/* Where the transcription of a note's recording stands. Takes the *model.Note. While it is pending the
+     fragment replaces itself every 3s from /controls/notes/:id/status; done or failed, it stops asking. */}}
+{{ if eq .TranscriptionStatus "pending" }}
+  <span class="status meta" data-testid="note-status" hx-get="/controls/notes/{{ .ID }}/status" hx-trigger="every 3s" hx-swap="outerHTML">Transcribing…</span>
+{{ else if eq .TranscriptionStatus "failed" }}
+  <span class="status meta" data-testid="note-status">Transcription failed — try again.{{ with .TranscriptionError }} {{ . }}{{ end }}</span>
+{{ else }}
+  <span class="status meta" data-testid="note-status"></span>
 {{ end }}

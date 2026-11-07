@@ -168,6 +168,16 @@ func (s *Service) Get(ctx context.Context, actor *model.User, noteID string) (*m
 	return s.store.NoteWithRelations(ctx, noteID)
 }
 
+// PostLinks is in how many posts the actor's note was inserted, which its
+// delete confirmation says.
+func (s *Service) PostLinks(ctx context.Context, actor *model.User, noteID string) (int, error) {
+	if _, err := s.ownNote(ctx, s.store, actor, noteID, read); err != nil {
+		return 0, err
+	}
+
+	return s.store.NotePostLinkCount(ctx, noteID)
+}
+
 // Delete removes a note of the actor for good: its photos and post links
 // with it, its recording from the bucket by a job. The transcription requests
 // stay, so the daily limits still count them. A note that is gone already is

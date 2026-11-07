@@ -1,0 +1,46 @@
+{{/* A note of the list. Item: a web.NoteItem, User: the viewer's auth.UserData, Stack: the ID of its stack or "". */}}
+{{ $n := .Item.Note }}
+<article class="item note" id="note-{{ $n.ID }}" data-testid="note">
+  <label class="note-pick">
+    <input type="checkbox" value="{{ $n.ID }}" data-notes-target="pick" data-action="notes#select"
+           data-recording="{{ if $n.AudioUploadID }}1{{ else }}0{{ end }}"{{ with .Stack }} data-stack="{{ . }}"{{ end }}
+           aria-label="Select this note">
+  </label>
+  <div class="note-main">
+    <p class="meta">{{ renderHumanTime $n.CapturedAt .User.DBUser }}
+      {{ with $n.Source }}<span class="dot">&middot;</span><a href="/controls/notes?source={{ .ID }}">{{ .Title }}</a>{{ with $n.Locator }}, {{ . }}{{ end }}{{ end }}
+      {{ if .Item.Used }}<span class="dot">&middot;</span>used in a post{{ end }}</p>
+    {{ if $n.AudioUploadID }}{{ template "partial--note-status.html" $n }}{{ end }}
+    {{ if $n.Body }}<div class="prose note-body">{{ markdown_feed $n.Body }}</div>{{ end }}
+    {{ if $n.Images }}
+    <p class="note-photos">{{ range $n.Images }}<img src="{{ link "uploaded_media" .Upload.UploadedFname }}" alt="Photo of the note" loading="lazy">{{ end }}</p>
+    {{ end }}
+    {{ if or .Item.Tags .Item.Suggestions }}
+    <ul class="nt-tags">
+      {{ range .Item.Tags }}
+      <li class="nt-tag"><a href="/controls/notes?tag={{ .Tag | urlquery }}">#{{ .Tag }}</a>{{ if .FromText }}<span class="sr-only"> (written in the text)</span>{{ end }}</li>
+      {{ end }}
+      {{ range .Item.Suggestions }}
+      <li class="nt-tag nt-suggest">
+        <button type="button"
+                data-controller="action"
+                data-action="action#run"
+                data-action-action-value="note_tag"
+                data-note-id="{{ $n.ID }}"
+                data-tag="{{ . }}"
+                aria-label="Tag this note #{{ . }}">+ #{{ . }}</button>
+      </li>
+      {{ end }}
+    </ul>
+    {{ end }}
+    <div class="acts">
+      <a href="/controls/notes/{{ $n.ID }}/edit">Edit</a>
+      <button type="button" class="btn-danger"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="note_delete"
+              data-action-prompt-value="{{ .Item.DeletePrompt }}"
+              data-note-id="{{ $n.ID }}">Delete</button>
+    </div>
+  </div>
+</article>

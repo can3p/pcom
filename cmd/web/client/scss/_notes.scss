@@ -1,0 +1,270 @@
+// Notes: the list with its tag bar, stacks and selection, the capture box,
+// the management screen and the edit page. Colours come from tokens.
+.notes {
+  max-width: var(--prose-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.notes-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+
+  .controls-title {
+    margin: 0;
+  }
+}
+
+.nt-focus {
+  margin: 0;
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--muted);
+}
+
+.nt-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: 600 14px var(--font-ui);
+  cursor: pointer;
+}
+
+.note-capture {
+  textarea {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--ground);
+    color: var(--text);
+    font: 400 16px/1.5 var(--font-ui);
+    resize: vertical;
+  }
+}
+
+.note-capture-acts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.nt-views {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.nt-search {
+  display: flex;
+  gap: var(--space-2);
+
+  input[type="search"] {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 16px var(--font-ui);
+  }
+}
+
+// Tag chips: a tap cycles include, exclude, off.
+.nt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.nt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: 600 13px var(--font-ui);
+
+  a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  &.nt-include {
+    border-color: var(--accent);
+    background: var(--accent);
+
+    a,
+    .nt-count {
+      color: var(--on-accent);
+    }
+  }
+
+  &.nt-exclude {
+    border-color: var(--err);
+
+    a {
+      color: var(--err);
+      text-decoration: line-through;
+    }
+  }
+
+  &.nt-hidden {
+    border-style: dashed;
+    color: var(--muted);
+  }
+}
+
+.nt-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.nt-hide {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 400 12px var(--font-mono);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--accent);
+  }
+}
+
+.nt-showhidden {
+  font: 600 13px var(--font-mono);
+}
+
+.nt-select {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+
+  &[hidden] {
+    display: none;
+  }
+
+  [role="status"] {
+    margin-right: auto;
+    font: 600 14px var(--font-ui);
+  }
+}
+
+// One note: a checkbox beside the body, then its tags and actions.
+.note {
+  position: relative;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+}
+
+.note-pick {
+  padding-top: 2px;
+}
+
+.note-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.note-photos img {
+  max-width: 160px;
+  max-height: 160px;
+  margin-right: var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.nt-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 600 13px var(--font-mono);
+
+  .nt-suggest button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}
+
+.note-stack {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--line);
+}
+
+.note-stack-head {
+  padding-top: var(--space-2);
+  font: 600 14px var(--font-ui);
+  color: var(--muted);
+}
+
+.note-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-width: 0;
+  max-width: 24em;
+}
+
+.nt-merge {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+
+  select {
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 15px var(--font-ui);
+  }
+}
+
+.note-form .field input {
+  width: 100%;
+}
