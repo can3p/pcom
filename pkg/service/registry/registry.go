@@ -113,7 +113,7 @@ func New(db *sql.DB, deps Deps) *Services {
 		Accounts:      accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:     proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
 		Subscriptions: subsSvc,
-		Notes:         notes.New(store, append([]notes.Option{notes.WithJobs(deps.Jobs), notes.WithMediaStorage(deps.MediaStorage), notes.WithSTT(deps.STT), notes.WithPageSize(deps.PageSize)}, deps.Notes...)...),
+		Notes:         notes.New(store, append([]notes.Option{notes.WithJobs(deps.Jobs), notes.WithMediaStorage(deps.MediaStorage), notes.WithSTT(deps.STT), notes.WithPageSize(deps.PageSize), notes.WithMaxUploadSize(deps.MaxUploadSize)}, deps.Notes...)...),
 	}
 }
 

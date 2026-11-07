@@ -88,7 +88,6 @@ func TestBodyLimits_UploadPaths(t *testing.T) {
 	// exists, its entry here goes.
 	notYet := map[string]string{
 		"POST " + noteSharePath: "the share target (F15 T8)",
-		"POST " + apiNotesPath:  "the notes API (F15 T5)",
 	}
 
 	for _, want := range []string{"POST " + uploadMediaPath, "PUT " + apiImagePath, "POST " + importPath, "POST " + noteAudioPath, "POST " + noteSharePath, "POST " + apiNotesPath} {

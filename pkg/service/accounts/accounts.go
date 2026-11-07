@@ -7,7 +7,6 @@ package accounts
 import (
 	"cmp"
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"strings"
@@ -146,11 +145,6 @@ func (s *Service) UserByID(ctx context.Context, id string) (*model.User, error) 
 	return notFound(s.store.UserByID(ctx, id))
 }
 
-// UserByAPIKey loads the user an API key belongs to.
-func (s *Service) UserByAPIKey(ctx context.Context, key string) (*model.User, error) {
-	return notFound(s.store.UserByAPIKeyHash(ctx, model.HashAPIKey(key)))
-}
-
 // RegistrationOpen reports whether anybody may sign up.
 func (s *Service) RegistrationOpen(ctx context.Context) (bool, error) {
 	return s.store.RegistrationOpen(ctx)
@@ -244,44 +238,6 @@ func (s *Service) SaveGeneralSettings(ctx context.Context, actor *model.User, ti
 	)
 }
 
-// GenerateAPIKey gives the actor a full API key and returns it, the one time
-// it is shown: only its hash is stored. There is no rotation: a user who has
-// a key keeps it, and gets "" back.
-func (s *Service) GenerateAPIKey(ctx context.Context, actor *model.User) (string, error) {
-	if actor == nil {
-		return "", service.ErrNeedsLogin
-	}
-
-	var key string
-
-	err := s.store.Tx(ctx, func(tx *repo.Store) error {
-		if err := tx.LockUser(ctx, repo.LockAPIKeys, actor.ID); err != nil {
-			return err
-		}
-
-		existing, err := tx.APIKeyForUser(ctx, actor.ID)
-		if err != nil || existing != nil {
-			return err
-		}
-
-		id, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-
-		plain := rand.Text()
-		if err := tx.CreateAPIKey(ctx, &model.UserAPIKey{ID: id.String(), KeyHash: model.HashAPIKey(plain), UserID: actor.ID, Scope: model.APIKeyScopeFull}); err != nil {
-			return err
-		}
-
-		key = plain
-
-		return nil
-	})
-
-	return key, err
-}
-
 // RegenerateFeedToken creates the actor's private feed token or replaces it;
 // the old feed URL stops working.
 func (s *Service) RegenerateFeedToken(ctx context.Context, actor *model.User) error {
@@ -298,8 +254,8 @@ func (s *Service) RegenerateFeedToken(ctx context.Context, actor *model.User) er
 type SettingsView struct {
 	AvailableInvites int64
 	UsedInvites      []*model.UserInvitation
-	APIKey           *model.UserAPIKey
-	FeedURL          string // private RSS feed URL, empty until a feed token exists
+	APIKeys          []*model.UserAPIKey // oldest first
+	FeedURL          string              // private RSS feed URL, empty until a feed token exists
 	UserStyles       string
 	ProfileAbout     string
 	Feeds            []*feeds.RssFeed
@@ -321,7 +277,7 @@ func (s *Service) Settings(ctx context.Context, actor *model.User) (*SettingsVie
 		return nil, err
 	}
 
-	apiKey, err := s.store.APIKeyForUser(ctx, actor.ID)
+	apiKeys, err := s.store.APIKeysForUser(ctx, actor.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +290,7 @@ func (s *Service) Settings(ctx context.Context, actor *model.User) (*SettingsVie
 	view := &SettingsView{
 		AvailableInvites: totalInvites - int64(len(usedInvites)),
 		UsedInvites:      usedInvites,
-		APIKey:           apiKey,
+		APIKeys:          apiKeys,
 	}
 
 	if feedToken != nil {

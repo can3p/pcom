@@ -10,6 +10,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
@@ -112,23 +113,6 @@ func TestAuth_LoggedInSessionSetsPgsessionUser(t *testing.T) {
 	require.Equal(t, user.ID, got.DBUser.ID)
 }
 
-func TestAuthAPI_UnknownKeyReturnsForbidden(t *testing.T) {
-	t.Parallel()
-
-	db := testdb.New(t).DB
-
-	c, w := ginctx.New(t, http.MethodGet, "/api/whatever", nil)
-	// A syntactically valid but unassigned API key (the column is a uuid),
-	// so the lookup cleanly misses rather than failing to parse.
-	c.Request.Header.Set("Authorization", "Bearer 00000000-0000-0000-0000-000000000000")
-
-	auth.AuthAPI(c, svc(db))
-
-	require.True(t, c.IsAborted())
-	require.Equal(t, http.StatusForbidden, w.Code)
-	require.Nil(t, pgsession.GetUser(c))
-}
-
 func TestAuthAPI_DBErrorReturnsInternalServerError(t *testing.T) {
 	t.Parallel()
 
@@ -145,25 +129,63 @@ func TestAuthAPI_DBErrorReturnsInternalServerError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestAuthAPI_KnownKeySetsUser(t *testing.T) {
+func TestAuthAPI_Keys(t *testing.T) {
 	t.Parallel()
 
 	db := testdb.New(t).DB
 	ctx := context.Background()
+	notesScope := func(k *model.UserAPIKey) { k.Scope = model.APIKeyScopeNotes }
 
-	user := testutil.Must(factory.User(ctx, db))(t)
+	tests := []struct {
+		name     string
+		scope    factory.APIKeyOpt
+		unknown  bool
+		admitted []model.APIKeyScope
+		want     int
+	}{
+		{name: "full key on a full route", admitted: []model.APIKeyScope{model.APIKeyScopeFull}, want: http.StatusOK},
+		{name: "notes key on a full route", scope: notesScope, admitted: []model.APIKeyScope{model.APIKeyScopeFull}, want: http.StatusForbidden},
+		{name: "notes key on a notes route", scope: notesScope, admitted: []model.APIKeyScope{model.APIKeyScopeFull, model.APIKeyScopeNotes}, want: http.StatusOK},
+		{name: "unknown key", unknown: true, admitted: []model.APIKeyScope{model.APIKeyScopeFull}, want: http.StatusUnauthorized},
+	}
 
-	key := testutil.Must(factory.APIKey(ctx, db, user.ID))(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	c, w := ginctx.New(t, http.MethodGet, "/api/whatever", nil)
-	c.Request.Header.Set("Authorization", "Bearer "+key.APIKey)
+			user := testutil.Must(factory.User(ctx, db))(t)
 
-	auth.AuthAPI(c, svc(db))
+			var opts []factory.APIKeyOpt
+			if tt.scope != nil {
+				opts = append(opts, tt.scope)
+			}
 
-	require.False(t, c.IsAborted())
-	require.NotEqual(t, http.StatusForbidden, w.Code)
+			key := testutil.Must(factory.APIKey(ctx, db, user.ID, opts...))(t)
+			presented := key.APIKey
 
-	got := pgsession.GetUser(c)
-	require.NotNil(t, got)
-	require.Equal(t, user.ID, got.DBUser.ID)
+			if tt.unknown {
+				presented = "not-a-key"
+			}
+
+			c, w := ginctx.New(t, http.MethodGet, "/api/whatever", nil)
+			c.Request.Header.Set("Authorization", "Bearer "+presented)
+
+			auth.AuthAPI(c, svc(db), tt.admitted...)
+
+			require.Equal(t, tt.want, w.Code)
+			require.Equal(t, tt.want != http.StatusOK, c.IsAborted())
+
+			if tt.want != http.StatusOK {
+				require.Nil(t, pgsession.GetUser(c))
+				return
+			}
+
+			got := pgsession.GetUser(c)
+			require.NotNil(t, got)
+			require.Equal(t, user.ID, got.DBUser.ID)
+
+			keys := testutil.Must(factory.ListAPIKeys(ctx, db, user.ID))(t)
+			require.NotNil(t, keys[0].LastUsedAt, "the use is recorded")
+		})
+	}
 }

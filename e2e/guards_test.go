@@ -334,6 +334,10 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/delete_draft", staticPath("/controls/action/delete_draft"),
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.draft.ID} }},
 	{http.MethodPost, "/controls/action/generate_api_key", staticPath("/controls/action/generate_api_key"), noExtra},
+	{http.MethodPost, "/controls/action/revoke_api_key", staticPath("/controls/action/revoke_api_key"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"id": "0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60"}
+		}},
 	{http.MethodPost, "/controls/action/regenerate_feed_token", staticPath("/controls/action/regenerate_feed_token"), noExtra},
 	{http.MethodPost, "/controls/action/dismiss_prompt", staticPath("/controls/action/dismiss_prompt"),
 		func(w *guardWorld) map[string]string { return map[string]string{"promptId": w.prompt.ID} }},
@@ -480,6 +484,8 @@ var excludedRoutes = map[string]string{
 	"POST /api/v1/posts/:id":   "bearer-token API, covered in api_test.go",
 	"DELETE /api/v1/posts/:id": "bearer-token API, covered in api_test.go",
 	"PUT /api/v1/image":        "bearer-token API, covered in api_test.go",
+	"POST /api/v1/notes":       "bearer-token API, covered in api_notes_test.go",
+	"GET /api/v1/notes":        "bearer-token API, covered in api_notes_test.go",
 
 	"POST /subscriptions/:manage_token/unsubscribe/:subscription_id": "the one-click unsubscribe of RFC 8058: the mail client posts it with no session and no CSRF token; subscriptions_test.go",
 }
@@ -515,6 +521,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/actions_proofread.go":    {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/routes_notes_audio.go":   {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/api.go":                  {"r": "/api/v1"},
+		"../pkg/web/app/api_notes.go":            {"r": "/api/v1"},
 	}
 
 	want := map[string]bool{}

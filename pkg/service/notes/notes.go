@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
+	mediasvc "github.com/can3p/pcom/pkg/service/media"
 )
 
 // Defaults of the limits, also the configuration's defaults.
@@ -110,7 +111,9 @@ type Service struct {
 	limits      Limits
 	// pageSize is how many notes a page of List holds.
 	pageSize int
-	now      func() time.Time
+	// maxUploadSize is the most bytes of one photo (MAX_UPLOAD_SIZE).
+	maxUploadSize int64
+	now           func() time.Time
 }
 
 // Option changes how New builds the service.
@@ -141,6 +144,12 @@ func WithSTTAttempts(n int) Option {
 // one keeps the default.
 func WithPageSize(n int) Option {
 	return func(s *Service) { setIfPositive(&s.pageSize, n) }
+}
+
+// WithMaxUploadSize sets the most bytes of one photo of a capture; a value
+// below one keeps media.DefaultMaxUploadSize.
+func WithMaxUploadSize(n int64) Option {
+	return func(s *Service) { setIfPositive(&s.maxUploadSize, n) }
 }
 
 // WithClock replaces the clock captures and the focus are timed by, for
@@ -182,7 +191,9 @@ func New(store *repo.Store, opts ...Option) *Service {
 		limits:      DefaultLimits,
 		pageSize:    DefaultPageSize,
 		sttAttempts: DefaultSTTAttempts,
-		now:         time.Now,
+		// a photo is capped like any uploaded image
+		maxUploadSize: mediasvc.DefaultMaxUploadSize,
+		now:           time.Now,
 	}
 
 	for _, o := range opts {

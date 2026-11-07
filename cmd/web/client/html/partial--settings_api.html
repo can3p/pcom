@@ -1,32 +1,79 @@
-{{/* The API key section. APIKey: the user's key, nil until one is generated.
-     NewKey: the key in plain, only in the response that created it, the one
-     time it can be shown. */}}
+{{/* The API keys section; creating or revoking a key re-renders it in place.
+     APIKeys: the user's keys, oldest first. NewKey: the key just created,
+     whose APIKey holds the key in plain only in the response that created it,
+     the one time it can be shown. Error: why the key was not created.
+     DBUser: the viewer, for times. */}}
 <section class="settings-sec" id="api" aria-labelledby="api-title">
-  <h2 id="api-title">API key</h2>
-  <p class="settings-lead">For scripts and the blg command-line client. Keep it secret.</p>
+  <h2 id="api-title">API keys</h2>
+  <p class="settings-lead">For scripts, the blg command-line client and the iPhone Shortcut. A notes key can only add and read notes: use it on a phone. Keep keys secret.</p>
+
+  {{ with .NewKey }}
   <div class="settings-row">
-    {{ if .NewKey }}
-      <code class="settings-secret" aria-label="Your new API key">{{ .NewKey }}</code>
+    <code class="settings-secret" aria-label="Your new API key">{{ .APIKey }}</code>
+    <button type="button"
+            class="btn btn-secondary"
+            data-controller="clipboard"
+            data-clipboard-copy-value="{{ .APIKey }}"
+            >Copy</button>
+  </div>
+  <p class="settings-lead">Copy it now: it is not shown again.</p>
+  {{ end }}
+
+  {{ if .APIKeys }}
+  <ul class="settings-list" aria-label="Your API keys">
+    {{ range .APIKeys }}
+    <li class="settings-feed" data-testid="api-key">
+      <div class="settings-feed-main">
+        <span class="settings-feed-title">{{ with .Name }}{{ . }}{{ else }}Unnamed key{{ end }}</span>
+        <p class="meta">
+          {{- if eq .Scope "notes" }}Notes only{{ else }}Full access{{ end -}}
+          <span class="dot">·</span>
+          {{- with .LastUsedAt }}last used {{ renderHumanTime . $.DBUser }}{{ else }}never used{{ end -}}
+        </p>
+      </div>
       <button type="button"
-              class="btn btn-secondary"
-              data-controller="clipboard"
-              data-clipboard-copy-value="{{ .NewKey }}"
-              >Copy</button>
-    {{ else if .APIKey }}
-      <span>You have an API key.</span>
-    {{ else }}
-      <button type="button"
-              class="btn btn-secondary"
+              class="settings-remove"
               data-controller="action"
               data-action="action#run"
-              data-action-action-value="generate_api_key"
+              data-action-action-value="revoke_api_key"
               data-action-skip-reload-value="true"
+              data-action-prompt-value="Revoke {{ with .Name }}{{ . }}{{ else }}this key{{ end }}? Anything using it stops working."
               hx-target="#api"
               hx-swap="outerHTML"
-              >Generate an API key</button>
+              data-id="{{ .ID }}"
+              aria-label="Revoke {{ with .Name }}{{ . }}{{ else }}unnamed key{{ end }}"
+              >Revoke</button>
+    </li>
     {{ end }}
-  </div>
-  {{ if .NewKey }}
-    <p class="settings-lead">Copy it now: it is not shown again.</p>
+  </ul>
   {{ end }}
+
+  <form class="settings-form"
+        hx-post="/controls/action/generate_api_key"
+        hx-ext="json-enc"
+        hx-target="#api"
+        hx-swap="outerHTML"
+        hx-disabled-elt="this"
+        autocomplete="off"
+        novalidate
+        >
+    <div class="settings-inline">
+      <div class="field">
+        <label for="settingsAPIKeyName">Key name</label>
+        <input name="name" type="text" id="settingsAPIKeyName" placeholder="iPhone">
+      </div>
+      <div class="field">
+        <label for="settingsAPIKeyScope">Access</label>
+        <select name="scope" id="settingsAPIKeyScope"
+                {{ with .Error }}aria-invalid="true" aria-describedby="settingsAPIKeyScopeError"{{ end }}>
+          <option value="notes">Notes only</option>
+          <option value="full">Full access</option>
+        </select>
+        {{ with .Error }}<p class="field-error" id="settingsAPIKeyScopeError">{{ . }}</p>{{ end }}
+      </div>
+      <div class="settings-row">
+        <button type="submit" class="btn btn-primary">Create a key</button>
+      </div>
+    </div>
+  </form>
 </section>

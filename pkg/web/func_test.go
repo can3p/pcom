@@ -318,7 +318,7 @@ func TestSettings(t *testing.T) {
 
 	require.Equal(t, int64(0), page.AvailableInvites)
 	require.Empty(t, page.UsedInvites)
-	require.Nil(t, page.ActiveAPIKey)
+	require.Empty(t, page.APIKeys)
 	require.Empty(t, page.Feeds)
 	defaultStyles := page.UserStyles.Input.Styles
 
@@ -342,8 +342,8 @@ func TestSettings(t *testing.T) {
 	require.Len(t, page.UsedInvites, 1)
 	require.Equal(t, "invitee@example.test", lo.FromPtr(page.UsedInvites[0].InvitationEmail))
 
-	require.NotNil(t, page.ActiveAPIKey)
-	require.Equal(t, apiKey.ID, page.ActiveAPIKey.ID)
+	require.Len(t, page.APIKeys, 1)
+	require.Equal(t, apiKey.ID, page.APIKeys[0].ID)
 
 	require.NotEqual(t, defaultStyles, page.UserStyles.Input.Styles)
 	require.Equal(t, "body { color: red }", page.UserStyles.Input.Styles)

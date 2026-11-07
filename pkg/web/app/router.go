@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/logging"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/proofread"
 	"github.com/can3p/pcom/pkg/proofread/claude"
@@ -92,7 +93,12 @@ func New(d *Deps) *gin.Engine {
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
 	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })
-	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) }, logUser)
+	// Only a full key opens the API; a notes key opens the notes routes alone.
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts, model.APIKeyScopeFull) }, logUser)
+	notesAPI := router.Group("/api/v1", func(c *gin.Context) {
+		auth.AuthAPI(c, d.Services.Accounts, model.APIKeyScopeFull, model.APIKeyScopeNotes)
+	}, logUser)
+	setupNotesApi(notesAPI, d)
 	r := router.Group("/", csp.New(csp.Options{HSTS: d.Config.HSTS, StaticCDN: d.Config.StaticCDN, MediaCDN: d.Config.MediaCDN}), sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) }, logUser)
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrfCheck)

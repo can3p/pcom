@@ -42,7 +42,7 @@ func decodeData[T any](t *testing.T, body string) T {
 
 // TestAPI_BearerToken tests the Authorization header handling in
 // pkg/auth.AuthAPI: a missing header, a malformed scheme or shape, and a
-// well-formed but unknown bearer key.
+// well-formed but unknown bearer key are all 401.
 func TestAPI_BearerToken(t *testing.T) {
 	app := e2e.Start(t)
 
@@ -56,12 +56,12 @@ func TestAPI_BearerToken(t *testing.T) {
 		header string
 		want   int
 	}{
-		{"feed_token", "Bearer " + feedToken.Token, http.StatusForbidden},
-		{"missing", "", http.StatusBadRequest},
-		{"bearer_no_key", "Bearer", http.StatusBadRequest},
-		{"unknown_key", fmt.Sprintf("Bearer %s", uuid.NewString()), http.StatusForbidden},
-		{"basic_scheme", "Basic x", http.StatusBadRequest},
-		{"bearer_extra_token", "Bearer a b", http.StatusBadRequest},
+		{"feed_token", "Bearer " + feedToken.Token, http.StatusUnauthorized},
+		{"missing", "", http.StatusUnauthorized},
+		{"bearer_no_key", "Bearer", http.StatusUnauthorized},
+		{"unknown_key", fmt.Sprintf("Bearer %s", uuid.NewString()), http.StatusUnauthorized},
+		{"basic_scheme", "Basic x", http.StatusUnauthorized},
+		{"bearer_extra_token", "Bearer a b", http.StatusUnauthorized},
 	}
 
 	for _, tc := range cases {
