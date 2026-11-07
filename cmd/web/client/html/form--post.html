@@ -7,7 +7,7 @@
 <span id="ed-save-result" class="ed-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
 {{ end }}
 {{ else }}
-<div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }}">
+<div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }}{{ if .NotesEnabled }} ed-np{{ end }}">
   {{ with .Prompt }}
   <p class="ed-prompt" role="alert">{{ .Author.Username }} has asked: {{ .Prompt.Message }}</p>
   {{ end }}
@@ -15,8 +15,9 @@
   {{/* With the grammar check and style review on, the editor column and the
        suggestion panel sit side by side; the controller owns both. */}}
   <div class="ed-cols"
+       {{ if or .Proofread .NotesEnabled }}data-controller="{{ if .Proofread }}proofread{{ end }}{{ if and .Proofread .NotesEnabled }} {{ end }}{{ if .NotesEnabled }}notes-picker{{ end }}"{{ end }}
+       {{ if .NotesEnabled }}data-notes-picker-url-value="{{ link "controls" }}/notes/picker"{{ end }}
        {{ if .Proofread }}
-       data-controller="proofread"
        data-proofread-grammar-url-value="{{ link "action" "proofread_grammar" }}"
        data-proofread-style-url-value="{{ link "action" "proofread_style" }}"
        data-proofread-note-url-value="{{ link "action" "proofread_style_note" }}"
@@ -85,7 +86,7 @@
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
-        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID "Proofread" .Proofread }}
+        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID "Proofread" .Proofread "Notes" .NotesEnabled }}
 
         <textarea class="ed-body" name="body" placeholder="Your post goes there" aria-label="Post" rows="14" {{ if (.Errors.HasError "body") }}aria-invalid="true"{{ end }}>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
       </div>
@@ -169,6 +170,15 @@
       </div>
     </div>
   </form>
+  {{ if .NotesEnabled }}
+  <aside class="np-panel" id="np-panel" aria-label="Notes" hidden data-notes-picker-target="panel">
+    <header class="np-head">
+      <h2>Notes</h2>
+      <button type="button" class="np-close" data-action="notes-picker#close" aria-label="Close notes">&times;</button>
+    </header>
+    <div class="np-body" id="np-body" data-notes-picker-target="body"></div>
+  </aside>
+  {{ end }}
   {{ if .Proofread }}
   <aside class="pr-panel is-empty" aria-label="Suggestions" data-proofread-target="panel"></aside>
   {{ end }}

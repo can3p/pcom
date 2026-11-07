@@ -240,6 +240,11 @@ func (w *guardWorld) notesSnapshot(t *testing.T) []string {
 		for _, r := range rows {
 			n := r.Note
 			out = append(out, fmt.Sprintf("note|%s|%s|%s|%v|%v|%s", n.ID, n.Body, n.UserID, n.Tags, n.TextTags, lo.FromPtr(n.SourceID)))
+
+			links, err := store.NotePostLinkCount(ctx, n.ID)
+			require.NoError(t, err)
+
+			out = append(out, fmt.Sprintf("note_post_links|%s|%d", n.ID, links))
 		}
 
 		tags, err := store.NoteTagCounts(ctx, u.ID)
@@ -306,6 +311,7 @@ var guardRoutes = []guardRoute{
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
 	{http.MethodGet, "/controls/notes", staticPath("/controls/notes"), noExtra},
 	{http.MethodGet, "/controls/notes/manage", staticPath("/controls/notes/manage"), noExtra},
+	{http.MethodGet, "/controls/notes/picker", staticPath("/controls/notes/picker"), noExtra},
 	{http.MethodGet, "/controls/notes/:id/edit", func(w *guardWorld) string { return "/controls/notes/" + w.note.ID + "/edit" }, noExtra},
 	{http.MethodGet, "/controls/settings", staticPath("/controls/settings"), noExtra},
 
@@ -371,6 +377,10 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/subscribers/:id/remove", staticPath("/controls/action/subscribers/" + uuid.Nil.String() + "/remove"), noExtra},
 
 	// notes
+	{http.MethodPost, "/controls/action/note_mark_used", staticPath("/controls/action/note_mark_used"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
 	{http.MethodPost, "/controls/action/note_delete", staticPath("/controls/action/note_delete"),
 		func(w *guardWorld) map[string]string { return map[string]string{"noteId": w.note.ID} }},
 	{http.MethodPost, "/controls/action/note_delete_many", staticPath("/controls/action/note_delete_many"),
@@ -520,6 +530,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/actions_media.go":        {"r": "/controls/action"},
 		"../pkg/web/app/actions_proofread.go":    {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/routes_notes_audio.go":   {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_picker.go":  {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/api.go":                  {"r": "/api/v1"},
 		"../pkg/web/app/api_notes.go":            {"r": "/api/v1"},
 	}
@@ -846,8 +857,16 @@ func TestGuards_ForeignObjects(t *testing.T) {
 			sources, err := store.NoteSourcesWithNotes(ctx, p.victim.ID)
 			require.NoError(t, err)
 
-			return fmt.Sprintf("%s|%v|%v|%s|%v|%v", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, len(sources))
+			links, err := store.NotePostLinkCount(ctx, note.ID)
+			require.NoError(t, err)
+
+			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%d", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, len(sources), links)
 		}
+
+		victimPost, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
+		require.NoError(t, err)
+		attackerNote, err := factory.Note(ctx, db, p.attacker.ID, factory.WithNoteBody("mine"), factory.WithNoteTags("own"))
+		require.NoError(t, err)
 
 		before := snapshot()
 
@@ -864,9 +883,27 @@ func TestGuards_ForeignObjects(t *testing.T) {
 			"note_tag_many":     {"ids": note.ID, "tags": "forged"},
 			"note_source_set":   {"ids": note.ID, "title": "Forged"},
 			"note_source_merge": {"from": src.ID, "into": src2.ID},
+			// a foreign note in a foreign post
+			"note_mark_used": {"noteId": note.ID, "postId": victimPost.ID},
 		} {
 			p.attackerClient.PostJSON("/controls/action/"+action, payload).RequireStatus(http.StatusBadRequest)
 		}
+
+		// the attacker's own note may not go into somebody else's post, nor
+		// somebody else's note into the attacker's post
+		attackerPost, err := factory.Post(ctx, db, p.attacker.ID)
+		require.NoError(t, err)
+
+		for _, payload := range []map[string]string{
+			{"noteId": attackerNote.ID, "postId": victimPost.ID},
+			{"noteId": note.ID, "postId": attackerPost.ID},
+		} {
+			p.attackerClient.PostJSON("/controls/action/note_mark_used", payload).RequireStatus(http.StatusBadRequest)
+		}
+
+		n, err := store.NotePostLinkCount(ctx, attackerNote.ID)
+		require.NoError(t, err)
+		require.Zero(t, n)
 
 		require.Equal(t, before, snapshot())
 

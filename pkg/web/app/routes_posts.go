@@ -91,6 +91,7 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 		}
 
 		form.WithProofread(d.Services.Proofread.Enabled())
+		form.WithNotes(true)
 
 		gogoForms.DefaultHandler(c, logging.FromContext(c), form)
 	})

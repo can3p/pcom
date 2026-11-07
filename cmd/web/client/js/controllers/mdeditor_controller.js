@@ -11,6 +11,7 @@ export default class extends Controller {
     const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea);
 
     this.dispose = dispose
+    this.textarea = textarea
     this.element.classList.add("mdeditor")
 
     {
@@ -188,6 +189,31 @@ export default class extends Controller {
         showPreview.href = ev.detail.url
       })
     }
+  }
+
+  // Puts text into the post as a block of its own, at the cursor (replacing
+  // the selection) or, with atEnd, after everything written so far, and lets
+  // the form autosave it.
+  insertText(text, { atEnd = false } = {}) {
+    const ta = this.textarea
+    const start = atEnd ? ta.value.length : ta.selectionStart
+    const end = atEnd ? ta.value.length : ta.selectionEnd
+    const before = ta.value.slice(0, start)
+    const after = ta.value.slice(end)
+
+    // a blank line between the text and what is around it
+    const gap = (s, atStart) => {
+      if (s === "") { return "" }
+      const nl = atStart ? s.match(/^\n*/)[0].length : s.match(/\n*$/)[0].length
+      return "\n".repeat(Math.max(0, 2 - nl))
+    }
+
+    const lead = gap(before, false)
+    const trail = after === "" ? "\n" : gap(after, true)
+
+    ta.setRangeText(lead + text + trail, start, end, "end")
+    ta.focus()
+    window.htmx.trigger(ta, "change")
   }
 
   disconnect() {

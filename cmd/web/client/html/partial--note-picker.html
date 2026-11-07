@@ -1,0 +1,53 @@
+{{/* The post editor's Notes panel, loaded into #np-body by GET /controls/notes/picker; its filters load the
+     next view in place. The page: a web.NotePickerPage. A "Load more" gets note_picker_list alone. */}}
+{{ define "note_picker_list" }}
+{{ range .Groups }}
+{{ if .Group.Stack }}
+<section class="np-stack" aria-label="{{ .Group.Label }}">
+  <p class="np-stack-head"><a href="{{ .Group.Href }}" hx-get="{{ .Group.Href }}" hx-target="#np-body" hx-swap="innerHTML">{{ .Group.Label }}</a></p>
+{{ end }}
+{{ range .Items }}
+{{ $n := .Item.Note }}
+<article class="np-note" data-testid="picker-note">
+  {{ if $n.Source }}<p class="meta">{{ $n.Source.Title }}{{ with $n.Locator }}, {{ . }}{{ end }}</p>{{ end }}
+  <div class="prose np-text">{{ markdown_feed $n.Body }}</div>
+  <div class="acts">
+    <button type="button" data-action="notes-picker#insert" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}">Insert</button>
+    <button type="button" data-action="notes-picker#append" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}">Append</button>
+    <a href="/controls/notes/{{ $n.ID }}/edit" target="_blank" rel="noopener">Open</a>
+  </div>
+</article>
+{{ end }}
+{{ if .Group.Stack }}</section>{{ end }}
+{{ else }}
+<p class="field-help">No notes match.</p>
+{{ end }}
+{{ with .More }}
+<div class="load-more">
+  <a class="btn btn-secondary" href="{{ . }}" hx-get="{{ . }}" hx-target="closest .load-more" hx-swap="outerHTML">Load more</a>
+</div>
+{{ end }}
+{{ end }}
+
+<form class="np-search" role="search" action="{{ .Bar.Path }}" method="get" hx-get="{{ .Bar.Path }}" hx-target="#np-body" hx-swap="innerHTML">
+  {{ range .Query.Tags }}<input type="hidden" name="tag" value="{{ . }}">{{ end }}
+  {{ range .Query.Not }}<input type="hidden" name="not" value="{{ . }}">{{ end }}
+  {{ if .Query.SourceID }}<input type="hidden" name="source" value="{{ .Query.SourceID }}">{{ end }}
+  {{ if .Query.ShowHidden }}<input type="hidden" name="hidden" value="1">{{ end }}
+  <input type="search" name="q" value="{{ .Query.Q }}" placeholder="Search notes" aria-label="Search notes">
+</form>
+{{ template "partial--note-tag-bar.html" toMap "Bar" .Bar }}
+{{ if .Sources }}
+<details class="np-sources"{{ if .Query.SourceID }} open{{ end }}>
+  <summary>Sources</summary>
+  <ul>
+    {{ range .Sources }}
+    <li><a href="{{ .Href }}" hx-get="{{ .Href }}" hx-target="#np-body" hx-swap="innerHTML"{{ if .Active }} class="is-active" aria-current="true"{{ end }}>{{ .Label }} <span class="nt-count">{{ .Count }}</span></a></li>
+    {{ end }}
+  </ul>
+</details>
+{{ end }}
+{{ with .AllHref }}<p class="np-back"><a href="{{ . }}" hx-get="{{ . }}" hx-target="#np-body" hx-swap="innerHTML">All notes</a></p>{{ end }}
+<div class="np-list">
+{{ template "note_picker_list" . }}
+</div>

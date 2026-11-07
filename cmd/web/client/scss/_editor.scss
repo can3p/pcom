@@ -241,3 +241,129 @@
 .block-container-edit-preview-spoiler-content {
   padding: var(--space-4);
 }
+
+// The post editor's Notes panel, beside the editor in the column the
+// proofread panel uses; opening one closes the other.
+.ed-np {
+  max-width: calc(var(--page-width) + var(--space-7));
+
+  .ed-cols.np-open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: var(--space-5);
+    align-items: start;
+
+    .pr-panel {
+      display: none;
+    }
+  }
+}
+
+.np-panel {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-4));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+  overflow: hidden;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.np-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+
+  h2 {
+    margin: 0;
+    font: 600 15px var(--font-ui);
+  }
+}
+
+.np-close {
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 400 22px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.np-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  overflow-y: auto;
+}
+
+.np-sources {
+  font: 400 14px var(--font-ui);
+
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  ul {
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .is-active {
+    font-weight: 600;
+  }
+}
+
+.np-note,
+.np-stack {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.np-stack .np-note {
+  padding-left: var(--space-3);
+}
+
+.np-stack-head {
+  margin: 0;
+  font: 600 13px var(--font-mono);
+}
+
+.np-text {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+// A phone: the panel follows the editor.
+@media (max-width: 767.98px) {
+  .ed-np .ed-cols.np-open {
+    display: block;
+  }
+
+  .np-panel {
+    position: static;
+    margin-top: var(--space-4);
+  }
+}
+
+.np-search input[type="search"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 15px var(--font-ui);
+}
