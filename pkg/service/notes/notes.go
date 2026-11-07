@@ -186,7 +186,10 @@ func (s *Service) Limits() Limits { return s.limits }
 func (s *Service) TranscriptionEnabled() bool { return s.stt != nil }
 
 // RegisterJobs registers the workers of the service's job kinds on r.
-func (s *Service) RegisterJobs(_ *jobs.Registry) {}
+func (s *Service) RegisterJobs(r *jobs.Registry) {
+	jobs.Register(r, s.Transcribe)
+	jobs.Register(r, s.DeleteAudio)
+}
 
 // access is what a method does with a note.
 type access int

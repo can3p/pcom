@@ -60,7 +60,7 @@ func New(d *Deps) *gin.Engine {
 
 	router := gin.New()
 	router.Use(logging.Middleware(logger))
-	router.Use(bodyLimits(d.Config.MaxBodySize, d.Config.MaxUploadSize, d.Config.MaxImportSize))
+	router.Use(bodyLimits(d.Config.MaxBodySize, d.Config.MaxUploadSize, d.Config.MaxImportSize, d.Services.Notes.Limits().CaptureMaxBytes))
 
 	router.Use(ginhelpers.Configure(ginhelpers.Options{
 		RedirectToLogin: auth.RedirectToLogin(d.Config.SessionSalt),

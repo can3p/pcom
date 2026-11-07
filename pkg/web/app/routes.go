@@ -33,6 +33,7 @@ func mountRoutes(d *Deps, router *gin.Engine, apiGroup, r, controls, actions, no
 	mountExportActions(d, actions)
 	mountMediaActions(d, actions)
 	mountProofreadRoutes(d, controls, actions)
+	mountNoteAudioRoutes(d, controls, actions)
 }
 
 // requireUUIDParam answers 404 when the path parameter is not a valid UUID,

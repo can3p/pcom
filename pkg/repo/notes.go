@@ -443,3 +443,27 @@ func (s *Store) SetNotesFocus(ctx context.Context, userID string, tag *string, a
 
 	return err
 }
+
+// NoteUsesAudio reports whether a note has the upload as its recording.
+func (s *Store) NoteUsesAudio(ctx context.Context, uploadID string) (bool, error) {
+	return s.query().NewSelect().Model((*model.Note)(nil)).Where("audio_upload_id = ?", uploadID).Exists(ctx)
+}
+
+// LatestSTTSeconds is the seconds of the newest ok transcription of the
+// note, or zero when it has none.
+func (s *Store) LatestSTTSeconds(ctx context.Context, noteID string) (int, error) {
+	var seconds []int
+
+	err := s.query().NewSelect().Model((*model.STTRequest)(nil)).
+		Column("seconds").
+		Where("note_id = ?", noteID).
+		Where("status = ?", model.STTStatusOK).
+		OrderExpr("created_at desc").
+		Limit(1).
+		Scan(ctx, &seconds)
+	if err != nil || len(seconds) == 0 {
+		return 0, err
+	}
+
+	return seconds[0], nil
+}

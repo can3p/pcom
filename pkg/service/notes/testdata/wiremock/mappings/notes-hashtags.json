@@ -1,0 +1,29 @@
+{
+  "priority": 2,
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "wm-notes-hashtags"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "task": "transcribe",
+      "language": "english",
+      "duration": 6.2,
+      "text": " Buy oat milk. Hashtag Groceries, hash tag errands."
+    }
+  }
+}

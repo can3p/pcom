@@ -289,6 +289,9 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/delete_share", staticPath("/controls/action/delete_share"),
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.published.ID} }},
 	{http.MethodPost, "/controls/action/upload_media", staticPath("/controls/action/upload_media"), noExtra},
+	{http.MethodPost, "/controls/action/note_audio", staticPath("/controls/action/note_audio"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/audio", staticPath("/controls/notes/0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60/audio"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/status", staticPath("/controls/notes/0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60/status"), noExtra},
 	{http.MethodGet, "/controls/proofread_style/:post_id", func(w *guardWorld) string { return "/controls/proofread_style/" + w.published.ID }, noExtra},
 	{http.MethodPost, "/controls/action/proofread_grammar", staticPath("/controls/action/proofread_grammar"),
 		func(w *guardWorld) map[string]string { return map[string]string{"subject": "s", "body": "b"} }},
@@ -414,6 +417,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/actions_settings.go":     {"r": "/controls/action"},
 		"../pkg/web/app/actions_media.go":        {"r": "/controls/action"},
 		"../pkg/web/app/actions_proofread.go":    {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_audio.go":   {"controls": "/controls", "actions": "/controls/action"},
 		"../pkg/web/app/api.go":                  {"r": "/api/v1"},
 	}
 
