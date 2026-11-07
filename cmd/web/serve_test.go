@@ -21,6 +21,7 @@ import (
 	"github.com/can3p/pcom/pkg/abuse"
 	"github.com/can3p/pcom/pkg/config"
 	"github.com/can3p/pcom/pkg/emailaddr"
+	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/gin-gonic/gin"
@@ -138,6 +139,7 @@ func TestAppConfig(t *testing.T) {
 			// is TestSubscriptionsOptions.
 			got.Subscriptions, want.Subscriptions = nil, nil
 			got.Abuse, want.Abuse = nil, nil
+			got.Notes, want.Notes = nil, nil
 			require.Equal(t, want, got, "%s changed another field", r.set)
 		})
 	}
@@ -320,6 +322,54 @@ func TestNewMediaServer_PermaCache(t *testing.T) {
 			} else {
 				require.Contains(t, resp.Header.Get("Cache-Control"), r.wantCache)
 			}
+		})
+	}
+}
+
+func TestNotesOptions(t *testing.T) {
+	baseSettings, err := parseServe(t, nil)
+	require.NoError(t, err)
+
+	limitsOf := func(cfg config.Serve) notes.Limits {
+		return notes.New(nil, notesOptions(cfg.Notes, cfg.STT)...).Limits()
+	}
+	base := limitsOf(baseSettings)
+
+	// Each row changes one setting from the base; the value must land in the
+	// named field and in no other.
+	rows := []struct {
+		set, field string
+		want       any
+	}{
+		{"NOTE_BODY_MAX_LENGTH=900", "BodyMaxLength", 900},
+		{"NOTE_TAG_MAX_LENGTH=20", "TagMaxLength", 20},
+		{"NOTE_TAGS_MAX=5", "TagsMax", 5},
+		{"NOTE_SOURCE_TITLE_MAX_LENGTH=120", "SourceTitleMaxLength", 120},
+		{"NOTE_PHOTO_MAX_DIMENSION=1024", "PhotoMaxDimension", 1024},
+		{"NOTE_AUDIO_MAX_DURATION=5m", "AudioMaxDuration", 5 * time.Minute},
+		{"NOTE_AUDIO_MAX_BYTES=4096", "AudioMaxBytes", int64(4096)},
+		{"NOTE_AUDIO_BITRATE=16000", "AudioBitrate", 16000},
+		{"NOTE_CAPTURE_MAX_BYTES=8192", "CaptureMaxBytes", int64(8192)},
+		{"NOTE_SESSION_GAP=10m", "SessionGap", 10 * time.Minute},
+		{"NOTE_FOCUS_IDLE=1h", "FocusIdle", time.Hour},
+		{"STT_MINUTES_PER_DAY=15", "STTMinutesPerDay", 15},
+		{"STT_SITE_MINUTES_PER_DAY=600", "STTSiteMinutesPerDay", 600},
+	}
+
+	for _, r := range rows {
+		t.Run(r.set, func(t *testing.T) {
+			k, v, _ := strings.Cut(r.set, "=")
+
+			cfg, err := parseServe(t, map[string]string{k: v})
+			require.NoError(t, err)
+
+			got, want := limitsOf(cfg), base
+
+			require.Equal(t, r.want, reflect.ValueOf(got).FieldByName(r.field).Interface())
+
+			reflect.ValueOf(&got).Elem().FieldByName(r.field).SetZero()
+			reflect.ValueOf(&want).Elem().FieldByName(r.field).SetZero()
+			require.Equal(t, want, got, "%s changed another field", r.set)
 		})
 	}
 }

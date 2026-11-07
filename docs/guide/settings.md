@@ -68,4 +68,4 @@ Export downloads all your posts with their images as a zip file; import reads su
 
 ## API key
 
-Generate an API key to use pcom from scripts or the [blg](api.md) command-line client. Once created, the key stays the same; keep it secret.
+Generate an API key to use pcom from scripts or the [blg](api.md) command-line client. The key is shown once, right after you generate it: copy it then. pcom stores only a hash of it, so afterwards Settings only says that you have a key and can never show it again. Once created, the key stays the same; keep it secret.

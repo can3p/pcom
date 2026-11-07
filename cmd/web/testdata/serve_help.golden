@@ -470,3 +470,101 @@ Help Options:
                                                        records are deleted
                                                        (default: 1h)
                                                        [$SUBSCRIBE_PRUNE_EVERY]
+
+    Notes:
+          --note-body-max-length=                      Most characters a note
+                                                       may have (default:
+                                                       20000)
+                                                       [$NOTE_BODY_MAX_LENGTH]
+          --note-tag-max-length=                       Most characters of a
+                                                       note tag (default: 40)
+                                                       [$NOTE_TAG_MAX_LENGTH]
+          --note-tags-max=                             Most tags set by hand on
+                                                       one note (default: 10)
+                                                       [$NOTE_TAGS_MAX]
+          --note-source-title-max-length=              Most characters of the
+                                                       title of a note's source
+                                                       (default: 300)
+                                                       [$NOTE_SOURCE_TITLE_MAX_-
+
+                                                       LENGTH]
+          --note-photo-max-dimension=                  Longest side in pixels a
+                                                       note's photo is scaled
+                                                       down to (default: 2048)
+                                                       [$NOTE_PHOTO_MAX_DIMENSI-
+
+                                                       ON]
+          --note-audio-max-duration=                   Longest recording of one
+                                                       note (default: 10m)
+                                                       [$NOTE_AUDIO_MAX_DURATIO-
+
+                                                       N]
+          --note-audio-max-bytes=                      Most bytes of one note's
+                                                       recording (default:
+                                                       8388608)
+                                                       [$NOTE_AUDIO_MAX_BYTES]
+          --note-audio-bitrate=                        Bits per second the
+                                                       browser records notes at
+                                                       (default: 24000)
+                                                       [$NOTE_AUDIO_BITRATE]
+          --note-capture-max-bytes=                    Most bytes of one
+                                                       capture with its photos
+                                                       and recording (default:
+                                                       33554432)
+                                                       [$NOTE_CAPTURE_MAX_BYTES]
+          --note-session-gap=                          Most time between two
+                                                       notes shown as one
+                                                       capture session
+                                                       (default: 30m)
+                                                       [$NOTE_SESSION_GAP]
+          --note-focus-idle=                           How long the notes focus
+                                                       lasts after the last
+                                                       capture under it
+                                                       (default: 12h)
+                                                       [$NOTE_FOCUS_IDLE]
+
+    Speech to text:
+          --stt-provider=[|openai-compat]              Speech-to-text backend;
+                                                       empty turns
+                                                       transcription off
+                                                       [$STT_PROVIDER]
+          --stt-timeout=                               How long one call to the
+                                                       backend may take
+                                                       (default: 2m)
+                                                       [$STT_TIMEOUT]
+          --stt-workers=                               How many transcriptions
+                                                       run at once (default: 2)
+                                                       [$STT_WORKERS]
+          --stt-minutes-per-day=                       Minutes of recordings
+                                                       one user may have
+                                                       transcribed per day
+                                                       (default: 60)
+                                                       [$STT_MINUTES_PER_DAY]
+          --stt-site-minutes-per-day=                  Minutes of recordings
+                                                       the whole site may have
+                                                       transcribed per day; 0
+                                                       is no cap (default: 0)
+                                                       [$STT_SITE_MINUTES_PER_D-
+
+                                                       AY]
+
+    OpenAI-compatible speech-to-text:
+          --stt-openai-compat-endpoint=                Base URL of the API
+                                                       (default:
+                                                       https://api.groq.com/ope-
+
+                                                       nai/v1)
+                                                       [$STT_OPENAI_COMPAT_ENDP-
+
+                                                       OINT]
+          --stt-openai-compat-model=                   Transcription model
+                                                       (default:
+                                                       whisper-large-v3-turbo)
+                                                       [$STT_OPENAI_COMPAT_MODE-
+
+                                                       L]
+          --stt-openai-compat-key=                     API key; required with
+                                                       --stt-provider=openai-co-
+
+                                                       mpat
+                                                       [$STT_OPENAI_COMPAT_KEY]

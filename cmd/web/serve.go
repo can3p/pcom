@@ -28,6 +28,7 @@ import (
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/notes"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
@@ -47,6 +48,10 @@ type serveCmd struct {
 
 func (c *serveCmd) Execute([]string) error {
 	cfg := c.Serve
+
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
 
 	applyProcessSettings(cfg)
 
@@ -153,7 +158,7 @@ func startJobs(ctx context.Context, db *sql.DB, services *registry.Services, del
 	reg := jobs.NewRegistry(repo.New(db), delivery, jobs.WithRetryIntervals(cfg.Mail.RetryIntervals))
 	services.RegisterJobs(reg)
 
-	runner, err := jobs.NewRunner(db, reg, jobs.WithPollInterval(cfg.Jobs.PollInterval), jobs.WithWorkers(cfg.Jobs.Workers), jobs.WithRetention(cfg.Jobs.Retention), jobs.WithLogger(logger))
+	runner, err := jobs.NewRunner(db, reg, jobs.WithPollInterval(cfg.Jobs.PollInterval), jobs.WithWorkers(cfg.Jobs.Workers), jobs.WithQueue(notes.QueueSTT, cfg.STT.Workers), jobs.WithRetention(cfg.Jobs.Retention), jobs.WithLogger(logger))
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +245,30 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		Proofread:             proofreadConfig(cfg.Proofread),
 		Subscriptions:         subscriptionsOptions(cfg.Subscriptions, newEmailChecker(cfg.Email)),
 		Abuse:                 abuseOptions(cfg.Subscriptions),
+		Notes:                 notesOptions(cfg.Notes, cfg.STT),
+	}
+}
+
+// notesOptions is the notes service's view of the notes and speech-to-text
+// settings. The backend itself is built apart; without one transcription is
+// off.
+func notesOptions(cfg config.Notes, stt config.STT) []notes.Option {
+	return []notes.Option{
+		notes.WithLimits(notes.Limits{
+			BodyMaxLength:        cfg.BodyMaxLength,
+			TagMaxLength:         cfg.TagMaxLength,
+			TagsMax:              cfg.TagsMax,
+			SourceTitleMaxLength: cfg.SourceTitleMaxLength,
+			PhotoMaxDimension:    cfg.PhotoMaxDimension,
+			AudioMaxDuration:     cfg.AudioMaxDuration,
+			AudioMaxBytes:        cfg.AudioMaxBytes,
+			AudioBitrate:         cfg.AudioBitrate,
+			CaptureMaxBytes:      cfg.CaptureMaxBytes,
+			SessionGap:           cfg.SessionGap,
+			FocusIdle:            cfg.FocusIdle,
+			STTMinutesPerDay:     stt.MinutesPerDay,
+			STTSiteMinutesPerDay: stt.SiteMinutesPerDay,
+		}),
 	}
 }
 

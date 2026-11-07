@@ -4,7 +4,7 @@ You can create, edit, publish, list and delete your posts, and upload images, ov
 
 ## Getting a key
 
-Open [Settings](settings.md) and generate an API key. Send it as a bearer token in the `Authorization` header of every request.
+Open [Settings](settings.md) and generate an API key. It is shown only once, right after you generate it, because pcom stores only a hash of it; copy it then. Send it as a bearer token in the `Authorization` header of every request.
 
 ## blg
 

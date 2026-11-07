@@ -343,7 +343,7 @@ func TestSettings(t *testing.T) {
 	require.Equal(t, "invitee@example.test", lo.FromPtr(page.UsedInvites[0].InvitationEmail))
 
 	require.NotNil(t, page.ActiveAPIKey)
-	require.Equal(t, apiKey.APIKey, page.ActiveAPIKey.APIKey)
+	require.Equal(t, apiKey.ID, page.ActiveAPIKey.ID)
 
 	require.NotEqual(t, defaultStyles, page.UserStyles.Input.Styles)
 	require.Equal(t, "body { color: red }", page.UserStyles.Input.Styles)

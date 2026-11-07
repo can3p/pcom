@@ -15,7 +15,7 @@ If you already have a `cmd/web/.env` from the old setup, move it aside first: it
 at a Postgres installed on your machine (port 5432). The one from `.env.example` points at the compose Postgres
 on `localhost:5442`.
 
-`make dev-up` starts Postgres and tommy (mail sink and S3 stand-in), waits until they are healthy and prints
+`make dev-up` starts Postgres, tommy (mail sink and S3 stand-in) and WireMock (the speech-to-text stub), waits until they are healthy and prints
 their addresses. `make migrate` applies the migrations, `make seed` fills the database with a small named world (see
 [Seeding](#seeding)). The first run builds the tools image (sql-migrate, psql), which is slow once.
 
@@ -45,7 +45,7 @@ Needs libvips and Node.js (version from `.tool-versions`) with yarn on the host,
 mode needs them.
 
 ```bash
-make dev-up                    # postgres and tommy, as above
+make dev-up                    # postgres, tommy and wiremock, as above
 cd cmd/web
 yarn install                   # once
 yarn watch                     # tab 1: rebuilds the frontend into cmd/web/dist

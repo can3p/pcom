@@ -112,7 +112,7 @@ ui-trace:
 # sink on http://localhost:8811/ui/, S3 on localhost:9555). The database
 # targets run in the `tools` container against the compose database, as your
 # UID/GID so the files they write belong to you.
-#   make dev-up / dev-down          start or stop postgres and tommy
+#   make dev-up / dev-down          start or stop postgres, tommy and wiremock
 #   make migrate                    apply migrations (migrate-status, migrate-down)
 #   make migration name=add_foo     create migrations/<timestamp>-add_foo.sql
 #   make psql [ARGS="-c '...'"]     psql on the compose database
@@ -126,7 +126,7 @@ TOOLS_RUN = $(COMPOSE) run --rm --build $(if $(shell [ -t 0 ] || echo notty),-T)
 TOOLS = $(TOOLS_RUN) tools
 
 dev-up:
-	$(COMPOSE) up -d --wait postgres tommy
+	$(COMPOSE) up -d --wait postgres tommy wiremock
 	@./tools/dev-urls.sh
 
 # The app (live reload) and the frontend watcher in containers; foreground.

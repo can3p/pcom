@@ -72,6 +72,13 @@ func (m *mockStorage) ObjectExists(ctx context.Context, fname string) (bool, err
 	return exists, nil
 }
 
+func (m *mockStorage) DeleteFile(ctx context.Context, fname string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.files, fname)
+	return nil
+}
+
 // uploadCount reads callCount.upload under the lock, so it's safe to poll
 // from a require.Eventually callback while an upload may still be in flight
 // on another goroutine.

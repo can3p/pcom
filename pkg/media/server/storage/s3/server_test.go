@@ -82,6 +82,21 @@ func TestObjectExists(t *testing.T) {
 	}
 }
 
+func TestDeleteFile(t *testing.T) {
+	_, st := newStorage(t)
+	ctx := context.Background()
+	key := "s3test/delete.txt"
+
+	require.NoError(t, st.UploadFile(ctx, key, []byte("x"), "text/plain"))
+	require.NoError(t, st.DeleteFile(ctx, key))
+
+	ok, err := st.ObjectExists(ctx, key)
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	require.NoError(t, st.DeleteFile(ctx, key), "deleting a missing object is no error")
+}
+
 func TestDownloadMissing(t *testing.T) {
 	_, st := newStorage(t)
 

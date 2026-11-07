@@ -25,10 +25,10 @@ type pingArgs struct {
 func (pingArgs) Kind() string { return "test.ping" }
 
 // startRunner starts a fast-polling runner over reg and stops it at cleanup.
-func startRunner(t *testing.T, db *sql.DB, reg *jobs.Registry) {
+func startRunner(t *testing.T, db *sql.DB, reg *jobs.Registry, opts ...jobs.Option) *jobs.Runner {
 	t.Helper()
 
-	runner, err := jobs.NewRunner(db, reg, jobs.WithPollInterval(10*time.Millisecond))
+	runner, err := jobs.NewRunner(db, reg, append([]jobs.Option{jobs.WithPollInterval(10 * time.Millisecond)}, opts...)...)
 	require.NoError(t, err)
 	require.NoError(t, runner.Start(context.Background()))
 
@@ -38,6 +38,8 @@ func startRunner(t *testing.T, db *sql.DB, reg *jobs.Registry) {
 
 		_ = runner.Stop(ctx)
 	})
+
+	return runner
 }
 
 func newRegistry(db *sql.DB, d sender.Sender, opts ...jobs.RegistryOption) *jobs.Registry {
@@ -122,6 +124,42 @@ func TestInserter_Tx(t *testing.T) {
 	startRunner(t, db, reg)
 	requireStates(t, db, "test.ping", "completed")
 	require.EqualValues(t, 7, got.Load())
+}
+
+type slowArgs struct{}
+
+func (slowArgs) Kind() string { return "test.slow" }
+
+func (slowArgs) InsertOpts() river.InsertOpts { return river.InsertOpts{Queue: "slow"} }
+
+// A job whose InsertOpts names a queue is worked only by a runner that has
+// the queue.
+func TestRunner_NamedQueue(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+
+	ins, err := jobs.NewInserter(db)
+	require.NoError(t, err)
+
+	reg := newRegistry(db, fakesender.New().Delivery())
+	jobs.Register(reg, func(context.Context, pingArgs) error { return nil })
+	jobs.Register(reg, func(context.Context, slowArgs) error { return nil })
+
+	require.NoError(t, ins.Insert(ctx, db, slowArgs{}))
+	require.NoError(t, ins.Insert(ctx, db, pingArgs{}))
+
+	without := startRunner(t, db, reg)
+	requireStates(t, db, "test.ping", "completed")
+	require.Equal(t, []string{"available"}, jobStates(t, db, "test.slow"))
+
+	stopCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	require.NoError(t, without.Stop(stopCtx))
+
+	startRunner(t, db, reg, jobs.WithQueue("slow", 1))
+	requireStates(t, db, "test.slow", "completed")
 }
 
 func TestInserter_DB(t *testing.T) {
