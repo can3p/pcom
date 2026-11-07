@@ -30,7 +30,7 @@ func TestQuoteSource(t *testing.T) {
 
 	w.note(t, w.me, factory.FromSource(old.ID), factory.CapturedAt(w.now.Add(-idle/2)))
 	w.note(t, w.me, factory.FromSource(recent.ID), factory.CapturedAt(w.now.Add(-time.Minute)))
-	w.note(t, w.me) // a note without a source doesn't reset the rule
+	w.note(t, w.me, factory.CapturedAt(w.now)) // a note without a source doesn't reset the rule
 	w.note(t, w.other, factory.FromSource(theirs.ID), factory.CapturedAt(w.now))
 
 	got, err = w.svc.QuoteSource(w.ctx, w.me)
@@ -38,7 +38,14 @@ func TestQuoteSource(t *testing.T) {
 	require.NotNil(t, got)
 	require.Equal(t, recent.ID, got.ID, "the previous quote's source, not somebody else's")
 
-	w.now = w.now.Add(idle)
+	w.now = w.now.Add(-time.Minute).Add(idle)
+
+	got, err = w.svc.QuoteSource(w.ctx, w.me)
+	require.NoError(t, err)
+	require.NotNil(t, got, "exactly the idle time is still in time")
+	require.Equal(t, recent.ID, got.ID)
+
+	w.now = w.now.Add(time.Second)
 
 	got, err = w.svc.QuoteSource(w.ctx, w.me)
 	require.NoError(t, err)

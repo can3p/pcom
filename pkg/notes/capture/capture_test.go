@@ -50,19 +50,19 @@ func TestParse_Kinds(t *testing.T) {
 		text string
 	}{
 		"url":             {"  https://example.com/a?b=c#d \n", capture.Typed, capture.URL, "https://example.com/a?b=c#d"},
-		"shared url":      {"http://example.com", capture.Shared, capture.URL, "http://example.com"},
+		"shared url":      {" \n http://example.com \n", capture.Shared, capture.URL, "http://example.com"},
 		"url in text":     {"see https://example.com now", capture.Typed, capture.Plain, "see https://example.com now"},
 		"two urls":        {"https://a.com https://b.com", capture.Typed, capture.Plain, "https://a.com https://b.com"},
 		"other scheme":    {"ftp://example.com", capture.Typed, capture.Plain, "ftp://example.com"},
 		"no host":         {"https://", capture.Typed, capture.Plain, "https://"},
 		"nbsp inside":     {"https://a.com b", capture.Typed, capture.Plain, "https://a.com b"},
-		"url by shortcut": {"https://example.com", capture.QuoteShortcut, capture.URL, "https://example.com"},
+		"url by shortcut": {" \n https://example.com \n", capture.QuoteShortcut, capture.URL, "https://example.com"},
 		"quote shortcut":  {"a", capture.QuoteShortcut, capture.Quote, "> a"},
 		"empty":           {" \t\n", capture.Typed, capture.Plain, ""},
 		"unicode kept":    {"  «Привет, мир»  ", capture.Typed, capture.Plain, "«Привет, мир»"},
 		"inner newlines":  {"a\n\n  b  \nc\n", capture.Shared, capture.Plain, "> a\n>\n>   b  \n> c"},
-		"emoji at edges":  {"👍 ok 👍", capture.Typed, capture.Plain, "👍 ok 👍"},
-		"quote keeps all": {"\n  a  b\n", capture.QuoteShortcut, capture.Quote, "> a  b"},
+		"emoji at edges":  {"\r\n\t👍 ok 👍\r\n\t", capture.Typed, capture.Plain, "👍 ok 👍"},
+		"quote keeps all": {"a\n\nb", capture.QuoteShortcut, capture.Quote, "> a\n>\n> b"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -83,6 +83,7 @@ func TestAttribution(t *testing.T) {
 		"— *Title*, p. 12":         {Title: "Title", Page: "12"},
 		"— Author, p. 3-4":         {Author: "Author", Page: "3-4"},
 		"— *Title*":                {Title: "Title"},
+		"— Author":                 {Author: "Author", Title: " \t "},
 		"— p. 12":                  {Page: "12"},
 		"":                         {},
 	} {
@@ -94,7 +95,7 @@ func TestUnquote_RoundTrip(t *testing.T) {
 	t.Parallel()
 
 	in := "a\n\n  b\r\n>c\n\n\nd"
-	got := capture.Parse(in, capture.Shared).Text
+	got := capture.Parse("\r\n"+in+"\r\n", capture.Shared).Text
 	require.Equal(t, "> a\n>\n>   b\r\n> >c\n>\n>\n> d", got)
 	require.Equal(t, in, capture.Unquote(got))
 }
