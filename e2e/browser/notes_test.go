@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +19,8 @@ import (
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
+	notesvc "github.com/can3p/pcom/pkg/service/notes"
+	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -142,6 +145,7 @@ func TestNotes_Search(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(2))
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "bravo note")).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(search).ToHaveValue("#essay note"))
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`[?&]q=%23essay\+note$`)))
 
 	require.NoError(t, filters.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Remove #essay"}).Click())
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(3))
@@ -149,10 +153,13 @@ func TestNotes_Search(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
 	require.NoError(t, browser.Expect.Locator(filters).ToHaveCount(0))
 
-	// a tag on a note adds it to the search
+	// a tag on a note adds it to the search on show
+	require.NoError(t, search.Fill("note"))
+	require.NoError(t, search.Press("Enter"))
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(3))
 	require.NoError(t, noteCard(page, "charlie note").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#walk"}).Click())
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(1))
-	require.NoError(t, browser.Expect.Locator(search).ToHaveValue("#walk"))
+	require.NoError(t, browser.Expect.Locator(search).ToHaveValue("#walk note"))
 
 	// so does a tag under the box, to the search on show; an excluded tag reads "not"
 	require.NoError(t, search.Fill("-#walk"))
@@ -443,7 +450,7 @@ func TestNotes_PhotoFromTheToolbar(t *testing.T) {
 	require.NoError(t, err)
 
 	capture := page.GetByLabel("New note")
-	image := regexp.MustCompile(`^a page\n!\[wide\.png\]\(\S+\)$`)
+	image := regexp.MustCompile(`^a page\n!\[wide\.png\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png\)$`)
 
 	require.NoError(t, capture.Fill("a page"))
 	chooser, err := page.ExpectFileChooser(func() error {
@@ -470,7 +477,7 @@ func TestNotes_PhotoFromTheToolbar(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, chooser.SetFiles([]playwright.InputFile{{Name: "wide.png", MimeType: "image/png", Buffer: widePNG(t)}}))
 	require.Eventually(t, func() bool {
-		return regexp.MustCompile(`^edited\n!\[wide\.png\]\(\S+\)$`).MatchString(noteIn(t, app, n.ID).Body)
+		return regexp.MustCompile(`^edited\n!\[wide\.png\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png\)$`).MatchString(noteIn(t, app, n.ID).Body)
 	}, 10*time.Second, 100*time.Millisecond)
 }
 
@@ -496,6 +503,7 @@ func TestNotes_UploadRecording(t *testing.T) {
 	n := waitNotes(t, app, user.ID, 1)[0]
 	require.NotNil(t, n.AudioUploadID)
 	require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
+	require.Equal(t, 1, testutil.Must(factory.CountNoteJobs(context.Background(), app.DB, notesvc.TranscribeArgs{}.Kind(), user.ID))(t))
 
 	// a refusal shows next to the button
 	_, err = page.Goto("/controls/notes")
@@ -538,6 +546,9 @@ func TestNotes_EditSource(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, title.Fill(src.Title))
 	require.NoError(t, browser.Expect.Locator(form.GetByLabel("Author")).ToHaveValue("Ann Author"))
+	// the same book typed with other case and spacing is still that book
+	require.NoError(t, title.Fill(" "+strings.ToUpper(src.Title)))
+	require.NoError(t, form.GetByLabel("Author").Fill("ann  author"))
 	require.NoError(t, form.GetByLabel("Where in it").Fill("p. 12"))
 	require.NoError(t, save.Click())
 	require.NoError(t, browser.Expect.Locator(form.GetByRole("status")).ToHaveText("Saved"))
@@ -577,6 +588,8 @@ func TestNotes_IconActions(t *testing.T) {
 	card := noteCard(page, "iconic")
 	edit := card.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Edit note", Exact: new(true)})
 	del := card.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Delete note", Exact: new(true)})
+	require.NoError(t, browser.Expect.Locator(edit).ToHaveAttribute("aria-label", "Edit note"))
+	require.NoError(t, browser.Expect.Locator(del).ToHaveAttribute("aria-label", "Delete note"))
 	require.NoError(t, browser.Expect.Locator(edit).ToHaveAttribute("title", "Edit note"))
 	require.NoError(t, browser.Expect.Locator(del).ToHaveAttribute("title", "Delete note"))
 	require.NoError(t, browser.Expect.Locator(edit).ToHaveText(""))

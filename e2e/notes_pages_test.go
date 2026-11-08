@@ -810,10 +810,18 @@ func TestNotesPages_SourceForm(t *testing.T) {
 	require.Contains(t, resp.Body, "No source")
 	require.Nil(t, note().SourceID)
 
-	_, stranger := newLoggedIn(t, app)
-	resp = stranger.PostForm(path, url.Values{"title": {"Forged"}})
+	c.PostForm(path, url.Values{"title": {book.Title}, "author": {"Ann Author"}, "locator": {"p. 7"}}).RequireStatus(http.StatusOK)
+	require.Equal(t, book.ID, *note().SourceID)
+
+	stranger, strangerClient := newLoggedIn(t, app)
+	resp = strangerClient.PostForm(path, url.Values{"title": {"Forged"}, "author": {"Eve"}})
 	require.Contains(t, resp.Body, "Not saved")
-	require.Nil(t, note().SourceID)
+	require.Equal(t, book.ID, *note().SourceID)
+	require.Equal(t, "p. 7", *note().Locator)
+
+	forged, err := repo.New(app.DB).NoteSourceByMatchKey(ctx, stranger.ID, model.NoteSourceMatchKey("Forged", "Eve"))
+	require.NoError(t, err)
+	require.Nil(t, forged)
 }
 
 // userNotesByBody are the author's notes by their text.

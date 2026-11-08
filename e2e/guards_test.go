@@ -915,7 +915,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		require.NoError(t, err)
 		src2, err := factory.NoteSource(ctx, db, p.victim.ID)
 		require.NoError(t, err)
-		note, err := factory.Note(ctx, db, p.victim.ID, factory.WithNoteBody("private"), factory.WithNoteTags("mine"), factory.FromSource(src.ID))
+		note, err := factory.Note(ctx, db, p.victim.ID, factory.WithNoteBody("private"), factory.WithNoteTags("mine"), factory.FromSource(src.ID), factory.WithNoteLocator("p. 3"))
 		require.NoError(t, err)
 
 		store := repo.New(db)
@@ -932,7 +932,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 			links, err := store.NotePostLinkCount(ctx, note.ID)
 			require.NoError(t, err)
 
-			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%d", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, len(sources), links)
+			return fmt.Sprintf("%s|%v|%v|%s|%s|%v|%v|%d", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), lo.FromPtr(n.Locator), tags, len(sources), links)
 		}
 
 		victimPost, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
@@ -947,6 +947,13 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		// the edit form answers in place, with the failure as its status
 		resp := p.attackerClient.PostForm("/controls/form/note_edit/"+note.ID, url.Values{"body": {"hijacked"}, "tags": {"forged"}})
 		require.Contains(t, resp.Body, "Not saved")
+
+		resp = p.attackerClient.PostForm("/controls/form/note_source/"+note.ID, url.Values{"title": {"Forged"}, "author": {"Eve"}, "locator": {"p. 99"}})
+		require.Contains(t, resp.Body, "Not saved")
+
+		forged, err := store.NoteSourceByMatchKey(ctx, p.attacker.ID, model.NoteSourceMatchKey("Forged", "Eve"))
+		require.NoError(t, err)
+		require.Nil(t, forged)
 
 		for action, payload := range map[string]map[string]string{
 			"note_delete":       {"noteId": note.ID},
