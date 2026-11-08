@@ -15,8 +15,8 @@ import (
 func mountNotePickerRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 	svc := d.Services.Notes
 
-	// the panel's fragment: tag bar, source and stack filters, a page of
-	// notes; "Load more" gets the notes alone
+	// the panel's fragment: a page of the notes the search finds; "Load more"
+	// gets the notes alone
 	controls.GET("/notes/picker", func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 

@@ -242,24 +242,25 @@
   padding: var(--space-4);
 }
 
-// The post editor's Notes panel, beside the editor in the column the
-// proofread panel uses; opening one closes the other.
-.ed-np {
+// The sidebar beside the editor: the Checks tab (the grammar check and style
+// review, _proofread.scss) and the Notes tab. It collapses to a thin strip
+// (.es-collapsed on .ed-cols). A phone gets it under the editor.
+.ed-sd {
   max-width: calc(var(--page-width) + var(--space-7));
 
-  .ed-cols.np-open {
+  .ed-cols {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 320px;
     gap: var(--space-5);
     align-items: start;
 
-    .pr-panel {
-      display: none;
+    &.es-collapsed {
+      grid-template-columns: minmax(0, 1fr) 40px;
     }
   }
 }
 
-.np-panel {
+.es {
   position: sticky;
   top: var(--space-4);
   display: flex;
@@ -269,64 +270,142 @@
   border-radius: var(--radius-box);
   background: var(--surface);
   overflow: hidden;
+}
+
+.es-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.es-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.es-tab {
+  padding: 6px var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 14px var(--font-ui);
+  cursor: pointer;
+
+  &[aria-selected="true"] {
+    background: var(--sunken);
+    color: var(--title);
+  }
+}
+
+.es-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
+    color: var(--title);
+  }
+}
+
+.es-body {
+  min-height: 0;
+  overflow-y: auto;
 
   &[hidden] {
     display: none;
   }
 }
 
-.np-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--line);
+.es-pane[hidden] {
+  display: none;
+}
 
-  h2 {
-    margin: 0;
-    font: 600 15px var(--font-ui);
+// shown while the panel has not drawn anything yet
+.es-hint {
+  display: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--muted);
+}
+
+.pr-panel:empty + .es-hint {
+  display: block;
+}
+
+// the strip: only the toggle, turned to point back at the editor
+.es-collapsed .es {
+  align-items: center;
+
+  .es-bar {
+    padding: var(--space-1);
+    border-bottom: 0;
+  }
+
+  .es-tabs {
+    display: none;
+  }
+
+  .es-toggle svg {
+    transform: rotate(180deg);
   }
 }
 
-.np-close {
-  padding: 0 var(--space-2);
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: 400 22px/1 var(--font-ui);
-  cursor: pointer;
+@media (min-width: 768px) {
+  // the sidebar draws the border and scrolls; the panel inside is plain
+  .es .pr-panel {
+    position: static;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .es .pr-panel:empty {
+    display: none;
+  }
+}
+
+.np-search {
+  padding: var(--space-3) var(--space-4) 0;
+
+  input[type="search"] {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 15px var(--font-ui);
+  }
 }
 
 .np-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  overflow-y: auto;
-}
-
-.np-sources {
-  font: 400 14px var(--font-ui);
-
-  summary {
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  ul {
-    margin: var(--space-2) 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .is-active {
-    font-weight: 600;
-  }
 }
 
 .np-note {
-  padding-top: var(--space-3);
+  padding: var(--space-3) 0;
   border-top: 1px solid var(--line);
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
 }
 
 .np-text {
@@ -334,26 +413,58 @@
   overflow-wrap: anywhere;
 }
 
-// A phone: the panel follows the editor.
-@media (max-width: 767.98px) {
-  .ed-np .ed-cols.np-open {
-    display: block;
-  }
+// one row of small icon buttons under a card
+.np-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
 
-  .np-panel {
-    position: static;
-    margin-top: var(--space-4);
+.np-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
   }
 }
 
-.np-search input[type="search"] {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text);
-  font: 400 15px var(--font-ui);
+.np-del {
+  color: var(--muted);
+
+  &:hover,
+  &:focus-visible {
+    color: var(--err);
+  }
+}
+
+// A phone: the sidebar follows the editor; the grammar panel stays a
+// bottom sheet (_proofread.scss).
+@media (max-width: 767.98px) {
+  .ed-sd .ed-cols,
+  .ed-sd .ed-cols.es-collapsed {
+    display: block;
+  }
+
+  .es {
+    position: static;
+    max-height: none;
+    margin-top: var(--space-4);
+    overflow: visible;
+  }
+
+  .es-collapsed .es {
+    align-items: stretch;
+  }
 }

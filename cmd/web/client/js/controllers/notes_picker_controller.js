@@ -1,13 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
 import { runAction } from "../lib"
 
-// The post editor's Notes panel: opens beside the editor, loads the notes
-// fragment, and puts a note's text into the post at the cursor or at its end.
-// A note counts as used once the post has an id; until the first autosave
-// gives it one the ids wait here.
+// The cards of the post editor's Notes tab: puts a note's text into the post
+// at the cursor or at its end. The tab itself (ed_side_controller.js) loads
+// the list and the search; a note counts as used once the post has an id,
+// and until the first autosave gives it one the ids wait here.
 export default class extends Controller {
-  static targets = ["panel", "body", "button"]
-  static values = { url: String }
+  static targets = ["panel"]
 
   connect() {
     this.pending = new Set()
@@ -20,34 +19,6 @@ export default class extends Controller {
 
   disconnect() {
     document.removeEventListener("htmx:afterSettle", this.settled)
-  }
-
-  toggle() {
-    if (this.panelTarget.hidden) {
-      this.open()
-    } else {
-      this.close()
-    }
-  }
-
-  open() {
-    this.panelTarget.hidden = false
-    this.element.classList.add("np-open")
-    this.buttonTargets.forEach((b) => b.setAttribute("aria-expanded", "true"))
-
-    if (!this.bodyTarget.hasChildNodes()) {
-      window.htmx.ajax("GET", this.urlValue, { target: this.bodyTarget, swap: "innerHTML" })
-    }
-  }
-
-  close() {
-    if (!this.hasPanelTarget) {
-      return
-    }
-
-    this.panelTarget.hidden = true
-    this.element.classList.remove("np-open")
-    this.buttonTargets.forEach((b) => b.setAttribute("aria-expanded", "false"))
   }
 
   insert(event) {

@@ -7,16 +7,16 @@
 <span id="ed-save-result" class="ed-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
 {{ end }}
 {{ else }}
-<div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }}{{ if .NotesEnabled }} ed-np{{ end }}">
+<div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }}{{ if or .Proofread .NotesEnabled }} ed-sd{{ end }}">
   {{ with .Prompt }}
   <p class="ed-prompt" role="alert">{{ .Author.Username }} has asked: {{ .Prompt.Message }}</p>
   {{ end }}
 
-  {{/* With the grammar check and style review on, the editor column and the
-       suggestion panel sit side by side; the controller owns both. */}}
+  {{/* The editor column and the sidebar sit side by side. The sidebar has a tab for the grammar check and
+       style review (Checks) and one for the notes (Notes); the controllers own them: ed-side the tabs and the
+       collapsed strip, proofread the Checks, notes-picker what a note card does. */}}
   <div class="ed-cols"
-       {{ if or .Proofread .NotesEnabled }}data-controller="{{ if .Proofread }}proofread{{ end }}{{ if and .Proofread .NotesEnabled }} {{ end }}{{ if .NotesEnabled }}notes-picker{{ end }}"{{ end }}
-       {{ if .NotesEnabled }}data-notes-picker-url-value="{{ link "controls" }}/notes/picker"{{ end }}
+       {{ if or .Proofread .NotesEnabled }}data-controller="ed-side{{ if .Proofread }} proofread{{ end }}{{ if .NotesEnabled }} notes-picker{{ end }}"{{ end }}
        {{ if .Proofread }}
        data-proofread-grammar-url-value="{{ link "action" "proofread_grammar" }}"
        data-proofread-style-url-value="{{ link "action" "proofread_style" }}"
@@ -86,7 +86,7 @@
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
-        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID "Proofread" .Proofread "Notes" .NotesEnabled }}
+        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID "Proofread" .Proofread "Side" (or .Proofread .NotesEnabled) }}
 
         <textarea class="ed-body" name="body" placeholder="Your post goes there" aria-label="Post" rows="14" {{ if (.Errors.HasError "body") }}aria-invalid="true"{{ end }}>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
       </div>
@@ -170,17 +170,36 @@
       </div>
     </div>
   </form>
-  {{ if .NotesEnabled }}
-  <aside class="np-panel" id="np-panel" aria-label="Notes" hidden data-notes-picker-target="panel">
-    <header class="np-head">
-      <h2>Notes</h2>
-      <button type="button" class="np-close" data-action="notes-picker#close" aria-label="Close notes">&times;</button>
-    </header>
-    <div class="np-body" id="np-body" data-notes-picker-target="body"></div>
-  </aside>
-  {{ end }}
-  {{ if .Proofread }}
-  <aside class="pr-panel is-empty" aria-label="Suggestions" data-proofread-target="panel"></aside>
+  {{ if or .Proofread .NotesEnabled }}
+  <div class="es">
+    <div class="es-bar">
+      <div class="es-tabs" role="tablist" aria-label="Sidebar">
+        {{ if .Proofread }}<button type="button" role="tab" class="es-tab" id="es-tab-checks" aria-controls="es-checks" data-ed-side-target="tab" data-tab="checks" data-action="ed-side#select">Checks</button>{{ end }}
+        {{ if .NotesEnabled }}<button type="button" role="tab" class="es-tab" id="es-tab-notes" aria-controls="es-notes" data-ed-side-target="tab" data-tab="notes" data-action="ed-side#select">Notes</button>{{ end }}
+      </div>
+      <button type="button" class="es-toggle" aria-controls="es-body" aria-expanded="true" aria-label="Collapse the sidebar" title="Collapse the sidebar" data-ed-side-target="toggle" data-action="ed-side#toggle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    </div>
+    <div class="es-body" id="es-body" data-ed-side-target="body">
+      {{ if .Proofread }}
+      <div class="es-pane" role="tabpanel" id="es-checks" aria-labelledby="es-tab-checks" data-ed-side-target="pane" data-tab="checks">
+        <aside class="pr-panel is-empty" aria-label="Suggestions" data-proofread-target="panel"></aside>
+        <p class="es-hint">Press Check grammar or Style review to see suggestions here.</p>
+      </div>
+      {{ end }}
+      {{ if .NotesEnabled }}
+      <div class="es-pane" role="tabpanel" id="es-notes" aria-labelledby="es-tab-notes" data-ed-side-target="pane" data-tab="notes" data-notes-picker-target="panel">
+        <form class="np-search" role="search" action="{{ link "controls" }}/notes/picker" method="get"
+              hx-get="{{ link "controls" }}/notes/picker" hx-target="#np-body" hx-swap="innerHTML"
+              hx-trigger="submit, input changed delay:300ms" hx-sync="this:replace">
+          <input type="search" name="q" placeholder="Search notes, #tag, -#tag" aria-label="Search notes" autocomplete="off">
+        </form>
+        {{/* loaded when the tab first shows */}}
+        <div class="np-body" id="np-body" data-notes-picker-target="body"
+             hx-get="{{ link "controls" }}/notes/picker" hx-trigger="intersect once" hx-swap="innerHTML"></div>
+      </div>
+      {{ end }}
+    </div>
+  </div>
   {{ end }}
   </div>
 </div>

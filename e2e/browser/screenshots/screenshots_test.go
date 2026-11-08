@@ -248,12 +248,12 @@ func postNote(t *testing.T, app *e2e.App, form url.Values) string {
 	return out.Data.ID
 }
 
-// openNotesPanel writes a little, then opens the Notes panel of the editor.
+// openNotesPanel writes a little, then shows the Notes tab of the editor's sidebar.
 func openNotesPanel(t *testing.T, page playwright.Page) {
 	t.Helper()
 
 	fillEditor(t, page)
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Notes", Exact: new(true)}).Click())
+	require.NoError(t, page.GetByRole("tab", playwright.PageGetByRoleOptions{Name: "Notes", Exact: new(true)}).Click())
 }
 
 // createNotesKey makes a notes-only key through the form, then reloads, so

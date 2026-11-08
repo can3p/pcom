@@ -28,13 +28,17 @@ Once the draft is saved, or after your first check, a line under the editor show
 
 ## Notes in a post
 
-The **Notes** button in the toolbar opens your notes beside the editor, with the same tags, search and sources as the
-[notes list](notes.md). Pick a note and press **Insert** to put its text in at the cursor, or **Append** to add it to
-the end of the post; **Open** shows the note in a new tab. A quote goes in with its source, as *— Author, *Title*, p. 12*.
-The editor saves the post as usual. Inserting a note marks it used. Only one of the grammar panel and the notes
-panel is open at a time.
+The sidebar beside the editor has two tabs, **Checks** (the grammar check and style review) and **Notes**. Use the arrow
+at its top to collapse it to a thin strip and expand it again; the editor remembers the tab and whether it is
+collapsed in this browser. **Check grammar** and **Style review** switch to Checks and expand the sidebar.
 
-![The post editor with the Notes panel open beside it, listing notes with their tags.](screenshots/notes-panel.png)
+The Notes tab has a search box that works like the one in the [notes list](notes.md): words search the text, `#tag`
+keeps the notes with that tag and `-#tag` leaves them out. Each note has a row of small icon buttons: **Insert** puts
+its text in at the cursor, **Append** adds it to the end of the post, **Edit** opens the note in a new tab and
+**Delete** deletes the note after asking (the text already in posts stays). A quote goes in with its source, as
+*— Author, *Title*, p. 12*. The editor saves the post as usual, and inserting a note marks it used.
+
+![The post editor with the Notes tab of the sidebar showing notes.](screenshots/notes-panel.png)
 
 ## Visibility
 

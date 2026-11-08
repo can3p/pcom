@@ -587,7 +587,7 @@ func TestNotesPages_Picker(t *testing.T) {
 	bare := testutil.Must(factory.NoteSource(ctx, app.DB, user.ID))(t)
 
 	mustNote(t, app, user.ID, factory.WithNoteBody("alpha apple"), factory.WithNoteTags("essay"), factory.CapturedAt(day(1)))
-	mustNote(t, app, user.ID, factory.WithNoteBody("> bravo banana"), factory.WithNoteTags("essay", "walk"),
+	bravo := mustNote(t, app, user.ID, factory.WithNoteBody("> bravo banana"), factory.WithNoteTags("essay", "walk"),
 		factory.FromSource(book.ID), factory.WithNoteLocator("42"), factory.CapturedAt(day(3)))
 	mustNote(t, app, user.ID, factory.WithNoteBody("> charlie cherry\n"), factory.FromSource(bare.ID), factory.CapturedAt(day(5)))
 	mustNote(t, app, user.ID, factory.WithNoteBody("delta date"), factory.WithNoteTags("secret"), factory.CapturedAt(day(7)))
@@ -604,11 +604,9 @@ func TestNotesPages_Picker(t *testing.T) {
 		name, query string
 		want        []string
 	}{
-		{"tag", "?tag=essay", []string{"bravo banana", "alpha apple"}},
-		{"not", "?not=walk", []string{"delta date", "charlie cherry", "alpha apple"}},
 		{"search", "?q=apple", []string{"alpha apple"}},
 		{"search box tags", "?q=%23essay+-%23walk", []string{"alpha apple"}},
-		{"source", "?source=" + book.ID, []string{"bravo banana"}},
+		{"search box -tag", "?q=-%23walk", []string{"delta date", "charlie cherry", "alpha apple"}},
 		{"nothing", "?q=zzz", []string{}},
 	}
 
@@ -629,26 +627,20 @@ func TestNotesPages_Picker(t *testing.T) {
 	require.Equal(t, "> bravo banana\n\n— Ann Author, *"+book.Title+"*, p. 42", text(2))
 	require.Equal(t, "alpha apple", text(3))
 
-	buttons := doc.Find("[data-testid=picker-note]").Eq(2).Find("button")
-	require.Equal(t, []string{"Insert", "Append"}, texts(buttons.Parent(), "button"))
+	card := doc.Find("[data-testid=picker-note]").Eq(2)
+	buttons := card.Find(".np-acts button")
+	labels := buttons.Map(func(_ int, b *goquery.Selection) string { return b.AttrOr("aria-label", "") })
+	require.Equal(t, []string{"Insert", "Append", "Delete"}, labels)
 	require.Equal(t, text(2), buttons.Eq(1).AttrOr("data-text", ""))
-	require.Equal(t, []string{book.Title + ", 42"}, texts(doc.Find("[data-testid=picker-note]").Eq(2), ".meta"))
+	require.Equal(t, "/controls/notes/"+bravo.ID+"/edit", card.Find(".np-acts a[aria-label=Edit]").AttrOr("href", ""))
+	require.Equal(t, "_blank", card.Find(".np-acts a[aria-label=Edit]").AttrOr("target", ""))
+	require.Equal(t, "note_delete", buttons.Eq(2).AttrOr("data-action-action-value", ""))
+	require.Contains(t, buttons.Eq(2).AttrOr("data-action-prompt-value", ""), "Delete this note")
+	require.Equal(t, []string{book.Title + ", 42"}, texts(card, ".meta"))
 	require.Zero(t, doc.Find("[data-testid=picker-note]").Eq(3).Find(".meta").Length())
 
-	// chips and filters load the picker, not the notes page
-	got := chips(picker("?tag=essay&not=walk"))
-	require.Equal(t, chip{"include", "/controls/notes/picker?not=walk&not=essay"}, got["#essay"])
-	require.Equal(t, chip{"exclude", "/controls/notes/picker?tag=essay"}, got["#walk"])
-	require.Equal(t, "#np-body", picker("?tag=essay").Find("nav.nt-bar li.nt-chip a").First().AttrOr("hx-target", ""))
-
-	// sources
-	doc = picker("?source=" + book.ID)
-	_, open := doc.Find("details.np-sources").Attr("open")
-	require.True(t, open)
-	require.Equal(t, "/controls/notes/picker", doc.Find("details.np-sources a.is-active").AttrOr("href", ""))
-	require.Equal(t, "/controls/notes/picker?source="+bare.ID, doc.Find("details.np-sources a:not(.is-active)").AttrOr("href", ""))
-	_, open = picker("").Find("details.np-sources").Attr("open")
-	require.False(t, open)
+	// the panel has its own search box: the fragment has no tag bar or source filter
+	require.Zero(t, doc.Find("nav.nt-bar, details.np-sources, form.np-search").Length())
 }
 
 func TestNotesPages_PickerCursor(t *testing.T) {
@@ -661,14 +653,14 @@ func TestNotesPages_PickerCursor(t *testing.T) {
 		mustNote(t, app, user.ID, factory.WithNoteBody(b), factory.WithNoteTags("x"), factory.CapturedAt(day(i+1)))
 	}
 
-	doc := c.Get("/controls/notes/picker?tag=x").Doc()
+	doc := c.Get("/controls/notes/picker?q=%23x").Doc()
 	require.Equal(t, []string{"day three", "day two"}, texts(doc, "[data-testid=picker-note] .np-text"))
 
 	more := doc.Find(".load-more a").AttrOr("href", "")
 	u, err := url.Parse(more)
 	require.NoError(t, err)
 	require.Equal(t, "/controls/notes/picker", u.Path)
-	require.Equal(t, []string{"x"}, u.Query()["tag"])
+	require.Equal(t, []string{"#x"}, u.Query()["q"])
 
 	doc = c.Get(more).RequireStatus(http.StatusOK).Doc()
 	require.Equal(t, []string{"day one"}, texts(doc, "[data-testid=picker-note] .np-text"))

@@ -111,9 +111,6 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 // NotePickerPath is the fragment the post editor's Notes panel loads.
 const NotePickerPath = "/controls/notes/picker"
 
-// NotePickerTarget is the element of the panel the fragment goes into.
-const NotePickerTarget = "#np-body"
-
 // NotePickerItem is a note of the panel; Text is what Insert and Append put
 // into the post: the body, and under a quote the attribution line.
 type NotePickerItem struct {
@@ -121,13 +118,11 @@ type NotePickerItem struct {
 	Text string
 }
 
-// NotePickerPage is the fragment of the post editor's Notes panel: the tag
-// bar, the source filter and a page of notes.
+// NotePickerPage is the fragment of the post editor's Notes panel: a page of
+// the notes the panel's search box (q, read like the notes list's) finds.
 type NotePickerPage struct {
-	Query   NoteQuery
-	Bar     *NoteTagBar
-	Sources []NoteLink
-	Items   []*NotePickerItem
+	Query NoteQuery
+	Items []*NotePickerItem
 	// More loads the next page, empty on the last.
 	More string
 }
@@ -156,15 +151,10 @@ func derefString(s *string) string {
 	return *s
 }
 
-// NotePicker is the fragment of the Notes panel for the view of the request.
+// NotePicker is the fragment of the Notes panel for the search of the request.
 func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NotePickerPage] {
 	user := userData.DBUser
-	q := ParseNoteQuery(c)
-
-	tags, err := svc.Tags(c, user)
-	if err != nil {
-		return mo.Err[*NotePickerPage](err)
-	}
+	q := NoteQuery{Q: ParseNoteQuery(c).Q}
 
 	page, err := svc.List(c, user, q.Filter(c.Query("cursor")))
 	if err != nil {
@@ -176,12 +166,7 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		return mo.Err[*NotePickerPage](err)
 	}
 
-	sources, err := svc.Sources(c, user)
-	if err != nil {
-		return mo.Err[*NotePickerPage](err)
-	}
-
-	out := &NotePickerPage{Query: q, Bar: NewNoteTagBar(NotePickerPath, NotePickerTarget, q, tags)}
+	out := &NotePickerPage{Query: q}
 
 	for _, it := range items {
 		out.Items = append(out.Items, &NotePickerItem{Item: it, Text: quoteText(it.Note)})
@@ -191,19 +176,6 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		more := q.Values()
 		more.Set("cursor", page.Next)
 		out.More = NotePickerPath + "?" + more.Encode()
-	}
-
-	for _, s := range sources {
-		on := s.Source.ID == q.SourceID
-
-		next := s.Source.ID
-		if on {
-			next = ""
-		}
-
-		out.Sources = append(out.Sources, NoteLink{
-			Label: s.Source.Title, Count: s.Notes, Active: on, Href: q.withSource(next).URL(NotePickerPath),
-		})
 	}
 
 	return mo.Ok(out)

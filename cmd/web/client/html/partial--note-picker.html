@@ -1,15 +1,27 @@
-{{/* The post editor's Notes panel, loaded into #np-body by GET /controls/notes/picker; its filters load the
-     next view in place. The page: a web.NotePickerPage. A "Load more" gets note_picker_list alone. */}}
+{{/* The post editor's Notes panel, loaded into #np-body by GET /controls/notes/picker (the panel's search box
+     sends q). The page: a web.NotePickerPage. A "Load more" gets note_picker_list alone.
+     Each card has one row of icon buttons: Insert and Append (notes-picker controller), Edit (the note's edit
+     page in a new tab) and Delete (the note_delete action, which removes the card). */}}
 {{ define "note_picker_list" }}
 {{ range .Items }}
 {{ $n := .Item.Note }}
-<article class="np-note" data-testid="picker-note">
+<article class="np-note" id="np-note-{{ $n.ID }}" data-testid="picker-note">
   {{ if $n.Source }}<p class="meta">{{ $n.Source.Title }}{{ with $n.Locator }}, {{ . }}{{ end }}</p>{{ end }}
   <div class="prose np-text">{{ markdown_feed $n.Body }}</div>
-  <div class="acts">
-    <button type="button" data-action="notes-picker#insert" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}">Insert</button>
-    <button type="button" data-action="notes-picker#append" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}">Append</button>
-    <a href="/controls/notes/{{ $n.ID }}/edit" target="_blank" rel="noopener">Open</a>
+  <div class="np-acts">
+    <button type="button" class="np-ico" data-action="notes-picker#insert" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Insert" title="Insert at the cursor"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v7a4 4 0 0 0 4 4h10"></path><path d="M15 11l4 4-4 4"></path></svg></button>
+    <button type="button" class="np-ico" data-action="notes-picker#append" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Append" title="Append to the end of the post"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></button>
+    <a class="np-ico" href="/controls/notes/{{ $n.ID }}/edit" target="_blank" rel="noopener" aria-label="Edit" title="Edit the note in a new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
+    <button type="button" class="np-ico np-del"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_delete"
+            data-action-prompt-value="{{ .Item.DeletePrompt }}"
+            data-action-skip-reload-value="true"
+            data-note-id="{{ $n.ID }}"
+            hx-target="#np-note-{{ $n.ID }}"
+            hx-swap="delete"
+            aria-label="Delete" title="Delete the note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"></path><path d="M9 7V4h6v3"></path></svg></button>
   </div>
 </article>
 {{ else }}
@@ -22,23 +34,6 @@
 {{ end }}
 {{ end }}
 
-<form class="np-search" role="search" action="{{ .Bar.Path }}" method="get" hx-get="{{ .Bar.Path }}" hx-target="#np-body" hx-swap="innerHTML">
-  {{ range .Query.Tags }}<input type="hidden" name="tag" value="{{ . }}">{{ end }}
-  {{ range .Query.Not }}<input type="hidden" name="not" value="{{ . }}">{{ end }}
-  {{ if .Query.SourceID }}<input type="hidden" name="source" value="{{ .Query.SourceID }}">{{ end }}
-  <input type="search" name="q" value="{{ .Query.Q }}" placeholder="Search notes" aria-label="Search notes">
-</form>
-{{ template "partial--note-tag-bar.html" toMap "Bar" .Bar }}
-{{ if .Sources }}
-<details class="np-sources"{{ if .Query.SourceID }} open{{ end }}>
-  <summary>Sources</summary>
-  <ul>
-    {{ range .Sources }}
-    <li><a href="{{ .Href }}" hx-get="{{ .Href }}" hx-target="#np-body" hx-swap="innerHTML"{{ if .Active }} class="is-active" aria-current="true"{{ end }}>{{ .Label }} <span class="nt-count">{{ .Count }}</span></a></li>
-    {{ end }}
-  </ul>
-</details>
-{{ end }}
 <div class="np-list">
 {{ template "note_picker_list" . }}
 </div>
