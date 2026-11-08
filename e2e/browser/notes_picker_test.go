@@ -120,6 +120,8 @@ func TestNotesPicker_SearchInsertsAndAppends(t *testing.T) {
 	searchNotes(t, page, "-#essay")
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(pickerCard(page, "bravo idea")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "alpha idea")).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "only way out")).ToHaveCount(0))
 
 	searchNotes(t, page, "#essay alpha")
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(1))
@@ -255,6 +257,10 @@ func TestNotesPicker_Delete(t *testing.T) {
 	require.NoError(t, del.Click())
 	require.Contains(t, <-asked, "Delete this note")
 
+	// settled: the panel loaded again from the server still has both notes
+	searchNotes(t, page, "delete")
+	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(1))
+	searchNotes(t, page, "")
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(2))
 
 	_, err = store.NoteWithRelations(ctx, gone.ID)
@@ -264,7 +270,7 @@ func TestNotesPicker_Delete(t *testing.T) {
 	accept <- true
 
 	require.NoError(t, del.Click())
-	<-asked
+	require.Contains(t, <-asked, "Delete this note")
 
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(pickerCard(page, "keep me")).ToBeVisible())
@@ -303,6 +309,7 @@ func TestEditorSidebar_TabsCollapseAndRemember(t *testing.T) {
 
 	// the editor page, with its sidebar collapsed, asks for no notes
 	require.NoError(t, browser.Expect.Locator(sideToggle(page, "Expand the sidebar")).ToBeVisible())
+	require.NoError(t, page.WaitForLoadState(playwright.PageWaitForLoadStateOptions{State: playwright.LoadStateNetworkidle}))
 	require.Zero(t, picked.Load())
 
 	// no Notes button in the toolbar any more
@@ -445,9 +452,14 @@ func TestNotesPicker_SidebarSurvivesAFailedSave(t *testing.T) {
 	openNotes(t, page)
 	require.NoError(t, browser.Expect.Locator(pickerCard(page, "a note")).ToBeVisible())
 
+	// mark the sidebar that is on the page now: the redraw must replace it
+	_, err = page.Locator("#es-notes").Evaluate("el => el.setAttribute('data-old', '1')", nil)
+	require.NoError(t, err)
+
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill(strings.Repeat("long ", posts.DefaultPostSubjectMaxLength)))
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("text"))
 	require.NoError(t, browser.Expect.Locator(page.Locator(".field-error")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(page.Locator("[data-old]")).ToHaveCount(0), "the editor was drawn again")
 
 	require.NoError(t, browser.Expect.Locator(sideTab(page, "Notes")).ToHaveAttribute("aria-selected", "true"))
 	require.NoError(t, browser.Expect.Locator(pickerCard(page, "a note")).ToBeVisible())

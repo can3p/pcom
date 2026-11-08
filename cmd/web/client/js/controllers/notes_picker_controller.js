@@ -2,8 +2,9 @@ import { Controller } from "@hotwired/stimulus"
 import { runAction } from "../lib"
 
 // The cards of the post editor's Notes tab: puts a note's text into the post
-// at the cursor or at its end. The tab itself (ed_side_controller.js) loads
-// the list and the search; a note counts as used once the post has an id,
+// at the cursor or at its end. The sidebar (ed_side_controller.js) shows the
+// tab; the list and the search load through htmx attributes in
+// form--post.html, the list when the tab is first shown. A note counts as used once the post has an id,
 // and until the first autosave gives it one the ids wait here.
 export default class extends Controller {
   static targets = ["panel"]
