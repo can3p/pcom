@@ -190,7 +190,7 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
 - **Tags are columns, the text is the note.** `tags` (set by actions) and `text_tags` (the `#word`s of the body,
   rewritten on every save) are both filtered on as `tags || text_tags`. Editing the text edits the text tags, and
   a tag from an action goes with its chip.
-- **One search box, no hidden tags.** The list narrows by one query (`notes.ParseSearch`): `#tag` must be on the
+- **One search box.** The list narrows by one query (`notes.ParseSearch`): `#tag` must be on the
   note, `-#tag` must not, and every other word is text searched for in the body, case-insensitively. A tag token
   is normalized like any tag, and one that can't be a tag (`#`, `-#`, `#2024`) is text. A tag both included and
   excluded is excluded. Nothing is hidden by a preference: a tag the author no longer wants to see is left out by
