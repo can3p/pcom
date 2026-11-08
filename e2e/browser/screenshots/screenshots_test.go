@@ -253,6 +253,8 @@ func openNotesPanel(t *testing.T, page playwright.Page) {
 	t.Helper()
 
 	fillEditor(t, page)
+	// the sidebar starts collapsed in a fresh browser
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Expand the sidebar", Exact: new(true)}).Click())
 	require.NoError(t, page.GetByRole("tab", playwright.PageGetByRoleOptions{Name: "Notes", Exact: new(true)}).Click())
 }
 
