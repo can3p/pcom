@@ -194,7 +194,17 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   note, `-#tag` must not, and every other word is text searched for in the body, case-insensitively. A tag token
   is normalized like any tag, and one that can't be a tag (`#`, `-#`, `#2024`) is text. A tag both included and
   excluded is excluded. Nothing is hidden by a preference: a tag the author no longer wants to see is left out by
-  `-#tag`, so what the list shows is always what its query says.
+  `-#tag`, so what the list shows is always what its query says. The whole search is the `q` parameter; the
+  source and the Inbox and Unused toggles are their own parameters (`source`, `inbox`, `unused`), and there are no
+  others. The page shows the query's parts as chips, each linking to the query without it, and every link that
+  adds a tag (a tag on a note, the author's tags under the box) adds it to the query on show.
+- **The list page captures too.** Its box saves typed text with the tags typed next to it (separated by spaces or
+  commas, `#` optional; the recent tags are the tags of the newest notes) and the markdown toolbar's photos, which
+  go into the text as images. A recording picked from the device becomes a note through the same upload as the
+  capture page's (`POST /controls/action/note_audio`), and a note without a recording can get one on its edit page.
+- **A source is set on the note's edit page**, in a form of its own (`/controls/form/note_source/:id`), so the
+  text's autosave never makes a source from a half-typed title. Saving finds or makes the source by its match key,
+  as a capture does; an empty title takes the source away. The place in the source (`locator`) is saved with it.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
   object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,

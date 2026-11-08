@@ -17,19 +17,17 @@ import (
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
 // NotesPath is the notes list; the pages of the notes live under it.
 const NotesPath = "/controls/notes"
 
-// NoteQuery is the view of the notes list a URL describes: the tags a note
-// must (Tags) and must not (Not) carry, the source, the unused and Inbox
-// filters and the search box's query (Q, read by notes.ParseSearch). The tag
-// bar and the post editor's panel build their links from it.
+// NoteQuery is the view of the notes list a URL describes: the search box's
+// query (Q, read by notes.ParseSearch: #tag, -#tag and words), the source and
+// the Unused and Inbox toggles. The search box and the post editor's panel
+// build their links from it.
 type NoteQuery struct {
-	Tags, Not     []string
 	SourceID      string
 	Unused, Inbox bool
 	Q             string
@@ -38,8 +36,6 @@ type NoteQuery struct {
 // ParseNoteQuery reads a NoteQuery from the request's query string.
 func ParseNoteQuery(c *gin.Context) NoteQuery {
 	return NoteQuery{
-		Tags:     c.QueryArray("tag"),
-		Not:      c.QueryArray("not"),
 		SourceID: c.Query("source"),
 		Unused:   c.Query("unused") == "1",
 		Inbox:    c.Query("inbox") == "1",
@@ -47,16 +43,17 @@ func ParseNoteQuery(c *gin.Context) NoteQuery {
 	}
 }
 
-// Filter is the notes service's filter for q, from the page after cursor:
-// the tags of the tag bar and of the search box together, a tag left out
-// winning over the same tag included, and the search box's text.
+// Search is the parsed search box of q.
+func (q NoteQuery) Search() notes.Search {
+	return notes.ParseSearch(q.Q)
+}
+
+// Filter is the notes service's filter for q, from the page after cursor.
 func (q NoteQuery) Filter(cursor string) notes.Filter {
-	search := notes.ParseSearch(q.Q)
-	not := lo.Union(search.NotTags, q.Not)
-	tags := slices.DeleteFunc(lo.Union(search.Tags, q.Tags), func(t string) bool { return slices.Contains(not, t) })
+	search := q.Search()
 
 	return notes.Filter{
-		Tags: tags, NotTags: not, Query: search.Query, SourceID: q.SourceID,
+		Tags: search.Tags, NotTags: search.NotTags, Query: search.Query, SourceID: q.SourceID,
 		Unused: q.Unused, Inbox: q.Inbox, Cursor: cursor,
 	}
 }
@@ -64,14 +61,6 @@ func (q NoteQuery) Filter(cursor string) notes.Filter {
 // Values is the query string of q.
 func (q NoteQuery) Values() url.Values {
 	v := url.Values{}
-
-	for _, t := range q.Tags {
-		v.Add("tag", t)
-	}
-
-	for _, t := range q.Not {
-		v.Add("not", t)
-	}
 
 	if q.SourceID != "" {
 		v.Set("source", q.SourceID)
@@ -101,25 +90,14 @@ func (q NoteQuery) URL(path string) string {
 	return path
 }
 
-// Cycle moves tag one step round include, exclude and off.
-func (q NoteQuery) Cycle(tag string) NoteQuery {
-	out := q
-	out.Tags = slices.DeleteFunc(slices.Clone(q.Tags), func(t string) bool { return t == tag })
-	out.Not = slices.DeleteFunc(slices.Clone(q.Not), func(t string) bool { return t == tag })
+// withSearch, withInbox, withUnused and withSource are q with the one filter
+// changed and the others kept.
+func (q NoteQuery) withSearch(s notes.Search) NoteQuery {
+	q.Q = s.String()
 
-	switch {
-	case slices.Contains(q.Tags, tag):
-		out.Not = append(out.Not, tag)
-	case slices.Contains(q.Not, tag):
-	default:
-		out.Tags = append(out.Tags, tag)
-	}
-
-	return out
+	return q
 }
 
-// withInbox, withUnused and withSource are q with the one filter changed and
-// the others kept.
 func (q NoteQuery) withInbox(on bool) NoteQuery {
 	q.Inbox = on
 
@@ -140,56 +118,67 @@ func (q NoteQuery) withSource(id string) NoteQuery {
 
 // Filtered reports whether q narrows the list down at all.
 func (q NoteQuery) Filtered() bool {
-	return len(q.Tags)+len(q.Not) > 0 || q.SourceID != "" || q.Unused || q.Inbox || q.Q != ""
+	return q.SourceID != "" || q.Unused || q.Inbox || q.Q != ""
 }
 
-// NoteChip is a tag of the tag bar: State is "include", "exclude" or "off",
-// and Href the view a tap on it leads to.
-type NoteChip struct {
-	Tag   string
-	Count int
-	State string
+// NoteFilter is a part of the search on show above the list, with the link
+// to the list without it. Not marks a tag left out; Text the search's words.
+type NoteFilter struct {
+	Label string
+	Not   bool
+	Text  bool
 	Href  string
 }
 
-// NoteTagBar is the tag bar of the notes list and the post editor's panel.
-// A chip is a link to Path with the next state of the tag; with a Target
-// the link is fetched in place into that element instead.
-type NoteTagBar struct {
-	Path   string
-	Target string
-	Query  NoteQuery
-	Chips  []NoteChip
+// NoteTagLink is a tag one tap adds to the search.
+type NoteTagLink struct {
+	Tag  string
+	Href string
 }
 
-// NewNoteTagBar builds the tag bar of the tags for the view q at path.
-func NewNoteTagBar(path, target string, q NoteQuery, tags []notes.TagCount) *NoteTagBar {
-	bar := &NoteTagBar{Path: path, Target: target, Query: q}
+// NoteSearch is the search box of the notes list (partial--note-search.html):
+// the query, its parts as removable chips, and the author's tags, most used
+// first, that the search doesn't hold yet.
+type NoteSearch struct {
+	Path    string
+	Query   NoteQuery
+	Filters []NoteFilter
+	Tags    []NoteTagLink
+}
 
-	for _, t := range tags {
-		state := "off"
+// NewNoteSearch builds the search box for the view q at path, with the
+// author's tags.
+func NewNoteSearch(path string, q NoteQuery, tags []notes.TagCount) *NoteSearch {
+	s := q.Search()
+	out := &NoteSearch{Path: path, Query: q}
 
-		switch {
-		case slices.Contains(q.Tags, t.Tag):
-			state = "include"
-		case slices.Contains(q.Not, t.Tag):
-			state = "exclude"
-		}
-
-		bar.Chips = append(bar.Chips, NoteChip{
-			Tag: t.Tag, Count: t.Count, State: state,
-			Href: q.Cycle(t.Tag).URL(path),
-		})
+	for _, t := range s.Tags {
+		out.Filters = append(out.Filters, NoteFilter{Label: "#" + t, Href: q.withSearch(s.WithoutTag(t)).URL(path)})
 	}
 
-	return bar
+	for _, t := range s.NotTags {
+		out.Filters = append(out.Filters, NoteFilter{Label: "#" + t, Not: true, Href: q.withSearch(s.WithoutNotTag(t)).URL(path)})
+	}
+
+	if s.Query != "" {
+		out.Filters = append(out.Filters, NoteFilter{Label: s.Query, Text: true, Href: q.withSearch(s.WithoutQuery()).URL(path)})
+	}
+
+	for _, t := range tags {
+		if !slices.Contains(s.Tags, t.Tag) && !slices.Contains(s.NotTags, t.Tag) {
+			out.Tags = append(out.Tags, NoteTagLink{Tag: t.Tag, Href: q.withSearch(s.WithTag(t.Tag)).URL(path)})
+		}
+	}
+
+	return out
 }
 
 // NoteTag is a tag of a note; FromText says it comes from a #word of the
-// body, so it goes with the text.
+// body, so it goes with the text. Href is the list searching for the tag.
 type NoteTag struct {
 	Tag      string
 	FromText bool
+	Href     string
 }
 
 // NoteItem is a note of the list.
@@ -340,9 +329,12 @@ type NoteLink struct {
 // NotesPage is /controls/notes and its management screen.
 type NotesPage struct {
 	*BasePage
-	Query NoteQuery
-	Bar   *NoteTagBar
-	Items []*NoteItem
+	Query  NoteQuery
+	Search *NoteSearch
+	Items  []*NoteItem
+	// RecentTags are the tags of the newest notes, newest first, which the
+	// capture box offers one tap away.
+	RecentTags []string
 	// More is the link that loads the next page, empty on the last.
 	More string
 	// Focus is the author's current focus tag.
@@ -396,17 +388,45 @@ func NoteDeletePrompt(n *model.Note, used bool) string {
 	return s
 }
 
-// NoteTagsOf lists the tags of a note, the ones set by hand first.
+// NoteTagsOf lists the tags of a note, the ones set by hand first, each
+// linking to the list searching for it.
 func NoteTagsOf(n *model.Note) []NoteTag {
+	return noteTagsIn(n, NoteQuery{})
+}
+
+// noteTagsIn lists the tags of a note as the list of the view q shows them:
+// each links to the view with the tag added to its search.
+func noteTagsIn(n *model.Note, q NoteQuery) []NoteTag {
 	var out []NoteTag
 
+	search := q.Search()
+	add := func(tag string, fromText bool) {
+		out = append(out, NoteTag{Tag: tag, FromText: fromText, Href: q.withSearch(search.WithTag(tag)).URL(NotesPath)})
+	}
+
 	for _, t := range n.Tags {
-		out = append(out, NoteTag{Tag: t})
+		add(t, false)
 	}
 
 	for _, t := range n.TextTags {
 		if !slices.Contains(n.Tags, t) {
-			out = append(out, NoteTag{Tag: t, FromText: true})
+			add(t, true)
+		}
+	}
+
+	return out
+}
+
+// recentTags are the tags of the notes, in the order of the notes and then
+// of their tags, each once.
+func recentTags(entries []notes.Entry) []string {
+	var out []string
+
+	for _, e := range entries {
+		for _, t := range NoteTagsOf(e.Note) {
+			if !slices.Contains(out, t.Tag) {
+				out = append(out, t.Tag)
+			}
 		}
 	}
 
@@ -441,7 +461,7 @@ func noteItems(svc *notes.Service, c *gin.Context, user *model.User, entries []n
 	return items, nil
 }
 
-// Notes is the notes list for the view of the request: the tag bar, the
+// Notes is the notes list for the view of the request: the search box, the
 // notes and the link to the next page.
 func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NotesPage] {
 	user := userData.DBUser
@@ -462,6 +482,17 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*NotesPage](err)
 	}
 
+	for _, it := range items {
+		it.Tags = noteTagsIn(it.Note, q)
+	}
+
+	newest := page
+	if q.Filtered() || c.Query("cursor") != "" {
+		if newest, err = svc.List(c, user, notes.Filter{}); err != nil {
+			return mo.Err[*NotesPage](err)
+		}
+	}
+
 	focus, err := svc.Focus(c, user)
 	if err != nil {
 		return mo.Err[*NotesPage](err)
@@ -473,11 +504,12 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 	}
 
 	out := &NotesPage{
-		BasePage: getBasePage(c, "Notes", userData),
-		Query:    q,
-		Bar:      NewNoteTagBar(NotesPath, "", q, tags),
-		Items:    items,
-		Focus:    focus,
+		BasePage:   getBasePage(c, "Notes", userData),
+		Query:      q,
+		Search:     NewNoteSearch(NotesPath, q, tags),
+		Items:      items,
+		RecentTags: recentTags(newest.Entries),
+		Focus:      focus,
 		Views: []NoteLink{
 			{Label: "Inbox", Href: q.withInbox(!q.Inbox).URL(NotesPath), Active: q.Inbox},
 			{Label: "Unused", Href: q.withUnused(!q.Unused).URL(NotesPath), Active: q.Unused},
@@ -545,6 +577,8 @@ type EditNotePage struct {
 	Status *NoteStatus
 	// Again is the "Transcribe again as…" control, nil when the note has none.
 	Again *NoteAgain
+	// Sources are the author's sources, which the Source fields offer.
+	Sources []notes.SourceCount
 }
 
 // EditNote loads the note for its edit page; a note that isn't the viewer's
@@ -560,6 +594,11 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		return mo.Err[*EditNotePage](err)
 	}
 
+	sources, err := svc.Sources(c, userData.DBUser)
+	if err != nil {
+		return mo.Err[*EditNotePage](err)
+	}
+
 	return mo.Ok(&EditNotePage{
 		BasePage:     getBasePage(c, "Edit note", userData),
 		Note:         note,
@@ -568,6 +607,7 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		DeletePrompt: NoteDeletePrompt(note, links > 0),
 		Status:       &NoteStatus{Note: note, View: NoteStatusEdit, Base: note.Body},
 		Again:        NoteAgainOf(svc, note, true),
+		Sources:      sources,
 	})
 }
 

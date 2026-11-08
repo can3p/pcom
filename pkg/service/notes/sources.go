@@ -26,13 +26,6 @@ type SourceInput struct {
 	URL    string
 }
 
-// matchKey is the title and author lowercased with their whitespace
-// collapsed.
-func matchKey(title, author string) string {
-	return strings.ToLower(strings.Join(strings.Fields(title), " ")) + "\x1f" +
-		strings.ToLower(strings.Join(strings.Fields(author), " "))
-}
-
 // validSource checks the input and returns the source it makes, without ID
 // and owner.
 func (s *Service) validSource(in SourceInput) (*model.NoteSource, error) {
@@ -47,7 +40,7 @@ func (s *Service) validSource(in SourceInput) (*model.NoteSource, error) {
 		return nil, service.Invalid("kind", "A source is a book or a web page.")
 	}
 
-	src := &model.NoteSource{Kind: in.Kind, Title: title, MatchKey: matchKey(title, in.Author)}
+	src := &model.NoteSource{Kind: in.Kind, Title: title, MatchKey: model.NoteSourceMatchKey(title, in.Author)}
 
 	if author := strings.Join(strings.Fields(in.Author), " "); author != "" {
 		src.Author = &author

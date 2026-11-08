@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -83,7 +84,7 @@ func (m *Note) BeforeAppendModel(_ context.Context, query bun.Query) error {
 }
 
 // NoteSource is a row of note_sources: a book or web page notes come from.
-// MatchKey is the normalized title and author, unique per user.
+// MatchKey is NoteSourceMatchKey of its title and author, unique per user.
 type NoteSource struct {
 	bun.BaseModel `bun:"table:note_sources"`
 
@@ -94,6 +95,15 @@ type NoteSource struct {
 	Author   *string        `bun:"author"`
 	URL      *string        `bun:"url"`
 	MatchKey string         `bun:"match_key"`
+}
+
+// NoteSourceMatchKey is how a source is found again: its title and author
+// lowercased with their whitespace collapsed, so the same book typed with
+// another case or spacing is the same source. It lives with the model, not the
+// notes service, so the test factory makes sources the service finds.
+func NoteSourceMatchKey(title, author string) string {
+	return strings.ToLower(strings.Join(strings.Fields(title), " ")) + "\x1f" +
+		strings.ToLower(strings.Join(strings.Fields(author), " "))
 }
 
 // NoteImage is a row of note_images: one photo of a note, in the order of

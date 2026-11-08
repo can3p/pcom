@@ -12,6 +12,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
+	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/stretchr/testify/require"
@@ -58,20 +60,24 @@ func texts(doc interface {
 	return out
 }
 
-// chip is a tag chip of a tag bar.
-type chip struct{ state, href string }
+// hrefs is the href of each element of sel.
+func hrefs(doc interface {
+	Find(string) *goquery.Selection
+}, sel string) []string {
+	out := []string{}
 
-func chips(doc *goquery.Document) map[string]chip {
-	out := map[string]chip{}
-
-	doc.Find("nav.nt-bar li.nt-chip").Each(func(_ int, s *goquery.Selection) {
-		a := s.Find("a")
-		href, _ := a.Attr("href")
-		state, _ := s.Attr("data-state")
-		out[strings.Fields(a.Text())[0]] = chip{state: state, href: href}
+	doc.Find(sel).Each(func(_ int, s *goquery.Selection) {
+		out = append(out, s.AttrOr("href", ""))
 	})
 
 	return out
+}
+
+// sourceOf is the source of a note.
+func sourceOf(t *testing.T, app *e2e.App, n *model.Note) *model.NoteSource {
+	t.Helper()
+
+	return testutil.Must(repo.New(app.DB).NoteSourceByID(context.Background(), *n.SourceID))(t)
 }
 
 // linkTo is the href of the link with the text, "" without one.
@@ -123,10 +129,10 @@ func TestNotesPages_ListFilters(t *testing.T) {
 		name, query string
 		want        []string
 	}{
-		{"tag", "?tag=essay", []string{"bravo banana", "alpha apple"}},
-		{"two tags", "?tag=essay&tag=walk", []string{"bravo banana"}},
-		{"not", "?not=essay", []string{"echo elder", "delta date", "charlie Cherry"}},
-		{"tag and not", "?tag=essay&not=walk", []string{"alpha apple"}},
+		{"tag", "?q=%23essay", []string{"bravo banana", "alpha apple"}},
+		{"two tags", "?q=%23essay+%23walk", []string{"bravo banana"}},
+		{"not", "?q=-%23essay", []string{"echo elder", "delta date", "charlie Cherry"}},
+		{"the old tag parameters are no filter", "?tag=essay&not=walk", []string{"echo elder", "delta date", "charlie Cherry", "bravo banana", "alpha apple"}},
 		{"search box tag", "?q=%23Secret", []string{"echo elder"}},
 		{"search box tags and text", "?q=%23essay+-%23walk+apple", []string{"alpha apple"}},
 		{"search box tag left out", "?q=-%23walk+-%23secret", []string{"charlie Cherry", "alpha apple"}},
@@ -154,10 +160,11 @@ func TestNotesPages_ListFilters(t *testing.T) {
 	require.Contains(t, meta, src.Title)
 	require.Contains(t, meta, "used in a post")
 	require.Equal(t, "/controls/notes?source="+src.ID, doc.Find("[data-testid=note] .meta a").AttrOr("href", ""))
+	require.Equal(t, []string{src.Title}, texts(doc, "[data-testid=note-source]"))
 	require.NotContains(t, texts(c.Get("/controls/notes?inbox=1").Doc(), "[data-testid=note] .meta")[0], "used in a post")
 }
 
-func TestNotesPages_TagBarViewsAndSources(t *testing.T) {
+func TestNotesPages_SearchViewsAndSources(t *testing.T) {
 	t.Parallel()
 
 	app := notesPagesApp(t, sttOff)
@@ -169,22 +176,37 @@ func TestNotesPages_TagBarViewsAndSources(t *testing.T) {
 	mustNote(t, app, user.ID, factory.WithNoteTags("essay", "walk"), factory.CapturedAt(day(3)))
 	mustNote(t, app, user.ID, factory.WithNoteTags("secret", "walk"), factory.FromSource(src.ID), factory.CapturedAt(day(5)))
 
-	doc := c.Get("/controls/notes?tag=essay&not=walk").RequireStatus(http.StatusOK).Doc()
-	got := chips(doc)
-	// include goes to exclude, exclude to off, off to include; the other tags stay
-	require.Equal(t, map[string]chip{
-		"#essay":  {"include", "/controls/notes?not=walk&not=essay"},
-		"#walk":   {"exclude", "/controls/notes?tag=essay"},
-		"#secret": {"off", "/controls/notes?not=walk&tag=essay&tag=secret"},
-	}, got)
-	require.Equal(t, []string{"#essay 2 (included)", "#walk 2 (excluded)", "#secret 1"}, texts(doc, "nav.nt-bar li.nt-chip a"))
+	// the search's parts are chips whose x drops the part, the other filters kept
+	doc := c.Get("/controls/notes?unused=1&q=%23essay+-%23walk+river").RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, "#essay -#walk river", doc.Find("form.nt-search input[name=q]").AttrOr("value", ""))
+	require.Equal(t, []string{"#essay ×", "not #walk ×", "“river” ×"}, texts(doc, "[data-testid=note-filters] li"))
+	require.Equal(t, []string{
+		"/controls/notes?q=-%23walk+river&unused=1",
+		"/controls/notes?q=%23essay+river&unused=1",
+		"/controls/notes?q=%23essay+-%23walk&unused=1",
+	}, hrefs(doc, "[data-testid=note-filters] a.nt-x"))
+	require.Equal(t, "Remove not #walk", doc.Find("[data-testid=note-filters] a.nt-x").Eq(1).AttrOr("aria-label", ""))
+	require.Equal(t, "1", doc.Find("form.nt-search input[name=unused]").AttrOr("value", ""))
+
+	// the tags the search doesn't hold, most used first, one tap away
+	require.Equal(t, []string{"#secret"}, texts(doc, "ul[aria-label='Your tags'] a"))
+	require.Equal(t, []string{"/controls/notes?q=%23essay+%23secret+-%23walk+river&unused=1"}, hrefs(doc, "ul[aria-label='Your tags'] a"))
+
+	doc = c.Get("/controls/notes").Doc()
+	require.Zero(t, doc.Find("[data-testid=note-filters]").Length())
+	require.Equal(t, []string{"#essay", "#walk", "#secret"}, texts(doc, "ul[aria-label='Your tags'] a"))
+
+	// a tag on a note adds it to the search on show
+	doc = c.Get("/controls/notes?q=-%23secret").Doc()
+	require.Equal(t, []string{"/controls/notes?q=%23essay+-%23secret", "/controls/notes?q=%23walk+-%23secret"},
+		hrefs(doc.Find("[data-testid=note]").First(), ".nt-tags a"))
 
 	// views: a filter keeps the others, and the active one toggles off
-	doc = c.Get("/controls/notes?tag=essay").Doc()
+	doc = c.Get("/controls/notes?q=%23essay").Doc()
 	href, _ := linkTo(doc, ".nt-views ul[aria-label=Views] a", "Inbox")
-	require.Equal(t, "/controls/notes?inbox=1&tag=essay", href)
+	require.Equal(t, "/controls/notes?inbox=1&q=%23essay", href)
 	href, _ = linkTo(doc, ".nt-views ul[aria-label=Views] a", "Unused")
-	require.Equal(t, "/controls/notes?tag=essay&unused=1", href)
+	require.Equal(t, "/controls/notes?q=%23essay&unused=1", href)
 	require.Zero(t, doc.Find("[aria-current]").Length())
 
 	doc = c.Get("/controls/notes?inbox=1&unused=1").Doc()
@@ -194,17 +216,17 @@ func TestNotesPages_TagBarViewsAndSources(t *testing.T) {
 	require.Equal(t, "/controls/notes?inbox=1", href)
 
 	// sources: a count, a link that selects it and, selected, one that clears it
-	doc = c.Get("/controls/notes?tag=walk").Doc()
+	doc = c.Get("/controls/notes?q=%23walk").Doc()
 	href, ok := linkTo(doc, "ul[aria-label=Sources] a", src.Title+" 1")
 	require.True(t, ok)
-	require.Equal(t, "/controls/notes?source="+src.ID+"&tag=walk", href)
+	require.Equal(t, "/controls/notes?q=%23walk&source="+src.ID, href)
 
-	doc = c.Get("/controls/notes?tag=walk&source=" + src.ID).Doc()
+	doc = c.Get("/controls/notes?q=%23walk&source=" + src.ID).Doc()
 	href, ok = linkTo(doc, "ul[aria-label=Sources] a[aria-current]", src.Title)
 	require.True(t, ok)
-	require.Equal(t, "/controls/notes?tag=walk", href)
+	require.Equal(t, "/controls/notes?q=%23walk", href)
 	require.Equal(t, src.ID, doc.Find("form.nt-search input[name=source]").AttrOr("value", ""))
-	require.Equal(t, "walk", doc.Find("form.nt-search input[name=tag]").AttrOr("value", ""))
+	require.Zero(t, doc.Find("form.nt-search input[name=inbox]").Length())
 }
 
 func TestNotesPages_CursorPages(t *testing.T) {
@@ -219,14 +241,14 @@ func TestNotesPages_CursorPages(t *testing.T) {
 
 	mustNote(t, app, user.ID, factory.WithNoteBody("untagged"), factory.CapturedAt(day(9)))
 
-	doc := c.Get("/controls/notes?tag=x").Doc()
+	doc := c.Get("/controls/notes?q=%23x").Doc()
 	require.Equal(t, []string{"three", "two"}, texts(doc, "[data-testid=note] .note-body"))
 
 	more := doc.Find(".load-more a").AttrOr("href", "")
 	u, err := url.Parse(more)
 	require.NoError(t, err)
 	require.Equal(t, "/controls/notes", u.Path)
-	require.Equal(t, []string{"x"}, u.Query()["tag"], "the next page keeps the filter")
+	require.Equal(t, "#x", u.Query().Get("q"), "the next page keeps the filter")
 	require.NotEmpty(t, u.Query().Get("cursor"))
 
 	doc = c.Get(more).RequireStatus(http.StatusOK).Doc()
@@ -373,8 +395,16 @@ func TestNotesPages_EditPage(t *testing.T) {
 			require.Equal(t, "essay", doc.Find("#note-tags").AttrOr("value", ""))
 			require.Equal(t, []string{"#essay", "#inline (written in the text)"}, texts(doc, "#note-tag-chips li"))
 
-			require.Equal(t, "page 42", doc.Find("#note-locator").AttrOr("value", ""))
-			require.Equal(t, "/controls/notes?source="+*n.SourceID, doc.Find("p.meta a").AttrOr("href", ""))
+			// the Source form holds the source and where in it the note comes from
+			source := doc.Find("form.note-source")
+			require.Equal(t, "/controls/form/note_source/"+n.ID, source.AttrOr("hx-post", ""))
+			title := sourceOf(t, tt.app, n).Title
+			require.Equal(t, title, source.Find("input[name=title]").AttrOr("value", ""))
+			require.Equal(t, "page 42", source.Find("input[name=locator]").AttrOr("value", ""))
+			require.Equal(t, 1, source.Find("datalist option").Length())
+			require.Equal(t, title, source.Find("datalist option").AttrOr("value", ""), "the author's sources are offered")
+			require.Zero(t, doc.Find("form.note-form input[name=locator]").Length(), "the text's autosave never touches the source")
+			require.Zero(t, doc.Find("input[type=file][accept='audio/*']").Length(), "a note with a recording gets none added")
 
 			if tt.pending {
 				status := doc.Find("[data-testid=note-status]")
@@ -407,7 +437,9 @@ func TestNotesPages_EditPage(t *testing.T) {
 		doc := c.Get("/controls/notes/" + n.ID + "/edit").RequireStatus(http.StatusOK).Doc()
 		require.Equal(t, "Delete this note? This can't be undone.", doc.Find("button.ed-delete").AttrOr("data-action-prompt-value", ""))
 		require.Zero(t, doc.Find("[data-testid=note-status]").Length())
-		require.Zero(t, doc.Find("#note-locator").Length())
+		require.Empty(t, doc.Find("form.note-source input[name=title]").AttrOr("value", "x"))
+		require.Empty(t, doc.Find("form.note-source input[name=author]").AttrOr("value", "x"))
+		require.Equal(t, n.ID, doc.Find("input[type=file][accept='audio/*']").AttrOr("data-note-id", ""), "Add recording attaches to this note")
 	})
 
 	t.Run("another user's note is not found", func(t *testing.T) {
@@ -450,9 +482,11 @@ func TestNotesPages_ListItemOfARichNote(t *testing.T) {
 			item := c.Get("/controls/notes").RequireStatus(http.StatusOK).Doc().Find("#note-" + n.ID)
 			require.Equal(t, 1, item.Length())
 			require.Equal(t, 2, item.Find(".note-photos img").Length())
-			require.Equal(t, fullPrompt, item.Find("button.btn-danger").AttrOr("data-action-prompt-value", ""))
-			require.Equal(t, "/controls/notes/"+n.ID+"/edit", item.Find(".acts a").AttrOr("href", ""))
+			require.Equal(t, fullPrompt, item.Find("button[aria-label='Delete note']").AttrOr("data-action-prompt-value", ""))
+			require.Equal(t, "/controls/notes/"+n.ID+"/edit", item.Find("a[aria-label='Edit note']").AttrOr("href", ""))
 			require.Equal(t, []string{"#essay", "#inline (written in the text)"}, texts(item, ".nt-tags li"))
+			require.Equal(t, []string{"/controls/notes?q=%23essay", "/controls/notes?q=%23inline"}, hrefs(item, ".nt-tags a"))
+			require.Equal(t, []string{sourceOf(t, tt.app, n).Title}, texts(item, "[data-testid=note-source]"))
 			status := strings.TrimSpace(item.Find("[data-testid=note-status]").Text())
 			if tt.status == model.NoteTranscriptionPending {
 				require.Equal(t, "Transcribing…", status)
@@ -604,6 +638,7 @@ func TestNotesPages_Picker(t *testing.T) {
 		name, query string
 		want        []string
 	}{
+		{"tag", "?q=%23essay", []string{"bravo banana", "alpha apple"}},
 		{"search", "?q=apple", []string{"alpha apple"}},
 		{"search box tags", "?q=%23essay+-%23walk", []string{"alpha apple"}},
 		{"search box -tag", "?q=-%23walk", []string{"delta date", "charlie cherry", "alpha apple"}},
@@ -714,4 +749,84 @@ func TestNotesPages_ControlsSection(t *testing.T) {
 
 func linkHref(s *goquery.Selection, text string) string {
 	return s.Find("p.acts a").FilterFunction(func(_ int, a *goquery.Selection) bool { return strings.TrimSpace(a.Text()) == text }).AttrOr("href", "")
+}
+
+// The capture box takes tags, with or without #, and offers the tags of the
+// newest notes, newest first, one tap away.
+func TestNotesPages_CaptureTags(t *testing.T) {
+	t.Parallel()
+
+	app := notesPagesApp(t, sttOff)
+	user, c := newLoggedIn(t, app)
+
+	mustNote(t, app, user.ID, factory.WithNoteBody("old"), factory.WithNoteTags("old"), factory.CapturedAt(day(1)))
+	mustNote(t, app, user.ID, factory.WithNoteBody("new #inline"), factory.WithNoteTags("walk"), factory.WithNoteTextTags("inline"), factory.CapturedAt(day(3)))
+
+	doc := c.Get("/controls/notes?q=zzz").Doc()
+	require.Equal(t, []string{"#walk", "#inline", "#old"}, texts(doc, "ul[aria-label='Recent tags'] button"), "the newest notes, whatever the list shows")
+
+	resp := c.PostForm("/controls/form/note_create", url.Values{"body": {"captured"}, "tags": {"#Essay, walk  #walk"}}).RequireStatus(http.StatusOK)
+	require.Contains(t, resp.Body, "Saved")
+
+	got := userNotesByBody(t, app, user.ID)["captured"]
+	require.NotNil(t, got)
+	require.Equal(t, []string{"essay", "walk"}, got.Tags)
+
+	resp = c.PostForm("/controls/form/note_create", url.Values{"body": {"bad"}, "tags": {"no!"}}).RequireStatus(http.StatusOK)
+	require.Contains(t, resp.Body, "Not saved")
+	require.NotContains(t, userNotesByBody(t, app, user.ID), "bad")
+}
+
+// The edit page's Source form finds the author's source by title and author
+// or makes one, sets where in it the note is, and clears it with an empty
+// title; another author's note is not saved.
+func TestNotesPages_SourceForm(t *testing.T) {
+	t.Parallel()
+
+	app := notesPagesApp(t, sttOff)
+	ctx := context.Background()
+	user, c := newLoggedIn(t, app)
+	book := testutil.Must(factory.NoteSource(ctx, app.DB, user.ID, factory.WithSourceAuthor("Ann Author")))(t)
+	n := mustNote(t, app, user.ID, factory.WithNoteBody("quote"))
+	path := "/controls/form/note_source/" + n.ID
+	note := func() *model.Note { return testutil.Must(repo.New(app.DB).NoteByID(ctx, n.ID))(t) }
+
+	resp := c.PostForm(path, url.Values{"title": {" " + strings.ToUpper(book.Title)}, "author": {"ann  author"}, "locator": {" p. 7 "}}).RequireStatus(http.StatusOK)
+	require.Contains(t, resp.Body, "Saved")
+	require.Equal(t, book.ID, *note().SourceID)
+	require.Equal(t, "p. 7", *note().Locator)
+
+	c.PostForm(path, url.Values{"title": {"Another book"}, "author": {""}, "locator": {""}}).RequireStatus(http.StatusOK)
+	other := note()
+	require.NotEqual(t, book.ID, *other.SourceID)
+	require.Nil(t, other.Locator)
+	require.Equal(t, "Another book", sourceOf(t, app, other).Title)
+
+	resp = c.PostForm(path, url.Values{"title": {strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)}}).RequireStatus(http.StatusOK)
+	require.Contains(t, resp.Body, "Not saved")
+	require.Equal(t, other.SourceID, note().SourceID)
+
+	resp = c.PostForm(path, url.Values{"title": {" "}, "locator": {""}}).RequireStatus(http.StatusOK)
+	require.Contains(t, resp.Body, "No source")
+	require.Nil(t, note().SourceID)
+
+	_, stranger := newLoggedIn(t, app)
+	resp = stranger.PostForm(path, url.Values{"title": {"Forged"}})
+	require.Contains(t, resp.Body, "Not saved")
+	require.Nil(t, note().SourceID)
+}
+
+// userNotesByBody are the author's notes by their text.
+func userNotesByBody(t *testing.T, app *e2e.App, userID string) map[string]*model.Note {
+	t.Helper()
+
+	rows, err := repo.New(app.DB).ListNotes(context.Background(), repo.NoteFilter{UserID: userID, Limit: 50})
+	require.NoError(t, err)
+
+	out := map[string]*model.Note{}
+	for _, r := range rows {
+		out[r.Note.Body] = r.Note
+	}
+
+	return out
 }

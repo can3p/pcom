@@ -97,15 +97,18 @@ func NoteSource(ctx context.Context, exec repo.Executor, userID string, opts ...
 
 	title := fmt.Sprintf("Book %d", next())
 
-	src := &model.NoteSource{ID: id, UserID: userID, Kind: model.NoteSourceBook, Title: title, MatchKey: title + "\x1f"}
+	src := &model.NoteSource{ID: id, UserID: userID, Kind: model.NoteSourceBook, Title: title}
 
 	for _, o := range opts {
 		o(src)
 	}
 
+	author := ""
 	if src.Author != nil {
-		src.MatchKey += *src.Author
+		author = *src.Author
 	}
+
+	src.MatchKey = model.NoteSourceMatchKey(src.Title, author)
 
 	return insertRow(ctx, exec, src)
 }

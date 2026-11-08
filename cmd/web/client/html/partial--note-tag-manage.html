@@ -12,7 +12,7 @@
   <ul class="controls-list">
     {{ range $m.Tags }}
     <li class="controls-row" data-testid="tag-row">
-      <a href="/controls/notes?tag={{ .Tag | urlquery }}">#{{ .Tag }}</a>
+      <a href="/controls/notes?q={{ printf "#%s" .Tag | urlquery }}">#{{ .Tag }}</a>
       <span class="meta">{{ .Count }} {{ if eq .Count 1 }}note{{ else }}notes{{ end }}{{ if eq .Tag $m.Focus }}, focus{{ end }}</span>
       <span class="acts">
         <button type="button"

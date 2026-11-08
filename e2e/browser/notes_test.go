@@ -1,8 +1,9 @@
 //go:build browser
 
-// Everything an author does on the notes pages: the tag bar (include,
-// exclude), the search box, the Inbox with its suggestions and selections, sources, renaming and merging, the edit page, quick capture and
-// each delete with its confirmation.
+// Everything an author does on the notes pages: the search box with its
+// chips, the Inbox with its suggestions and selections, sources, renaming and
+// merging, the edit page with its source, quick capture with tags, photos and
+// recordings, and each delete with its confirmation.
 package browser_test
 
 import (
@@ -106,48 +107,63 @@ func mustNote(t *testing.T, app *e2e.App, userID string, opts ...factory.NoteOpt
 	return n
 }
 
-// A tap on a chip includes the tag, a second tap excludes it, a third clears
-// it; the search box takes #tags, -#tags and text.
-func TestNotes_TagBar(t *testing.T) {
+// The search box takes #tags, -#tags and words; each part shows as a chip
+// whose × drops it, a tag on a note or under the box adds it to the search.
+func TestNotes_Search(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
+	now := time.Now().UTC()
 
-	mustNote(t, app, user.ID, factory.WithNoteBody("alpha note"), factory.WithNoteTags("essay"))
-	mustNote(t, app, user.ID, factory.WithNoteBody("bravo note"), factory.WithNoteTags("essay", "done"))
-	mustNote(t, app, user.ID, factory.WithNoteBody("charlie note"), factory.WithNoteTags("walk"))
-	mustNote(t, app, user.ID, factory.WithNoteBody("delta note"))
+	mustNote(t, app, user.ID, factory.WithNoteBody("alpha note"), factory.WithNoteTags("essay"), factory.CapturedAt(now.Add(-4*time.Hour)))
+	mustNote(t, app, user.ID, factory.WithNoteBody("bravo note"), factory.WithNoteTags("essay", "done"), factory.CapturedAt(now.Add(-3*time.Hour)))
+	mustNote(t, app, user.ID, factory.WithNoteBody("charlie note"), factory.WithNoteTags("walk"), factory.CapturedAt(now.Add(-2*time.Hour)))
+	mustNote(t, app, user.ID, factory.WithNoteBody("delta"), factory.CapturedAt(now.Add(-time.Hour)))
 
 	page := browser.Page(t, app, browser.As(user))
 	_, err := page.Goto("/controls/notes")
 	require.NoError(t, err)
 
-	bar := page.GetByRole("navigation", playwright.PageGetByRoleOptions{Name: "Tags"})
 	notes := page.GetByTestId("note")
-	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
-
-	require.NoError(t, bar.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#essay"}).Click())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`tag=essay`)))
-	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(2))
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "alpha note")).ToBeVisible())
-
-	require.NoError(t, bar.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#essay"}).Click())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`not=essay`)))
-	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(2))
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "charlie note")).ToBeVisible())
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "delta note")).ToBeVisible())
-
-	require.NoError(t, bar.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#essay"}).Click())
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/notes$`)))
-	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
-
+	filters := page.GetByRole("list", playwright.PageGetByRoleOptions{Name: "Active filters"})
 	search := page.GetByRole("searchbox", playwright.PageGetByRoleOptions{Name: "Search notes"})
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
+	require.NoError(t, browser.Expect.Locator(filters).ToHaveCount(0))
+
 	require.NoError(t, search.Fill("#Essay -#done note"))
 	require.NoError(t, search.Press("Enter"))
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`q=`)))
 	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "alpha note")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(filters.GetByRole("listitem")).ToHaveText([]string{"#essay ×", "not #done ×", "“note” ×"}))
+
+	// × on the excluded tag brings its notes back, the rest of the search stays
+	require.NoError(t, filters.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Remove not #done"}).Click())
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(2))
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "bravo note")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(search).ToHaveValue("#essay note"))
+
+	require.NoError(t, filters.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Remove #essay"}).Click())
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(3))
+	require.NoError(t, filters.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Remove “note”"}).Click())
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(4))
+	require.NoError(t, browser.Expect.Locator(filters).ToHaveCount(0))
+
+	// a tag on a note adds it to the search
+	require.NoError(t, noteCard(page, "charlie note").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#walk"}).Click())
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(search).ToHaveValue("#walk"))
+
+	// so does a tag under the box, to the search on show; an excluded tag reads "not"
+	require.NoError(t, search.Fill("-#walk"))
+	require.NoError(t, search.Press("Enter"))
+	require.NoError(t, browser.Expect.Locator(filters.GetByRole("listitem")).ToHaveText([]string{"not #walk ×"}))
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(3))
+	require.NoError(t, page.GetByRole("list", playwright.PageGetByRoleOptions{Name: "Your tags"}).
+		GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Search #done"}).Click())
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "bravo note")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(search).ToHaveValue("#done -#walk"))
 }
 
 // The Inbox holds the untagged notes and offers the tags that fit one tap
@@ -349,7 +365,7 @@ func TestNotes_EditPage(t *testing.T) {
 	require.Equal(t, []string{"fresh"}, saved.TextTags)
 
 	require.NoError(t, page.GetByLabel("Tags").Fill("bad!tag"))
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save"}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save", Exact: new(true)}).Click())
 	require.NoError(t, browser.Expect.Locator(page.GetByText("Not saved")).ToBeVisible())
 
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Delete"}).Click())
@@ -358,8 +374,9 @@ func TestNotes_EditPage(t *testing.T) {
 	require.True(t, noteGone(t, app, note.ID))
 }
 
-// A note typed into the capture box with Ctrl+Enter lands in the list; the
-// Notes section of the controls page counts the Inbox and links to the list.
+// A note typed into the capture box with Ctrl+Enter lands in the list, with
+// the tags typed next to it and a recent tag tapped in; the Notes section of
+// the controls page counts the Inbox and links to the list.
 func TestNotes_QuickCaptureAndControls(t *testing.T) {
 	t.Parallel()
 
@@ -373,6 +390,7 @@ func TestNotes_QuickCaptureAndControls(t *testing.T) {
 
 	require.NoError(t, page.GetByRole("navigation").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Notes", Exact: new(true)}).Click())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/notes$`)))
+	require.NoError(t, browser.Expect.Locator(page.GetByRole("list", playwright.PageGetByRoleOptions{Name: "Recent tags"})).ToHaveCount(0))
 
 	capture := page.GetByLabel("New note")
 	require.NoError(t, capture.Fill("   "))
@@ -387,6 +405,193 @@ func TestNotes_QuickCaptureAndControls(t *testing.T) {
 	_, err = page.Goto("/controls/")
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "1 untagged note waits in the Inbox"})).ToBeVisible())
+
+	// tags typed with the text, then a recent one tapped in
+	mustNote(t, app, user.ID, factory.WithNoteBody("earlier"), factory.WithNoteTags("reading"), factory.CapturedAt(time.Now().UTC().Add(-time.Hour)))
+
+	_, err = page.Goto("/controls/notes")
+	require.NoError(t, err)
+
+	tags := page.GetByLabel("Tags", playwright.PageGetByLabelOptions{Exact: new(true)})
+	require.NoError(t, page.GetByLabel("New note").Fill("a tagged thought"))
+	require.NoError(t, tags.Fill("#Essay, walk"))
+	recent := page.GetByRole("list", playwright.PageGetByRoleOptions{Name: "Recent tags"})
+	require.NoError(t, recent.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Add tag #reading"}).Click())
+	require.NoError(t, recent.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Add tag #reading"}).Click())
+	require.NoError(t, browser.Expect.Locator(tags).ToHaveValue("#Essay walk reading"))
+	require.NoError(t, tags.Press("Control+Enter"))
+
+	card := noteCard(page, "a tagged thought")
+	require.NoError(t, browser.Expect.Locator(card).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(card.Locator(".nt-tags li")).ToHaveText([]string{"#essay", "#walk", "#reading"}))
+
+	n := userNotes(t, app, user.ID)[0]
+	require.Equal(t, "a tagged thought", n.Body)
+	require.Equal(t, []string{"essay", "walk", "reading"}, n.Tags)
+}
+
+// The capture box and the edit page have the markdown toolbar: a photo picked
+// with it is uploaded and goes into the text as an image.
+func TestNotes_PhotoFromTheToolbar(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err := page.Goto("/controls/notes")
+	require.NoError(t, err)
+
+	capture := page.GetByLabel("New note")
+	image := regexp.MustCompile(`^a page\n!\[wide\.png\]\(\S+\)$`)
+
+	require.NoError(t, capture.Fill("a page"))
+	chooser, err := page.ExpectFileChooser(func() error {
+		return page.Locator(".note-capture").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Upload images", Exact: new(true)}).Click()
+	})
+	require.NoError(t, err)
+	require.NoError(t, chooser.SetFiles([]playwright.InputFile{{Name: "wide.png", MimeType: "image/png", Buffer: widePNG(t)}}))
+	require.NoError(t, browser.Expect.Locator(capture).ToHaveValue(image))
+	require.NoError(t, capture.Press("Control+Enter"))
+
+	card := noteCard(page, "a page")
+	require.NoError(t, browser.Expect.Locator(card.GetByRole("img", playwright.LocatorGetByRoleOptions{Name: "wide.png"})).ToBeVisible())
+	n := userNotes(t, app, user.ID)[0]
+	require.Regexp(t, image, n.Body)
+
+	_, err = page.Goto("/controls/notes/" + n.ID + "/edit")
+	require.NoError(t, err)
+
+	body := page.GetByLabel("Note", playwright.PageGetByLabelOptions{Exact: new(true)})
+	require.NoError(t, body.Fill("edited"))
+	chooser, err = page.ExpectFileChooser(func() error {
+		return page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Upload images", Exact: new(true)}).Click()
+	})
+	require.NoError(t, err)
+	require.NoError(t, chooser.SetFiles([]playwright.InputFile{{Name: "wide.png", MimeType: "image/png", Buffer: widePNG(t)}}))
+	require.Eventually(t, func() bool {
+		return regexp.MustCompile(`^edited\n!\[wide\.png\]\(\S+\)$`).MatchString(noteIn(t, app, n.ID).Body)
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+// "Upload recording" makes a note of a recording from the device, which the
+// list shows transcribing; "Add recording" on the edit page of a note without
+// one attaches it.
+func TestNotes_UploadRecording(t *testing.T) {
+	t.Parallel()
+
+	app := sttApp(t)
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user), browser.Allow(`status of 400`))
+	memo := playwright.InputFile{Name: "memo.ogg", MimeType: "audio/ogg", Buffer: append([]byte("OggS"), make([]byte, 256)...)}
+
+	_, err := page.Goto("/controls/notes")
+	require.NoError(t, err)
+	require.NoError(t, page.GetByLabel("Upload recording").SetInputFiles([]playwright.InputFile{memo}))
+
+	notes := page.GetByTestId("note")
+	require.NoError(t, browser.Expect.Locator(notes).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(notes.GetByTestId("note-status")).ToHaveText("Transcribing…"))
+
+	n := waitNotes(t, app, user.ID, 1)[0]
+	require.NotNil(t, n.AudioUploadID)
+	require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
+
+	// a refusal shows next to the button
+	_, err = page.Goto("/controls/notes")
+	require.NoError(t, err)
+	require.NoError(t, page.GetByLabel("Upload recording").SetInputFiles([]playwright.InputFile{{Name: "x.ogg", MimeType: "audio/ogg", Buffer: []byte("not audio")}}))
+	require.NoError(t, browser.Expect.Locator(page.Locator(".note-capture .status.err")).ToContainText("recording"))
+	require.Len(t, userNotes(t, app, user.ID), 1)
+
+	typed := mustNote(t, app, user.ID, factory.WithNoteBody("typed first"))
+
+	_, err = page.Goto("/controls/notes/" + typed.ID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, page.GetByLabel("Add recording").SetInputFiles([]playwright.InputFile{memo}))
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("note-status")).ToContainText("Transcribing…"))
+	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Add recording")).ToHaveCount(0))
+	require.NotNil(t, noteIn(t, app, typed.ID).AudioUploadID)
+	require.Len(t, userNotes(t, app, user.ID), 2)
+}
+
+// The edit page's Source: picking one of the author's sources fills its
+// author, saving gives the note that source and its place in it, which the
+// list shows; an empty title takes it away.
+func TestNotes_EditSource(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	src, err := factory.NoteSource(context.Background(), app.DB, user.ID, factory.WithSourceAuthor("Ann Author"))
+	require.NoError(t, err)
+	mustNote(t, app, user.ID, factory.WithNoteBody("from the book"), factory.FromSource(src.ID))
+	n := mustNote(t, app, user.ID, factory.WithNoteBody("loose quote"))
+	book := &src.ID
+
+	page := browser.Page(t, app, browser.As(user))
+	form := page.GetByRole("form", playwright.PageGetByRoleOptions{Name: "Source"})
+	title := form.GetByLabel("Title")
+	save := form.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Save source"})
+
+	_, err = page.Goto("/controls/notes/" + n.ID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, title.Fill(src.Title))
+	require.NoError(t, browser.Expect.Locator(form.GetByLabel("Author")).ToHaveValue("Ann Author"))
+	require.NoError(t, form.GetByLabel("Where in it").Fill("p. 12"))
+	require.NoError(t, save.Click())
+	require.NoError(t, browser.Expect.Locator(form.GetByRole("status")).ToHaveText("Saved"))
+
+	saved := noteIn(t, app, n.ID)
+	require.Equal(t, *book, *saved.SourceID)
+	require.Equal(t, "p. 12", *saved.Locator)
+
+	_, err = page.Goto("/controls/notes")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "loose quote").GetByTestId("note-source")).ToHaveText(src.Title+", Ann Author"))
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "loose quote").Locator(".meta")).ToContainText("p. 12"))
+
+	_, err = page.Goto("/controls/notes/" + n.ID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(title).ToHaveValue(src.Title))
+	require.NoError(t, title.Fill(""))
+	require.NoError(t, form.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Save source"}).Click())
+	require.NoError(t, browser.Expect.Locator(form.GetByRole("status")).ToHaveText("No source"))
+	require.Nil(t, noteIn(t, app, n.ID).SourceID)
+}
+
+// A note's Edit and Delete are icon buttons named for what they do.
+func TestNotes_IconActions(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	n := mustNote(t, app, user.ID, factory.WithNoteBody("iconic"))
+
+	page := browser.Page(t, app, browser.As(user))
+	dialogs := watchDialogs(page)
+
+	_, err := page.Goto("/controls/notes")
+	require.NoError(t, err)
+
+	card := noteCard(page, "iconic")
+	edit := card.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Edit note", Exact: new(true)})
+	del := card.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Delete note", Exact: new(true)})
+	require.NoError(t, browser.Expect.Locator(edit).ToHaveAttribute("title", "Edit note"))
+	require.NoError(t, browser.Expect.Locator(del).ToHaveAttribute("title", "Delete note"))
+	require.NoError(t, browser.Expect.Locator(edit).ToHaveText(""))
+	require.NoError(t, browser.Expect.Locator(edit.Locator("svg")).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(del.Locator("svg")).ToHaveCount(1))
+
+	require.NoError(t, edit.Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/notes/`+n.ID+`/edit$`)))
+
+	_, err = page.Goto("/controls/notes")
+	require.NoError(t, err)
+	require.NoError(t, del.Click())
+	require.NoError(t, browser.Expect.Locator(card).ToHaveCount(0))
+	require.Equal(t, "Delete this note? This can't be undone.", dialogs.last())
+	require.True(t, noteGone(t, app, n.ID))
 }
 
 // "Load more" appends the older notes in place: one page, one heading, and

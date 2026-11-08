@@ -163,3 +163,11 @@ func TestModels_MatchTheSchema(t *testing.T) {
 		}
 	}
 }
+
+func TestNoteSourceMatchKey_IgnoresCaseAndSpacing(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, model.NoteSourceMatchKey("Walden", "Henry Thoreau"), model.NoteSourceMatchKey("  WALDEN ", "henry   thoreau"))
+	require.Equal(t, "walden\x1f", model.NoteSourceMatchKey("Walden", ""))
+	require.NotEqual(t, model.NoteSourceMatchKey("Walden", "A"), model.NoteSourceMatchKey("Walden A", ""))
+}

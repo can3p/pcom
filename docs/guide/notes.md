@@ -39,12 +39,17 @@ link, and the capture page shows the *#essay* chip with a **Stop** button. The f
 
 ## The list
 
-**Notes** lists your notes, newest first, with a box at the top to jot one down (Ctrl+Enter saves it). Under the
-box are:
+**Notes** lists your notes, newest first, with a box at the top to jot one down:
 
-- **Views.** **Inbox** shows the notes with no tag yet. **Unused** shows the notes you have not put into a post.
-- **Sources**, when you have quotes: a book or article, with the number of its notes. Selecting one shows only its
-  notes.
+- **The text** has the same toolbar as the post editor, so a photo can go in with the image button. **Ctrl+Enter**
+  or **Add note** saves it.
+- **Tags** next to it, separated by spaces or commas, with or without `#`. Your recent tags are under it: a tap
+  adds one.
+- **Upload recording** picks a recording on your device and makes a note of it, which shows **Transcribing…**
+  until its text is there.
+
+Under the box are:
+
 - **Search**, one box for tags and text:
   - `#essay` shows only the notes tagged *essay*;
   - `-#done` leaves out the notes tagged *done*;
@@ -52,13 +57,28 @@ box are:
 
   They combine: `#essay -#done streets` is the notes tagged *essay*, not *done*, that mention streets. A tag both
   asked for and left out is left out. Tags are matched in any case, and a `#` that isn't followed by a tag
-  (such as `#2024`) is searched for as text.
-- **Tags**, the tag bar. Each chip is a tag with its count, most used first. A tap on a chip cycles it through
-  *include* (the notes must have it), *exclude* (they must not have it) and off. The filters are in the address, so
-  a filtered view can be bookmarked.
+  (such as `#2024`) is searched for as text. The parts of the search show above the list as chips, a left-out tag
+  marked *not*; the **×** on a chip drops it. Your tags are under the box, most used first: a tap adds one to the
+  search, and so does a tap on a tag of a note. The search is in the address, so a filtered view can be
+  bookmarked.
+- **Views.** **Inbox** shows the notes with no tag yet. **Unused** shows the notes you have not put into a post.
+  Each is a toggle that keeps the search.
+- **Sources**, when you have quotes: a book or article, with the number of its notes. Selecting one shows only its
+  notes.
 
-Each note shows its text, its tags, its source, and whether it has been used in a post. **Edit** opens the note,
-and **Delete** removes it, after you confirm.
+Each note shows its text, its tags, its source, and whether it has been used in a post. The pencil opens the note
+to edit it, and the bin deletes it, after you confirm.
+
+### Editing a note
+
+The edit page saves the text and tags by itself shortly after you stop typing. The text has the toolbar, photos
+included. Under it:
+
+- **Source** is the book or article the note comes from: a title, an author and where in it (a page or a location).
+  The title offers your sources; picking one fills its author. **Save source** finds the source with that title
+  and author, or makes it, so quotes from one book stay together. Clear the title and save to remove the source.
+- **Add recording**, on a note without one, attaches a recording from your device; its transcript is added to the
+  text.
 
 ### Tags
 
@@ -66,8 +86,8 @@ Tags are free words. You can set them in four ways:
 
 - **A suggestion.** Each untagged note offers up to three of your existing tags whose words appear in its text,
   or that other notes from its source carry. One tap tags the note.
-- **`#word` in the text.** Any `#word` in a note is a tag, so there is no tag field to fill. Editing the text edits
-  the tag, and its chip says *(written in the text)*. To remove that tag, remove the `#word` from the text.
+- **`#word` in the text.** Any `#word` in a note is a tag, as well as the ones in the Tags field. Editing the text
+  edits the tag, and its chip says *(written in the text)*. To remove that tag, remove the `#word` from the text.
 - **Selection.** Select several notes and press **Tag** to add tags to all of them.
 - **Speech.** Say "hashtag word" while dictating and the transcript writes `#word`.
 
@@ -90,8 +110,8 @@ A quote is a note with a source: the passage of a book, or an article, and the p
   quote.
 - **Type or paste** a passage on the capture page. It is stored as typed.
 - **The source** of a quote is the source of the quote before it, if that was within the focus time. Otherwise
-  the quote waits in the Inbox, and one tap from the recent sources gives it a source. A plain note or a photo can
-  be given a source the same way.
+  the quote waits in the Inbox; give it a source on its edit page, or select several notes and press **Source**. A
+  plain note or a photo can be given a source the same way.
 - **Sources** need no setup. Quotes from one book land in one group, found by its title and author. Sources can be
   renamed or merged on **Tags and sources**, for the rare share that spells a title differently.
 

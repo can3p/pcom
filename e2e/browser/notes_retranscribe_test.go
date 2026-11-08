@@ -171,7 +171,7 @@ func TestNotesRetranscribe_NoControl(t *testing.T) {
 
 		_, err = page.Goto("/controls/notes/" + note.ID + "/edit")
 		require.NoError(t, err)
-		require.NoError(t, browser.Expect.Locator(page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save"})).ToBeVisible())
+		require.NoError(t, browser.Expect.Locator(page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save", Exact: new(true)})).ToBeVisible())
 		require.NoError(t, browser.Expect.Locator(page.GetByTestId("note-again")).ToHaveCount(0))
 	})
 
@@ -193,7 +193,7 @@ func TestNotesRetranscribe_NoControl(t *testing.T) {
 
 		_, err = page.Goto("/controls/notes/" + note.ID + "/edit")
 		require.NoError(t, err)
-		require.NoError(t, browser.Expect.Locator(page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save"})).ToBeVisible())
+		require.NoError(t, browser.Expect.Locator(page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Save", Exact: new(true)})).ToBeVisible())
 		require.NoError(t, browser.Expect.Locator(page.GetByTestId("note-again")).ToHaveCount(0))
 	})
 }

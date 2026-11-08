@@ -3,6 +3,7 @@ package notes_test
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,13 @@ func (w *world) note(t *testing.T, u *model.User, opts ...factory.NoteOpt) *mode
 	t.Helper()
 
 	return testutil.Must(factory.Note(w.ctx, w.db, u.ID, opts...))(t)
+}
+
+// get reads a note back from the database.
+func (w *world) get(t *testing.T, id string) *model.Note {
+	t.Helper()
+
+	return testutil.Must(repo.New(w.db).NoteByID(w.ctx, id))(t)
 }
 
 func (w *world) count(t *testing.T, query string, args ...any) int {
@@ -465,6 +473,54 @@ func TestSources(t *testing.T) {
 	err = w.svc.SetSource(w.ctx, w.me, []string{a.ID}, &notes.SourceInput{Kind: "film", Title: "x"})
 	require.ErrorAs(t, err, &verr)
 	require.Equal(t, "kind", verr.Field)
+}
+
+// The edit page's Source: a title and author find the actor's source by its
+// match key or make one, an empty title takes it away, and no Source keeps it.
+func TestUpdateSetsTheSource(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t)
+	n, other := w.note(t, w.me), w.note(t, w.me)
+	theirs := w.note(t, w.other)
+
+	require.NoError(t, w.svc.SetSource(w.ctx, w.other, []string{theirs.ID}, &notes.SourceInput{Kind: model.NoteSourceBook, Title: "Walden", Author: "Henry Thoreau"}))
+	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{other.ID}, &notes.SourceInput{Kind: model.NoteSourceWeb, Title: "Walden", Author: "Henry Thoreau"}))
+	mine := w.get(t, other.ID).SourceID
+
+	page := "p. 12"
+	got, err := w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Locator: &page, Source: &notes.SourceInput{Title: " walden ", Author: "HENRY  thoreau"}})
+	require.NoError(t, err)
+	require.Equal(t, mine, got.SourceID, "the same title and author is the actor's own source, whatever the case and spacing")
+	require.Equal(t, model.NoteSourceWeb, got.Source.Kind)
+
+	saved := w.get(t, n.ID)
+	require.Equal(t, mine, saved.SourceID)
+	require.Equal(t, page, *saved.Locator)
+
+	body := "kept"
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: &body})
+	require.NoError(t, err)
+	require.Equal(t, mine, w.get(t, n.ID).SourceID, "an edit without a Source keeps it")
+
+	got, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Source: &notes.SourceInput{Title: "Cape Cod"}})
+	require.NoError(t, err)
+	require.NotEqual(t, mine, got.SourceID)
+	require.Equal(t, model.NoteSourceBook, got.Source.Kind, "a new source is a book unless said otherwise")
+	require.Nil(t, got.Source.Author)
+	require.Equal(t, 3, w.count(t, "select count(*) from note_sources"))
+
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Source: &notes.SourceInput{Title: "  "}})
+	require.NoError(t, err)
+	require.Nil(t, w.get(t, n.ID).SourceID)
+
+	var verr *service.ValidationError
+
+	long := notes.SourceInput{Title: strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)}
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Source: &long})
+	require.ErrorAs(t, err, &verr)
+	require.Equal(t, "title", verr.Field)
+	require.Nil(t, w.get(t, n.ID).SourceID)
 }
 
 // Every method that takes an actor asks an anonymous one to log in.

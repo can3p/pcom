@@ -13,7 +13,7 @@
 
   <p class="nt-focus" data-testid="focus">
     {{ if .Focus }}
-    Now writing: <a href="/controls/notes?tag={{ .Focus | urlquery }}">#{{ .Focus }}</a>.
+    Now writing: <a href="/controls/notes?q={{ printf "#%s" .Focus | urlquery }}">#{{ .Focus }}</a>.
     New notes get this tag.
     <button type="button" class="nt-link"
             data-controller="action"
@@ -32,14 +32,37 @@
         hx-target="#note-capture-status"
         hx-swap="innerHTML"
         data-notes-target="capture">
-    <label class="sr-only" for="note-capture-body">New note</label>
-    <textarea id="note-capture-body" name="body" rows="3" placeholder="Jot something down. Ctrl+Enter saves."
-              data-action="keydown->notes#captureKey"></textarea>
+    <div class="box ed-box mdeditor"
+         data-controller="mdeditor"
+         data-mdeditor-upload-value="{{ link "action" "upload_media" }}">
+      {{ template "partial--editor-toolbar.html" toMap "UploadID" "note_capture_upload" "Post" false "PostID" "" "Proofread" false }}
+      <label class="sr-only" for="note-capture-body">New note</label>
+      <textarea id="note-capture-body" class="ed-body" name="body" rows="3" placeholder="Jot something down. Ctrl+Enter saves."
+                data-action="keydown->notes#captureKey"></textarea>
+    </div>
+    <div class="note-capture-tags">
+      <label for="note-capture-tags">Tags</label>
+      <input id="note-capture-tags" name="tags" type="text" autocomplete="off" placeholder="essay, walk"
+             data-notes-target="captureTags" data-action="keydown->notes#captureKey">
+    </div>
+    {{ if .RecentTags }}
+    <ul class="nt-chips nt-quick" aria-label="Recent tags">
+      {{ range .RecentTags }}
+      <li class="nt-chip"><button type="button" data-action="notes#addTag" data-tag="{{ . }}" aria-label="Add tag #{{ . }}">#{{ . }}</button></li>
+      {{ end }}
+    </ul>
+    {{ end }}
     <div class="note-capture-acts">
-      <span id="note-capture-status" aria-live="polite"></span>
+      <label class="btn btn-secondary note-upload">
+        Upload recording
+        <input type="file" accept="audio/*" class="sr-only" data-action="change->notes#uploadRecording">
+      </label>
+      <span id="note-capture-status" aria-live="polite" data-notes-target="uploadStatus"></span>
       <button type="submit" class="btn btn-primary">Add note</button>
     </div>
   </form>
+
+  {{ template "partial--note-search.html" .Search }}
 
   <div class="nt-views">
     <ul class="nt-chips" aria-label="Views">
@@ -54,19 +77,7 @@
       {{ end }}
     </ul>
     {{ end }}
-    <form class="nt-search" method="get" action="/controls/notes" role="search">
-      {{ range .Query.Tags }}<input type="hidden" name="tag" value="{{ . }}">{{ end }}
-      {{ range .Query.Not }}<input type="hidden" name="not" value="{{ . }}">{{ end }}
-      {{ with .Query.SourceID }}<input type="hidden" name="source" value="{{ . }}">{{ end }}
-      {{ if .Query.Unused }}<input type="hidden" name="unused" value="1">{{ end }}
-      {{ if .Query.Inbox }}<input type="hidden" name="inbox" value="1">{{ end }}
-      <label class="sr-only" for="note-search">Search notes</label>
-      <input id="note-search" type="search" name="q" value="{{ .Query.Q }}" placeholder="Search notes">
-      <button type="submit" class="btn btn-secondary">Search</button>
-    </form>
   </div>
-
-  {{ template "partial--note-tag-bar.html" toMap "Bar" .Bar }}
 
   <div class="nt-select box" data-notes-target="bar" hidden role="region" aria-label="Selected notes">
     <span data-notes-target="count" role="status"></span>

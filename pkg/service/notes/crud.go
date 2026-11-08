@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
@@ -114,6 +115,10 @@ type Edit struct {
 	Tags *[]string
 	// Locator is where in the source the note comes from; "" clears it.
 	Locator *string
+	// Source gives the note the source with this title and author, found or
+	// created like a capture's (a book when Kind is empty); an empty Title
+	// takes the note's source away.
+	Source *SourceInput
 }
 
 // Update changes a note of the actor.
@@ -148,15 +153,44 @@ func (s *Service) Update(ctx context.Context, actor *model.User, noteID string, 
 			}
 		}
 
+		if in.Source != nil {
+			if err := s.setSourceOf(ctx, tx, actor, n, *in.Source); err != nil {
+				return err
+			}
+		}
+
 		note = n
 
-		return tx.SaveNote(ctx, n, "body", "tags", "text_tags", "locator", "updated_at")
+		return tx.SaveNote(ctx, n, "body", "tags", "text_tags", "locator", "source_id", "updated_at")
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return note, nil
+}
+
+// setSourceOf points n at the actor's source in, or at none when its title
+// is empty.
+func (s *Service) setSourceOf(ctx context.Context, tx *repo.Store, actor *model.User, n *model.Note, in SourceInput) error {
+	if strings.TrimSpace(in.Title) == "" {
+		n.SourceID, n.Source = nil, nil
+
+		return nil
+	}
+
+	if in.Kind == "" {
+		in.Kind = model.NoteSourceBook
+	}
+
+	src, err := s.resolveSource(ctx, tx, actor, in)
+	if err != nil {
+		return err
+	}
+
+	n.SourceID, n.Source = &src.ID, src
+
+	return nil
 }
 
 // Get returns a note of the actor with its source and photos.

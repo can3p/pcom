@@ -77,21 +77,38 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 			return
 		}
 
-		_, err := svc.Create(c, auth.GetUserData(c).DBUser, notes.Input{Body: body, ApplyFocus: true})
+		_, err := svc.Create(c, auth.GetUserData(c).DBUser, notes.Input{Body: body, Tags: noteTagsOf(c.PostForm("tags")), ApplyFocus: true})
 
 		noteFormResult(c, err, "Saved", true)
 	})
 
 	controlsForms.POST("/note_edit/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		body, tags, locator := c.PostForm("body"), noteTagsOf(c.PostForm("tags")), c.PostForm("locator")
+		body, tags := c.PostForm("body"), noteTagsOf(c.PostForm("tags"))
 
-		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Body: &body, Tags: &tags, Locator: &locator})
+		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Body: &body, Tags: &tags})
 		if err != nil {
 			noteFormResult(c, err, "", false)
 			return
 		}
 
 		c.HTML(http.StatusOK, "note_saved", gin.H{"Tags": web.NoteTagsOf(note)})
+	})
+
+	// The edit page's Source form: the source with this title and author,
+	// found or made, and where in it the note comes from; an empty title
+	// takes the source away.
+	controlsForms.POST("/note_source/:id", requireUUIDParam("id"), func(c *gin.Context) {
+		locator := strings.TrimSpace(c.PostForm("locator"))
+		src := notes.SourceInput{Title: c.PostForm("title"), Author: c.PostForm("author")}
+
+		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Locator: &locator, Source: &src})
+
+		msg := "Saved"
+		if err == nil && note.SourceID == nil {
+			msg = "No source"
+		}
+
+		noteFormResult(c, err, msg, false)
 	})
 
 	actions.POST("/note_delete", jsonAction(d, func(c *gin.Context, u *model.User, in struct {

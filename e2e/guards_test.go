@@ -434,6 +434,8 @@ var guardRoutes = []guardRoute{
 		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged note"} }},
 	{http.MethodPost, "/controls/form/note_edit/:id", func(w *guardWorld) string { return "/controls/form/note_edit/" + w.note.ID },
 		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged edit"} }},
+	{http.MethodPost, "/controls/form/note_source/:id", func(w *guardWorld) string { return "/controls/form/note_source/" + w.note.ID },
+		func(*guardWorld) map[string]string { return map[string]string{"title": "A forged source"} }},
 	{http.MethodPost, "/controls/form/new_comment", staticPath("/controls/form/new_comment"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"post_id": w.published.ID, "body": "a forged comment"}

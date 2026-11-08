@@ -1,4 +1,4 @@
-// Notes: the list with its tag bar and selection, the capture box,
+// Notes: the list with its search box and selection, the capture box,
 // the management screen and the edit page. Colours come from tokens.
 .notes {
   max-width: var(--prose-width);
@@ -36,24 +36,62 @@
   cursor: pointer;
 }
 
+// The capture box: the text with the markdown toolbar, its tags with the
+// recent ones a tap away, and a recording to upload.
 .note-capture {
-  textarea {
-    width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  .ed-box .ed-body {
+    min-height: 96px;
     padding: var(--space-2) var(--space-3);
+    font: 400 16px/1.5 var(--font-ui);
+  }
+}
+
+.note-capture-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  label {
+    font: 600 14px var(--font-ui);
+  }
+
+  input {
+    flex: 1;
+    min-height: 36px;
+    padding: 0 var(--space-3);
     border: 1px solid var(--line);
     border-radius: var(--radius-control);
-    background: var(--ground);
+    background: var(--surface);
     color: var(--text);
-    font: 400 16px/1.5 var(--font-ui);
-    resize: vertical;
+    font: 400 15px var(--font-ui);
   }
 }
 
 .note-capture-acts {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-3);
+
+  [aria-live] {
+    margin-right: auto;
+  }
+}
+
+// A label styled as a button around a hidden file input.
+.note-upload {
+  position: relative;
+  cursor: pointer;
+
+  &:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 .nt-views {
@@ -76,14 +114,6 @@
     color: var(--text);
     font: 400 16px var(--font-ui);
   }
-}
-
-// Tag chips: a tap cycles include, exclude, off.
-.nt-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
 }
 
 .nt-chips {
@@ -122,11 +152,45 @@
 
   &.nt-exclude {
     border-color: var(--err);
+  }
 
-    a {
-      color: var(--err);
-      text-decoration: line-through;
-    }
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+}
+
+// An active part of the search: "not" marks a tag left out, × drops it.
+.nt-not {
+  color: var(--err);
+  font: 600 11px var(--font-mono);
+  text-transform: uppercase;
+}
+
+.nt-chip .nt-x {
+  margin-left: var(--space-1);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--err);
+  }
+}
+
+// Tags one tap adds: smaller and quieter than the filters.
+.nt-quick .nt-chip {
+  padding: 0 var(--space-2);
+  font: 600 12px var(--font-mono);
+
+  a,
+  button {
+    color: var(--muted);
   }
 }
 
@@ -173,6 +237,46 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+}
+
+// The meta line of a note, with its Edit and Delete icons at the end.
+.note-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+
+  .meta {
+    flex: 1;
+    margin: 0;
+  }
+}
+
+.note-acts {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.nt-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ground);
+    color: var(--text);
+  }
+
+  &.nt-icon-danger:hover {
+    color: var(--err);
+  }
 }
 
 .note-photos img {
@@ -231,8 +335,23 @@
   }
 }
 
-.note-form .field input {
+.note-form .field input,
+.note-source .field input {
   width: 100%;
+}
+
+.note-source {
+  margin-top: var(--space-4);
+}
+
+.note-section-title {
+  margin: 0;
+  font: 800 18px var(--font-ui);
+  color: var(--title);
+}
+
+.note-add-recording {
+  margin-top: var(--space-3);
 }
 
 // The capture page (/controls/notes/new): big buttons for one thumb.
