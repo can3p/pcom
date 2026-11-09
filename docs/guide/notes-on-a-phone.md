@@ -52,9 +52,8 @@ Control Center or lock-screen control.
 4. **Get Contents of URL**: the same URL, method and header, **Request Body** Form with `kind` = `quote`,
    `captured_at` = *Formatted Date*, `text` = *Text from Image* and `image` (File) = *Photo*.
 
-The text is stored as a quote. If your previous quote came from a book within the focus idle time, the
-new one takes that book as its source; otherwise it waits in the Inbox, where you give it a source with
-one tap. To quote from the Kindle app, which has no Share for a highlight, copy the passage and run a copy
+The text is stored as a quote. If your previous note with a source was captured within the last twelve
+hours (by default), the new one takes that source; otherwise choose its source on the note's edit page. To quote from the Kindle app, which has no Share for a highlight, copy the passage and run a copy
 of this Shortcut whose step 1 and 2 are **Get Clipboard**.
 
 ### What the request looks like
@@ -65,14 +64,14 @@ the iPhone Shortcut".
 ## Quotes from books
 
 Quotes need no retyping: the phone's own reader or its text recognition has the words already, and pcom stores
-what you send. A quote keeps its source and page; a passage with no source waits in the Inbox to be given one.
+what you send. A quote keeps its source; a passage with no source can be given one on its edit page.
 
 | Where the passage is | iPhone | Android |
 |---|---|---|
 | Kindle app | Select the passage, then **Copy** (the Kindle app for iPhone has no Share for a highlight), then run the copy of "pcom note" described above, whose input is the clipboard | Select the passage, then **Share**, then **pcom** |
 | Paper book | Camera, then Live Text, select the passage, **Share**, then **pcom note**; or run "Quote from photo" | Google Lens or the camera's text selection, select, **Share**, then **pcom** |
 
-Kindle and Live Text share only the selected words, with no title, author or location, so each passage arrives
+Kindle and Live Text share only the selected words, with no title or location, so each passage arrives
 bare. The source is the one of your previous quote while that is recent, which means the quotes of one reading
 session join one book without any setup.
 

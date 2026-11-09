@@ -41,7 +41,7 @@ func TestCapture(t *testing.T) {
 		How:        capture.Shared,
 		Tags:       []string{"Walk"},
 		CapturedAt: at,
-		Source:     &notes.SourceInput{Kind: model.NoteSourceBook, Title: "Dune"},
+		Source:     "Dune",
 		Images:     []notes.Upload{photo(pngHead + "first"), photo(pngHead + "second")},
 		Audio:      &notes.Upload{Body: strings.NewReader(webmHead + "voice"), ContentType: "audio/webm"},
 	})
@@ -64,7 +64,7 @@ func TestCapture(t *testing.T) {
 
 	require.Len(t, fakequeue.Of[notes.TranscribeArgs](w.queue), 1)
 
-	again := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "more", Source: &notes.SourceInput{Kind: model.NoteSourceBook, Title: " dune "}}))(t)
+	again := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "more", Source: " dune "}))(t)
 	require.Equal(t, n.Source.ID, again.Source.ID, "an existing source is reused")
 	require.True(t, w.now.Equal(again.CapturedAt), "no time is now")
 
@@ -90,27 +90,12 @@ func TestCapture_QuoteSource(t *testing.T) {
 	typed := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "my own thought"}))(t)
 	require.Nil(t, typed.Source)
 
-	own := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "x", How: capture.QuoteShortcut, Source: &notes.SourceInput{Kind: model.NoteSourceBook, Title: "Other"}}))(t)
+	own := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "x", How: capture.QuoteShortcut, Source: "Other"}))(t)
 	require.Equal(t, "Other", own.Source.Title)
 
-	w.now = w.now.Add(2 * notes.DefaultLimits.FocusIdle)
+	w.now = w.now.Add(2 * notes.DefaultQuoteSourceWindow)
 	late := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "later", How: capture.QuoteShortcut}))(t)
 	require.Nil(t, late.Source, "idle for too long")
-}
-
-// The focus is applied to every capture and renewed by it.
-func TestCapture_Focus(t *testing.T) {
-	t.Parallel()
-
-	w := newWorld(t)
-	require.NoError(t, w.svc.SetFocus(w.ctx, w.me, "trip"))
-
-	for range 2 {
-		w.now = w.now.Add(notes.DefaultLimits.FocusIdle - time.Minute)
-		n := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Text: "seen #bird", Tags: []string{"a"}}))(t)
-		require.ElementsMatch(t, []string{"a", "trip"}, n.Tags, "the focus outlives its idle time while captures renew it")
-		require.Equal(t, []string{"bird"}, n.TextTags)
-	}
 }
 
 // A capture is refused whole: nothing is written, enqueued or left in the
@@ -140,7 +125,7 @@ func TestCapture_Refused(t *testing.T) {
 			opts: []notes.Option{notes.WithLimits(notes.Limits{AudioMaxBytes: 1 << 20})}, field: "audio", wantMsg: "The recording is larger than 1 MiB."},
 		{name: "too many tags", in: notes.CaptureInput{Text: "x", Tags: []string{"a", "b", "c"}}, opts: []notes.Option{notes.WithLimits(notes.Limits{TagsMax: 2})},
 			field: "tags", wantMsg: "A note can have at most 2 tags."},
-		{name: "source too long", in: notes.CaptureInput{Text: "x", Source: &notes.SourceInput{Kind: model.NoteSourceBook, Title: long}}, field: "source",
+		{name: "source too long", in: notes.CaptureInput{Text: "x", Source: long}, field: "source",
 			wantMsg: fmt.Sprintf("A title can be at most %d characters long.", notes.DefaultSourceTitleMaxLength)},
 		{name: "storage fails", in: notes.CaptureInput{Text: "x", Images: []notes.Upload{photo(pngHead + "ok")}}, failStore: true, wantErr: boom.Error()},
 		{name: "the recording fails after the photos are stored",

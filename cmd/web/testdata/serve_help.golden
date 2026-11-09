@@ -512,11 +512,18 @@ Help Options:
                                                        and recording (default:
                                                        33554432)
                                                        [$NOTE_CAPTURE_MAX_BYTES]
-          --note-focus-idle=                           How long the notes focus
-                                                       lasts after the last
-                                                       capture under it
-                                                       (default: 12h)
-                                                       [$NOTE_FOCUS_IDLE]
+          --note-quote-source-window=                  How long after a note
+                                                       with a source a new
+                                                       quote still takes that
+                                                       source (default: 12h)
+                                                       [$NOTE_QUOTE_SOURCE_WIND-
+
+                                                       OW]
+          --note-panel-tags=                           How many of the author's
+                                                       most used tags the post
+                                                       editor's Notes panel
+                                                       offers (default: 8)
+                                                       [$NOTE_PANEL_TAGS]
 
     Speech to text:
           --stt-provider=[|openai-compat]              Speech-to-text backend;

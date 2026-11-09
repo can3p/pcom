@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/can3p/pcom/pkg/links"
 	mediasvc "github.com/can3p/pcom/pkg/service/media"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/gin-gonic/gin"
@@ -25,11 +26,14 @@ const (
 	uploadMediaPath = "/controls/action/upload_media"
 	apiImagePath    = "/api/v1/image"
 	importPath      = "/controls/action/settings/import"
-	// The notes captures: a recording, photos and text in one request.
-	noteAudioPath   = "/controls/action/note_audio"
-	noteCapturePath = "/controls/action/note_capture"
-	noteSharePath   = "/controls/notes/share"
-	apiNotesPath    = "/api/v1/notes"
+)
+
+// The notes captures: a recording, photos and text in one request.
+var (
+	noteAudioPath   = links.Link("action", "note_audio")
+	noteCapturePath = links.Link("action", "note_capture")
+	noteSharePath   = links.Link("notes_share")
+	apiNotesPath    = links.Link("api_notes")
 )
 
 // bodyLimits caps every request body before anything reads it: login,

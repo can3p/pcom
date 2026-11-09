@@ -1,11 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 import { runAction } from "../lib"
 
-// The cards of the post editor's Notes tab: puts a note's text into the post
-// at the cursor or at its end. The sidebar (ed_side_controller.js) shows the
-// tab; the list and the search load through htmx attributes in
-// form--post.html, the list when the tab is first shown. A note counts as used once the post has an id,
-// and until the first autosave gives it one the ids wait here.
+// The post editor's Notes tab. A note counts as used once the post has an id;
+// until the first autosave gives it one, the ids wait here.
 export default class extends Controller {
   static targets = ["panel"]
 
@@ -20,6 +17,19 @@ export default class extends Controller {
 
   disconnect() {
     document.removeEventListener("htmx:afterSettle", this.settled)
+  }
+
+  addTag(event) {
+    const input = this.panelTarget.querySelector(".np-search input[name=q]")
+    const tag = `#${event.currentTarget.dataset.tag}`
+    const words = input.value.split(/\s+/).filter((w) => w !== "")
+
+    if (!words.some((w) => w.toLowerCase() === tag.toLowerCase())) {
+      words.push(tag)
+    }
+
+    input.value = words.join(" ")
+    input.form.requestSubmit()
   }
 
   insert(event) {
@@ -44,7 +54,6 @@ export default class extends Controller {
     this.flush()
   }
 
-  // records the notes put into the post, once it has an id
   flush() {
     const postId = this.element.querySelector("input[name=post_id]")?.value
 

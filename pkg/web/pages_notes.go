@@ -11,34 +11,29 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 )
 
-// NotesPath is the notes list; the pages of the notes live under it.
-const NotesPath = "/controls/notes"
-
 // NoteQuery is the view of the notes list a URL describes: the search box's
-// query (Q, read by notes.ParseSearch: #tag, -#tag and words), the source and
-// the Unused and Inbox toggles. The search box and the post editor's panel
-// build their links from it.
+// query (Q, read by notes.ParseSearch: #tag, -#tag and words) and the source.
+// The search box and the post editor's panel build their links from it.
 type NoteQuery struct {
-	SourceID      string
-	Unused, Inbox bool
-	Q             string
+	SourceID string
+	Q        string
 }
 
 // ParseNoteQuery reads a NoteQuery from the request's query string.
 func ParseNoteQuery(c *gin.Context) NoteQuery {
 	return NoteQuery{
 		SourceID: c.Query("source"),
-		Unused:   c.Query("unused") == "1",
-		Inbox:    c.Query("inbox") == "1",
 		Q:        strings.TrimSpace(c.Query("q")),
 	}
 }
@@ -53,8 +48,7 @@ func (q NoteQuery) Filter(cursor string) notes.Filter {
 	search := q.Search()
 
 	return notes.Filter{
-		Tags: search.Tags, NotTags: search.NotTags, Query: search.Query, SourceID: q.SourceID,
-		Unused: q.Unused, Inbox: q.Inbox, Cursor: cursor,
+		Tags: search.Tags, NotTags: search.NotTags, Query: search.Query, SourceID: q.SourceID, Cursor: cursor,
 	}
 }
 
@@ -64,14 +58,6 @@ func (q NoteQuery) Values() url.Values {
 
 	if q.SourceID != "" {
 		v.Set("source", q.SourceID)
-	}
-
-	if q.Unused {
-		v.Set("unused", "1")
-	}
-
-	if q.Inbox {
-		v.Set("inbox", "1")
 	}
 
 	if q.Q != "" {
@@ -90,22 +76,10 @@ func (q NoteQuery) URL(path string) string {
 	return path
 }
 
-// withSearch, withInbox, withUnused and withSource are q with the one filter
-// changed and the others kept.
+// withSearch and withSource are q with the one filter changed and the other
+// kept.
 func (q NoteQuery) withSearch(s notes.Search) NoteQuery {
 	q.Q = s.String()
-
-	return q
-}
-
-func (q NoteQuery) withInbox(on bool) NoteQuery {
-	q.Inbox = on
-
-	return q
-}
-
-func (q NoteQuery) withUnused(on bool) NoteQuery {
-	q.Unused = on
 
 	return q
 }
@@ -118,7 +92,7 @@ func (q NoteQuery) withSource(id string) NoteQuery {
 
 // Filtered reports whether q narrows the list down at all.
 func (q NoteQuery) Filtered() bool {
-	return q.SourceID != "" || q.Unused || q.Inbox || q.Q != ""
+	return q.SourceID != "" || q.Q != ""
 }
 
 // NoteFilter is a part of the search on show above the list, with the link
@@ -186,8 +160,6 @@ type NoteItem struct {
 	Note *model.Note
 	Used bool
 	Tags []NoteTag
-	// Suggestions are the tags the Inbox offers for the note.
-	Suggestions []string
 	// DeletePrompt is what the confirmation of its Delete says.
 	DeletePrompt string
 	// Status is the transcription status the item shows for a recording.
@@ -246,9 +218,7 @@ const (
 
 // NoteStatus is the transcription status of a note's recording, as
 // partial--note-status.html shows it. View is NoteStatusList, NoteStatusEdit
-// or "" for the status alone. On the list, Suggest says whether its tag
-// suggestions show, so the item that replaces it once the text is there
-// looks the same. On the edit page, Base is the
+// or "" for the status alone. On the edit page, Base is the
 // body the page was opened with, which every poll sends back with the text
 // being edited; Typed says the two differ, so the author changed the text
 // while the recording was transcribed: the form keeps it and Transcript shows
@@ -256,7 +226,6 @@ const (
 type NoteStatus struct {
 	Note       *model.Note
 	View       string
-	Suggest    bool
 	Base       string
 	Typed      bool
 	Transcript string
@@ -271,35 +240,27 @@ func (s *NoteStatus) Query() string {
 		v.Set("view", s.View)
 	}
 
-	if s.Suggest {
-		v.Set("suggest", "1")
-	}
-
 	return v.Encode()
 }
 
-// NoteItemOf is the list item of the viewer's note n, as the list the status
-// at shows in has it.
-func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.Note, at *NoteStatus) (*NoteItem, error) {
+// NoteItemOf is the list item of the viewer's note n.
+func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.Note) (*NoteItem, error) {
 	links, err := svc.PostLinks(c, user, n.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	item := &NoteItem{
-		Note: n, Used: links > 0, Tags: NoteTagsOf(n),
-		DeletePrompt: NoteDeletePrompt(n, links > 0),
-		Status:       &NoteStatus{Note: n, View: NoteStatusList, Suggest: at.Suggest},
+	return noteItem(svc, n, links > 0), nil
+}
+
+// noteItem is the list item of n; used says whether it is in a post.
+func noteItem(svc *notes.Service, n *model.Note, used bool) *NoteItem {
+	return &NoteItem{
+		Note: n, Used: used, Tags: NoteTagsOf(n),
+		DeletePrompt: NoteDeletePrompt(n, used),
+		Status:       &NoteStatus{Note: n, View: NoteStatusList},
 		Again:        NoteAgainOf(svc, n, false),
 	}
-
-	if at.Suggest {
-		if item.Suggestions, err = svc.SuggestTags(c, user, n.ID); err != nil {
-			return nil, err
-		}
-	}
-
-	return item, nil
 }
 
 // TranscriptOf is what the transcription added to a note's body, given what
@@ -337,12 +298,12 @@ type NotesPage struct {
 	RecentTags []string
 	// More is the link that loads the next page, empty on the last.
 	More string
-	// Focus is the author's current focus tag.
-	Focus string
-	// Views are the Inbox and Unused filters, Sources the views by source.
-	Views   []NoteLink
+	// Sources are the views by source, of the sources that have notes.
 	Sources []NoteLink
-	// Manage is set on the screen that renames and merges tags and sources.
+	// SourceChoices are all the author's sources, which the capture box's
+	// Source offers.
+	SourceChoices []notes.SourceCount
+	// Manage is set on the screen that renames tags and sources.
 	Manage *NoteManage
 }
 
@@ -350,7 +311,48 @@ type NotesPage struct {
 type NoteManage struct {
 	Tags    []notes.TagCount
 	Sources []notes.SourceCount
-	Focus   string
+	// Add is the Add source form.
+	Add *SourceForm
+}
+
+// SourceForm is the Add source form, or a source's edit form when Source is
+// set (partial--note-source-form.html): what was typed, the error under the
+// title, and the result next to the button: Saved, or Failure for an error
+// that is not the title's.
+type SourceForm struct {
+	Source  *model.NoteSource
+	Title   string
+	Error   string
+	Failure string
+	Saved   bool
+}
+
+// SourceRow is a source of the management screen as its row shows it
+// (partial--note-source-row.html); Saved shows that a rename just saved.
+type SourceRow struct {
+	Source *model.NoteSource
+	Notes  int
+	Saved  bool
+}
+
+// NoteSourceRow is the row of the viewer's source id, with its note count.
+func NoteSourceRow(c *gin.Context, svc *notes.Service, user *model.User, id string) (*SourceRow, error) {
+	if _, err := svc.Source(c, user, id); err != nil {
+		return nil, err
+	}
+
+	sources, err := svc.Sources(c, user)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range sources {
+		if s.Source.ID == id {
+			return &SourceRow{Source: s.Source, Notes: s.Notes}, nil
+		}
+	}
+
+	return nil, service.ErrNotFound
 }
 
 // NoteDeletePrompt is the confirmation of deleting a note: what goes with it,
@@ -401,7 +403,7 @@ func noteTagsIn(n *model.Note, q NoteQuery) []NoteTag {
 
 	search := q.Search()
 	add := func(tag string, fromText bool) {
-		out = append(out, NoteTag{Tag: tag, FromText: fromText, Href: q.withSearch(search.WithTag(tag)).URL(NotesPath)})
+		out = append(out, NoteTag{Tag: tag, FromText: fromText, Href: q.withSearch(search.WithTag(tag)).URL(links.Link("notes"))})
 	}
 
 	for _, t := range n.Tags {
@@ -433,32 +435,15 @@ func recentTags(entries []notes.Entry) []string {
 	return out
 }
 
-// noteItems are the items of the entries of a list, with their tag
-// suggestions when suggest is set.
-func noteItems(svc *notes.Service, c *gin.Context, user *model.User, entries []notes.Entry, suggest bool) ([]*NoteItem, error) {
+// noteItems are the items of the entries of a list.
+func noteItems(svc *notes.Service, entries []notes.Entry) []*NoteItem {
 	items := make([]*NoteItem, 0, len(entries))
 
 	for _, e := range entries {
-		item := &NoteItem{
-			Note: e.Note, Used: e.Used, Tags: NoteTagsOf(e.Note),
-			DeletePrompt: NoteDeletePrompt(e.Note, e.Used),
-			Status:       &NoteStatus{Note: e.Note, View: NoteStatusList, Suggest: suggest},
-			Again:        NoteAgainOf(svc, e.Note, false),
-		}
-
-		if suggest {
-			s, err := svc.SuggestTags(c, user, e.Note.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			item.Suggestions = s
-		}
-
-		items = append(items, item)
+		items = append(items, noteItem(svc, e.Note, e.Used))
 	}
 
-	return items, nil
+	return items
 }
 
 // Notes is the notes list for the view of the request: the search box, the
@@ -477,10 +462,7 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*NotesPage](err)
 	}
 
-	items, err := noteItems(svc, c, user, page.Entries, q.Inbox)
-	if err != nil {
-		return mo.Err[*NotesPage](err)
-	}
+	items := noteItems(svc, page.Entries)
 
 	for _, it := range items {
 		it.Tags = noteTagsIn(it.Note, q)
@@ -493,37 +475,31 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		}
 	}
 
-	focus, err := svc.Focus(c, user)
-	if err != nil {
-		return mo.Err[*NotesPage](err)
-	}
-
 	sources, err := svc.Sources(c, user)
 	if err != nil {
 		return mo.Err[*NotesPage](err)
 	}
 
 	out := &NotesPage{
-		BasePage:   getBasePage(c, "Notes", userData),
-		Query:      q,
-		Search:     NewNoteSearch(NotesPath, q, tags),
-		Items:      items,
-		RecentTags: recentTags(newest.Entries),
-		Focus:      focus,
-		Views: []NoteLink{
-			{Label: "Inbox", Href: q.withInbox(!q.Inbox).URL(NotesPath), Active: q.Inbox},
-			{Label: "Unused", Href: q.withUnused(!q.Unused).URL(NotesPath), Active: q.Unused},
-		},
+		BasePage:      getBasePage(c, "Notes", userData),
+		Query:         q,
+		Search:        NewNoteSearch(links.Link("notes"), q, tags),
+		Items:         items,
+		RecentTags:    recentTags(newest.Entries),
+		SourceChoices: sources,
 	}
 
 	if page.Next != "" {
 		more := q.Values()
 		more.Set("cursor", page.Next)
-		out.More = NotesPath + "?" + more.Encode()
+		out.More = links.Link("notes") + "?" + more.Encode()
 	}
 
 	for _, s := range sources {
 		on := s.Source.ID == q.SourceID
+		if s.Notes == 0 && !on {
+			continue
+		}
 
 		next := s.Source.ID
 		if on {
@@ -531,15 +507,15 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		}
 
 		out.Sources = append(out.Sources, NoteLink{
-			Label: s.Source.Title, Count: s.Notes, Active: on, Href: q.withSource(next).URL(NotesPath),
+			Label: s.Source.Title, Count: s.Notes, Active: on, Href: q.withSource(next).URL(links.Link("notes")),
 		})
 	}
 
 	return mo.Ok(out)
 }
 
-// NotesManagePage is the screen that renames and merges tags and sources,
-// hides tags and sets the focus.
+// NotesManagePage is the screen that renames tags and adds and renames
+// sources.
 func NotesManagePage(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NotesPage] {
 	user := userData.DBUser
 
@@ -553,14 +529,9 @@ func NotesManagePage(c *gin.Context, svc *notes.Service, userData *auth.UserData
 		return mo.Err[*NotesPage](err)
 	}
 
-	focus, err := svc.Focus(c, user)
-	if err != nil {
-		return mo.Err[*NotesPage](err)
-	}
-
 	return mo.Ok(&NotesPage{
 		BasePage: getBasePage(c, "Tags and sources", userData),
-		Manage:   &NoteManage{Tags: tags, Sources: sources, Focus: focus},
+		Manage:   &NoteManage{Tags: tags, Sources: sources, Add: &SourceForm{}},
 	})
 }
 
@@ -577,8 +548,10 @@ type EditNotePage struct {
 	Status *NoteStatus
 	// Again is the "Transcribe again as…" control, nil when the note has none.
 	Again *NoteAgain
-	// Sources are the author's sources, which the Source fields offer.
-	Sources []notes.SourceCount
+	// Sources are the author's sources, which the Source choice offers;
+	// SourceID is the note's, "" for none.
+	Sources  []notes.SourceCount
+	SourceID string
 }
 
 // EditNote loads the note for its edit page; a note that isn't the viewer's
@@ -608,14 +581,12 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		Status:       &NoteStatus{Note: note, View: NoteStatusEdit, Base: note.Body},
 		Again:        NoteAgainOf(svc, note, true),
 		Sources:      sources,
+		SourceID:     lo.FromPtr(note.SourceID),
 	})
 }
 
-// NotesSummary is the Notes section of the controls page: how many notes wait
-// in the Inbox and the newest ones.
+// NotesSummary is the Notes section of the controls page: the newest notes.
 type NotesSummary struct {
-	// Inbox is how many notes have no tag.
-	Inbox  int
 	Newest []*model.Note
 }
 
@@ -632,17 +603,12 @@ type ControlsNotesPage struct {
 func ControlsNotes(c *gin.Context, svc *notes.Service, page *ControlsPage) (*ControlsNotesPage, error) {
 	user := page.User.DBUser
 
-	inbox, err := svc.InboxCount(c, user)
-	if err != nil {
-		return nil, err
-	}
-
 	newest, err := svc.List(c, user, notes.Filter{})
 	if err != nil {
 		return nil, err
 	}
 
-	sum := &NotesSummary{Inbox: inbox}
+	sum := &NotesSummary{}
 
 	for _, e := range newest.Entries[:min(summaryNewest, len(newest.Entries))] {
 		sum.Newest = append(sum.Newest, e.Note)
@@ -650,9 +616,6 @@ func ControlsNotes(c *gin.Context, svc *notes.Service, page *ControlsPage) (*Con
 
 	return &ControlsNotesPage{ControlsPage: page, Notes: sum}, nil
 }
-
-// NoteCapturePath is the capture page: Dictate, Photo and Type.
-const NoteCapturePath = NotesPath + "/new"
 
 // The modes ?start= opens the capture page in.
 const (
@@ -664,17 +627,18 @@ const (
 // capture page shows as the last capture.
 const CaptureSharedParam = "shared"
 
-// NoteWorkerPath is the capture page's service worker; its scope is the notes
-// pages.
-const NoteWorkerPath = NotesPath + "/sw.js"
-
 // The query parameters of the service worker's URL: the caps of a share it
 // keeps offline, in bytes, the same as the server's (NOTE_AUDIO_MAX_BYTES,
-// MAX_UPLOAD_SIZE per photo, NOTE_CAPTURE_MAX_BYTES in all).
+// MAX_UPLOAD_SIZE per photo, NOTE_CAPTURE_MAX_BYTES in all), and the URLs it
+// works with, which a worker can be handed no other way.
 const (
 	WorkerParamAudioMax   = "audio_max"
 	WorkerParamImageMax   = "image_max"
 	WorkerParamCaptureMax = "capture_max"
+	WorkerParamPage       = "page"
+	WorkerParamUpload     = "upload"
+	WorkerParamDelete     = "delete"
+	WorkerParamShare      = "share"
 )
 
 // CapturedNote is a saved note as the capture page's last-capture card shows
@@ -690,8 +654,6 @@ type CapturedNote struct {
 // NoteCapturePage is /controls/notes/new. It holds no list: it only captures.
 type NoteCapturePage struct {
 	*BasePage
-	// Focus is the tag every capture gets, empty without one.
-	Focus string
 	// Dictate is set when recordings are transcribed; without a
 	// speech-to-text provider the page has no record button.
 	Dictate bool
@@ -711,22 +673,20 @@ type NoteCapturePage struct {
 
 // NoteCapture is the capture page for the viewer.
 func NoteCapture(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NoteCapturePage] {
-	focus, err := svc.Focus(c, userData.DBUser)
-	if err != nil {
-		return mo.Err[*NoteCapturePage](err)
-	}
-
 	limits := svc.Limits()
 	out := &NoteCapturePage{
 		BasePage:          getBasePage(c, "New note", userData),
-		Focus:             focus,
 		Dictate:           svc.TranscriptionEnabled(),
 		AudioMaxSeconds:   int(limits.AudioMaxDuration / time.Second),
 		PhotoMaxDimension: limits.PhotoMaxDimension,
-		Worker: NoteWorkerPath + "?" + url.Values{
+		Worker: links.Link("notes_sw") + "?" + url.Values{
 			WorkerParamAudioMax:   {strconv.FormatInt(limits.AudioMaxBytes, 10)},
 			WorkerParamImageMax:   {strconv.FormatInt(svc.MaxUploadSize(), 10)},
 			WorkerParamCaptureMax: {strconv.FormatInt(limits.CaptureMaxBytes, 10)},
+			WorkerParamPage:       {links.Link("notes_new")},
+			WorkerParamUpload:     {links.Link("action", "note_capture")},
+			WorkerParamDelete:     {links.Link("action", "note_delete")},
+			WorkerParamShare:      {links.Link("notes_share")},
 		}.Encode(),
 	}
 

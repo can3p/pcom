@@ -121,6 +121,15 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   bun (`pkg/arch` enforces it), so there is no mapping layer.
 - **Page builders** in `pkg/web` (`pages_<area>.go`) take service results,
   not a database: `web.SharedPost(c, userData, shared)`.
+- **Internal URLs come from the link helper.** Every internal URL a template or
+  handler writes (an `href`, a form's `action`, `hx-get`/`hx-post`, a
+  redirect or `HX-Redirect`, a URL handed to a Stimulus controller as a
+  value) comes from `links.Link` in Go or the `link` template func, so a route
+  is renamed in one place: `pkg/links/link.go` and the route registration.
+  A new route adds its name there with a row in `link_test.go`. JavaScript
+  takes its URLs as values (the notes service worker through its registration
+  URL); the one exception is `runAction` in `lib.js`, which builds
+  `/controls/action/<name>` from an action's name.
 - **Executors.** Code that still takes an executor gets `store.Exec()` only in tests
   and factories (`repo.Using(exec)` on their side).
 - **Panics stay panics.** Where the old code panicked (a confirmation mail

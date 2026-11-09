@@ -83,11 +83,6 @@ type User struct {
 	EmailCanonical    string            `bun:"email_canonical"`
 
 	EmailSubscriptionsEnabled bool `bun:"email_subscriptions_enabled,default:false"`
-
-	// NotesFocusTag is the tag new notes get until it is changed or the
-	// notes service's focus idle time passes after NotesFocusAt.
-	NotesFocusTag *string    `bun:"notes_focus_tag"`
-	NotesFocusAt  *time.Time `bun:"notes_focus_at"`
 }
 
 // BeforeAppendModel stamps the row's timestamps on insert and update.

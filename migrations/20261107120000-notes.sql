@@ -1,15 +1,12 @@
 -- +migrate Up
 
--- Where a note comes from: a book or a web page. match_key is the title and
--- author normalized by the notes service, so the same book typed twice is one
+-- Where a note comes from, named by its title alone. match_key is the title
+-- normalized by model.NoteSourceMatchKey, so the same title typed twice is one
 -- source.
 create table note_sources (
   id uuid primary key,
   user_id uuid not null references users(id) on delete cascade,
-  kind text not null check (kind in ('book', 'web')),
   title text not null,
-  author text,
-  url text,
   match_key text not null,
   unique (user_id, match_key)
 );
@@ -23,7 +20,7 @@ alter table media_uploads add column kind media_kind not null default 'image';
 create type note_transcription_status as enum ('none', 'pending', 'done', 'failed');
 
 -- A private note. tags are the ones set by hand (a chip, bulk tagging, the
--- focus, the API); text_tags are the #words of the body, derived by the
+-- API); text_tags are the #words of the body, derived by the
 -- service on every write. A recording's transcription becomes the body.
 create table notes (
   id uuid primary key,
@@ -31,7 +28,6 @@ create table notes (
   body text not null default '',
   tags text[] not null default '{}',
   source_id uuid references note_sources(id) on delete set null,
-  locator text,
   audio_upload_id uuid references media_uploads(id) on delete set null,
   text_tags text[] not null default '{}',
   transcription_status note_transcription_status not null default 'none',
@@ -85,15 +81,8 @@ create table stt_requests (
 create index on stt_requests(user_id, created_at);
 create index on stt_requests(created_at);
 
--- The tag captures get until it is changed or NOTE_FOCUS_IDLE passes after
--- notes_focus_at, the last capture under it.
-alter table users add column notes_focus_tag text;
-alter table users add column notes_focus_at timestamptz;
-
 -- +migrate Down
 
-alter table users drop column notes_focus_at;
-alter table users drop column notes_focus_tag;
 drop table stt_requests;
 drop table note_post_links;
 drop type note_post_link_how;

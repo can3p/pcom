@@ -1,7 +1,7 @@
-// The notes service worker, served from /controls/notes/sw.js, so its scope is
-// the notes pages and nothing else.
+// The notes service worker, served under the notes pages, which are its scope
+// and nothing else.
 //
-// It uploads the captures the capture page (/controls/notes/new) writes to
+// It uploads the captures the capture page writes to
 // IndexedDB, oldest first, retrying while the network or the server fails,
 // and tells the open pages when one is saved. It also keeps the capture page
 // and the assets that page names, so the page opens without a network; every
@@ -17,8 +17,9 @@
 // later under the session's token.
 //
 // The registration URL carries the caps of what a queued share may hold, the
-// same as the server's: audio_max for the recording, image_max for each photo
-// and capture_max for all of it.
+// same as the server's (audio_max, image_max, capture_max), and the URLs of the
+// capture page, the capture and delete actions and the share target (page,
+// upload, delete, share; web.NoteCapture builds them).
 //
 // The record format is shared with cmd/web/client/js/notes/capture.js.
 
@@ -26,14 +27,15 @@ const DB_NAME = "pcom-notes"
 const DB_VERSION = 1
 const STORE = "captures"
 const CACHE = "pcom-notes-capture-1"
-const PAGE = "/controls/notes/new"
-const UPLOAD = "/controls/action/note_capture"
-const DELETE = "/controls/action/note_delete"
-const SHARE = "/controls/notes/share"
 const SYNC_TAG = "notes-upload"
-// the assets the capture page loads live under this path of their origin
+// the assets the capture page loads live under this path of their origin;
+// webpack's public path, not a route
 const STATIC = "/static/"
 const caps = new URL(self.location.href).searchParams
+const PAGE = caps.get("page")
+const UPLOAD = caps.get("upload")
+const DELETE = caps.get("delete")
+const SHARE = caps.get("share")
 // a cap the URL leaves out keeps no share: 0 refuses any file and any text
 const AUDIO_MAX = Number(caps.get("audio_max")) || 0
 const IMAGE_MAX = Number(caps.get("image_max")) || 0

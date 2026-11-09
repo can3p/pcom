@@ -1,11 +1,13 @@
 package app
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
@@ -77,15 +79,19 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 			return
 		}
 
-		_, err := svc.Create(c, auth.GetUserData(c).DBUser, notes.Input{Body: body, Tags: noteTagsOf(c.PostForm("tags")), ApplyFocus: true})
+		_, err := svc.Create(c, auth.GetUserData(c).DBUser, notes.Input{
+			Body: body, Tags: noteTagsOf(c.PostForm("tags")), SourceID: c.PostForm("source_id"),
+		})
 
 		noteFormResult(c, err, "Saved", true)
 	})
 
+	// the edit form: text, tags and the source chosen from the author's own
+	// ("" is none)
 	controlsForms.POST("/note_edit/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		body, tags := c.PostForm("body"), noteTagsOf(c.PostForm("tags"))
+		body, tags, sourceID := c.PostForm("body"), noteTagsOf(c.PostForm("tags")), c.PostForm("source_id")
 
-		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Body: &body, Tags: &tags})
+		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Body: &body, Tags: &tags, SourceID: &sourceID})
 		if err != nil {
 			noteFormResult(c, err, "", false)
 			return
@@ -94,22 +100,7 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		c.HTML(http.StatusOK, "note_saved", gin.H{"Tags": web.NoteTagsOf(note)})
 	})
 
-	// The edit page's Source form: the source with this title and author,
-	// found or made, and where in it the note comes from; an empty title
-	// takes the source away.
-	controlsForms.POST("/note_source/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		locator := strings.TrimSpace(c.PostForm("locator"))
-		src := notes.SourceInput{Title: c.PostForm("title"), Author: c.PostForm("author")}
-
-		note, err := svc.Update(c, auth.GetUserData(c).DBUser, c.Param("id"), notes.Edit{Locator: &locator, Source: &src})
-
-		msg := "Saved"
-		if err == nil && note.SourceID == nil {
-			msg = "No source"
-		}
-
-		noteFormResult(c, err, msg, false)
-	})
+	mountNoteSourceRoutes(svc, controls, controlsForms)
 
 	actions.POST("/note_delete", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		NoteID string `json:"noteId"`
@@ -122,7 +113,7 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		}
 
 		if in.Then == "list" {
-			c.Header("HX-Redirect", web.NotesPath)
+			c.Header("HX-Redirect", links.Link("notes"))
 		}
 
 		return nil
@@ -143,13 +134,6 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		return svc.TagMany(c, u, noteIDsOf(in.IDs), noteTagsOf(in.Tags))
 	}))
 
-	actions.POST("/note_tag", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
-		NoteID string `json:"noteId"`
-		Tag    string `json:"tag"`
-	}) error {
-		return svc.TagMany(c, u, []string{in.NoteID}, []string{in.Tag})
-	}))
-
 	// renaming a tag to one that exists merges them
 	actions.POST("/note_tag_rename", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		Tag string `json:"tag"`
@@ -162,41 +146,86 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		IDs   string `json:"ids"`
 		Title string `json:"title"`
 	}) error {
-		title := strings.TrimSpace(in.Title)
-		if title == "" {
-			return svc.SetSource(c, u, noteIDsOf(in.IDs), nil)
+		return svc.SetSource(c, u, noteIDsOf(in.IDs), in.Title)
+	}))
+}
+
+// mountNoteSourceRoutes registers the sources of the Tags and sources screen:
+// the Add source form, and each source's row, which swaps in its edit form
+// and back.
+func mountNoteSourceRoutes(svc *notes.Service, controls, controlsForms *gin.RouterGroup) {
+	// a source's edit form, in place of its row
+	controls.GET("/notes/sources/:id/edit", requireUUIDParam("id"), func(c *gin.Context) {
+		src, err := svc.Source(c, auth.GetUserData(c).DBUser, c.Param("id"))
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
 		}
 
-		return svc.SetSource(c, u, noteIDsOf(in.IDs), &notes.SourceInput{Kind: model.NoteSourceBook, Title: title})
-	}))
+		c.HTML(http.StatusOK, "partial--note-source-form.html", &web.SourceForm{Source: src, Title: src.Title})
+	})
 
-	actions.POST("/note_source_rename", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
-		SourceID string               `json:"sourceId"`
-		Title    string               `json:"title"`
-		Kind     model.NoteSourceKind `json:"kind"`
-		Author   string               `json:"author"`
-		URL      string               `json:"url"`
-	}) error {
-		return svc.RenameSource(c, u, in.SourceID, notes.SourceInput{Kind: in.Kind, Title: in.Title, Author: in.Author, URL: in.URL})
-	}))
-
-	actions.POST("/note_source_merge", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
-		From string `json:"from"`
-		Into string `json:"into"`
-	}) error {
-		if err := svc.MergeSources(c, u, []string{in.From}, in.Into); err != nil {
-			return err
+	// a source's row, which Cancel brings back
+	controls.GET("/notes/sources/:id", requireUUIDParam("id"), func(c *gin.Context) {
+		row, err := web.NoteSourceRow(c, svc, auth.GetUserData(c).DBUser, c.Param("id"))
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
 		}
 
-		// sent by a form, not by the action controller, which reloads
+		c.HTML(http.StatusOK, "partial--note-source-row.html", row)
+	})
+
+	// Add source: the source with the title, found or made; the list shows it
+	// after the page reloads
+	controlsForms.POST("/note_source_add", func(c *gin.Context) {
+		title := c.PostForm("title")
+
+		if _, err := svc.AddSource(c, auth.GetUserData(c).DBUser, title); err != nil {
+			sourceFormError(c, &web.SourceForm{Title: title}, err)
+			return
+		}
+
 		c.Header("HX-Refresh", "true")
+		c.HTML(http.StatusOK, "partial--note-source-form.html", &web.SourceForm{Saved: true})
+	})
 
-		return nil
-	}))
+	// a rename answers with the row, saved; renaming into another source's
+	// title merges the two, and the page reloads to show the one left
+	controlsForms.POST("/note_source_edit/:id", requireUUIDParam("id"), func(c *gin.Context) {
+		user, id, title := auth.GetUserData(c).DBUser, c.Param("id"), c.PostForm("title")
 
-	actions.POST("/note_focus", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
-		Tag string `json:"tag"`
-	}) error {
-		return svc.SetFocus(c, u, in.Tag)
-	}))
+		src, err := svc.RenameSource(c, user, id, title)
+		if err != nil {
+			form := &web.SourceForm{Source: &model.NoteSource{ID: id}, Title: title}
+			sourceFormError(c, form, err)
+
+			return
+		}
+
+		if src.ID != id {
+			c.Header("HX-Refresh", "true")
+		}
+
+		row, err := web.NoteSourceRow(c, svc, user, src.ID)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		row.Saved = true
+		c.HTML(http.StatusOK, "partial--note-source-row.html", row)
+	})
+}
+
+// sourceFormError draws a source form again with what went wrong: a title the
+// service refused under the field, anything else as its status.
+func sourceFormError(c *gin.Context, form *web.SourceForm, err error) {
+	if invalid, ok := errors.AsType[*service.ValidationError](err); ok && invalid.Field == "title" {
+		form.Error = invalid.Message
+	} else {
+		form.Failure = "Not saved: " + actionMessage(err)
+	}
+
+	c.HTML(http.StatusOK, "partial--note-source-form.html", form)
 }

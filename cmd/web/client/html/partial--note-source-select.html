@@ -1,0 +1,10 @@
+{{/* Takes ID (the select's id), Sources ([]notes.SourceCount) and Selected (a source id or ""). */}}
+<div class="field note-source-field">
+  <label for="{{ .ID }}">Source</label>
+  <select id="{{ .ID }}" name="source_id">
+    <option value="">No source</option>
+    {{ $sel := .Selected }}
+    {{ range .Sources }}<option value="{{ .Source.ID }}"{{ if eq .Source.ID $sel }} selected{{ end }}>{{ .Source.Title }}</option>{{ end }}
+  </select>
+  <p class="field-help">Add and rename sources under <a href="{{ link "notes_manage" }}">Tags and sources</a>.</p>
+</div>

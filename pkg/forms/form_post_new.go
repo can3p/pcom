@@ -134,12 +134,6 @@ func (f *PostForm) WithProofread(on bool) {
 	f.AddTemplateData("Proofread", on)
 }
 
-// WithNotes tells the form whether the Notes button and panel are on, also
-// when a validation error renders the form again.
-func (f *PostForm) WithNotes(on bool) {
-	f.AddTemplateData("NotesEnabled", on)
-}
-
 // saveInput is what the form's input asks the service to save.
 func (f *PostForm) saveInput() posts.SaveInput {
 	in := posts.SaveInput{

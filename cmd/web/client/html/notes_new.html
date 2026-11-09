@@ -7,21 +7,14 @@
       data-notes-capture-max-dimension-value="{{ .PhotoMaxDimension }}"
       data-notes-capture-csrf-value="{{ .User.CSRFToken }}"
       data-notes-capture-worker-value="{{ .Worker }}"
+      data-notes-capture-scope-value="{{ link "notes_scope" }}"
+      data-notes-capture-delete-value="{{ link "action" "note_delete" }}"
+      data-notes-capture-audio-value="{{ link "note_audio" ":id" }}"
       {{- with .Shared }} data-notes-capture-shared-value="{{ . }}"{{ end }}>
   <header class="notes-head">
     <h1 class="controls-title">New note</h1>
-    <p class="acts"><a href="/controls/notes">All notes</a></p>
+    <p class="acts"><a href="{{ link "notes" }}">All notes</a></p>
   </header>
-
-  <p class="nt-focus" data-testid="focus">
-    {{ if .Focus }}
-    <span class="nt-chip nt-include capture-chip">#{{ .Focus }}</span>
-    New notes get this tag.
-    <button type="button" class="nt-link" data-action="notes-capture#stopFocus">Stop</button>
-    {{ else }}
-    <span class="field-help">No focus tag. Choose one under <a href="/controls/notes/manage">Tags and sources</a> and new notes get it.</span>
-    {{ end }}
-  </p>
 
   <button type="button" class="btn btn-primary capture-tap" hidden
           data-notes-capture-target="tap" data-action="notes-capture#tapStart"></button>

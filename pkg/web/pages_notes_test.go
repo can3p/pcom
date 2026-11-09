@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil/ginctx"
@@ -58,7 +59,7 @@ func TestNotes_StatusPollSaysWhereTheStatusShows(t *testing.T) {
 
 	require.Empty(t, (&web.NoteStatus{}).Query())
 	require.Equal(t, "view=edit", (&web.NoteStatus{View: web.NoteStatusEdit}).Query())
-	require.Equal(t, "suggest=1&view=list", (&web.NoteStatus{View: web.NoteStatusList, Suggest: true}).Query())
+	require.Equal(t, "view=list", (&web.NoteStatus{View: web.NoteStatusList}).Query())
 }
 
 func TestNotes_ParseQueryAndValuesRoundTrip(t *testing.T) {
@@ -69,25 +70,24 @@ func TestNotes_ParseQueryAndValuesRoundTrip(t *testing.T) {
 	c, _ := ginctx.New(t, http.MethodGet, raw, nil)
 	q := web.ParseNoteQuery(c)
 
-	require.Equal(t, web.NoteQuery{SourceID: "s1", Unused: true, Inbox: true, Q: "#a -#c two words"}, q, "?tag and ?not are no filters")
+	require.Equal(t, web.NoteQuery{SourceID: "s1", Q: "#a -#c two words"}, q, "?tag, ?not, ?unused and ?inbox are no filters")
 	require.True(t, q.Filtered())
-	require.Equal(t, "/controls/notes?inbox=1&q=%23a+-%23c+two+words&source=s1&unused=1", q.URL(web.NotesPath))
+	require.Equal(t, "/controls/notes?q=%23a+-%23c+two+words&source=s1", q.URL(links.Link("notes")))
 
-	c2, _ := ginctx.New(t, http.MethodGet, q.URL(web.NotesPath), nil)
+	c2, _ := ginctx.New(t, http.MethodGet, q.URL(links.Link("notes")), nil)
 	require.Equal(t, q, web.ParseNoteQuery(c2))
 
 	require.Equal(t, notes.Filter{
-		Tags: []string{"a"}, NotTags: []string{"c"}, SourceID: "s1",
-		Unused: true, Inbox: true, Query: "two words", Cursor: "cur",
+		Tags: []string{"a"}, NotTags: []string{"c"}, SourceID: "s1", Query: "two words", Cursor: "cur",
 	}, q.Filter("cur"))
 
-	// only "1" turns a flag on; nothing is a view that doesn't narrow
-	c3, _ := ginctx.New(t, http.MethodGet, "/controls/notes?unused=0&inbox=yes&q=+&tag=a", nil)
+	// nothing is a view that doesn't narrow
+	c3, _ := ginctx.New(t, http.MethodGet, "/controls/notes?unused=1&inbox=1&q=+&tag=a", nil)
 	empty := web.ParseNoteQuery(c3)
 	require.Equal(t, web.NoteQuery{}, empty)
 	require.False(t, empty.Filtered())
 	require.Empty(t, empty.Values())
-	require.Equal(t, web.NotesPath, empty.URL(web.NotesPath))
+	require.Equal(t, links.Link("notes"), empty.URL(links.Link("notes")))
 	require.Equal(t, notes.Filter{}, empty.Filter(""))
 }
 
@@ -95,7 +95,7 @@ func TestNotes_FilteredByEachFilterAlone(t *testing.T) {
 	t.Parallel()
 
 	for name, q := range map[string]web.NoteQuery{
-		"source": {SourceID: "s"}, "unused": {Unused: true}, "inbox": {Inbox: true}, "search": {Q: "x"},
+		"source": {SourceID: "s"}, "search": {Q: "x"},
 	} {
 		require.True(t, q.Filtered(), name)
 	}
@@ -107,16 +107,16 @@ func TestNotes_SearchChips(t *testing.T) {
 	t.Parallel()
 
 	tags := []notes.TagCount{{Tag: "essay", Count: 3}, {Tag: "walk", Count: 2}, {Tag: "other", Count: 1}}
-	q := web.NoteQuery{Inbox: true, Q: "#Essay river -#walk bank"}
+	q := web.NoteQuery{SourceID: "s", Q: "#Essay river -#walk bank"}
 
 	s := web.NewNoteSearch("/p", q, tags)
 	require.Equal(t, "/p", s.Path)
 	require.Equal(t, []web.NoteFilter{
-		{Label: "#essay", Href: "/p?inbox=1&q=-%23walk+river+bank"},
-		{Label: "#walk", Not: true, Href: "/p?inbox=1&q=%23essay+river+bank"},
-		{Label: "river bank", Text: true, Href: "/p?inbox=1&q=%23essay+-%23walk"},
+		{Label: "#essay", Href: "/p?q=-%23walk+river+bank&source=s"},
+		{Label: "#walk", Not: true, Href: "/p?q=%23essay+river+bank&source=s"},
+		{Label: "river bank", Text: true, Href: "/p?q=%23essay+-%23walk&source=s"},
 	}, s.Filters)
-	require.Equal(t, []web.NoteTagLink{{Tag: "other", Href: "/p?inbox=1&q=%23essay+%23other+-%23walk+river+bank"}}, s.Tags)
+	require.Equal(t, []web.NoteTagLink{{Tag: "other", Href: "/p?q=%23essay+%23other+-%23walk+river+bank&source=s"}}, s.Tags)
 
 	empty := web.NewNoteSearch("/p", web.NoteQuery{}, tags)
 	require.Empty(t, empty.Filters)

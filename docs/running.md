@@ -100,7 +100,9 @@ The notes limits are `NOTE_BODY_MAX_LENGTH` (20000 characters), `NOTE_TAG_MAX_LE
 tags a note sets by hand), `NOTE_SOURCE_TITLE_MAX_LENGTH` (300), `NOTE_PHOTO_MAX_DIMENSION` (2048 pixels, the
 longest side the browser scales a photo to), `NOTE_AUDIO_MAX_DURATION` (10m), `NOTE_AUDIO_MAX_BYTES` (8 MiB),
 `NOTE_AUDIO_BITRATE` (24000 bits a second, what the browser records at), `NOTE_CAPTURE_MAX_BYTES` (32 MiB for
-one capture with its photos and recording) and `NOTE_FOCUS_IDLE` (12h, how long a focus tag lasts after the last capture under it).
+one capture with its photos and recording), `NOTE_QUOTE_SOURCE_WINDOW` (12h, how long after a note with a source
+a new quote still takes that source) and `NOTE_PANEL_TAGS` (8, how many of the author's most used tags the post
+editor's Notes panel offers).
 
 The local stack has its speech-to-text backend too: `.env.example` points `STT_OPENAI_COMPAT_ENDPOINT` at
 the WireMock service of `docker-compose.yml` (port `PCOM_WIREMOCK_PORT`, 8833), which answers every

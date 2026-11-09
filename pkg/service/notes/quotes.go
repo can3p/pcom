@@ -9,7 +9,7 @@ import (
 
 // QuoteSource is the source a new quote of the actor starts with: the source
 // of their most recent note that has one, when that note was captured within
-// the focus idle time, else nil.
+// the quote source window, else nil.
 func (s *Service) QuoteSource(ctx context.Context, actor *model.User) (*model.NoteSource, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
@@ -20,7 +20,7 @@ func (s *Service) QuoteSource(ctx context.Context, actor *model.User) (*model.No
 		return nil, err
 	}
 
-	if s.now().Sub(n.CapturedAt) > s.limits.FocusIdle {
+	if s.now().Sub(n.CapturedAt) > s.limits.QuoteSourceWindow {
 		return nil, nil
 	}
 

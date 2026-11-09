@@ -1,5 +1,5 @@
 // Package notes is a user's private notes: text, photos and recordings
-// captured on the go, their tags, sources and focus, and the transcription of
+// captured on the go, their tags and sources, and the transcription of
 // recordings by a speech-to-text backend. Every note is its owner's alone:
 // anybody else is told it doesn't exist.
 package notes
@@ -28,7 +28,8 @@ const (
 	DefaultAudioMaxBytes        = 8 << 20
 	DefaultAudioBitrate         = 24000
 	DefaultCaptureMaxBytes      = 32 << 20
-	DefaultFocusIdle            = 12 * time.Hour
+	DefaultQuoteSourceWindow    = 12 * time.Hour
+	DefaultPanelTags            = 8
 	// DefaultPageSize is how many notes a page of the list holds unless
 	// WithPageSize sets it.
 	DefaultPageSize = 30
@@ -72,8 +73,12 @@ type Limits struct {
 	AudioBitrate int
 	// CaptureMaxBytes is the most bytes of one capture with all its files.
 	CaptureMaxBytes int64
-	// FocusIdle is how long the focus lasts after the last capture under it.
-	FocusIdle time.Duration
+	// QuoteSourceWindow is how long after a sourced note a new quote still
+	// takes its source (QuoteSource).
+	QuoteSourceWindow time.Duration
+	// PanelTags is how many of the author's most used tags the post
+	// editor's Notes panel offers under its search (TopTags).
+	PanelTags int
 	// STTMinutesPerDay is the minutes of recordings one user may have
 	// transcribed per day; STTSiteMinutesPerDay those of the whole site,
 	// zero meaning no cap.
@@ -91,7 +96,8 @@ var DefaultLimits = Limits{
 	AudioMaxBytes:        DefaultAudioMaxBytes,
 	AudioBitrate:         DefaultAudioBitrate,
 	CaptureMaxBytes:      DefaultCaptureMaxBytes,
-	FocusIdle:            DefaultFocusIdle,
+	QuoteSourceWindow:    DefaultQuoteSourceWindow,
+	PanelTags:            DefaultPanelTags,
 	STTMinutesPerDay:     DefaultSTTMinutesPerDay,
 	STTSiteMinutesPerDay: DefaultSTTSiteMinutesPerDay,
 }
@@ -148,7 +154,7 @@ func WithMaxUploadSize(n int64) Option {
 	return func(s *Service) { setIfPositive(&s.maxUploadSize, n) }
 }
 
-// WithClock replaces the clock captures and the focus are timed by, for
+// WithClock replaces the clock captures and quote sources are timed by, for
 // tests.
 func WithClock(now func() time.Time) Option {
 	return func(s *Service) { s.now = now }
@@ -167,7 +173,8 @@ func WithLimits(l Limits) Option {
 		setIfPositive(&s.limits.AudioMaxBytes, l.AudioMaxBytes)
 		setIfPositive(&s.limits.AudioBitrate, l.AudioBitrate)
 		setIfPositive(&s.limits.CaptureMaxBytes, l.CaptureMaxBytes)
-		setIfPositive(&s.limits.FocusIdle, l.FocusIdle)
+		setIfPositive(&s.limits.QuoteSourceWindow, l.QuoteSourceWindow)
+		setIfPositive(&s.limits.PanelTags, l.PanelTags)
 		setIfPositive(&s.limits.STTMinutesPerDay, l.STTMinutesPerDay)
 		setIfPositive(&s.limits.STTSiteMinutesPerDay, l.STTSiteMinutesPerDay)
 	}

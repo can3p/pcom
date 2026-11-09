@@ -21,12 +21,6 @@
   }
 }
 
-.nt-focus {
-  margin: 0;
-  font: 400 14px/1.5 var(--font-ui);
-  color: var(--muted);
-}
-
 .nt-link {
   padding: 0;
   border: 0;
@@ -294,19 +288,6 @@
   padding: 0;
   list-style: none;
   font: 600 13px var(--font-mono);
-
-  .nt-suggest button {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--muted);
-    font: inherit;
-    cursor: pointer;
-
-    &:hover {
-      color: var(--accent);
-    }
-  }
 }
 
 .note-excerpt {
@@ -319,35 +300,43 @@
   max-width: 24em;
 }
 
-.nt-merge {
-  display: flex;
-  gap: var(--space-2);
+.note-form .field input,
+.note-source-field select,
+.nt-source-form .field input {
   width: 100%;
+}
 
-  select {
-    min-height: 40px;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
-    background: var(--surface);
-    color: var(--text);
-    font: 400 15px var(--font-ui);
+// A source of the Tags and sources screen: its row, and the form that adds
+// one or renames it in place of the row.
+.nt-source-row {
+  .nt-icon {
+    margin-left: auto;
   }
 }
 
-.note-form .field input,
-.note-source .field input {
+.nt-source-form {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
   width: 100%;
+
+  .field {
+    flex: 1 1 16em;
+    margin: 0;
+  }
 }
 
-.note-source {
-  margin-top: var(--space-4);
+.nt-source-add {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
 
-.note-section-title {
-  margin: 0;
-  font: 800 18px var(--font-ui);
-  color: var(--title);
+.nt-source-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .note-add-recording {
@@ -362,11 +351,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.capture-chip {
-  margin-right: var(--space-1);
-  color: var(--on-accent);
 }
 
 .capture-modes {

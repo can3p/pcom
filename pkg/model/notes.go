@@ -21,15 +21,6 @@ const (
 	NoteTranscriptionFailed  NoteTranscriptionStatus = "failed"
 )
 
-// NoteSourceKind is what a note source is.
-type NoteSourceKind string
-
-// The values of NoteSourceKind.
-const (
-	NoteSourceBook NoteSourceKind = "book"
-	NoteSourceWeb  NoteSourceKind = "web"
-)
-
 // NotePostLinkHow is the Postgres enum note_post_link_how: how a note came
 // into a post.
 type NotePostLinkHow string
@@ -59,7 +50,6 @@ type Note struct {
 	Body                string                  `bun:"body,default:''"`
 	Tags                []string                `bun:"tags,array,default:'{}'"`
 	SourceID            *string                 `bun:"source_id"`
-	Locator             *string                 `bun:"locator"`
 	AudioUploadID       *string                 `bun:"audio_upload_id"`
 	TextTags            []string                `bun:"text_tags,array,default:'{}'"`
 	TranscriptionStatus NoteTranscriptionStatus `bun:"transcription_status,default:'none'"`
@@ -83,27 +73,23 @@ func (m *Note) BeforeAppendModel(_ context.Context, query bun.Query) error {
 	return nil
 }
 
-// NoteSource is a row of note_sources: a book or web page notes come from.
-// MatchKey is NoteSourceMatchKey of its title and author, unique per user.
+// NoteSource is a row of note_sources: where notes come from, named by its
+// title alone. MatchKey is NoteSourceMatchKey of the title, unique per user.
 type NoteSource struct {
 	bun.BaseModel `bun:"table:note_sources"`
 
-	ID       string         `bun:"id,pk"`
-	UserID   string         `bun:"user_id"`
-	Kind     NoteSourceKind `bun:"kind"`
-	Title    string         `bun:"title"`
-	Author   *string        `bun:"author"`
-	URL      *string        `bun:"url"`
-	MatchKey string         `bun:"match_key"`
+	ID       string `bun:"id,pk"`
+	UserID   string `bun:"user_id"`
+	Title    string `bun:"title"`
+	MatchKey string `bun:"match_key"`
 }
 
-// NoteSourceMatchKey is how a source is found again: its title and author
-// lowercased with their whitespace collapsed, so the same book typed with
-// another case or spacing is the same source. It lives with the model, not the
-// notes service, so the test factory makes sources the service finds.
-func NoteSourceMatchKey(title, author string) string {
-	return strings.ToLower(strings.Join(strings.Fields(title), " ")) + "\x1f" +
-		strings.ToLower(strings.Join(strings.Fields(author), " "))
+// NoteSourceMatchKey is how a source is found again: its title lowercased with
+// its whitespace collapsed, so the same title typed with another case or
+// spacing is the same source. It lives with the model, not the notes service,
+// so the test factory makes sources the service finds.
+func NoteSourceMatchKey(title string) string {
+	return strings.ToLower(strings.Join(strings.Fields(title), " "))
 }
 
 // NoteImage is a row of note_images: one photo of a note, in the order of

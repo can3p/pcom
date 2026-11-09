@@ -1,7 +1,7 @@
 //go:build browser
 
 // The capture page (/controls/notes/new) on a phone: dictating, a photo, a
-// photo with a spoken caption and typed text, each saved under the focus;
+// photo with a spoken caption and typed text, each saved with no tag but its text's;
 // ?start=; captures made offline uploaded when the network returns; and
 // deleting the last capture, uploaded or still queued.
 package browser_test
@@ -224,24 +224,11 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 	mustNote(t, app, user.ID, factory.WithNoteTags("walk"))
 
 	page := capturePage(t, app, user, "/controls/notes/new")
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("focus")).ToContainText("No focus tag"))
-
-	_, err := page.Goto("/controls/notes/manage")
-	require.NoError(t, err)
-	// The action reloads the page once saved. The row's "focus" button holds
-	// the word before the click too, so wait for the reloaded row: no button,
-	// and "focus" in its counts. Going on earlier races the reload.
-	focusOn := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Focus on #walk"})
-	require.NoError(t, focusOn.Click())
-	require.NoError(t, browser.Expect.Locator(focusOn).ToHaveCount(0))
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("tag-row").Locator(".meta")).ToHaveText("1 note, focus"))
-
-	_, err = page.Goto("/controls/notes/new")
-	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("focus")).ToContainText("#walk"))
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("focus")).ToHaveCount(0))
 	require.NoError(t, browser.Expect.Locator(page.GetByText("sent to the speech-to-text provider")).ToBeVisible())
 
-	underFocus := func(n *model.Note) bool { return slices.Contains(n.Tags, "walk") }
+	// a capture gets no tag set by hand
+	untagged := func(n *model.Note) bool { return len(n.Tags) == 0 }
 	count := 1
 
 	t.Run("dictate", func(t *testing.T) {
@@ -253,7 +240,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.NotNil(t, n.AudioUploadID)
 		require.Empty(t, n.Images)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// the list shows the transcription pending, then its text
 		_, err := page.Goto("/controls/notes")
@@ -366,7 +353,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.Len(t, n.Images, 1)
 		require.Nil(t, n.AudioUploadID)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// turned into JPEG and scaled down to NOTE_PHOTO_MAX_DIMENSION, which
 		// the largest size the media server makes doesn't scale up
@@ -390,7 +377,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.Len(t, n.Images, 1)
 		require.NotNil(t, n.AudioUploadID)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 		eventuallyNote(t, app, user.ID, func(m *model.Note) bool { return m.ID == n.ID && m.Body == captureTranscript })
 	})
 
@@ -406,7 +393,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		require.Equal(t, text, n.Body)
 		require.Nil(t, n.AudioUploadID)
 		require.Empty(t, n.Images)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 		require.Equal(t, []string{"idea"}, n.TextTags)
 	})
 
@@ -419,7 +406,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.NotNil(t, n.AudioUploadID)
 		require.Empty(t, n.Images)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// a file chooser opens only on a tap
 		openCapture(t, page, "/controls/notes/new?start=photo")
@@ -430,7 +417,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		n = waitNotes(t, app, user.ID, count)[0]
 		require.Len(t, n.Images, 1)
 		require.Nil(t, n.AudioUploadID)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 	})
 
 	t.Run("start voice with a tap", func(t *testing.T) {
@@ -450,28 +437,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.NotNil(t, n.AudioUploadID)
-		require.True(t, underFocus(n), "tags %v", n.Tags)
-	})
-
-	t.Run("stop focus", func(t *testing.T) {
-		require.NoError(t, page.GetByTestId("focus").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Stop"}).Click())
-		require.NoError(t, browser.Expect.Locator(page.GetByTestId("focus")).ToContainText("No focus tag"))
-
-		u, err := factory.GetUser(context.Background(), app.DB, user.ID)
-		require.NoError(t, err)
-		require.Nil(t, u.NotesFocusTag)
-
-		// opened again, the page captures without a tag
-		_, err = page.Reload()
-		require.NoError(t, err)
-		require.NoError(t, browser.Expect.Locator(page.GetByTestId("focus")).ToContainText("No focus tag"))
-		typeNote(t, page, "Out of focus")
-		expectLast(t, page, "Out of focus", "Saved")
-
-		count++
-		n := waitNotes(t, app, user.ID, count)[0]
-		require.Equal(t, "Out of focus", n.Body)
-		require.Empty(t, n.Tags)
+		require.True(t, untagged(n), "tags %v", n.Tags)
 	})
 }
 

@@ -46,6 +46,8 @@ page loads whole.
   `postops.CommentCapabilities`, ...). Don't compare ids (`eq $.User.DBUser.ID .UserID`) or combine
   permissions in the template: add a field computed in Go, next to the rule the service enforces, with a
   unit test. A control and the form it opens use the same capability.
+- **Every internal URL comes from `{{ link "<name>" args… }}`** (`pkg/links/link.go`), hx-* and Stimulus URL
+  values included: "Internal URLs come from the link helper" in `docs/architecture.md`.
 - **Static files get a content hash.** webpack copies `client/static/*` to `static/<name>.<hash>.<ext>`
   (possibly on `STATIC_CDN`), so a template names them only through `{{ static_asset "static/<name>" }}`;
   a literal `/static/...` path is a 404. A file that needs a fixed URL on the app's origin is served by a

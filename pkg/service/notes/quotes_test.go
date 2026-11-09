@@ -15,7 +15,7 @@ func TestQuoteSource(t *testing.T) {
 	t.Parallel()
 
 	w := newWorld(t)
-	idle := notes.DefaultLimits.FocusIdle
+	idle := notes.DefaultQuoteSourceWindow
 
 	_, err := w.svc.QuoteSource(w.ctx, nil)
 	require.ErrorIs(t, err, service.ErrNeedsLogin)

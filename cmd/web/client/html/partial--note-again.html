@@ -1,10 +1,9 @@
-{{/* "Transcribe again as…" for a note with a recording. Takes a *web.NoteAgain. It posts the language to the
-     note_retranscribe action; the page reloads on success, a refusal shows next to the button. */}}
-{{/* The edit page's place for the control, always rendered so the status poll can fill it (out of band) once the
-     transcription is over. Takes Again (a *web.NoteAgain or nil) and OOB. */}}
+{{/* Takes a *web.NoteAgain. */}}
+{{/* Always rendered, so the status poll can fill it out of band once the transcription is over. Takes Again
+     (a *web.NoteAgain or nil) and OOB. */}}
 {{ define "note_again_slot" }}<div id="note-again-slot"{{ if .OOB }} hx-swap-oob="true"{{ end }}>{{ with .Again }}{{ template "partial--note-again.html" . }}{{ end }}</div>{{ end }}
 <form class="note-again acts" data-testid="note-again"
-      hx-post="/controls/action/note_retranscribe" hx-ext="json-enc"
+      hx-post="{{ link "action" "note_retranscribe" }}" hx-ext="json-enc"
       hx-target="find .note-again-result" hx-swap="innerHTML"
       {{ with .Confirm }}hx-confirm="{{ . }}"{{ end }}>
   <input type="hidden" name="note_id" value="{{ .NoteID }}">

@@ -46,11 +46,6 @@ func WithRecording(uploadID string) NoteOpt {
 	}
 }
 
-// WithNoteLocator sets where in its source the note comes from.
-func WithNoteLocator(locator string) NoteOpt {
-	return func(n *model.Note) { n.Locator = &locator }
-}
-
 // WithNoteTranscription sets the transcription status of the note's recording.
 func WithNoteTranscription(status model.NoteTranscriptionStatus) NoteOpt {
 	return func(n *model.Note) { n.TranscriptionStatus = status }
@@ -83,12 +78,12 @@ func Note(ctx context.Context, exec repo.Executor, userID string, opts ...NoteOp
 // NoteSourceOpt customizes a NoteSource before it is inserted.
 type NoteSourceOpt func(*model.NoteSource)
 
-// WithSourceAuthor sets the author of the source.
-func WithSourceAuthor(author string) NoteSourceOpt {
-	return func(s *model.NoteSource) { s.Author = &author }
+// WithSourceTitle sets the title of the source.
+func WithSourceTitle(title string) NoteSourceOpt {
+	return func(s *model.NoteSource) { s.Title = title }
 }
 
-// NoteSource inserts a book of userID with a made-up title.
+// NoteSource inserts a source of userID with a made-up title.
 func NoteSource(ctx context.Context, exec repo.Executor, userID string, opts ...NoteSourceOpt) (*model.NoteSource, error) {
 	id, err := newID()
 	if err != nil {
@@ -97,18 +92,13 @@ func NoteSource(ctx context.Context, exec repo.Executor, userID string, opts ...
 
 	title := fmt.Sprintf("Book %d", next())
 
-	src := &model.NoteSource{ID: id, UserID: userID, Kind: model.NoteSourceBook, Title: title}
+	src := &model.NoteSource{ID: id, UserID: userID, Title: title}
 
 	for _, o := range opts {
 		o(src)
 	}
 
-	author := ""
-	if src.Author != nil {
-		author = *src.Author
-	}
-
-	src.MatchKey = model.NoteSourceMatchKey(src.Title, author)
+	src.MatchKey = model.NoteSourceMatchKey(src.Title)
 
 	return insertRow(ctx, exec, src)
 }

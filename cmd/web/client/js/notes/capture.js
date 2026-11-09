@@ -9,11 +9,7 @@
 const DB_NAME = "pcom-notes"
 const DB_VERSION = 1
 const STORE = "captures"
-const WORKER = "/controls/notes/sw.js"
-const SCOPE = "/controls/notes/"
 const SYNC_TAG = "notes-upload"
-const DELETE = "/controls/action/note_delete"
-const FOCUS = "/controls/action/note_focus"
 // the containers the server keeps, the first one the browser records wins
 const AUDIO_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
 const JPEG_QUALITY = 0.85
@@ -91,12 +87,11 @@ export class Capture {
     if (!navigator.serviceWorker) return
 
     try {
-      // the server's URL carries the caps of a share the worker keeps
-      await navigator.serviceWorker.register(this.c.workerValue || WORKER, { scope: SCOPE })
+      await navigator.serviceWorker.register(this.c.workerValue, { scope: this.c.scopeValue })
       const reg = await navigator.serviceWorker.ready
       // the fonts load once the page is laid out; kept with the rest
       await document.fonts?.ready
-      reg.active?.postMessage({ type: "keep", urls: assetURLs() })
+      reg.active?.postMessage({ type: "keep", urls: assetURLs(new URL(this.c.workerValue, location.href).pathname) })
     } catch (err) {
       console.warn("notes: no service worker", err)
     }
@@ -336,7 +331,7 @@ export class Capture {
       let resp
 
       try {
-        resp = await fetch(DELETE, {
+        resp = await fetch(this.c.deleteValue, {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-CSRFToken": this.c.csrfValue },
           body: JSON.stringify({ noteId: rec.noteId }),
@@ -382,7 +377,7 @@ export class Capture {
     try {
       const data = rec.audio
         ? await rec.audio.arrayBuffer()
-        : await (await fetch(`/controls/notes/${rec.noteId}/audio`)).arrayBuffer()
+        : await (await fetch(this.c.audioValue.replace(":id", rec.noteId))).arrayBuffer()
 
       ctx = new AudioContext()
       const seconds = Math.round((await ctx.decodeAudioData(data)).duration)
@@ -394,29 +389,6 @@ export class Capture {
     } finally {
       ctx?.close()
     }
-  }
-
-  // stopFocus clears the focus tag and reloads the page, which shows it gone.
-  async stopFocus() {
-    this.hideError()
-
-    try {
-      const resp = await fetch(FOCUS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRFToken": this.c.csrfValue },
-        body: JSON.stringify({ tag: "" }),
-      })
-
-      if (!resp.ok) {
-        this.showError("Not changed: " + ((await resp.json().catch(() => ({}))).explanation || resp.statusText))
-        return
-      }
-    } catch (_) {
-      this.showError("Not changed: no network.")
-      return
-    }
-
-    window.location.reload()
   }
 
   // show leaves one of the page's panels visible: the mode buttons, the
@@ -494,12 +466,12 @@ function clock(seconds) {
   return `${m}:${String(s).padStart(2, "0")}`
 }
 
-// assetURLs are the scripts, styles and fonts the page loaded, for the
-// service worker to keep.
-function assetURLs() {
+// assetURLs are the scripts, styles and fonts the page loaded, the worker
+// itself left out, for the service worker to keep.
+function assetURLs(worker) {
   return performance.getEntriesByType("resource")
     .map((e) => e.name)
-    .filter((u) => /\.(js|css|woff2)(\?|$)/.test(u) && new URL(u).pathname !== WORKER)
+    .filter((u) => /\.(js|css|woff2)(\?|$)/.test(u) && new URL(u).pathname !== worker)
 }
 
 function openDB() {

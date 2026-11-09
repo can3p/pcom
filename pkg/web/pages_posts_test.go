@@ -10,8 +10,6 @@ import (
 func TestQuoteText_AttributionOfASource(t *testing.T) {
 	t.Parallel()
 
-	author, page := "Ann Author", "42"
-	blank := "  "
 	quote := "> words\n"
 
 	tests := []struct {
@@ -19,12 +17,9 @@ func TestQuoteText_AttributionOfASource(t *testing.T) {
 		note model.Note
 		want string
 	}{
-		{"no source", model.Note{Body: quote, Locator: &page}, quote},
-		{"title only", model.Note{Body: quote, Source: &model.NoteSource{Title: "A Book"}}, "> words\n\n— *A Book*"},
-		{"author, title and page", model.Note{Body: quote, Locator: &page, Source: &model.NoteSource{Title: "A Book", Author: &author}},
-			"> words\n\n— Ann Author, *A Book*, p. 42"},
-		{"blank pieces are left out", model.Note{Body: "> words", Locator: &blank, Source: &model.NoteSource{Title: "A  Book", Author: &blank}},
-			"> words\n\n— *A Book*"},
+		{"no source", model.Note{Body: quote}, quote},
+		{"the title", model.Note{Body: quote, Source: &model.NoteSource{Title: "A Book"}}, "> words\n\n— *A Book*"},
+		{"spacing collapsed", model.Note{Body: "> words", Source: &model.NoteSource{Title: " A  Book "}}, "> words\n\n— *A Book*"},
 		{"a source that says nothing", model.Note{Body: quote, Source: &model.NoteSource{Title: " "}}, quote},
 	}
 

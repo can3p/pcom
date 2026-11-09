@@ -1,14 +1,14 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The notes list and a note's edit page: a selection of notes, the Tag,
-// Source and Delete buttons that act on it, the quick-capture box (Ctrl+Enter,
-// the recent-tag chips), uploading a recording, and the edit page's source
-// suggestions. The selection buttons are action controllers; this one hands
-// them the selected ids and the text their confirmation shows.
+// The notes list and a note's edit page. The selection bar's buttons are
+// action controllers; this one hands them the selected ids and the delete
+// confirmation's text.
 export default class extends Controller {
+  static values = { audioUrl: String }
+
   static targets = [
     "pick", "bar", "count", "tagButton", "sourceButton", "deleteButton",
-    "capture", "captureTags", "uploadStatus", "sourceTitle", "sourceAuthor",
+    "capture", "captureTags", "uploadStatus",
   ]
 
   select() {
@@ -56,7 +56,6 @@ export default class extends Controller {
     }
   }
 
-  // A recent-tag chip adds its tag to the capture's tags, once.
   addTag(event) {
     const tag = event.currentTarget.dataset.tag
     const input = this.captureTagsTarget
@@ -70,9 +69,7 @@ export default class extends Controller {
     input.focus()
   }
 
-  // A recording picked from the device becomes a new note, or the recording
-  // of the edit page's note (data-note-id); the page reloads to show it
-  // transcribing.
+  // a new note, or the recording of the edit page's note (data-note-id)
   async uploadRecording(event) {
     const input = event.currentTarget
     const file = input.files?.[0]
@@ -85,7 +82,7 @@ export default class extends Controller {
     this.uploadStatus("Uploading…")
 
     try {
-      const response = await fetch("/controls/action/note_audio", {
+      const response = await fetch(this.audioUrlValue, {
         method: "POST",
         headers: csrfHeaders(),
         body: form,
@@ -113,20 +110,8 @@ export default class extends Controller {
     span.textContent = text
     this.uploadStatusTarget.replaceChildren(span)
   }
-
-  // Picking one of the author's sources from the title's suggestions fills
-  // its author.
-  pickSource() {
-    const title = this.sourceTitleTarget
-    const option = Array.from(title.list?.options ?? []).find((o) => o.value === title.value)
-
-    if (option) {
-      this.sourceAuthorTarget.value = option.dataset.author
-    }
-  }
 }
 
-// The CSRF header the page's body carries for htmx.
 function csrfHeaders() {
   try {
     return JSON.parse(document.body.getAttribute("hx-headers") || "{}")
