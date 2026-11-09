@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -17,46 +16,29 @@ import (
 // SourceCount is a source and how many notes come from it.
 type SourceCount = repo.NoteSourceCount
 
-// SourceInput names a source. The same title and author, whatever the case
-// and the spacing, is the same source.
-type SourceInput struct {
-	Kind   model.NoteSourceKind
-	Title  string
-	Author string
-	URL    string
-}
-
-// validSource checks the input and returns the source it makes, without ID
-// and owner.
-func (s *Service) validSource(in SourceInput) (*model.NoteSource, error) {
-	title := strings.Join(strings.Fields(in.Title), " ")
+// validTitle checks a source's title and returns it with its whitespace
+// collapsed.
+func (s *Service) validTitle(title string) (string, error) {
+	title = strings.Join(strings.Fields(title), " ")
 
 	switch {
 	case title == "":
-		return nil, service.Invalid("title", "A source needs a title.")
+		return "", service.Invalid("title", "A source needs a title.")
 	case utf8.RuneCountInString(title) > s.limits.SourceTitleMaxLength:
-		return nil, service.Invalid("title", fmt.Sprintf("A title can be at most %d characters long.", s.limits.SourceTitleMaxLength))
-	case in.Kind != model.NoteSourceBook && in.Kind != model.NoteSourceWeb:
-		return nil, service.Invalid("kind", "A source is a book or a web page.")
+		return "", service.Invalid("title", fmt.Sprintf("A title can be at most %d characters long.", s.limits.SourceTitleMaxLength))
 	}
 
-	src := &model.NoteSource{Kind: in.Kind, Title: title, MatchKey: model.NoteSourceMatchKey(title, in.Author)}
-
-	if author := strings.Join(strings.Fields(in.Author), " "); author != "" {
-		src.Author = &author
-	}
-
-	if u := strings.TrimSpace(in.URL); u != "" {
-		src.URL = &u
-	}
-
-	return src, nil
+	return title, nil
 }
 
 // ownSource loads a source of the actor; one of somebody else doesn't exist.
 func (s *Service) ownSource(ctx context.Context, store *repo.Store, actor *model.User, id string) (*model.NoteSource, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
+	}
+
+	if uuid.Validate(id) != nil {
+		return nil, service.ErrNotFound
 	}
 
 	src, err := store.NoteSourceByID(ctx, id)
@@ -73,15 +55,17 @@ func (s *Service) ownSource(ctx context.Context, store *repo.Store, actor *model
 	return src, nil
 }
 
-// resolveSource finds the actor's source with that title and author or
-// creates it.
-func (s *Service) resolveSource(ctx context.Context, tx *repo.Store, actor *model.User, in SourceInput) (*model.NoteSource, error) {
-	src, err := s.validSource(in)
+// resolveSource finds the actor's source with that title, whatever its case
+// and spacing, or creates it.
+func (s *Service) resolveSource(ctx context.Context, tx *repo.Store, actor *model.User, title string) (*model.NoteSource, error) {
+	title, err := s.validTitle(title)
 	if err != nil {
 		return nil, err
 	}
 
-	if found, err := tx.NoteSourceByMatchKey(ctx, actor.ID, src.MatchKey); err != nil || found != nil {
+	key := model.NoteSourceMatchKey(title)
+
+	if found, err := tx.NoteSourceByMatchKey(ctx, actor.ID, key); err != nil || found != nil {
 		return found, err
 	}
 
@@ -90,24 +74,47 @@ func (s *Service) resolveSource(ctx context.Context, tx *repo.Store, actor *mode
 		return nil, err
 	}
 
-	src.ID, src.UserID = id.String(), actor.ID
-
-	return tx.CreateNoteSource(ctx, src)
+	return tx.CreateNoteSource(ctx, &model.NoteSource{ID: id.String(), UserID: actor.ID, Title: title, MatchKey: key})
 }
 
-// Sources returns the actor's sources that have notes, by title.
+// Sources returns all the actor's sources, by title, with how many notes
+// come from each.
 func (s *Service) Sources(ctx context.Context, actor *model.User) ([]SourceCount, error) {
 	if actor == nil {
 		return nil, service.ErrNeedsLogin
 	}
 
-	return s.store.NoteSourcesWithNotes(ctx, actor.ID)
+	return s.store.NoteSourceCounts(ctx, actor.ID)
 }
 
-// SetSource gives the notes a source, found or created by its title and
-// author; nil takes their source away. One note that isn't the actor's fails
+// AddSource returns the actor's source with that title, made when there is
+// none yet.
+func (s *Service) AddSource(ctx context.Context, actor *model.User, title string) (*model.NoteSource, error) {
+	if actor == nil {
+		return nil, service.ErrNeedsLogin
+	}
+
+	var src *model.NoteSource
+
+	err := s.store.Tx(ctx, func(tx *repo.Store) error {
+		var err error
+		src, err = s.resolveSource(ctx, tx, actor, title)
+
+		return err
+	})
+
+	return src, err
+}
+
+// Source returns a source of the actor.
+func (s *Service) Source(ctx context.Context, actor *model.User, id string) (*model.NoteSource, error) {
+	return s.ownSource(ctx, s.store, actor, id)
+}
+
+// SetSource gives the notes the source with that title, found or created; an
+// empty title takes their source away. One note that isn't the actor's fails
 // the whole call.
-func (s *Service) SetSource(ctx context.Context, actor *model.User, noteIDs []string, in *SourceInput) error {
+func (s *Service) SetSource(ctx context.Context, actor *model.User, noteIDs []string, title string) error {
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
 		notes, err := s.ownNotes(ctx, tx, actor, noteIDs, true)
 		if err != nil || len(notes) == 0 {
@@ -116,8 +123,8 @@ func (s *Service) SetSource(ctx context.Context, actor *model.User, noteIDs []st
 
 		var sourceID *string
 
-		if in != nil {
-			src, err := s.resolveSource(ctx, tx, actor, *in)
+		if strings.TrimSpace(title) != "" {
+			src, err := s.resolveSource(ctx, tx, actor, title)
 			if err != nil {
 				return err
 			}
@@ -129,64 +136,46 @@ func (s *Service) SetSource(ctx context.Context, actor *model.User, noteIDs []st
 	})
 }
 
-// RenameSource changes the title, author, URL and kind of a source. Naming
-// it like another source of the actor is a conflict: merge them instead.
-func (s *Service) RenameSource(ctx context.Context, actor *model.User, sourceID string, in SourceInput) error {
-	return s.store.Tx(ctx, func(tx *repo.Store) error {
+// RenameSource gives a source of the actor a new title and returns the
+// source its notes now come from. Renaming it to the title of another of the
+// actor's sources merges the two, as renaming a tag does: its notes move to
+// that source, which is returned, and it is deleted.
+func (s *Service) RenameSource(ctx context.Context, actor *model.User, sourceID, title string) (*model.NoteSource, error) {
+	var out *model.NoteSource
+
+	err := s.store.Tx(ctx, func(tx *repo.Store) error {
 		src, err := s.ownSource(ctx, tx, actor, sourceID)
 		if err != nil {
 			return err
 		}
 
-		changed, err := s.validSource(in)
+		title, err := s.validTitle(title)
 		if err != nil {
 			return err
 		}
 
-		other, err := tx.NoteSourceByMatchKey(ctx, actor.ID, changed.MatchKey)
+		key := model.NoteSourceMatchKey(title)
+
+		other, err := tx.NoteSourceByMatchKey(ctx, actor.ID, key)
 		if err != nil {
 			return err
 		}
 
 		if other != nil && other.ID != src.ID {
-			return fmt.Errorf("%w: there is a source with this title and author already", service.ErrConflict)
+			if err := tx.MoveNotesSource(ctx, []string{src.ID}, other.ID); err != nil {
+				return err
+			}
+
+			out = other
+
+			return tx.DeleteNoteSource(ctx, src.ID)
 		}
 
-		src.Kind, src.Title, src.Author, src.URL, src.MatchKey = changed.Kind, changed.Title, changed.Author, changed.URL, changed.MatchKey
+		src.Title, src.MatchKey = title, key
+		out = src
 
 		return tx.SaveNoteSource(ctx, src)
 	})
-}
 
-// MergeSources moves the notes of the sources to into and deletes them.
-func (s *Service) MergeSources(ctx context.Context, actor *model.User, fromIDs []string, into string) error {
-	return s.store.Tx(ctx, func(tx *repo.Store) error {
-		if _, err := s.ownSource(ctx, tx, actor, into); err != nil {
-			return err
-		}
-
-		from := slices.DeleteFunc(sortedUnique(fromIDs), func(id string) bool { return id == into })
-
-		for _, id := range from {
-			if _, err := s.ownSource(ctx, tx, actor, id); err != nil {
-				return err
-			}
-		}
-
-		if len(from) == 0 {
-			return nil
-		}
-
-		if err := tx.MoveNotesSource(ctx, from, into); err != nil {
-			return err
-		}
-
-		for _, id := range from {
-			if err := tx.DeleteNoteSource(ctx, id); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
+	return out, err
 }

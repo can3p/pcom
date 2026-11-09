@@ -109,35 +109,13 @@ func isURL(s string) bool {
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
-// Source is what the attribution line of a quote says; every part is
-// optional.
-type Source struct {
-	Author string
-	Title  string
-	// Page is the page or locator as the owner wrote it, "12" or "12-14".
-	Page string
-}
-
-// Attribution is the line under a quote: "— Author, *Title*, p. 12". Parts
-// that are unknown are left out, with their separators; no part is "".
-func Attribution(s Source) string {
-	var parts []string
-
-	if a := strings.Join(strings.Fields(s.Author), " "); a != "" {
-		parts = append(parts, a)
-	}
-
-	if t := strings.Join(strings.Fields(s.Title), " "); t != "" {
-		parts = append(parts, "*"+t+"*")
-	}
-
-	if p := strings.Join(strings.Fields(s.Page), " "); p != "" {
-		parts = append(parts, "p. "+p)
-	}
-
-	if len(parts) == 0 {
+// Attribution is the line under a quote from the source titled title:
+// "— *Title*", with the title's whitespace collapsed; "" for no title.
+func Attribution(title string) string {
+	t := strings.Join(strings.Fields(title), " ")
+	if t == "" {
 		return ""
 	}
 
-	return "— " + strings.Join(parts, ", ")
+	return "— *" + t + "*"
 }

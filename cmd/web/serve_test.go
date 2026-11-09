@@ -350,7 +350,8 @@ func TestNotesOptions(t *testing.T) {
 		{"NOTE_AUDIO_MAX_BYTES=4096", "AudioMaxBytes", int64(4096)},
 		{"NOTE_AUDIO_BITRATE=16000", "AudioBitrate", 16000},
 		{"NOTE_CAPTURE_MAX_BYTES=8192", "CaptureMaxBytes", int64(8192)},
-		{"NOTE_FOCUS_IDLE=1h", "FocusIdle", time.Hour},
+		{"NOTE_QUOTE_SOURCE_WINDOW=1h", "QuoteSourceWindow", time.Hour},
+		{"NOTE_PANEL_TAGS=3", "PanelTags", 3},
 		{"STT_MINUTES_PER_DAY=15", "STTMinutesPerDay", 15},
 		{"STT_SITE_MINUTES_PER_DAY=600", "STTSiteMinutesPerDay", 600},
 	}

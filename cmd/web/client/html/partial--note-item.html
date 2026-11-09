@@ -1,5 +1,4 @@
-{{/* A note of the list. Item: a web.NoteItem, User: the viewer's auth.UserData. A tag links to the list with the
-     tag added to its search; Edit and Delete are icon buttons at the end of the meta line. */}}
+{{/* Item: a web.NoteItem, User: the viewer's auth.UserData. */}}
 {{ $n := .Item.Note }}
 <article class="item note" id="note-{{ $n.ID }}" data-testid="note">
   <label class="note-pick">
@@ -10,10 +9,10 @@
   <div class="note-main">
     <div class="note-head">
       <p class="meta">{{ renderHumanTime $n.CapturedAt .User.DBUser }}
-        {{ with $n.Source }}<span class="dot">&middot;</span><a href="/controls/notes?source={{ .ID }}" data-testid="note-source">{{ .Title }}{{ with .Author }}, {{ . }}{{ end }}</a>{{ with $n.Locator }}, {{ . }}{{ end }}{{ end }}
+        {{ with $n.Source }}<span class="dot">&middot;</span><a href="{{ link "notes" "source" .ID }}" data-testid="note-source">{{ .Title }}</a>{{ end }}
         {{ if .Item.Used }}<span class="dot">&middot;</span>used in a post{{ end }}</p>
       <div class="note-acts">
-        <a class="nt-icon" href="/controls/notes/{{ $n.ID }}/edit" aria-label="Edit note" title="Edit note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
+        <a class="nt-icon" href="{{ link "note_edit" $n.ID }}" aria-label="Edit note" title="Edit note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
         <button type="button" class="nt-icon nt-icon-danger"
                 aria-label="Delete note" title="Delete note"
                 data-controller="action"
@@ -28,21 +27,10 @@
     {{ if $n.Images }}
     <p class="note-photos">{{ range $n.Images }}<img src="{{ link "uploaded_media" .Upload.UploadedFname }}" alt="Photo of the note" loading="lazy">{{ end }}</p>
     {{ end }}
-    {{ if or .Item.Tags .Item.Suggestions }}
-    <ul class="nt-tags">
+    {{ if .Item.Tags }}
+    <ul class="nt-tags" aria-label="Tags of the note" data-testid="note-tags">
       {{ range .Item.Tags }}
       <li class="nt-tag"><a href="{{ .Href }}">#{{ .Tag }}</a>{{ if .FromText }}<span class="sr-only"> (written in the text)</span>{{ end }}</li>
-      {{ end }}
-      {{ range .Item.Suggestions }}
-      <li class="nt-tag nt-suggest">
-        <button type="button"
-                data-controller="action"
-                data-action="action#run"
-                data-action-action-value="note_tag"
-                data-note-id="{{ $n.ID }}"
-                data-tag="{{ . }}"
-                aria-label="Tag this note #{{ . }}">+ #{{ . }}</button>
-      </li>
       {{ end }}
     </ul>
     {{ end }}

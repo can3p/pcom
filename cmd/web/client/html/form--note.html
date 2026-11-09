@@ -1,24 +1,20 @@
-{{/* The forms of a note's edit page; each saves in place, the result shows next to its button: the text and tags
-     (also by themselves after typing), the source, and a recording for a note without one.
-     The page: a web.EditNotePage. */}}
+{{/* Takes a web.EditNotePage. */}}
 {{ define "note_tag_chips" }}<ul id="note-tag-chips" class="nt-tags"{{ if .OOB }} hx-swap-oob="true"{{ end }}>{{ range .Tags }}<li class="nt-tag">#{{ .Tag }}{{ if .FromText }}<span class="sr-only"> (written in the text)</span>{{ end }}</li>{{ end }}</ul>{{ end }}
-{{/* What a save in place answers: the status and, out of band, the tags the note now has. */}}
+{{/* A save's answer: the status and, out of band, the note's tags. */}}
 {{ define "note_saved" }}{{ template "partial--success-message.html" toMap "Message" "Saved" }}{{ template "note_tag_chips" toMap "Tags" .Tags "OOB" true }}{{ end }}
-{{/* The text box; out of band it brings in the transcript of the recording when the author hasn't typed. */}}
 {{ define "note_editor" }}<div id="note-editor" class="box ed-box mdeditor"{{ if .OOB }} hx-swap-oob="true"{{ end }}
      data-controller="mdeditor"
      data-mdeditor-upload-value="{{ link "action" "upload_media" }}">
   {{ template "partial--editor-toolbar.html" toMap "UploadID" "note_upload" "Post" false "PostID" "" "Proofread" false }}
   <textarea class="ed-body" name="body" placeholder="Your note" aria-label="Note" rows="10">{{ .Body }}</textarea>
 </div>{{ end }}
-{{/* What the status poll answers on the edit page once an untouched note is transcribed: the status, and out
-     of band the text box with the transcript and the tags the note now has. Status: a web.NoteStatus. */}}
+{{/* The status poll's answer once an untouched note is transcribed. Status: a web.NoteStatus. */}}
 {{ define "note_transcribed" }}{{ template "partial--note-status.html" .Status }}{{ template "note_editor" toMap "Body" .Status.Note.Body "OOB" true }}{{ template "note_tag_chips" toMap "Tags" .Tags "OOB" true }}{{ template "note_again_slot" toMap "Again" .Again "OOB" true }}{{ end }}
 
 <form class="ed-form note-form"
       method="post"
-      action="/controls/form/note_edit/{{ .Note.ID }}"
-      hx-post="/controls/form/note_edit/{{ .Note.ID }}"
+      action="{{ link "form_note_edit" .Note.ID }}"
+      hx-post="{{ link "form_note_edit" .Note.ID }}"
       hx-target="#note-status"
       hx-swap="innerHTML"
       hx-trigger="change delay:2s, keyup delay:2s, submit">
@@ -32,6 +28,8 @@
     <p class="field-help">Separated by spaces. A #word in the text is a tag too.</p>
     {{ template "note_tag_chips" toMap "Tags" .Chips "OOB" false }}
   </div>
+
+  {{ template "partial--note-source-select.html" toMap "ID" "note-source" "Sources" .Sources "Selected" .SourceID }}
 
   {{ if .Note.AudioUploadID }}{{ template "partial--note-status.html" .Status }}{{ end }}
 
@@ -51,40 +49,6 @@
   </div>
 </form>
 {{ template "note_again_slot" toMap "Again" .Again "OOB" false }}
-
-<form class="note-source box"
-      method="post"
-      action="/controls/form/note_source/{{ .Note.ID }}"
-      hx-post="/controls/form/note_source/{{ .Note.ID }}"
-      hx-target="#note-source-status"
-      hx-swap="innerHTML"
-      aria-labelledby="note-source-title">
-  <h2 id="note-source-title" class="note-section-title">Source</h2>
-  <p class="field-help">The book or article the note comes from. Clear the title to remove it.</p>
-  <div class="field">
-    <label for="note-source-title-input">Title</label>
-    <input id="note-source-title-input" name="title" type="text" list="note-sources" autocomplete="off"
-           value="{{ with .Note.Source }}{{ .Title }}{{ end }}"
-           data-notes-target="sourceTitle" data-action="input->notes#pickSource">
-    <datalist id="note-sources">
-      {{ range .Sources }}<option value="{{ .Source.Title }}" data-author="{{ with .Source.Author }}{{ . }}{{ end }}">{{ with .Source.Author }}{{ . }}{{ end }}</option>{{ end }}
-    </datalist>
-  </div>
-  <div class="field">
-    <label for="note-source-author">Author</label>
-    <input id="note-source-author" name="author" type="text" autocomplete="off"
-           value="{{ with .Note.Source }}{{ with .Author }}{{ . }}{{ end }}{{ end }}"
-           data-notes-target="sourceAuthor">
-  </div>
-  <div class="field">
-    <label for="note-locator">Where in it</label>
-    <input id="note-locator" name="locator" type="text" value="{{ with .Note.Locator }}{{ . }}{{ end }}" placeholder="page 42">
-  </div>
-  <div class="note-capture-acts">
-    <span id="note-source-status" aria-live="polite"></span>
-    <button type="submit" class="btn btn-secondary">Save source</button>
-  </div>
-</form>
 
 {{ if not .Note.AudioUploadID }}
 <div class="note-capture-acts note-add-recording">

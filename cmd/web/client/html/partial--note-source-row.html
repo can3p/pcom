@@ -1,0 +1,10 @@
+{{/* Takes a *web.SourceRow, or a map with its fields. */}}
+{{ $s := .Source }}
+<li class="controls-row nt-source-row" id="note-source-{{ $s.ID }}" data-testid="source-row">
+  <a href="{{ link "notes" "source" $s.ID }}">{{ $s.Title }}</a>
+  <span class="meta">{{ .Notes }} {{ if eq .Notes 1 }}note{{ else }}notes{{ end }}</span>
+  {{ if .Saved }}{{ template "partial--success-message.html" toMap "Message" "Saved" }}{{ end }}
+  <a class="nt-icon" href="{{ link "note_source_edit" $s.ID }}"
+     hx-get="{{ link "note_source_edit" $s.ID }}" hx-target="#note-source-{{ $s.ID }}" hx-swap="outerHTML"
+     aria-label="Edit {{ $s.Title }}" title="Edit source"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
+</li>

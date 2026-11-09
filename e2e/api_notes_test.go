@@ -556,36 +556,6 @@ func TestAPINotes_AudioWithoutSTT(t *testing.T) {
 	require.Zero(t, s.jobs, "no transcription job is queued")
 }
 
-// The focus is applied to every capture through the API and renewed by it,
-// so it outlives its idle time while captures keep coming.
-func TestAPINotes_Focus(t *testing.T) {
-	t.Parallel()
-
-	const idle = 3 * time.Second
-
-	app := notesApp(t, e2e.WithEnv("NOTE_FOCUS_IDLE", idle.String()))
-	user, client := newLoggedIn(t, app)
-	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
-
-	client.PostJSON("/controls/action/note_focus", map[string]string{"tag": "trip"}).RequireStatus(http.StatusOK)
-
-	capture := func() []string {
-		return decodeData[web.ApiNote](t, postNote(t, app, key, field("text", "x"), field("tags", "walk")).RequireStatus(http.StatusOK).Body).Tags
-	}
-
-	require.ElementsMatch(t, []string{"walk", "trip"}, capture())
-
-	// two thirds of the idle time each: the second capture is past the idle
-	// time since the focus was set, but not since the first capture
-	time.Sleep(2 * idle / 3)
-	require.ElementsMatch(t, []string{"walk", "trip"}, capture())
-	time.Sleep(2 * idle / 3)
-	require.ElementsMatch(t, []string{"walk", "trip"}, capture(), "the focus was renewed")
-
-	time.Sleep(idle + time.Second)
-	require.Equal(t, []string{"walk"}, capture(), "idle for too long")
-}
-
 // getNotes is GET /api/v1/notes with the query q.
 func getNotes(t *testing.T, app *e2e.App, key string, q url.Values) web.ApiGetNotesResponse {
 	t.Helper()
@@ -628,8 +598,8 @@ func TestAPINotes_List(t *testing.T) {
 	used := note(4, factory.WithNoteBody("used in a post"), factory.WithNoteTags("walk"))
 	walk := note(3, factory.WithNoteTags("walk", "idea"))
 	idea := note(2, factory.WithNoteTags("idea"))
-	inbox := note(1, factory.WithNoteBody("the sea"))
-	all := []string{plain, used, walk, idea, inbox}
+	sea := note(1, factory.WithNoteBody("the sea"))
+	all := []string{plain, used, walk, idea, sea}
 
 	post := testutil.Must(factory.Post(ctx, app.DB, user.ID))(t)
 	testutil.Must(factory.NotePostLink(ctx, app.DB, used, post.ID))(t)
@@ -657,14 +627,13 @@ func TestAPINotes_List(t *testing.T) {
 		q    url.Values
 		want []string
 	}{
-		"no limit is one":        {url.Values{}, all[:1]},
-		"limit below one is one": {url.Values{"limit": {"-5"}}, all[:1]},
-		"tag":                    {url.Values{"limit": {"10"}, "tag": {"walk"}}, []string{used, walk}},
-		"tags":                   {url.Values{"limit": {"10"}, "tag": {"walk", "idea"}}, []string{walk}},
-		"not":                    {url.Values{"limit": {"10"}, "not": {"idea"}}, []string{plain, used, inbox}},
-		"unused":                 {url.Values{"limit": {"10"}, "unused": {"true"}}, []string{plain, walk, idea, inbox}},
-		"inbox":                  {url.Values{"limit": {"10"}, "inbox": {"true"}}, []string{plain, inbox}},
-		"q":                      {url.Values{"limit": {"10"}, "q": {"THE"}}, []string{plain, inbox}},
+		"no limit is one":                 {url.Values{}, all[:1]},
+		"limit below one is one":          {url.Values{"limit": {"-5"}}, all[:1]},
+		"tag":                             {url.Values{"limit": {"10"}, "tag": {"walk"}}, []string{used, walk}},
+		"tags":                            {url.Values{"limit": {"10"}, "tag": {"walk", "idea"}}, []string{walk}},
+		"not":                             {url.Values{"limit": {"10"}, "not": {"idea"}}, []string{plain, used, sea}},
+		"unused and inbox are no filters": {url.Values{"limit": {"10"}, "unused": {"true"}, "inbox": {"true"}}, all},
+		"q":                               {url.Values{"limit": {"10"}, "q": {"THE"}}, []string{plain, sea}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

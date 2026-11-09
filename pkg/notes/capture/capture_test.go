@@ -77,17 +77,13 @@ func TestParse_Kinds(t *testing.T) {
 func TestAttribution(t *testing.T) {
 	t.Parallel()
 
-	for want, s := range map[string]capture.Source{
-		"— Author, *Title*, p. 12": {Author: "Author", Title: "Title", Page: "12"},
-		"— Author, *Title*":        {Author: " Author ", Title: "Title"},
-		"— *Title*, p. 12":         {Title: "Title", Page: "12"},
-		"— Author, p. 3-4":         {Author: "Author", Page: "3-4"},
-		"— *Title*":                {Title: "Title"},
-		"— Author":                 {Author: "Author", Title: " \t "},
-		"— p. 12":                  {Page: "12"},
-		"":                         {},
+	for title, want := range map[string]string{
+		"Walden":            "— *Walden*",
+		"  Walden \t Pond ": "— *Walden Pond*",
+		" \t ":              "",
+		"":                  "",
 	} {
-		require.Equal(t, want, capture.Attribution(s))
+		require.Equal(t, want, capture.Attribution(title), title)
 	}
 }
 

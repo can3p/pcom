@@ -101,11 +101,11 @@ delete them in pcom.
 | `kind` | How the text arrived: `note` (the default: typed, stored as it is), `share` (shared from another app) or `quote` (a passage of a book). Shared and quoted text is stored as a markdown blockquote; a text that is a single link stays a bare link. |
 | `tags` | Tags, repeated or comma-separated (`tags=walk,idea`); `#` and case don't matter. The `#words` of the text are tags too. |
 | `captured_at` | When the note was taken, RFC 3339 (`2026-11-07T09:30:00+01:00`); now when left out. |
-| `source` | The title of the book the note comes from; a source with that title (whatever the case and spacing) is reused, otherwise made. A `quote` without a source takes the source of your previous quote while that was within the focus idle time. |
+| `source` | The title of the source the note comes from (a source is only a title: a book, an article, a talk); your source with that title, whatever the case and spacing, is reused, otherwise made. A `quote` without a source takes the source of your previous sourced note while that was captured within `NOTE_QUOTE_SOURCE_WINDOW` (12 hours by default). |
 | `image` | A photo, JPEG, PNG or WebP; repeat the field for several. A HEIC photo is converted to JPEG on upload. |
 | `audio` | One recording, WebM, Ogg, MP4 (M4A) or MP3, transcribed into the note's text when the server has a speech-to-text backend. |
 
-The notes focus, when set, is added to the note's tags and renewed. The answer is the note:
+The answer is the note, with its source's title:
 
 ```
 curl -H'Authorization: Bearer <api-key>' -F 'text=Selected passage' -F kind=quote -F source=Dune -F 'image=@page.jpg' http://localhost:8080/api/v1/notes
@@ -157,7 +157,7 @@ Whether "Get Contents of URL" runs with the phone locked is recorded there too.
 `GET /api/v1/notes` pages your notes, newest capture first, like `GET /api/v1/posts`: `limit` is the page
 size, from 1 to 100 (left out, it is 1), and a non-empty `cursor` in the answer is passed as `cursor` for
 the next page. Filters: `tag` (repeated: notes with every tag), `not` (repeated: notes with none of
-them), `inbox=true` (notes without tags), `unused=true` (notes in no post), `q` (text in the body, any case).
+them), `q` (text in the body, any case).
 
 ```
 curl -H'Authorization: Bearer <api-key>' 'http://localhost:8080/api/v1/notes?limit=20&tag=walk'

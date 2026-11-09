@@ -52,6 +52,13 @@ func (w *world) get(t *testing.T, id string) *model.Note {
 	return testutil.Must(repo.New(w.db).NoteByID(w.ctx, id))(t)
 }
 
+// source reads a source back from the database.
+func (w *world) source(t *testing.T, id string) *model.NoteSource {
+	t.Helper()
+
+	return testutil.Must(repo.New(w.db).NoteSourceByID(w.ctx, id))(t)
+}
+
 func (w *world) count(t *testing.T, query string, args ...any) int {
 	t.Helper()
 
@@ -93,23 +100,30 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	mine := w.note(t, w.me)
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.other.ID))(t)
 	body := "x"
-	book := notes.SourceInput{Kind: model.NoteSourceBook, Title: "T"}
+	mySource := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
+	srcID := src.ID
 
 	calls := map[string]func() error{
-		"Get":         func() error { _, err := w.svc.Get(w.ctx, w.me, note.ID); return err },
-		"Update":      func() error { _, err := w.svc.Update(w.ctx, w.me, note.ID, notes.Edit{Body: &body}); return err },
-		"Delete":      func() error { return w.svc.Delete(w.ctx, w.me, note.ID) },
-		"DeleteMany":  func() error { _, err := w.svc.DeleteMany(w.ctx, w.me, []string{mine.ID, note.ID}); return err },
-		"TagMany":     func() error { return w.svc.TagMany(w.ctx, w.me, []string{mine.ID, note.ID}, []string{"a"}) },
-		"SuggestTags": func() error { _, err := w.svc.SuggestTags(w.ctx, w.me, note.ID); return err },
-		"SetSource":   func() error { return w.svc.SetSource(w.ctx, w.me, []string{note.ID}, &book) },
-		"MarkUsed":    func() error { return w.svc.MarkUsed(w.ctx, w.me, mine.ID, post.ID) },
+		"Get":        func() error { _, err := w.svc.Get(w.ctx, w.me, note.ID); return err },
+		"Update":     func() error { _, err := w.svc.Update(w.ctx, w.me, note.ID, notes.Edit{Body: &body}); return err },
+		"Delete":     func() error { return w.svc.Delete(w.ctx, w.me, note.ID) },
+		"DeleteMany": func() error { _, err := w.svc.DeleteMany(w.ctx, w.me, []string{mine.ID, note.ID}); return err },
+		"TagMany":    func() error { return w.svc.TagMany(w.ctx, w.me, []string{mine.ID, note.ID}, []string{"a"}) },
+		"SetSource":  func() error { return w.svc.SetSource(w.ctx, w.me, []string{note.ID}, "T") },
+		"MarkUsed":   func() error { return w.svc.MarkUsed(w.ctx, w.me, mine.ID, post.ID) },
 		"MarkUsedNote": func() error {
 			return w.svc.MarkUsed(w.ctx, w.me, note.ID, testutil.Must(factory.Post(w.ctx, w.db, w.me.ID))(t).ID)
 		},
 		"List":         func() error { _, err := w.svc.List(w.ctx, w.me, notes.Filter{SourceID: src.ID}); return err },
-		"RenameSource": func() error { return w.svc.RenameSource(w.ctx, w.me, src.ID, book) },
-		"MergeSources": func() error { return w.svc.MergeSources(w.ctx, w.me, []string{src.ID}, src.ID) },
+		"RenameSource": func() error { _, err := w.svc.RenameSource(w.ctx, w.me, src.ID, "T"); return err },
+		// renaming my source to the other user's title is a rename, not a merge
+		"Source": func() error { _, err := w.svc.Source(w.ctx, w.me, src.ID); return err },
+		// another user's source given to my note, new or edited
+		"CreateWithSource": func() error {
+			_, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "x", SourceID: src.ID})
+			return err
+		},
+		"UpdateSource": func() error { _, err := w.svc.Update(w.ctx, w.me, mine.ID, notes.Edit{SourceID: &srcID}); return err },
 	}
 
 	for name, call := range calls {
@@ -133,14 +147,19 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, src.Title, srcAfter.Title)
 	require.Equal(t, src.MatchKey, srcAfter.MatchKey)
-	require.Equal(t, src.Author, srcAfter.Author)
-	require.Equal(t, src.URL, srcAfter.URL)
 
 	tags, err := w.svc.Tags(w.ctx, w.me)
 	require.NoError(t, err)
 	require.Empty(t, tags)
 
-	require.ErrorIs(t, w.svc.MergeSources(w.ctx, w.me, []string{src.ID}, testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t).ID), service.ErrNotFound)
+	// renaming mine to the other user's title merges nothing of theirs
+	renamed, err := w.svc.RenameSource(w.ctx, w.me, mySource.ID, src.Title)
+	require.NoError(t, err)
+	require.Equal(t, mySource.ID, renamed.ID)
+
+	mineAfter, err := store.NoteByID(w.ctx, mine.ID)
+	require.NoError(t, err)
+	require.Nil(t, mineAfter.SourceID)
 }
 
 func TestCreateAndUpdateParseTags(t *testing.T) {
@@ -211,21 +230,18 @@ func TestListFilters(t *testing.T) {
 		f    notes.Filter
 		want []string
 	}{
-		"all":                           {notes.Filter{}, []string{d.ID, c.ID, b.ID, a.ID}},
-		"tags of both columns":          {notes.Filter{Tags: []string{"go"}}, []string{b.ID, a.ID}},
-		"all of the tags":               {notes.Filter{Tags: []string{"Go", "web"}}, []string{b.ID}},
-		"a text-column tag":             {notes.Filter{Tags: []string{"draft"}}, []string{b.ID}},
-		"not tags, both columns":        {notes.Filter{NotTags: []string{"web"}}, []string{d.ID, a.ID}},
-		"not a tag of the tags column":  {notes.Filter{NotTags: []string{"done"}}, []string{d.ID, b.ID, a.ID}},
-		"inbox":                         {notes.Filter{Inbox: true}, []string{d.ID}},
-		"unused":                        {notes.Filter{Unused: true}, []string{d.ID, c.ID, b.ID}},
-		"source":                        {notes.Filter{SourceID: book.ID}, []string{b.ID}},
-		"search ignores case":           {notes.Filter{Query: "walking IN"}, []string{a.ID}},
-		"search is not a pattern":       {notes.Filter{Query: "%"}, []string{}},
-		"inbox of a tag that has notes": {notes.Filter{Inbox: true, Tags: []string{"go"}}, []string{}},
-		"search box: tag and text":      {search("#GO walking"), []string{b.ID, a.ID}},
-		"search box: tag left out":      {search("walking -#web"), []string{a.ID}},
-		"search box: tags and text":     {search("#go #draft walking to"), []string{b.ID}},
+		"all":                          {notes.Filter{}, []string{d.ID, c.ID, b.ID, a.ID}},
+		"tags of both columns":         {notes.Filter{Tags: []string{"go"}}, []string{b.ID, a.ID}},
+		"all of the tags":              {notes.Filter{Tags: []string{"Go", "web"}}, []string{b.ID}},
+		"a text-column tag":            {notes.Filter{Tags: []string{"draft"}}, []string{b.ID}},
+		"not tags, both columns":       {notes.Filter{NotTags: []string{"web"}}, []string{d.ID, a.ID}},
+		"not a tag of the tags column": {notes.Filter{NotTags: []string{"done"}}, []string{d.ID, b.ID, a.ID}},
+		"source":                       {notes.Filter{SourceID: book.ID}, []string{b.ID}},
+		"search ignores case":          {notes.Filter{Query: "walking IN"}, []string{a.ID}},
+		"search is not a pattern":      {notes.Filter{Query: "%"}, []string{}},
+		"search box: tag and text":     {search("#GO walking"), []string{b.ID, a.ID}},
+		"search box: tag left out":     {search("walking -#web"), []string{a.ID}},
+		"search box: tags and text":    {search("#go #draft walking to"), []string{b.ID}},
 	}
 
 	for name, tc := range cases {
@@ -285,45 +301,25 @@ func TestPagingIsStableOverEqualCaptureTimes(t *testing.T) {
 	require.ErrorAs(t, err, new(*service.ValidationError))
 }
 
-func TestFocus(t *testing.T) {
+func TestTopTags(t *testing.T) {
 	t.Parallel()
 
-	w := newWorld(t, notes.WithLimits(notes.Limits{FocusIdle: time.Hour}))
+	w := newWorld(t, notes.WithLimits(notes.Limits{PanelTags: 2}))
 
-	require.NoError(t, w.svc.SetFocus(w.ctx, w.me, "#Essay"))
+	w.note(t, w.me, factory.WithNoteTags("rare"))
+	w.note(t, w.me, factory.WithNoteTags("common"), factory.WithNoteTextTags("often"))
+	w.note(t, w.me, factory.WithNoteTags("common", "often"))
+	w.note(t, w.me, factory.WithNoteTextTags("often"))
+	w.note(t, w.other, factory.WithNoteTags("theirs", "theirs2", "theirs3"))
 
-	focus, err := w.svc.Focus(w.ctx, w.me)
+	top, err := w.svc.TopTags(w.ctx, w.me)
 	require.NoError(t, err)
-	require.Equal(t, "essay", focus)
+	require.Equal(t, []notes.TagCount{{Tag: "often", Count: 3}, {Tag: "common", Count: 2}}, top)
 
-	// A capture applies the focus and renews it.
-	w.now = w.now.Add(50 * time.Minute)
-	n, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "x", Tags: []string{"mine"}, ApplyFocus: true})
+	fresh := newWorld(t)
+	none, err := fresh.svc.TopTags(fresh.ctx, fresh.me)
 	require.NoError(t, err)
-	require.Equal(t, []string{"mine", "essay"}, n.Tags)
-
-	w.now = w.now.Add(50 * time.Minute)
-	focus, _ = w.svc.Focus(w.ctx, w.me)
-	require.Equal(t, "essay", focus)
-
-	// Left alone, it expires, is not applied and is not revived by a capture.
-	w.now = w.now.Add(2 * time.Hour)
-	focus, _ = w.svc.Focus(w.ctx, w.me)
-	require.Empty(t, focus)
-
-	n, err = w.svc.Create(w.ctx, w.me, notes.Input{Body: "y", ApplyFocus: true})
-	require.NoError(t, err)
-	require.Empty(t, n.Tags)
-	require.NoError(t, w.svc.TouchFocus(w.ctx, w.me))
-
-	focus, _ = w.svc.Focus(w.ctx, w.me)
-	require.Empty(t, focus)
-
-	require.NoError(t, w.svc.SetFocus(w.ctx, w.me, "again"))
-	require.NoError(t, w.svc.SetFocus(w.ctx, w.me, ""))
-
-	focus, _ = w.svc.Focus(w.ctx, w.me)
-	require.Empty(t, focus)
+	require.Empty(t, none)
 }
 
 func TestDelete(t *testing.T) {
@@ -395,132 +391,117 @@ func TestTagManagement(t *testing.T) {
 	require.Equal(t, []notes.TagCount{{Tag: "keep", Count: 2}, {Tag: "new", Count: 2}, {Tag: "walk", Count: 2}}, tags)
 }
 
-func TestSuggestTags(t *testing.T) {
-	t.Parallel()
-
-	w := newWorld(t)
-	base := w.now.Add(-72 * time.Hour)
-	book := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
-	otherBook := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
-
-	w.note(t, w.me, factory.CapturedAt(base.Add(-48*time.Hour)), factory.WithNoteTags("deep-work", "unrelated", "walking"))
-	// The other notes of the source: quotes is carried by two, aside by one.
-	w.note(t, w.me, factory.CapturedAt(base.Add(-47*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("aside"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(-46*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTags("quotes"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(-45*time.Hour)), factory.FromSource(book.ID), factory.WithNoteTextTags("quotes"))
-	// Captured right next to the target, but from no source or another one.
-	w.note(t, w.me, factory.CapturedAt(base.Add(time.Minute)), factory.WithNoteTags("session"))
-	w.note(t, w.me, factory.CapturedAt(base.Add(2*time.Minute)), factory.FromSource(otherBook.ID), factory.WithNoteTags("elsewhere"))
-	target := w.note(t, w.me, factory.CapturedAt(base), factory.FromSource(book.ID), factory.WithNoteBody("some deep work on a Walking day"), factory.WithNoteTags("walking"))
-	loose := w.note(t, w.me, factory.CapturedAt(base.Add(3*time.Minute)), factory.WithNoteBody("more deep work"))
-
-	got, err := w.svc.SuggestTags(w.ctx, w.me, target.ID)
-	require.NoError(t, err)
-	// The text's tag first, then the source's tags, most carried first (not
-	// alphabetical), and not what the note has; nothing from the notes
-	// captured around it.
-	require.Equal(t, []string{"deep-work", "quotes", "aside"}, got)
-
-	got, err = w.svc.SuggestTags(w.ctx, w.me, loose.ID)
-	require.NoError(t, err)
-	require.Equal(t, []string{"deep-work"}, got, "a note without a source gets no other sourceless note's tags")
-}
-
+// Sources are titles: the same title whatever its case and spacing is one
+// source, added on its own or by giving notes one, listed with or without
+// notes; renaming to another source's title merges the two.
 func TestSources(t *testing.T) {
 	t.Parallel()
 
 	w := newWorld(t)
 	a, b, c := w.note(t, w.me), w.note(t, w.me), w.note(t, w.me)
 
-	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{a.ID}, &notes.SourceInput{Kind: model.NoteSourceBook, Title: "  Walden ", Author: "Henry  Thoreau"}))
-	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{b.ID}, &notes.SourceInput{Kind: model.NoteSourceBook, Title: "WALDEN", Author: "henry thoreau"}))
-	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{c.ID}, &notes.SourceInput{Kind: model.NoteSourceWeb, Title: "A page", URL: "https://example.test"}))
+	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{a.ID}, "  Walden   Pond "))
+	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{b.ID}, "WALDEN pond"))
+	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{c.ID}, "A page"))
+
+	empty, err := w.svc.AddSource(w.ctx, w.me, " Cape  Cod ")
+	require.NoError(t, err)
+	require.Equal(t, "Cape Cod", empty.Title)
+
+	again, err := w.svc.AddSource(w.ctx, w.me, "cape cod")
+	require.NoError(t, err)
+	require.Equal(t, empty.ID, again.ID, "adding a title that exists finds it")
 
 	srcs, err := w.svc.Sources(w.ctx, w.me)
 	require.NoError(t, err)
-	require.Len(t, srcs, 2)
-	require.Equal(t, "A page", srcs[0].Source.Title)
-	require.Equal(t, "Walden", srcs[1].Source.Title)
-	require.Equal(t, 2, srcs[1].Notes)
+	require.Len(t, srcs, 3)
+	require.Equal(t, []string{"A page", "Cape Cod", "Walden Pond"}, []string{srcs[0].Source.Title, srcs[1].Source.Title, srcs[2].Source.Title})
+	require.Equal(t, []int{1, 0, 2}, []int{srcs[0].Notes, srcs[1].Notes, srcs[2].Notes}, "a source without notes is listed")
 
-	page, id := srcs[0].Source, srcs[1].Source.ID
-	require.ErrorIs(t, w.svc.RenameSource(w.ctx, w.me, page.ID, notes.SourceInput{Kind: model.NoteSourceBook, Title: "walden", Author: "Henry Thoreau"}), service.ErrConflict)
-	require.NoError(t, w.svc.RenameSource(w.ctx, w.me, page.ID, notes.SourceInput{Kind: model.NoteSourceWeb, Title: "Renamed"}))
+	page, walden := srcs[0].Source, srcs[2].Source
 
-	srcs, err = w.svc.Sources(w.ctx, w.me)
+	got, err := w.svc.Source(w.ctx, w.me, page.ID)
 	require.NoError(t, err)
-	require.Equal(t, "Renamed", srcs[0].Source.Title)
-	require.Equal(t, model.NoteSourceWeb, srcs[0].Source.Kind)
-	require.Nil(t, srcs[0].Source.URL)
+	require.Equal(t, "A page", got.Title)
 
-	require.NoError(t, w.svc.MergeSources(w.ctx, w.me, []string{page.ID}, id))
-	require.Equal(t, 1, w.count(t, "select count(*) from note_sources"))
-	require.Equal(t, 3, w.count(t, "select count(*) from notes where source_id = $1", id))
-
-	// Without notes a source is not listed, and a note can lose its source.
-	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{a.ID, b.ID, c.ID}, nil))
-
-	srcs, err = w.svc.Sources(w.ctx, w.me)
+	// a plain rename, the case of its own title included
+	renamed, err := w.svc.RenameSource(w.ctx, w.me, page.ID, " A  Page ")
 	require.NoError(t, err)
-	require.Empty(t, srcs)
+	require.Equal(t, page.ID, renamed.ID)
+	require.Equal(t, "A Page", w.source(t, page.ID).Title)
+
+	// renaming into another source's title merges them
+	merged, err := w.svc.RenameSource(w.ctx, w.me, page.ID, "walden pond")
+	require.NoError(t, err)
+	require.Equal(t, walden.ID, merged.ID)
+	require.Equal(t, "Walden Pond", merged.Title)
+	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
+	require.Equal(t, 3, w.count(t, "select count(*) from notes where source_id = $1", walden.ID))
+
+	// an empty title takes the notes' source away; the source stays
+	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{a.ID, b.ID, c.ID}, " "))
+	require.Equal(t, 0, w.count(t, "select count(*) from notes where source_id is not null"))
+	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
 
 	var verr *service.ValidationError
 
-	err = w.svc.SetSource(w.ctx, w.me, []string{a.ID}, &notes.SourceInput{Kind: model.NoteSourceBook})
-	require.ErrorAs(t, err, &verr)
-	require.Equal(t, "title", verr.Field)
+	long := strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)
 
-	err = w.svc.SetSource(w.ctx, w.me, []string{a.ID}, &notes.SourceInput{Kind: "film", Title: "x"})
-	require.ErrorAs(t, err, &verr)
-	require.Equal(t, "kind", verr.Field)
+	for name, call := range map[string]func() error{
+		"add empty":    func() error { _, err := w.svc.AddSource(w.ctx, w.me, "  "); return err },
+		"add long":     func() error { _, err := w.svc.AddSource(w.ctx, w.me, long); return err },
+		"rename empty": func() error { _, err := w.svc.RenameSource(w.ctx, w.me, walden.ID, ""); return err },
+		"rename long":  func() error { _, err := w.svc.RenameSource(w.ctx, w.me, walden.ID, long); return err },
+	} {
+		require.ErrorAs(t, call(), &verr, name)
+		require.Equal(t, "title", verr.Field, name)
+	}
+
+	require.Equal(t, "Walden Pond", w.source(t, walden.ID).Title)
+	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
 }
 
-// The edit page's Source: a title and author find the actor's source by its
-// match key or make one, an empty title takes it away, and no Source keeps it.
-func TestUpdateSetsTheSource(t *testing.T) {
+// A note's source is one of the actor's, chosen by id on create and edit, or
+// found or made by title on create; "" takes it away, nil keeps it.
+func TestNoteSourceOnCreateAndUpdate(t *testing.T) {
 	t.Parallel()
 
 	w := newWorld(t)
-	n, other := w.note(t, w.me), w.note(t, w.me)
-	theirs := w.note(t, w.other)
+	walden := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID, factory.WithSourceTitle("Walden")))(t)
+	cape := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID, factory.WithSourceTitle("Cape Cod")))(t)
 
-	require.NoError(t, w.svc.SetSource(w.ctx, w.other, []string{theirs.ID}, &notes.SourceInput{Kind: model.NoteSourceBook, Title: "Walden", Author: "Henry Thoreau"}))
-	require.NoError(t, w.svc.SetSource(w.ctx, w.me, []string{other.ID}, &notes.SourceInput{Kind: model.NoteSourceWeb, Title: "Walden", Author: "Henry Thoreau"}))
-	mine := w.get(t, other.ID).SourceID
-
-	page := "p. 12"
-	got, err := w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Locator: &page, Source: &notes.SourceInput{Title: " walden ", Author: "HENRY  thoreau"}})
+	n, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "x", SourceID: walden.ID})
 	require.NoError(t, err)
-	require.Equal(t, mine, got.SourceID, "the same title and author is the actor's own source, whatever the case and spacing")
-	require.Equal(t, model.NoteSourceWeb, got.Source.Kind)
+	require.Equal(t, walden.ID, *w.get(t, n.ID).SourceID)
 
-	saved := w.get(t, n.ID)
-	require.Equal(t, mine, saved.SourceID)
-	require.Equal(t, page, *saved.Locator)
+	byTitle, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "y", Source: " walden "})
+	require.NoError(t, err)
+	require.Equal(t, walden.ID, *byTitle.SourceID, "a title finds the source")
+
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{SourceID: &cape.ID})
+	require.NoError(t, err)
+	require.Equal(t, cape.ID, *w.get(t, n.ID).SourceID)
 
 	body := "kept"
 	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: &body})
 	require.NoError(t, err)
-	require.Equal(t, mine, w.get(t, n.ID).SourceID, "an edit without a Source keeps it")
+	require.Equal(t, cape.ID, *w.get(t, n.ID).SourceID, "an edit without a source keeps it")
 
-	got, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Source: &notes.SourceInput{Title: "Cape Cod"}})
-	require.NoError(t, err)
-	require.NotEqual(t, mine, got.SourceID)
-	require.Equal(t, model.NoteSourceBook, got.Source.Kind, "a new source is a book unless said otherwise")
-	require.Nil(t, got.Source.Author)
-	require.Equal(t, 3, w.count(t, "select count(*) from note_sources"))
-
-	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Source: &notes.SourceInput{Title: "  "}})
+	none := ""
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{SourceID: &none})
 	require.NoError(t, err)
 	require.Nil(t, w.get(t, n.ID).SourceID)
+
+	bad := "not-a-uuid"
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{SourceID: &bad})
+	require.ErrorIs(t, err, service.ErrNotFound)
 
 	var verr *service.ValidationError
 
-	long := notes.SourceInput{Title: strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)}
-	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Source: &long})
+	_, err = w.svc.Create(w.ctx, w.me, notes.Input{Body: "z", Source: strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)})
 	require.ErrorAs(t, err, &verr)
-	require.Equal(t, "title", verr.Field)
-	require.Nil(t, w.get(t, n.ID).SourceID)
+	require.Equal(t, "source", verr.Field)
+	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
 }
 
 // Every method that takes an actor asks an anonymous one to log in.
@@ -531,7 +512,7 @@ func TestNilActorNeedsLogin(t *testing.T) {
 	n := w.note(t, w.me)
 	src := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.me.ID))(t)
-	noteIDs, body, book := []string{n.ID}, "x", notes.SourceInput{Kind: model.NoteSourceBook, Title: "T"}
+	noteIDs, body := []string{n.ID}, "x"
 
 	calls := map[string]func(u *model.User) error{
 		"Create":       func(u *model.User) error { _, err := w.svc.Create(w.ctx, u, notes.Input{Body: body}); return err },
@@ -542,19 +523,16 @@ func TestNilActorNeedsLogin(t *testing.T) {
 		"MarkUsed":     func(u *model.User) error { return w.svc.MarkUsed(w.ctx, u, n.ID, post.ID) },
 		"List":         func(u *model.User) error { _, err := w.svc.List(w.ctx, u, notes.Filter{}); return err },
 		"Tags":         func(u *model.User) error { _, err := w.svc.Tags(w.ctx, u); return err },
-		"InboxCount":   func(u *model.User) error { _, err := w.svc.InboxCount(w.ctx, u); return err },
 		"PostLinks":    func(u *model.User) error { _, err := w.svc.PostLinks(w.ctx, u, n.ID); return err },
-		"SuggestTags":  func(u *model.User) error { _, err := w.svc.SuggestTags(w.ctx, u, n.ID); return err },
 		"TagMany":      func(u *model.User) error { return w.svc.TagMany(w.ctx, u, noteIDs, []string{"a"}) },
 		"RenameTag":    func(u *model.User) error { return w.svc.RenameTag(w.ctx, u, "a", "b") },
 		"MergeTags":    func(u *model.User) error { return w.svc.MergeTags(w.ctx, u, []string{"a"}, "b") },
-		"SetFocus":     func(u *model.User) error { return w.svc.SetFocus(w.ctx, u, "a") },
-		"Focus":        func(u *model.User) error { _, err := w.svc.Focus(w.ctx, u); return err },
-		"TouchFocus":   func(u *model.User) error { return w.svc.TouchFocus(w.ctx, u) },
 		"Sources":      func(u *model.User) error { _, err := w.svc.Sources(w.ctx, u); return err },
-		"SetSource":    func(u *model.User) error { return w.svc.SetSource(w.ctx, u, noteIDs, &book) },
-		"RenameSource": func(u *model.User) error { return w.svc.RenameSource(w.ctx, u, src.ID, book) },
-		"MergeSources": func(u *model.User) error { return w.svc.MergeSources(w.ctx, u, []string{src.ID}, src.ID) },
+		"SetSource":    func(u *model.User) error { return w.svc.SetSource(w.ctx, u, noteIDs, "T") },
+		"RenameSource": func(u *model.User) error { _, err := w.svc.RenameSource(w.ctx, u, src.ID, "T"); return err },
+		"AddSource":    func(u *model.User) error { _, err := w.svc.AddSource(w.ctx, u, "T"); return err },
+		"Source":       func(u *model.User) error { _, err := w.svc.Source(w.ctx, u, src.ID); return err },
+		"TopTags":      func(u *model.User) error { _, err := w.svc.TopTags(w.ctx, u); return err },
 	}
 
 	for name, call := range calls {
@@ -572,5 +550,4 @@ func TestMarkUsed(t *testing.T) {
 	require.NoError(t, w.svc.MarkUsed(w.ctx, w.me, n.ID, post.ID))
 	require.NoError(t, w.svc.MarkUsed(w.ctx, w.me, n.ID, post.ID))
 	require.Equal(t, 1, w.count(t, "select count(*) from note_post_links where how = 'inserted'"))
-	require.Empty(t, w.list(t, notes.Filter{Unused: true}))
 }

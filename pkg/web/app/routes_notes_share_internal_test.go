@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/notes"
@@ -126,7 +127,7 @@ func TestShareRoute(t *testing.T) {
 
 		loc, err := url.Parse(rec.Header().Get("Location"))
 		require.NoError(t, err)
-		require.Equal(t, web.NoteCapturePath, loc.Path)
+		require.Equal(t, links.Link("notes_new"), loc.Path)
 
 		n, err := store.NoteWithRelations(ctx, loc.Query().Get(web.CaptureSharedParam))
 		require.NoError(t, err)

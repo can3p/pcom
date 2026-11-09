@@ -50,22 +50,21 @@
       {{ with .Notes }}
       <section class="controls-section" aria-labelledby="controls-notes-title">
         <h2 id="controls-notes-title">Notes</h2>
-        <p class="field-help">
-          {{ if gt .Inbox 0 }}<a href="/controls/notes?inbox=1">{{ .Inbox }} untagged {{ if eq .Inbox 1 }}note waits{{ else }}notes wait{{ end }} in the Inbox</a>{{ else }}The Inbox is empty{{ end }}
-        </p>
         {{ if .Newest }}
         <ul class="controls-list">
           {{ range .Newest }}
           <li class="controls-row">
-            <a class="note-excerpt" href="/controls/notes/{{ .ID }}/edit">{{ with .Body }}{{ . }}{{ else }}Recording or photo{{ end }}</a>
+            <a class="note-excerpt" href="{{ link "note_edit" .ID }}">{{ with .Body }}{{ . }}{{ else }}Recording or photo{{ end }}</a>
             <span class="meta">{{ renderHumanTime .CapturedAt $.User.DBUser }}</span>
           </li>
           {{ end }}
         </ul>
+        {{ else }}
+        <p class="field-help">No notes yet.</p>
         {{ end }}
         <p class="acts">
-          <a href="/controls/notes">All notes</a>
-          <a href="/controls/notes/new">Capture</a>
+          <a href="{{ link "notes" }}">All notes</a>
+          <a href="{{ link "notes_new" }}">Capture</a>
         </p>
       </section>
       {{ end }}

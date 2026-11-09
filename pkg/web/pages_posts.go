@@ -6,6 +6,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/forms"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/postops"
@@ -22,8 +23,6 @@ type WritePage struct {
 	// Proofread is set by the route when the grammar check and style review
 	// are on: the editor then shows their buttons and panel.
 	Proofread bool
-	// NotesEnabled shows the editor's Notes button and panel.
-	NotesEnabled bool
 	// Subscribers is what the form says about the author's email
 	// subscribers.
 	Subscribers *posts.SubscriberReach
@@ -49,10 +48,9 @@ func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Resul
 	}
 
 	return mo.Ok(&WritePage{
-		BasePage:     getBasePage(c, "New Post", userData),
-		Prompt:       prompt,
-		NotesEnabled: true,
-		Subscribers:  reach,
+		BasePage:    getBasePage(c, "New Post", userData),
+		Prompt:      prompt,
+		Subscribers: reach,
 	})
 }
 
@@ -65,8 +63,6 @@ type EditPostPage struct {
 	Prompt        *postops.PostPrompt
 	// Proofread is set by the route, as on WritePage.
 	Proofread bool
-	// NotesEnabled is as on WritePage.
-	NotesEnabled bool
 	// Subscribers is as on WritePage, for this post.
 	Subscribers *posts.SubscriberReach
 }
@@ -103,13 +99,9 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 		LastUpdatedAt: lo.FromPtr(post.UpdatedAt),
 		IsPublished:   post.PublishedAt != nil,
 		Prompt:        view.Prompt,
-		NotesEnabled:  true,
 		Subscribers:   reach,
 	})
 }
-
-// NotePickerPath is the fragment the post editor's Notes panel loads.
-const NotePickerPath = "/controls/notes/picker"
 
 // NotePickerItem is a note of the panel; Text is what Insert and Append put
 // into the post: the body, and under a quote the attribution line.
@@ -122,7 +114,10 @@ type NotePickerItem struct {
 // the notes the panel's search box (q, read like the notes list's) finds.
 type NotePickerPage struct {
 	Query NoteQuery
-	Items []*NotePickerItem
+	// TopTags are the author's most used tags, which the panel offers under
+	// its search box.
+	TopTags []notes.TagCount
+	Items   []*NotePickerItem
 	// More loads the next page, empty on the last.
 	More string
 }
@@ -135,20 +130,12 @@ func quoteText(n *model.Note) string {
 		return n.Body
 	}
 
-	line := capture.Attribution(capture.Source{Author: derefString(n.Source.Author), Title: n.Source.Title, Page: derefString(n.Locator)})
+	line := capture.Attribution(n.Source.Title)
 	if line == "" {
 		return n.Body
 	}
 
 	return strings.TrimRight(n.Body, "\n") + "\n\n" + line
-}
-
-func derefString(s *string) string {
-	if s == nil {
-		return ""
-	}
-
-	return *s
 }
 
 // NotePicker is the fragment of the Notes panel for the search of the request.
@@ -161,21 +148,21 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		return mo.Err[*NotePickerPage](err)
 	}
 
-	items, err := noteItems(svc, c, user, page.Entries, false)
+	top, err := svc.TopTags(c, user)
 	if err != nil {
 		return mo.Err[*NotePickerPage](err)
 	}
 
-	out := &NotePickerPage{Query: q}
+	out := &NotePickerPage{Query: q, TopTags: top}
 
-	for _, it := range items {
+	for _, it := range noteItems(svc, page.Entries) {
 		out.Items = append(out.Items, &NotePickerItem{Item: it, Text: quoteText(it.Note)})
 	}
 
 	if page.Next != "" {
 		more := q.Values()
 		more.Set("cursor", page.Next)
-		out.More = NotePickerPath + "?" + more.Encode()
+		out.More = links.Link("notes_picker") + "?" + more.Encode()
 	}
 
 	return mo.Ok(out)

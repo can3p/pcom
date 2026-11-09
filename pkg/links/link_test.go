@@ -14,6 +14,7 @@ func TestLink_SimpleNames(t *testing.T) {
 		name     string
 		expected string
 	}{
+		{"home", "/"},
 		{"controls", "/controls"},
 		{"settings", "/controls/settings"},
 		{"write", "/write"},
@@ -38,6 +39,17 @@ func TestLink_SimpleNames(t *testing.T) {
 		{"form_whitelist_connection", "/controls/form/whitelist_connection"},
 		{"form_prompt_post", "/controls/form/prompt_post"},
 		{"subscriptions_lost", "/subscriptions"},
+		{"notes", "/controls/notes"},
+		{"notes_new", "/controls/notes/new"},
+		{"notes_manage", "/controls/notes/manage"},
+		{"notes_picker", "/controls/notes/picker"},
+		{"notes_share", "/controls/notes/share"},
+		{"notes_sw", "/controls/notes/sw.js"},
+		{"notes_scope", "/controls/notes/"},
+		{"form_note_create", "/controls/form/note_create"},
+		{"form_note_source_add", "/controls/form/note_source_add"},
+		{"api_notes", "/api/v1/notes"},
+		{"manifest", "/site.webmanifest"},
 	}
 
 	for _, tt := range tests {
@@ -75,6 +87,15 @@ func TestLink_WithArguments(t *testing.T) {
 		{"subscription_confirm", []string{"confirm-token"}, "/subscriptions/confirm/confirm-token"},
 		{"subscriptions_manage", []string{"manage-token"}, "/subscriptions/manage-token"},
 		{"subscription_unsubscribe", []string{"manage-token", "sub-1"}, "/subscriptions/manage-token/unsubscribe/sub-1"},
+		{"note_edit", []string{"n1"}, "/controls/notes/n1/edit"},
+		{"note_audio", []string{"n1"}, "/controls/notes/n1/audio"},
+		{"note_status", []string{"n1"}, "/controls/notes/n1/status"},
+		{"note_source", []string{"s1"}, "/controls/notes/sources/s1"},
+		{"note_source_edit", []string{"s1"}, "/controls/notes/sources/s1/edit"},
+		{"form_note_edit", []string{"n1"}, "/controls/form/note_edit/n1"},
+		{"form_note_source_edit", []string{"s1"}, "/controls/form/note_source_edit/s1"},
+		{"notes", []string{"q", "#a b"}, "/controls/notes?q=%23a+b"},
+		{"signup", []string{"attribution", "header"}, "/signup?attribution=header"},
 	}
 
 	for _, tt := range tests {

@@ -26,14 +26,13 @@ func (DeleteAudioArgs) Kind() string { return "notes.delete_audio" }
 type Input struct {
 	Body string
 	// Tags are set by an action; the #words of Body are tags anyway.
-	Tags    []string
-	Source  *SourceInput
-	Locator string
+	Tags []string
+	// SourceID is one of the actor's sources (the note form's choice);
+	// Source is a title, found or created like a capture's. SourceID wins.
+	SourceID string
+	Source   string
 	// CapturedAt is when the note was taken; the zero value means now.
 	CapturedAt time.Time
-	// ApplyFocus adds the actor's focus tag, if the focus has not expired,
-	// and renews it.
-	ApplyFocus bool
 }
 
 // Create saves a note of the actor.
@@ -50,25 +49,7 @@ func (s *Service) Create(ctx context.Context, actor *model.User, in Input) (*mod
 	var note *model.Note
 
 	err = s.store.Tx(ctx, func(tx *repo.Store) error {
-		tags := in.Tags
-
-		if in.ApplyFocus {
-			focus, err := s.focus(ctx, tx, actor.ID)
-			if err != nil {
-				return err
-			}
-
-			if focus != "" {
-				tags = append(slices.Clone(tags), focus)
-			}
-		}
-
-		set, text, err := s.tagsOf(in.Body, tags)
-		if err != nil && in.ApplyFocus && len(in.Tags) < len(tags) {
-			// The focus tag may not fail a capture that is fine without it.
-			set, text, err = s.tagsOf(in.Body, in.Tags)
-		}
-
+		set, text, err := s.tagsOf(in.Body, in.Tags)
 		if err != nil {
 			return err
 		}
@@ -78,28 +59,24 @@ func (s *Service) Create(ctx context.Context, actor *model.User, in Input) (*mod
 			note.CapturedAt = s.now()
 		}
 
-		if in.Locator != "" {
-			note.Locator = &in.Locator
+		var src *model.NoteSource
+
+		switch {
+		case in.SourceID != "":
+			src, err = s.ownSource(ctx, tx, actor, in.SourceID)
+		case strings.TrimSpace(in.Source) != "":
+			src, err = s.resolveSource(ctx, tx, actor, in.Source)
 		}
 
-		if in.Source != nil {
-			src, err := s.resolveSource(ctx, tx, actor, *in.Source)
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return asField(err, "source")
+		}
 
+		if src != nil {
 			note.SourceID, note.Source = &src.ID, src
 		}
 
-		if err := tx.CreateNote(ctx, note); err != nil {
-			return err
-		}
-
-		if in.ApplyFocus {
-			return s.touchFocus(ctx, tx, actor.ID)
-		}
-
-		return nil
+		return tx.CreateNote(ctx, note)
 	})
 	if err != nil {
 		return nil, err
@@ -113,12 +90,8 @@ func (s *Service) Create(ctx context.Context, actor *model.User, in Input) (*mod
 type Edit struct {
 	Body *string
 	Tags *[]string
-	// Locator is where in the source the note comes from; "" clears it.
-	Locator *string
-	// Source gives the note the source with this title and author, found or
-	// created like a capture's (a book when Kind is empty); an empty Title
-	// takes the note's source away.
-	Source *SourceInput
+	// SourceID is one of the actor's sources, or "" for none.
+	SourceID *string
 }
 
 // Update changes a note of the actor.
@@ -146,51 +119,28 @@ func (s *Service) Update(ctx context.Context, actor *model.User, noteID string, 
 			return err
 		}
 
-		if in.Locator != nil {
-			n.Locator = nil
-			if *in.Locator != "" {
-				n.Locator = in.Locator
-			}
-		}
+		if in.SourceID != nil {
+			n.SourceID, n.Source = nil, nil
 
-		if in.Source != nil {
-			if err := s.setSourceOf(ctx, tx, actor, n, *in.Source); err != nil {
-				return err
+			if *in.SourceID != "" {
+				src, err := s.ownSource(ctx, tx, actor, *in.SourceID)
+				if err != nil {
+					return asField(err, "source")
+				}
+
+				n.SourceID, n.Source = &src.ID, src
 			}
 		}
 
 		note = n
 
-		return tx.SaveNote(ctx, n, "body", "tags", "text_tags", "locator", "source_id", "updated_at")
+		return tx.SaveNote(ctx, n, "body", "tags", "text_tags", "source_id", "updated_at")
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return note, nil
-}
-
-// setSourceOf points n at the actor's source in, or at none when its title
-// is empty.
-func (s *Service) setSourceOf(ctx context.Context, tx *repo.Store, actor *model.User, n *model.Note, in SourceInput) error {
-	if strings.TrimSpace(in.Title) == "" {
-		n.SourceID, n.Source = nil, nil
-
-		return nil
-	}
-
-	if in.Kind == "" {
-		in.Kind = model.NoteSourceBook
-	}
-
-	src, err := s.resolveSource(ctx, tx, actor, in)
-	if err != nil {
-		return err
-	}
-
-	n.SourceID, n.Source = &src.ID, src
-
-	return nil
 }
 
 // Get returns a note of the actor with its source and photos.

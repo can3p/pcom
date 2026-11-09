@@ -28,15 +28,18 @@ Once the draft is saved, or after your first check, a line under the editor show
 
 ## Notes in a post
 
-The sidebar beside the editor has two tabs, **Checks** (the grammar check and style review) and **Notes**. Use the arrow
-at its top to collapse it to a thin strip and expand it again; the editor remembers the tab and whether it is
-collapsed in this browser. **Check grammar** and **Style review** switch to Checks and expand the sidebar.
+The sidebar beside the editor has two tabs, **Checks** (the grammar check and style review, when the site offers
+them) and **Notes**. The arrow at its top collapses it to a slim strip along the right edge of the editor box, as
+tall as the box, with one icon per tab: the tick opens the sidebar on Checks, the page opens it on Notes. The editor
+remembers the tab and whether it is collapsed in this browser. **Check grammar** and **Style review** switch to
+Checks and open the sidebar.
 
 The Notes tab has a search box that works like the one in the [notes list](notes.md): words search the text, `#tag`
-keeps the notes with that tag and `-#tag` leaves them out. Each note has a row of small icon buttons: **Insert** puts
+keeps the notes with that tag and `-#tag` leaves them out. Under it are your most used tags, and each note shows
+its tags; a tap on a tag adds it to the search. Each note has a row of small icon buttons: **Insert** puts
 its text in at the cursor, **Append** adds it to the end of the post, **Edit** opens the note in a new tab and
 **Delete** deletes the note after asking (the text already in posts stays). A quote goes in with its source, as
-*— Author, *Title*, p. 12*. The editor saves the post as usual, and inserting a note marks it used.
+*— *Title**. The editor saves the post as usual, and inserting a note marks it used.
 
 ![The post editor with the Notes tab of the sidebar showing notes.](screenshots/notes-panel.png)
 

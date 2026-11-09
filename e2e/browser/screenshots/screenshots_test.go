@@ -204,7 +204,6 @@ func addNotes(t *testing.T, app *e2e.App) string {
 	postNote(t, app, url.Values{
 		"kind":        {"quote"},
 		"source":      {"Moby-Dick"},
-		"locator":     {"p. 1"},
 		"text":        {"Call me Ishmael. Some years ago, having little or no money in my purse, I thought I would sail about a little and see the watery part of the world."},
 		"captured_at": {ago(72 * time.Hour)},
 	})
@@ -254,8 +253,7 @@ func openNotesPanel(t *testing.T, page playwright.Page) {
 
 	fillEditor(t, page)
 	// the sidebar starts collapsed in a fresh browser
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Expand the sidebar", Exact: new(true)}).Click())
-	require.NoError(t, page.GetByRole("tab", playwright.PageGetByRoleOptions{Name: "Notes", Exact: new(true)}).Click())
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Show Notes", Exact: new(true)}).Click())
 }
 
 // createNotesKey makes a notes-only key through the form, then reloads, so

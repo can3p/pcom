@@ -1,17 +1,20 @@
-{{/* The post editor's Notes panel, loaded into #np-body by GET /controls/notes/picker (the panel's search box
-     sends q). The page: a web.NotePickerPage. A "Load more" gets note_picker_list alone.
-     Each card has one row of icon buttons: Insert and Append (notes-picker controller), Edit (the note's edit
-     page in a new tab) and Delete (the note_delete action, which removes the card). */}}
+{{/* The post editor's Notes panel, swapped into #np-body. Takes a web.NotePickerPage; "Load more" gets
+     note_picker_list alone. */}}
 {{ define "note_picker_list" }}
 {{ range .Items }}
 {{ $n := .Item.Note }}
 <article class="np-note" id="np-note-{{ $n.ID }}" data-testid="picker-note">
-  {{ if $n.Source }}<p class="meta">{{ $n.Source.Title }}{{ with $n.Locator }}, {{ . }}{{ end }}</p>{{ end }}
+  {{ if $n.Source }}<p class="meta">{{ $n.Source.Title }}</p>{{ end }}
   <div class="prose np-text">{{ markdown_feed $n.Body }}</div>
+  {{ with .Item.Tags }}
+  <ul class="np-tags" aria-label="Tags of the note">
+    {{ range . }}<li><button type="button" class="np-tag" data-action="notes-picker#addTag" data-tag="{{ .Tag }}" aria-label="Search #{{ .Tag }}">#{{ .Tag }}</button></li>{{ end }}
+  </ul>
+  {{ end }}
   <div class="np-acts">
     <button type="button" class="np-ico" data-action="notes-picker#insert" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Insert" title="Insert at the cursor"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v7a4 4 0 0 0 4 4h10"></path><path d="M15 11l4 4-4 4"></path></svg></button>
     <button type="button" class="np-ico" data-action="notes-picker#append" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Append" title="Append to the end of the post"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></button>
-    <a class="np-ico" href="/controls/notes/{{ $n.ID }}/edit" target="_blank" rel="noopener" aria-label="Edit" title="Edit the note in a new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
+    <a class="np-ico" href="{{ link "note_edit" $n.ID }}" target="_blank" rel="noopener" aria-label="Edit" title="Edit the note in a new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
     <button type="button" class="np-ico np-del"
             data-controller="action"
             data-action="action#run"
@@ -34,6 +37,11 @@
 {{ end }}
 {{ end }}
 
+{{ with .TopTags }}
+<ul class="np-tags np-top" aria-label="Your most used tags">
+  {{ range . }}<li><button type="button" class="np-tag" data-action="notes-picker#addTag" data-tag="{{ .Tag }}" aria-label="Search #{{ .Tag }}">#{{ .Tag }}</button></li>{{ end }}
+</ul>
+{{ end }}
 <div class="np-list">
 {{ template "note_picker_list" . }}
 </div>

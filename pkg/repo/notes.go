@@ -86,8 +86,6 @@ type NoteFilter struct {
 	Tags     []string
 	NotTags  []string
 	SourceID string
-	Unused   bool
-	Inbox    bool
 	Query    string
 	BeforeAt time.Time
 	BeforeID string
@@ -128,14 +126,6 @@ func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) 
 
 	if f.SourceID != "" {
 		q = q.Where("n.source_id = ?", f.SourceID)
-	}
-
-	if f.Unused {
-		q = q.Where("NOT EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = n.id)")
-	}
-
-	if f.Inbox {
-		q = q.Where("cardinality(" + noteTags + ") = 0")
 	}
 
 	if f.Query != "" {
@@ -216,26 +206,6 @@ ORDER BY count(*) DESC, x.tag`, userID).Scan(ctx, &out)
 	return out, err
 }
 
-// SourceTagCounts returns the tags the other notes of a note's source carry,
-// with how many of those notes carry each, most carried first. A note
-// without a source has none.
-func (s *Store) SourceTagCounts(ctx context.Context, userID, noteID string) ([]TagCount, error) {
-	var out []TagCount
-
-	err := s.query().NewRaw(`
-SELECT x.tag AS tag, count(*) AS count
-FROM (
-  SELECT DISTINCT n.id, unnest(`+noteTags+`) AS tag
-  FROM notes n
-  JOIN notes me ON me.id = ? AND me.source_id = n.source_id
-  WHERE n.user_id = ? AND n.id <> me.id
-) x
-GROUP BY x.tag
-ORDER BY count(*) DESC, x.tag`, noteID, userID).Scan(ctx, &out)
-
-	return out, err
-}
-
 // LockNotesWithTags returns the user's notes that carry any of the tags (in
 // either column), locked for update until the transaction ends.
 func (s *Store) LockNotesWithTags(ctx context.Context, userID string, tags []string) ([]*model.Note, error) {
@@ -282,10 +252,9 @@ func (s *Store) CreateNoteSource(ctx context.Context, src *model.NoteSource) (*m
 	return s.NoteSourceByMatchKey(ctx, src.UserID, src.MatchKey)
 }
 
-// SaveNoteSource writes the kind, title, author, URL and match key of src.
+// SaveNoteSource writes the title and match key of src.
 func (s *Store) SaveNoteSource(ctx context.Context, src *model.NoteSource) error {
-	_, err := s.query().NewUpdate().Model(src).WherePK().
-		Column("kind", "title", "author", "url", "match_key").Exec(ctx)
+	_, err := s.query().NewUpdate().Model(src).WherePK().Column("title", "match_key").Exec(ctx)
 
 	return err
 }
@@ -322,39 +291,28 @@ type NoteSourceCount struct {
 	Notes  int
 }
 
-// NoteSourcesWithNotes returns the user's sources that have notes, by title.
-func (s *Store) NoteSourcesWithNotes(ctx context.Context, userID string) ([]NoteSourceCount, error) {
+// NoteSourceCounts returns all the user's sources, by title, with how many
+// notes come from each.
+func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSourceCount, error) {
 	var rows []struct {
-		ID       string  `bun:"id"`
-		UserID   string  `bun:"user_id"`
-		Kind     string  `bun:"kind"`
-		Title    string  `bun:"title"`
-		Author   *string `bun:"author"`
-		URL      *string `bun:"url"`
-		MatchKey string  `bun:"match_key"`
-		Notes    int     `bun:"notes"`
+		model.NoteSource `bun:",extend"`
+
+		Notes int `bun:"notes"`
 	}
 
 	err := s.query().NewSelect().
-		TableExpr("note_sources AS s").
-		ColumnExpr("s.*").
-		ColumnExpr("(SELECT count(*) FROM notes n WHERE n.source_id = s.id) AS notes").
-		Where("s.user_id = ?", userID).
-		Where("EXISTS (SELECT 1 FROM notes n WHERE n.source_id = s.id)").
-		OrderExpr("lower(s.title), s.id").Scan(ctx, &rows)
+		Model(&rows).
+		ColumnExpr("?TableAlias.*").
+		ColumnExpr("(SELECT count(*) FROM notes n WHERE n.source_id = ?TableAlias.id) AS notes").
+		Where("?TableAlias.user_id = ?", userID).
+		OrderExpr("lower(?TableAlias.title), ?TableAlias.id").Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	out := make([]NoteSourceCount, len(rows))
-	for i, r := range rows {
-		out[i] = NoteSourceCount{
-			Source: &model.NoteSource{
-				ID: r.ID, UserID: r.UserID, Kind: model.NoteSourceKind(r.Kind), Title: r.Title,
-				Author: r.Author, URL: r.URL, MatchKey: r.MatchKey,
-			},
-			Notes: r.Notes,
-		}
+	for i := range rows {
+		out[i] = NoteSourceCount{Source: &rows[i].NoteSource, Notes: rows[i].Notes}
 	}
 
 	return out, nil
@@ -365,16 +323,6 @@ func (s *Store) NoteSourcesWithNotes(ctx context.Context, userID string) ([]Note
 func (s *Store) LinkNotePost(ctx context.Context, noteID, postID string, how model.NotePostLinkHow) error {
 	_, err := s.query().NewInsert().Model(&model.NotePostLink{NoteID: noteID, PostID: postID, How: how}).
 		On("CONFLICT (note_id, post_id) DO NOTHING").Exec(ctx)
-
-	return err
-}
-
-// SetNotesFocus stores the user's focus tag and when it was last used; a nil
-// tag clears it.
-func (s *Store) SetNotesFocus(ctx context.Context, userID string, tag *string, at *time.Time) error {
-	_, err := s.query().NewUpdate().Model((*model.User)(nil)).
-		Set("notes_focus_tag = ?", tag).Set("notes_focus_at = ?", at).
-		Where("id = ?", userID).Exec(ctx)
 
 	return err
 }

@@ -46,15 +46,15 @@ type CaptureInput struct {
 	Tags []string
 	// CapturedAt is when the note was taken; the zero value means now.
 	CapturedAt time.Time
-	// Source is the source to attach, found or created. A quote without one
-	// takes QuoteSource.
-	Source *SourceInput
+	// Source is the title of the source to attach, found or created. A quote
+	// without one takes QuoteSource.
+	Source string
 	Images []Upload
 	Audio  *Upload
 }
 
 // Capture saves a note of the actor from a capture: the text parsed by
-// capture.Parse, the tags with the focus applied and renewed, the source,
+// capture.Parse, the tags, the source,
 // the photos in the order given and the recording with its transcription,
 // all in one transaction; the files land in the storage last, which is not
 // part of it. Every file is checked before anything is written.
@@ -69,8 +69,8 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 		return nil, service.Invalid("text", msgCaptureEmpty)
 	}
 
-	if in.Source != nil {
-		if _, err := s.validSource(*in.Source); err != nil {
+	if strings.TrimSpace(in.Source) != "" {
+		if _, err := s.validTitle(in.Source); err != nil {
 			return nil, asField(err, "source")
 		}
 	}
@@ -102,13 +102,13 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 
 		var quoteSource *model.NoteSource
 
-		if in.Source == nil && parsed.Kind == capture.Quote {
+		if strings.TrimSpace(in.Source) == "" && parsed.Kind == capture.Quote {
 			if quoteSource, err = within.QuoteSource(ctx, actor); err != nil {
 				return err
 			}
 		}
 
-		n, err := within.Create(ctx, actor, Input{Body: parsed.Text, Tags: in.Tags, Source: in.Source, CapturedAt: in.CapturedAt, ApplyFocus: true})
+		n, err := within.Create(ctx, actor, Input{Body: parsed.Text, Tags: in.Tags, Source: in.Source, CapturedAt: in.CapturedAt})
 		if err != nil {
 			return err
 		}

@@ -24,7 +24,7 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 
 	// A multipart form: the recording in "file"; "note_id" gives an existing
 	// note the recording, otherwise a new note is made, captured at
-	// "captured_at" (RFC 3339) when the client says so, under the focus.
+	// "captured_at" (RFC 3339) when the client says so.
 	actions.POST("/note_audio", func(c *gin.Context) {
 		user := auth.GetUserData(c).DBUser
 
@@ -47,7 +47,7 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		if id := c.PostForm("note_id"); id != "" {
 			note, err = svc.AttachAudio(c, user, id, f, file.Header.Get("Content-Type"))
 		} else {
-			in := notes.Input{ApplyFocus: true}
+			var in notes.Input
 
 			if at := c.PostForm("captured_at"); at != "" {
 				if in.CapturedAt, err = time.Parse(time.RFC3339, at); err != nil {
@@ -127,14 +127,13 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		}
 
 		status := &web.NoteStatus{
-			Note: note, View: c.Query("view"), Suggest: c.Query("suggest") == "1",
-			Base: lf(c.Query("base")),
+			Note: note, View: c.Query("view"), Base: lf(c.Query("base")),
 		}
 
 		switch {
 		case note.TranscriptionStatus == model.NoteTranscriptionPending:
 		case status.View == web.NoteStatusList:
-			item, err := web.NoteItemOf(c, svc, userData.DBUser, note, status)
+			item, err := web.NoteItemOf(c, svc, userData.DBUser, note)
 			if err != nil {
 				ginhelpers.HTMLError(c, err)
 				return

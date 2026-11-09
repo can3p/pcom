@@ -9,22 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInboxCount(t *testing.T) {
-	t.Parallel()
-
-	w := newWorld(t)
-	w.note(t, w.me)
-	w.note(t, w.me)
-	w.note(t, w.me, factory.WithNoteTags("a"))
-	w.note(t, w.me, factory.WithNoteTextTags("b"))
-	w.note(t, w.other)
-
-	n, err := w.svc.InboxCount(w.ctx, w.me)
-	require.NoError(t, err)
-	require.Equal(t, 2, n)
-
-}
-
 func TestPostLinks(t *testing.T) {
 	t.Parallel()
 

@@ -195,16 +195,25 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   is normalized like any tag, and one that can't be a tag (`#`, `-#`, `#2024`) is text. A tag both included and
   excluded is excluded. Nothing is hidden by a preference: a tag the author no longer wants to see is left out by
   `-#tag`, so what the list shows is always what its query says. The whole search is the `q` parameter; the
-  source and the Inbox and Unused toggles are their own parameters (`source`, `inbox`, `unused`), and there are no
-  others. The page shows the query's parts as chips, each linking to the query without it, and every link that
-  adds a tag (a tag on a note, the author's tags under the box) adds it to the query on show.
+  source is the one other (`source`). The page shows the query's parts as chips, each linking to the query
+  without it, and every link that adds a tag (a tag on a note, the author's tags under the box) adds it to the
+  query on show.
+- **Every tag shows.** A note on the list, and a card in the post editor's Notes panel, shows all its tags, the
+  ones set by hand and the `#word`s of its text, so a tag is found by seeing it. The panel also offers the
+  author's most used tags under its search box (`NOTE_PANEL_TAGS` of them); a tap on any tag adds `#tag` to the
+  panel's search.
 - **The list page captures too.** Its box saves typed text with the tags typed next to it (separated by spaces or
   commas, `#` optional; the recent tags are the tags of the newest notes) and the markdown toolbar's photos, which
   go into the text as images. A recording picked from the device becomes a note through the same upload as the
   capture page's (`POST /controls/action/note_audio`), and a note without a recording can get one on its edit page.
-- **A source is set on the note's edit page**, in a form of its own (`/controls/form/note_source/:id`), so the
-  text's autosave never makes a source from a half-typed title. Saving finds or makes the source by its match key,
-  as a capture does; an empty title takes the source away. The place in the source (`locator`) is saved with it.
+- **A source is a title.** It has no author, link, kind or page: a title names a book, an article or a talk well
+  enough, and every extra field was one more thing to fill in on a phone. Its match key is the title lowercased with
+  its spacing collapsed (`model.NoteSourceMatchKey`), unique per author, so the same title typed twice is one
+  source. A note's forms choose its source from the author's own (a `<select>` saved with the note, never free
+  text, so autosave can't make a source from a half-typed title); a source id of somebody else is not found.
+  Sources are added and renamed on the Tags and sources screen. Renaming a source to the title of another merges
+  them, as renaming a tag does: its notes move there and it goes, so there is no separate merge. The capture API
+  and the bulk Source action take a title and find or make the source.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
   object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
@@ -220,11 +229,11 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   24 hours from `stt_requests` rows with `status = 'ok'`, as the proofreading limits are. Without a provider
   (`STT_PROVIDER` empty) there is no record button, and typed notes work.
 - **Quotes never lose text.** Shared text is stored as a blockquote, a lone link stays a link, and typed text is
-  stored as typed. A quote takes the previous quote's source only within `NOTE_FOCUS_IDLE`; otherwise it waits in
-  the Inbox. The source is found or made by normalized title and author, so one book is one group.
-- **The list is flat.** Notes are listed newest capture first, never grouped by when they were captured. Tag
-  suggestions are the author's tags whose words are in the note's text, then the tags the other notes of its
-  source carry. The focus is a tag applied to every capture until `NOTE_FOCUS_IDLE` passes without one.
+  stored as typed. A quote takes the previous quote's source only within `NOTE_QUOTE_SOURCE_WINDOW`; otherwise it
+  has none until the author gives it one. Its attribution line in a post is `— *Title*`.
+- **The list is flat.** Notes are listed newest capture first, never grouped by when they were captured. There
+  are no tag suggestions: the recent tags by the capture box and the author's tags under the search are the way
+  to a tag. A note inserted into a post is still recorded (`note_post_links`).
 - **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
   CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
   PNG, JPEG and WebP are accepted, and a HEIC photo (an iPhone's) is converted to JPEG on upload with its
@@ -237,7 +246,7 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   multilingual option weighed. Recordings are sent as recorded (Opus in WebM or AAC in MP4): the server never
   transcodes.
 - **No location, no AI.** No location is stored with a note. No model call is made on notes: no transcript
-  cleanup, no tag suggestions by a model.
+  cleanup, no tags by a model.
 - **Capture is stop-is-save.** Stopping a recording or taking a photo creates the note, with nothing to fill in.
   The capture is written to the phone's IndexedDB before it is uploaded, and the service worker
   (`/controls/notes/sw.js`, scoped to `/controls/notes/`) uploads it with retries. `captured_at` is the time of the

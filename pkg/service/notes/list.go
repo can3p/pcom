@@ -20,14 +20,11 @@ type Entry = repo.NoteRow
 // Filter picks the notes of a list. Tags and NotTags are the tags a note
 // must and must not carry, from its tags and the #words of its text, and
 // Query a case-insensitive search in the body: the search box gives all
-// three (ParseSearch). Inbox is the notes without tags, Unused the ones in
-// no post. Cursor is the Next of the previous page.
+// three (ParseSearch). Cursor is the Next of the previous page.
 type Filter struct {
 	Tags     []string
 	NotTags  []string
 	SourceID string
-	Unused   bool
-	Inbox    bool
 	Query    string
 	Cursor   string
 }
@@ -71,8 +68,6 @@ func (s *Service) List(ctx context.Context, actor *model.User, f Filter) (*Page,
 		Tags:     tags,
 		NotTags:  notTags,
 		SourceID: f.SourceID,
-		Unused:   f.Unused,
-		Inbox:    f.Inbox,
 		Query:    strings.TrimSpace(f.Query),
 		BeforeAt: at,
 		BeforeID: id,
@@ -91,15 +86,6 @@ func (s *Service) List(ctx context.Context, actor *model.User, f Filter) (*Page,
 	}
 
 	return page, nil
-}
-
-// InboxCount is how many of the actor's notes have no tag.
-func (s *Service) InboxCount(ctx context.Context, actor *model.User) (int, error) {
-	if actor == nil {
-		return 0, service.ErrNeedsLogin
-	}
-
-	return s.store.NoteInboxCount(ctx, actor.ID)
 }
 
 // cursorOf is the cursor right after a note: its capture time and ID.

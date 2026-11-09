@@ -84,9 +84,7 @@ func BindCapture(c *gin.Context) (notes.CaptureInput, error) {
 
 	in.How = how
 
-	if title := strings.TrimSpace(c.PostForm(CaptureFieldSource)); title != "" {
-		in.Source = &notes.SourceInput{Kind: model.NoteSourceBook, Title: title}
-	}
+	in.Source = c.PostForm(CaptureFieldSource)
 
 	var files map[string][]*multipart.FileHeader
 	if c.Request.MultipartForm != nil {
@@ -196,8 +194,6 @@ func ApiGetNotes(c *gin.Context, svc *notes.Service, actor *model.User, site lin
 	var form struct {
 		Tags   []string `form:"tag"`
 		Not    []string `form:"not"`
-		Unused bool     `form:"unused"`
-		Inbox  bool     `form:"inbox"`
 		Query  string   `form:"q"`
 		Cursor string   `form:"cursor"`
 		Limit  int      `form:"limit"`
@@ -208,7 +204,7 @@ func ApiGetNotes(c *gin.Context, svc *notes.Service, actor *model.User, site lin
 	}
 
 	page, err := svc.ListUpTo(c, actor, notes.Filter{
-		Tags: form.Tags, NotTags: form.Not, Unused: form.Unused, Inbox: form.Inbox, Query: form.Query, Cursor: form.Cursor,
+		Tags: form.Tags, NotTags: form.Not, Query: form.Query, Cursor: form.Cursor,
 	}, form.Limit)
 	if err != nil {
 		return mo.Err[*ApiGetNotesResponse](err)

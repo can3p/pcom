@@ -33,10 +33,6 @@ not the time it arrived, so your list stays in the order things happened.
 while it is still waiting to upload. The capture page's photos are scaled down on the phone before upload, which
 keeps them quick to send.
 
-**Focus.** A focus is one tag that every new note gets, for a project you are writing. Choose one from the tags
-under **Tags and sources** (its **focus** button); the list then shows **Now writing: #essay** with a **Stop**
-link, and the capture page shows the *#essay* chip with a **Stop** button. The focus ends on its own when no capture has been made under it for twelve hours by default.
-
 ## The list
 
 **Notes** lists your notes, newest first, with a box at the top to jot one down:
@@ -45,6 +41,7 @@ link, and the capture page shows the *#essay* chip with a **Stop** button. The f
   or **Add note** saves it.
 - **Tags** next to it, separated by spaces or commas, with or without `#`. Your recent tags are under it: a tap
   adds one.
+- **Source**, a list of your sources, or **No source**.
 - **Upload recording** picks a recording on your device and makes a note of it, which shows **Transcribing…**
   until its text is there.
 
@@ -61,59 +58,63 @@ Under the box are:
   marked *not*; the **×** on a chip drops it. Your tags are under the box, most used first: a tap adds one to the
   search, and so does a tap on a tag of a note. The search is in the address, so a filtered view can be
   bookmarked.
-- **Views.** **Inbox** shows the notes with no tag yet. **Unused** shows the notes you have not put into a post.
-  Each is a toggle that keeps the search.
-- **Sources**, when you have quotes: a book or article, with the number of its notes. Selecting one shows only its
-  notes.
+- **Sources** that have notes, each with the number of its notes. Selecting one shows only its notes.
 
-Each note shows its text, its tags, its source, and whether it has been used in a post. The pencil opens the note
+Each note shows its text, all its tags (the ones you set and the `#words` of its text; a tap adds one to the
+search), its source, and whether it has been used in a post. The pencil opens the note
 to edit it, and the bin deletes it, after you confirm.
 
 ### Editing a note
 
-The edit page saves the text and tags by itself shortly after you stop typing. The text has the toolbar, photos
-included. Under it:
+The edit page saves the text, tags and source by itself shortly after you stop typing or choose. The text has the
+toolbar, photos included. Under it:
 
-- **Source** is the book or article the note comes from: a title, an author and where in it (a page or a location).
-  The title offers your sources; picking one fills its author. **Save source** finds the source with that title
-  and author, or makes it, so quotes from one book stay together. Clear the title and save to remove the source.
+- **Source** is where the note comes from, chosen from your sources, or **No source**. Sources are added and
+  renamed under **Tags and sources**.
 - **Add recording**, on a note without one, attaches a recording from your device; its transcript is added to the
   text.
 
 ### Tags
 
-Tags are free words. You can set them in four ways:
+Tags are free words. You can set them in three ways:
 
-- **A suggestion.** Each untagged note offers up to three of your existing tags whose words appear in its text,
-  or that other notes from its source carry. One tap tags the note.
 - **`#word` in the text.** Any `#word` in a note is a tag, as well as the ones in the Tags field. Editing the text
   edits the tag, and its chip says *(written in the text)*. To remove that tag, remove the `#word` from the text.
 - **Selection.** Select several notes and press **Tag** to add tags to all of them.
 - **Speech.** Say "hashtag word" while dictating and the transcript writes `#word`.
 
-**Tags and sources** (the link at the top of the list) is where tags and sources are renamed and merged, since
-free-form words drift. Renaming or merging a tag changes it on every note that has it. The same screen sets the focus.
+**Tags and sources** (the link at the top of the list) is where tags are renamed, since free-form words drift.
+Renaming a tag changes it on every note that has it; renaming it to a tag you already have merges the two.
+
+### Sources
+
+A source is just a title: a book, an article, a talk. On **Tags and sources**, **Add source** adds one (adding a
+title you already have finds it; case and spacing don't matter). Each source shows how many notes come from it and a
+pencil: **Edit** turns the row into a form with its title, **Save** saves it in place and **Cancel** puts the row
+back. Renaming a source to the title of another merges them: its notes move to the other source.
 
 ### Several notes at once
 
 Tick the boxes of several notes and a bar appears with **Tag**, **Source** and **Delete**. **Source**
-gives the selected notes one book or article, and an empty title clears it. **Delete** asks first and says how many
+gives the selected notes the source with the title you type (made if you have none by that title), and an empty
+title clears it. **Delete** asks first and says how many
 notes and recordings it removes.
 
 ## Quotes
 
-A quote is a note with a source: the passage of a book, or an article, and the page or location if you give one.
+A quote is a note with a source: the passage of a book or an article.
 
 - **Share a passage** from the Kindle app, your reader or a text app to pcom. The text arrives as it was selected,
   with no title or author, so pcom stores it as a quote: a blockquote, with a link kept as a link.
 - **A share can't set tags or a source.** Its tags are the `#words` in its text, and its source comes as for any
   quote.
 - **Type or paste** a passage on the capture page. It is stored as typed.
-- **The source** of a quote is the source of the quote before it, if that was within the focus time. Otherwise
-  the quote waits in the Inbox; give it a source on its edit page, or select several notes and press **Source**. A
-  plain note or a photo can be given a source the same way.
-- **Sources** need no setup. Quotes from one book land in one group, found by its title and author. Sources can be
-  renamed or merged on **Tags and sources**, for the rare share that spells a title differently.
+- **The source** of a quote is the source of your previous note with one, if that was captured within the last
+  twelve hours (by default). Otherwise the quote has none; choose it on its edit page, or select several notes and
+  press **Source**. A plain note or a photo can be given a source the same way.
+- **Sources** need little setup. Quotes from one book land in one group, found by its title. A source can be
+  renamed on **Tags and sources**, and renamed into another to merge them, for the rare share that spells a title
+  differently.
 
 A photo of a page stays with its quote, so you can check the recognized text against it. The text is editable like
 any other.
@@ -143,10 +144,11 @@ but their files stay on the server, as the images of deleted posts do.
 
 ## Using notes in a post
 
-In the post editor, the **Notes** button in the toolbar opens a panel beside the text. It has the same tags, search
-and sources as the list. Each note shows **Insert** (at the cursor), **Append** (at the end of the post) and
-**Open** (the note in a new tab). A quote goes in with its attribution, such as *— Author, *Title*, p. 12*. A note
-that you insert is marked as used, so the **Unused** view shows what is left.
+In the post editor, the sidebar beside the text has a **Notes** tab (see [Writing](writing.md) for the sidebar).
+It has a search box that works like the list's; under it are your most used tags, and each note shows its tags: a
+tap on any of them adds it to the search, so a tag whose name you forgot is one look away. Each note has
+**Insert** (at the cursor), **Append** (at the end of the post), **Edit** (the note in a new tab) and **Delete**. A
+quote goes in with its attribution, such as *— *Title**. A note that you insert is marked as used in the post.
 
 ![The post editor with the Notes panel open beside it, listing notes with their tags.](screenshots/notes-panel.png)
 

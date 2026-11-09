@@ -17,9 +17,6 @@ import (
 // TagCount is a tag of the actor and how many notes carry it.
 type TagCount = repo.TagCount
 
-// maxSuggestions is how many tags SuggestTags offers.
-const maxSuggestions = 3
-
 const tagWord = `[\p{L}\p{N}_]+(?:-[\p{L}\p{N}_]+)*`
 
 var (
@@ -175,63 +172,16 @@ func (s *Service) Tags(ctx context.Context, actor *model.User) ([]TagCount, erro
 	return s.store.NoteTagCounts(ctx, actor.ID)
 }
 
-// SuggestTags returns up to three of the actor's tags for a note: the ones
-// whose words appear in the note's text come first, then the ones the other
-// notes of its source carry, most carried first. Tags the note has
-// are not suggested.
-func (s *Service) SuggestTags(ctx context.Context, actor *model.User, noteID string) ([]string, error) {
-	note, err := s.ownNote(ctx, s.store, actor, noteID, read)
+// TopTags returns the actor's most used tags, at most PanelTags of them,
+// most used first: what the post editor's Notes panel offers under its
+// search.
+func (s *Service) TopTags(ctx context.Context, actor *model.User) ([]TagCount, error) {
+	tags, err := s.Tags(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
 
-	counts, err := s.store.NoteTagCounts(ctx, actor.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	fromSource, err := s.store.SourceTagCounts(ctx, actor.ID, noteID)
-	if err != nil {
-		return nil, err
-	}
-
-	have := union(note.Tags, note.TextTags)
-
-	words := map[string]bool{}
-	for _, w := range strings.FieldsFunc(strings.ToLower(note.Body), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
-		words[w] = true
-	}
-
-	var out []string
-
-	add := func(tag string) {
-		if len(out) < maxSuggestions && !slices.Contains(have, tag) && !slices.Contains(out, tag) {
-			out = append(out, tag)
-		}
-	}
-
-	for _, c := range counts {
-		if inText(c.Tag, words) {
-			add(c.Tag)
-		}
-	}
-
-	for _, c := range fromSource {
-		add(c.Tag)
-	}
-
-	return out, nil
-}
-
-// inText reports whether every word of the tag is among words.
-func inText(tag string, words map[string]bool) bool {
-	for _, w := range strings.FieldsFunc(tag, func(r rune) bool { return r == '-' || r == '_' }) {
-		if !words[w] {
-			return false
-		}
-	}
-
-	return true
+	return tags[:min(len(tags), s.limits.PanelTags)], nil
 }
 
 // TagMany adds tags to the notes, all or none: a note that would have too

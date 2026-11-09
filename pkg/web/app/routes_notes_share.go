@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
@@ -44,8 +45,8 @@ var shareIgnored = []string{web.CaptureFieldTags, web.CaptureFieldSource, web.Ca
 // else reads before the user does. Every other POST keeps the check.
 //
 // A share is its title, text and link (shareText) and its files: the tags,
-// source and captured_at a capture may carry are ignored. The focus and
-// quote-source rules apply as to any shared capture.
+// source and captured_at a capture may carry are ignored. The quote-source
+// rule applies as to any shared capture.
 func mountNoteShareRoutes(d *Deps, controls *gin.RouterGroup) {
 	controls.POST("/notes/share", shareNote(d.Services.Notes))
 }
@@ -74,7 +75,7 @@ func shareNote(svc *notes.Service) gin.HandlerFunc {
 			return
 		}
 
-		c.Redirect(http.StatusSeeOther, web.NoteCapturePath+"?"+url.Values{web.CaptureSharedParam: {note.ID}}.Encode())
+		c.Redirect(http.StatusSeeOther, links.Link("notes_new")+"?"+url.Values{web.CaptureSharedParam: {note.ID}}.Encode())
 	}
 }
 

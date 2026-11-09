@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,10 +15,12 @@ import (
 // origin and a fixed URL, not a hashed static asset: the manifest's
 // start_url, scope and share target must be on the origin of the pages, and
 // an installed app looks for its manifest at the URL it was installed from.
-const manifestPath = "/site.webmanifest"
+var manifestPath = links.Link("manifest")
 
 // siteManifest is the web app manifest; its icons name frontend assets
 // (static_asset keys), which the served manifest replaces with their URLs.
+// Its own URLs (start_url, the shortcuts, the share target) are added from
+// links.Link when it is served.
 //
 //go:embed site.webmanifest
 var siteManifest []byte
@@ -52,6 +56,18 @@ func renderManifest(src []byte, staticAsset StaticAssetFunc) ([]byte, error) {
 
 		name, _ := icon["src"].(string)
 		icon["src"] = staticAsset(name)
+	}
+
+	share, ok := m["share_target"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("site.webmanifest: no share_target")
+	}
+
+	share["action"] = links.Link("notes_share")
+	m["start_url"] = links.Link("notes_new")
+	m["shortcuts"] = []map[string]string{
+		{"name": "Dictate", "url": links.Link("notes_new", "start", web.CaptureStartVoice)},
+		{"name": "Photo", "url": links.Link("notes_new", "start", web.CaptureStartPhoto)},
 	}
 
 	return json.Marshal(m)

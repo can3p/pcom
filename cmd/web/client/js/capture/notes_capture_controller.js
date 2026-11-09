@@ -1,12 +1,11 @@
 import { Controller } from "@hotwired/stimulus"
 import { Capture } from "../notes/capture.js"
 
-// The capture page (/controls/notes/new): Dictate, Photo, Photo + dictate and
-// Type, and the focus chip's Stop. It is part of the page's own bundle
-// (../capture.js), not of main.js.
+// In the capture page's own bundle; the work is in ../notes/capture.js. In
+// the audio value, ":id" stands for the note.
 export default class extends Controller {
   static targets = ["tap", "modes", "camera", "recorder", "timer", "limit", "recHint", "typer", "text", "error", "card", "cardWhat", "cardStatus"]
-  static values = { start: String, maxSeconds: Number, maxDimension: Number, csrf: String, shared: Object, worker: String }
+  static values = { start: String, maxSeconds: Number, maxDimension: Number, csrf: String, shared: Object, worker: String, scope: String, delete: String, audio: String }
 
   connect() {
     this.impl = new Capture(this)
@@ -26,5 +25,4 @@ export default class extends Controller {
   stop() { this.impl.stop() }
   tapStart() { this.impl.tapStart() }
   deleteLast() { this.impl.deleteLast() }
-  stopFocus() { this.impl.stopFocus() }
 }

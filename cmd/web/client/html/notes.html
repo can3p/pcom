@@ -1,34 +1,20 @@
 {{ template "header.html" . }}
 
-<main class="notes" data-controller="notes">
+<main class="notes" data-controller="notes" data-notes-audio-url-value="{{ link "action" "note_audio" }}">
   {{ if .Manage }}
   {{ template "partial--note-tag-manage.html" . }}
   {{ else }}
   <header class="notes-head">
     <h1 class="controls-title">Notes</h1>
     <p class="acts">
-      <a href="/controls/notes/manage">Tags and sources</a>
+      <a href="{{ link "notes_manage" }}">Tags and sources</a>
     </p>
   </header>
 
-  <p class="nt-focus" data-testid="focus">
-    {{ if .Focus }}
-    Now writing: <a href="/controls/notes?q={{ printf "#%s" .Focus | urlquery }}">#{{ .Focus }}</a>.
-    New notes get this tag.
-    <button type="button" class="nt-link"
-            data-controller="action"
-            data-action="action#run"
-            data-action-action-value="note_focus"
-            data-tag="">Stop</button>
-    {{ else }}
-    <span class="field-help">No focus tag. Choose one under <a href="/controls/notes/manage">Tags and sources</a> and new notes get it.</span>
-    {{ end }}
-  </p>
-
   <form class="note-capture box"
         method="post"
-        action="/controls/form/note_create"
-        hx-post="/controls/form/note_create"
+        action="{{ link "form_note_create" }}"
+        hx-post="{{ link "form_note_create" }}"
         hx-target="#note-capture-status"
         hx-swap="innerHTML"
         data-notes-target="capture">
@@ -52,6 +38,7 @@
       {{ end }}
     </ul>
     {{ end }}
+    {{ template "partial--note-source-select.html" toMap "ID" "note-capture-source" "Sources" .SourceChoices "Selected" "" }}
     <div class="note-capture-acts">
       <label class="btn btn-secondary note-upload">
         Upload recording
@@ -64,20 +51,15 @@
 
   {{ template "partial--note-search.html" .Search }}
 
+  {{ if .Sources }}
   <div class="nt-views">
-    <ul class="nt-chips" aria-label="Views">
-      {{ range .Views }}
-      <li class="nt-chip{{ if .Active }} nt-include{{ end }}"><a href="{{ .Href }}"{{ if .Active }} aria-current="true"{{ end }}>{{ .Label }}</a></li>
-      {{ end }}
-    </ul>
-    {{ if .Sources }}
     <ul class="nt-chips" aria-label="Sources">
       {{ range .Sources }}
       <li class="nt-chip{{ if .Active }} nt-include{{ end }}"><a href="{{ .Href }}"{{ if .Active }} aria-current="true"{{ end }}>{{ .Label }} <span class="nt-count">{{ .Count }}</span></a></li>
       {{ end }}
     </ul>
-    {{ end }}
   </div>
+  {{ end }}
 
   <div class="nt-select box" data-notes-target="bar" hidden role="region" aria-label="Selected notes">
     <span data-notes-target="count" role="status"></span>

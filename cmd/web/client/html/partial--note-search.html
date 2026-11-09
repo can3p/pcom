@@ -1,12 +1,7 @@
-{{/* The search box of the notes list. Takes a *web.NoteSearch. One query holds the search: #tag must be on the note,
-     -#tag must not, other words are looked for in the text. Its parts show as chips whose × drops that part; the
-     author's tags the query doesn't hold yet are one tap away under the box. The source and the toggles ride along
-     as hidden fields. */}}
+{{/* Takes a *web.NoteSearch. */}}
 <div class="nt-views">
   <form class="nt-search" method="get" action="{{ .Path }}" role="search">
     {{ with .Query.SourceID }}<input type="hidden" name="source" value="{{ . }}">{{ end }}
-    {{ if .Query.Unused }}<input type="hidden" name="unused" value="1">{{ end }}
-    {{ if .Query.Inbox }}<input type="hidden" name="inbox" value="1">{{ end }}
     <label class="sr-only" for="note-search">Search notes</label>
     <input id="note-search" type="search" name="q" value="{{ .Query.Q }}" placeholder="#tag -#tag words">
     <button type="submit" class="btn btn-secondary">Search</button>

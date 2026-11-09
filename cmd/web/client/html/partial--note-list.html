@@ -1,4 +1,4 @@
-{{/* A page of the notes list and the link to the next one: also the whole answer to "Load more". The page: a web.NotesPage. */}}
+{{/* Also the whole answer to "Load more". Takes a web.NotesPage. */}}
 {{ range .Items }}
 {{ template "partial--note-item.html" toMap "Item" . "User" $.User }}
 {{ else }}
