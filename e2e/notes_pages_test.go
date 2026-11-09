@@ -604,8 +604,11 @@ func TestNotesPages_CapturePage(t *testing.T) {
 		t.Parallel()
 
 		c := loginAs(t, off, newUser(t, off))
-		require.NotContains(t, c.Get("/controls/notes/new").Body, "focus")
-		require.NotContains(t, c.Get("/controls/notes").Body, "Now writing")
+		for _, page := range []string{"/controls/notes/new", "/controls/notes"} {
+			doc := c.Get(page).Doc()
+			require.Zero(t, doc.Find(`[data-testid="focus"]`).Length(), page)
+			require.NotContains(t, doc.Text(), "Now writing", page)
+		}
 	})
 }
 
@@ -839,6 +842,7 @@ func TestNotesPages_NoteFormsSaveTheSource(t *testing.T) {
 	c.PostForm(path, url.Values{"body": {"from a book"}, "source_id": {book.ID}}).RequireStatus(http.StatusOK)
 	require.Equal(t, book.ID, *note().SourceID)
 
+	// an unknown id
 	resp = c.PostForm(path, url.Values{"body": {"from a book"}, "source_id": {"0c1a7c3e-0000-4000-8000-000000000000"}}).RequireStatus(http.StatusOK)
 	require.Contains(t, resp.Body, "Not saved")
 	require.Equal(t, book.ID, *note().SourceID)

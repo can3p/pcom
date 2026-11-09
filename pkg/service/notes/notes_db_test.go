@@ -97,10 +97,10 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	src := testutil.Must(factory.NoteSource(w.ctx, w.db, w.other.ID))(t)
 	// What the database holds, to compare with afterwards.
 	note = testutil.Must(repo.New(w.db).NoteByID(w.ctx, note.ID))(t)
-	mine := w.note(t, w.me)
+	mySource := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
+	mine := w.note(t, w.me, factory.FromSource(mySource.ID))
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.other.ID))(t)
 	body := "x"
-	mySource := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 	srcID := src.ID
 
 	calls := map[string]func() error{
@@ -116,8 +116,7 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 		},
 		"List":         func() error { _, err := w.svc.List(w.ctx, w.me, notes.Filter{SourceID: src.ID}); return err },
 		"RenameSource": func() error { _, err := w.svc.RenameSource(w.ctx, w.me, src.ID, "T"); return err },
-		// renaming my source to the other user's title is a rename, not a merge
-		"Source": func() error { _, err := w.svc.Source(w.ctx, w.me, src.ID); return err },
+		"Source":       func() error { _, err := w.svc.Source(w.ctx, w.me, src.ID); return err },
 		// another user's source given to my note, new or edited
 		"CreateWithSource": func() error {
 			_, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "x", SourceID: src.ID})
@@ -152,14 +151,20 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, tags)
 
-	// renaming mine to the other user's title merges nothing of theirs
+	// renaming my source to the other user's title is a rename, not a merge
 	renamed, err := w.svc.RenameSource(w.ctx, w.me, mySource.ID, src.Title)
 	require.NoError(t, err)
 	require.Equal(t, mySource.ID, renamed.ID)
 
 	mineAfter, err := store.NoteByID(w.ctx, mine.ID)
 	require.NoError(t, err)
-	require.Nil(t, mineAfter.SourceID)
+	require.Equal(t, &mySource.ID, mineAfter.SourceID)
+
+	srcAfter, err = store.NoteSourceByID(w.ctx, src.ID)
+	require.NoError(t, err)
+	require.Equal(t, src.Title, srcAfter.Title)
+	require.Equal(t, src.MatchKey, srcAfter.MatchKey)
+	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
 }
 
 func TestCreateAndUpdateParseTags(t *testing.T) {
