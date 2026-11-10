@@ -92,18 +92,22 @@ func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 // StaticAssetFunc resolves a frontend asset name to its URL.
 type StaticAssetFunc func(n string) string
 
-// LoadStaticManifest reads dist/manifest.json, relative to the process cwd.
-func LoadStaticManifest(staticCDN string) StaticAssetFunc {
+// readStaticManifest reads dist/manifest.json, relative to the process cwd:
+// each asset's name and its path under dist.
+func readStaticManifest() (map[string]string, error) {
 	manifest, err := os.ReadFile("dist/manifest.json")
-
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	files := map[string]string{}
 
-	err = json.Unmarshal(manifest, &files)
+	return files, json.Unmarshal(manifest, &files)
+}
 
+// LoadStaticManifest reads dist/manifest.json, relative to the process cwd.
+func LoadStaticManifest(staticCDN string) StaticAssetFunc {
+	files, err := readStaticManifest()
 	if err != nil {
 		panic(err)
 	}

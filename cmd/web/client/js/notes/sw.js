@@ -21,13 +21,13 @@
 // capture page, the capture and delete actions and the share target (page,
 // upload, delete, share; web.NoteCapture builds them).
 //
-// The record format is shared with cmd/web/client/js/notes/capture.js.
+// It is a webpack entry of its own (notes_sw.js in the asset manifest), which
+// the app serves at /controls/notes/sw.js; the record format and the store
+// are store.js, shared with the capture page.
 
-const DB_NAME = "pcom-notes"
-const DB_VERSION = 1
-const STORE = "captures"
+import { EXCERPT_LENGTH, SYNC_TAG, records, withStore } from "./store.js"
+
 const CACHE = "pcom-notes-capture-1"
-const SYNC_TAG = "notes-upload"
 // the assets the capture page loads live under this path of their origin;
 // webpack's public path, not a route
 const STATIC = "/static/"
@@ -45,8 +45,6 @@ const CAPTURE_MAX = Number(caps.get("capture_max")) || 0
 const FIRST_WAIT = 1000
 const LAST_WAIT = 30000
 const ATTEMPTS = 12
-// a refused share keeps this much of its text, for the page's card
-const EXCERPT_LENGTH = 80
 const KIB = 1024
 const MIB = 1024 * KIB
 
@@ -170,6 +168,7 @@ async function queueShare(req) {
     if (refused) {
       rec.status = "failed"
       rec.error = refused
+      // a refused share keeps only what the page's card shows
       rec.text = text.slice(0, EXCERPT_LENGTH)
     } else {
       rec.text = text
@@ -270,37 +269,6 @@ function assetRoots(html) {
   }
 
   return roots
-}
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION)
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "id" })
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
-}
-
-// withStore runs fn on the store in one transaction and returns the result of
-// the request fn returns, once the transaction is done.
-async function withStore(mode, fn) {
-  const db = await openDB()
-
-  try {
-    return await new Promise((resolve, reject) => {
-      const t = db.transaction(STORE, mode)
-      const req = fn(t.objectStore(STORE))
-      t.oncomplete = () => resolve(req ? req.result : undefined)
-      t.onerror = () => reject(t.error)
-      t.onabort = () => reject(t.error)
-    })
-  } finally {
-    db.close()
-  }
-}
-
-function records() {
-  return withStore("readonly", (s) => s.getAll())
 }
 
 // settle applies change to the record with id, if the page hasn't deleted it,

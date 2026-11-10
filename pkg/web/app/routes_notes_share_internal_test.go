@@ -33,7 +33,7 @@ import (
 )
 
 // shareTextCase is a row of testdata/share_text.json, which the browser test
-// of the share target runs through notes_sw.js too, so both join a share
+// of the share target runs through the notes service worker too, so both join a share
 // alike.
 type shareTextCase struct {
 	Name, Title, Text, URL, Want string

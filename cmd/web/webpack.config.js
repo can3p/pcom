@@ -20,13 +20,16 @@ module.exports = (env, argv) => {
   let config = {
     // entry files to compile (relative to the base dir)
     // main: every page's styles and scripts; capture: the notes capture
-    // page's scripts instead of main's (client/js/capture.js)
+    // page's scripts instead of main's (client/js/capture.js); notes_sw: the
+    // capture page's service worker, which the app serves at
+    // /controls/notes/sw.js from the manifest's notes_sw.js
     entry: {
       main: [
         "./client/scss/index.scss",
         "./client/js/index.js",
       ],
       capture: "./client/js/capture.js",
+      notes_sw: "./client/js/notes/sw.js",
     },
 
     // enable development source maps

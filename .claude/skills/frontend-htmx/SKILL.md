@@ -38,6 +38,11 @@ the header's menu toggle), has its own row in `TestFirstVisitWeight`, and has ne
 controller, so its controller makes its own requests. A boosted link to such a page gets `HX-Redirect` so the
 page loads whole.
 
+A service worker is a webpack entry too (`notes_sw` for `client/js/notes/sw.js`), so it shares modules with
+its page (`client/js/notes/store.js`, the IndexedDB queue) instead of copying them. The app serves it from its
+scope, `/controls/notes/sw.js`, reading the built file from `dist` through the asset manifest: a worker's
+script must be same-origin, so it can't come from `/static` or the CDN.
+
 ### Template Structure
 - Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
 - Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
@@ -62,7 +67,7 @@ page loads whole.
   `e2e/guards_test.go`). `POST /controls/notes/share` is the share target of the installed app, because the
   phone posts the share sheet's form and can't add a token. Its safety rests on two things together: the
   session cookie is `SameSite=Lax`, so a cross-site POST arrives without a session and lands on the login
-  page; and the capture page's service worker (`pkg/web/app/notes_sw.js`), which sees the share first,
+  page; and the capture page's service worker (`client/js/notes/sw.js`), which sees the share first,
   sends it on to the server and queues it (to upload later with the session's token) only when the network
   fails, within the server's caps. A worker that queued every share would turn a forged one into a note;
   `TestNotesShare_CrossSiteCreatesNothing` guards this. The route creates only a note of the session's own
@@ -152,7 +157,10 @@ Source is `cmd/web/client/scss/`; `index.scss` imports the partials. There is no
   under each item (comments, reply, edit, share, delete); don't add buttons elsewhere on an item.
 - **Form results**: a form saves in place. Its result (`Saved` / `Not saved`) shows in a `.status` next to
   the form's button and field errors show under the field. A form result is never a toast; a toast is only
-  for an action without a form.
+  for an action without a form. The form behind it is a `pkg/forms` type run by `DefaultHandler`, and its
+  template reads that form's data (`.Input`, `.Errors.<field>`, `.FormError`); see "Forms" in
+  `docs/architecture.md`. A form that saves on every pause in typing (the post and note editors) targets
+  only its `.status`, so the field being typed in is never swapped.
 - **Area styles** live in their own partial: `_posts`, `_settings`, `_editor`, `_auth`, `_controls`,
   `_syntax`. Shared pieces go to `_components.scss`, element defaults to `_base.scss`.
 - **User style hooks**: the `us-*` classes in templates are the contract for users' own CSS (listed in

@@ -112,8 +112,8 @@ func parseShareForm(c *gin.Context) error {
 // shareText is the text of a share: its title, text and link, one per line,
 // leaving out a part another one already holds (apps often repeat the link in
 // the text). A link shared alone stays a bare link. A multipart form sends
-// line breaks as CRLF; the text keeps LF, as typed text does. notes_sw.js
-// joins a share the same way.
+// line breaks as CRLF; the text keeps LF, as typed text does. The notes
+// service worker (client/js/notes/sw.js) joins a share the same way.
 func shareText(parts ...string) string {
 	for i := range parts {
 		parts[i] = strings.TrimSpace(strings.ReplaceAll(parts[i], "\r\n", "\n"))

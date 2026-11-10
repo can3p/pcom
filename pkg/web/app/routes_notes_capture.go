@@ -1,8 +1,10 @@
 package app
 
 import (
-	_ "embed"
+	"errors"
 	"net/http"
+	"path/filepath"
+	"sync"
 
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/auth"
@@ -10,13 +12,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// notesServiceWorker uploads the captures the capture page queues in
-// IndexedDB, with retries, and keeps the capture page's assets for offline
-// use. It is served from /controls/notes/, which is its scope, so it touches
-// no other page.
-//
-//go:embed notes_sw.js
-var notesServiceWorker []byte
+// notesServiceWorker is where the build of the notes service worker
+// (client/js/notes/sw.js) is under the process cwd. It uploads the captures
+// the capture page queues in IndexedDB, with retries, and keeps the capture
+// page's assets for offline use. It is served from /controls/notes/, which is
+// its scope, so it touches no other page; that is also why it is not served
+// from /static or the CDN.
+var notesServiceWorker = sync.OnceValues(func() (string, error) {
+	files, err := readStaticManifest()
+	if err != nil {
+		return "", err
+	}
+
+	path, ok := files["notes_sw.js"]
+	if !ok {
+		return "", errors.New("no notes_sw.js in the asset manifest")
+	}
+
+	return filepath.Join("dist", filepath.FromSlash(path)), nil
+})
 
 // mountNoteCaptureRoutes registers the capture page, its service worker and
 // the capture action the service worker sends a queued capture to.
@@ -40,8 +54,15 @@ func mountNoteCaptureRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 	})
 
 	controls.GET("/notes/sw.js", func(c *gin.Context) {
+		path, err := notesServiceWorker()
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		c.Header("Cache-Control", "no-cache")
-		c.Data(http.StatusOK, "text/javascript; charset=utf-8", notesServiceWorker)
+		c.Header("Content-Type", "text/javascript; charset=utf-8")
+		c.File(path)
 	})
 
 	// A multipart capture (web.BindCapture); the answer is the new note's id
