@@ -50,7 +50,7 @@ type Note struct {
 	Body                string                  `bun:"body,default:''"`
 	Tags                []string                `bun:"tags,array,default:'{}'"`
 	SourceID            *string                 `bun:"source_id"`
-	AudioUploadID       *string                 `bun:"audio_upload_id"`
+	RecordingID         *string                 `bun:"recording_id"`
 	TextTags            []string                `bun:"text_tags,array,default:'{}'"`
 	TranscriptionStatus NoteTranscriptionStatus `bun:"transcription_status,default:'none'"`
 	TranscriptionError  *string                 `bun:"transcription_error"`
@@ -61,7 +61,6 @@ type Note struct {
 	User   *User        `bun:"rel:belongs-to,join:user_id=id"`
 	Source *NoteSource  `bun:"rel:belongs-to,join:source_id=id"`
 	Images []*NoteImage `bun:"rel:has-many,join:id=note_id"`
-	Audio  *MediaUpload `bun:"rel:belongs-to,join:audio_upload_id=id"`
 }
 
 // BeforeAppendModel stamps the row's timestamps on insert and update.
@@ -90,6 +89,29 @@ type NoteSource struct {
 // so the test factory makes sources the service finds.
 func NoteSourceMatchKey(title string) string {
 	return strings.ToLower(strings.Join(strings.Fields(title), " "))
+}
+
+// NoteRecording is a row of note_recordings: a note's recording, the object
+// Fname (under the notes service's AudioPrefix) in the media bucket, which
+// only its owner may fetch. It is not a MediaUpload, so it is never an image.
+type NoteRecording struct {
+	bun.BaseModel `bun:"table:note_recordings"`
+
+	ID          string    `bun:"id,pk"`
+	UserID      string    `bun:"user_id"`
+	Fname       string    `bun:"fname"`
+	ContentType string    `bun:"content_type"`
+	SizeBytes   int64     `bun:"size_bytes"`
+	CreatedAt   time.Time `bun:"created_at,default:now()"`
+}
+
+// BeforeAppendModel stamps the row's timestamps on insert.
+func (m *NoteRecording) BeforeAppendModel(_ context.Context, query bun.Query) error {
+	if m != nil {
+		stampTimes(query, &m.CreatedAt, nil)
+	}
+
+	return nil
 }
 
 // NoteImage is a row of note_images: one photo of a note, in the order of

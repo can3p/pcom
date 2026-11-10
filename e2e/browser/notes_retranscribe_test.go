@@ -179,7 +179,7 @@ func TestNotesRetranscribe_NoControl(t *testing.T) {
 		app := e2e.Start(t, e2e.WithRealAssets())
 		user := browser.NewUser(t, app)
 
-		rec, err := factory.NoteAudio(ctx, app.DB, user.ID)
+		rec, err := factory.NoteRecording(ctx, app.DB, user.ID)
 		require.NoError(t, err)
 
 		note := mustNote(t, app, user.ID, factory.WithNoteBody("Spoken"), factory.WithRecording(rec.ID))

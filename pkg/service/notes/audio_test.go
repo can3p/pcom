@@ -85,7 +85,7 @@ func TestNotes_CreateFromAudio(t *testing.T) {
 			if c.wantMsg != "" {
 				requireInvalid(t, err, c.wantMsg)
 				require.Equal(t, 0, w.count(t, "select count(*) from notes"))
-				require.Equal(t, 0, w.count(t, "select count(*) from media_uploads"))
+				require.Equal(t, 0, w.count(t, "select count(*) from note_recordings"))
 				require.Empty(t, w.queue.Inserted())
 
 				return
@@ -95,18 +95,18 @@ func TestNotes_CreateFromAudio(t *testing.T) {
 			require.Equal(t, model.NoteTranscriptionPending, note.TranscriptionStatus)
 			require.Equal(t, []string{"walk"}, note.Tags)
 
-			upload := testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t)
-			require.Equal(t, model.MediaKindNoteAudio, upload.Kind)
-			require.Equal(t, c.wantType, upload.ContentType)
-			require.Equal(t, w.me.ID, *upload.UserID)
-			require.True(t, strings.HasPrefix(upload.UploadedFname, notes.AudioPrefix))
+			rec := testutil.Must(repo.New(w.db).NoteRecordingByID(w.ctx, *note.RecordingID))(t)
+			require.Equal(t, c.wantType, rec.ContentType)
+			require.Equal(t, w.me.ID, rec.UserID)
+			require.Equal(t, int64(len(c.data)), rec.SizeBytes)
+			require.True(t, strings.HasPrefix(rec.Fname, notes.AudioPrefix))
 
 			stored := testutil.Must(w.svc.Recording(w.ctx, w.me, note.ID))(t)
 			require.Equal(t, []byte(c.data), stored.Bytes)
 			require.Equal(t, c.wantType, stored.ContentType)
-			require.True(t, testutil.Must(storage.ObjectExists(w.ctx, upload.UploadedFname))(t))
+			require.True(t, testutil.Must(storage.ObjectExists(w.ctx, rec.Fname))(t))
 
-			require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, UploadID: upload.ID, Attempts: notes.DefaultSTTAttempts}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
+			require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, RecordingID: rec.ID, Attempts: notes.DefaultSTTAttempts}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
 		})
 	}
 }
@@ -122,7 +122,7 @@ func TestNotes_CreateFromAudioEdges(t *testing.T) {
 	note, err := w.svc.CreateFromAudio(w.ctx, w.me, strings.NewReader(webmHead), "audio/webm", notes.Input{})
 	require.NoError(t, err)
 	require.Equal(t, model.NoteTranscriptionNone, note.TranscriptionStatus)
-	require.Equal(t, model.MediaKindNoteAudio, testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t).Kind)
+	require.Equal(t, "audio/webm", testutil.Must(repo.New(w.db).NoteRecordingByID(w.ctx, *note.RecordingID))(t).ContentType)
 	require.Empty(t, w.queue.Inserted())
 
 	_, err = w.svc.CreateFromAudio(w.ctx, nil, strings.NewReader(webmHead), "audio/webm", notes.Input{})
@@ -138,7 +138,7 @@ func TestNotes_CreateFromAudioEdges(t *testing.T) {
 		_, err = broken.svc.CreateFromAudio(broken.ctx, broken.me, strings.NewReader(webmHead), "audio/webm", notes.Input{})
 		require.Error(t, err, name)
 		require.Equal(t, 0, broken.count(t, "select count(*) from notes"), name)
-		require.Equal(t, 0, broken.count(t, "select count(*) from media_uploads"), name)
+		require.Equal(t, 0, broken.count(t, "select count(*) from note_recordings"), name)
 		require.Empty(t, broken.queue.Inserted(), name)
 	}
 }
@@ -148,16 +148,16 @@ func TestNotes_AttachAudio(t *testing.T) {
 	t.Parallel()
 
 	w, _ := audioWorld(t)
-	old := testutil.Must(factory.NoteAudio(w.ctx, w.db, w.me.ID))(t)
+	old := testutil.Must(factory.NoteRecording(w.ctx, w.db, w.me.ID))(t)
 	note := w.note(t, w.me, factory.WithRecording(old.ID), factory.WithNoteBody("a photo of a page"))
 
 	got, err := w.svc.AttachAudio(w.ctx, w.me, note.ID, strings.NewReader(oggHead), "audio/ogg")
 	require.NoError(t, err)
-	require.NotEqual(t, old.ID, *got.AudioUploadID)
+	require.NotEqual(t, old.ID, *got.RecordingID)
 	require.Equal(t, model.NoteTranscriptionPending, got.TranscriptionStatus)
 	require.Equal(t, "a photo of a page", got.Body)
-	require.Equal(t, []notes.DeleteAudioArgs{{UploadID: old.ID}}, fakequeue.Of[notes.DeleteAudioArgs](w.queue))
-	require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, UploadID: *got.AudioUploadID, Attempts: notes.DefaultSTTAttempts}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
+	require.Equal(t, []notes.DeleteAudioArgs{{RecordingID: old.ID}}, fakequeue.Of[notes.DeleteAudioArgs](w.queue))
+	require.Equal(t, []notes.TranscribeArgs{{NoteID: note.ID, RecordingID: *got.RecordingID, Attempts: notes.DefaultSTTAttempts}}, fakequeue.Of[notes.TranscribeArgs](w.queue))
 
 	_, err = w.svc.AttachAudio(w.ctx, w.other, note.ID, strings.NewReader(oggHead), "audio/ogg")
 	require.ErrorIs(t, err, service.ErrNotFound)
@@ -193,7 +193,7 @@ func TestNotes_Retranscribe(t *testing.T) {
 	t.Parallel()
 
 	w, _ := audioWorld(t, notes.WithLimits(notes.Limits{STTMinutesPerDay: 1}))
-	audio := testutil.Must(factory.NoteAudio(w.ctx, w.db, w.me.ID))(t)
+	audio := testutil.Must(factory.NoteRecording(w.ctx, w.db, w.me.ID))(t)
 	note := w.note(t, w.me, factory.WithRecording(audio.ID))
 	plain := w.note(t, w.me)
 	testutil.Must(factory.STTRequest(w.ctx, w.db, w.me.ID, note.ID, 30))(t)
@@ -202,7 +202,7 @@ func TestNotes_Retranscribe(t *testing.T) {
 	queued := fakequeue.Of[notes.TranscribeArgs](w.queue)
 	require.Len(t, queued, 1)
 	require.NotEmpty(t, queued[0].Request)
-	require.Equal(t, notes.TranscribeArgs{NoteID: note.ID, UploadID: audio.ID, Language: "ru", Request: queued[0].Request, Attempts: notes.DefaultSTTAttempts}, queued[0])
+	require.Equal(t, notes.TranscribeArgs{NoteID: note.ID, RecordingID: audio.ID, Language: "ru", Request: queued[0].Request, Attempts: notes.DefaultSTTAttempts}, queued[0])
 	require.Equal(t, model.NoteTranscriptionPending, testutil.Must(w.svc.Get(w.ctx, w.me, note.ID))(t).TranscriptionStatus)
 
 	requireInvalid(t, w.svc.Retranscribe(w.ctx, w.me, note.ID, "en"), "The recording is being transcribed already.")
@@ -212,7 +212,7 @@ func TestNotes_Retranscribe(t *testing.T) {
 
 	// 30 seconds used and 30 more fit the minute; with 55 used, the 25 seconds
 	// of the recording don't.
-	again := w.note(t, w.me, factory.WithRecording(testutil.Must(factory.NoteAudio(w.ctx, w.db, w.me.ID))(t).ID))
+	again := w.note(t, w.me, factory.WithRecording(testutil.Must(factory.NoteRecording(w.ctx, w.db, w.me.ID))(t).ID))
 	testutil.Must(factory.STTRequest(w.ctx, w.db, w.me.ID, again.ID, 25))(t)
 	err := w.svc.Retranscribe(w.ctx, w.me, again.ID, "en")
 

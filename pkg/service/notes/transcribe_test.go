@@ -127,7 +127,7 @@ func TestNotes_TranscribeJobAfterDelete(t *testing.T) {
 
 	w := newJobWorld(t)
 	note := w.record(t, "wm-notes-deleted")
-	fname := testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t).UploadedFname
+	fname := testutil.Must(repo.New(w.db).NoteRecordingByID(w.ctx, *note.RecordingID))(t).Fname
 
 	require.NoError(t, w.svc.Delete(w.ctx, w.me, note.ID))
 	w.work(t)
@@ -137,7 +137,7 @@ func TestNotes_TranscribeJobAfterDelete(t *testing.T) {
 	}, 20*time.Second, 50*time.Millisecond, "the transcription and the deletion should both finish")
 
 	require.False(t, testutil.Must(w.storage.ObjectExists(w.ctx, fname))(t))
-	_, err := repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID)
+	_, err := repo.New(w.db).NoteRecordingByID(w.ctx, *note.RecordingID)
 	require.ErrorIs(t, err, repo.ErrNotFound)
 	require.Equal(t, 0, w.count(t, "select count(*) from stt_requests"))
 	w.wm.Verify(t, 0, sentSTT("wm-notes-deleted"))
@@ -150,7 +150,7 @@ func TestNotes_TranscribeJobAfterReplace(t *testing.T) {
 
 	w := newJobWorld(t)
 	note := w.record(t, "wm-notes-replaced")
-	old := testutil.Must(repo.New(w.db).MediaUploadByID(w.ctx, *note.AudioUploadID))(t)
+	old := testutil.Must(repo.New(w.db).NoteRecordingByID(w.ctx, *note.RecordingID))(t)
 
 	// replaced by a service with transcription off, so only the old job runs
 	inserter := testutil.Must(jobs.NewInserter(w.db))(t)
@@ -165,22 +165,31 @@ func TestNotes_TranscribeJobAfterReplace(t *testing.T) {
 	got := testutil.Must(w.svc.Get(w.ctx, w.me, note.ID))(t)
 	require.Equal(t, note.Body, got.Body)
 	require.Equal(t, model.NoteTranscriptionNone, got.TranscriptionStatus)
-	require.Equal(t, *replaced.AudioUploadID, *got.AudioUploadID)
+	require.Equal(t, *replaced.RecordingID, *got.RecordingID)
 	require.Equal(t, 0, w.count(t, "select count(*) from stt_requests"))
-	require.False(t, testutil.Must(w.storage.ObjectExists(w.ctx, old.UploadedFname))(t))
+	require.False(t, testutil.Must(w.storage.ObjectExists(w.ctx, old.Fname))(t))
+	_, err := repo.New(w.db).NoteRecordingByID(w.ctx, old.ID)
+	require.ErrorIs(t, err, repo.ErrNotFound)
 	w.wm.Verify(t, 0, sentSTT("wm-notes-replaced"))
 }
 
-// Deleting a recording whose object is gone already removes its row.
+// Deleting a recording whose object is gone already removes its row; a
+// recording a note uses again is left alone, and one that is gone is no error.
 func TestNotes_DeleteAudioWithoutObject(t *testing.T) {
 	t.Parallel()
 
 	w, _ := audioWorld(t)
-	upload := testutil.Must(factory.NoteAudio(w.ctx, w.db, w.me.ID))(t)
+	rec := testutil.Must(factory.NoteRecording(w.ctx, w.db, w.me.ID))(t)
+	used := testutil.Must(factory.NoteRecording(w.ctx, w.db, w.me.ID))(t)
+	w.note(t, w.me, factory.WithRecording(used.ID))
 
-	require.NoError(t, w.svc.DeleteAudio(w.ctx, notes.DeleteAudioArgs{UploadID: upload.ID}))
-	_, err := repo.New(w.db).MediaUploadByID(w.ctx, upload.ID)
+	require.NoError(t, w.svc.DeleteAudio(w.ctx, notes.DeleteAudioArgs{RecordingID: rec.ID}))
+	_, err := repo.New(w.db).NoteRecordingByID(w.ctx, rec.ID)
 	require.ErrorIs(t, err, repo.ErrNotFound)
+	require.NoError(t, w.svc.DeleteAudio(w.ctx, notes.DeleteAudioArgs{RecordingID: rec.ID}))
+
+	require.NoError(t, w.svc.DeleteAudio(w.ctx, notes.DeleteAudioArgs{RecordingID: used.ID}))
+	require.Equal(t, used.Fname, testutil.Must(repo.New(w.db).NoteRecordingByID(w.ctx, used.ID))(t).Fname)
 }
 
 // A failed call is retried with the note still pending; the last attempt
@@ -214,9 +223,9 @@ func TestNotes_TranscribeJobIsUnique(t *testing.T) {
 	note := w.record(t, "wm-notes-unique")
 	inserter := testutil.Must(jobs.NewInserter(w.db))(t)
 
-	require.NoError(t, inserter.Insert(w.ctx, w.db, notes.TranscribeArgs{NoteID: note.ID, UploadID: *note.AudioUploadID}))
+	require.NoError(t, inserter.Insert(w.ctx, w.db, notes.TranscribeArgs{NoteID: note.ID, RecordingID: *note.RecordingID}))
 	require.Equal(t, 1, w.count(t, "select count(*) from river_job where kind = 'notes.transcribe' and queue = $1", notes.QueueSTT))
 
-	require.NoError(t, inserter.Insert(w.ctx, w.db, notes.TranscribeArgs{NoteID: note.ID, UploadID: uuid.NewString()}))
+	require.NoError(t, inserter.Insert(w.ctx, w.db, notes.TranscribeArgs{NoteID: note.ID, RecordingID: uuid.NewString()}))
 	require.Equal(t, 2, w.count(t, "select count(*) from river_job where kind = 'notes.transcribe'"))
 }

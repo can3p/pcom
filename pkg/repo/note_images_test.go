@@ -22,8 +22,8 @@ func TestCreateNoteImage(t *testing.T) {
 	store := repo.New(db)
 	user := testutil.Must(factory.User(ctx, db))(t)
 	note := testutil.Must(factory.Note(ctx, db, user.ID))(t)
-	first := testutil.Must(factory.NoteAudio(ctx, db, user.ID))(t)
-	second := testutil.Must(factory.NoteAudio(ctx, db, user.ID))(t)
+	first := testutil.Must(factory.MediaUpload(ctx, db, user.ID))(t)
+	second := testutil.Must(factory.MediaUpload(ctx, db, user.ID))(t)
 
 	// inserted in the opposite order to the positions
 	require.NoError(t, store.CreateNoteImage(ctx, &model.NoteImage{NoteID: note.ID, UploadID: second.ID, Position: 1}))

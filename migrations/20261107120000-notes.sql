@@ -11,11 +11,17 @@ create table note_sources (
   unique (user_id, match_key)
 );
 
--- What media_uploads holds: an image (public by URL, note photos included) or
--- a note's recording, which only its owner may fetch.
-create type media_kind as enum ('image', 'note_audio');
-
-alter table media_uploads add column kind media_kind not null default 'image';
+-- A note's recording: the object fname (under audio/) in the media bucket,
+-- which only its owner may fetch. It has a table of its own, apart from
+-- media_uploads (public images), so a note's recording can never be an image.
+create table note_recordings (
+  id uuid primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  fname text not null unique,
+  content_type text not null,
+  size_bytes bigint not null,
+  created_at timestamptz not null default now()
+);
 
 create type note_transcription_status as enum ('none', 'pending', 'done', 'failed');
 
@@ -28,7 +34,7 @@ create table notes (
   body text not null default '',
   tags text[] not null default '{}',
   source_id uuid references note_sources(id) on delete set null,
-  audio_upload_id uuid references media_uploads(id) on delete set null,
+  recording_id uuid references note_recordings(id) on delete set null,
   text_tags text[] not null default '{}',
   transcription_status note_transcription_status not null default 'none',
   transcription_error text,
@@ -40,6 +46,7 @@ create table notes (
 -- The list and its cursor: newest capture first, the id breaking ties.
 create index on notes(user_id, captured_at desc, id);
 create index on notes(source_id);
+create index on notes(recording_id);
 -- Filtering by tag queries this exact expression.
 create index on notes using gin ((tags || text_tags));
 
@@ -89,6 +96,5 @@ drop type note_post_link_how;
 drop table note_images;
 drop table notes;
 drop type note_transcription_status;
-alter table media_uploads drop column kind;
-drop type media_kind;
+drop table note_recordings;
 drop table note_sources;

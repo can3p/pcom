@@ -233,7 +233,7 @@ func TestNotes_DeleteFromListAndSelection(t *testing.T) {
 	user := browser.NewUser(t, app)
 	now := time.Now().UTC()
 
-	audio, err := factory.NoteAudio(ctx, app.DB, user.ID)
+	audio, err := factory.NoteRecording(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 
 	spoken := mustNote(t, app, user.ID, factory.WithNoteBody("spoken note"), factory.WithRecording(audio.ID), factory.CapturedAt(now.Add(-4*time.Hour)))
@@ -535,7 +535,7 @@ func TestNotes_UploadRecording(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(notes.GetByTestId("note-status")).ToHaveText("Transcribing…"))
 
 	n := waitNotes(t, app, user.ID, 1)[0]
-	require.NotNil(t, n.AudioUploadID)
+	require.NotNil(t, n.RecordingID)
 	require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
 	require.Equal(t, 1, testutil.Must(factory.CountNoteJobs(context.Background(), app.DB, notesvc.TranscribeArgs{}.Kind(), user.ID))(t))
 
@@ -553,7 +553,7 @@ func TestNotes_UploadRecording(t *testing.T) {
 	require.NoError(t, page.GetByLabel("Add recording").SetInputFiles([]playwright.InputFile{memo}))
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("note-status")).ToContainText("Transcribing…"))
 	require.NoError(t, browser.Expect.Locator(page.GetByLabel("Add recording")).ToHaveCount(0))
-	require.NotNil(t, noteIn(t, app, typed.ID).AudioUploadID)
+	require.NotNil(t, noteIn(t, app, typed.ID).RecordingID)
 	require.Len(t, userNotes(t, app, user.ID), 2)
 }
 
@@ -678,7 +678,7 @@ func TestNotes_PhotosAndDeleteConfirmation(t *testing.T) {
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
 
-	audio, err := factory.NoteAudio(ctx, app.DB, user.ID)
+	audio, err := factory.NoteRecording(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 
 	note := mustNote(t, app, user.ID, factory.WithNoteBody("with photos"), factory.WithRecording(audio.ID))

@@ -38,10 +38,10 @@ func FromSource(sourceID string) NoteOpt {
 	return func(n *model.Note) { n.SourceID = &sourceID }
 }
 
-// WithRecording gives the note a recording, the upload of a note_audio.
-func WithRecording(uploadID string) NoteOpt {
+// WithRecording gives the note a recording made by NoteRecording.
+func WithRecording(recordingID string) NoteOpt {
 	return func(n *model.Note) {
-		n.AudioUploadID = &uploadID
+		n.RecordingID = &recordingID
 		n.TranscriptionStatus = model.NoteTranscriptionDone
 	}
 }
@@ -103,19 +103,19 @@ func NoteSource(ctx context.Context, exec repo.Executor, userID string, opts ...
 	return insertRow(ctx, exec, src)
 }
 
-// NoteAudio records a recording of userID, an upload of kind note_audio.
-func NoteAudio(ctx context.Context, exec repo.Executor, userID string) (*model.MediaUpload, error) {
+// NoteRecording records a recording of userID; its object is not stored.
+func NoteRecording(ctx context.Context, exec repo.Executor, userID string) (*model.NoteRecording, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
 	}
 
-	return insertRow(ctx, exec, &model.MediaUpload{
-		ID:            id,
-		UserID:        &userID,
-		UploadedFname: fmt.Sprintf("audio/test-%d.webm", next()),
-		ContentType:   "audio/webm",
-		Kind:          model.MediaKindNoteAudio,
+	return insertRow(ctx, exec, &model.NoteRecording{
+		ID:          id,
+		UserID:      userID,
+		Fname:       fmt.Sprintf("audio/test-%d.webm", next()),
+		ContentType: "audio/webm",
+		SizeBytes:   4,
 	})
 }
 

@@ -265,7 +265,7 @@ func TestNotesPages_StatusPollOnTheListAnswersTheItem(t *testing.T) {
 	ctx := context.Background()
 	user, c := newLoggedIn(t, app)
 
-	audio := testutil.Must(factory.NoteAudio(ctx, app.DB, user.ID))(t)
+	audio := testutil.Must(factory.NoteRecording(ctx, app.DB, user.ID))(t)
 	n := mustNote(t, app, user.ID, factory.WithNoteBody("an essay draft"), factory.WithNoteTags("essay"), factory.WithRecording(audio.ID),
 		factory.WithNoteTranscription(model.NoteTranscriptionDone))
 
@@ -375,7 +375,7 @@ func richNote(t *testing.T, app *e2e.App, userID string, status model.NoteTransc
 
 	ctx := context.Background()
 	src := testutil.Must(factory.NoteSource(ctx, app.DB, userID))(t)
-	audio := testutil.Must(factory.NoteAudio(ctx, app.DB, userID))(t)
+	audio := testutil.Must(factory.NoteRecording(ctx, app.DB, userID))(t)
 	n := mustNote(t, app, userID, factory.WithNoteBody(body), factory.WithNoteTags("essay"), factory.WithNoteTextTags("essay", "inline"),
 		factory.WithRecording(audio.ID), factory.WithNoteTranscription(status), factory.FromSource(src.ID))
 

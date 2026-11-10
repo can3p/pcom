@@ -13,10 +13,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// DeleteAudioArgs is the job deleting a note's recording from the bucket,
-// enqueued in the transaction that deletes the note.
+// DeleteAudioArgs is the job deleting a note's recording, its object and its
+// row, enqueued in the transaction that deletes the note or replaces the
+// recording.
 type DeleteAudioArgs struct {
-	UploadID string `json:"upload_id"`
+	RecordingID string `json:"recording_id"`
 }
 
 // Kind names the job kind.
@@ -194,12 +195,12 @@ func (s *Service) DeleteMany(ctx context.Context, actor *model.User, noteIDs []s
 				return err
 			}
 
-			if note.AudioUploadID != nil {
+			if note.RecordingID != nil {
 				if s.jobs == nil {
 					return errors.New("notes: no job queue to delete a recording with")
 				}
 
-				if err := tx.Enqueue(ctx, s.jobs, DeleteAudioArgs{UploadID: *note.AudioUploadID}); err != nil {
+				if err := tx.Enqueue(ctx, s.jobs, DeleteAudioArgs{RecordingID: *note.RecordingID}); err != nil {
 					return err
 				}
 			}

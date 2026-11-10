@@ -253,7 +253,7 @@ func shareKinds(t *testing.T) []shareKind {
 				require.Len(t, n.Images, 1)
 			}},
 		{"audio", nil, []sharedFile{{"audio", playwright.InputFile{Name: "memo.ogg", MimeType: "audio/ogg", Buffer: ogg}}}, "A recording",
-			func(t *testing.T, n *model.Note) { require.NotNil(t, n.AudioUploadID) }},
+			func(t *testing.T, n *model.Note) { require.NotNil(t, n.RecordingID) }},
 	}
 }
 
@@ -593,7 +593,7 @@ func TestNotesShare_Shortcuts(t *testing.T) {
 		openCapture(t, page, shortcuts["Dictate"])
 		record(t, page)
 		expectLast(t, page, "A recording of", "Saved")
-		require.NotNil(t, waitNotes(t, app, user.ID, 1)[0].AudioUploadID)
+		require.NotNil(t, waitNotes(t, app, user.ID, 1)[0].RecordingID)
 	})
 
 	t.Run("Photo", func(t *testing.T) {

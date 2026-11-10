@@ -31,7 +31,7 @@
 
   {{ template "partial--note-source-select.html" toMap "ID" "note-source" "Sources" .Sources "Selected" .SourceID }}
 
-  {{ if .Note.AudioUploadID }}{{ template "partial--note-status.html" .Status }}{{ end }}
+  {{ if .Note.RecordingID }}{{ template "partial--note-status.html" .Status }}{{ end }}
 
   <div class="ed-acts">
     <button type="button" class="ed-delete"
@@ -50,7 +50,7 @@
 </form>
 {{ template "note_again_slot" toMap "Again" .Again "OOB" false }}
 
-{{ if not .Note.AudioUploadID }}
+{{ if not .Note.RecordingID }}
 <div class="note-capture-acts note-add-recording">
   <span aria-live="polite" data-notes-target="uploadStatus"></span>
   <label class="btn btn-secondary note-upload">

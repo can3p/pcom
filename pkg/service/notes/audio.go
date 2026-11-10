@@ -105,7 +105,7 @@ func sniffAudio(b []byte) string {
 }
 
 // CreateFromAudio saves a note of the actor from a recording, as Create saves
-// one from in: the note, the recording's upload and, when transcription is
+// one from in: the note, the recording's row and, when transcription is
 // on, the note pending and its notes.transcribe job, all in one transaction.
 // The recording's text becomes the note's body when the job runs.
 func (s *Service) CreateFromAudio(ctx context.Context, actor *model.User, r io.Reader, contentType string, in Input) (*model.Note, error) {
@@ -195,20 +195,20 @@ func (s *Service) attach(ctx context.Context, tx *repo.Store, n *model.Note, rec
 		return err
 	}
 
-	upload := &model.MediaUpload{
-		ID:            id.String(),
-		UserID:        &n.UserID,
-		UploadedFname: AudioPrefix + id.String() + rec.ext,
-		ContentType:   rec.contentType,
-		Kind:          model.MediaKindNoteAudio,
+	stored := &model.NoteRecording{
+		ID:          id.String(),
+		UserID:      n.UserID,
+		Fname:       AudioPrefix + id.String() + rec.ext,
+		ContentType: rec.contentType,
+		SizeBytes:   int64(len(rec.bytes)),
 	}
 
-	if err := tx.CreateMediaUpload(ctx, upload); err != nil {
+	if err := tx.CreateNoteRecording(ctx, stored); err != nil {
 		return err
 	}
 
-	old := n.AudioUploadID
-	n.AudioUploadID = &upload.ID
+	old := n.RecordingID
+	n.RecordingID = &stored.ID
 	n.TranscriptionError = nil
 	n.TranscriptionStatus = model.NoteTranscriptionNone
 
@@ -216,16 +216,16 @@ func (s *Service) attach(ctx context.Context, tx *repo.Store, n *model.Note, rec
 		n.TranscriptionStatus = model.NoteTranscriptionPending
 	}
 
-	if err := tx.SaveNote(ctx, n, "audio_upload_id", "transcription_status", "transcription_error", "updated_at"); err != nil {
+	if err := tx.SaveNote(ctx, n, "recording_id", "transcription_status", "transcription_error", "updated_at"); err != nil {
 		return err
 	}
 
-	if err := s.media.UploadFile(ctx, upload.UploadedFname, rec.bytes, rec.contentType); err != nil {
+	if err := s.media.UploadFile(ctx, stored.Fname, rec.bytes, rec.contentType); err != nil {
 		return err
 	}
 
 	if err := s.enqueueAudioJobs(ctx, tx, n, old); err != nil {
-		return errors.Join(err, s.media.DeleteFile(ctx, upload.UploadedFname))
+		return errors.Join(err, s.media.DeleteFile(ctx, stored.Fname))
 	}
 
 	return nil
@@ -235,7 +235,7 @@ func (s *Service) attach(ctx context.Context, tx *repo.Store, n *model.Note, rec
 // the transcription of the one it has now when transcription is on.
 func (s *Service) enqueueAudioJobs(ctx context.Context, tx *repo.Store, n *model.Note, old *string) error {
 	if old != nil {
-		if err := tx.Enqueue(ctx, s.jobs, DeleteAudioArgs{UploadID: *old}); err != nil {
+		if err := tx.Enqueue(ctx, s.jobs, DeleteAudioArgs{RecordingID: *old}); err != nil {
 			return err
 		}
 	}
@@ -244,7 +244,7 @@ func (s *Service) enqueueAudioJobs(ctx context.Context, tx *repo.Store, n *model
 		return nil
 	}
 
-	return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, UploadID: *n.AudioUploadID, Attempts: s.sttAttempts})
+	return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, RecordingID: *n.RecordingID, Attempts: s.sttAttempts})
 }
 
 // Recording is a note's recording, read whole: it is at most AudioMaxBytes.
@@ -262,25 +262,25 @@ func (s *Service) Recording(ctx context.Context, actor *model.User, noteID strin
 		return nil, err
 	}
 
-	if n.AudioUploadID == nil {
+	if n.RecordingID == nil {
 		return nil, service.ErrNotFound
 	}
 
-	upload, err := s.store.MediaUploadByID(ctx, *n.AudioUploadID)
+	stored, err := s.store.NoteRecordingByID(ctx, *n.RecordingID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil, service.ErrNotFound
 	} else if err != nil {
 		return nil, err
 	}
 
-	b, err := s.download(ctx, upload.UploadedFname)
+	b, err := s.download(ctx, stored.Fname)
 	if errors.Is(err, media.ErrNotFound) {
 		return nil, service.ErrNotFound
 	} else if err != nil {
 		return nil, err
 	}
 
-	return &Recording{Bytes: b, ContentType: upload.ContentType, ModTime: upload.CreatedAt}, nil
+	return &Recording{Bytes: b, ContentType: stored.ContentType, ModTime: stored.CreatedAt}, nil
 }
 
 // download reads an object of the bucket whole.
@@ -334,7 +334,7 @@ func (s *Service) Retranscribe(ctx context.Context, actor *model.User, noteID, l
 		}
 
 		switch {
-		case n.AudioUploadID == nil:
+		case n.RecordingID == nil:
 			return service.Invalid("", msgNoRecording)
 		case n.TranscriptionStatus == model.NoteTranscriptionPending:
 			return service.Invalid("", msgTranscribing)
@@ -361,6 +361,6 @@ func (s *Service) Retranscribe(ctx context.Context, actor *model.User, noteID, l
 			return err
 		}
 
-		return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, UploadID: *n.AudioUploadID, Language: language, Request: request.String(), Attempts: s.sttAttempts})
+		return tx.Enqueue(ctx, s.jobs, TranscribeArgs{NoteID: n.ID, RecordingID: *n.RecordingID, Language: language, Request: request.String(), Attempts: s.sttAttempts})
 	})
 }

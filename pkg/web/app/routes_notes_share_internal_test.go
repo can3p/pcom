@@ -160,7 +160,7 @@ func TestShareRoute(t *testing.T) {
 		n := saved(t, postShare(t, svc, db, user, nil, photo("p.png", "image/png", png.Bytes())), user)
 		require.Empty(t, n.Body)
 		require.Len(t, n.Images, 1)
-		require.Nil(t, n.AudioUploadID)
+		require.Nil(t, n.RecordingID)
 	})
 
 	t.Run("an audio file", func(t *testing.T) {
@@ -168,7 +168,7 @@ func TestShareRoute(t *testing.T) {
 
 		user := newUser(t)
 		n := saved(t, postShare(t, svc, db, user, nil, audio(ogg)), user)
-		require.NotNil(t, n.AudioUploadID)
+		require.NotNil(t, n.RecordingID)
 		require.Empty(t, n.Images)
 	})
 

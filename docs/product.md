@@ -186,7 +186,8 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
 
 - **Private, always.** A note has no visibility, feed, RSS, comments or mail. Every read and write checks that
   the note is the actor's; a note of somebody else is `ErrNotFound`, never forbidden. Recordings are served only
-  by `GET /controls/notes/:id/audio`, and never by `user-media` or the CDN, which serve public files by name.
+  by `GET /controls/notes/:id/audio`, and never by `user-media` or the CDN, which serve public files by name. A
+  recording is a row of `note_recordings`, not a `media_uploads` image, so a note's recording can't be an image.
 - **Tags are columns, the text is the note.** `tags` (set by actions) and `text_tags` (the `#word`s of the body,
   rewritten on every save) are both filtered on as `tags || text_tags`. Editing the text edits the text tags, and
   a tag from an action goes with its chip.
@@ -215,11 +216,11 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   them, as renaming a tag does: its notes move there and it goes, so there is no separate merge. The capture API
   and the bulk Source action take a title and find or make the source.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
-  object leaves the bucket when the `notes.delete_audio` job runs. Photo files stay: an image is public by
+  object and row go when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
   so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there.
 - **A recording is transcribed once.** The upload enqueues `notes.transcribe` in its own transaction, unique per
-  note and upload. The job re-checks the note and the upload when it runs, and does nothing if either is gone. The
+  note and recording. The job re-checks the note and the recording when it runs, and does nothing if either is gone. The
   transcript becomes the body; editing it later never calls the provider. Language is detected, never set in
   advance: a forced language makes speech in any other language come out translated or garbled, so a per-user
   setting would spoil every memo in another language. "Transcribe again as…" sends the recording once more with the

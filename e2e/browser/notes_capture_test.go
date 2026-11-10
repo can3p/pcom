@@ -238,7 +238,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
-		require.NotNil(t, n.AudioUploadID)
+		require.NotNil(t, n.RecordingID)
 		require.Empty(t, n.Images)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 
@@ -352,7 +352,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.Len(t, n.Images, 1)
-		require.Nil(t, n.AudioUploadID)
+		require.Nil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// turned into JPEG and scaled down to NOTE_PHOTO_MAX_DIMENSION, which
@@ -376,7 +376,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.Len(t, n.Images, 1)
-		require.NotNil(t, n.AudioUploadID)
+		require.NotNil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 		eventuallyNote(t, app, user.ID, func(m *model.Note) bool { return m.ID == n.ID && m.Body == captureTranscript })
 	})
@@ -391,7 +391,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.Equal(t, text, n.Body)
-		require.Nil(t, n.AudioUploadID)
+		require.Nil(t, n.RecordingID)
 		require.Empty(t, n.Images)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 		require.Equal(t, []string{"idea"}, n.TextTags)
@@ -404,7 +404,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
-		require.NotNil(t, n.AudioUploadID)
+		require.NotNil(t, n.RecordingID)
 		require.Empty(t, n.Images)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 
@@ -416,7 +416,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n = waitNotes(t, app, user.ID, count)[0]
 		require.Len(t, n.Images, 1)
-		require.Nil(t, n.AudioUploadID)
+		require.Nil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 	})
 
@@ -436,7 +436,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
-		require.NotNil(t, n.AudioUploadID)
+		require.NotNil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 	})
 }
@@ -516,7 +516,7 @@ func TestNotesCapture_TimeLimitAndWakeLock(t *testing.T) {
 	require.Equal(t, [2]int{1, 1}, wakeLocks(t, page))
 
 	n := waitNotes(t, app, user.ID, 1)[0]
-	require.NotNil(t, n.AudioUploadID)
+	require.NotNil(t, n.RecordingID)
 }
 
 // The service worker is registered by the capture page only, controls only

@@ -17,9 +17,14 @@ func ListNoteImages(ctx context.Context, exec repo.Executor, userID string) ([]*
 	return list[model.NoteImage](ctx, exec, "note_id IN (SELECT id FROM notes WHERE user_id = ?)", userID)
 }
 
-// ListMediaUploads returns the uploads of userID, images and recordings.
+// ListMediaUploads returns the image uploads of userID.
 func ListMediaUploads(ctx context.Context, exec repo.Executor, userID string) ([]*model.MediaUpload, error) {
 	return list[model.MediaUpload](ctx, exec, "user_id = ?", userID)
+}
+
+// ListNoteRecordings returns the recordings of userID.
+func ListNoteRecordings(ctx context.Context, exec repo.Executor, userID string) ([]*model.NoteRecording, error) {
+	return list[model.NoteRecording](ctx, exec, "user_id = ?", userID)
 }
 
 // CountNoteJobs is how many River jobs of the kind are about a note of

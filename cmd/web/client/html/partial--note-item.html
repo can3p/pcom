@@ -3,7 +3,7 @@
 <article class="item note" id="note-{{ $n.ID }}" data-testid="note">
   <label class="note-pick">
     <input type="checkbox" value="{{ $n.ID }}" data-notes-target="pick" data-action="notes#select"
-           data-recording="{{ if $n.AudioUploadID }}1{{ else }}0{{ end }}"
+           data-recording="{{ if $n.RecordingID }}1{{ else }}0{{ end }}"
            aria-label="Select this note">
   </label>
   <div class="note-main">
@@ -22,7 +22,7 @@
                 data-note-id="{{ $n.ID }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path></svg></button>
       </div>
     </div>
-    {{ if $n.AudioUploadID }}{{ template "partial--note-status.html" .Item.Status }}{{ end }}
+    {{ if $n.RecordingID }}{{ template "partial--note-status.html" .Item.Status }}{{ end }}
     {{ if $n.Body }}<div class="prose note-body">{{ markdown_feed $n.Body }}</div>{{ end }}
     {{ if $n.Images }}
     <p class="note-photos">{{ range $n.Images }}<img src="{{ link "uploaded_media" .Upload.UploadedFname }}" alt="Photo of the note" loading="lazy">{{ end }}</p>

@@ -157,6 +157,7 @@ func TestCapture_Refused(t *testing.T) {
 			require.Equal(t, 0, w.count(t, "select count(*) from notes"))
 			require.Equal(t, 0, w.count(t, "select count(*) from note_images"))
 			require.Equal(t, 0, w.count(t, "select count(*) from media_uploads"))
+			require.Equal(t, 0, w.count(t, "select count(*) from note_recordings"))
 			require.Empty(t, w.queue.Inserted())
 			require.Empty(t, storage.Names(), "no file is left in the storage")
 		})

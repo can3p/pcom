@@ -198,7 +198,7 @@ type NoteAgain struct {
 // NoteAgainOf is the control of n, nil when the note has no recording,
 // transcription is off or the recording is being transcribed already.
 func NoteAgainOf(svc *notes.Service, n *model.Note, edit bool) *NoteAgain {
-	if n.AudioUploadID == nil || !svc.TranscriptionEnabled() || n.TranscriptionStatus == model.NoteTranscriptionPending {
+	if n.RecordingID == nil || !svc.TranscriptionEnabled() || n.TranscriptionStatus == model.NoteTranscriptionPending {
 		return nil
 	}
 
@@ -360,7 +360,7 @@ func NoteSourceRow(c *gin.Context, svc *notes.Service, user *model.User, id stri
 func NoteDeletePrompt(n *model.Note, used bool) string {
 	var parts []string
 
-	if n.AudioUploadID != nil {
+	if n.RecordingID != nil {
 		parts = append(parts, "its recording")
 	}
 
@@ -723,7 +723,7 @@ func sharedNote(c *gin.Context, svc *notes.Service, userData *auth.UserData) (st
 		NoteID:       n.ID,
 		Text:         capture.Unquote(n.Body),
 		Photos:       len(n.Images),
-		Voice:        n.AudioUploadID != nil,
+		Voice:        n.RecordingID != nil,
 		DeletePrompt: NoteDeletePrompt(n, false),
 	})
 

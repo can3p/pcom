@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/can3p/pcom/pkg/media/server"
-	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -50,15 +49,14 @@ func TestNotes_UserMediaRefusesRecordings(t *testing.T) {
 	svc := notes.New(store, notes.WithJobs(fakequeue.New()), notes.WithMediaStorage(storage))
 
 	note := testutil.Must(svc.CreateFromAudio(ctx, user, strings.NewReader("OggS\x00\x02memo"), "audio/ogg", notes.Input{}))(t)
-	recording := testutil.Must(store.MediaUploadByID(ctx, *note.AudioUploadID))(t)
-	require.Equal(t, model.MediaKindNoteAudio, recording.Kind)
-	require.True(t, testutil.Must(storage.ObjectExists(ctx, recording.UploadedFname))(t))
+	recording := testutil.Must(store.NoteRecordingByID(ctx, *note.RecordingID))(t)
+	require.True(t, testutil.Must(storage.ObjectExists(ctx, recording.Fname))(t))
 
 	media := &servingMedia{}
 	handler := serveUserMedia(media, func(n string) string { return "/static/" + n })
 
 	for fname, want := range map[string]int{
-		recording.UploadedFname:                    http.StatusNotFound,
+		recording.Fname: http.StatusNotFound,
 		"0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60.png": http.StatusOK,
 	} {
 		rec := httptest.NewRecorder()

@@ -327,9 +327,34 @@ func (s *Store) LinkNotePost(ctx context.Context, noteID, postID string, how mod
 	return err
 }
 
-// NoteUsesAudio reports whether a note has the upload as its recording.
-func (s *Store) NoteUsesAudio(ctx context.Context, uploadID string) (bool, error) {
-	return s.query().NewSelect().Model((*model.Note)(nil)).Where("audio_upload_id = ?", uploadID).Exists(ctx)
+// CreateNoteRecording inserts a note's recording.
+func (s *Store) CreateNoteRecording(ctx context.Context, rec *model.NoteRecording) error {
+	_, err := s.query().NewInsert().Model(rec).Exec(ctx)
+
+	return err
+}
+
+// NoteRecordingByID returns the recording with id, or ErrNotFound.
+func (s *Store) NoteRecordingByID(ctx context.Context, id string) (*model.NoteRecording, error) {
+	rec := new(model.NoteRecording)
+	if err := s.query().NewSelect().Model(rec).Where("id = ?", id).Scan(ctx); err != nil {
+		return nil, notFound(err)
+	}
+
+	return rec, nil
+}
+
+// DeleteNoteRecording removes the recording with id; one that is already
+// gone is not an error.
+func (s *Store) DeleteNoteRecording(ctx context.Context, id string) error {
+	_, err := s.query().NewDelete().Model((*model.NoteRecording)(nil)).Where("id = ?", id).Exec(ctx)
+
+	return err
+}
+
+// NoteUsesRecording reports whether a note has the recording.
+func (s *Store) NoteUsesRecording(ctx context.Context, recordingID string) (bool, error) {
+	return s.query().NewSelect().Model((*model.Note)(nil)).Where("recording_id = ?", recordingID).Exists(ctx)
 }
 
 // LatestSTTSeconds is the seconds of the newest ok transcription of the

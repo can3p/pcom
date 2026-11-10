@@ -20,8 +20,8 @@ import (
 // transcribes once; each Retranscribe is a request of its own, since the job
 // before it may still be finishing when the note shows done.
 type TranscribeArgs struct {
-	NoteID   string `json:"note_id" river:"unique"`
-	UploadID string `json:"upload_id" river:"unique"`
+	NoteID      string `json:"note_id" river:"unique"`
+	RecordingID string `json:"recording_id" river:"unique"`
 	// Language forces the language (Retranscribe); empty lets the backend
 	// detect it. A forced transcription replaces the text instead of adding
 	// to it.
@@ -100,7 +100,7 @@ func (s *Service) Transcribe(ctx context.Context, args TranscribeArgs) error {
 
 // current reports whether n still waits for the transcription of args.
 func current(n *model.Note, args TranscribeArgs) bool {
-	return n.AudioUploadID != nil && *n.AudioUploadID == args.UploadID && n.TranscriptionStatus == model.NoteTranscriptionPending
+	return n.RecordingID != nil && *n.RecordingID == args.RecordingID && n.TranscriptionStatus == model.NoteTranscriptionPending
 }
 
 func (s *Service) transcribe(ctx context.Context, args TranscribeArgs) error {
@@ -119,7 +119,7 @@ func (s *Service) transcribe(ctx context.Context, args TranscribeArgs) error {
 		return nil
 	}
 
-	upload, err := s.store.MediaUploadByID(ctx, args.UploadID)
+	rec, err := s.store.NoteRecordingByID(ctx, args.RecordingID)
 	if errors.Is(err, repo.ErrNotFound) {
 		return nil
 	} else if err != nil {
@@ -130,12 +130,12 @@ func (s *Service) transcribe(ctx context.Context, args TranscribeArgs) error {
 		return err
 	}
 
-	audio, err := s.download(ctx, upload.UploadedFname)
+	audio, err := s.download(ctx, rec.Fname)
 	if err != nil {
 		return err
 	}
 
-	res, callErr := s.stt.Transcribe(ctx, stt.Audio{Bytes: audio, ContentType: upload.ContentType, Language: args.Language})
+	res, callErr := s.stt.Transcribe(ctx, stt.Audio{Bytes: audio, ContentType: rec.ContentType, Language: args.Language})
 
 	call := &model.STTRequest{
 		UserID: note.UserID, Provider: s.stt.Name(), Model: s.stt.Model(),
@@ -236,33 +236,29 @@ func spokenHashtags(text string) string {
 }
 
 // DeleteAudio is the notes.delete_audio worker: it removes a recording no
-// note uses any more from the bucket, and its upload row. An upload that is
-// gone, is not a recording or is in use again is left alone.
+// note uses any more from the bucket, and its row. A recording that is gone
+// or is in use again is left alone.
 func (s *Service) DeleteAudio(ctx context.Context, args DeleteAudioArgs) error {
 	if s.media == nil {
 		return errors.New("notes: no media storage to delete a recording from")
 	}
 
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
-		upload, err := tx.MediaUploadByID(ctx, args.UploadID)
+		rec, err := tx.NoteRecordingByID(ctx, args.RecordingID)
 		if errors.Is(err, repo.ErrNotFound) {
 			return nil
 		} else if err != nil {
 			return err
 		}
 
-		if upload.Kind != model.MediaKindNoteAudio {
-			return nil
-		}
-
-		if used, err := tx.NoteUsesAudio(ctx, upload.ID); err != nil || used {
+		if used, err := tx.NoteUsesRecording(ctx, rec.ID); err != nil || used {
 			return err
 		}
 
-		if err := tx.DeleteMediaUpload(ctx, upload.ID); err != nil {
+		if err := tx.DeleteNoteRecording(ctx, rec.ID); err != nil {
 			return err
 		}
 
-		return s.media.DeleteFile(ctx, upload.UploadedFname)
+		return s.media.DeleteFile(ctx, rec.Fname)
 	})
 }

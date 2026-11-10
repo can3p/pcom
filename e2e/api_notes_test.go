@@ -326,12 +326,13 @@ func notesApp(t *testing.T, opts ...e2e.Option) *e2e.App {
 }
 
 // stored is what a user has in the database after captures: notes, photos,
-// uploads and transcription jobs.
+// image uploads, recordings and transcription jobs.
 type stored struct {
-	notes   []*model.Note
-	images  []*model.NoteImage
-	uploads []*model.MediaUpload
-	jobs    int
+	notes      []*model.Note
+	images     []*model.NoteImage
+	uploads    []*model.MediaUpload
+	recordings []*model.NoteRecording
+	jobs       int
 }
 
 func storedOf(t *testing.T, app *e2e.App, userID string) stored {
@@ -340,10 +341,11 @@ func storedOf(t *testing.T, app *e2e.App, userID string) stored {
 	ctx := context.Background()
 
 	return stored{
-		notes:   testutil.Must(factory.ListNotes(ctx, app.DB, userID))(t),
-		images:  testutil.Must(factory.ListNoteImages(ctx, app.DB, userID))(t),
-		uploads: testutil.Must(factory.ListMediaUploads(ctx, app.DB, userID))(t),
-		jobs:    testutil.Must(factory.CountNoteJobs(ctx, app.DB, notes.TranscribeArgs{}.Kind(), userID))(t),
+		notes:      testutil.Must(factory.ListNotes(ctx, app.DB, userID))(t),
+		images:     testutil.Must(factory.ListNoteImages(ctx, app.DB, userID))(t),
+		uploads:    testutil.Must(factory.ListMediaUploads(ctx, app.DB, userID))(t),
+		recordings: testutil.Must(factory.ListNoteRecordings(ctx, app.DB, userID))(t),
+		jobs:       testutil.Must(factory.CountNoteJobs(ctx, app.DB, notes.TranscribeArgs{}.Kind(), userID))(t),
 	}
 }
 
@@ -408,6 +410,7 @@ func TestAPINotes_Create(t *testing.T) {
 			require.Equal(t, model.NoteTranscriptionNone, n.TranscriptionStatus)
 			require.WithinDuration(t, time.Now(), n.CapturedAt, time.Minute, "no captured_at is now")
 			require.Empty(t, s.uploads)
+			require.Empty(t, s.recordings)
 			require.Zero(t, s.jobs)
 		}},
 		{name: "kind share", parts: []part{field("text", "line one\nline two"), field("kind", "share")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
@@ -463,9 +466,9 @@ func TestAPINotes_Create(t *testing.T) {
 			wantField: "image", wantMsg: "pcom keeps photos in JPEG, PNG or WebP."},
 		{name: "one audio", parts: []part{file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording))}, want: func(t *testing.T, n web.ApiNote, s stored) {
 			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
-			require.Len(t, s.uploads, 1)
-			require.Equal(t, model.MediaKindNoteAudio, s.uploads[0].Kind)
-			require.Equal(t, s.uploads[0].ID, *s.notes[0].AudioUploadID)
+			require.Empty(t, s.uploads, "a recording is not an image upload")
+			require.Len(t, s.recordings, 1)
+			require.Equal(t, s.recordings[0].ID, *s.notes[0].RecordingID)
 			require.Equal(t, 1, s.jobs, "one notes.transcribe job is queued")
 		}},
 		{name: "two audio files", parts: []part{file("audio", "a.m4a", "audio/x-m4a", []byte(m4aRecording)), file("audio", "b.m4a", "audio/x-m4a", []byte(m4aRecording))},
@@ -482,7 +485,8 @@ func TestAPINotes_Create(t *testing.T) {
 			require.Equal(t, []string{"sand"}, n.Tags)
 			require.Len(t, n.Images, 1)
 			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
-			require.Len(t, s.uploads, 2, "the photo and the recording")
+			require.Len(t, s.uploads, 1, "the photo")
+			require.Len(t, s.recordings, 1)
 			require.Equal(t, 1, s.jobs)
 		}},
 	}
@@ -551,8 +555,8 @@ func TestAPINotes_AudioWithoutSTT(t *testing.T) {
 	require.Equal(t, model.NoteTranscriptionNone, n.TranscriptionStatus)
 
 	s := requireStoredAs(t, app, user.ID, n)
-	require.Len(t, s.uploads, 1)
-	require.Equal(t, model.MediaKindNoteAudio, s.uploads[0].Kind)
+	require.Empty(t, s.uploads)
+	require.Len(t, s.recordings, 1)
 	require.Zero(t, s.jobs, "no transcription job is queued")
 }
 
