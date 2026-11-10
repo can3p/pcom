@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
@@ -28,10 +27,8 @@ type Input struct {
 	Body string
 	// Tags are set by an action; the #words of Body are tags anyway.
 	Tags []string
-	// SourceID is one of the actor's sources (the note form's choice);
-	// Source is a title, found or created like a capture's. SourceID wins.
+	// SourceID is one of the actor's sources, or "" for none.
 	SourceID string
-	Source   string
 	// CapturedAt is when the note was taken; the zero value means now.
 	CapturedAt time.Time
 }
@@ -60,21 +57,8 @@ func (s *Service) Create(ctx context.Context, actor *model.User, in Input) (*mod
 			note.CapturedAt = s.now()
 		}
 
-		var src *model.NoteSource
-
-		switch {
-		case in.SourceID != "":
-			src, err = s.ownSource(ctx, tx, actor, in.SourceID)
-		case strings.TrimSpace(in.Source) != "":
-			src, err = s.resolveSource(ctx, tx, actor, in.Source)
-		}
-
-		if err != nil {
-			return asField(err, "source")
-		}
-
-		if src != nil {
-			note.SourceID, note.Source = &src.ID, src
+		if err := s.setSource(ctx, tx, actor, note, in.SourceID); err != nil {
+			return err
 		}
 
 		return tx.CreateNote(ctx, note)
@@ -86,13 +70,13 @@ func (s *Service) Create(ctx context.Context, actor *model.User, in Input) (*mod
 	return note, nil
 }
 
-// Edit is a change of a note; a nil field keeps what the note has. Tags
-// replace the ones set by actions; the ones from the text follow Body.
+// Edit is what a note becomes. Tags replace the ones set by hand; the ones
+// from the text follow Body.
 type Edit struct {
-	Body *string
-	Tags *[]string
+	Body string
+	Tags []string
 	// SourceID is one of the actor's sources, or "" for none.
-	SourceID *string
+	SourceID string
 }
 
 // Update changes a note of the actor.
@@ -105,32 +89,13 @@ func (s *Service) Update(ctx context.Context, actor *model.User, noteID string, 
 			return err
 		}
 
-		body, tags := n.Body, n.Tags
-
-		if in.Body != nil {
-			body = *in.Body
-		}
-
-		if in.Tags != nil {
-			tags = *in.Tags
-		}
-
-		n.Body = body
-		if n.Tags, n.TextTags, err = s.tagsOf(body, tags); err != nil {
+		n.Body = in.Body
+		if n.Tags, n.TextTags, err = s.tagsOf(in.Body, in.Tags); err != nil {
 			return err
 		}
 
-		if in.SourceID != nil {
-			n.SourceID, n.Source = nil, nil
-
-			if *in.SourceID != "" {
-				src, err := s.ownSource(ctx, tx, actor, *in.SourceID)
-				if err != nil {
-					return asField(err, "source")
-				}
-
-				n.SourceID, n.Source = &src.ID, src
-			}
+		if err := s.setSource(ctx, tx, actor, n, in.SourceID); err != nil {
+			return err
 		}
 
 		note = n
@@ -142,6 +107,24 @@ func (s *Service) Update(ctx context.Context, actor *model.User, noteID string, 
 	}
 
 	return note, nil
+}
+
+// setSource sets the note's source to the actor's source id, or to none for "".
+func (s *Service) setSource(ctx context.Context, tx *repo.Store, actor *model.User, n *model.Note, id string) error {
+	n.SourceID, n.Source = nil, nil
+
+	if id == "" {
+		return nil
+	}
+
+	src, err := s.ownSource(ctx, tx, actor, id)
+	if err != nil {
+		return asField(err, "source")
+	}
+
+	n.SourceID, n.Source = &src.ID, src
+
+	return nil
 }
 
 // Get returns a note of the actor with its source and photos.

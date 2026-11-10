@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/auth"
+	"github.com/can3p/pcom/pkg/forms"
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
@@ -147,12 +148,10 @@ func NewNoteSearch(path string, q NoteQuery, tags []notes.TagCount) *NoteSearch 
 	return out
 }
 
-// NoteTag is a tag of a note; FromText says it comes from a #word of the
-// body, so it goes with the text. Href is the list searching for the tag.
+// NoteTag is a tag of a note with Href, the list searching for the tag.
 type NoteTag struct {
-	Tag      string
-	FromText bool
-	Href     string
+	model.NoteTag
+	Href string
 }
 
 // NoteItem is a note of the list.
@@ -311,48 +310,8 @@ type NotesPage struct {
 type NoteManage struct {
 	Tags    []notes.TagCount
 	Sources []notes.SourceCount
-	// Add is the Add source form.
-	Add *SourceForm
-}
-
-// SourceForm is the Add source form, or a source's edit form when Source is
-// set (partial--note-source-form.html): what was typed, the error under the
-// title, and the result next to the button: Saved, or Failure for an error
-// that is not the title's.
-type SourceForm struct {
-	Source  *model.NoteSource
-	Title   string
-	Error   string
-	Failure string
-	Saved   bool
-}
-
-// SourceRow is a source of the management screen as its row shows it
-// (partial--note-source-row.html); Saved shows that a rename just saved.
-type SourceRow struct {
-	Source *model.NoteSource
-	Notes  int
-	Saved  bool
-}
-
-// NoteSourceRow is the row of the viewer's source id, with its note count.
-func NoteSourceRow(c *gin.Context, svc *notes.Service, user *model.User, id string) (*SourceRow, error) {
-	if _, err := svc.Source(c, user, id); err != nil {
-		return nil, err
-	}
-
-	sources, err := svc.Sources(c, user)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, s := range sources {
-		if s.Source.ID == id {
-			return &SourceRow{Source: s.Source, Notes: s.Notes}, nil
-		}
-	}
-
-	return nil, service.ErrNotFound
+	// Add is the Add source form's data.
+	Add map[string]any
 }
 
 // NoteDeletePrompt is the confirmation of deleting a note: what goes with it,
@@ -399,24 +358,11 @@ func NoteTagsOf(n *model.Note) []NoteTag {
 // noteTagsIn lists the tags of a note as the list of the view q shows them:
 // each links to the view with the tag added to its search.
 func noteTagsIn(n *model.Note, q NoteQuery) []NoteTag {
-	var out []NoteTag
-
 	search := q.Search()
-	add := func(tag string, fromText bool) {
-		out = append(out, NoteTag{Tag: tag, FromText: fromText, Href: q.withSearch(search.WithTag(tag)).URL(links.Link("notes"))})
-	}
 
-	for _, t := range n.Tags {
-		add(t, false)
-	}
-
-	for _, t := range n.TextTags {
-		if !slices.Contains(n.Tags, t) {
-			add(t, true)
-		}
-	}
-
-	return out
+	return lo.Map(n.AllTags(), func(t model.NoteTag, _ int) NoteTag {
+		return NoteTag{NoteTag: t, Href: q.withSearch(search.WithTag(t.Tag)).URL(links.Link("notes"))}
+	})
 }
 
 // recentTags are the tags of the notes, in the order of the notes and then
@@ -531,7 +477,7 @@ func NotesManagePage(c *gin.Context, svc *notes.Service, userData *auth.UserData
 
 	return mo.Ok(&NotesPage{
 		BasePage: getBasePage(c, "Tags and sources", userData),
-		Manage:   &NoteManage{Tags: tags, Sources: sources, Add: &SourceForm{}},
+		Manage:   &NoteManage{Tags: tags, Sources: sources, Add: forms.NoteSourceFormNew(svc, userData.DBUser, nil).TemplateData()},
 	})
 }
 
@@ -542,8 +488,6 @@ type EditNotePage struct {
 	// Tags is the tags set by hand, as the form shows them.
 	Tags         string
 	DeletePrompt string
-	// Chips are all the tags of the note, the ones of its text included.
-	Chips []NoteTag
 	// Status is the transcription status the form shows for a recording.
 	Status *NoteStatus
 	// Again is the "Transcribe again as…" control, nil when the note has none.
@@ -576,7 +520,6 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		BasePage:     getBasePage(c, "Edit note", userData),
 		Note:         note,
 		Tags:         strings.Join(note.Tags, " "),
-		Chips:        NoteTagsOf(note),
 		DeletePrompt: NoteDeletePrompt(note, links > 0),
 		Status:       &NoteStatus{Note: note, View: NoteStatusEdit, Base: note.Body},
 		Again:        NoteAgainOf(svc, note, true),

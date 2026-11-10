@@ -111,6 +111,26 @@ func (s *Service) Source(ctx context.Context, actor *model.User, id string) (*mo
 	return s.ownSource(ctx, s.store, actor, id)
 }
 
+// SourceCount returns a source of the actor with how many notes come from it.
+func (s *Service) SourceCount(ctx context.Context, actor *model.User, id string) (*SourceCount, error) {
+	if _, err := s.ownSource(ctx, s.store, actor, id); err != nil {
+		return nil, err
+	}
+
+	sources, err := s.store.NoteSourceCounts(ctx, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range sources {
+		if sources[i].Source.ID == id {
+			return &sources[i], nil
+		}
+	}
+
+	return nil, service.ErrNotFound
+}
+
 // SetSource gives the notes the source with that title, found or created; an
 // empty title takes their source away. One note that isn't the actor's fails
 // the whole call.

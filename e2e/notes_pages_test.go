@@ -804,7 +804,7 @@ func TestNotesPages_CaptureTags(t *testing.T) {
 	require.Equal(t, []string{"#walk", "#inline", "#old"}, texts(doc, "ul[aria-label='Recent tags'] button"), "the newest notes, whatever the list shows")
 
 	resp := c.PostForm("/controls/form/note_create", url.Values{"body": {"captured"}, "tags": {"#Essay, walk  #walk"}}).RequireStatus(http.StatusOK)
-	require.Contains(t, resp.Body, "Saved")
+	require.Equal(t, "true", resp.Header.Get("HX-Refresh"))
 
 	got := userNotesByBody(t, app, user.ID)["captured"]
 	require.NotNil(t, got)
@@ -825,7 +825,7 @@ func TestNotesPages_NoteFormsSaveTheSource(t *testing.T) {
 	book := testutil.Must(factory.NoteSource(ctx, app.DB, user.ID))(t)
 
 	resp := c.PostForm("/controls/form/note_create", url.Values{"body": {"from a book"}, "source_id": {book.ID}}).RequireStatus(http.StatusOK)
-	require.Contains(t, resp.Body, "Saved")
+	require.Equal(t, "true", resp.Header.Get("HX-Refresh"))
 	created := userNotesByBody(t, app, user.ID)["from a book"]
 	require.Equal(t, book.ID, *created.SourceID)
 

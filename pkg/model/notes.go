@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -70,6 +71,30 @@ func (m *Note) BeforeAppendModel(_ context.Context, query bun.Query) error {
 	}
 
 	return nil
+}
+
+// NoteTag is a tag of a note; FromText says it comes from a #word of the
+// body, so it goes with the text.
+type NoteTag struct {
+	Tag      string
+	FromText bool
+}
+
+// AllTags lists the note's tags, the ones set by hand first, each once.
+func (m *Note) AllTags() []NoteTag {
+	out := make([]NoteTag, 0, len(m.Tags)+len(m.TextTags))
+
+	for _, t := range m.Tags {
+		out = append(out, NoteTag{Tag: t})
+	}
+
+	for _, t := range m.TextTags {
+		if !slices.Contains(m.Tags, t) {
+			out = append(out, NoteTag{Tag: t, FromText: true})
+		}
+	}
+
+	return out
 }
 
 // NoteSource is a row of note_sources: where notes come from, named by its

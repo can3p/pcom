@@ -100,27 +100,30 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 	err = s.store.Tx(ctx, func(tx *repo.Store) error {
 		within := s.within(tx)
 
-		var quoteSource *model.NoteSource
+		var src *model.NoteSource
 
-		if strings.TrimSpace(in.Source) == "" && parsed.Kind == capture.Quote {
-			if quoteSource, err = within.QuoteSource(ctx, actor); err != nil {
-				return err
-			}
+		switch {
+		case strings.TrimSpace(in.Source) != "":
+			src, err = within.resolveSource(ctx, tx, actor, in.Source)
+		case parsed.Kind == capture.Quote:
+			src, err = within.QuoteSource(ctx, actor)
 		}
 
-		n, err := within.Create(ctx, actor, Input{Body: parsed.Text, Tags: in.Tags, Source: in.Source, CapturedAt: in.CapturedAt})
+		if err != nil {
+			return asField(err, "source")
+		}
+
+		var sourceID string
+		if src != nil {
+			sourceID = src.ID
+		}
+
+		n, err := within.Create(ctx, actor, Input{Body: parsed.Text, Tags: in.Tags, SourceID: sourceID, CapturedAt: in.CapturedAt})
 		if err != nil {
 			return err
 		}
 
 		noteID = n.ID
-
-		if quoteSource != nil {
-			n.SourceID, n.Source = &quoteSource.ID, quoteSource
-			if err := tx.SaveNote(ctx, n, "source_id", "updated_at"); err != nil {
-				return err
-			}
-		}
 
 		for i, img := range images {
 			fname, err := mediasvc.StoreUpload(ctx, tx, s.media, &actor.ID, nil, bytes.NewReader(img), int64(len(img)))

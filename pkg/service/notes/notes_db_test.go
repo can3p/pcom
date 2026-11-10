@@ -100,12 +100,9 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 	mySource := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
 	mine := w.note(t, w.me, factory.FromSource(mySource.ID))
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.other.ID))(t)
-	body := "x"
-	srcID := src.ID
-
 	calls := map[string]func() error{
 		"Get":        func() error { _, err := w.svc.Get(w.ctx, w.me, note.ID); return err },
-		"Update":     func() error { _, err := w.svc.Update(w.ctx, w.me, note.ID, notes.Edit{Body: &body}); return err },
+		"Update":     func() error { _, err := w.svc.Update(w.ctx, w.me, note.ID, notes.Edit{Body: "x"}); return err },
 		"Delete":     func() error { return w.svc.Delete(w.ctx, w.me, note.ID) },
 		"DeleteMany": func() error { _, err := w.svc.DeleteMany(w.ctx, w.me, []string{mine.ID, note.ID}); return err },
 		"TagMany":    func() error { return w.svc.TagMany(w.ctx, w.me, []string{mine.ID, note.ID}, []string{"a"}) },
@@ -122,7 +119,10 @@ func TestOtherUsersThingsAreNotFound(t *testing.T) {
 			_, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "x", SourceID: src.ID})
 			return err
 		},
-		"UpdateSource": func() error { _, err := w.svc.Update(w.ctx, w.me, mine.ID, notes.Edit{SourceID: &srcID}); return err },
+		"UpdateSource": func() error {
+			_, err := w.svc.Update(w.ctx, w.me, mine.ID, notes.Edit{Body: "x", SourceID: src.ID})
+			return err
+		},
 	}
 
 	for name, call := range calls {
@@ -179,8 +179,7 @@ func TestCreateAndUpdateParseTags(t *testing.T) {
 	require.Equal(t, w.now, n.CapturedAt)
 
 	// Text tags follow every save; a tag set by an action stays.
-	body := "now #other"
-	n, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: &body})
+	n, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: "now #other", Tags: n.Tags})
 	require.NoError(t, err)
 	require.Equal(t, []string{"essay", "walking"}, n.Tags)
 	require.Equal(t, []string{"other"}, n.TextTags)
@@ -189,17 +188,16 @@ func TestCreateAndUpdateParseTags(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"other"}, got.TextTags)
 
-	tooMany, tooLong, ugly := "#a #b #c", "#abcdefghij", "x"
 	for name, tc := range map[string]struct {
 		edit  notes.Edit
 		field string
 	}{
-		"too long body":       {notes.Edit{Body: new(string(make([]byte, 81)))}, "body"},
-		"too long text tag":   {notes.Edit{Body: &tooLong}, "body"},
-		"too many tags":       {notes.Edit{Body: &tooMany}, "tags"},
-		"too long action tag": {notes.Edit{Tags: &[]string{"abcdefghij"}}, "tags"},
-		"not a tag":           {notes.Edit{Body: &ugly, Tags: &[]string{"two words"}}, "tags"},
-		"digits only":         {notes.Edit{Tags: &[]string{"2024"}}, "tags"},
+		"too long body":       {notes.Edit{Body: string(make([]byte, 81))}, "body"},
+		"too long text tag":   {notes.Edit{Body: "#abcdefghij"}, "body"},
+		"too many tags":       {notes.Edit{Body: "#a #b #c", Tags: []string{"essay", "walking"}}, "tags"},
+		"too long action tag": {notes.Edit{Tags: []string{"abcdefghij"}}, "tags"},
+		"not a tag":           {notes.Edit{Body: "x", Tags: []string{"two words"}}, "tags"},
+		"digits only":         {notes.Edit{Tags: []string{"2024"}}, "tags"},
 	} {
 		_, err := w.svc.Update(w.ctx, w.me, n.ID, tc.edit)
 
@@ -466,8 +464,8 @@ func TestSources(t *testing.T) {
 	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
 }
 
-// A note's source is one of the actor's, chosen by id on create and edit, or
-// found or made by title on create; "" takes it away, nil keeps it.
+// A note's source is one of the actor's, chosen by id on create and edit;
+// "" takes it away.
 func TestNoteSourceOnCreateAndUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -479,34 +477,16 @@ func TestNoteSourceOnCreateAndUpdate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, walden.ID, *w.get(t, n.ID).SourceID)
 
-	byTitle, err := w.svc.Create(w.ctx, w.me, notes.Input{Body: "y", Source: " walden "})
-	require.NoError(t, err)
-	require.Equal(t, walden.ID, *byTitle.SourceID, "a title finds the source")
-
-	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{SourceID: &cape.ID})
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: "x", SourceID: cape.ID})
 	require.NoError(t, err)
 	require.Equal(t, cape.ID, *w.get(t, n.ID).SourceID)
 
-	body := "kept"
-	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: &body})
-	require.NoError(t, err)
-	require.Equal(t, cape.ID, *w.get(t, n.ID).SourceID, "an edit without a source keeps it")
-
-	none := ""
-	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{SourceID: &none})
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: "x"})
 	require.NoError(t, err)
 	require.Nil(t, w.get(t, n.ID).SourceID)
 
-	bad := "not-a-uuid"
-	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{SourceID: &bad})
+	_, err = w.svc.Update(w.ctx, w.me, n.ID, notes.Edit{Body: "x", SourceID: "not-a-uuid"})
 	require.ErrorIs(t, err, service.ErrNotFound)
-
-	var verr *service.ValidationError
-
-	_, err = w.svc.Create(w.ctx, w.me, notes.Input{Body: "z", Source: strings.Repeat("x", notes.DefaultSourceTitleMaxLength+1)})
-	require.ErrorAs(t, err, &verr)
-	require.Equal(t, "source", verr.Field)
-	require.Equal(t, 2, w.count(t, "select count(*) from note_sources"))
 }
 
 // Every method that takes an actor asks an anonymous one to log in.
@@ -521,7 +501,7 @@ func TestNilActorNeedsLogin(t *testing.T) {
 
 	calls := map[string]func(u *model.User) error{
 		"Create":       func(u *model.User) error { _, err := w.svc.Create(w.ctx, u, notes.Input{Body: body}); return err },
-		"Update":       func(u *model.User) error { _, err := w.svc.Update(w.ctx, u, n.ID, notes.Edit{Body: &body}); return err },
+		"Update":       func(u *model.User) error { _, err := w.svc.Update(w.ctx, u, n.ID, notes.Edit{Body: body}); return err },
 		"Get":          func(u *model.User) error { _, err := w.svc.Get(w.ctx, u, n.ID); return err },
 		"Delete":       func(u *model.User) error { return w.svc.Delete(w.ctx, u, n.ID) },
 		"DeleteMany":   func(u *model.User) error { _, err := w.svc.DeleteMany(w.ctx, u, noteIDs); return err },

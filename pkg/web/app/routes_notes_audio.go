@@ -147,7 +147,7 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 		case status.View == web.NoteStatusEdit && note.TranscriptionStatus == model.NoteTranscriptionDone:
 			body := lf(c.Query("body"))
 			if body == status.Base {
-				c.HTML(http.StatusOK, "note_transcribed", gin.H{"Status": status, "Tags": web.NoteTagsOf(note), "Again": web.NoteAgainOf(svc, note, true)})
+				c.HTML(http.StatusOK, "note_transcribed", gin.H{"Status": status, "Again": web.NoteAgainOf(svc, note, true)})
 				return
 			}
 
