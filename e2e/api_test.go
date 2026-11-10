@@ -40,47 +40,6 @@ func decodeData[T any](t *testing.T, body string) T {
 	return env.Data
 }
 
-// TestAPI_BearerToken tests the Authorization header handling in
-// pkg/auth.AuthAPI: a missing header, a malformed scheme or shape, and a
-// well-formed but unknown bearer key.
-func TestAPI_BearerToken(t *testing.T) {
-	app := e2e.Start(t)
-
-	// the feed token is read-only and must not open the API either
-	feedUser := newUser(t, app)
-	feedToken, err := repo.RegenerateFeedToken(context.Background(), app.DB, feedUser.ID)
-	require.NoError(t, err)
-
-	cases := []struct {
-		name   string
-		header string
-		want   int
-	}{
-		{"feed_token", "Bearer " + feedToken.Token, http.StatusForbidden},
-		{"missing", "", http.StatusBadRequest},
-		{"bearer_no_key", "Bearer", http.StatusBadRequest},
-		{"unknown_key", fmt.Sprintf("Bearer %s", uuid.NewString()), http.StatusForbidden},
-		{"basic_scheme", "Basic x", http.StatusBadRequest},
-		{"bearer_extra_token", "Bearer a b", http.StatusBadRequest},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			client := app.Client(t)
-
-			req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
-			require.NoError(t, err)
-
-			if tc.header != "" {
-				req.Header.Set("Authorization", tc.header)
-			}
-
-			resp := client.Do(req)
-			resp.RequireStatus(tc.want)
-		})
-	}
-}
-
 // TestAPI_GetPosts_Empty tests GET /api/v1/posts with an empty posts list,
 // even when another user has a published post: pins the UserID filter in
 // pkg/web/api.go ApiGetPosts.

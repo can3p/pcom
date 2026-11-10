@@ -21,6 +21,11 @@ var models = []any{
 	(*model.EmailSubscription)(nil),
 	(*model.MediaUpload)(nil),
 	(*model.NormalizedURL)(nil),
+	(*model.Note)(nil),
+	(*model.NoteImage)(nil),
+	(*model.NotePostLink)(nil),
+	(*model.NoteRecording)(nil),
+	(*model.NoteSource)(nil),
 	(*model.Post)(nil),
 	(*model.PostComment)(nil),
 	(*model.PostPrompt)(nil),
@@ -29,6 +34,7 @@ var models = []any{
 	(*model.PowChallengeUsed)(nil),
 	(*model.ProofreadRequest)(nil),
 	(*model.SentEmail)(nil),
+	(*model.STTRequest)(nil),
 	(*model.RSSFeed)(nil),
 	(*model.RSSItem)(nil),
 	(*model.StyleReview)(nil),
@@ -157,4 +163,12 @@ func TestModels_MatchTheSchema(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestNoteSourceMatchKey_IgnoresCaseAndSpacing(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, model.NoteSourceMatchKey("Walden Pond"), model.NoteSourceMatchKey("  WALDEN \t  pond "))
+	require.Equal(t, "walden pond", model.NoteSourceMatchKey("Walden  Pond"))
+	require.NotEqual(t, model.NoteSourceMatchKey("Walden"), model.NoteSourceMatchKey("Walden Pond"))
 }

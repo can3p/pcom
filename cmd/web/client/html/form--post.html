@@ -7,16 +7,15 @@
 <span id="ed-save-result" class="ed-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
 {{ end }}
 {{ else }}
-<div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }}">
+<div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }} ed-sd">
   {{ with .Prompt }}
   <p class="ed-prompt" role="alert">{{ .Author.Username }} has asked: {{ .Prompt.Message }}</p>
   {{ end }}
 
-  {{/* With the grammar check and style review on, the editor column and the
-       suggestion panel sit side by side; the controller owns both. */}}
+  {{/* ed-side owns the sidebar's tabs and strip, proofread the Checks tab, notes-picker the Notes tab. */}}
   <div class="ed-cols"
+       data-controller="ed-side{{ if .Proofread }} proofread{{ end }} notes-picker"
        {{ if .Proofread }}
-       data-controller="proofread"
        data-proofread-grammar-url-value="{{ link "action" "proofread_grammar" }}"
        data-proofread-style-url-value="{{ link "action" "proofread_style" }}"
        data-proofread-note-url-value="{{ link "action" "proofread_style_note" }}"
@@ -169,9 +168,37 @@
       </div>
     </div>
   </form>
-  {{ if .Proofread }}
-  <aside class="pr-panel is-empty" aria-label="Suggestions" data-proofread-target="panel"></aside>
-  {{ end }}
+  <div class="es">
+    <div class="es-strip" data-ed-side-target="strip" data-testid="sidebar-strip">
+      {{ if .Proofread }}<button type="button" class="es-open" data-tab="checks" data-action="ed-side#open" aria-controls="es-body" aria-expanded="false" aria-label="Show Checks" title="Checks: grammar and style"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"></path></svg></button>{{ end }}
+      <button type="button" class="es-open" data-tab="notes" data-action="ed-side#open" aria-controls="es-body" aria-expanded="false" aria-label="Show Notes" title="Notes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h7"></path><path d="M9 17h5"></path></svg></button>
+    </div>
+    <div class="es-bar">
+      <div class="es-tabs" role="tablist" aria-label="Sidebar">
+        {{ if .Proofread }}<button type="button" role="tab" class="es-tab" id="es-tab-checks" aria-controls="es-checks" data-ed-side-target="tab" data-tab="checks" data-action="ed-side#select">Checks</button>{{ end }}
+        <button type="button" role="tab" class="es-tab" id="es-tab-notes" aria-controls="es-notes" data-ed-side-target="tab" data-tab="notes" data-action="ed-side#select">Notes</button>
+      </div>
+      <button type="button" class="es-toggle" aria-controls="es-body" aria-expanded="true" aria-label="Collapse the sidebar" title="Collapse the sidebar" data-ed-side-target="toggle" data-action="ed-side#collapse"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+    </div>
+    <div class="es-body" id="es-body" data-ed-side-target="body">
+      {{ if .Proofread }}
+      <div class="es-pane" role="tabpanel" id="es-checks" aria-labelledby="es-tab-checks" data-ed-side-target="pane" data-tab="checks">
+        <aside class="pr-panel is-empty" aria-label="Suggestions" data-proofread-target="panel"></aside>
+        <p class="es-hint">Press Check grammar or Style review to see suggestions here.</p>
+      </div>
+      {{ end }}
+      <div class="es-pane" role="tabpanel" id="es-notes" aria-labelledby="es-tab-notes" data-ed-side-target="pane" data-tab="notes" data-notes-picker-target="panel">
+        <form class="np-search" role="search" action="{{ link "notes_picker" }}" method="get"
+              hx-get="{{ link "notes_picker" }}" hx-target="#np-body" hx-swap="innerHTML"
+              hx-trigger="submit, input changed delay:300ms" hx-sync="this:replace">
+          <input type="search" name="q" placeholder="Search notes, #tag, -#tag" aria-label="Search notes" autocomplete="off">
+        </form>
+        {{/* loaded when the tab first shows */}}
+        <div class="np-body" id="np-body" data-notes-picker-target="body"
+             hx-get="{{ link "notes_picker" }}" hx-trigger="intersect once" hx-swap="innerHTML"></div>
+      </div>
+    </div>
+  </div>
   </div>
 </div>
 {{ end }}

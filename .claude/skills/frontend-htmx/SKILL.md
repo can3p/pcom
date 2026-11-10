@@ -32,6 +32,17 @@ controller that only one page needs and that is large (the editor's grammar pane
 fetched only where the controller appears (`index.js` sets `__webpack_public_path__` to `/static/` for those
 chunks). Raising the budget instead needs the owner's reason.
 
+A page that must open fast on a phone loads its own webpack entry instead of `main.js`: the notes capture
+page (`/controls/notes/new`) ends with `footer--chrome.html` and `capture.js` (Stimulus, its controller and
+the header's menu toggle), has its own row in `TestFirstVisitWeight`, and has neither htmx nor the action
+controller, so its controller makes its own requests. A boosted link to such a page gets `HX-Redirect` so the
+page loads whole.
+
+A service worker is a webpack entry too (`notes_sw` for `client/js/notes/sw.js`), so it shares modules with
+its page (`client/js/notes/store.js`, the IndexedDB queue) instead of copying them. The app serves it from its
+scope, `/controls/notes/sw.js`, reading the built file from `dist` through the asset manifest: a worker's
+script must be same-origin, so it can't come from `/static` or the CDN.
+
 ### Template Structure
 - Each page includes `{{ template "header.html" . }}` (contains `<html>`, `<head>`, `<body>`, nav)
 - Each page includes `{{ template "footer.html" . }}` (closing tags, scripts)
@@ -40,9 +51,29 @@ chunks). Raising the budget instead needs the owner's reason.
   `postops.CommentCapabilities`, ...). Don't compare ids (`eq $.User.DBUser.ID .UserID`) or combine
   permissions in the template: add a field computed in Go, next to the rule the service enforces, with a
   unit test. A control and the form it opens use the same capability.
+- **Every internal URL comes from `{{ link "<name>" args… }}`** (`pkg/links/link.go`), hx-* and Stimulus URL
+  values included: "Internal URLs come from the link helper" in `docs/architecture.md`.
+- **Static files get a content hash.** webpack copies `client/static/*` to `static/<name>.<hash>.<ext>`
+  (possibly on `STATIC_CDN`), so a template names them only through `{{ static_asset "static/<name>" }}`;
+  a literal `/static/...` path is a 404. A file that needs a fixed URL on the app's origin is served by a
+  route instead: the web app manifest is `pkg/web/app/site.webmanifest`, served at `/site.webmanifest`
+  with its icons' `src` turned into asset URLs. An asset that only Go code asks for goes into the e2e
+  harness's stub list (`workDir` in `e2e/harness.go`), since `static_asset` panics on an unknown name.
 
 ### CSRF Protection
 - Token passed via `hx-headers='{"X-CSRFToken": "{{ .User.CSRFToken }}"}'` on `<body>` tag
+- **Two POSTs take no token.** `POST /subscriptions/:manage_token/unsubscribe/:subscription_id` is the
+  one-click unsubscribe of a mail client, authorized by the token in its URL (in `excludedRoutes` of
+  `e2e/guards_test.go`). `POST /controls/notes/share` is the share target of the installed app, because the
+  phone posts the share sheet's form and can't add a token. Its safety rests on two things together: the
+  session cookie is `SameSite=Lax`, so a cross-site POST arrives without a session and lands on the login
+  page; and the capture page's service worker (`client/js/notes/sw.js`), which sees the share first,
+  sends it on to the server and queues it (to upload later with the session's token) only when the network
+  fails, within the server's caps. A worker that queued every share would turn a forged one into a note;
+  `TestNotesShare_CrossSiteCreatesNothing` guards this. The route creates only a note of the session's own
+  user and reads nothing back to the sender. It is mounted on `controls` (no `csrfCheck`) and listed in
+  `csrfExempt` in `e2e/guards_test.go`, which `TestGuards_CSRFRequired` skips. A new exemption needs the
+  same argument, written down next to the route.
 
 ### Action Controller Pattern
 **Location**: `cmd/web/client/js/controllers/action_controller.js`
@@ -126,7 +157,10 @@ Source is `cmd/web/client/scss/`; `index.scss` imports the partials. There is no
   under each item (comments, reply, edit, share, delete); don't add buttons elsewhere on an item.
 - **Form results**: a form saves in place. Its result (`Saved` / `Not saved`) shows in a `.status` next to
   the form's button and field errors show under the field. A form result is never a toast; a toast is only
-  for an action without a form.
+  for an action without a form. The form behind it is a `pkg/forms` type run by `DefaultHandler`, and its
+  template reads that form's data (`.Input`, `.Errors.<field>`, `.FormError`); see "Forms" in
+  `docs/architecture.md`. A form that saves on every pause in typing (the post and note editors) targets
+  only its `.status`, so the field being typed in is never swapped.
 - **Area styles** live in their own partial: `_posts`, `_settings`, `_editor`, `_auth`, `_controls`,
   `_syntax`. Shared pieces go to `_components.scss`, element defaults to `_base.scss`.
 - **User style hooks**: the `us-*` classes in templates are the contract for users' own CSS (listed in

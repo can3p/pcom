@@ -58,6 +58,16 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
 - **A page that gets new data owns its whole path**: the template that renders it and the templates that
   include it (`write.html`, `edit_post.html` around `form--post.html`), the page type in `pkg/web/pages_*.go`
   and the route that builds it, not only the partial the feature lives in.
+- **A wave with new screens shows them to the owner before polishing them.** Plan a checkpoint after the
+  first page task: the owner uses the screen, and only then do the remaining page tasks and the audits run.
+  Tests prove what the plan specified, not that a person can use it; F15's notes pages passed every test and
+  still needed a rework of their filters, capture box and editor panel.
+- **Every user-facing behavior names the task that builds its control.** A service method a page or the API
+  will call ("transcribe again", "revoke a key") gets its route and button in a named task, or it ships with
+  no way to reach it; audits read tests, so they don't notice a control that was never built.
+- **A service worker is a second server.** It answers requests before the browser's cookie rules reach the
+  real server, so anything a page's worker accepts from a navigation (a share target, a form POST) is an
+  unauthenticated endpoint: plan what it may do without the network and have the security audit cover it.
 - **Every text a user can store has a length setting.** A note, a reason, a label: list each new free-text
   field with its `pkg/config` limit, or the service stores it unbounded.
 - **Tasks that share a file are not parallel**, and that includes a test helper: two services whose tests

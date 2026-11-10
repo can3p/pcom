@@ -1,0 +1,18 @@
+plain
+First line of the passage,
+
+after a blank line.
+Last line.
+
+plain
+> First line of the passage,
+> 
+> after a blank line.
+> Last line.
+
+quote
+> First line of the passage,
+> 
+> after a blank line.
+> Last line.
+

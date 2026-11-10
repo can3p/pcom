@@ -1,8 +1,12 @@
 package web
 
 import (
+	"errors"
+	"net/http"
+
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -155,7 +159,11 @@ func ApiDeletePost(c *gin.Context, svc *posts.Service, actor *model.User, postID
 func ApiUploadImageWith(c *gin.Context, svc *posts.Service, actor *model.User) mo.Result[*ApiUploadImageResponse] {
 	file, err := c.FormFile("file")
 	if err != nil {
-		return mo.Err[*ApiUploadImageResponse](err)
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			return mo.Err[*ApiUploadImageResponse](err)
+		}
+
+		return mo.Err[*ApiUploadImageResponse](service.Invalid("file", "Send the image as the multipart field file."))
 	}
 
 	f, err := file.Open()

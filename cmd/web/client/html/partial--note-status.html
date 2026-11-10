@@ -1,0 +1,15 @@
+{{/* Takes a web.NoteStatus. On the edit page the poll sends the text being edited and the body the page
+     opened with (base), so an author who typed meanwhile keeps their text. */}}
+{{ $n := .Note }}
+{{ if eq $n.TranscriptionStatus "pending" }}
+  <span class="status meta" data-testid="note-status"
+        hx-get="{{ link "note_status" $n.ID }}?{{ .Query }}" hx-trigger="every 3s" hx-target="this" hx-swap="outerHTML"
+        {{ if eq .View "edit" }}hx-include="closest form"{{ end }}>Transcribing…{{ if eq .View "edit" }}<input type="hidden" name="base" value="{{ .Base }}">{{ end }}</span>
+{{ else if eq $n.TranscriptionStatus "failed" }}
+  <span class="status meta" data-testid="note-status">Transcription failed — try again.{{ with $n.TranscriptionError }} {{ . }}{{ end }}</span>
+{{ else if .Typed }}
+  <span class="status meta" data-testid="note-status">Transcribed while you were writing, so your text stays as it is. The transcript, to copy in:</span>
+  <blockquote class="note-transcript" data-testid="note-transcript">{{ .Transcript }}</blockquote>
+{{ else }}
+  <span class="status meta" data-testid="note-status"></span>
+{{ end }}

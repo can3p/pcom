@@ -1,0 +1,17 @@
+{{/* Takes a *web.NoteAgain. */}}
+{{/* Always rendered, so the status poll can fill it out of band once the transcription is over. Takes Again
+     (a *web.NoteAgain or nil) and OOB. */}}
+{{ define "note_again_slot" }}<div id="note-again-slot"{{ if .OOB }} hx-swap-oob="true"{{ end }}>{{ with .Again }}{{ template "partial--note-again.html" . }}{{ end }}</div>{{ end }}
+<form class="note-again acts" data-testid="note-again"
+      hx-post="{{ link "action" "note_retranscribe" }}" hx-ext="json-enc"
+      hx-target="find .note-again-result" hx-swap="innerHTML"
+      {{ with .Confirm }}hx-confirm="{{ . }}"{{ end }}>
+  <input type="hidden" name="note_id" value="{{ .NoteID }}">
+  <label>Transcribe again as…
+    <select name="language">
+      {{ range .Languages }}<option value="{{ .Code }}">{{ .Name }}</option>{{ end }}
+    </select>
+  </label>
+  <button type="submit" class="btn btn-secondary">Transcribe</button>
+  <span class="note-again-result" aria-live="polite"></span>
+</form>

@@ -1,0 +1,26 @@
+{{/* Takes a *web.NoteSearch. */}}
+<div class="nt-views">
+  <form class="nt-search" method="get" action="{{ .Path }}" role="search">
+    {{ with .Query.SourceID }}<input type="hidden" name="source" value="{{ . }}">{{ end }}
+    <label class="sr-only" for="note-search">Search notes</label>
+    <input id="note-search" type="search" name="q" value="{{ .Query.Q }}" placeholder="#tag -#tag words">
+    <button type="submit" class="btn btn-secondary">Search</button>
+  </form>
+  {{ if .Filters }}
+  <ul class="nt-chips" aria-label="Active filters" data-testid="note-filters">
+    {{ range .Filters }}
+    <li class="nt-chip nt-filter{{ if .Not }} nt-exclude{{ end }}">
+      {{ if .Not }}<span class="nt-not">not</span> {{ end }}<span>{{ if .Text }}“{{ .Label }}”{{ else }}{{ .Label }}{{ end }}</span>
+      <a class="nt-x" href="{{ .Href }}" aria-label="Remove {{ if .Not }}not {{ end }}{{ if .Text }}“{{ .Label }}”{{ else }}{{ .Label }}{{ end }}" title="Remove">×</a>
+    </li>
+    {{ end }}
+  </ul>
+  {{ end }}
+  {{ if .Tags }}
+  <ul class="nt-chips nt-quick" aria-label="Your tags">
+    {{ range .Tags }}
+    <li class="nt-chip"><a href="{{ .Href }}" aria-label="Search #{{ .Tag }}">#{{ .Tag }}</a></li>
+    {{ end }}
+  </ul>
+  {{ end }}
+</div>

@@ -179,6 +179,89 @@ code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
 - **A new post has no review until it is saved.** Style review is disabled until the first autosave gives the
   post an id.
 
+## Notes
+
+Notes are private snippets, typed or dictated, that the author later uses in posts. The user guide's
+[notes page](guide/notes.md) describes the screens; the rules are here.
+
+- **Private, always.** A note has no visibility, feed, RSS, comments or mail. Every read and write checks that
+  the note is the actor's; a note of somebody else is `ErrNotFound`, never forbidden. Recordings are served only
+  by `GET /controls/notes/:id/audio`, and never by `user-media` or the CDN, which serve public files by name. A
+  recording is a row of `note_recordings`, not a `media_uploads` image, so a note's recording can't be an image.
+- **Tags are columns, the text is the note.** `tags` (set by actions) and `text_tags` (the `#word`s of the body,
+  rewritten on every save) are both filtered on as `tags || text_tags`. Editing the text edits the text tags, and
+  a tag from an action goes with its chip.
+- **One search box.** The list narrows by one query (`notes.ParseSearch`): `#tag` must be on the
+  note, `-#tag` must not, and every other word is text searched for in the body, case-insensitively. A tag token
+  is normalized like any tag, and one that can't be a tag (`#`, `-#`, `#2024`) is text. A tag both included and
+  excluded is excluded. Nothing is hidden by a preference: a tag the author no longer wants to see is left out by
+  `-#tag`, so what the list shows is always what its query says. The whole search is the `q` parameter; the
+  source is the one other (`source`). The page shows the query's parts as chips, each linking to the query
+  without it, and every link that adds a tag (a tag on a note, the author's tags under the box) adds it to the
+  query on show.
+- **Every tag shows.** A note on the list, and a card in the post editor's Notes panel, shows all its tags, the
+  ones set by hand and the `#word`s of its text, so a tag is found by seeing it. The panel also offers the
+  author's most used tags under its search box (`NOTE_PANEL_TAGS` of them); a tap on any tag adds `#tag` to the
+  panel's search.
+- **The list page captures too.** Its box saves typed text with the tags typed next to it (separated by spaces or
+  commas, `#` optional; the recent tags are the tags of the newest notes) and the markdown toolbar's photos, which
+  go into the text as images. A recording picked from the device becomes a note through the same upload as the
+  capture page's (`POST /controls/action/note_audio`), and a note without a recording can get one on its edit page.
+- **A source is a title.** It has no author, link, kind or page: a title names a book, an article or a talk well
+  enough, and every extra field was one more thing to fill in on a phone. Its match key is the title lowercased with
+  its spacing collapsed (`model.NoteSourceMatchKey`), unique per author, so the same title typed twice is one
+  source. A note's forms choose its source from the author's own (a `<select>` saved with the note, never free
+  text, so autosave can't make a source from a half-typed title); a source id of somebody else is not found.
+  Sources are added and renamed on the Tags and sources screen. Renaming a source to the title of another merges
+  them, as renaming a tag does: its notes move there and it goes, so there is no separate merge. The capture API
+  and the bulk Source action take a title and find or make the source.
+- **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
+  object and row go when the `notes.delete_audio` job runs. Photo files stay: an image is public by
+  URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
+  so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there.
+- **A recording is transcribed once.** The upload enqueues `notes.transcribe` in its own transaction, unique per
+  note and recording. The job re-checks the note and the recording when it runs, and does nothing if either is gone. The
+  transcript becomes the body; editing it later never calls the provider. Language is detected, never set in
+  advance: a forced language makes speech in any other language come out translated or garbled, so a per-user
+  setting would spoil every memo in another language. "Transcribe again as…" sends the recording once more with the
+  language forced, for a memo the detection got wrong; it counts against the limits and replaces the text, after a
+  confirmation whenever the note has text (the note doesn't keep its last transcript to compare with).
+- **Limits.** `STT_MINUTES_PER_DAY` per user and `STT_SITE_MINUTES_PER_DAY` for the site are counted over the last
+  24 hours from `stt_requests` rows with `status = 'ok'`, as the proofreading limits are. Without a provider
+  (`STT_PROVIDER` empty) there is no record button, and typed notes work.
+- **Quotes never lose text.** Shared text is stored as a blockquote, a lone link stays a link, and typed text is
+  stored as typed. A quote takes the previous quote's source only within `NOTE_QUOTE_SOURCE_WINDOW`; otherwise it
+  has none until the author gives it one. Its attribution line in a post is `— *Title*`.
+- **The list is flat.** Notes are listed newest capture first, never grouped by when they were captured. There
+  are no tag suggestions: the recent tags by the capture box and the author's tags under the search are the way
+  to a tag. A note inserted into a post is still recorded (`note_post_links`).
+- **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
+  CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
+  PNG, JPEG and WebP are accepted, and a HEIC photo (an iPhone's) is converted to JPEG on upload with its
+  orientation applied and its metadata, GPS included, dropped; the size cap applies to the upload as sent. The
+  image needs libvips with a HEIF loader (`vips-heif` on Alpine); without it HEIC is refused with a message. Text in a photo is recognized on the phone (Live Text,
+  Lens), never on the server. Quotes come in one at a time by sharing or copying; there is no Kindle notebook
+  import.
+- **Speech-to-text is pluggable and cheap.** `STT_PROVIDER` picks a backend in `pkg/stt`; the first one speaks
+  the OpenAI-compatible `/audio/transcriptions` API and defaults to Groq's `whisper-large-v3-turbo`, the cheapest
+  multilingual option weighed. Recordings are sent as recorded (Opus in WebM or AAC in MP4): the server never
+  transcodes.
+- **No location, no AI.** No location is stored with a note. No model call is made on notes: no transcript
+  cleanup, no tags by a model.
+- **Capture is stop-is-save.** Stopping a recording or taking a photo creates the note, with nothing to fill in.
+  The capture is written to the phone's IndexedDB before it is uploaded, and the service worker
+  (`/controls/notes/sw.js`, scoped to `/controls/notes/`) uploads it with retries. `captured_at` is the time of the
+  capture, not of the upload.
+- **The share target is CSRF-exempt**, because a share sheet can't send a token. A cross-site POST carries no
+  session cookie (SameSite=Lax), so a forged share lands on the login page. The only thing a share can do is add a
+  note to the sharing user's own notes. A share reads only its title, text, url and files: it can't set tags, a
+  source or `captured_at`. The capture page's service worker sends a share at once and queues it on the phone only when the
+  network fails; the queued share uploads when the network returns.
+- **API keys are scoped.** A `notes` key opens `POST` and `GET /api/v1/notes` and gets `403` on every other route;
+  a `full` key opens the whole API. Keys are stored as a SHA-256 hash and shown once, at creation; they are named, show their last use, and
+  revoking one is immediate. A missing or bad key gets `401`.
+  The notes API has no edit or delete: a phone can't change what it has stored.
+
 ## Interface
 
 - **Every form saves in place** and reports next to its submit button (saved / not saved), with field errors

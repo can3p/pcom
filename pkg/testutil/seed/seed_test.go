@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/reading"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -88,7 +89,7 @@ func TestSeed_BuildsNamedWorld(t *testing.T) {
 	keys, err := factory.ListAPIKeys(ctx, db, alice)
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
-	assert.Equal(t, AliceAPIKey, keys[0].APIKey)
+	assert.Equal(t, model.HashAPIKey(AliceAPIKey), keys[0].KeyHash)
 
 	assert.Equal(t, 1, count(t, db, `SELECT count(*) FROM rss_feeds WHERE url = $1`, FeedURL))
 	assert.Equal(t, 3, count(t, db, `SELECT count(*) FROM rss_items i JOIN rss_feeds f ON f.id = i.feed_id WHERE f.url = $1`, FeedURL))

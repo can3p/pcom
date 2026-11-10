@@ -15,7 +15,7 @@ If you already have a `cmd/web/.env` from the old setup, move it aside first: it
 at a Postgres installed on your machine (port 5432). The one from `.env.example` points at the compose Postgres
 on `localhost:5442`.
 
-`make dev-up` starts Postgres and tommy (mail sink and S3 stand-in), waits until they are healthy and prints
+`make dev-up` starts Postgres, tommy (mail sink and S3 stand-in) and WireMock (the speech-to-text stub), waits until they are healthy and prints
 their addresses. `make migrate` applies the migrations, `make seed` fills the database with a small named world (see
 [Seeding](#seeding)). The first run builds the tools image (sql-migrate, psql), which is slow once.
 
@@ -45,7 +45,7 @@ Needs libvips and Node.js (version from `.tool-versions`) with yarn on the host,
 mode needs them.
 
 ```bash
-make dev-up                    # postgres and tommy, as above
+make dev-up                    # postgres, tommy and wiremock, as above
 cd cmd/web
 yarn install                   # once
 yarn watch                     # tab 1: rebuilds the frontend into cmd/web/dist
@@ -80,6 +80,38 @@ hourly limits (`PROOFREAD_GRAMMAR_PER_HOUR`, `PROOFREAD_STYLE_PER_HOUR`), the op
 (`PROOFREAD_SITE_DAILY_REQUESTS`), the longest author note or keep reason (`PROOFREAD_NOTE_MAX_LENGTH`, 2000
 characters by default), the request timeout and the output token limits are the other `PROOFREAD_*` settings
 in `web serve --help`.
+
+## Notes and voice notes
+
+Notes need no outside service: typed notes, photos and quotes work with no setting. A recording is
+transcribed by a speech-to-text backend, which is off unless `STT_PROVIDER` names one; without it there is
+no record button on the capture page, and an uploaded recording is refused.
+
+- `STT_PROVIDER`: `openai-compat` (the only backend) or empty for none. With it, `STT_OPENAI_COMPAT_KEY` is
+  required, and `STT_OPENAI_COMPAT_ENDPOINT` (default `https://api.groq.com/openai/v1`) and
+  `STT_OPENAI_COMPAT_MODEL` (default `whisper-large-v3-turbo`) select the service, so any OpenAI-compatible
+  `/audio/transcriptions` endpoint works.
+- `STT_TIMEOUT` (2m) for one call, `STT_WORKERS` (2) transcriptions at once, on their own job queue, and
+  `STT_ATTEMPTS` (5) tries before a note is marked failed.
+- `STT_MINUTES_PER_DAY` (60) per user and `STT_SITE_MINUTES_PER_DAY` (0, no cap) for the site, over a rolling
+  24 hours of successful transcriptions.
+
+The notes limits are `NOTE_BODY_MAX_LENGTH` (20000 characters), `NOTE_TAG_MAX_LENGTH` (40), `NOTE_TAGS_MAX` (10
+tags a note sets by hand), `NOTE_SOURCE_TITLE_MAX_LENGTH` (300), `NOTE_PHOTO_MAX_DIMENSION` (2048 pixels, the
+longest side the browser scales a photo to), `NOTE_AUDIO_MAX_DURATION` (10m), `NOTE_AUDIO_MAX_BYTES` (8 MiB),
+`NOTE_AUDIO_BITRATE` (24000 bits a second, what the browser records at), `NOTE_CAPTURE_MAX_BYTES` (32 MiB for
+one capture with its photos and recording), `NOTE_QUOTE_SOURCE_WINDOW` (12h, how long after a note with a source
+a new quote still takes that source) and `NOTE_PANEL_TAGS` (8, how many of the author's most used tags the post
+editor's Notes panel offers).
+
+The local stack has its speech-to-text backend too: `.env.example` points `STT_OPENAI_COMPAT_ENDPOINT` at
+the WireMock service of `docker-compose.yml` (port `PCOM_WIREMOCK_PORT`, 8833), which answers every
+recording with a canned transcript, so a recording made on a laptop gets text without an account. Its
+stubs are in `pkg/stt/openaicompat/testdata/wiremock/`. A phone that reaches the local server over plain HTTP can't record: browsers give the
+microphone and camera only to HTTPS and to `localhost`. [The phone guide](guide/notes-on-a-phone.md) says how
+to test from a phone.
+
+The full list, with the defaults, is in `web serve --help`.
 
 ## Email subscriptions
 

@@ -1,0 +1,61 @@
+{{/* Takes a web.EditNotePage. */}}
+{{ define "note_tag_chips" }}<ul id="note-tag-chips" class="nt-tags"{{ if .OOB }} hx-swap-oob="true"{{ end }}>{{ range .Tags }}<li class="nt-tag">#{{ .Tag }}{{ if .FromText }}<span class="sr-only"> (written in the text)</span>{{ end }}</li>{{ end }}</ul>{{ end }}
+{{/* A save's answer: the status and, out of band, the tags of .Note. */}}
+{{ define "note_saved" }}{{ template "partial--success-message.html" toMap "Message" "Saved" }}{{ template "note_tag_chips" toMap "Tags" .Note.AllTags "OOB" true }}{{ end }}
+{{ define "note_editor" }}<div id="note-editor" class="box ed-box mdeditor"{{ if .OOB }} hx-swap-oob="true"{{ end }}
+     data-controller="mdeditor"
+     data-mdeditor-upload-value="{{ link "action" "upload_media" }}">
+  {{ template "partial--editor-toolbar.html" toMap "UploadID" "note_upload" "Post" false "PostID" "" "Proofread" false }}
+  <textarea class="ed-body" name="body" placeholder="Your note" aria-label="Note" rows="10">{{ .Body }}</textarea>
+</div>{{ end }}
+{{/* The status poll's answer once an untouched note is transcribed. Status: a web.NoteStatus. */}}
+{{ define "note_transcribed" }}{{ template "partial--note-status.html" .Status }}{{ template "note_editor" toMap "Body" .Status.Note.Body "OOB" true }}{{ template "note_tag_chips" toMap "Tags" .Status.Note.AllTags "OOB" true }}{{ template "note_again_slot" toMap "Again" .Again "OOB" true }}{{ end }}
+
+<form class="ed-form note-form"
+      method="post"
+      action="{{ link "form_note_edit" .Note.ID }}"
+      hx-post="{{ link "form_note_edit" .Note.ID }}"
+      hx-target="#note-status"
+      hx-swap="innerHTML"
+      hx-trigger="change delay:2s, keyup delay:2s, submit">
+  <div class="ed-field">
+    {{ template "note_editor" toMap "Body" .Note.Body "OOB" false }}
+  </div>
+
+  <div class="field">
+    <label for="note-tags">Tags</label>
+    <input id="note-tags" name="tags" type="text" value="{{ .Tags }}" placeholder="essay walking">
+    <p class="field-help">Separated by spaces. A #word in the text is a tag too.</p>
+    {{ template "note_tag_chips" toMap "Tags" .Note.AllTags "OOB" false }}
+  </div>
+
+  {{ template "partial--note-source-select.html" toMap "ID" "note-source" "Sources" .Sources "Selected" .SourceID }}
+
+  {{ if .Note.RecordingID }}{{ template "partial--note-status.html" .Status }}{{ end }}
+
+  <div class="ed-acts">
+    <button type="button" class="ed-delete"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_delete"
+            data-action-prompt-value="{{ .DeletePrompt }}"
+            data-action-skip-reload-value="true"
+            data-note-id="{{ .Note.ID }}"
+            data-then="list">Delete</button>
+    <div class="ed-main">
+      <span id="note-status" class="ed-result" aria-live="polite"></span>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</form>
+{{ template "note_again_slot" toMap "Again" .Again "OOB" false }}
+
+{{ if not .Note.RecordingID }}
+<div class="note-capture-acts note-add-recording">
+  <span aria-live="polite" data-notes-target="uploadStatus"></span>
+  <label class="btn btn-secondary note-upload">
+    Add recording
+    <input type="file" accept="audio/*" class="sr-only" data-note-id="{{ .Note.ID }}" data-action="change->notes#uploadRecording">
+  </label>
+</div>
+{{ end }}

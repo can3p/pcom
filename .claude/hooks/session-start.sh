@@ -22,6 +22,15 @@ if ! pkg-config --exists vips 2>/dev/null; then
     || { apt-get update -q >/dev/null 2>&1 && apt-get install -y -q libvips-dev >/dev/null; }
 fi
 
+# HEVC decoder for libheif: iPhone HEIC photos are converted to JPEG, and the
+# HEIC tests fail under CI (skip elsewhere) without it.
+if ! dpkg -s libheif-plugin-libde265 >/dev/null 2>&1; then
+  log "installing libheif-plugin-libde265"
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get install -y -q libheif-plugin-libde265 >/dev/null 2>&1 \
+    || { apt-get update -q >/dev/null 2>&1 && apt-get install -y -q libheif-plugin-libde265 >/dev/null; }
+fi
+
 # Docker daemon: testdb and the E2E harness start Postgres with testcontainers.
 # The binary is installed in the image but the daemon is not running.
 if ! docker info >/dev/null 2>&1; then

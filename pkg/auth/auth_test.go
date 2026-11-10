@@ -97,7 +97,7 @@ func TestEnforceAuth_RedirectsAnonymousUser(t *testing.T) {
 	require.Equal(t, "/controls", loc.Query().Get("return_url"))
 }
 
-func TestAuthAPI_BadRequestPaths(t *testing.T) {
+func TestAuthAPI_MalformedHeaderIsUnauthorized(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -106,6 +106,7 @@ func TestAuthAPI_BadRequestPaths(t *testing.T) {
 	}{
 		{name: "no Authorization header", header: ""},
 		{name: "missing token", header: "Bearer"},
+		{name: "empty token", header: "Bearer "},
 		{name: "wrong scheme", header: "Basic sometoken"},
 		{name: "too many parts", header: "Bearer token extra"},
 	}
@@ -124,7 +125,8 @@ func TestAuthAPI_BadRequestPaths(t *testing.T) {
 			auth.AuthAPI(c, nil)
 
 			require.True(t, c.IsAborted())
-			require.Equal(t, http.StatusBadRequest, w.Code)
+			require.Equal(t, http.StatusUnauthorized, w.Code)
+			require.Equal(t, "Bearer", w.Header().Get("WWW-Authenticate"))
 		})
 	}
 }

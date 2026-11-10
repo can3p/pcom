@@ -1,0 +1,69 @@
+{{ template "header.html" . }}
+
+<main class="capture"
+      data-controller="notes-capture"
+      data-notes-capture-start-value="{{ .Start }}"
+      data-notes-capture-max-seconds-value="{{ .AudioMaxSeconds }}"
+      data-notes-capture-max-dimension-value="{{ .PhotoMaxDimension }}"
+      data-notes-capture-csrf-value="{{ .User.CSRFToken }}"
+      data-notes-capture-worker-value="{{ .Worker }}"
+      data-notes-capture-scope-value="{{ link "notes_scope" }}"
+      data-notes-capture-delete-value="{{ link "action" "note_delete" }}"
+      data-notes-capture-audio-value="{{ link "note_audio" ":id" }}"
+      {{- with .Shared }} data-notes-capture-shared-value="{{ . }}"{{ end }}>
+  <header class="notes-head">
+    <h1 class="controls-title">New note</h1>
+    <p class="acts"><a href="{{ link "notes" }}">All notes</a></p>
+  </header>
+
+  <button type="button" class="btn btn-primary capture-tap" hidden
+          data-notes-capture-target="tap" data-action="notes-capture#tapStart"></button>
+
+  <div class="capture-modes" data-notes-capture-target="modes">
+    {{ if .Dictate }}
+    <button type="button" class="btn btn-primary capture-mode" data-action="notes-capture#dictate">Dictate</button>
+    {{ end }}
+    <button type="button" class="btn btn-primary capture-mode" data-action="notes-capture#photo">Photo</button>
+    {{ if .Dictate }}
+    <button type="button" class="btn btn-secondary capture-mode" data-action="notes-capture#photoDictate">Photo + dictate</button>
+    {{ end }}
+    <button type="button" class="btn btn-secondary capture-mode" data-action="notes-capture#type">Type</button>
+  </div>
+  {{ if .Dictate }}
+  <p class="field-help capture-disclosure">Recordings are sent to the speech-to-text provider to be written down.</p>
+  {{ end }}
+
+  <input type="file" accept="image/*" capture="environment" multiple hidden
+         aria-label="Photo"
+         data-notes-capture-target="camera" data-action="change->notes-capture#photoTaken">
+
+  <section class="box capture-rec" hidden data-notes-capture-target="recorder">
+    <p class="capture-timer" data-testid="timer"><span data-notes-capture-target="timer">0:00</span> of <span data-notes-capture-target="limit"></span></p>
+    <p class="field-help" data-notes-capture-target="recHint"></p>
+    <button type="button" class="btn btn-primary capture-mode" data-action="notes-capture#stop">Stop</button>
+  </section>
+
+  <form class="box capture-type" hidden hx-boost="false"
+        data-notes-capture-target="typer" data-action="submit->notes-capture#saveText">
+    <textarea rows="6" aria-label="Note" placeholder="Write the thought down." data-notes-capture-target="text"></textarea>
+    <div class="capture-acts">
+      <button type="button" class="btn btn-secondary" data-action="notes-capture#cancelText">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save note</button>
+    </div>
+  </form>
+
+  <p class="status err" role="alert" hidden data-notes-capture-target="error"></p>
+
+  <section class="box capture-last" hidden data-testid="last-capture" data-notes-capture-target="card">
+    <h2 class="capture-last-title">Last capture</h2>
+    <p class="capture-last-what" data-notes-capture-target="cardWhat"></p>
+    <p><span class="status" role="status" data-testid="capture-status" data-notes-capture-target="cardStatus"></span></p>
+    <p class="acts"><button type="button" class="nt-link" data-action="notes-capture#deleteLast">Delete</button></p>
+  </section>
+</main>
+
+{{/* its own bundle instead of main.js: see client/js/capture.js */}}
+{{ template "footer--chrome.html" . }}
+    <script src="{{ static_asset "capture.js" }}"></script>
+  </body>
+</html>

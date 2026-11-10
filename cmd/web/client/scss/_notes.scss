@@ -1,0 +1,419 @@
+// Notes: the list with its search box and selection, the capture box,
+// the management screen and the edit page. Colours come from tokens.
+.notes {
+  max-width: var(--prose-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.notes-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+
+  .controls-title {
+    margin: 0;
+  }
+}
+
+.nt-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: 600 14px var(--font-ui);
+  cursor: pointer;
+}
+
+// The capture box: the text with the markdown toolbar, its tags with the
+// recent ones a tap away, and a recording to upload.
+.note-capture {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  .ed-box .ed-body {
+    min-height: 96px;
+    padding: var(--space-2) var(--space-3);
+    font: 400 16px/1.5 var(--font-ui);
+  }
+}
+
+.note-capture-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  label {
+    font: 600 14px var(--font-ui);
+  }
+
+  input {
+    flex: 1;
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 15px var(--font-ui);
+  }
+}
+
+.note-capture-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+
+  [aria-live] {
+    margin-right: auto;
+  }
+}
+
+// A label styled as a button around a hidden file input.
+.note-upload {
+  position: relative;
+  cursor: pointer;
+
+  &:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.nt-views {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.nt-search {
+  display: flex;
+  gap: var(--space-2);
+
+  input[type="search"] {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 16px var(--font-ui);
+  }
+}
+
+.nt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: 600 13px var(--font-ui);
+
+  a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  &.nt-include {
+    border-color: var(--accent);
+    background: var(--accent);
+
+    a,
+    .nt-count {
+      color: var(--on-accent);
+    }
+  }
+
+  &.nt-exclude {
+    border-color: var(--err);
+  }
+
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+}
+
+// An active part of the search: "not" marks a tag left out, × drops it.
+.nt-not {
+  color: var(--err);
+  font: 600 11px var(--font-mono);
+  text-transform: uppercase;
+}
+
+.nt-chip .nt-x {
+  margin-left: var(--space-1);
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--err);
+  }
+}
+
+// Tags one tap adds: smaller and quieter than the filters.
+.nt-quick .nt-chip {
+  padding: 0 var(--space-2);
+  font: 600 12px var(--font-mono);
+
+  a,
+  button {
+    color: var(--muted);
+  }
+}
+
+.nt-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.nt-select {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+
+  &[hidden] {
+    display: none;
+  }
+
+  [role="status"] {
+    margin-right: auto;
+    font: 600 14px var(--font-ui);
+  }
+}
+
+// One note: a checkbox beside the body, then its tags and actions.
+.note {
+  position: relative;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5) 0;
+}
+
+.note-pick {
+  padding-top: 2px;
+}
+
+.note-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+// The meta line of a note, with its Edit and Delete icons at the end.
+.note-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+
+  .meta {
+    flex: 1;
+    margin: 0;
+  }
+}
+
+.note-acts {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.nt-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ground);
+    color: var(--text);
+  }
+
+  &.nt-icon-danger:hover {
+    color: var(--err);
+  }
+}
+
+.note-photos img {
+  max-width: 160px;
+  max-height: 160px;
+  margin-right: var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.nt-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 600 13px var(--font-mono);
+}
+
+.note-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  min-width: 0;
+  max-width: 24em;
+}
+
+.note-form .field input,
+.note-source-field select,
+.nt-source-form .field input {
+  width: 100%;
+}
+
+// A source of the Tags and sources screen: its row, and the form that adds
+// one or renames it in place of the row.
+.nt-source-row {
+  .nt-icon {
+    margin-left: auto;
+  }
+}
+
+.nt-source-form {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+
+  .field {
+    flex: 1 1 16em;
+    margin: 0;
+  }
+}
+
+.nt-source-add {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.nt-source-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.note-add-recording {
+  margin-top: var(--space-3);
+}
+
+// The capture page (/controls/notes/new): big buttons for one thumb.
+.capture {
+  max-width: var(--prose-width);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.capture-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.capture-mode,
+.capture-tap {
+  min-height: 72px;
+  font-size: 18px;
+}
+
+.capture-tap {
+  min-height: 160px;
+  font-size: 22px;
+}
+
+.capture-disclosure {
+  margin: 0;
+}
+
+.capture-rec {
+  align-items: stretch;
+  text-align: center;
+}
+
+.capture-timer {
+  margin: 0;
+  font: 800 40px/1.2 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--title);
+}
+
+.capture-type textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--ground);
+  color: var(--text);
+  font: 400 16px/1.5 var(--font-ui);
+}
+
+.capture-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.capture-last {
+  p {
+    margin: 0;
+  }
+}
+
+.capture-last-title {
+  margin: 0;
+  font: 600 13px var(--font-mono);
+  color: var(--muted);
+}
+
+.capture-last-what {
+  overflow-wrap: anywhere;
+}

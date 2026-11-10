@@ -2,12 +2,12 @@ package factory
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
-	"github.com/google/uuid"
 )
 
 // InvitationOpt customizes a UserInvitation before it is inserted.
@@ -89,27 +89,26 @@ func WithAPIKey(key string) APIKeyOpt {
 	}
 }
 
-// APIKey issues userID a fresh API key, or the one WithAPIKey gives.
+// APIKey issues userID a fresh full API key, or the one WithAPIKey gives. The
+// row stores its hash; the returned value carries the key in APIKey.
 func APIKey(ctx context.Context, exec repo.Executor, userID string, opts ...APIKeyOpt) (*model.UserAPIKey, error) {
 	id, err := newID()
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := uuid.NewV7()
-	if err != nil {
-		return nil, err
-	}
-
 	k := &model.UserAPIKey{
 		ID:     id,
-		APIKey: key.String(),
+		APIKey: rand.Text(),
 		UserID: userID,
+		Scope:  model.APIKeyScopeFull,
 	}
 
 	for _, opt := range opts {
 		opt(k)
 	}
+
+	k.KeyHash = model.HashAPIKey(k.APIKey)
 
 	return insertRow(ctx, exec, k)
 }

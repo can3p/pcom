@@ -39,17 +39,8 @@ $pr-tint: color-mix(in srgb, var(--accent) 24%, transparent);
   }
 }
 
-// Two columns: the editor and the panel.
+// The editor with the panel in its sidebar (_editor.scss has the columns).
 .ed-pr {
-  max-width: calc(var(--page-width) + var(--space-7));
-
-  .ed-cols {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: var(--space-5);
-    align-items: start;
-  }
-
   // the highlight layer sits behind the transparent textarea
   .mdeditor .ed-body {
     position: relative;
@@ -407,10 +398,6 @@ $pr-tint: color-mix(in srgb, var(--accent) 24%, transparent);
 // A phone: one card at a time in a bottom sheet that collapses to a bar, so
 // the visibility options and the buttons stay reachable.
 @media (max-width: 767.98px) {
-  .ed-pr .ed-cols {
-    display: block;
-  }
-
   .ed-pr .ed-cols.has-panel {
     padding-bottom: 64px;
   }

@@ -241,3 +241,292 @@
 .block-container-edit-preview-spoiler-content {
   padding: var(--space-4);
 }
+
+// The sidebar beside the editor: the Checks tab (the grammar check and style
+// review, _proofread.scss) and the Notes tab. It collapses to a slim strip
+// (.es-collapsed on .ed-cols) that is part of the editor box: drawn like it,
+// level with its top and as tall as it (ed_side_controller.js measures the
+// box into --es-strip-top and --es-strip-height), with one icon button per
+// tab. A phone gets the sidebar under the editor.
+.ed-sd {
+  max-width: calc(var(--page-width) + var(--space-7));
+
+  .ed-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: var(--space-5);
+    align-items: start;
+
+    &.es-collapsed {
+      grid-template-columns: minmax(0, 1fr) 44px;
+    }
+  }
+}
+
+.es {
+  box-sizing: border-box;
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-4));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.es-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.es-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.es-tab {
+  padding: 6px var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 14px var(--font-ui);
+  cursor: pointer;
+
+  &[aria-selected="true"] {
+    background: var(--sunken);
+    color: var(--title);
+  }
+}
+
+.es-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
+    color: var(--title);
+  }
+}
+
+.es-body {
+  min-height: 0;
+  overflow-y: auto;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.es-pane[hidden] {
+  display: none;
+}
+
+// shown while the panel has not drawn anything yet
+.es-hint {
+  display: none;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font: 400 14px/1.5 var(--font-ui);
+  color: var(--muted);
+}
+
+.pr-panel:empty + .es-hint {
+  display: block;
+}
+
+// the strip: hidden while the sidebar is open; collapsed, the tabs' bar
+// and body give way to it
+.es-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.es-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
+    color: var(--title);
+  }
+}
+
+.es-collapsed .es-bar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .es-collapsed .es {
+    margin-top: var(--es-strip-top, 0);
+    height: var(--es-strip-height, auto);
+    max-height: none;
+  }
+}
+
+@media (min-width: 768px) {
+  // the sidebar draws the border and scrolls; the panel inside is plain
+  .es .pr-panel {
+    position: static;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .es .pr-panel:empty {
+    display: none;
+  }
+}
+
+.np-search {
+  padding: var(--space-3) var(--space-4) 0;
+
+  input[type="search"] {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 15px var(--font-ui);
+  }
+}
+
+.np-body {
+  padding: var(--space-3) var(--space-4);
+}
+
+.np-note {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+.np-text {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+// a note's tags, and the most used ones above the cards: a tap searches
+.np-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.np-top {
+  margin: 0 0 var(--space-3);
+}
+
+.np-tag {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: 600 12px var(--font-mono);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+// one row of small icon buttons under a card
+.np-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.np-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--sunken);
+  }
+}
+
+.np-del {
+  color: var(--muted);
+
+  &:hover,
+  &:focus-visible {
+    color: var(--err);
+  }
+}
+
+// A phone: the sidebar follows the editor; the grammar panel stays a
+// bottom sheet (_proofread.scss).
+@media (max-width: 767.98px) {
+  .ed-sd .ed-cols,
+  .ed-sd .ed-cols.es-collapsed {
+    display: block;
+  }
+
+  .es {
+    position: static;
+    max-height: none;
+    margin-top: var(--space-4);
+    overflow: visible;
+  }
+
+  .es-strip {
+    flex-direction: row;
+  }
+}

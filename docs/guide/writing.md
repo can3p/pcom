@@ -26,6 +26,23 @@ Two buttons in the editor ask Claude to read your post: **Check grammar** and **
 
 Once the draft is saved, or after your first check, a line under the editor shows how many grammar checks and style reviews you have left this hour. When you have used one kind up, its button is disabled until the hour frees one; a request refused for the limit says in how many minutes the next one is available. A request that fails is not counted.
 
+## Notes in a post
+
+The sidebar beside the editor has two tabs, **Checks** (the grammar check and style review, when the site offers
+them) and **Notes**. The arrow at its top collapses it to a slim strip along the right edge of the editor box, as
+tall as the box, with one icon per tab: the tick opens the sidebar on Checks, the page opens it on Notes. The editor
+remembers the tab and whether it is collapsed in this browser. **Check grammar** and **Style review** switch to
+Checks and open the sidebar.
+
+The Notes tab has a search box that works like the one in the [notes list](notes.md): words search the text, `#tag`
+keeps the notes with that tag and `-#tag` leaves them out. Under it are your most used tags, and each note shows
+its tags; a tap on a tag adds it to the search. Each note has a row of small icon buttons: **Insert** puts
+its text in at the cursor, **Append** adds it to the end of the post, **Edit** opens the note in a new tab and
+**Delete** deletes the note after asking (the text already in posts stays). A quote goes in with its source, as
+*— *Title**. The editor saves the post as usual, and inserting a note marks it used.
+
+![The post editor with the Notes tab of the sidebar showing notes.](screenshots/notes-panel.png)
+
 ## Visibility
 
 Below the body you choose who can read the post: "Show to direct connections only", "Show to their connections as well" (the default for a new post) or "Public". You can change it later. [Connections](connections.md) spells out what each choice means.

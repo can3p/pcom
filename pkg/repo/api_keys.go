@@ -2,46 +2,63 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/google/uuid"
 )
 
-// UserByAPIKey returns the user an API key belongs to, or ErrNotFound.
-func (s *Store) UserByAPIKey(ctx context.Context, key string) (*model.User, error) {
+// APIKeyByHash returns the API key whose hash is keyHash
+// (model.HashAPIKey), with its user, or ErrNotFound.
+func (s *Store) APIKeyByHash(ctx context.Context, keyHash string) (*model.UserAPIKey, error) {
 	k := new(model.UserAPIKey)
-	err := s.query().NewSelect().Model(k).Where("api_key = ?", key).Limit(1).Scan(ctx)
+
+	err := s.query().NewSelect().Model(k).Relation("User").Where("?TableAlias.key_hash = ?", keyHash).Limit(1).Scan(ctx)
 	if err != nil {
 		return nil, notFound(err)
 	}
 
-	return s.UserByID(ctx, k.UserID)
+	return k, nil
 }
 
-// APIKeyForUser returns the user's API key, or nil when they have none.
-func (s *Store) APIKeyForUser(ctx context.Context, userID string) (*model.UserAPIKey, error) {
-	k := new(model.UserAPIKey)
-	err := s.query().NewSelect().Model(k).Where("user_id = ?", userID).Limit(1).Scan(ctx)
+// APIKeysForUser returns the user's API keys, oldest first.
+func (s *Store) APIKeysForUser(ctx context.Context, userID string) ([]*model.UserAPIKey, error) {
+	var keys []*model.UserAPIKey
 
-	return orNil(k, err)
+	err := s.query().NewSelect().Model(&keys).Where("user_id = ?", userID).Order("created_at", "id").Scan(ctx)
+
+	return keys, err
 }
 
-// CreateAPIKey gives the user an API key. A user has at most one, and
-// there is no rotation: creating again keeps the existing key.
-func (s *Store) CreateAPIKey(ctx context.Context, userID string) error {
-	id, err := uuid.NewV7()
+// CreateAPIKey stores k, which carries the key's hash.
+func (s *Store) CreateAPIKey(ctx context.Context, k *model.UserAPIKey) error {
+	_, err := s.query().NewInsert().Model(k).Exec(ctx)
+
+	return err
+}
+
+// DeleteAPIKey deletes the user's API key keyID; ErrNotFound when the user
+// has no such key.
+func (s *Store) DeleteAPIKey(ctx context.Context, userID, keyID string) error {
+	res, err := s.query().NewDelete().Model((*model.UserAPIKey)(nil)).Where("id = ?", keyID).Where("user_id = ?", userID).Exec(ctx)
 	if err != nil {
 		return err
 	}
 
-	key, err := uuid.NewV7()
+	n, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
 
-	record := &model.UserAPIKey{ID: id.String(), APIKey: key.String(), UserID: userID}
+	if n == 0 {
+		return ErrNotFound
+	}
 
-	_, err = s.query().NewInsert().Model(record).On("CONFLICT (user_id) DO NOTHING").Exec(ctx)
+	return nil
+}
+
+// TouchAPIKey records that the key keyID was used at the time at.
+func (s *Store) TouchAPIKey(ctx context.Context, keyID string, at time.Time) error {
+	_, err := s.query().NewUpdate().Model((*model.UserAPIKey)(nil)).Set("last_used_at = ?", at).Where("id = ?", keyID).Exec(ctx)
 
 	return err
 }

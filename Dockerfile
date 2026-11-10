@@ -14,7 +14,7 @@ RUN cd cmd/web && yarn && yarn production
 RUN GOBIN=/usr/local/bin go install github.com/rubenv/sql-migrate/sql-migrate@${SQL_MIGRATE_VERSION}
 
 FROM alpine
-RUN apk add --no-cache vips htop curl
+RUN apk add --no-cache vips vips-heif htop curl
 COPY --from=builder /build/web /
 COPY --from=builder /build/cmd/web/dist /dist
 COPY --from=builder /build/cmd/web/client /client
