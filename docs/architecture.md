@@ -114,6 +114,17 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   template: a service exposes the numbers a check needs (a `TextLimits()`
   accessor, exported minimums) and enforces them in its write methods, but
   has no `ValidateX` for forms to call.
+  Every HTML form a route saves is a form type in `pkg/forms`, posted to
+  `/controls/form/...` and run by `DefaultHandler`; the handler only builds
+  it. Binding, the parsing of typed input (tags split on spaces and commas)
+  and the field checks never sit in the handler, and no page type mirrors a
+  form's input and errors. A page that shows a form before it is posted
+  renders the form's `TemplateData()`. A save whose answer is not the form
+  (a fragment, a reload, a redirect) returns its own `FormSaveAction`. What
+  the service refuses shows on the form: `refused` (`pkg/forms/form_note.go`)
+  puts a `ValidationError` under its field and a not-found as the form's
+  error, and returns any other error for the 500. A button that acts without
+  a form posts JSON through the action controller to `jsonAction` instead.
 - **Repositories return pcom's own types.** The structs in `pkg/model` are
   the rows, written by hand, and they are also the bun models: their `bun`
   tags mean nothing outside `pkg/repo`. Services, handlers and templates use

@@ -12,7 +12,7 @@ the one for the area you touch:
 | A failing test or build | skill `test-failure` |
 | Running a modernization wave / finishing one | skills `wave-run` / `wave-close` |
 | How pcom behaves on purpose: accounts, login, visibility, feeds, comments | `docs/product.md` |
-| Layers: handlers, services, repositories, service errors, the arch test; configuration and tooling | `docs/architecture.md` |
+| Layers: handlers, services, repositories, forms, service errors, the arch test; configuration and tooling | `docs/architecture.md` |
 | Markdown rendering, view types, custom renderers | `pkg/markdown/AGENTS.md` |
 | Adding or changing a mail: inputs, samples, templates, goldens | package doc of `pkg/mail/mail.go`, item 6 in `docs/testing.md` |
 | RSS feed fetching and image budgets | `pkg/feedops/AGENTS.md` |
