@@ -193,7 +193,8 @@ The harness API:
 - `e2e.Start(t, e2e.WithRealAssets())` serves the real `cmd/web/dist`. Every test starts its own app.
 - `browser.NewUser(t, app, opts...)` is `factory.User` for a confirmed user, and
   `browser.Page(t, app, browser.As(user))` returns a page in a fresh browser context, already logged in
-  (it reuses an HTTP login's session cookie). The base URL is the app's, so `page.Goto("/feed")`.
+  (it reuses an HTTP login's session cookie, `SameSite=Lax` and `HttpOnly` as the app sets it, so a cross-site
+  test sees what a real browser does). The base URL is the app's, so `page.Goto("/feed")`.
 - **Guards:** the page fails the test on an uncaught error, a `console.error`, a CSP violation, a failed
   request to the app or an app response of 404 or 5xx. A test that causes an error on purpose exempts it
   with `browser.Allow(regexp)`, matched against the guard message. `browser.Configure(fn)` changes the

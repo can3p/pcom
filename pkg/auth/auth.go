@@ -220,8 +220,15 @@ func GetUserData(c *gin.Context) UserData {
 		storedToken = uuid.NewString()
 		session.Set(csrfTokenKey, storedToken)
 
-		if err := session.Save(); err != nil {
-			logging.FromContext(c).Warn("failed to save session", zap.Error(err))
+		// Only a page view starts a session. A POST without the session
+		// cookie is most likely cross-site (the cookie is SameSite=Lax and
+		// stays off it), and saving a fresh session would replace the cookie
+		// the browser holds, logging the user out. The token minted here
+		// matches no form, so the request fails its CSRF check either way.
+		if isSafeMethod(c.Request.Method) {
+			if err := session.Save(); err != nil {
+				logging.FromContext(c).Warn("failed to save session", zap.Error(err))
+			}
 		}
 	}
 
@@ -233,6 +240,12 @@ func GetUserData(c *gin.Context) UserData {
 	}
 
 	return out
+}
+
+// isSafeMethod reports whether method only reads, the requests a browser sends
+// SameSite=Lax cookies with on a top-level navigation from another site.
+func isSafeMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead
 }
 
 // this is a lame way of doing the auth. Ideally
