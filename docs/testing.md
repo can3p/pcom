@@ -191,6 +191,9 @@ every parallel test opens its own window.
 The harness API:
 
 - `e2e.Start(t, e2e.WithRealAssets())` serves the real `cmd/web/dist`. Every test starts its own app.
+  `go test -tags browser` without `make test-ui` serves whatever bundle the last build left, perhaps one built
+  from other source (a mutation check, another branch): rebuild with `make test-ui` before reading a failure,
+  or a passing one, as the frontend's doing.
 - `browser.NewUser(t, app, opts...)` is `factory.User` for a confirmed user, and
   `browser.Page(t, app, browser.As(user))` returns a page in a fresh browser context, already logged in
   (it reuses an HTTP login's session cookie). The base URL is the app's, so `page.Goto("/feed")`.

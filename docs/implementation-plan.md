@@ -95,7 +95,9 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
 - **Name what parallel tasks share**: a constant, a limit, a helper, and which task defines it. Otherwise
   each invents its own.
 - **A contract task leaves the tree runnable.** If it removes a fallback, the replacement's plumbing
-  belongs in the same task.
+  belongs in the same task. A task that changes what a service returns (a save that no longer yields a post)
+  owns the forms and handlers that read the result, or the plan says the two tasks land as one commit: a
+  service task alone leaves `pkg/forms` panicking on the branch.
 - **A library swap lists what the old library did implicitly** before planning the new code: auto
   timestamps, a `LIMIT 1` on single-row reads, which columns an upsert updates and returns, how a type name
   is matched by a check (`pkg/arch` matched the old executor's package path). Each becomes a rule the tasks
