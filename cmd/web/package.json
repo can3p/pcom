@@ -9,7 +9,7 @@
   "private": true,
   "license": "unlicensed",
   "dependencies": {
-    "@can3p/headless-mde": "git+https://github.com/can3p/headless-mde.git#103f3a1c7742ec2da3bac5d65990992b0512666f",
+    "@can3p/headless-mde": "git+https://github.com/can3p/headless-mde.git#fec91b6840a17b8eb146826bfa6abef29d50a315",
     "@fontsource/golos-text": "~5.3",
     "@justinribeiro/lite-youtube": "^1.9.0",
     "htmx-ext-head-support": "^2.0.5",

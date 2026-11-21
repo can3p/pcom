@@ -812,7 +812,7 @@ func TestWriting_PreviewRightAfterGalleryShowsGallery(t *testing.T) {
 // quotes and unquotes every selected line, Enter continues the quote and a
 // third Enter leaves it, Backspace right after the markers joins the line with
 // the previous one (Shift+Backspace deletes one character), and pasted lines
-// are quoted.
+// are quoted. Shift+Enter never continues a quote or a list.
 func TestWriting_BlockquoteEditing(t *testing.T) {
 	t.Parallel()
 
@@ -887,4 +887,12 @@ func TestWriting_BlockquoteEditing(t *testing.T) {
 	expectBody("the quote begins and continues\nfirst\n\nsecond\n\nafter")
 	require.NoError(t, quote.Click())
 	expectBody(quoted + "\n\nafter")
+
+	// Shift+Enter is a plain line break in a list too
+	all := len(quoted + "\n\nafter")
+	caret(all, all)
+	press("Enter")
+	require.NoError(t, body.PressSequentially("- item"))
+	press("Shift+Enter")
+	expectBody(quoted + "\n\nafter\n- item\n")
 }
