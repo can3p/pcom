@@ -19,7 +19,7 @@ A new post is not a draft until you save it as one. Until then its text is kept 
 - **Preview** works before the first draft: the page icon opens the text as it will look.
 - **Style review** is available once the post is saved as a draft. The grammar check works on a new post.
 - If the same new post is open in two tabs or on two devices, the tab that wrote last keeps the text. The other tab
-  stops saving and says so. It offers to load the newer text, to keep its own text in place of the newer one, or to
+  stops saving and says so. It offers to load the newer text (or, if the other tab already saved it as a draft or discarded it, says so), to keep its own text in place of the newer one, or to
   save its own text as a separate draft. Save as Draft and Publish always make their own post, and never lose the
   other tab's text.
 

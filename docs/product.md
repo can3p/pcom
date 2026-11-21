@@ -50,14 +50,14 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   not creation.
 - **A new post lives in a scratch pad until it is saved as a draft.** Each user has one pad for ordinary posts and
   one per prompt answered (`/write?prompt=<id>`), so answering a prompt never overwrites the text started on an
-  ordinary post. A pad holds the form's subject, URL as typed, body, visibility and "Email this post" choice.
+  ordinary post. A pad holds the form's subject, URL as typed, body, visibility, "Email this post" choice and the ids of notes inserted.
   Autosave writes the pad on the same triggers as a draft's and never mails anybody. Save as Draft and Publish
   create the post from the form's text, empty the pad and link the prompt at that moment; Discard empties the pad.
   A pad is not a post and is never listed among drafts. Emptying it keeps its row, which records the post it became
   (`promoted_post_id`), so a stale tab can tell where its text went.
 - **A pad has one writer at a time.** Each save carries the pad's revision as the form last saw it. A save from a tab
   or device that another has overtaken is a conflict: autosave, the first autosave and Discard write nothing, and the
-  tab stops autosaving until its author loads the newer text, keeps its own text (which overwrites the pad) or saves
+  tab stops autosaving until its author loads the newer text (offered only while the pad still holds text), keeps its own text (which overwrites the pad) or saves
   it as a separate draft. Save as Draft and Publish from a stale tab create their post and leave the pad alone, so no
   text is lost. A tab's own autosaves never conflict with each other.
 - **The author is told once.** The editor of a new post shows a notice that its text is kept as it is written and
