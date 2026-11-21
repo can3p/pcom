@@ -2,9 +2,10 @@
 # yarn lockfile v1
 
 
-"@can3p/headless-mde@git+https://github.com/can3p/headless-mde.git#fec91b6840a17b8eb146826bfa6abef29d50a315":
-  version "0.0.5"
-  resolved "git+https://github.com/can3p/headless-mde.git#fec91b6840a17b8eb146826bfa6abef29d50a315"
+"@can3p/headless-mde@^0.0.6":
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/@can3p/headless-mde/-/headless-mde-0.0.6.tgz#dc1ef43e098880ebeea42e1eadf922f03a3195f7"
+  integrity sha512-6FwIh7Jvo4riVfnZb78pLSLss9wWr8+GRpXouMqntYfBLkoNzeiqp/BtsKpjEOHLv6VmKOMut5VNaIe46CEWbw==
 
 "@discoveryjs/json-ext@^1.1.0":
   version "1.1.0"
