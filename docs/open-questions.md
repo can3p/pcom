@@ -13,3 +13,8 @@ deleted here. The reasoning goes into the history of the wave that acts on it.
   and HTTP, API and CLI are transports over them. Still open: should every
   mutating service method also write an audit entry and accept an
   idempotency key?
+- **Q-S1. Scratch-pad notice audience.** The notice above a new post (`user_notices`, `scratch_pad`) shows to every
+  account until dismissed, including accounts created after the scratch pad shipped, which never knew the old
+  behavior. Show it only to accounts created before the release?
+- **Q-S2. Retiring the scratch-pad notice.** It shows until each user dismisses it. Stop showing it after a date
+  relative to the release instead, and then delete it and its rows?
