@@ -32,6 +32,10 @@ Located in `pkg/markdown/mdext/`:
 - **linkrenderer** - Custom link renderer, adds `target="_blank" rel="noopener noreferrer"` for `ViewFeed`
 - **lazyload** - Lazy loading for images
 - **blocktags** - Custom block tags (gallery, etc.)
+- **figure** - An image alone on its line becomes `<figure>` with the following lines of its paragraph as
+  `<figcaption>`; inside `{gallery}` every image is a figure and everything up to the next image is its
+  caption, which the gallery controller turns into slides. Only in the views that have block tags; mail and
+  RSS get the elements without classes, because mail.css styles elements and drops unknown classes
 - **headershift** - Shifts header levels (h1→h2, etc.)
 - **videoembed** - Embeds videos from URLs
 - **handle** - Renders @username mentions

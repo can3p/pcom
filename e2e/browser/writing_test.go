@@ -727,7 +727,9 @@ func TestWriting_WriteWithPrompt(t *testing.T) {
 // Publishing a post with a heading, a fenced code block, a gallery, a bare
 // YouTube link and a plain image renders headings shifted down a level,
 // chroma syntax highlighting, a gallery with one item per image, a
-// lite-youtube embed and a lazy-loaded standalone image.
+// lite-youtube embed and a lazy-loaded standalone image. The lines right
+// under an image are its caption; in the gallery everything up to the next
+// image is.
 func TestWriting_RenderedPostFeatures(t *testing.T) {
 	t.Parallel()
 
@@ -747,9 +749,9 @@ func TestWriting_RenderedPostFeatures(t *testing.T) {
 
 	body := "# Heading Test\n\n" +
 		"```go\nfunc main() {}\n```\n\n" +
-		"{gallery}\n![alt one](" + b2PixelPNG + ")\n\n![alt two](" + b2PixelPNG + ")\n{/gallery}\n\n" +
+		"{gallery}\n![alt one](" + b2PixelPNG + ")\nFirst caption\n\nmore about one\n\n![alt two](" + b2PixelPNG + ")\n{/gallery}\n\n" +
 		"https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n" +
-		"![standalone alt](" + b2PixelPNG + ")\n"
+		"![standalone alt](" + b2PixelPNG + ")\nStandalone caption\n"
 
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill(body))
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)}).Click())
@@ -762,6 +764,13 @@ func TestWriting_RenderedPostFeatures(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.Locator("pre.chroma")).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(page.Locator(".gallery__item")).ToHaveCount(2))
 
+	galleryCaption := page.Locator(".gallery__item").First().Locator("figcaption")
+	require.NoError(t, browser.Expect.Locator(galleryCaption).ToHaveText("First caption more about one", playwright.LocatorAssertionsToHaveTextOptions{UseInnerText: new(true)}))
+	require.NoError(t, browser.Expect.Locator(page.Locator(".gallery__item").Nth(1).Locator("figcaption")).ToHaveCount(0))
+
+	standaloneCaption := page.Locator("figure.post-figure figcaption")
+	require.NoError(t, browser.Expect.Locator(standaloneCaption).ToHaveText("Standalone caption"))
+
 	youtube := page.Locator("lite-youtube")
 	require.NoError(t, browser.Expect.Locator(youtube).ToHaveAttribute("videoid", "dQw4w9WgXcQ"))
 
@@ -771,6 +780,38 @@ func TestWriting_RenderedPostFeatures(t *testing.T) {
 	src, err := standalone.GetAttribute("data-src")
 	require.NoError(t, err)
 	require.Equal(t, b2PixelPNG, src)
+}
+
+// Uploading an image into a post leaves the caret on the line under it, so
+// what the author types next is the image's caption.
+func TestWriting_TypingAfterUploadAddsCaption(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+
+	body := page.GetByPlaceholder("Your post goes there")
+	require.NoError(t, body.Fill("Intro"))
+
+	require.NoError(t, page.Locator("input[type=file]").SetInputFiles(playwright.InputFile{
+		Name:     "beach.png",
+		MimeType: "image/png",
+		Buffer:   b5PNGBytes(),
+	}))
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^Intro\n!\[\]\(\S+\)\n$`)))
+
+	require.NoError(t, page.Keyboard().Type("At the beach"))
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^Intro\n!\[\]\(\S+\)\nAt the beach$`)))
+
+	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Captioned"))
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Publish", Exact: new(true)}).Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/[^/]+$`)))
+
+	require.NoError(t, browser.Expect.Locator(page.Locator("figure.post-figure figcaption")).ToHaveText("At the beach"))
 }
 
 // Wrapping freshly added images into a gallery and opening the preview at

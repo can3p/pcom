@@ -59,7 +59,8 @@ blockquote,
 border-color: #35302a !important
 }
 .mail-muted,
-  .mail-lead {
+  .mail-lead,
+  figcaption {
 color: #a79e8b !important
 }
 }
@@ -86,7 +87,8 @@ color: #a79e8b !important
 </ul>
 <pre style="font-family:ui-monospace, &#39;SF Mono&#39;, Menlo, Consolas, &#39;Liberation Mono&#39;, monospace;font-size:14px;white-space:pre-wrap;word-wrap:break-word;margin:0 0 10px"><code style="font-family:ui-monospace, &#39;SF Mono&#39;, Menlo, Consolas, &#39;Liberation Mono&#39;, monospace;font-size:14px">fmt.Println(&#34;hi&#34;)
 </code></pre>
-<p style="margin:0 0 10px"><img src="https://example.com/image.png" alt="an image" style="max-width:100%;height:auto;border:0"/></p>
+<figure style="margin:0 0 10px">
+<img src="https://example.com/image.png" alt="an image" style="max-width:100%;height:auto;border:0"/></figure>
 <blockquote style="padding:0 0 0 16px;border-left:4px solid #e7dfcf;margin:0 0 10px">
 <p style="margin:0 0 10px">a quote</p>
 </blockquote>

@@ -8,6 +8,7 @@ import (
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/can3p/pcom/pkg/markdown/mdext"
 	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
+	"github.com/can3p/pcom/pkg/markdown/mdext/figure"
 	"github.com/can3p/pcom/pkg/markdown/mdext/headershift"
 	"github.com/can3p/pcom/pkg/markdown/mdext/lazyload"
 	"github.com/can3p/pcom/pkg/markdown/mdext/linkrenderer"
@@ -78,7 +79,7 @@ func NewParser(view types.HTMLView, mediaReplacer types.Replacer[string], link t
 	}
 
 	if view == types.ViewEditPreview || view == types.ViewFeed || view == types.ViewSinglePost || view == types.ViewEmail || view == types.ViewRSS {
-		extensions = append(extensions, blocktags.NewBlockTagExtender(view, link))
+		extensions = append(extensions, blocktags.NewBlockTagExtender(view, link), figure.New(view))
 	}
 
 	return goldmark.New(

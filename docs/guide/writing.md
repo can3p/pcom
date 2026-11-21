@@ -38,7 +38,16 @@ Publishing makes the post visible according to its visibility and emails your di
 
 ## Images
 
-The upload images button uploads one or more images and puts them into the post. Images can also be sent through the [API](api.md).
+The upload images button uploads one or more images and puts them into the post, each on a line of its own, and leaves the cursor on the line under the last one. Images can also be sent through the [API](api.md).
+
+To caption an image, write the caption on the line right under it:
+
+```
+![](/user-media/...)
+The harbour at dawn, *before the boats*
+```
+
+The caption may run over several lines and may use bold, italics and links. It ends at an empty line, or at the next image on a line of its own: text after an empty line is an ordinary paragraph. An image in the middle of a line of text has no caption. Inside a gallery all the text between one image and the next, empty lines and all, is the first image's caption, shown under it in the strip and in the full-screen view; text before the first image is shown above the gallery.
 
 ## Share links
 

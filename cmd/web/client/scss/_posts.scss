@@ -549,6 +549,26 @@
     border-radius: 8px;
   }
 
+  // an image with the lines typed right under it as its caption
+  .post-figure {
+    margin: 0 0 18px;
+  }
+
+  .post-figure__caption {
+    max-width: min(500px, 100%);
+    margin: var(--space-2) auto 0;
+    font: 400 14px/1.5 var(--font-ui);
+    color: var(--muted);
+    text-align: center;
+
+    p,
+    ul,
+    ol,
+    blockquote {
+      margin: 0;
+    }
+  }
+
   // the feed's cut: "See more" or the author's own title
   .post-cut-link {
     margin: 0 0 var(--space-4);
