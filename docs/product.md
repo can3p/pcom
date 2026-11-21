@@ -48,7 +48,24 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 - **Lists page by cursor**, `PAGE_SIZE` items at a time behind a "Load more" button: the feed, explore, the
   public index and a journal. Every RSS output holds the latest `RSS_LIMIT` items, dated by publication,
   not creation.
-- **Deleting a post that was never saved stores nothing.**
+- **A new post lives in a scratch pad until it is saved as a draft.** Each user has one pad for ordinary posts and
+  one per prompt answered (`/write?prompt=<id>`), so answering a prompt never overwrites the text started on an
+  ordinary post. A pad holds the form's subject, URL as typed, body, visibility and "Email this post" choice.
+  Autosave writes the pad on the same triggers as a draft's and never mails anybody. Save as Draft and Publish
+  create the post from the form's text, empty the pad and link the prompt at that moment; Discard empties the pad.
+  A pad is not a post and is never listed among drafts. Emptying it keeps its row, which records the post it became
+  (`promoted_post_id`), so a stale tab can tell where its text went.
+- **A pad has one writer at a time.** Each save carries the pad's revision as the form last saw it. A save from a tab
+  or device that another has overtaken is a conflict: autosave, the first autosave and Discard write nothing, and the
+  tab stops autosaving until its author loads the newer text, keeps its own text (which overwrites the pad) or saves
+  it as a separate draft. Save as Draft and Publish from a stale tab create their post and leave the pad alone, so no
+  text is lost. A tab's own autosaves never conflict with each other.
+- **The author is told once.** The editor of a new post shows a notice that its text is kept as it is written and
+  becomes a draft only on Save as Draft. The author dismisses it, once per account; the dismissal is stored in
+  `user_notices`.
+- **A new post can be previewed.** Preview opens the pad before the first draft exists.
+- **Drafts without a subject** are listed on the Controls page by the first `DRAFT_EXCERPT_LENGTH` characters of
+  their body (80 by default), as plain text. An empty draft is listed as "No subject".
 
 ## Comments
 
@@ -176,8 +193,7 @@ code's name for the feature (`pkg/proofread`, `PROOFREAD_*`).
 - **A disclosure is always visible** wherever the buttons are: the line under the limits says that Claude, an
   external AI model from Anthropic, receives the subject and text only when a button is pressed. It is not behind
   a tooltip, because the author must see it before pressing.
-- **A new post has no review until it is saved.** Style review is disabled until the first autosave gives the
-  post an id.
+- **A new post has no review until it is saved as a draft.** Style review stays disabled until then; the grammar check works on a new post.
 
 ## Notes
 

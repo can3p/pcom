@@ -97,10 +97,27 @@ func fillEditor(t *testing.T, page playwright.Page) {
 	require.NoError(t, body.PressSequentially(" "))
 }
 
+// dismissNotice clicks Got it on the new-post notice, so a shot of the editor
+// other than editor.png doesn't show it. The dismissal is per account, so an
+// earlier shot of alice may already have dismissed it.
+func dismissNotice(t *testing.T, page playwright.Page) {
+	t.Helper()
+
+	got := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Got it", Exact: new(true)})
+	n, err := got.Count()
+	require.NoError(t, err)
+	if n == 0 {
+		return
+	}
+	require.NoError(t, got.Click())
+	require.NoError(t, browser.Expect.Locator(got).ToHaveCount(0))
+}
+
 // checkGrammar types a Russian draft whose mistakes the WireMock stub in
 // testdata/wiremock knows, and asks for a grammar check, so the suggestion
 // panel is open in the shot.
 func checkGrammar(t *testing.T, page playwright.Page) {
+	dismissNotice(t, page)
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Перрон"))
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("Она одела пальто, достала телефон, но связи не было. Не смотря на усталость, она решила идти пешком. В течении часа она бродила по пустым улицам, и ни один фонарь не горел."))
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Check grammar", Exact: new(true)}).Click())
@@ -234,7 +251,7 @@ func postNote(t *testing.T, app *e2e.App, form url.Values) string {
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	require.Less(t, resp.StatusCode, http.StatusMultipleChoices)
 
 	var out struct {
@@ -251,6 +268,7 @@ func postNote(t *testing.T, app *e2e.App, form url.Values) string {
 func openNotesPanel(t *testing.T, page playwright.Page) {
 	t.Helper()
 
+	dismissNotice(t, page)
 	fillEditor(t, page)
 	// the sidebar starts collapsed in a fresh browser
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Show Notes", Exact: new(true)}).Click())

@@ -133,6 +133,9 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
   ends, so typing followed by a click within two seconds saves the click's result too. A test proving that
   an action saves waits for the save of the typing before it (the saved body in the DB, or
   `page.ExpectResponse`), or the keyup's save makes it pass without the action's trigger.
+- The autosave of a new post writes the author's scratch pad (`post_scratches`, one row per user and prompt)
+  instead of creating a post, so no `posts` row appears. A test waits for that save by the pad's `revision` in the
+  DB (`padOf` in `e2e/browser/writing_test.go`), not by a post.
 - The preview link opens the saved post, so it doesn't follow its href directly: `postform#preview` fires
   the form's `postform:save` trigger at once and opens the preview when that save is back.
 
