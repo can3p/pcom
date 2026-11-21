@@ -159,8 +159,10 @@ Source is `cmd/web/client/scss/`; `index.scss` imports the partials. There is no
   the form's button and field errors show under the field. A form result is never a toast; a toast is only
   for an action without a form. The form behind it is a `pkg/forms` type run by `DefaultHandler`, and its
   template reads that form's data (`.Input`, `.Errors.<field>`, `.FormError`); see "Forms" in
-  `docs/architecture.md`. A form that saves on every pause in typing (the post and note editors) targets
-  only its `.status`, so the field being typed in is never swapped.
+  `docs/architecture.md`. The note editor saves on every pause in typing, so its
+  form targets only its `.status`, errors included, and the field being typed in is never swapped. The post
+  editor autosaves too, but only its successful draft save is retargeted to the status; a refused save
+  swaps the whole form.
 - **Area styles** live in their own partial: `_posts`, `_settings`, `_editor`, `_auth`, `_controls`,
   `_syntax`. Shared pieces go to `_components.scss`, element defaults to `_base.scss`.
 - **User style hooks**: the `us-*` classes in templates are the contract for users' own CSS (listed in

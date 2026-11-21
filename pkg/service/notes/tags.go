@@ -29,6 +29,19 @@ var (
 	hashtagRe = regexp.MustCompile(`(^|[^\p{L}\p{N}_&#/])#(` + tagWord + `)`)
 )
 
+// SplitTags splits tags as a person types or an API client sends them: each
+// value holds tags separated by commas or whitespace. The tags are checked
+// when the note is saved.
+func SplitTags(values ...string) []string {
+	var out []string
+
+	for _, v := range values {
+		out = append(out, strings.FieldsFunc(v, func(r rune) bool { return r == ',' || unicode.IsSpace(r) })...)
+	}
+
+	return out
+}
+
 // normalizeTag lowercases and trims a tag and drops a leading #. It reports
 // a field error when the tag can't be one.
 func (s *Service) normalizeTag(field, raw string) (string, error) {

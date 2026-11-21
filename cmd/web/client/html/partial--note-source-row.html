@@ -1,4 +1,4 @@
-{{/* Takes a *web.SourceRow, or a map with its fields. */}}
+{{/* Takes Source (a *model.NoteSource), Notes (its note count) and Saved (a rename just saved). */}}
 {{ $s := .Source }}
 <li class="controls-row nt-source-row" id="note-source-{{ $s.ID }}" data-testid="source-row">
   <a href="{{ link "notes" "source" $s.ID }}">{{ $s.Title }}</a>

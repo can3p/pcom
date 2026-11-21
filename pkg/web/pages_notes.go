@@ -477,7 +477,7 @@ func NotesManagePage(c *gin.Context, svc *notes.Service, userData *auth.UserData
 
 	return mo.Ok(&NotesPage{
 		BasePage: getBasePage(c, "Tags and sources", userData),
-		Manage:   &NoteManage{Tags: tags, Sources: sources, Add: forms.NoteSourceFormNew(svc, userData.DBUser, nil).TemplateData()},
+		Manage:   &NoteManage{Tags: tags, Sources: sources, Add: forms.NoteSourceFormNew(svc, userData.DBUser, "").TemplateData()},
 	})
 }
 

@@ -15,33 +15,29 @@ type NoteSourceFormInput struct {
 }
 
 // NoteSourceForm is the Add source form of the Tags and sources screen, or
-// the rename form that takes the place of a source's row when Source is set.
+// the rename form of the source SourceID, which takes the place of its row.
 type NoteSourceForm struct {
 	*forms.FormBase[NoteSourceFormInput]
-	Notes  *notes.Service
-	User   *model.User
-	Source *model.NoteSource
+	Notes    *notes.Service
+	User     *model.User
+	SourceID string
 }
 
-// NoteSourceFormNew builds the form; a rename form starts with the source's
-// title.
-func NoteSourceFormNew(svc *notes.Service, u *model.User, src *model.NoteSource) *NoteSourceForm {
-	in := &NoteSourceFormInput{}
-	if src != nil {
-		in.Title = src.Title
-	}
-
+// NoteSourceFormNew builds the Add source form, or the rename form of the
+// source with sourceID; a rename form shown before it is posted starts with
+// the source's title in Input.Title.
+func NoteSourceFormNew(svc *notes.Service, u *model.User, sourceID string) *NoteSourceForm {
 	return &NoteSourceForm{
 		FormBase: &forms.FormBase[NoteSourceFormInput]{
 			Name:                "note_source",
 			FormTemplate:        "partial--note-source-form.html",
 			KeepValuesAfterSave: true,
-			Input:               in,
-			ExtraTemplateData:   map[string]any{"Source": src},
+			Input:               &NoteSourceFormInput{},
+			ExtraTemplateData:   map[string]any{"SourceID": sourceID},
 		},
-		Notes:  svc,
-		User:   u,
-		Source: src,
+		Notes:    svc,
+		User:     u,
+		SourceID: sourceID,
 	}
 }
 
@@ -55,7 +51,7 @@ func (f *NoteSourceForm) Validate(c *gin.Context) error {
 // answers with its row, saved. Renaming into another source's title merges
 // the two, and the screen reloads to show the one left.
 func (f *NoteSourceForm) Save(c context.Context) (forms.FormSaveAction, error) {
-	if f.Source == nil {
+	if f.SourceID == "" {
 		if _, err := f.Notes.AddSource(c, f.User, f.Input.Title); err != nil {
 			return refused(f, err)
 		}
@@ -63,12 +59,12 @@ func (f *NoteSourceForm) Save(c context.Context) (forms.FormSaveAction, error) {
 		return forms.FormSaveFullReload, nil
 	}
 
-	src, err := f.Notes.RenameSource(c, f.User, f.Source.ID, f.Input.Title)
+	src, err := f.Notes.RenameSource(c, f.User, f.SourceID, f.Input.Title)
 	if err != nil {
 		return refused(f, err)
 	}
 
-	if src.ID != f.Source.ID {
+	if src.ID != f.SourceID {
 		return forms.FormSaveFullReload, nil
 	}
 

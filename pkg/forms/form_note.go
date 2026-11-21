@@ -2,13 +2,11 @@ package forms
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/model"
-	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/gin-gonic/gin"
 )
@@ -23,12 +21,6 @@ type NoteFormInput struct {
 	Tags string `form:"tags"`
 	// SourceID is one of the author's sources, "" for none.
 	SourceID string `form:"source_id"`
-}
-
-// NoteTags splits what a person typed into tags: they are separated by
-// spaces or commas.
-func NoteTags(s string) []string {
-	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' })
 }
 
 // NoteForm is the quick capture of the notes page, or the edit form of a note
@@ -69,7 +61,7 @@ func (f *NoteForm) Validate(c *gin.Context) error {
 // with "Saved" and the note's tags, which the text may have changed.
 func (f *NoteForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if f.NoteID == "" {
-		_, err := f.Notes.Create(c, f.User, notes.Input{Body: f.Input.Body, Tags: NoteTags(f.Input.Tags), SourceID: f.Input.SourceID})
+		_, err := f.Notes.Create(c, f.User, notes.Input{Body: f.Input.Body, Tags: notes.SplitTags(f.Input.Tags), SourceID: f.Input.SourceID})
 		if err != nil {
 			return refused(f, err)
 		}
@@ -77,7 +69,7 @@ func (f *NoteForm) Save(c context.Context) (forms.FormSaveAction, error) {
 		return forms.FormSaveFullReload, nil
 	}
 
-	note, err := f.Notes.Update(c, f.User, f.NoteID, notes.Edit{Body: f.Input.Body, Tags: NoteTags(f.Input.Tags), SourceID: f.Input.SourceID})
+	note, err := f.Notes.Update(c, f.User, f.NoteID, notes.Edit{Body: f.Input.Body, Tags: notes.SplitTags(f.Input.Tags), SourceID: f.Input.SourceID})
 	if err != nil {
 		return refused(f, err)
 	}
@@ -85,24 +77,4 @@ func (f *NoteForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	return func(c *gin.Context, _ forms.Form) {
 		c.HTML(http.StatusOK, "note_saved", map[string]any{"Note": note})
 	}, nil
-}
-
-// refused draws the form again with what a service refused: a ValidationError
-// as the error of its field, something that isn't the user's (or is gone) as
-// the form's error. Any other error is returned, which DefaultHandler answers
-// with 500.
-func refused(f forms.Form, err error) (forms.FormSaveAction, error) {
-	switch {
-	case errors.Is(err, service.ErrNotFound), errors.Is(err, service.ErrForbidden):
-		f.SetFormError("Not found.")
-	default:
-		invalid, ok := errors.AsType[*service.ValidationError](err)
-		if !ok {
-			return nil, err
-		}
-
-		f.AddError(invalid.Field, invalid.Message)
-	}
-
-	return func(c *gin.Context, f forms.Form) { f.RenderForm(c) }, nil
 }

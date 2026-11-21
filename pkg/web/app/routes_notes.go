@@ -89,7 +89,7 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		IDs  string `json:"ids"`
 		Tags string `json:"tags"`
 	}) error {
-		return svc.TagMany(c, u, noteIDsOf(in.IDs), forms.NoteTags(in.Tags))
+		return svc.TagMany(c, u, noteIDsOf(in.IDs), notes.SplitTags(in.Tags))
 	}))
 
 	// renaming a tag to one that exists merges them
@@ -122,7 +122,9 @@ func mountNoteSourceRoutes(svc *notes.Service, controls, controlsForms *gin.Rout
 			return
 		}
 
-		forms.NoteSourceFormNew(svc, user, src).RenderForm(c)
+		form := forms.NoteSourceFormNew(svc, user, src.ID)
+		form.Input.Title = src.Title
+		form.RenderForm(c)
 	})
 
 	// a source's row, which Cancel brings back
@@ -137,14 +139,11 @@ func mountNoteSourceRoutes(svc *notes.Service, controls, controlsForms *gin.Rout
 	})
 
 	controlsForms.POST("/note_source_add", func(c *gin.Context) {
-		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.NoteSourceFormNew(svc, auth.GetUserData(c).DBUser, nil))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.NoteSourceFormNew(svc, auth.GetUserData(c).DBUser, ""))
 	})
 
 	controlsForms.POST("/note_source_edit/:id", requireUUIDParam("id"), func(c *gin.Context) {
-		user := auth.GetUserData(c).DBUser
-
 		// a source that isn't the user's is refused by the rename, as not found
-		src := &model.NoteSource{ID: c.Param("id")}
-		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.NoteSourceFormNew(svc, user, src))
+		gogoForms.DefaultHandler(c, logging.FromContext(c), forms.NoteSourceFormNew(svc, auth.GetUserData(c).DBUser, c.Param("id")))
 	})
 }

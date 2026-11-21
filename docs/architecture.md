@@ -121,9 +121,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   form's input and errors. A page that shows a form before it is posted
   renders the form's `TemplateData()`. A save whose answer is not the form
   (a fragment, a reload, a redirect) returns its own `FormSaveAction`. What
-  the service refuses shows on the form: `refused` (`pkg/forms/form_note.go`)
-  puts a `ValidationError` under its field and a not-found as the form's
-  error, and returns any other error for the 500. A button that acts without
+  the service refuses shows on the form through `pkg/forms/service_errors.go`:
+  `refused` in `Save` puts a `ValidationError` under its field and a
+  not-found as the form's error, and returns any other error for the 500;
+  `fieldError` in `Validate` puts a service check's `ValidationError` under a
+  named field. A button that acts without
   a form posts JSON through the action controller to `jsonAction` instead.
 - **Repositories return pcom's own types.** The structs in `pkg/model` are
   the rows, written by hand, and they are also the bun models: their `bun`

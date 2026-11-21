@@ -64,7 +64,7 @@ func TestNoteSourceForm(t *testing.T) {
 	svc := notes.New(repo.New(db))
 	me := testutil.Must(factory.User(ctx, db))(t)
 
-	add := forms.NoteSourceFormNew(svc, me, nil)
+	add := forms.NoteSourceFormNew(svc, me, "")
 	add.Input.Title = "Walden"
 
 	c, w := newCtx(t)
@@ -73,9 +73,7 @@ func TestNoteSourceForm(t *testing.T) {
 
 	cape := testutil.Must(factory.NoteSource(ctx, db, me.ID, factory.WithSourceTitle("Cape Cod")))(t)
 
-	rename := forms.NoteSourceFormNew(svc, me, cape)
-	require.Equal(t, "Cape Cod", rename.Input.Title, "a rename starts with the title")
-
+	rename := forms.NoteSourceFormNew(svc, me, cape.ID)
 	rename.Input.Title = "Cape Cod, MA"
 	c, w = newCtx(t)
 	testutil.Must(rename.Save(ctx))(t)(c, rename)
@@ -85,7 +83,7 @@ func TestNoteSourceForm(t *testing.T) {
 	testutil.Must(rename.Save(ctx))(t)
 	require.Equal(t, "A source needs a title.", rename.Errors["title"])
 
-	merge := forms.NoteSourceFormNew(svc, me, cape)
+	merge := forms.NoteSourceFormNew(svc, me, cape.ID)
 	merge.Input.Title = "walden"
 	c, w = newCtx(t)
 	testutil.Must(merge.Save(ctx))(t)(c, merge)

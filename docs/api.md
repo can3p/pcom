@@ -99,7 +99,7 @@ delete them in pcom.
 |---|---|
 | `text` | The note's text. |
 | `kind` | How the text arrived: `note` (the default: typed, stored as it is), `share` (shared from another app) or `quote` (a passage of a book). Shared and quoted text is stored as a markdown blockquote; a text that is a single link stays a bare link. |
-| `tags` | Tags, repeated or comma-separated (`tags=walk,idea`); `#` and case don't matter. The `#words` of the text are tags too. |
+| `tags` | Tags, repeated or separated by commas or spaces (`tags=walk,idea`, `tags=walk idea`), as in the notes page's tag field; `#` and case don't matter. The `#words` of the text are tags too. |
 | `captured_at` | When the note was taken, RFC 3339 (`2026-11-07T09:30:00+01:00`); now when left out. |
 | `source` | The title of the source the note comes from (a source is only a title: a book, an article, a talk); your source with that title, whatever the case and spacing, is reused, otherwise made. A `quote` without a source takes the source of your previous sourced note while that was captured within `NOTE_QUOTE_SOURCE_WINDOW` (12 hours by default). |
 | `image` | A photo, JPEG, PNG or WebP; repeat the field for several. A HEIC photo is converted to JPEG on upload. |

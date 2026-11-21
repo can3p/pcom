@@ -429,9 +429,9 @@ func TestAPINotes_Create(t *testing.T) {
 			require.Equal(t, "https://example.test/page", n.Body)
 		}},
 		{name: "unknown kind", parts: []part{field("text", "x"), field("kind", "poem")}, wantField: "kind", wantMsg: "kind is note, quote or share."},
-		{name: "tags repeated and comma-separated, normalized", parts: []part{field("text", "x #Inline"), field("tags", "Walk, #Idea"), field("tags", "book")},
+		{name: "tags repeated, comma- and space-separated, normalized", parts: []part{field("text", "x #Inline"), field("tags", "Walk, #Idea"), field("tags", "book  read")},
 			want: func(t *testing.T, n web.ApiNote, _ stored) {
-				require.ElementsMatch(t, []string{"walk", "idea", "book", "inline"}, n.Tags)
+				require.ElementsMatch(t, []string{"walk", "idea", "book", "read", "inline"}, n.Tags)
 			}},
 		{name: "too many tags", parts: []part{field("text", "x"), field("tags", "a,b,c,d,e,f,g,h,i,j,k")}, wantField: "tags",
 			wantMsg: fmt.Sprintf("A note can have at most %d tags.", notes.DefaultTagsMax)},
