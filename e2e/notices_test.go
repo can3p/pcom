@@ -59,3 +59,44 @@ func TestControls_DraftNames(t *testing.T) {
 	require.Equal(t, "Just some words", text(bare.ID))
 	require.Equal(t, "No subject", text(empty.ID))
 }
+
+// insertPad stores a scratch pad of the user, for the prompt when promptID
+// isn't empty.
+func insertPad(t *testing.T, app *e2e.App, userID, promptID, subject, body string) {
+	t.Helper()
+
+	_, err := app.DB.ExecContext(context.Background(), `INSERT INTO post_scratches (id, user_id, prompt_id, subject, body, visibility, revision)
+		VALUES (gen_random_uuid(), $1, nullif($2, '')::uuid, nullif($3, ''), $4, 'direct_only', 1)`, userID, promptID, subject, body)
+	require.NoError(t, err)
+}
+
+// A new post kept in a scratch pad is listed among the drafts as not saved as
+// a draft yet, linking to the Write page it is written on; an emptied pad is
+// not listed.
+func TestControls_NewPostsInScratchPads(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	ctx := context.Background()
+	user, c := newLoggedIn(t, app)
+	asker := testutil.Must(factory.User(ctx, app.DB))(t)
+	prompt := testutil.Must(factory.PostPrompt(ctx, app.DB, asker.ID, user.ID))(t)
+	other := testutil.Must(factory.PostPrompt(ctx, app.DB, asker.ID, user.ID))(t)
+
+	insertPad(t, app, user.ID, "", "", "Plain **pad** text")
+	insertPad(t, app, user.ID, prompt.ID, "An answer", "")
+	insertPad(t, app, user.ID, other.ID, "", "")
+
+	doc := c.Get("/controls/").RequireStatus(http.StatusOK).Doc()
+
+	plain := doc.Find(`.controls-table a[href="/write"]`)
+	require.Equal(t, "Plain pad text", plain.Text())
+	require.Contains(t, plain.Parent().Text(), "not saved as a draft yet")
+	require.NotContains(t, plain.Parent().Text(), "answers a prompt")
+
+	answer := doc.Find(`.controls-table a[href="/write?prompt=` + prompt.ID + `"]`)
+	require.Equal(t, "An answer", answer.Text())
+	require.Contains(t, answer.Parent().Text(), "answers a prompt")
+
+	require.Zero(t, doc.Find(`.controls-table a[href="/write?prompt=`+other.ID+`"]`).Length(), "an empty pad is not listed")
+}

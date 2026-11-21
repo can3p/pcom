@@ -44,6 +44,19 @@ func (s *Store) ScratchOf(ctx context.Context, userID, promptID string) (*model.
 	return pad, notFound(err)
 }
 
+// ScratchesWithText returns the user's pads that hold text (the plain pad and
+// those of prompts), the last written first.
+func (s *Store) ScratchesWithText(ctx context.Context, userID string) ([]*model.PostScratch, error) {
+	var pads []*model.PostScratch
+	err := s.query().NewSelect().Model(&pads).
+		Where("user_id = ?", userID).
+		Where("body <> '' OR coalesce(subject, '') <> '' OR coalesce(url, '') <> ''").
+		OrderExpr("updated_at DESC").
+		Scan(ctx)
+
+	return pads, err
+}
+
 // InsertScratch inserts the pad at revision 1 unless the user already has one
 // for its prompt, and reports whether it did.
 func (s *Store) InsertScratch(ctx context.Context, pad *model.PostScratch) (bool, error) {

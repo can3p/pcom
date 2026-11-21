@@ -46,6 +46,18 @@ type Draft struct {
 	LastUpdatedAt time.Time
 }
 
+// NewPost is a scratch pad of the user that holds text: a new post that is
+// not a draft yet.
+type NewPost struct {
+	// PromptID is the prompt the post answers; empty for the plain pad.
+	PromptID string
+	Subject  string
+	// Excerpt is the start of the body as plain text, for a pad without a
+	// subject.
+	Excerpt string
+	KeptAt  time.Time
+}
+
 // Controls is what the controls page shows.
 type Controls struct {
 	DirectConnections       []*model.User
@@ -54,6 +66,7 @@ type Controls struct {
 	MediationRequests       []*MediationRequest
 	ConnectionRequests      []*ConnectionRequest
 	Drafts                  []*Draft
+	NewPosts                []*NewPost
 }
 
 // Controls gathers the actor's connections, whitelist, pending requests and drafts.
@@ -120,6 +133,20 @@ func (s *Service) Controls(ctx context.Context, actor *model.User) (*Controls, e
 		return draft
 	})
 
+	pads, err := s.store.ScratchesWithText(ctx, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	newPosts := lo.Map(pads, func(p *model.PostScratch, _ int) *NewPost {
+		np := &NewPost{PromptID: lo.FromPtr(p.PromptID), Subject: lo.FromPtr(p.Subject), KeptAt: p.UpdatedAt}
+		if np.Subject == "" {
+			np.Excerpt = excerpt(p.Body, s.excerptLength)
+		}
+
+		return np
+	})
+
 	return &Controls{
 		DirectConnections:       directUsers,
 		SecondDegreeConnections: secondDegreeUsers,
@@ -127,6 +154,7 @@ func (s *Service) Controls(ctx context.Context, actor *model.User) (*Controls, e
 		MediationRequests:       mediationRequests,
 		ConnectionRequests:      connectionRequests,
 		Drafts:                  drafts,
+		NewPosts:                newPosts,
 	}, nil
 }
 
