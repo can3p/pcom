@@ -238,7 +238,7 @@ func TestProofread_SurvivesFormReplacement(t *testing.T) {
 }
 
 // Without a key there are no buttons and no disclosure; with one, a draft
-// that has no id yet cannot be reviewed.
+// that is not saved as a draft yet cannot be reviewed.
 func TestProofread_OffAndNewDraft(t *testing.T) {
 	t.Parallel()
 
@@ -257,10 +257,11 @@ func TestProofread_OffAndNewDraft(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Locator(button(page, "Check grammar")).ToBeEnabled())
 	require.NoError(t, browser.Expect.Locator(button(page, "Style review")).ToBeDisabled())
-	require.NoError(t, browser.Expect.Locator(button(page, "Style review")).ToHaveAttribute("title", "Available once the draft is saved"))
+	require.NoError(t, browser.Expect.Locator(button(page, "Style review")).ToHaveAttribute("title", "Available once saved as a draft"))
 
-	// the first autosave gives the draft an id
+	// saving it as a draft gives it an id
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").PressSequentially("Some words"))
+	require.NoError(t, button(page, "Save as Draft").Click())
 	require.NoError(t, browser.Expect.Locator(button(page, "Style review")).ToBeEnabled())
 	require.NoError(t, browser.Expect.Locator(page.GetByText("only when you press Check grammar or Style review")).ToBeVisible())
 }

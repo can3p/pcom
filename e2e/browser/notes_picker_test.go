@@ -106,9 +106,7 @@ func TestNotesPicker_SearchInsertsAndAppends(t *testing.T) {
 	require.NoError(t, body.Fill("Start\n\nEnd"))
 
 	// the typing's own autosave lands first, so the saves below prove their trigger
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
-	postID := b2EditURLRe.FindStringSubmatch(page.URL())[1]
-	savedBody(t, app, postID, "Start\n\nEnd")
+	savedPad(t, app, user.ID, "Start\n\nEnd")
 
 	openNotes(t, page)
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(3))
@@ -168,15 +166,18 @@ func TestNotesPicker_SearchInsertsAndAppends(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, insert("alpha idea").Click())
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("Start\n\nalpha idea\n\nEnd"))
-	savedBody(t, app, postID, "Start\n\nalpha idea\n\nEnd")
+	savedPad(t, app, user.ID, "Start\n\nalpha idea\n\nEnd")
 
 	// Append goes to the end, a quote with its attribution line
 	require.NoError(t, appendBtn("only way out").Click())
 	want := "Start\n\nalpha idea\n\nEnd\n\n> The only way out is through.\n\n— *North of Boston*\n"
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(want))
-	savedBody(t, app, postID, strings.TrimSpace(want))
+	savedPad(t, app, user.ID, want)
 
-	// the notes count as used
+	// the notes count as used once the text is a draft
+	require.NoError(t, writeButton(page, "Save as Draft").Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
+
 	store := repo.New(app.DB)
 
 	require.Eventually(t, func() bool {
@@ -434,10 +435,14 @@ func TestEditorSidebar_NotesOnlyWithoutProofread(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(sideToggle(page, "Show Checks")).ToHaveCount(0))
 	requireStripBesideBox(t, page)
 
-	// the first autosave pushes the edit page's URL; the strip stays in place
+	// saving as a draft pushes the edit page's URL; the strip stays in place
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Strip"))
 	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("text"))
+	require.NoError(t, writeButton(page, "Save as Draft").Click())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
+	// the click scrolled the buttons into view
+	_, err = page.Evaluate("window.scrollTo(0, 0)", nil)
+	require.NoError(t, err)
 	requireStripBesideBox(t, page)
 
 	require.NoError(t, sideToggle(page, "Show Notes").Click())
@@ -537,8 +542,8 @@ func TestEditorSidebar_GrammarButtonOpensChecks(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(suggestions).ToBeVisible())
 }
 
-// A post that has no id yet takes a note: the first save gives it one, and
-// only then is the note recorded as used in it.
+// A new post takes a note while its text is only a scratch pad: the note is
+// recorded as used only when Save as Draft gives the post an id.
 func TestNotesPicker_InsertBeforeTheFirstSave(t *testing.T) {
 	t.Parallel()
 
@@ -555,11 +560,15 @@ func TestNotesPicker_InsertBeforeTheFirstSave(t *testing.T) {
 	require.NoError(t, notesPanel(page).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert", Exact: new(true)}).Click())
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("first thought\n"))
 
-	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
-	postID := b2EditURLRe.FindStringSubmatch(page.URL())[1]
-	savedBody(t, app, postID, "first thought")
+	savedPad(t, app, user.ID, "first thought")
 
 	store := repo.New(app.DB)
+	n, err := store.NotePostLinkCount(context.Background(), note.ID)
+	require.NoError(t, err)
+	require.Zero(t, n, "a scratch pad is no post")
+
+	require.NoError(t, writeButton(page, "Save as Draft").Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
 
 	require.Eventually(t, func() bool {
 		n, err := store.NotePostLinkCount(context.Background(), note.ID)

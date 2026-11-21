@@ -342,3 +342,36 @@ func TestScratch_DeletedWithOwner(t *testing.T) {
 	require.ErrorIs(t, err, repo.ErrNotFound)
 	require.Equal(t, "plain text", padOf(t, ctx, db, author.ID, "").Body)
 }
+
+// The pad keeps the notes inserted into the new post, without repeats, on
+// every write, and Scratch loads them.
+func TestSave_ScratchKeepsNoteIDs(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	s := svcWith(db, fakequeue.New())
+	author := testutil.Must(factory.User(ctx, db))(t)
+	a, b := "0190a5b2-0000-7000-8000-000000000001", "0190a5b2-0000-7000-8000-000000000002"
+
+	in := padSave("text", 0, posts.ActionAutosave)
+	in.NoteIDs = []string{a, "", a}
+	testutil.Must(s.Save(ctx, author, in))(t)
+	require.Equal(t, []string{a}, testutil.Must(s.Scratch(ctx, author, ""))(t).NoteIDs)
+
+	in.NoteIDs, in.ScratchRevision = []string{a, b}, 1
+	testutil.Must(s.Save(ctx, author, in))(t)
+	require.Equal(t, []string{a, b}, testutil.Must(s.Scratch(ctx, author, ""))(t).NoteIDs)
+
+	in.NoteIDs, in.Action = []string{b}, posts.ActionTakeOver
+	testutil.Must(s.Save(ctx, author, in))(t)
+	require.Equal(t, []string{b}, testutil.Must(s.Scratch(ctx, author, ""))(t).NoteIDs)
+
+	in.NoteIDs, in.ScratchRevision, in.Action = []string{"not-a-uuid"}, 3, posts.ActionAutosave
+	_, err := s.Save(ctx, author, in)
+
+	var ve *service.ValidationError
+	require.ErrorAs(t, err, &ve)
+	require.Equal(t, "note_ids", ve.Field)
+	require.Equal(t, []string{b}, padOf(t, ctx, db, author.ID, "").NoteIDs)
+}

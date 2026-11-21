@@ -304,6 +304,7 @@ var guardRoutes = []guardRoute{
 	// EnforceAuth GET routes
 	{http.MethodGet, "/posts/:id/edit", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/edit" }, noExtra},
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
+	{http.MethodGet, "/write/preview", staticPath("/write/preview"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
 	{http.MethodGet, "/controls/notes", staticPath("/controls/notes"), noExtra},

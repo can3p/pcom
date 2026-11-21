@@ -87,6 +87,9 @@ func (s *Service) saveScratch(ctx context.Context, tx *repo.Store, actor *model.
 		return s.discardScratch(ctx, tx, actor, promptID, in.ScratchRevision)
 	}
 
+	// checkSave refused ids that aren't uuids
+	noteIDs, _ := scratchNoteIDs(in.NoteIDs)
+
 	pad := &model.PostScratch{
 		UserID:            actor.ID,
 		PromptID:          lo.EmptyableToPtr(promptID),
@@ -95,7 +98,7 @@ func (s *Service) saveScratch(ctx context.Context, tx *repo.Store, actor *model.
 		Body:              in.Body,
 		Visibility:        in.Visibility,
 		NotifySubscribers: in.NotifySubscribers,
-		NoteIDs:           []string{},
+		NoteIDs:           noteIDs,
 	}
 
 	written := true

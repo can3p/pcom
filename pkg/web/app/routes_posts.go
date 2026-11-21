@@ -63,6 +63,12 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 		ginhelpers.HTML(c, "write.html", page)
 	})
 
+	r.GET("/write/preview", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		ginhelpers.HTML(c, "single_post.html", web.WritePreview(c, posts, &userData))
+	})
+
 	controlsForms.POST("/edit_post", func(c *gin.Context) {
 		dbUser := auth.GetUserData(c).DBUser
 

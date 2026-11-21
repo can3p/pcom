@@ -139,6 +139,8 @@ export class Panel {
       body: this.form.querySelector("textarea[name=body]"),
     }
     this.last = { subject: this.fields.subject.value, body: this.fields.body.value }
+    // a new post answering a prompt has a scratch pad of its own, so has its own dismissals
+    this.promptID = this.element.querySelector("input[name=prompt_id]")?.value || ""
     this.postID = this.readPostID()
 
     // htmx puts the new form in place before it removes the old one, so the
@@ -214,7 +216,7 @@ export class Panel {
   }
 
   stateKey(id) {
-    return id || "new"
+    return id || (this.promptID ? `new:${this.promptID}` : "new")
   }
 
   syncPostID() {
@@ -225,7 +227,7 @@ export class Panel {
 
     this.postID = id
 
-    // the first autosave gave the draft an id: its dismissals and state follow it
+    // saving as a draft gave the text an id: its dismissals and state follow it
     if (!old && id) {
       const list = this.readDismissed("")
 
@@ -671,7 +673,7 @@ export class Panel {
     this.c.grammarButtonTarget.disabled = g.status === "loading" || !!noGrammar
     this.c.grammarButtonTarget.title = noGrammar ? "You have used all grammar checks for this hour" : ""
     this.c.styleButtonTarget.disabled = st.status === "loading" || !this.postID || !!noStyle
-    this.c.styleButtonTarget.title = !this.postID ? "Available once the draft is saved" : (noStyle ? "You have used all style reviews for this hour" : "")
+    this.c.styleButtonTarget.title = !this.postID ? "Available once saved as a draft" : (noStyle ? "You have used all style reviews for this hour" : "")
 
     panel.classList.toggle("is-empty", empty)
     panel.classList.toggle("is-collapsed", s.collapsed)

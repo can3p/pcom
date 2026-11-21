@@ -18,6 +18,36 @@ export default class extends Controller {
     })
 
     this.visibility()
+
+    // A new post's text is kept in a scratch pad. When another tab or device
+    // wrote the pad, the status shows a notice (data-scratch-conflict) and
+    // this form stops autosaving: only a click (submit) or an explicit save
+    // (postform:save) goes out until the author picks one of the notice's
+    // choices, whose response replaces the notice.
+    this.pauseAutosave = (event) => {
+      const trigger = event.detail.requestConfig?.triggeringEvent?.type
+
+      if (this.conflicted && trigger !== "submit" && trigger !== "postform:save") {
+        event.preventDefault()
+      }
+    }
+
+    this.element.addEventListener("htmx:beforeRequest", this.pauseAutosave)
+  }
+
+  disconnect() {
+    this.element.removeEventListener("htmx:beforeRequest", this.pauseAutosave)
+  }
+
+  get conflicted() {
+    return this.element.querySelector("[data-scratch-conflict]") !== null
+  }
+
+  // "Load the newer text": a fresh page load shows the pad as it is now. It
+  // replaces the history entry, so that the browser doesn't bring the typed
+  // text back into the form.
+  loadNewer() {
+    window.location.replace(window.location.href)
   }
 
   // Shows the subscriber offer while Public is selected.
@@ -33,6 +63,22 @@ export default class extends Controller {
   // after an edit, so a preview opened right after an edit would show the
   // post without it. Save now and open the preview once the save is back.
   preview(event) {
+    // the other tab's text would open, not this one's: show the notice
+    if (this.conflicted) {
+      event.preventDefault()
+      this.element.querySelector("[data-scratch-conflict]").scrollIntoView({ block: "center" })
+
+      return
+    }
+
+    // a new post that is still empty has no pad to open
+    if (!this.element.querySelector("input[name=post_id]") &&
+        ["subject", "url", "body"].every((name) => this.element.elements[name].value === "")) {
+      event.preventDefault()
+
+      return
+    }
+
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return
     }
@@ -55,6 +101,13 @@ export default class extends Controller {
       }
 
       document.removeEventListener("htmx:afterRequest", done)
+
+      // this very save found the pad changed elsewhere: the notice says so
+      if (this.conflicted) {
+        win?.close()
+
+        return
+      }
 
       if (win) {
         win.location = href

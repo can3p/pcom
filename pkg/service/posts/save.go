@@ -55,6 +55,10 @@ type SaveInput struct {
 	// discard against another revision is a *ScratchConflict, and a post
 	// made from the pad empties it only at this revision.
 	ScratchRevision int
+	// NoteIDs are the notes inserted into a new post that are not marked as
+	// used yet, kept with its scratch pad. Empty entries and repeats are
+	// dropped; each must be a uuid.
+	NoteIDs []string
 }
 
 // Saved is what a save left behind. Post is nil after a delete and after a
@@ -103,7 +107,37 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 		errs["visibility"] = err.Error()
 	}
 
+	if _, ok := scratchNoteIDs(in.NoteIDs); !ok {
+		errs["note_ids"] = "A note id is not valid"
+	}
+
 	return errs
+}
+
+// scratchNoteIDs is ids without empty entries and repeats, in their order,
+// and whether each is a uuid.
+func scratchNoteIDs(ids []string) ([]string, bool) {
+	out := []string{}
+	seen := map[string]bool{}
+
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			return nil, false
+		}
+
+		if id = parsed.String(); !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+
+	return out, true
 }
 
 // Save creates or changes the actor's post, or deletes it; a new post is
@@ -156,7 +190,7 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 	// validation of what they sent
 	errs := s.checkSave(in)
 
-	for _, field := range []string{"subject", "url", "body", "save_action", "visibility"} {
+	for _, field := range []string{"subject", "url", "body", "save_action", "visibility", "note_ids"} {
 		if msg, ok := errs[field]; ok {
 			return nil, service.Invalid(field, msg)
 		}

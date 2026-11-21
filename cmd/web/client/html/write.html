@@ -1,5 +1,6 @@
 {{ template "header.html" . }}
 
-{{ template "form--post.html" toMap "Prompt" .Prompt "Proofread" .Proofread "Subscribers" .Subscribers }}
+{{ template "form--post.html" toMap "User" .User.DBUser "Prompt" .Prompt "Proofread" .Proofread "Subscribers" .Subscribers
+                                    "Input" .Input "ScratchKeptAt" .ScratchKeptAt }}
 
 {{ template "footer.html" . }}

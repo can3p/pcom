@@ -63,7 +63,7 @@ var shots = []shot{
 	{file: "journal.png", user: "bob", path: "/users/alice", ready: "h1"},
 	{file: "post.png", user: "bob", path: "/posts/{post}", ready: "text=Level 3 (bob)"},
 	{file: "feed.png", user: "alice", path: "/feed", ready: "h1"},
-	{file: "editor.png", user: "alice", path: "/write", prepare: fillEditor, ready: "#show_preview"},
+	{file: "editor.png", user: "alice", path: "/write", prepare: fillEditor, ready: "#last_draft_save .status"},
 	{file: "grammar.png", user: "alice", path: "/write", prepare: checkGrammar, ready: ".pr-card"},
 	{file: "settings.png", user: "alice", path: "/controls/settings", ready: "h1"},
 	{file: "explore.png", user: "alice", path: "/explore", ready: "h1"},
@@ -87,7 +87,7 @@ const editorBody = `Hello from **pcom**!
 
 > Quotes work too.`
 
-// fillEditor types a draft; the autosave reveals the preview link.
+// fillEditor types a new post; the autosave shows the status next to the title.
 func fillEditor(t *testing.T, page playwright.Page) {
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill("My first post"))
 
