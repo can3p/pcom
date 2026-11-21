@@ -51,7 +51,7 @@ func (f *EditCommentForm) Validate(c *gin.Context) error {
 
 func (f *EditCommentForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	if err := f.Posts.EditComment(c, f.User, f.CommentID, f.Input.Body); err != nil {
-		return nil, err
+		return refused(f, err)
 	}
 
 	return forms.FormSaveFullReload, nil
