@@ -40,4 +40,11 @@ func TestEditCommentForm_SaveAndValidate(t *testing.T) {
 	c, w := newCtx(t)
 	action(c, form)
 	require.NotEmpty(t, w.Header().Get("HX-Refresh"), "a save answers a full page reload")
+
+	other := testutil.Must(factory.User(ctx, db))(t)
+	forged, ok := forms.EditCommentFormNew(postsService(db, fakequeue.New()), other, comment.ID).(*forms.EditCommentForm)
+	require.True(t, ok)
+	forged.Input.Body = "hijacked"
+	testutil.Must(forged.Save(ctx))(t)
+	require.Equal(t, "Not found.", forged.FormError, "someone else's comment is refused on the form")
 }
