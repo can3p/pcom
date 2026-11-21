@@ -150,15 +150,16 @@ func TestNewCommentForm_Save(t *testing.T) {
 		}
 	})
 
-	t.Run("a reply to a vanished comment fails without inserting", func(t *testing.T) {
+	t.Run("a reply to a vanished comment is refused without inserting", func(t *testing.T) {
 		t.Parallel()
 
 		author := testutil.Must(factory.User(ctx, db))(t)
 		post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published()))(t)
 
 		// Save without Validate, as a race with a deleted comment would.
-		_, err := newCommentForm(t, db, fakequeue.New(), author, post.ID, missingID).Save(ctx)
-		require.Error(t, err)
+		form := newCommentForm(t, db, fakequeue.New(), author, post.ID, missingID)
+		testutil.Must(form.Save(ctx))(t)
+		require.Equal(t, "Not found.", form.FormError)
 		require.Empty(t, testutil.Must(factory.ListComments(ctx, db, post.ID))(t))
 	})
 

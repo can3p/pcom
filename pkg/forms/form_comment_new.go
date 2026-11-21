@@ -60,7 +60,7 @@ func (f *NewCommentForm) Save(c context.Context) (forms.FormSaveAction, error) {
 		ReplyTo: f.Input.ReplyTo,
 	})
 	if err != nil {
-		return nil, err
+		return refused(f, err)
 	}
 
 	// XXX: we should focus on the comment

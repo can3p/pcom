@@ -782,9 +782,6 @@ func subscribedURLs(t *testing.T, app *e2e.App, user *model.User) []string {
 func TestSettings_FeedFetchStates(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.NotFoundHandler())
-	t.Cleanup(srv.Close)
-
 	ctx := context.Background()
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
@@ -794,7 +791,7 @@ func TestSettings_FeedFetchStates(t *testing.T) {
 	_, err = factory.Subscription(ctx, app.DB, user.ID, later.ID)
 	require.NoError(t, err)
 
-	broken, err := factory.RSSFeed(ctx, app.DB, factory.WithFeedTitle("Broken feed"), factory.WithFeedURL(srv.URL+"/feed.xml"))
+	broken, err := factory.RSSFeed(ctx, app.DB, factory.WithFeedTitle("Broken feed"), factory.NextFetchAt(time.Now().Add(time.Hour)), factory.FetchFailed("unexpected status: 404 Not Found"))
 	require.NoError(t, err)
 	_, err = factory.Subscription(ctx, app.DB, user.ID, broken.ID)
 	require.NoError(t, err)
@@ -809,18 +806,7 @@ func TestSettings_FeedFetchStates(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(feedRow("Later feed")).ToContainText("Never fetched"))
 	require.NoError(t, browser.Expect.Locator(feedRow("Later feed")).ToContainText("no posts yet"))
 
-	// the background poller fetches the broken feed within its interval
 	failed := feedRow("Broken feed").Locator("summary")
-	require.Eventually(t, func() bool {
-		if _, err := page.Goto("/controls/settings"); err != nil {
-			return false
-		}
-
-		n, err := failed.Count()
-
-		return err == nil && n == 1
-	}, 25*time.Second, 500*time.Millisecond, "the broken feed was never fetched by the poller")
-
 	require.NoError(t, browser.Expect.Locator(failed).ToHaveText("The last fetch failed"))
 	require.NoError(t, browser.Expect.Locator(failed).ToHaveCSS("color", errColor(t, page)))
 

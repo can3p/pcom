@@ -1068,6 +1068,29 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		require.Len(t, comments, 1)
 	})
 
+	t.Run("edit someone else's comment", func(t *testing.T) {
+		t.Parallel()
+
+		p := newPair(t)
+		_, _, err := factory.Connect(ctx, db, p.attacker.ID, p.victim.ID)
+		require.NoError(t, err)
+
+		post, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
+		require.NoError(t, err)
+		comment, err := factory.Comment(ctx, db, post.ID, p.victim.ID)
+		require.NoError(t, err)
+
+		// the form is drawn again with the refusal as its error, not a 500
+		resp := p.attackerClient.PostForm("/controls/form/edit_comment/"+comment.ID, url.Values{"body": {"hijacked"}})
+		resp.RequireStatus(http.StatusOK)
+		require.Contains(t, resp.Body, "Not found.")
+
+		comments, err := factory.ListComments(ctx, db, post.ID)
+		require.NoError(t, err)
+		require.Len(t, comments, 1)
+		require.Equal(t, comment.Body, comments[0].Body)
+	})
+
 	t.Run("create a share for an unrelated user's post", func(t *testing.T) {
 		t.Parallel()
 
