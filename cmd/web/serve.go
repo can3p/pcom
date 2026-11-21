@@ -242,6 +242,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		PostSubjectMaxLength:  cfg.Limits.PostSubjectMaxLength,
 		PromptMaxLength:       cfg.Limits.PromptMaxLength,
 		UserStylesMaxLength:   cfg.Limits.UserStylesMaxLength,
+		DraftExcerptLength:    cfg.Limits.DraftExcerptLength,
 		PageSize:              cfg.Limits.PageSize,
 		RSSLimit:              cfg.Limits.RSSLimit,
 		MaxBodySize:           cfg.Limits.MaxBodySize,

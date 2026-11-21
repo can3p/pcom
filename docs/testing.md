@@ -191,6 +191,9 @@ every parallel test opens its own window.
 The harness API:
 
 - `e2e.Start(t, e2e.WithRealAssets())` serves the real `cmd/web/dist`. Every test starts its own app.
+  `go test -tags browser` without `make test-ui` serves whatever bundle the last build left, perhaps one built
+  from other source (a mutation check, another branch): rebuild with `make test-ui` before reading a failure,
+  or a passing one, as the frontend's doing.
 - `browser.NewUser(t, app, opts...)` is `factory.User` for a confirmed user, and
   `browser.Page(t, app, browser.As(user))` returns a page in a fresh browser context, already logged in
   (it reuses an HTTP login's session cookie). The base URL is the app's, so `page.Goto("/feed")`.
@@ -288,7 +291,8 @@ it back rather than skipping the suite.
 
 The image's Chromium is older than the one CI installs, and the sandbox has no general outbound network, so a
 few browser tests fail only there (an embedded external resource, inline-style CSP reports):
-`TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility` and `TestActions_ShareLifecycle` (2026-10-01). Trust CI's
+`TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility`, `TestActions_ShareLifecycle` and
+`TestWriting_BlockquoteEditing` (Enter inside a quote adds no `> `). Trust CI's
 `browser` job for those.
 
 The tools image may not build in the sandbox (Docker Hub rate limits, package mirrors blocked); no test

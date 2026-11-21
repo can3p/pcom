@@ -304,6 +304,7 @@ var guardRoutes = []guardRoute{
 	// EnforceAuth GET routes
 	{http.MethodGet, "/posts/:id/edit", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/edit" }, noExtra},
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
+	{http.MethodGet, "/write/preview", staticPath("/write/preview"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
 	{http.MethodGet, "/controls/notes", staticPath("/controls/notes"), noExtra},
@@ -346,6 +347,8 @@ var guardRoutes = []guardRoute{
 			return map[string]string{"id": "0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60"}
 		}},
 	{http.MethodPost, "/controls/action/regenerate_feed_token", staticPath("/controls/action/regenerate_feed_token"), noExtra},
+	{http.MethodPost, "/controls/action/dismiss_notice", staticPath("/controls/action/dismiss_notice"),
+		func(*guardWorld) map[string]string { return map[string]string{"notice": "scratch_pad"} }},
 	{http.MethodPost, "/controls/action/dismiss_prompt", staticPath("/controls/action/dismiss_prompt"),
 		func(w *guardWorld) map[string]string { return map[string]string{"promptId": w.prompt.ID} }},
 	{http.MethodPost, "/controls/action/remove_rss_subscription", staticPath("/controls/action/remove_rss_subscription"),

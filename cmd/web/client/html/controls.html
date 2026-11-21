@@ -19,7 +19,7 @@
         </p>
       </section>
 
-      {{ with .Drafts }}
+      {{ if or .Drafts .NewPosts }}
       <section class="controls-section">
         <h2>Drafts</h2>
         <table class="controls-table">
@@ -27,9 +27,18 @@
             <tr><th scope="col">Subject</th><th scope="col">Last Updated</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
-            {{ range . }}
+            {{/* new posts kept in a scratch pad: text that is not a draft until it is saved as one */}}
+            {{ range .NewPosts }}
             <tr>
-              <td><a href="{{ link "edit_post" .PostID }}">{{ with .Subject }}{{ . }}{{ else }}No subject{{ end }}</a></td>
+              <td><a href="{{ link "write" }}{{ with .PromptID }}?prompt={{ . }}{{ end }}">{{ with .Subject }}{{ . }}{{ else }}{{ with .Excerpt }}{{ . }}{{ else }}No subject{{ end }}{{ end }}</a>
+                <span class="meta">· not saved as a draft yet{{ if .PromptID }}, answers a prompt{{ end }}</span></td>
+              <td class="meta">{{ renderHumanTime .KeptAt $.User.DBUser }}</td>
+              <td></td>
+            </tr>
+            {{ end }}
+            {{ range .Drafts }}
+            <tr>
+              <td><a href="{{ link "edit_post" .PostID }}">{{ with .Subject }}{{ . }}{{ else }}{{ with .Excerpt }}{{ . }}{{ else }}No subject{{ end }}{{ end }}</a></td>
               <td class="meta">{{ renderHumanTime .LastUpdatedAt $.User.DBUser }}</td>
               <td class="acts">
                 <button type="button"

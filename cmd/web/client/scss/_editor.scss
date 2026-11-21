@@ -14,8 +14,14 @@
 
 .ed-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+}
+
+// the two-tab notice takes the whole row under the title
+.ed-conflict {
+  flex-basis: 100%;
 }
 
 .ed-title {

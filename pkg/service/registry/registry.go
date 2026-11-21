@@ -40,6 +40,9 @@ type Deps struct {
 	ProfileAboutMaxLength int
 	// The other text limits; each service's default when zero.
 	CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength, PromptMaxLength, UserStylesMaxLength int
+	// DraftExcerptLength sizes a subject-less draft's name; connections'
+	// default when zero.
+	DraftExcerptLength int
 	// PageSize and RSSLimit size the reading service's lists; zero means its
 	// defaults.
 	PageSize, RSSLimit int
@@ -104,7 +107,7 @@ func New(db *sql.DB, deps Deps) *Services {
 	postsSvc := posts.New(store, deps.MediaStorage, posts.WithJobs(deps.Jobs), posts.WithIdentity(ident), posts.WithMaxUploadSize(deps.MaxUploadSize), posts.WithTextLimits(posts.TextLimits{CommentMaxLength: deps.CommentMaxLength, PostBodyMaxLength: deps.PostBodyMaxLength, PostSubjectMaxLength: deps.PostSubjectMaxLength, PromptMaxLength: deps.PromptMaxLength}), posts.WithSubscriptions(subsSvc))
 
 	return &Services{
-		Connections:   connections.New(store),
+		Connections:   connections.New(store, connections.WithDraftExcerptLength(deps.DraftExcerptLength)),
 		Feeds:         feedSvc,
 		Shares:        shares.New(store),
 		Reading:       reading.New(store, reading.WithLimits(deps.PageSize, deps.RSSLimit)),

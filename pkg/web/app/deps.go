@@ -63,6 +63,9 @@ type Config struct {
 	// CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength,
 	// PromptMaxLength and UserStylesMaxLength limit the other texts.
 	CommentMaxLength, PostBodyMaxLength, PostSubjectMaxLength, PromptMaxLength, UserStylesMaxLength int
+	// DraftExcerptLength is how many characters of its body name a draft
+	// without a subject on the controls page.
+	DraftExcerptLength int
 	// SecureCookies marks the session cookie Secure.
 	SecureCookies bool
 	// SessionMaxAge is how long a session lasts after its last save;

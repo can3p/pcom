@@ -1,8 +1,54 @@
-{{ if .DraftSaved }}
-<div id="last_draft_save" class="ed-saved">
+{{/* The status next to the title: what is known of the saved text, and for a new post the revision of the
+     scratch pad this form last saw (scratch_rev). The pad's text is kept as it is typed; it becomes a draft
+     only on Save as Draft or Publish. A conflict (another tab or device wrote the pad) replaces it with a
+     notice and its choices; data-scratch-conflict tells the postform controller to pause autosave.
+     Every autosave response swaps this block, so the form always holds the revision it wrote last. */}}
+{{ define "post_status" }}
+{{ if .PostID }}
   <input type="hidden" name="post_id" value="{{ .PostID }}" />
   <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
+{{ else }}
+  {{ with .Prompt }}
+    <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
+  {{ end }}
+  <input type="hidden" name="scratch_rev" value="{{ if .Input }}{{ .Input.ScratchRev }}{{ else }}0{{ end }}" />
+  {{ with .Conflict }}
+  <div class="ed-prompt ed-conflict" role="alert" data-scratch-conflict>
+    <p>
+    {{- if .Emptied -}}
+      This text was {{ if .PostID }}<a href="{{ link "edit_post" .PostID }}">saved as a draft</a>{{ else }}discarded{{ end }} in another tab.
+    {{- else -}}
+      This new post was changed on another device or tab{{ if .At }} at {{ .At }}{{ end }}.
+    {{- end }} The text here is no longer being saved.</p>
+    <p class="ed-conflict-acts">
+      {{ if not .Emptied }}<button type="button" class="btn btn-secondary" data-action="postform#loadNewer" title="Reloads the page: what you typed here since is lost">Load the newer text</button>{{ end }}
+      <button type="submit" class="btn btn-secondary" name="save_action" value="take_over" title="Replaces the text saved on the other device or tab with this one">Keep mine</button>
+      <button type="submit" class="btn btn-secondary" name="save_action" value="save_post" title="Makes a draft of this text and leaves the other text alone">Save mine as a draft</button>
+    </p>
+  </div>
+  {{ else }}
+    {{ with .ScratchKeptAt }}
+  <span class="status" role="status">Not saved as a draft yet &middot; kept {{ renderHumanTime (timeVal .) $.User }}</span>
+    {{ end }}
+  {{ end }}
+{{ end }}
+{{ end }}
+
+{{/* Delete on a post; Discard on a new post, whose text is only the scratch pad. OOB: the swap that
+     replaces a Discard with a Delete once Save as Draft has made the post. */}}
+{{ define "post_delete" }}<button type="submit" {{ if not .OOB }}disabled data-postform-pending{{ else }}hx-swap-oob="true"{{ end }}
+        id="ed-delete" class="ed-delete" name="save_action" value="delete"
+        data-controller="confirm"
+        data-confirm-message-value="{{ if .PostID }}Do you really want to delete this post? The action cannot be reversed{{ else }}Discard this text? It is not a draft and cannot be brought back{{ end }}"
+        >{{ if .PostID }}Delete{{ else }}Discard{{ end }}</button>{{ end }}
+
+{{ if .DraftSaved }}
+<div id="last_draft_save" class="ed-saved">
+  {{ template "post_status" . }}
 </div>
+{{ if .Promoted }}
+{{ template "post_delete" toMap "PostID" .PostID "OOB" true }}
+{{ end }}
 {{ if .DraftSavedByUser }}
 <span id="ed-save-result" class="ed-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
 {{ end }}
@@ -10,6 +56,19 @@
 <div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }} ed-sd">
   {{ with .Prompt }}
   <p class="ed-prompt" role="alert">{{ .Author.Username }} has asked: {{ .Prompt.Message }}</p>
+  {{ end }}
+  {{ if and .ScratchNotice (not .PostID) }}
+  <p id="scratch-notice" class="ed-prompt" role="note">
+    <strong>New:</strong> what you type here is kept as you write, on any device, but it becomes a draft only when you press Save as Draft. Abandoned text no longer piles up among your drafts.
+    <button type="button" class="btn btn-secondary"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="dismiss_notice"
+            data-action-skip-reload-value="true"
+            data-notice="scratch_pad"
+            hx-target="#scratch-notice"
+            hx-swap="delete">Got it</button>
+  </p>
   {{ end }}
 
   {{/* ed-side owns the sidebar's tabs and strip, proofread the Checks tab, notes-picker the Notes tab. */}}
@@ -32,24 +91,27 @@
         hx-disabled-elt="this"
         data-controller="postform"
         class="ed-form"
+        autocomplete="off"
         >
+
+    {{/* autocomplete="off" keeps the browser from refilling the fields on a reload (Firefox and Safari do,
+         hidden inputs included): the server's text and scratch_rev are the truth, and a refilled stale text
+         would be autosaved over the pad. */}}
 
     {{/* Enter in a field submits with the form's first submit button, so the
          first one saves; Delete and the other confirmed actions come later. */}}
     <button type="submit" disabled data-postform-pending class="sr-only" tabindex="-1" aria-hidden="true"
             name="save_action" value="save_post">Save</button>
 
+    {{ if not .PostID }}
+    {{/* the notes inserted so far that are not marked as used yet: the notes picker keeps them here, so a reload doesn't lose them */}}
+    <input type="hidden" name="note_ids" value="{{ if .Input }}{{ .Input.NoteIDs }}{{ end }}" data-notes-picker-ids>
+    {{ end }}
+
     <div class="ed-head">
       <h1 class="ed-title">{{ if .PostID }}Edit Post{{ if not .IsPublished }} <span class="ed-badge">Draft</span>{{ else }} <a href="{{ link "post" .PostID }}">link</a>{{ end }}{{ else }}New Post{{ end }}</h1>
       <div id="last_draft_save" class="ed-saved">
-      {{ if .PostID }}
-        <input type="hidden" name="post_id" value="{{ .PostID }}" />
-        <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
-      {{ else }}
-        {{ with .Prompt }}
-          <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
-        {{ end }}
-      {{ end }}
+        {{ template "post_status" . }}
       </div>
     </div>
 
@@ -84,7 +146,8 @@
         data-controller="mdeditor"
         data-mdeditor-upload-value="{{ link "action" "upload_media" }}"
       >
-        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID "Proofread" .Proofread }}
+        {{ $promptID := "" }}{{ with .Prompt }}{{ $promptID = .Prompt.ID }}{{ end }}
+        {{ template "partial--editor-toolbar.html" toMap "UploadID" "file_upload" "Post" true "PostID" .PostID "PromptID" $promptID "Proofread" .Proofread }}
 
         <textarea class="ed-body" name="body" placeholder="Your post goes there" aria-label="Post" rows="14" {{ if (.Errors.HasError "body") }}aria-invalid="true"{{ end }}>{{ if .Input }}{{ .Input.Body }}{{ end }}</textarea>
       </div>
@@ -136,13 +199,7 @@
     </fieldset>
 
     <div class="ed-acts">
-      <button type="submit" disabled data-postform-pending
-              class="ed-delete"
-              name="save_action"
-              value="delete"
-              data-controller="confirm"
-              data-confirm-message-value="Do you really want to delete this post? The action cannot be reversed"
-              >Delete</button>
+      {{ template "post_delete" toMap "PostID" .PostID }}
       <div class="ed-main">
       {{ if .IsPublished }}
         <button type="submit" disabled data-postform-pending

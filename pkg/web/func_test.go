@@ -160,7 +160,8 @@ func TestWrite(t *testing.T) {
 			t.Parallel()
 
 			c := newTestContext(t, http.MethodGet, tc.target)
-			page := testutil.Must(Write(c, postsService(db), userDataFor(tc.user)).Get())(t)
+			page := testutil.Must(Write(c, postsService(db), accounts.New(repo.New(db), nil), userDataFor(tc.user)).Get())(t)
+			require.True(t, page.ScratchNotice, "shown until dismissed")
 
 			if tc.wantPrompt {
 				require.NotNil(t, page.Prompt)
@@ -170,6 +171,21 @@ func TestWrite(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWrite_NoticeDismissed(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	user := testutil.Must(factory.User(ctx, db))(t)
+	svc := accounts.New(repo.New(db), nil)
+
+	require.NoError(t, svc.DismissNotice(ctx, user, accounts.NoticeScratchPad))
+
+	c := newTestContext(t, http.MethodGet, "/write")
+	page := testutil.Must(Write(c, postsService(db), svc, userDataFor(user)).Get())(t)
+	require.False(t, page.ScratchNotice)
 }
 
 func TestEditPost(t *testing.T) {

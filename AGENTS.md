@@ -47,7 +47,8 @@ longer holds rather than annotating it. Wave names, dates and incident stories b
 `pkg/config` with its default there, handed to the service as an option; the service exports the same default
 for callers built without configuration, and tests use that constant, not the literal. Pattern:
 `Limits.ProfileAboutMaxLength` → `accounts.WithProfileAboutMaxLength`. A new setting also appears in
-`web serve --help`, whose golden the same diff rewrites (`UPDATE_GOLDEN=1 go test ./cmd/web -run TestHelp`).
+`web serve --help`, whose golden the same diff rewrites (`UPDATE_GOLDEN=1 go test ./cmd/web -run TestHelp`), and
+gets its row in `TestServe_EveryVariable` (`pkg/config/config_test.go`), which fails on a variable it doesn't list.
 
 ## Reading code economically
 

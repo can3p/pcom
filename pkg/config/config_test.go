@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"fmt"
+	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"maps"
 	"os"
@@ -168,6 +169,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"POST_BODY_MAX_LENGTH", "900", func(s *config.Serve) any { return s.Limits.PostBodyMaxLength }, posts.DefaultPostBodyMaxLength, 900},
 		{"POST_SUBJECT_MAX_LENGTH", "50", func(s *config.Serve) any { return s.Limits.PostSubjectMaxLength }, posts.DefaultPostSubjectMaxLength, 50},
 		{"PROMPT_MAX_LENGTH", "700", func(s *config.Serve) any { return s.Limits.PromptMaxLength }, posts.DefaultPromptMaxLength, 700},
+		{"DRAFT_EXCERPT_LENGTH", "40", func(s *config.Serve) any { return s.Limits.DraftExcerptLength }, connections.DefaultDraftExcerptLength, 40},
 		{"USER_STYLES_MAX_LENGTH", "800", func(s *config.Serve) any { return s.Limits.UserStylesMaxLength }, accounts.DefaultUserStylesMaxLength, 800},
 		{"USER_MEDIA_CDN", "https://media.test", func(s *config.Serve) any { return s.Media.CDN }, "", "https://media.test"},
 		{"LOGIN_CODE_LIFETIME", "5m", func(s *config.Serve) any { return s.Login.CodeLifetime }, accounts.DefaultLoginLimits.CodeLifetime, 5 * time.Minute},

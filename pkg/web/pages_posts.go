@@ -10,6 +10,9 @@ import (
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/postops"
+	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
@@ -26,11 +29,43 @@ type WritePage struct {
 	// Subscribers is what the form says about the author's email
 	// subscribers.
 	Subscribers *posts.SubscriberReach
+	// Input is the author's scratch pad for this page's prompt, nil when
+	// they never wrote one. A pad that was emptied still gives the revision
+	// the form must name when it writes the pad again.
+	Input *forms.PostFormInput
+	// ScratchKeptAt is when the pad's text was kept, nil when the pad holds
+	// none.
+	ScratchKeptAt *time.Time
+	// ScratchNotice is set while the author has not dismissed the notice
+	// that a new post is kept as a scratch pad until it is saved as a draft.
+	ScratchNotice bool
+}
+
+// scratchInput is the form input that shows the pad.
+func scratchInput(pad *model.PostScratch) *forms.PostFormInput {
+	in := &forms.PostFormInput{
+		Subject:           lo.FromPtr(pad.Subject),
+		URL:               lo.FromPtr(pad.URL),
+		Body:              pad.Body,
+		Visibility:        pad.Visibility,
+		NotifyOffered:     pad.NotifySubscribers != nil,
+		NotifySubscribers: lo.FromPtr(pad.NotifySubscribers),
+		ScratchRev:        pad.Revision,
+		NoteIDs:           strings.Join(pad.NoteIDs, ","),
+	}
+
+	if pad.IsEmpty() {
+		// nothing was typed: the form's defaults, with the pad's revision
+		in = &forms.PostFormInput{ScratchRev: pad.Revision, Visibility: model.PostVisibilitySecondDegree}
+	}
+
+	return in
 }
 
 // Write is the new post page. The prompt query parameter names the prompt the
-// post answers; a prompt addressed to somebody else is ignored.
-func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Result[*WritePage] {
+// post answers; a prompt addressed to somebody else is ignored. The editor
+// shows the author's scratch pad for that prompt.
+func Write(c *gin.Context, svc *posts.Service, accountsSvc *accounts.Service, userData *auth.UserData) mo.Result[*WritePage] {
 	var prompt *postops.PostPrompt
 
 	if promptID := c.Query("prompt"); promptID != "" {
@@ -47,10 +82,66 @@ func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*WritePage](err)
 	}
 
-	return mo.Ok(&WritePage{
-		BasePage:    getBasePage(c, "New Post", userData),
-		Prompt:      prompt,
-		Subscribers: reach,
+	pad, err := svc.Scratch(c, userData.DBUser, c.Query("prompt"))
+	if err != nil {
+		return mo.Err[*WritePage](err)
+	}
+
+	showNotice, err := accountsSvc.NoticeShown(c, userData.DBUser, accounts.NoticeScratchPad)
+	if err != nil {
+		return mo.Err[*WritePage](err)
+	}
+
+	page := &WritePage{
+		BasePage:      getBasePage(c, "New Post", userData),
+		Prompt:        prompt,
+		Subscribers:   reach,
+		ScratchNotice: showNotice,
+	}
+
+	if pad != nil {
+		page.Input = scratchInput(pad)
+
+		if !pad.IsEmpty() {
+			page.ScratchKeptAt = &pad.UpdatedAt
+		}
+	}
+
+	return mo.Ok(page)
+}
+
+// WritePreview is the preview of the author's scratch pad, the text of a new
+// post that is not a draft yet, drawn as the post page draws a draft in
+// edit-preview mode. An empty pad has nothing to preview.
+func WritePreview(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Result[*SinglePostPage] {
+	user := userData.DBUser
+
+	pad, err := svc.Scratch(c, user, c.Query("prompt"))
+	if err != nil {
+		return mo.Err[*SinglePostPage](err)
+	}
+
+	if pad == nil || pad.IsEmpty() {
+		return mo.Err[*SinglePostPage](service.ErrNotFound)
+	}
+
+	post := &model.Post{
+		Subject:          pad.Subject,
+		Body:             pad.Body,
+		UserID:           user.ID,
+		VisibilityRadius: pad.Visibility,
+		User:             user,
+	}
+
+	if url := lo.FromPtr(pad.URL); url != "" {
+		post.URL = &model.NormalizedURL{URL: url}
+	}
+
+	view := postops.ConstructPost(user, post, graph.RadiusSameUser, nil, true)
+
+	return mo.Ok(&SinglePostPage{
+		BasePage: getBasePage(c, view.PostSubject(), userData),
+		Post:     view,
 	})
 }
 

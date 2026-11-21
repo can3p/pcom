@@ -55,12 +55,18 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 	r.GET("/write", auth.EnforceAuth, func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 
-		page := web.Write(c, posts, &userData)
+		page := web.Write(c, posts, d.Services.Accounts, &userData)
 		if p, err := page.Get(); err == nil {
 			p.Proofread = d.Services.Proofread.Enabled()
 		}
 
 		ginhelpers.HTML(c, "write.html", page)
+	})
+
+	r.GET("/write/preview", auth.EnforceAuth, func(c *gin.Context) {
+		userData := auth.GetUserData(c)
+
+		ginhelpers.HTML(c, "single_post.html", web.WritePreview(c, posts, &userData))
 	})
 
 	controlsForms.POST("/edit_post", func(c *gin.Context) {

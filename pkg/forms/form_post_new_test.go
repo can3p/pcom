@@ -188,6 +188,7 @@ func TestPostForm_Validate(t *testing.T) {
 	}{
 		{name: "valid input"},
 		{name: "empty save action defaults to autosave", edit: func(f *forms.PostForm) { f.Input.SaveAction = "" }},
+		{name: "take over", edit: func(f *forms.PostForm) { f.Input.SaveAction = forms.PostFormActionTakeOver }},
 		{name: "valid url", edit: func(f *forms.PostForm) { f.Input.URL = "https://example.test/article" }},
 		{name: "subject too long", edit: func(f *forms.PostForm) { f.Input.Subject = strings.Repeat("a", 101) }, wantErr: "subject"},
 		{name: "body too long", edit: func(f *forms.PostForm) { f.Input.Body = strings.Repeat("a", posts.DefaultPostBodyMaxLength+1) }, wantErr: "body"},
@@ -229,13 +230,35 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 	db := testdb.New(t).DB
 	ctx := context.Background()
 
+	// A new post's text goes to the author's scratch pad: the autosave and
+	// every action that is not Save as Draft or Publish write the pad and
+	// swap only the status, and no post and no mail comes of it.
 	for _, action := range []forms.PostFormAction{
-		forms.PostFormActionSavePost,
 		forms.PostFormActionMakeDraft,
 		forms.PostFormActionAutosave,
 		"",
-		forms.PostFormActionPublish,
 	} {
+		t.Run("pad action "+string(action), func(t *testing.T) {
+			t.Parallel()
+
+			author := testutil.Must(factory.User(ctx, db))(t)
+			sender := fakequeue.New()
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, sender), author, ""))(t), action)
+			w := savePost(t, ctx, db, form)
+
+			require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, author.ID))(t))
+			require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
+			require.Empty(t, w.Header().Get("HX-Replace-Url"))
+			require.Empty(t, w.Header().Get("HX-Trigger"))
+			require.Equal(t, 1, form.Input.ScratchRev)
+			require.Empty(t, sentMails(t, ctx, db, sender))
+
+			pad := testutil.Must(postsService(db, sender).Scratch(ctx, author, ""))(t)
+			require.Equal(t, "A body", pad.Body)
+		})
+	}
+
+	for _, action := range []forms.PostFormAction{forms.PostFormActionSavePost, forms.PostFormActionPublish} {
 		t.Run("action "+string(action), func(t *testing.T) {
 			t.Parallel()
 
@@ -244,12 +267,19 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			connect(t, ctx, db, author.ID, conn.ID)
 
 			sender := fakequeue.New()
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, sender), author, ""))(t), action)
+			svc := postsService(db, sender)
+
+			// the pad is emptied by the post made from it
+			testutil.Must(svc.Save(ctx, author, posts.SaveInput{Body: "typed", Visibility: model.PostVisibilityDirectOnly, Action: posts.ActionAutosave}))(t)
+
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, svc, author, ""))(t), action)
+			form.Input.ScratchRev = 1
 			w := savePost(t, ctx, db, form)
 
 			posts := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
 			require.Len(t, posts, 1)
 			post := posts[0]
+			require.True(t, testutil.Must(svc.Scratch(ctx, author, ""))(t).IsEmpty())
 
 			if action == forms.PostFormActionPublish {
 				require.NotNil(t, post.PublishedAt)
@@ -262,8 +292,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 				return
 			}
 
-			// Every other action saves a draft and retargets the draft-saved
-			// indicator instead of redirecting.
+			// Save as Draft retargets the status instead of redirecting.
 			require.Nil(t, post.PublishedAt)
 			require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
 			require.Equal(t, links.Link("edit_post", post.ID), w.Header().Get("HX-Replace-Url"))
@@ -272,13 +301,44 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 		})
 	}
 
-	t.Run("delete stores nothing", func(t *testing.T) {
+	t.Run("discard empties the pad and goes to the controls", func(t *testing.T) {
 		t.Parallel()
 
 		author := testutil.Must(factory.User(ctx, db))(t)
-		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), author, ""))(t), forms.PostFormActionDelete)
-		savePost(t, ctx, db, form)
+		svc := postsService(db, fakequeue.New())
+		testutil.Must(svc.Save(ctx, author, posts.SaveInput{Body: "typed", Visibility: model.PostVisibilityDirectOnly, Action: posts.ActionAutosave}))(t)
+
+		form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, svc, author, ""))(t), forms.PostFormActionDelete)
+		form.Input.ScratchRev = 1
+		w := savePost(t, ctx, db, form)
+
+		require.Equal(t, links.Link("controls"), w.Header().Get("HX-Redirect"))
 		require.Empty(t, testutil.Must(factory.ListPosts(ctx, db, author.ID))(t))
+		require.True(t, testutil.Must(svc.Scratch(ctx, author, ""))(t).IsEmpty())
+	})
+
+	// Another tab wrote the pad since this form saw it: nothing is written,
+	// the notice is swapped into the status, and "Keep mine" writes anyway.
+	t.Run("a stale tab gets the notice, and can take over", func(t *testing.T) {
+		t.Parallel()
+
+		author := testutil.Must(factory.User(ctx, db))(t)
+		svc := postsService(db, fakequeue.New())
+		testutil.Must(svc.Save(ctx, author, posts.SaveInput{Body: "theirs", Visibility: model.PostVisibilityDirectOnly, Action: posts.ActionAutosave}))(t)
+
+		stale := fillPost(testutil.Must(forms.NewPostFormNew(ctx, svc, author, ""))(t), forms.PostFormActionAutosave)
+		w := savePost(t, ctx, db, stale)
+
+		require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
+		require.NotNil(t, stale.TemplateData()["Conflict"])
+		require.Equal(t, "theirs", testutil.Must(svc.Scratch(ctx, author, ""))(t).Body)
+
+		mine := fillPost(testutil.Must(forms.NewPostFormNew(ctx, svc, author, ""))(t), forms.PostFormActionTakeOver)
+		savePost(t, ctx, db, mine)
+
+		require.Nil(t, mine.TemplateData()["Conflict"])
+		require.Equal(t, "A body", testutil.Must(svc.Scratch(ctx, author, ""))(t).Body)
+		require.Equal(t, 2, mine.Input.ScratchRev)
 	})
 
 	for _, url := range []string{"", "https://example.test/article"} {
@@ -286,7 +346,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			t.Parallel()
 
 			author := testutil.Must(factory.User(ctx, db))(t)
-			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), author, ""))(t), forms.PostFormActionAutosave)
+			form := fillPost(testutil.Must(forms.NewPostFormNew(ctx, postsService(db, fakequeue.New()), author, ""))(t), forms.PostFormActionSavePost)
 			form.Input.URL = url
 			savePost(t, ctx, db, form)
 
@@ -296,8 +356,8 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 		})
 	}
 
-	// A prompt is linked to the post as soon as it exists, but dismissed and
-	// answered by mail only once the post is published.
+	// A prompt is linked to the post when the pad becomes one, but dismissed
+	// and answered by mail only once the post is published.
 	for _, publish := range []bool{true, false} {
 		t.Run(fmt.Sprintf("answering a prompt, publish=%v", publish), func(t *testing.T) {
 			t.Parallel()
@@ -308,7 +368,7 @@ func TestPostForm_Save_NewPost(t *testing.T) {
 			connect(t, ctx, db, asker.ID, author.ID)
 			prompt := testutil.Must(factory.PostPrompt(ctx, db, asker.ID, author.ID))(t)
 
-			action := forms.PostFormActionMakeDraft
+			action := forms.PostFormActionSavePost
 			if publish {
 				action = forms.PostFormActionPublish
 			}

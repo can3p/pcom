@@ -78,6 +78,7 @@ type Limits struct {
 	PostSubjectMaxLength  int `long:"post-subject-max-length" env:"POST_SUBJECT_MAX_LENGTH" description:"Most characters a post subject may have" default:"100"`
 	PromptMaxLength       int `long:"prompt-max-length" env:"PROMPT_MAX_LENGTH" description:"Most characters a prompt message may have" default:"1400"`
 	UserStylesMaxLength   int `long:"user-styles-max-length" env:"USER_STYLES_MAX_LENGTH" description:"Most characters a user's custom CSS may have" default:"10000"`
+	DraftExcerptLength    int `long:"draft-excerpt-length" env:"DRAFT_EXCERPT_LENGTH" description:"Characters of its body that name a draft without a subject on the controls page" default:"80"`
 	PageSize              int `long:"page-size" env:"PAGE_SIZE" description:"Items per page of the feed, explore, the index and a journal" default:"30"`
 	RSSLimit              int `long:"rss-limit" env:"RSS_LIMIT" description:"Items in every RSS output" default:"50"`
 

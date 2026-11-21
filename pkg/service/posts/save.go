@@ -25,6 +25,10 @@ const (
 	ActionPublish   Action = "publish"
 	ActionDelete    Action = "delete"
 	ActionAutosave  Action = "autosave"
+	// ActionTakeOver writes a new post's scratch pad whatever its revision:
+	// the author chose this tab's text over another tab's. Valid only
+	// without a PostID.
+	ActionTakeOver Action = "take_over"
 )
 
 // SaveInput is a post as the author submitted it.
@@ -45,11 +49,23 @@ type SaveInput struct {
 	// (never an autosave) that leaves the post published and public, and a
 	// post is mailed to its subscribers at most once.
 	NotifySubscribers *bool
+	// ScratchRevision is the revision of the author's scratch pad the form
+	// last saw, 0 if it saw none. A save without a PostID goes to the pad
+	// unless it saves the post as a draft or publishes it; a pad write or a
+	// discard against another revision is a *ScratchConflict, and a post
+	// made from the pad empties it only at this revision.
+	ScratchRevision int
+	// NoteIDs are the notes inserted into a new post that are not marked as
+	// used yet, kept with its scratch pad. Empty entries and repeats are
+	// dropped; each must be a uuid.
+	NoteIDs []string
 }
 
-// Saved is what a save left behind. Post is nil after a delete.
+// Saved is what a save left behind. Post is nil after a delete and after a
+// write of the scratch pad, which is Scratch.
 type Saved struct {
 	Post    *model.Post
+	Scratch *model.PostScratch
 	Created bool
 	Deleted bool
 }
@@ -78,9 +94,11 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 	}
 
 	if err := validation.ValidateEnum(action,
-		[]Action{ActionSavePost, ActionMakeDraft, ActionPublish, ActionDelete, ActionAutosave},
+		[]Action{ActionSavePost, ActionMakeDraft, ActionPublish, ActionDelete, ActionAutosave, ActionTakeOver},
 		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
 		errs["save_action"] = err.Error()
+	} else if action == ActionTakeOver && in.PostID != "" {
+		errs["save_action"] = "Only a new post can take over its text from another tab"
 	}
 
 	if err := validation.ValidateEnum(in.Visibility,
@@ -89,10 +107,42 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 		errs["visibility"] = err.Error()
 	}
 
+	if _, ok := scratchNoteIDs(in.NoteIDs); !ok {
+		errs["note_ids"] = "A note id is not valid"
+	}
+
 	return errs
 }
 
-// Save creates or changes the actor's post, or deletes it. Publishing
+// scratchNoteIDs is ids without empty entries and repeats, in their order,
+// and whether each is a uuid.
+func scratchNoteIDs(ids []string) ([]string, bool) {
+	out := []string{}
+	seen := map[string]bool{}
+
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			return nil, false
+		}
+
+		if id = parsed.String(); !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+
+	return out, true
+}
+
+// Save creates or changes the actor's post, or deletes it; a new post is
+// kept in the author's scratch pad (see SaveInput.ScratchRevision) until it is
+// saved as a draft or published. Publishing
 // notifies the author's direct connections, and the asker of the prompt the
 // post answers, in the same transaction; then, as SaveInput.NotifySubscribers
 // decides, the author's email subscribers.
@@ -140,18 +190,19 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 	// validation of what they sent
 	errs := s.checkSave(in)
 
-	for _, field := range []string{"subject", "url", "body", "save_action", "visibility"} {
+	for _, field := range []string{"subject", "url", "body", "save_action", "visibility", "note_ids"} {
 		if msg, ok := errs[field]; ok {
 			return nil, service.Invalid(field, msg)
 		}
 	}
 
+	if existing == nil && action != ActionSavePost && action != ActionPublish {
+		return s.saveScratch(ctx, tx, actor, in, action)
+	}
+
 	if in.Action == ActionDelete {
-		// deleting a post that was never saved stores nothing
-		if existing != nil {
-			if err := tx.DeletePost(ctx, existing.ID); err != nil {
-				return nil, err
-			}
+		if err := tx.DeletePost(ctx, existing.ID); err != nil {
+			return nil, err
 		}
 
 		return &Saved{Deleted: true}, nil
@@ -206,6 +257,15 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 			if err := tx.UpdatePrompt(ctx, prompt.Prompt); err != nil {
 				return nil, err
 			}
+		}
+
+		var promptID string
+		if prompt != nil {
+			promptID = prompt.Prompt.ID
+		}
+
+		if err := promoteScratch(ctx, tx, actor, promptID, in.ScratchRevision, post.ID); err != nil {
+			return nil, err
 		}
 	} else {
 		post.ID = existing.ID

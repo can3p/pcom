@@ -3,6 +3,7 @@ package connections_test
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"sync"
 	"testing"
 
@@ -595,4 +596,53 @@ func TestDropConnectionGrant(t *testing.T) {
 
 	require.NoError(t, svc.RemoveFromWhitelist(ctx, as(target.ID), source.ID))
 	require.False(t, testutil.Must(svc.IsConnectionAllowed(ctx, as(source.ID), target.ID))(t))
+}
+
+func TestControls_DraftExcerpt(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testdb.New(t).DB
+	user := testutil.Must(factory.User(ctx, db))(t)
+
+	cases := []struct {
+		name, subject, body, want string
+	}{
+		{"a subject wins", "Hello", "some body", ""},
+		{"markdown becomes plain text", "", "# Hi\n\n**bold** and [link](https://x.test)\nend", "Hi bold and link end"},
+		{"cut on a rune boundary", "", "ёёёёёёёёёёёёёёёёёёёёёёёёё", "ёёёёёёёёёёёёёёёёёёёё…"},
+		{"shorter than the length", "", "short text", "short text"},
+		{"empty stays empty", "", "  \n ", ""},
+	}
+
+	for _, tc := range cases {
+		testutil.Must(factory.Post(ctx, db, user.ID, factory.WithSubject(tc.subject), factory.WithBody(tc.body)))(t)
+	}
+
+	svc := connections.New(repo.New(db), connections.WithDraftExcerptLength(20))
+	view := testutil.Must(svc.Controls(ctx, user))(t)
+
+	got := map[string]string{}
+	for _, d := range view.Drafts {
+		got[d.Subject+"|"+d.Excerpt] = d.PostID
+	}
+
+	for _, tc := range cases {
+		if tc.subject != "" {
+			require.Contains(t, got, tc.subject+"|", tc.name)
+			continue
+		}
+
+		require.Contains(t, got, "|"+tc.want, tc.name)
+	}
+
+	require.NotContains(t, got, "|short text\u2026")
+
+	// the default length applies without the option
+	long := testutil.Must(factory.Post(ctx, db, user.ID, factory.WithSubject(""), factory.WithBody(strings.Repeat("a", connections.DefaultDraftExcerptLength+5))))(t)
+	view = testutil.Must(connections.New(repo.New(db)).Controls(ctx, user))(t)
+
+	d, ok := lo.Find(view.Drafts, func(d *connections.Draft) bool { return d.PostID == long.ID })
+	require.True(t, ok)
+	require.Equal(t, strings.Repeat("a", connections.DefaultDraftExcerptLength)+"…", d.Excerpt)
 }

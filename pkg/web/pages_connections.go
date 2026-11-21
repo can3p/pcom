@@ -13,6 +13,7 @@ type (
 	MediationResult   = connections.MediationResult
 	ConnectionRequest = connections.ConnectionRequest
 	Draft             = connections.Draft
+	NewPost           = connections.NewPost
 )
 
 type ControlsPage struct {
@@ -23,6 +24,7 @@ type ControlsPage struct {
 	MediationRequests       []*MediationRequest
 	ConnectionRequests      []*ConnectionRequest
 	Drafts                  []*Draft
+	NewPosts                []*NewPost                // scratch pads with text: new posts not saved as drafts yet
 	Subscribers             *subscriptions.AuthorView // the "Email subscribers" section
 }
 
@@ -36,6 +38,7 @@ func Controls(ctx *gin.Context, userData *auth.UserData, c *connections.Controls
 		ConnectionRequests:      c.ConnectionRequests,
 		MediationRequests:       c.MediationRequests,
 		Drafts:                  c.Drafts,
+		NewPosts:                c.NewPosts,
 		Subscribers:             subscribers,
 	}
 }

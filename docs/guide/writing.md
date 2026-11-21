@@ -8,11 +8,24 @@ You write posts in markdown, save them as drafts, preview them and publish when 
 
 Open Write in the top bar. A post has an optional subject, an optional URL it is about, and a body in markdown. The toolbar at the top of the editor box inserts bold and italic text, quotes, lists, code blocks and links. Wrap text in double tildes, `~~like this~~`, to strike it through; HTML tags in the body are dropped. Inside a quote the `>` markers take care of themselves: Enter continues the quote, Enter on an empty quote line starts a new paragraph and a second one leaves the quote, Backspace at the start of a quoted line joins it with the line above, and pasted lines are quoted. Shift+Enter and Shift+Backspace do the plain thing. The quote button quotes every selected line, or removes the quote when they all have one. Three buttons are specific to pcom: a cut that hides the rest of the post from the feed, a spoiler block that hides text until it is opened, and a gallery that groups images.
 
-The editor saves about two seconds after you stop typing and shows when it last did. On a published post these edits go live without pressing Save. A post you have not published stays a draft; your drafts are listed on the Controls page, where you can delete them. If a connection prompted you, the editor shows their question and your post is linked to it.
+The editor saves about two seconds after you stop typing and shows when it last did. On a published post these edits go live without pressing Save. A post you have not published stays a draft once it is saved as one; your drafts are listed on the Controls page, where you can delete them. A draft without a subject is listed by the start of its text. If a connection prompted you, the editor shows their question, and your post is linked to it when it is first saved.
+
+## A new post
+
+A new post is not a draft until you save it as one. Until then its text is kept as you write, on any device, and comes back when you open Write again. The status next to its title reads "Not saved as a draft yet · kept <time>". A notice above the editor says so, and you dismiss it with **Got it**; it is shown once to each account. The Controls page lists such text among your drafts, marked "not saved as a draft yet", so you can find it again. Each prompt you answer has its own text, so answering a prompt never overwrites a post you started on its own.
+
+- **Save as Draft** makes the post from the text and opens it for editing. **Publish** does the same and publishes it.
+- **Discard** replaces Delete on a new post. It asks first, and the text cannot be brought back.
+- **Preview** works before the first draft: the page icon opens the text as it will look.
+- **Style review** is available once the post is saved as a draft. The grammar check works on a new post.
+- If the same new post is open in two tabs or on two devices, the tab that wrote last keeps the text. The other tab
+  stops saving and says so. It offers to load the newer text (or, if the other tab already saved it as a draft or discarded it, says so), to keep its own text in place of the newer one, or to
+  save its own text as a separate draft. Save as Draft and Publish always make their own post, and never lose the
+  other tab's text.
 
 ## Preview
 
-The status next to the post's title ("Last Updated …") shows when it was last saved; an unpublished post also shows a Draft badge there. The page icon in the toolbar opens the post as readers will see it, in a new tab. It appears once the post has been saved for the first time. Save as Draft saves at once and says "Draft saved" next to the buttons. Pressing Enter in the subject or URL field saves too: on a published post it saves and opens the post; it never deletes or unpublishes.
+The status next to the post's title ("Last Updated …") shows when it was last saved; an unpublished post also shows a Draft badge there. The page icon in the toolbar opens the post as readers will see it, in a new tab. On a new post, which has no page yet, it previews the text as it is written. Save as Draft saves at once and says "Draft saved" next to the buttons. Pressing Enter in the subject or URL field saves too: on a published post it saves and opens the post; it never deletes or unpublishes.
 
 ## Grammar check and style review
 

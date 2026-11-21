@@ -140,6 +140,44 @@ func (m *PostPrompt) BeforeAppendModel(_ context.Context, query bun.Query) error
 	return nil
 }
 
+// PostScratch is a row of post_scratches: the text of a new post before it
+// becomes a draft, one per user and prompt (PromptID nil is the plain pad).
+// Subject, URL and Body are kept as typed. Revision is bumped by every
+// write. A pad that became a post, or was discarded, is emptied and keeps its
+// row; PromotedPostID is the post it became.
+type PostScratch struct {
+	bun.BaseModel `bun:"table:post_scratches"`
+
+	ID                string         `bun:"id,pk"`
+	UserID            string         `bun:"user_id"`
+	PromptID          *string        `bun:"prompt_id"`
+	Subject           *string        `bun:"subject"`
+	URL               *string        `bun:"url"`
+	Body              string         `bun:"body,default:''"`
+	Visibility        PostVisibility `bun:"visibility"`
+	NotifySubscribers *bool          `bun:"notify_subscribers"`
+	NoteIDs           []string       `bun:"note_ids,array,default:'{}'"`
+	Revision          int            `bun:"revision,default:0"`
+	PromotedPostID    *string        `bun:"promoted_post_id"`
+	CreatedAt         time.Time      `bun:"created_at,default:now()"`
+	UpdatedAt         time.Time      `bun:"updated_at,default:now()"`
+}
+
+// BeforeAppendModel stamps the row's timestamps on insert and update.
+func (m *PostScratch) BeforeAppendModel(_ context.Context, query bun.Query) error {
+	if m != nil {
+		stampTimes(query, &m.CreatedAt, &m.UpdatedAt)
+	}
+
+	return nil
+}
+
+// IsEmpty reports whether the pad holds no text: it was never written, or it
+// was emptied when it became a post or was discarded.
+func (m *PostScratch) IsEmpty() bool {
+	return m.Body == "" && (m.Subject == nil || *m.Subject == "") && (m.URL == nil || *m.URL == "")
+}
+
 // PostShare is a row of post_shares.
 type PostShare struct {
 	bun.BaseModel `bun:"table:post_shares"`

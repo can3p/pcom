@@ -25,6 +25,8 @@ func Link(name string, args ...string) string {
 		out = "/controls/settings"
 	case "write":
 		out = "/write"
+	case "write_preview":
+		out = "/write/preview"
 	case "feed":
 		out = "/feed"
 	case "explore":
