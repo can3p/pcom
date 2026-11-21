@@ -10,6 +10,7 @@ the one for the area you touch:
 | Templates, JS, SCSS, design system and dark mode, htmx, action controller, `renderHumanTime` | skill `frontend-htmx` |
 | A model's fields and relations; writing queries | `pkg/model` (one file per area), "Writing bun queries" in `docs/architecture.md` |
 | A failing test or build | skill `test-failure` |
+| Weighing a proposal before writing code / reviewing a diff against pcom's rules | skills `pcom-critic` / `pcom-review` |
 | Running a modernization wave / finishing one | skills `wave-run` / `wave-close` |
 | How pcom behaves on purpose: accounts, login, visibility, feeds, comments | `docs/product.md` |
 | Layers: handlers, services, repositories, forms, service errors, the arch test; configuration and tooling | `docs/architecture.md` |
