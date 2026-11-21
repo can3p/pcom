@@ -11,6 +11,7 @@ import (
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service"
+	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/graph"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/service/posts"
@@ -35,6 +36,9 @@ type WritePage struct {
 	// ScratchKeptAt is when the pad's text was kept, nil when the pad holds
 	// none.
 	ScratchKeptAt *time.Time
+	// ScratchNotice is set while the author has not dismissed the notice
+	// that a new post is kept as a scratch pad until it is saved as a draft.
+	ScratchNotice bool
 }
 
 // scratchInput is the form input that shows the pad.
@@ -61,7 +65,7 @@ func scratchInput(pad *model.PostScratch) *forms.PostFormInput {
 // Write is the new post page. The prompt query parameter names the prompt the
 // post answers; a prompt addressed to somebody else is ignored. The editor
 // shows the author's scratch pad for that prompt.
-func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Result[*WritePage] {
+func Write(c *gin.Context, svc *posts.Service, accountsSvc *accounts.Service, userData *auth.UserData) mo.Result[*WritePage] {
 	var prompt *postops.PostPrompt
 
 	if promptID := c.Query("prompt"); promptID != "" {
@@ -83,10 +87,16 @@ func Write(c *gin.Context, svc *posts.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*WritePage](err)
 	}
 
+	showNotice, err := accountsSvc.NoticeShown(c, userData.DBUser, accounts.NoticeScratchPad)
+	if err != nil {
+		return mo.Err[*WritePage](err)
+	}
+
 	page := &WritePage{
-		BasePage:    getBasePage(c, "New Post", userData),
-		Prompt:      prompt,
-		Subscribers: reach,
+		BasePage:      getBasePage(c, "New Post", userData),
+		Prompt:        prompt,
+		Subscribers:   reach,
+		ScratchNotice: showNotice,
 	}
 
 	if pad != nil {

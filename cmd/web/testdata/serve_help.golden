@@ -192,6 +192,12 @@ Help Options:
                                                        custom CSS may have
                                                        (default: 10000)
                                                        [$USER_STYLES_MAX_LENGTH]
+          --draft-excerpt-length=                      Characters of its body
+                                                       that name a draft
+                                                       without a subject on the
+                                                       controls page (default:
+                                                       80)
+                                                       [$DRAFT_EXCERPT_LENGTH]
           --page-size=                                 Items per page of the
                                                        feed, explore, the index
                                                        and a journal (default:

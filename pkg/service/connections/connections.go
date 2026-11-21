@@ -22,11 +22,35 @@ var ErrNoConnectionRequest = service.Invalid("", "No such connection request")
 var errNoSuchRequest = service.Invalid("", "No such request")
 
 type Service struct {
-	store *repo.Store
+	store         *repo.Store
+	excerptLength int
 }
 
-func New(store *repo.Store) *Service {
-	return &Service{store: store}
+// Option changes how New builds the service.
+type Option func(*Service)
+
+// DefaultDraftExcerptLength is how many characters of its body name a draft
+// without a subject when the configuration sets none; it is also the
+// configuration's default.
+const DefaultDraftExcerptLength = 80
+
+// WithDraftExcerptLength sets how many characters of its body name a draft
+// without a subject; zero keeps DefaultDraftExcerptLength.
+func WithDraftExcerptLength(n int) Option {
+	return func(s *Service) {
+		if n > 0 {
+			s.excerptLength = n
+		}
+	}
+}
+
+func New(store *repo.Store, opts ...Option) *Service {
+	s := &Service{store: store, excerptLength: DefaultDraftExcerptLength}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // RemoveFromWhitelist withdraws the actor's open grant for userID.

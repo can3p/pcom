@@ -51,6 +51,7 @@ var models = []any{
 	(*model.UserFeedSubscription)(nil),
 	(*model.UserFeedToken)(nil),
 	(*model.UserInvitation)(nil),
+	(*model.UserNotice)(nil),
 	(*model.UserProfile)(nil),
 	(*model.UserSignupRequest)(nil),
 	(*model.UserStyle)(nil),

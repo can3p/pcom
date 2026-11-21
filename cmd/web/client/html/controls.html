@@ -29,7 +29,7 @@
           <tbody>
             {{ range . }}
             <tr>
-              <td><a href="{{ link "edit_post" .PostID }}">{{ with .Subject }}{{ . }}{{ else }}No subject{{ end }}</a></td>
+              <td><a href="{{ link "edit_post" .PostID }}">{{ with .Subject }}{{ . }}{{ else }}{{ with .Excerpt }}{{ . }}{{ else }}No subject{{ end }}{{ end }}</a></td>
               <td class="meta">{{ renderHumanTime .LastUpdatedAt $.User.DBUser }}</td>
               <td class="acts">
                 <button type="button"

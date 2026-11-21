@@ -53,6 +53,19 @@
 <span id="ed-save-result" class="ed-result" hx-swap-oob="true">{{ template "partial--success-message.html" toMap "Message" "Draft saved" }}</span>
 {{ end }}
 {{ else }}
+{{ if and .ScratchNotice (not .PostID) }}
+<p id="scratch-notice" class="ed-prompt" role="note">
+  <strong>New:</strong> what you type here is kept as you write, on any device, but it becomes a draft only when you press Save as Draft. Abandoned text no longer piles up among your drafts.
+  <button type="button" class="btn btn-secondary"
+          data-controller="action"
+          data-action="action#run"
+          data-action-action-value="dismiss_notice"
+          data-action-skip-reload-value="true"
+          data-notice="scratch_pad"
+          hx-target="#scratch-notice"
+          hx-swap="delete">Got it</button>
+</p>
+{{ end }}
 <div id="form-container" class="ed{{ if .Proofread }} ed-pr{{ end }} ed-sd">
   {{ with .Prompt }}
   <p class="ed-prompt" role="alert">{{ .Author.Username }} has asked: {{ .Prompt.Message }}</p>

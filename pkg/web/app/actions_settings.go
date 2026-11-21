@@ -16,6 +16,13 @@ import (
 func mountSettingsActions(d *Deps, r *gin.RouterGroup) {
 	accounts := d.Services.Accounts
 
+	// dismisses a one-time notice for the account, so no browser shows it again
+	r.POST("/dismiss_notice", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
+		Notice string `json:"notice"`
+	}) error {
+		return accounts.DismissNotice(c, u, in.Notice)
+	}))
+
 	// creates a key with a name and a scope; the key is shown in this
 	// response only
 	r.POST("/generate_api_key", func(c *gin.Context) {

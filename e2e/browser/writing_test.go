@@ -263,6 +263,48 @@ func TestWriting_PreviewOpensTheNewPost(t *testing.T) {
 	require.Contains(t, draftPreview.URL(), "/posts/")
 }
 
+// The notice about the scratch pad shows on a new post until the author says
+// Got it; it is stored for the account, so another browser doesn't show it
+// again, and a draft's editor never has it.
+func TestWriting_ScratchNoticeShownUntilDismissed(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+	notice := page.Locator("#scratch-notice")
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(notice).ToContainText("becomes a draft only when you press Save as Draft"))
+
+	require.NoError(t, notice.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Got it"}).Click())
+	require.NoError(t, browser.Expect.Locator(notice).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(page.GetByPlaceholder("Subject")).ToBeVisible(), "the editor stays")
+
+	// a draft's editor never has it, even for an account that has not dismissed it
+	fresh := browser.NewUser(t, app)
+	draft := lo.Must(factory.Post(context.Background(), app.DB, fresh.ID))
+	freshPage := browser.Page(t, app, browser.As(fresh))
+	_, err = freshPage.Goto("/posts/" + draft.ID + "/edit")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(freshPage.GetByPlaceholder("Subject")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(freshPage.Locator("#scratch-notice")).ToHaveCount(0))
+
+	// another browser context of the same user
+	other := browser.Page(t, app, browser.As(user))
+	_, err = other.Goto("/write")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(other.GetByPlaceholder("Subject")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(other.Locator("#scratch-notice")).ToHaveCount(0))
+
+	// a different account still sees it
+	stranger := browser.Page(t, app, browser.As(browser.NewUser(t, app)))
+	_, err = stranger.Goto("/write")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(stranger.Locator("#scratch-notice")).ToBeVisible())
+}
+
 // Two tabs on one pad: the one that saves second is told, stops saving, and
 // has three ways out that each lose nothing the author didn't choose to
 // lose: load the other text, keep its own over it, or save its own as a

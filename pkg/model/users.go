@@ -144,6 +144,15 @@ func (m *UserAPIKey) BeforeAppendModel(_ context.Context, query bun.Query) error
 	return nil
 }
 
+// UserNotice is a row of user_notices: a one-time notice the user dismissed.
+type UserNotice struct {
+	bun.BaseModel `bun:"table:user_notices"`
+
+	UserID      string    `bun:"user_id,pk"`
+	Notice      string    `bun:"notice,pk"`
+	DismissedAt time.Time `bun:"dismissed_at"`
+}
+
 // UserProfile is a row of user_profiles.
 type UserProfile struct {
 	bun.BaseModel `bun:"table:user_profiles"`
