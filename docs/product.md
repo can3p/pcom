@@ -66,6 +66,11 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 - **A new post can be previewed.** Preview opens the pad before the first draft exists.
 - **Drafts without a subject** are listed on the Controls page by the first `DRAFT_EXCERPT_LENGTH` characters of
   their body (80 by default), as plain text. An empty draft is listed as "No subject".
+- **New posts in a scratch pad are listed with the drafts.** Each pad that holds text is a row on the Controls page,
+  named like a draft and marked "not saved as a draft yet" (and "answers a prompt" for a prompt's pad), linking to the
+  Write page it is written on. It has no delete button: Discard is in the editor.
+- **The server's text wins on a reload.** The post form has `autocomplete="off"`, so a browser that refills form
+  fields on a reload (Firefox, Safari) doesn't put back text or a `scratch_rev` older than the pad's.
 
 ## Comments
 

@@ -12,7 +12,7 @@ The editor saves about two seconds after you stop typing and shows when it last 
 
 ## A new post
 
-A new post is not a draft until you save it as one. Until then its text is kept as you write, on any device, and comes back when you open Write again. The status next to its title reads "Not saved as a draft yet · kept <time>". A notice above the editor says so, and you dismiss it with **Got it**; it is shown once to each account. Each prompt you answer has its own text, so answering a prompt never overwrites a post you started on its own.
+A new post is not a draft until you save it as one. Until then its text is kept as you write, on any device, and comes back when you open Write again. The status next to its title reads "Not saved as a draft yet · kept <time>". A notice above the editor says so, and you dismiss it with **Got it**; it is shown once to each account. The Controls page lists such text among your drafts, marked "not saved as a draft yet", so you can find it again. Each prompt you answer has its own text, so answering a prompt never overwrites a post you started on its own.
 
 - **Save as Draft** makes the post from the text and opens it for editing. **Publish** does the same and publishes it.
 - **Discard** replaces Delete on a new post. It asks first, and the text cannot be brought back.
