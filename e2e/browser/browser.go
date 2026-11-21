@@ -255,9 +255,16 @@ func login(t testing.TB, app *e2e.App, ctx playwright.BrowserContext, user *mode
 	client := app.Client(t)
 	client.LoginAs(user.Email)
 
+	// SameSite and HttpOnly as the app sets them: without a SameSite,
+	// Chromium treats a cookie as Lax only two minutes after it was set and
+	// sends it on cross-site POSTs until then, so a test of cross-site
+	// behaviour would pass for the wrong reason
 	var cookies []playwright.OptionalCookie
 	for _, c := range client.Cookies() {
-		cookies = append(cookies, playwright.OptionalCookie{Name: c.Name, Value: c.Value, URL: new(app.URL)})
+		cookies = append(cookies, playwright.OptionalCookie{
+			Name: c.Name, Value: c.Value, URL: new(app.URL),
+			HttpOnly: new(true), SameSite: playwright.SameSiteAttributeLax,
+		})
 	}
 
 	if err := ctx.AddCookies(cookies); err != nil {

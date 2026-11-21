@@ -25,6 +25,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
+	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -404,30 +405,13 @@ func TestNotesShare_WorkerShareTextMatchesServer(t *testing.T) {
 
 // A share another site posts while the user is logged in creates nothing:
 // the worker sends it to the server, which gets no session cookie with a
-// cross-site POST, and queues nothing.
+// cross-site POST, and queues nothing. The user stays logged in.
 func TestNotesShare_CrossSiteCreatesNothing(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
 	page := phonePage(t, app, user, false)
-
-	// the session cookie as the app sets it: Playwright adds cookies without
-	// a SameSite, which Chromium would treat as Lax only after two minutes
-	cookies, err := page.Context().Cookies(app.URL)
-	require.NoError(t, err)
-	require.NotEmpty(t, cookies)
-
-	var lax []playwright.OptionalCookie
-	for _, c := range cookies {
-		lax = append(lax, playwright.OptionalCookie{
-			Name: c.Name, Value: c.Value, URL: new(app.URL),
-			HttpOnly: new(c.HttpOnly), SameSite: playwright.SameSiteAttributeLax,
-		})
-	}
-
-	require.NoError(t, page.Context().ClearCookies())
-	require.NoError(t, page.Context().AddCookies(lax))
 
 	offlineReady(t, page)
 
@@ -451,7 +435,10 @@ func TestNotesShare_CrossSiteCreatesNothing(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile("^"+regexp.QuoteMeta(app.URL)+"/")))
 	require.NoError(t, page.WaitForLoadState())
-	require.Contains(t, page.URL(), "/login")
+	// the POST came without the session cookie, so the app sent it to the
+	// login page; that answer left the cookie alone (#281), and the login
+	// page, which gets the cookie, sends the still logged in user home
+	require.Equal(t, app.URL+links.DefaultAuthorizedHome(), page.URL(), "the cross-site POST logged the user out")
 
 	// the page is on the app's origin, whose queue a share would be in, and
 	// a queued share would be uploaded once the capture page gives it the

@@ -163,6 +163,11 @@ Pure packages stay where they are (`pkg/markdown`, `pkg/links`,
   `go run github.com/can3p/gogo/sessions/pgstore/cmd/pgstore-migrations -dir migrations`;
   `pkg/pgsession`'s migration test fails when a gogo upgrade ships another one.
   `web serve` deletes expired rows every `--session-cleanup-interval`.
+- **Only a GET or HEAD starts a session.** `auth.GetUserData` mints the CSRF
+  token of a visitor who has none, but saves the new session only on those
+  methods. A POST without the session cookie is usually cross-site (the cookie
+  is `SameSite=Lax`), and a saved session would replace the cookie the browser
+  still holds and log the user out.
 - **One query, one method.** Repository files are per aggregate; a lookup
   another area needs is called, not copied (`UsersByIDs`, `OpenGrantExists`).
 - **Know a value's readers before changing it.** Before a migration rewrites
