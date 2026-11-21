@@ -34,6 +34,15 @@ func NextFetchAt(t time.Time) RSSFeedOpt {
 	}
 }
 
+// FetchFailed records a failed last fetch with msg as its error, as the
+// poller leaves a feed it could not fetch.
+func FetchFailed(msg string) RSSFeedOpt {
+	return func(f *model.RSSFeed) {
+		f.LastFetchedAt = new(time.Now())
+		f.LastFetchError = new(msg)
+	}
+}
+
 // WithoutTitle leaves the title empty, as for a feed that was never fetched.
 func WithoutTitle() RSSFeedOpt {
 	return func(f *model.RSSFeed) {

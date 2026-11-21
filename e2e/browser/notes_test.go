@@ -484,7 +484,7 @@ func TestNotes_PhotoFromTheToolbar(t *testing.T) {
 	require.NoError(t, err)
 
 	capture := page.GetByLabel("New note")
-	image := regexp.MustCompile(`^a page\n!\[wide\.png\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png\)$`)
+	image := regexp.MustCompile(`^a page\n!\[\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png\)\n$`)
 
 	require.NoError(t, capture.Fill("a page"))
 	chooser, err := page.ExpectFileChooser(func() error {
@@ -496,7 +496,13 @@ func TestNotes_PhotoFromTheToolbar(t *testing.T) {
 	require.NoError(t, capture.Press("Control+Enter"))
 
 	card := noteCard(page, "a page")
-	require.NoError(t, browser.Expect.Locator(card.GetByRole("img", playwright.LocatorGetByRoleOptions{Name: "wide.png"})).ToBeVisible())
+	// The image has no alt text, so only its loaded pixels make it visible.
+	// The new card lands just below the fold, where lazysizes loads it once
+	// it is scrolled to, as a reader would.
+	cardImage := card.Locator("figure img")
+	require.NoError(t, card.ScrollIntoViewIfNeeded())
+	require.NoError(t, browser.Expect.Locator(cardImage).ToHaveClass(regexp.MustCompile(`\blazyloaded\b`)))
+	require.NoError(t, browser.Expect.Locator(cardImage).ToBeVisible())
 	n := userNotes(t, app, user.ID)[0]
 	require.Regexp(t, image, n.Body)
 
@@ -511,7 +517,7 @@ func TestNotes_PhotoFromTheToolbar(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, chooser.SetFiles([]playwright.InputFile{{Name: "wide.png", MimeType: "image/png", Buffer: widePNG(t)}}))
 	require.Eventually(t, func() bool {
-		return regexp.MustCompile(`^edited\n!\[wide\.png\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png\)$`).MatchString(noteIn(t, app, n.ID).Body)
+		return regexp.MustCompile(`^edited\n!\[\]\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png\)\n$`).MatchString(noteIn(t, app, n.ID).Body)
 	}, 10*time.Second, 100*time.Millisecond)
 }
 
