@@ -145,11 +145,13 @@ function snapScroller(track, onChange) {
 
 // Split the rendered markdown into slides.
 //
-// The markdown inside a {gallery} block comes out as a flat list of
-// paragraphs. Every image starts a new slide, and every paragraph that
-// follows it - until the next image - is that slide's caption. Paragraphs
-// before the first image are not captions of anything, so they get lifted
-// out and shown above the gallery.
+// The server renders every image inside a {gallery} block as a
+// <figure class="post-figure">, with everything up to the next image in its
+// <figcaption>. Each figure is a slide. Blocks before the first image are
+// not captions of anything, so they get lifted out and shown above the
+// gallery. Images nested in other blocks (a list of images) are not figures:
+// each of them starts a slide, and the blocks after them, until the next
+// image, are that slide's caption.
 function collectSlides(inner, leading) {
     const slides = []
     let current = null
@@ -161,6 +163,23 @@ function collectSlides(inner, leading) {
 
     while (paragraphs.length > 0) {
         const p = paragraphs.item(0)
+
+        if (p.matches("figure.post-figure")) {
+            const img = p.querySelector("img")
+            const caption = p.querySelector("figcaption")
+
+            current = {
+                img,
+                full: img.dataset.full || img.src,
+                alt: img.alt,
+                caption: caption ? Array.from(caption.children) : [],
+            }
+            slides.push(current)
+            inner.removeChild(p)
+
+            continue
+        }
+
         const imgs = p.querySelectorAll("img")
 
         if (imgs.length === 0) {

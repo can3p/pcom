@@ -110,6 +110,21 @@ img {
   border: 0;
 }
 
+/* an image with its caption in a markdown body */
+figure {
+  margin: 0 0 16px;
+}
+
+figcaption {
+  color: #6e6754; /* --muted */
+  font-size: 14px;
+}
+
+figcaption p,
+.mail-quote figcaption p {
+  margin: 4px 0 0;
+}
+
 .mail-quote table {
   margin: 0 0 16px;
   border-collapse: collapse;
@@ -148,7 +163,8 @@ img {
 .mail-quote ul,
 .mail-quote ol,
 .mail-quote pre,
-.mail-quote blockquote {
+.mail-quote blockquote,
+.mail-quote figure {
   margin: 0 0 10px;
 }
 
@@ -234,7 +250,8 @@ img {
   }
 
   .mail-muted,
-  .mail-lead {
+  .mail-lead,
+  figcaption {
     color: #a79e8b; /* --muted */
   }
 }

@@ -109,6 +109,28 @@ export default class extends Controller {
         }
       }
 
+      // A line typed right under an image is its caption, so after an upload
+      // the caret goes to a new line under the image, unless the author has
+      // moved on to another field meanwhile.
+      const placeCaretForCaption = (image) => {
+        if (!image || document.activeElement !== textarea) {
+          return
+        }
+
+        const start = textarea.value.indexOf(image);
+        if (start === -1) {
+          return
+        }
+
+        const end = start + image.length;
+        if (end < textarea.value.length && textarea.value[end] !== '\n') {
+          return
+        }
+
+        textarea.setSelectionRange(end, end);
+        cursor.insert('\n');
+      }
+
       const uploadFiles = (files) => {
         textarea.focus();
         this.element.classList.add("mdeditor--loading")
@@ -125,8 +147,12 @@ export default class extends Controller {
           const loadingPlaceholder = `[uploading (${file.name})...${Math.random()}]`;
           cursor.insertAndScrollIntoView(loadingPlaceholder);
 
+          // the alt text is left for the author: a file name tells a screen
+          // reader nothing
           let prom = uploadFile(file).then((url) => {
-            cursor.replace(loadingPlaceholder, `![${file.name}](${url})`);
+            const image = `![](${url})`;
+            cursor.replace(loadingPlaceholder, image);
+            return image;
           }).catch((e) => {
             console.log("image upload failure:" , e)
           });
@@ -134,7 +160,9 @@ export default class extends Controller {
           promises.push(prom)
         }
 
-        Promise.all(promises).then(() => {
+        Promise.all(promises).then((images) => {
+          // the last image is the last one in the text as well
+          placeCaretForCaption(images[images.length - 1]);
           htmx.trigger(textarea, "change")
           upload.value = null;
           this.element.classList.remove("mdeditor--loading")

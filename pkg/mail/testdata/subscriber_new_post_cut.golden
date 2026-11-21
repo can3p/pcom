@@ -64,7 +64,8 @@ blockquote,
 border-color: #35302a !important
 }
 .mail-muted,
-  .mail-lead {
+  .mail-lead,
+  figcaption {
 color: #a79e8b !important
 }
 }

@@ -882,7 +882,7 @@ func TestSettings_UploadedImageRendersFromUserMedia(t *testing.T) {
 	}))
 
 	textarea := page.Locator(commentBox + " textarea.comment-textarea")
-	require.NoError(t, browser.Expect.Locator(textarea).ToHaveValue(regexp.MustCompile(`!\[b5-upload\.png\]\(.+\)`)))
+	require.NoError(t, browser.Expect.Locator(textarea).ToHaveValue(regexp.MustCompile(`!\[\]\(.+\)\n$`)))
 
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Post a comment"}).Click())
 
