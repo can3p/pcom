@@ -562,6 +562,11 @@ func TestNotesPicker_InsertBeforeTheFirstSave(t *testing.T) {
 
 	savedPad(t, app, user.ID, "first thought")
 
+	// the pending note survives a reload: the pad keeps it
+	_, err = page.Reload()
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.Locator("input[name=note_ids]")).ToHaveValue(note.ID))
+
 	store := repo.New(app.DB)
 	n, err := store.NotePostLinkCount(context.Background(), note.ID)
 	require.NoError(t, err)

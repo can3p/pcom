@@ -86,6 +86,46 @@ func TestProofread_ApplyAndUndo(t *testing.T) {
 	savedBody(t, app, post.ID, "So, wm-br-apply: the cta sat on the mat.")
 }
 
+// Each prompt's answer is its own new post, so its dismissals are its own: a
+// suggestion dismissed in one is still offered in another.
+func TestProofread_DismissalsBelongToThePad(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets(), e2e.WithWireMock())
+	asker := browser.NewUser(t, app)
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	promptA, err := factory.PostPrompt(ctx, app.DB, asker.ID, user.ID)
+	require.NoError(t, err)
+	promptB, err := factory.PostPrompt(ctx, app.DB, asker.ID, user.ID)
+	require.NoError(t, err)
+
+	page := browser.Page(t, app, browser.As(user))
+	card := page.Locator(".pr-card").Filter(playwright.LocatorFilterOptions{HasText: "dgo → dog"})
+
+	check := func(promptID string) {
+		t.Helper()
+
+		_, err := page.Goto("/write?prompt=" + promptID)
+		require.NoError(t, err)
+		require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("wm-br-dismiss: a dgo b."))
+		require.NoError(t, button(page, "Check grammar").Click())
+	}
+
+	check(promptA.ID)
+	require.NoError(t, browser.Expect.Locator(card).ToBeVisible())
+	require.NoError(t, button(page, "Dismiss").Click())
+	require.NoError(t, browser.Expect.Locator(card).ToBeHidden())
+
+	check(promptB.ID)
+	require.NoError(t, browser.Expect.Locator(card).ToBeVisible())
+
+	check(promptA.ID)
+	require.NoError(t, browser.Expect.Locator(page.GetByText("All suggestions from this check were dismissed.")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(card).ToBeHidden())
+}
+
 // A dismissed suggestion stays hidden when the text is checked again, until
 // "show again".
 func TestProofread_DismissIsRemembered(t *testing.T) {

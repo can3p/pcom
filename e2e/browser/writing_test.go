@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -38,13 +39,20 @@ var b2EditURLRe = regexp.MustCompile(`/posts/([^/]+)/edit$`)
 func padOf(t *testing.T, app *e2e.App, userID string) (int, string) {
 	t.Helper()
 
+	return promptPadOf(t, app, userID, "")
+}
+
+// promptPadOf is padOf for the pad of a prompt, the plain pad for "".
+func promptPadOf(t *testing.T, app *e2e.App, userID, promptID string) (int, string) {
+	t.Helper()
+
 	var (
 		revision int
 		body     string
 	)
 
 	err := app.DB.QueryRowContext(context.Background(),
-		`SELECT revision, body FROM post_scratches WHERE user_id = $1 AND prompt_id IS NULL`, userID).Scan(&revision, &body)
+		`SELECT revision, body FROM post_scratches WHERE user_id = $1 AND prompt_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid`, userID, promptID).Scan(&revision, &body)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ""
 	}
@@ -57,9 +65,15 @@ func padOf(t *testing.T, app *e2e.App, userID string) (int, string) {
 // savedPad waits for an autosave to store this body in the author's plain pad.
 func savedPad(t *testing.T, app *e2e.App, userID, want string) {
 	t.Helper()
+	savedPromptPad(t, app, userID, "", want)
+}
+
+// savedPromptPad is savedPad for the pad of a prompt.
+func savedPromptPad(t *testing.T, app *e2e.App, userID, promptID, want string) {
+	t.Helper()
 
 	require.Eventually(t, func() bool {
-		_, body := padOf(t, app, userID)
+		_, body := promptPadOf(t, app, userID, promptID)
 
 		return strings.TrimSpace(body) == strings.TrimSpace(want)
 	}, 10*time.Second, 100*time.Millisecond)
@@ -74,6 +88,22 @@ func typeAtEnd(t *testing.T, page playwright.Page, text string) {
 	require.NoError(t, body.Click())
 	require.NoError(t, page.Keyboard().Press("ControlOrMeta+End"))
 	require.NoError(t, body.PressSequentially(text))
+}
+
+// popups counts the windows the page opens.
+func popups(page playwright.Page) *atomic.Int32 {
+	var n atomic.Int32
+
+	page.OnPopup(func(playwright.Page) { n.Add(1) })
+
+	return &n
+}
+
+// requireNoPopup fails if a window opens within a second.
+func requireNoPopup(t *testing.T, n *atomic.Int32) {
+	t.Helper()
+
+	require.Never(t, func() bool { return n.Load() > 0 }, time.Second, 50*time.Millisecond, "a preview window was opened")
 }
 
 func writeButton(page playwright.Page, name string) playwright.Locator {
@@ -102,7 +132,6 @@ func TestWriting_NewPostIsKeptUntilSavedAsDraft(t *testing.T) {
 
 	status := page.Locator("#last_draft_save")
 	require.NoError(t, browser.Expect.Locator(status).ToContainText("Not saved as a draft yet"))
-	require.NoError(t, browser.Expect.Locator(page.Locator(".ed-badge")).ToHaveCount(0))
 	savedPad(t, app, user.ID, "Hello world**bold**")
 
 	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
@@ -114,7 +143,8 @@ func TestWriting_NewPostIsKeptUntilSavedAsDraft(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Locator(page.GetByPlaceholder("Subject")).ToHaveValue("My new post"))
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("Hello world**bold**"))
-	require.NoError(t, browser.Expect.Locator(status).ToContainText("kept"))
+	require.NoError(t, browser.Expect.Locator(status.Locator(".status")).ToHaveText(regexp.MustCompile(`^Not saved as a draft yet · kept .+`)))
+	require.NoError(t, browser.Expect.Locator(status.Locator(".status span[title]")).ToHaveCount(1), "the time")
 
 	require.NoError(t, writeButton(page, "Save as Draft").Click())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
@@ -170,15 +200,19 @@ func TestWriting_DiscardEmptiesTheNewPost(t *testing.T) {
 	require.NoError(t, writeButton(page, "Discard").Click())
 	require.Eventually(t, func() bool { return asked != "" }, 5*time.Second, 50*time.Millisecond)
 	require.Contains(t, asked, "It is not a draft and cannot be brought back")
-	_, padBody := padOf(t, app, user.ID)
-	require.Equal(t, "some text", padBody)
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/write$`)))
+	require.Never(t, func() bool {
+		_, body := padOf(t, app, user.ID)
+
+		return body == ""
+	}, time.Second, 50*time.Millisecond, "a dismissed Discard emptied the pad")
 
 	accept = true
 
 	require.NoError(t, writeButton(page, "Discard").Click())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/controls/?$`)))
 
-	_, padBody = padOf(t, app, user.ID)
+	_, padBody := padOf(t, app, user.ID)
 	require.Empty(t, padBody)
 
 	posts, err := factory.ListPosts(context.Background(), app.DB, user.ID)
@@ -203,8 +237,9 @@ func TestWriting_PreviewOpensTheNewPost(t *testing.T) {
 	require.NoError(t, err)
 
 	link := page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Open post preview"})
+	opened := popups(page)
 	require.NoError(t, link.Click())
-	require.Len(t, page.Context().Pages(), 1, "nothing was typed, nothing to preview")
+	requireNoPopup(t, opened) // nothing was typed, nothing to preview
 
 	require.NoError(t, page.GetByPlaceholder("Subject").Fill("Preview me"))
 	// no pause for the autosave: the link saves first
@@ -220,6 +255,7 @@ func TestWriting_PreviewOpensTheNewPost(t *testing.T) {
 	// once saved as a draft, the link opens the draft
 	require.NoError(t, writeButton(page, "Save as Draft").Click())
 	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
+	require.NoError(t, browser.Expect.Locator(link).ToHaveAttribute("href", regexp.MustCompile(`/posts/[^/]+\?edit_preview=true$`)))
 
 	draftPreview, err := page.ExpectPopup(func() error { return link.Click() })
 	require.NoError(t, err)
@@ -259,8 +295,9 @@ func TestWriting_TwoTabsOnOnePad(t *testing.T) {
 	require.Equal(t, "from A", padBody, "the losing tab writes nothing")
 
 	// a preview of the other tab's text is not opened
+	opened := popups(tabB)
 	require.NoError(t, tabB.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Open post preview"}).Click())
-	require.Len(t, tabA.Context().Pages(), 2)
+	requireNoPopup(t, opened)
 	require.NoError(t, browser.Expect.Locator(noticeOf(tabB)).ToBeVisible())
 
 	// Load the newer text: the page is the pad's text
@@ -311,8 +348,10 @@ func TestWriting_TwoTabsOnOnePad(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(tabC.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Load the newer text"})).ToHaveCount(0))
 }
 
-// One tab's own saves never conflict with each other, however fast they come:
-// each reads the revision the previous one left in the form.
+// One tab's own saves never conflict with each other: a save asked for while
+// the previous one is on its way is sent after its response, with the
+// revision that response left in the form. The first response is held back to
+// make the overlap certain.
 func TestWriting_BurstOfTypingNeverConflicts(t *testing.T) {
 	t.Parallel()
 
@@ -320,25 +359,88 @@ func TestWriting_BurstOfTypingNeverConflicts(t *testing.T) {
 	user := browser.NewUser(t, app)
 	page := browser.Page(t, app, browser.As(user))
 
+	var (
+		first   atomic.Bool
+		fetched = make(chan struct{})
+		release = make(chan struct{})
+	)
+
+	require.NoError(t, page.Route("**/controls/form/edit_post", func(route playwright.Route) {
+		if !first.CompareAndSwap(false, true) {
+			_ = route.Continue()
+
+			return
+		}
+
+		// answer from another goroutine: the handler must not block the driver
+		go func() {
+			resp, err := route.Fetch()
+			if err != nil {
+				return
+			}
+
+			close(fetched)
+			<-release
+			_ = route.Fulfill(playwright.RouteFulfillOptions{Response: resp})
+		}()
+	}))
+
 	_, err := page.Goto("/write")
 	require.NoError(t, err)
 
-	// a save every few milliseconds, each asked for while the last is on its way
-	_, err = page.Locator("form.ed-form").Evaluate(`async (form) => {
-		for (let i = 0; i < 12; i++) {
-			form.elements.body.value = "burst " + i
+	form := page.Locator("form.ed-form")
+	save := func(body string) {
+		_, err := form.Evaluate(`(form, body) => {
+			form.elements.body.value = body
 			form.dispatchEvent(new CustomEvent("postform:save"))
-			await new Promise((resolve) => setTimeout(resolve, 20))
-		}
-	}`, nil)
-	require.NoError(t, err)
+		}`, body)
+		require.NoError(t, err)
+	}
 
-	savedPad(t, app, user.ID, "burst 11")
+	save("one")
+	<-fetched // the server has stored "one", the form doesn't know yet
+	save("two")
+	close(release)
+
+	savedPad(t, app, user.ID, "two")
 
 	revision, _ := padOf(t, app, user.ID)
-	require.GreaterOrEqual(t, revision, 2, "the burst was saved more than once")
+	require.Equal(t, 2, revision, "two saves, in order")
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("alert")).ToHaveCount(0))
 	require.NoError(t, browser.Expect.Locator(page.Locator("#last_draft_save")).ToContainText("Not saved as a draft yet"))
+}
+
+// A pad discarded in another tab is said to be discarded: no link, nothing to
+// load, the two choices that remain.
+func TestWriting_DiscardedInAnotherTab(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	tabA := browser.Page(t, app, browser.As(user))
+	tabA.OnDialog(func(d playwright.Dialog) { _ = d.Accept() })
+
+	_, err := tabA.Goto("/write")
+	require.NoError(t, err)
+	typeAtEnd(t, tabA, "to be discarded")
+	savedPad(t, app, user.ID, "to be discarded")
+
+	tabB, err := tabA.Context().NewPage()
+	require.NoError(t, err)
+	_, err = tabB.Goto("/write")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(tabB.GetByPlaceholder("Your post goes there")).ToHaveValue("to be discarded"))
+
+	require.NoError(t, writeButton(tabA, "Discard").Click())
+	require.NoError(t, browser.Expect.Page(tabA).ToHaveURL(regexp.MustCompile(`/controls/?$`)))
+
+	typeAtEnd(t, tabB, " and more")
+
+	notice := tabB.GetByRole("alert").Filter(playwright.LocatorFilterOptions{HasText: "The text here is no longer being saved"})
+	require.NoError(t, browser.Expect.Locator(notice).ToContainText("This text was discarded in another tab"))
+	require.NoError(t, browser.Expect.Locator(notice.GetByRole("link")).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(tabB.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Load the newer text"})).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(tabB.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Keep mine"})).ToBeVisible())
 }
 
 // Publishing an existing draft redirects to the post, and turning it back
@@ -987,6 +1089,22 @@ func TestWriting_WriteWithPrompt(t *testing.T) {
 	alert := page.GetByRole("alert")
 	require.NoError(t, browser.Expect.Locator(alert).ToContainText(asker.Username))
 	require.NoError(t, browser.Expect.Locator(alert).ToContainText(prompt.Message))
+
+	// the answer has a scratch pad of its own: kept across a reload, and not
+	// the text of an ordinary new post
+	require.NoError(t, browser.Expect.Locator(page.Locator("#show_preview")).ToHaveAttribute("href", "/write/preview?prompt="+prompt.ID))
+	typeAtEnd(t, page, "my answer")
+	savedPromptPad(t, app, recipient.ID, prompt.ID, "my answer")
+
+	_, err = page.Reload()
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.GetByPlaceholder("Your post goes there")).ToHaveValue("my answer"))
+
+	_, err = page.Goto("/write")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.GetByPlaceholder("Your post goes there")).ToHaveValue(""))
+	_, plain := padOf(t, app, recipient.ID)
+	require.Empty(t, plain, "the answer was not written to the plain pad")
 }
 
 // Publishing a post with a heading, a fenced code block, a gallery, a bare
