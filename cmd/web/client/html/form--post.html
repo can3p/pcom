@@ -91,7 +91,12 @@
         hx-disabled-elt="this"
         data-controller="postform"
         class="ed-form"
+        autocomplete="off"
         >
+
+    {{/* autocomplete="off" keeps the browser from refilling the fields on a reload (Firefox and Safari do,
+         hidden inputs included): the server's text and scratch_rev are the truth, and a refilled stale text
+         would be autosaved over the pad. */}}
 
     {{/* Enter in a field submits with the form's first submit button, so the
          first one saves; Delete and the other confirmed actions come later. */}}

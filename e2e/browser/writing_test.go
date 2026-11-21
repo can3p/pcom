@@ -133,6 +133,8 @@ func TestWriting_NewPostIsKeptUntilSavedAsDraft(t *testing.T) {
 	status := page.Locator("#last_draft_save")
 	require.NoError(t, browser.Expect.Locator(status).ToContainText("Not saved as a draft yet"))
 	savedPad(t, app, user.ID, "Hello world**bold**")
+	// a reload shows the pad, not what the browser remembers of the fields
+	require.NoError(t, browser.Expect.Locator(page.Locator("form.ed-form")).ToHaveAttribute("autocomplete", "off"))
 
 	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
 	require.NoError(t, err)
