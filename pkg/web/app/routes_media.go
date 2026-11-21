@@ -6,6 +6,8 @@ import (
 
 	"github.com/can3p/pcom/pkg/media"
 	mediaerrors "github.com/can3p/pcom/pkg/media/errors"
+	"github.com/can3p/pcom/pkg/media/server"
+	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/gin-gonic/gin"
 )
 
@@ -77,10 +79,17 @@ func mountMediaRoutes(d *Deps, router *gin.Engine) {
 		}
 	})
 
-	router.GET("user-media/:fname/:class", func(c *gin.Context) {
+	router.GET("user-media/:fname/:class", serveUserMedia(mediaServer, staticAsset))
+}
+
+// serveUserMedia serves an uploaded image, scaled to the class. A note's
+// recording is not an image and is private: it is not found here, whatever
+// the bucket holds.
+func serveUserMedia(mediaServer server.MediaServer, staticAsset StaticAssetFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		fname := c.Param("fname")
 
-		if fname == "" {
+		if fname == "" || notes.IsRecordingFile(fname) {
 			c.Status(http.StatusNotFound)
 			return
 		}
@@ -105,5 +114,5 @@ func mountMediaRoutes(d *Deps, router *gin.Engine) {
 
 			panic(err)
 		}
-	})
+	}
 }

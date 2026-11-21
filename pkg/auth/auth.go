@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/can3p/gogo/apperr"
@@ -53,20 +54,22 @@ func Auth(c *gin.Context, accounts *accounts.Service) {
 	c.Next()
 }
 
-func AuthAPI(c *gin.Context, accounts *accounts.Service) {
-	apiToken := c.GetHeader("Authorization")
+// AuthAPI authenticates an API request by its "Authorization: Bearer <key>"
+// header and records the key's use. A missing or malformed header, an
+// unknown key and a revoked one get 401; a key whose scope is not among
+// scopes gets 403, so a route group lists the scopes it admits.
+func AuthAPI(c *gin.Context, accounts *accounts.Service, scopes ...model.APIKeyScope) {
+	parts := strings.Split(c.GetHeader("Authorization"), " ")
 
-	parts := strings.Split(apiToken, " ")
-
-	if apiToken == "" || parts[0] != "Bearer" || len(parts) != 2 {
-		c.AbortWithStatus(http.StatusBadRequest)
+	if len(parts) != 2 || parts[0] != "Bearer" || parts[1] == "" {
+		unauthorized(c)
 		return
 	}
 
-	user, err := accounts.UserByAPIKey(c.Request.Context(), parts[1])
+	key, err := accounts.UseAPIKey(c.Request.Context(), parts[1])
 
 	if errors.Is(err, service.ErrNotFound) {
-		c.AbortWithStatus(http.StatusForbidden)
+		unauthorized(c)
 		return
 	}
 
@@ -76,9 +79,20 @@ func AuthAPI(c *gin.Context, accounts *accounts.Service) {
 		return
 	}
 
-	setUser(c, user)
+	if !slices.Contains(scopes, key.Scope) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	setUser(c, key.User)
 
 	c.Next()
+}
+
+// unauthorized answers an API request without a valid key.
+func unauthorized(c *gin.Context) {
+	c.Header("WWW-Authenticate", "Bearer")
+	c.AbortWithStatus(http.StatusUnauthorized)
 }
 
 // EnforceAuth sends a visitor who is not logged in to the login page through

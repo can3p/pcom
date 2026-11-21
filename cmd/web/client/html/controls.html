@@ -47,6 +47,28 @@
       </section>
       {{ end }}
 
+      {{ with .Notes }}
+      <section class="controls-section" aria-labelledby="controls-notes-title">
+        <h2 id="controls-notes-title">Notes</h2>
+        {{ if .Newest }}
+        <ul class="controls-list">
+          {{ range .Newest }}
+          <li class="controls-row">
+            <a class="note-excerpt" href="{{ link "note_edit" .ID }}">{{ with .Body }}{{ . }}{{ else }}Recording or photo{{ end }}</a>
+            <span class="meta">{{ renderHumanTime .CapturedAt $.User.DBUser }}</span>
+          </li>
+          {{ end }}
+        </ul>
+        {{ else }}
+        <p class="field-help">No notes yet.</p>
+        {{ end }}
+        <p class="acts">
+          <a href="{{ link "notes" }}">All notes</a>
+          <a href="{{ link "notes_new" }}">Capture</a>
+        </p>
+      </section>
+      {{ end }}
+
       {{ with .Subscribers }}
       <section class="controls-section" aria-labelledby="email-subscribers-title">
         <h2 id="email-subscribers-title">Email subscribers</h2>

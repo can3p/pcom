@@ -18,6 +18,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/connections"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/media"
+	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/service/posts"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/reading"
@@ -71,6 +72,11 @@ type Deps struct {
 	// Subscriptions configures the email subscriptions service (its limits
 	// and the address checker); none keeps its defaults.
 	Subscriptions []subscriptions.Option
+	// STT transcribes notes' recordings; nil turns transcription off.
+	STT notes.STT
+	// Notes configures the notes service (its limits); none keeps its
+	// defaults.
+	Notes []notes.Option
 }
 
 // Services is one field per area service.
@@ -84,6 +90,7 @@ type Services struct {
 	Accounts      *accounts.Service
 	Proofread     *proofreadsvc.Service
 	Subscriptions *subscriptions.Service
+	Notes         *notes.Service
 }
 
 func New(db *sql.DB, deps Deps) *Services {
@@ -106,6 +113,7 @@ func New(db *sql.DB, deps Deps) *Services {
 		Accounts:      accounts.New(store, feedSvc, accounts.WithJobs(deps.Jobs), accounts.WithIdentity(ident), accounts.WithProfileAboutMaxLength(deps.ProfileAboutMaxLength), accounts.WithUserStylesMaxLength(deps.UserStylesMaxLength), accounts.WithCodeKey(deps.CodeKey), accounts.WithLoginLimits(deps.Login)),
 		Proofread:     proofreadsvc.New(store, postsSvc, deps.ProofreadModel, proofreadsvc.WithLimits(proofreadLimits(deps)), proofreadsvc.WithModels(deps.ProofreadModels)),
 		Subscriptions: subsSvc,
+		Notes:         notes.New(store, append([]notes.Option{notes.WithJobs(deps.Jobs), notes.WithMediaStorage(deps.MediaStorage), notes.WithSTT(deps.STT), notes.WithPageSize(deps.PageSize), notes.WithMaxUploadSize(deps.MaxUploadSize)}, deps.Notes...)...),
 	}
 }
 
@@ -115,6 +123,7 @@ func (s *Services) RegisterJobs(r *jobs.Registry) {
 	s.Posts.RegisterJobs(r)
 	s.Feeds.RegisterJobs(r)
 	s.Subscriptions.RegisterJobs(r)
+	s.Notes.RegisterJobs(r)
 }
 
 // proofreadLimits are the proofread service's limits, with the post form's

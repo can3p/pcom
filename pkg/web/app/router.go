@@ -9,6 +9,7 @@ import (
 	"github.com/can3p/pcom/pkg/admin"
 	"github.com/can3p/pcom/pkg/auth"
 	"github.com/can3p/pcom/pkg/logging"
+	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/pgsession"
 	"github.com/can3p/pcom/pkg/proofread"
 	"github.com/can3p/pcom/pkg/proofread/claude"
@@ -22,7 +23,7 @@ import (
 // NewServices builds the services from d, as New does when d.Services is
 // nil. web serve builds them first, to register their background jobs.
 func NewServices(d *Deps) *registry.Services {
-	return registry.New(d.DB, registry.Deps{Jobs: d.Jobs, MediaStorage: d.MediaStorage, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, MaxUploadSize: d.Config.MaxUploadSize, FeedFetch: d.Config.FeedFetch, FeedPollInterval: d.Config.FeedPollInterval, Logger: d.Logger, CodeKey: d.Config.SessionSalt, Login: d.Config.Login, ProofreadModel: proofreadModel(d.Config.Proofread.Claude), ProofreadLimits: d.Config.Proofread.Limits, ProofreadModels: d.Config.Proofread.Models, Subscriptions: d.Config.Subscriptions})
+	return registry.New(d.DB, registry.Deps{Jobs: d.Jobs, MediaStorage: d.MediaStorage, STT: d.STT, Site: siteOf(d), SenderAddress: d.Config.SenderAddress, AdminAddress: d.Config.AdminAddress, ProfileAboutMaxLength: d.Config.ProfileAboutMaxLength, CommentMaxLength: d.Config.CommentMaxLength, PostBodyMaxLength: d.Config.PostBodyMaxLength, PostSubjectMaxLength: d.Config.PostSubjectMaxLength, PromptMaxLength: d.Config.PromptMaxLength, UserStylesMaxLength: d.Config.UserStylesMaxLength, PageSize: d.Config.PageSize, RSSLimit: d.Config.RSSLimit, MaxUploadSize: d.Config.MaxUploadSize, FeedFetch: d.Config.FeedFetch, FeedPollInterval: d.Config.FeedPollInterval, Logger: d.Logger, CodeKey: d.Config.SessionSalt, Login: d.Config.Login, ProofreadModel: proofreadModel(d.Config.Proofread.Claude), ProofreadLimits: d.Config.Proofread.Limits, ProofreadModels: d.Config.Proofread.Models, Subscriptions: d.Config.Subscriptions, Notes: d.Config.Notes})
 }
 
 // New builds the gin engine: middleware, templates and every route group.
@@ -60,7 +61,7 @@ func New(d *Deps) *gin.Engine {
 
 	router := gin.New()
 	router.Use(logging.Middleware(logger))
-	router.Use(bodyLimits(d.Config.MaxBodySize, d.Config.MaxUploadSize, d.Config.MaxImportSize))
+	router.Use(bodyLimits(d.Config.MaxBodySize, d.Config.MaxUploadSize, d.Config.MaxImportSize, d.Services.Notes.Limits().CaptureMaxBytes))
 
 	router.Use(ginhelpers.Configure(ginhelpers.Options{
 		RedirectToLogin: auth.RedirectToLogin(d.Config.SessionSalt),
@@ -92,7 +93,12 @@ func New(d *Deps) *gin.Engine {
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
 	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })
-	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts) }, logUser)
+	// Only a full key opens the API; a notes key opens the notes routes alone.
+	apiGroup := router.Group("/api/v1", func(c *gin.Context) { auth.AuthAPI(c, d.Services.Accounts, model.APIKeyScopeFull) }, logUser)
+	notesAPI := router.Group("/api/v1", func(c *gin.Context) {
+		auth.AuthAPI(c, d.Services.Accounts, model.APIKeyScopeFull, model.APIKeyScopeNotes)
+	}, logUser)
+	setupNotesApi(notesAPI, d)
 	r := router.Group("/", csp.New(csp.Options{HSTS: d.Config.HSTS, StaticCDN: d.Config.StaticCDN, MediaCDN: d.Config.MediaCDN}), sessions.Sessions("sess", store), func(c *gin.Context) { auth.Auth(c, d.Services.Accounts) }, logUser)
 	controls := r.Group("/controls", auth.EnforceAuth)
 	actions := controls.Group("/action", csrfCheck)

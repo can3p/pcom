@@ -1,0 +1,93 @@
+{{ template "header.html" . }}
+
+<main class="notes" data-controller="notes" data-notes-audio-url-value="{{ link "action" "note_audio" }}">
+  {{ if .Manage }}
+  {{ template "partial--note-tag-manage.html" . }}
+  {{ else }}
+  <header class="notes-head">
+    <h1 class="controls-title">Notes</h1>
+    <p class="acts">
+      <a href="{{ link "notes_manage" }}">Tags and sources</a>
+    </p>
+  </header>
+
+  <form class="note-capture box"
+        method="post"
+        action="{{ link "form_note_create" }}"
+        hx-post="{{ link "form_note_create" }}"
+        hx-target="#note-capture-status"
+        hx-swap="innerHTML"
+        data-notes-target="capture">
+    <div class="box ed-box mdeditor"
+         data-controller="mdeditor"
+         data-mdeditor-upload-value="{{ link "action" "upload_media" }}">
+      {{ template "partial--editor-toolbar.html" toMap "UploadID" "note_capture_upload" "Post" false "PostID" "" "Proofread" false }}
+      <label class="sr-only" for="note-capture-body">New note</label>
+      <textarea id="note-capture-body" class="ed-body" name="body" rows="3" placeholder="Jot something down. Ctrl+Enter saves."
+                data-action="keydown->notes#captureKey"></textarea>
+    </div>
+    <div class="note-capture-tags">
+      <label for="note-capture-tags">Tags</label>
+      <input id="note-capture-tags" name="tags" type="text" autocomplete="off" placeholder="essay, walk"
+             data-notes-target="captureTags" data-action="keydown->notes#captureKey">
+    </div>
+    {{ if .RecentTags }}
+    <ul class="nt-chips nt-quick" aria-label="Recent tags">
+      {{ range .RecentTags }}
+      <li class="nt-chip"><button type="button" data-action="notes#addTag" data-tag="{{ . }}" aria-label="Add tag #{{ . }}">#{{ . }}</button></li>
+      {{ end }}
+    </ul>
+    {{ end }}
+    {{ template "partial--note-source-select.html" toMap "ID" "note-capture-source" "Sources" .SourceChoices "Selected" "" }}
+    <div class="note-capture-acts">
+      <label class="btn btn-secondary note-upload">
+        Upload recording
+        <input type="file" accept="audio/*" class="sr-only" data-action="change->notes#uploadRecording">
+      </label>
+      <span id="note-capture-status" aria-live="polite" data-notes-target="uploadStatus"></span>
+      <button type="submit" class="btn btn-primary">Add note</button>
+    </div>
+  </form>
+
+  {{ template "partial--note-search.html" .Search }}
+
+  {{ if .Sources }}
+  <div class="nt-views">
+    <ul class="nt-chips" aria-label="Sources">
+      {{ range .Sources }}
+      <li class="nt-chip{{ if .Active }} nt-include{{ end }}"><a href="{{ .Href }}"{{ if .Active }} aria-current="true"{{ end }}>{{ .Label }} <span class="nt-count">{{ .Count }}</span></a></li>
+      {{ end }}
+    </ul>
+  </div>
+  {{ end }}
+
+  <div class="nt-select box" data-notes-target="bar" hidden role="region" aria-label="Selected notes">
+    <span data-notes-target="count" role="status"></span>
+    <button type="button" class="btn btn-secondary"
+            data-notes-target="tagButton"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_tag_many"
+            data-action-prompt-value="Tags to add to the selected notes, separated by spaces or commas"
+            data-action-prompt-field-value="tags">Tag</button>
+    <button type="button" class="btn btn-secondary"
+            data-notes-target="sourceButton"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_source_set"
+            data-action-prompt-value="Title of the book or article the selected notes come from; leave empty to clear it"
+            data-action-prompt-field-value="title">Source</button>
+    <button type="button" class="btn btn-danger"
+            data-notes-target="deleteButton"
+            data-controller="action"
+            data-action="action#run"
+            data-action-action-value="note_delete_many">Delete</button>
+  </div>
+
+  <div class="note-list" id="note-list">
+    {{ template "partial--note-list.html" . }}
+  </div>
+  {{ end }}
+</main>
+
+{{ template "footer.html" . }}

@@ -1,0 +1,3 @@
+{{/* A note form's answer next to its button when it did not save: forms.NoteForm's data. */}}
+{{ with .FormError }}{{ template "partial--error-message.html" toMap "Message" (print "Not saved: " .) }}{{ end }}
+{{ range .Errors }}{{ template "partial--error-message.html" toMap "Message" (print "Not saved: " .) }}{{ end }}

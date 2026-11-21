@@ -103,3 +103,14 @@ func (s3s *s3Server) ObjectExists(ctx context.Context, fname string) (bool, erro
 	}
 	return true, nil
 }
+
+// DeleteFile removes the object. S3 answers a delete of a missing key with
+// success, so deleting twice is fine.
+func (s3s *s3Server) DeleteFile(ctx context.Context, fname string) error {
+	_, err := s3s.s3.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s3s.bucket),
+		Key:    aws.String(fname),
+	})
+
+	return err
+}

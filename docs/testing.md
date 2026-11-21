@@ -114,7 +114,7 @@ improvised inline. `pkg/feedops/testutil` is legacy: don't use it in new tests.
 - **`fakequeue.New()`** (`pkg/testutil/fakequeue`) - a `repo.JobQueue` for service tests: it records the args a service enqueued (`Inserted()`, `fakequeue.Of[T](q)`). Assert the args, then call the service's `Render<Mail>` on them for what the mail says; the River tables exist in the test database for tests of workers and the runner. fakequeue ignores a job's `InsertOpts`, so a job's uniqueness is tested by inserting through `jobs.NewInserter` and counting `river_job` rows.
 - **A test of a row lock fails fast.** Take the competing lock with `FOR UPDATE NOWAIT` (or `SET LOCAL lock_timeout`) and bound the call under test with a context, so a regression that holds the lock fails in seconds instead of hanging to `go test`'s timeout.
 - **`fakesender.New()`** (`pkg/testutil/fakesender`) - the fake delivery for worker tests: `Delivery()` is a gogo `sender.Sender` that records every mail instead of delivering it. `Sent()` returns what was recorded; `FailWith(err)` makes delivery fail instead (`nil` resumes recording).
-- **`fakestorage.New()`** (`pkg/testutil/fakestorage`) - an in-memory `pkg/media/server.MediaStorage`. `FailUploadWith`, `FailDownloadWith` and `FailExistsWith(err)` inject an error into the matching call.
+- **`fakestorage.New()`** (`pkg/testutil/fakestorage`) - an in-memory `pkg/media/server.MediaStorage`. `FailUploadWith`, `FailDownloadWith`, `FailExistsWith` and `FailDeleteWith(err)` inject an error into the matching call.
 - **`testlog.New()`** (`pkg/testutil/testlog`) - a `*zap.Logger` that records every entry, and the `observer.ObservedLogs` to assert on (`FilterMessage`, `ContextMap()`). `testlog.Context(ctx)` puts one into a context for code that takes its logger from there.
 - **`ginctx.New(t, method, target, body, opts...)`** (`pkg/testutil/ginctx`) - a `*gin.Context` wired like a real request (cookie session under `"sess"`), plus its `*httptest.ResponseRecorder`. Options: `ginctx.WithUser(t, db, userID)`, `ginctx.WithCSPNonces(style, script)`.
 - **`golden.Assert(t, name, got)`** (`pkg/testutil/golden`) - compares `got` against `testdata/<name>.golden`. `UPDATE_GOLDEN=1 go test ./pkg/...` writes it instead of comparing; after regenerating, check `git diff --stat`, not the contents.
@@ -127,6 +127,9 @@ headers, HTML and the resulting database state. It is for server rules that don'
 `-short` (`make test-short`) skips E2E entirely.
 The harness stats the binary's sources so that go test's cache notices a production edit; any other test
 that runs a binary built from the repository needs the same, or a cached "ok" survives the change.
+A test that runs every route of a group (the API key matrix in `e2e/api_notes_test.go`) takes the list from
+the router (`Engine.Routes()`) and fails on a route it has no expectation for, so a new route is covered
+when it is added; scraping route files misses routes registered elsewhere.
 `TestGuards_RouteTableMatchesSource` reads the route files by name: a change that moves routes between files
 updates its `prefixes` map, and the route table it asserts stays the same.
 Every package that uses it needs `func TestMain(m *testing.M) { e2e.Main(m) }`.
@@ -205,6 +208,9 @@ Reliability rules, because a red run must mean a real regression:
    request headers or call `window.htmx`, so the tests survive an htmx upgrade and catch one that breaks a page.
 2. **Wait by assertion only:** `browser.Expect` (Playwright's auto-waiting assertions), never a sleep or
    `WaitForTimeout`. A "nothing happened" check asserts on a state the action would have changed.
+   Wait for something only the action's result shows: a word the page already holds before the click (a
+   button's own label) passes at once, and the next navigation then races the reload and fails as
+   `net::ERR_ABORTED` now and then.
 3. **Locate by role, label and text**, then by existing CSS classes. Scope a text assertion to the
    rendered element: a hidden prefilled form (a comment's edit box) holds the same text, so a page-wide
    search passes without the rendering.
@@ -263,6 +269,8 @@ Cloud sessions get a fresh container that lacks some of what the tests need. The
 step fails:
 
 - installs `libvips-dev` (cgo headers for `pkg/media`; without them `cmd/web` and `e2e` don't compile);
+- installs `libheif-plugin-libde265`, the HEVC decoder libheif needs to read iPhone HEIC photos; the HEIC tests
+  skip without it, and fail under `CI` (which installs it too) so they never pass unrun there;
 - starts `dockerd` (testcontainers Postgres for `testdb` and E2E; log in `/tmp/dockerd.log`), first removing
   the containerd pid file a container restart leaves behind, which otherwise stops dockerd from starting;
 - installs the frontend's `node_modules` and downloads Go modules;

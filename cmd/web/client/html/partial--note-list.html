@@ -1,0 +1,11 @@
+{{/* Also the whole answer to "Load more". Takes a web.NotesPage. */}}
+{{ range .Items }}
+{{ template "partial--note-item.html" toMap "Item" . "User" $.User }}
+{{ else }}
+<p class="field-help note-empty">{{ if .Query.Filtered }}No notes match.{{ else }}No notes yet.{{ end }}</p>
+{{ end }}
+{{ with .More }}
+<div class="load-more">
+  <a class="btn btn-secondary" href="{{ . }}" hx-get="{{ . }}" hx-target="closest .load-more" hx-swap="outerHTML">Load more</a>
+</div>
+{{ end }}

@@ -1,0 +1,33 @@
+{
+  "priority": 1,
+  "scenarioName": "stt-retry",
+  "requiredScenarioState": "Started",
+  "newScenarioState": "Retried",
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "wm-retry"
+      }
+    ]
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "Content-Type": "application/json",
+      "Retry-After": "7"
+    },
+    "jsonBody": {
+      "error": {
+        "message": "Rate limit reached",
+        "type": "rate_limit_exceeded"
+      }
+    }
+  }
+}

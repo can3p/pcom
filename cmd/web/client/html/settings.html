@@ -70,7 +70,7 @@
         <div id="import_export_results" class="settings-results"></div>
       </section>
 
-      {{ template "partial--settings_api.html" toMap "APIKey" .ActiveAPIKey }}
+      {{ template "partial--settings_api.html" toMap "APIKeys" .APIKeys "DBUser" .User.DBUser }}
 
       {{ template "partial--settings_private_feed.html" toMap "FeedURL" .FeedURL }}
     </div>

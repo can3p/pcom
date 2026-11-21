@@ -8,7 +8,6 @@ import (
 
 	"github.com/can3p/gogo/forms"
 	"github.com/can3p/pcom/pkg/auth"
-	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/gin-gonic/gin"
 )
@@ -76,23 +75,6 @@ func (f *LoginForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	return func(c *gin.Context, _ forms.Form) {
 		c.HTML(http.StatusOK, loginCodeTemplate, map[string]any{"Input": next, "Errors": forms.FormErrors{}})
 	}, nil
-}
-
-// fieldError shows a service's ValidationError as an error of the form field
-// and returns any other error, which is not the user's to fix.
-func fieldError(f interface{ AddError(field, message string) }, field string, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if invalid, ok := errors.AsType[*service.ValidationError](err); ok {
-		f.AddError(field, invalid.Message)
-
-		return nil
-	}
-
-	// anything else is a failing database, which is a bug, not the user's to fix
-	panic(err)
 }
 
 // panicOnFatal panics on the failures the forms always panicked on (see accounts.FatalError).

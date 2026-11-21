@@ -19,10 +19,18 @@ module.exports = (env, argv) => {
 
   let config = {
     // entry files to compile (relative to the base dir)
-    entry: [
-      "./client/scss/index.scss",
-      "./client/js/index.js",
-    ],
+    // main: every page's styles and scripts; capture: the notes capture
+    // page's scripts instead of main's (client/js/capture.js); notes_sw: the
+    // capture page's service worker, which the app serves at
+    // /controls/notes/sw.js from the manifest's notes_sw.js
+    entry: {
+      main: [
+        "./client/scss/index.scss",
+        "./client/js/index.js",
+      ],
+      capture: "./client/js/capture.js",
+      notes_sw: "./client/js/notes/sw.js",
+    },
 
     // enable development source maps
     // * will be overwritten by 'source-maps' in production mode
@@ -31,7 +39,11 @@ module.exports = (env, argv) => {
     // path to store compiled JS bundle
     output: {
       // bundle relative name
-      filename: isProduction ? "js/app.[contenthash].js" : "js/app.js",
+      // main keeps its old name, js/app.*
+      filename: (pathData) => {
+        const name = pathData.chunk.name === "main" ? "app" : "[name]"
+        return isProduction ? `js/${name}.[contenthash].js` : `js/${name}.js`
+      },
 
       chunkFilename: isProduction ? 'js/[name].[contenthash].chunk.bundle.js': 'js/[name].chunk.bundle.js',
       // base build directory

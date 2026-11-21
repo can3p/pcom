@@ -1,0 +1,44 @@
+{{/* forms.NoteSourceForm's data: with a SourceID, that source's rename form in place of its row; without, Add source. */}}
+{{ if .SourceID }}{{ $id := .SourceID }}
+<li class="controls-row nt-source-row" id="note-source-{{ $id }}" data-testid="source-row">
+  <form class="nt-source-form"
+        method="post"
+        action="{{ link "form_note_source_edit" $id }}"
+        hx-post="{{ link "form_note_source_edit" $id }}"
+        hx-target="#note-source-{{ $id }}"
+        hx-swap="outerHTML">
+    <div class="field">
+      <label for="note-source-title-{{ $id }}">Title</label>
+      <input id="note-source-title-{{ $id }}" name="title" type="text" value="{{ with .Input }}{{ .Title }}{{ end }}" autocomplete="off"
+             {{ with .Errors.title }}aria-invalid="true" aria-describedby="note-source-error-{{ $id }}"{{ end }}>
+      {{ with .Errors.title }}<p class="field-error" id="note-source-error-{{ $id }}">{{ . }}</p>{{ end }}
+    </div>
+    <div class="nt-source-acts">
+      {{ with .FormError }}{{ template "partial--error-message.html" toMap "Message" (print "Not saved: " .) }}{{ end }}
+      <a class="btn btn-secondary" href="{{ link "notes_manage" }}"
+         hx-get="{{ link "note_source" $id }}" hx-target="#note-source-{{ $id }}" hx-swap="outerHTML">Cancel</a>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</li>
+{{ else }}
+<form class="nt-source-form nt-source-add box"
+      id="note-source-add"
+      method="post"
+      action="{{ link "form_note_source_add" }}"
+      hx-post="{{ link "form_note_source_add" }}"
+      hx-target="this"
+      hx-swap="outerHTML"
+      aria-label="Add source">
+  <div class="field">
+    <label for="note-source-add-input">New source</label>
+    <input id="note-source-add-input" name="title" type="text" value="{{ with .Input }}{{ .Title }}{{ end }}" autocomplete="off" placeholder="Walden"
+           {{ with .Errors.title }}aria-invalid="true" aria-describedby="note-source-add-error"{{ end }}>
+    {{ with .Errors.title }}<p class="field-error" id="note-source-add-error">{{ . }}</p>{{ end }}
+  </div>
+  <div class="nt-source-acts">
+    {{ with .FormError }}{{ template "partial--error-message.html" toMap "Message" (print "Not saved: " .) }}{{ end }}
+    <button type="submit" class="btn btn-secondary">Add source</button>
+  </div>
+</form>
+{{ end }}

@@ -1,0 +1,32 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "ANY",
+    "urlPathPattern": "/stt/.*",
+    "headers": {
+      "Authorization": {
+        "or": [
+          {
+            "absent": true
+          },
+          {
+            "doesNotMatch": "^Bearer (test-key|dev)$"
+          }
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": {
+        "message": "Invalid API Key",
+        "type": "invalid_request_error",
+        "code": "invalid_api_key"
+      }
+    }
+  }
+}

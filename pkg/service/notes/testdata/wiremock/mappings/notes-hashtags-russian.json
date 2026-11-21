@@ -1,0 +1,32 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "wm-notes-hashtags"
+      },
+      {
+        "contains": "name=\"language\"\r\n\r\nru\r\n"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "task": "transcribe",
+      "language": "russian",
+      "duration": 6.2,
+      "text": "Купить овсяное молоко. Хэштег покупки."
+    }
+  }
+}

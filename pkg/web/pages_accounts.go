@@ -13,8 +13,8 @@ type SettingsPage struct {
 	*BasePage
 	AvailableInvites int64
 	UsedInvites      []*model.UserInvitation
-	ActiveAPIKey     *model.UserAPIKey
-	FeedURL          string // private RSS feed URL, empty until a feed token exists
+	APIKeys          []*model.UserAPIKey // partial--settings_api.html, oldest first
+	FeedURL          string              // private RSS feed URL, empty until a feed token exists
 	GeneralSettings  *forms.SettingsGeneralForm
 	UserStyles       *forms.SettingsUserStyles
 	Profile          *forms.SettingsProfile
@@ -39,7 +39,7 @@ func Settings(c *gin.Context, svc *accounts.Service, userData *auth.UserData, vi
 		BasePage:         getBasePage(c, "Settings", userData),
 		AvailableInvites: view.AvailableInvites,
 		UsedInvites:      view.UsedInvites,
-		ActiveAPIKey:     view.APIKey,
+		APIKeys:          view.APIKeys,
 		FeedURL:          view.FeedURL,
 		GeneralSettings:  forms.SettingsGeneralFormNew(svc, userData.DBUser, subscribers),
 		UserStyles:       formUserStyles,

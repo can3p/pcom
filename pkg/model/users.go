@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"time"
@@ -92,17 +94,45 @@ func (m *User) BeforeAppendModel(_ context.Context, query bun.Query) error {
 	return nil
 }
 
-// UserAPIKey is a row of user_api_keys.
+// APIKeyScope is what an API key may do.
+type APIKeyScope string
+
+// The values of APIKeyScope.
+const (
+	// APIKeyScopeFull opens the whole API.
+	APIKeyScopeFull APIKeyScope = "full"
+	// APIKeyScopeNotes only creates and reads notes.
+	APIKeyScopeNotes APIKeyScope = "notes"
+)
+
+// UserAPIKey is a row of user_api_keys. The key itself is never stored:
+// KeyHash is HashAPIKey of it.
 type UserAPIKey struct {
 	bun.BaseModel `bun:"table:user_api_keys"`
 
-	ID        string    `bun:"id,pk"`
-	APIKey    string    `bun:"api_key"`
-	UserID    string    `bun:"user_id"`
-	CreatedAt time.Time `bun:"created_at"`
-	UpdatedAt time.Time `bun:"updated_at"`
+	ID         string      `bun:"id,pk"`
+	KeyHash    string      `bun:"key_hash"`
+	UserID     string      `bun:"user_id"`
+	Name       string      `bun:"name,default:''"`
+	Scope      APIKeyScope `bun:"scope"`
+	LastUsedAt *time.Time  `bun:"last_used_at"`
+	CreatedAt  time.Time   `bun:"created_at"`
+	UpdatedAt  time.Time   `bun:"updated_at"`
+
+	// APIKey is the key in plain, set only on the value that created it,
+	// which is the one time it is shown.
+	APIKey string `bun:"-"`
 
 	User *User `bun:"rel:belongs-to,join:user_id=id"`
+}
+
+// HashAPIKey is what user_api_keys stores of a key: its SHA-256 in hex. A key
+// is random, so it needs no slow hash or salt. Migration
+// user_api_keys_hashed holds a frozen copy for the keys that existed then.
+func HashAPIKey(key string) string {
+	sum := sha256.Sum256([]byte(key))
+
+	return hex.EncodeToString(sum[:])
 }
 
 // BeforeAppendModel stamps the row's timestamps on insert and update.

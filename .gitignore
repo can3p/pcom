@@ -5,3 +5,6 @@ coverage.out
 
 # Agent worktrees (wave-run dispatches tasks into them)
 .claude/worktrees/
+
+# a stray yarn run at the root (the frontend lives in cmd/web)
+/node_modules/

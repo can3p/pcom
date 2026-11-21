@@ -1,0 +1,29 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "equalTo": "Bearer test-key"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "wm-5xx"
+      }
+    ]
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": {
+        "message": "Service unavailable",
+        "type": "server_error"
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 <div class="nav-links">
   <a href="{{ link "default_authorized_home" }}">Feed</a>
   <a href="{{ link "explore" }}">Explore</a>
+  <a href="{{ link "notes" }}">Notes</a>
   <a href="{{ link "controls" }}">Controls</a>
   <a href="{{ link "settings" }}">Settings</a>
 </div>
@@ -11,8 +12,8 @@
 </div>
 {{ else }}
 <div class="nav-links">
-  <a href="/">Home</a>
-  <a href="/signup?attribution=header">Sign up</a>
+  <a href="{{ link "home" }}">Home</a>
+  <a href="{{ link "signup" "attribution" "header" }}">Sign up</a>
   <a href="{{ link "login" }}">Login</a>
 </div>
 {{ end }}

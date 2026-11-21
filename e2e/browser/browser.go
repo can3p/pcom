@@ -59,7 +59,12 @@ func run(m *testing.M) int {
 	}
 	defer func() { _ = pw.Stop() }()
 
-	opts := playwright.BrowserTypeLaunchOptions{Headless: new(os.Getenv("HEADED") == "")}
+	opts := playwright.BrowserTypeLaunchOptions{
+		Headless: new(os.Getenv("HEADED") == ""),
+		// a microphone and camera that play a test tone and pattern, granted
+		// without a prompt, for the notes capture page
+		Args: []string{"--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"},
+	}
 	if ms, err := strconv.ParseFloat(os.Getenv("SLOWMO"), 64); err == nil {
 		opts.SlowMo = new(ms)
 	}
