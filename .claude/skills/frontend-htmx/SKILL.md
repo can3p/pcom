@@ -27,7 +27,8 @@ Located in `cmd/web/client/js/index.js`:
 
 ### Bundle size
 `TestFirstVisitWeight` (`e2e/browser/weight_test.go`) caps the gzipped JS every first visit loads. A
-controller that only one page needs and that is large (the editor's grammar panel) is a small stub in
+controller that only one page needs and that is large (the editor's grammar panel and Notes tab, the notes
+page) is a small stub in
 `controllers/` whose `connect()` does `await import("../<area>/<file>.js")`, so the rest is a separate chunk
 fetched only where the controller appears (`index.js` sets `__webpack_public_path__` to `/static/` for those
 chunks). Raising the budget instead needs the owner's reason.
