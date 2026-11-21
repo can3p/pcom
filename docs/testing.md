@@ -291,7 +291,8 @@ it back rather than skipping the suite.
 
 The image's Chromium is older than the one CI installs, and the sandbox has no general outbound network, so a
 few browser tests fail only there (an embedded external resource, inline-style CSP reports):
-`TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility` and `TestActions_ShareLifecycle` (2026-10-01). Trust CI's
+`TestWriting_RenderedPostFeatures`, `TestWriting_PostVisibility`, `TestActions_ShareLifecycle` and
+`TestWriting_BlockquoteEditing` (Enter inside a quote adds no `> `). Trust CI's
 `browser` job for those.
 
 The tools image may not build in the sandbox (Docker Hub rate limits, package mirrors blocked); no test
