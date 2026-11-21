@@ -807,3 +807,92 @@ func TestWriting_PreviewRightAfterGalleryShowsGallery(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, saved.Body, "{gallery}")
 }
+
+// Inside a quote the editor keeps the `>` markers in place: the Quote button
+// quotes and unquotes every selected line, Enter continues the quote and a
+// third Enter leaves it, Backspace right after the markers joins the line with
+// the previous one (Shift+Backspace deletes one character), and pasted lines
+// are quoted. Shift+Enter never continues a quote or a list.
+func TestWriting_BlockquoteEditing(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+
+	body := page.GetByPlaceholder("Your post goes there")
+	quote := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Quote"})
+	press := func(keys ...string) {
+		t.Helper()
+		for _, key := range keys {
+			require.NoError(t, body.Press(key))
+		}
+	}
+	expectBody := func(value string) {
+		t.Helper()
+		require.NoError(t, browser.Expect.Locator(body).ToHaveValue(value))
+	}
+	// caret moves the caret to an offset of the body, or selects a range
+	caret := func(start, end int) {
+		t.Helper()
+		_, err := body.Evaluate(`(el, [s, e]) => { el.focus(); el.setSelectionRange(s, e) }`, []int{start, end})
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, body.Click())
+	require.NoError(t, quote.Click())
+	require.NoError(t, body.PressSequentially("the quote begins"))
+	press("Enter")
+	require.NoError(t, body.PressSequentially("and continues"))
+	expectBody("> the quote begins\n> and continues")
+
+	// an accidental line break is removed with one Backspace
+	caret(len("> the quote begins\n> "), len("> the quote begins\n> "))
+	press("Backspace")
+	expectBody("> the quote begins and continues")
+	// the join is one undo step
+	press("ControlOrMeta+z")
+	expectBody("> the quote begins\n> and continues")
+	press("ControlOrMeta+Shift+z")
+	expectBody("> the quote begins and continues")
+	caret(len("> the quote begins and continues"), len("> the quote begins and continues"))
+
+	// Shift+Backspace is the plain textarea behavior
+	press("End", "Enter", "Shift+Backspace")
+	expectBody("> the quote begins and continues\n>")
+	press("Space")
+
+	// Enter on an empty quote line makes a paragraph break, the next one leaves the quote
+	press("Enter", "Enter")
+	require.NoError(t, body.PressSequentially("after"))
+	expectBody("> the quote begins and continues\n\nafter")
+
+	// pasting several lines into the quote quotes every line
+	caret(len("> the quote begins and continues"), len("> the quote begins and continues"))
+	_, err = body.Evaluate(`el => {
+		const data = new DataTransfer()
+		data.setData("text/plain", "\nfirst\n\nsecond")
+		el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }))
+	}`, nil)
+	require.NoError(t, err)
+	expectBody("> the quote begins and continues\n> first\n>\n> second\n\nafter")
+
+	// the Quote button removes the quote from every selected line, and puts it back
+	quoted := "> the quote begins and continues\n> first\n>\n> second"
+	caret(0, len(quoted))
+	require.NoError(t, quote.Click())
+	expectBody("the quote begins and continues\nfirst\n\nsecond\n\nafter")
+	require.NoError(t, quote.Click())
+	expectBody(quoted + "\n\nafter")
+
+	// Shift+Enter is a plain line break in a list too
+	all := len(quoted + "\n\nafter")
+	caret(all, all)
+	press("Enter")
+	require.NoError(t, body.PressSequentially("- item"))
+	press("Shift+Enter")
+	expectBody(quoted + "\n\nafter\n- item\n")
+}

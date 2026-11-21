@@ -27,7 +27,16 @@ Related documents:
 ## Wave files
 
 A wave is `R<n>` (refactor) or `F<n>` (feature), numbered on from the highest id in `docs/plan/` and
-`docs/archive/history/`. Its file starts with one line of state:
+`docs/archive/history/` **on master and on every open PR's branch**: a wave planned or closed on a branch that
+hasn't merged has its file only there, and taking its number makes two waves share one id. This prints the
+highest F and R id across master and every open PR's head branch (after `git fetch origin master`):
+
+```bash
+{ git ls-tree --name-only origin/master docs/plan/ docs/archive/history/; gh api repos/can3p/pcom/pulls --jq '.[].head.ref' | while read -r b; do git fetch -q origin "$b" && git ls-tree --name-only FETCH_HEAD docs/plan/ docs/archive/history/; done; } | grep -oE '[fr][0-9]+' | sort -u | sort -k1.1,1.1 -k1.2n | awk '{m[substr($0,1,1)]=$0} END {print m["f"], m["r"]}'
+```
+
+(`gh pr list` goes through GraphQL, which cloud sessions can't reach; the REST call works everywhere.)
+Its file starts with one line of state:
 
 ```markdown
 ## R9 — Example
@@ -75,6 +84,11 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   file by area in a step 0 before parallel work, so later merges conflict only in registries. A breaking
   library bump is sequential too: order its tasks by import graph, each with the packages that compile at
   its point.
+- **Check the waves in open PRs, not only the planned ones.** A wave in review has changed files that master
+  doesn't show yet. For each open PR, `git diff --stat origin/master...origin/<head>` over the files your
+  tasks own; for every overlap, record in a `### Waves in flight` section of the wave file what that wave
+  changes, which merges first (depend on it or plan against its tree) and who adapts; a contract both
+  touch (a `SaveInput` field, a hidden form input another controller waits for) is named there too.
 - **Plan against the plumbing as it will be.** If another planned or running wave rewrites what yours builds on
   (how mail is sent, a service's constructor), depend on it or plan against its contracts. A wave planned
   against the old shape gets its finished tasks rewritten when the other wave merges first.

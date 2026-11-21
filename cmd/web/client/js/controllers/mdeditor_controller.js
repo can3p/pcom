@@ -8,7 +8,10 @@ export default class extends Controller {
 
   connect() {
     let textarea = this.element.querySelector("textarea")
-    const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea);
+    // the blockquote extension keeps the `>` markers in place on enter, backspace and paste inside a quote
+    const { trigger, dispose, cursor } = bootstrapTextareaMarkdown(textarea, {
+      options: { enableBlockquoteExtension: true },
+    });
 
     this.dispose = dispose
     this.textarea = textarea
