@@ -469,50 +469,117 @@ func TestSettings_ProfileAboutShownOnJournal(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.Locator(".us-profile-about")).ToHaveCount(0))
 }
 
-// Generating an API key swaps the section in place: the button gives way to
-// the hidden key and its Copy button, and the key is stored. (Copying is
-// TestSettings_CopyAPIKey; the clipboard is shared by parallel tests.)
-func TestSettings_GenerateAPIKey(t *testing.T) {
+// createAPIKey fills the API keys form and creates a key.
+func createAPIKey(t *testing.T, api playwright.Locator, name, access string) {
+	t.Helper()
+
+	require.NoError(t, api.GetByLabel("Key name").Fill(name))
+	_, err := api.GetByLabel("Access").SelectOption(playwright.SelectOptionValues{Labels: &[]string{access}})
+	require.NoError(t, err)
+	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Create a key"}).Click())
+}
+
+// The API keys section creates keys with a name and a scope and lists them
+// in place; a new key shows once, until the next change of the section;
+// revoking asks first and removes the key. (Copying is TestSettings_CopyAPIKey;
+// the clipboard is shared by parallel tests.)
+func TestSettings_APIKeys(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
 	page := browser.Page(t, app, browser.As(user))
+	asked := 0
+	page.OnDialog(func(d playwright.Dialog) {
+		asked++
+		_ = d.Accept()
+	})
 	openSettings(t, page)
 
-	api := section(page, "API key")
-	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Generate an API key"}).Click())
+	api := section(page, "API keys")
+	newKey := api.GetByLabel("Your new API key")
+	rows := api.GetByTestId("api-key")
 
-	copyButton := api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Copy"})
-	require.NoError(t, browser.Expect.Locator(copyButton).ToBeVisible())
-	require.NoError(t, browser.Expect.Locator(api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Generate an API key"})).ToHaveCount(0))
+	createAPIKey(t, api, "iPhone", "Notes only")
+	require.NoError(t, browser.Expect.Locator(newKey).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(1))
+
+	for _, text := range []string{"iPhone", "Notes only", "never used"} {
+		require.NoError(t, browser.Expect.Locator(rows).ToContainText(text))
+	}
+
+	createAPIKey(t, api, "laptop", "Full access")
+	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(2))
+	require.NoError(t, browser.Expect.Locator(rows.Nth(1)).ToContainText("Full access"))
+	require.NoError(t, browser.Expect.Locator(newKey).ToHaveCount(1), "only the latest key is shown")
 	requireSamePage(t, page)
+
+	laptopKey, err := newKey.TextContent()
+	require.NoError(t, err)
+	require.NotEmpty(t, laptopKey)
 
 	keys, err := factory.ListAPIKeys(context.Background(), app.DB, user.ID)
 	require.NoError(t, err)
+	require.Len(t, keys, 2)
+	require.Equal(t, model.APIKeyScopeNotes, keys[0].Scope)
+	require.Equal(t, model.APIKeyScopeFull, keys[1].Scope)
+
+	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Revoke iPhone"}).Click())
+	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(rows).ToContainText("laptop"))
+	require.NoError(t, browser.Expect.Locator(newKey).ToHaveCount(0), "a key is not shown again")
+	require.Equal(t, 1, asked)
+	requireSamePage(t, page)
+
+	keys, err = factory.ListAPIKeys(context.Background(), app.DB, user.ID)
+	require.NoError(t, err)
 	require.Len(t, keys, 1)
+	require.Equal(t, "laptop", keys[0].Name)
+
+	// a fresh page lists the keys with their use, and never a key
+	req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+laptopKey)
+	app.Client(t).Do(req).RequireStatus(http.StatusOK)
+
+	openSettings(t, page)
+	require.NoError(t, browser.Expect.Locator(rows).ToHaveCount(1))
+
+	for _, text := range []string{"laptop", "Full access", "last used"} {
+		require.NoError(t, browser.Expect.Locator(rows).ToContainText(text))
+	}
+
+	require.NoError(t, browser.Expect.Locator(newKey).ToHaveCount(0))
+	html, err := page.Content()
+	require.NoError(t, err)
+	require.NotContains(t, html, laptopKey)
 }
 
-// The Copy button next to an existing API key copies the key.
+// The Copy button of a new key copies a key that opens the API.
 func TestSettings_CopyAPIKey(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
 	user := browser.NewUser(t, app)
-	key, err := factory.APIKey(context.Background(), app.DB, user.ID)
-	require.NoError(t, err)
-
 	page := browser.Page(t, app, browser.As(user), browser.Configure(func(o *playwright.BrowserNewContextOptions) {
 		o.Permissions = []string{"clipboard-read", "clipboard-write"}
 	}))
 	openSettings(t, page)
 
-	require.NoError(t, browser.Expect.Locator(page.GetByText(key.APIKey)).ToHaveCount(0), "the key is not shown")
-	require.NoError(t, section(page, "API key").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Copy"}).Click())
+	api := section(page, "API keys")
+	createAPIKey(t, api, "script", "Full access")
+	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Copy"}).Click())
 
 	copied, err := page.Evaluate(`() => navigator.clipboard.readText()`)
 	require.NoError(t, err)
-	require.Equal(t, key.APIKey, copied)
+	key, ok := copied.(string)
+	require.True(t, ok)
+	require.NotEmpty(t, key)
+
+	req, err := http.NewRequest(http.MethodGet, app.URL+"/api/v1/posts", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+key)
+	app.Client(t).Do(req).RequireStatus(http.StatusOK)
 }
 
 // Creating the private feed URL shows, in place, a URL that serves the feed;

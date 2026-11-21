@@ -1,10 +1,7 @@
-{{/* The markdown editor's toolbar, placed inside a data-controller="mdeditor" block as the first child of the
-     .box that holds the textarea.
+{{/* The first child of the .box inside a data-controller="mdeditor" block.
      UploadID: id of the hidden file input, unique on the page.
-     Post: adds the post-only commands and the preview link (PostID is set when editing).
-     The preview link saves the post form first (postform#preview), so it shows the latest edit.
-     Proofread: adds the Check grammar and Style review buttons, which the proofread controller around the
-     form drives; Style review waits for a saved draft (PostID). */}}
+     Post: the post-only commands and the preview link (PostID is set when editing).
+     Proofread: Check grammar and Style review, only in the post form, whose sidebar they also open. */}}
 <div class="tb" role="toolbar" aria-label="Formatting">
   <button type="button" class="tbb" data-command="bold" aria-label="Bold" title="Bold text"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7z"></path><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7z"></path></svg></button>
   <button type="button" class="tbb" data-command="italic" aria-label="Italic" title="Italic text"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 5h-4"></path><path d="M14 19h-4"></path><path d="M14 5l-4 14"></path></svg></button>
@@ -29,8 +26,8 @@
   {{ if .Proofread }}
   <span class="tb-gap"></span>
   <div class="tb-ai">
-    <button type="button" class="tbt" data-proofread-target="grammarButton" data-action="proofread#checkGrammar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"></path></svg>Check grammar</button>
-    <button type="button" class="tbt" data-proofread-target="styleButton" data-action="proofread#reviewStyle" {{ if not .PostID }}disabled title="Available once the draft is saved"{{ end }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg>Style review</button>
+    <button type="button" class="tbt" data-proofread-target="grammarButton" data-action="proofread#checkGrammar ed-side#showChecks"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"></path></svg>Check grammar</button>
+    <button type="button" class="tbt" data-proofread-target="styleButton" data-action="proofread#reviewStyle ed-side#showChecks" {{ if not .PostID }}disabled title="Available once the draft is saved"{{ end }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg>Style review</button>
   </div>
   {{ end }}
 </div>

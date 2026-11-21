@@ -22,6 +22,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/accounts"
 	"github.com/can3p/pcom/pkg/service/feeds"
 	"github.com/can3p/pcom/pkg/service/media"
+	"github.com/can3p/pcom/pkg/service/notes"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/web/app"
@@ -216,6 +217,26 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"SUBSCRIBE_POW_MAX_AGE", "5m", func(s *config.Serve) any { return s.Subscriptions.PowMaxAge }, abuse.DefaultPowMaxAge, 5 * time.Minute},
 		{"SUBSCRIBE_MIN_FILL_TIME", "0s", func(s *config.Serve) any { return s.Subscriptions.MinFillTime }, abuse.DefaultMinFillTime, time.Duration(0)},
 		{"SUBSCRIBE_PRUNE_EVERY", "10m", func(s *config.Serve) any { return s.Subscriptions.PruneEvery }, subscriptions.DefaultPruneEvery, 10 * time.Minute},
+		{"NOTE_BODY_MAX_LENGTH", "900", func(s *config.Serve) any { return s.Notes.BodyMaxLength }, notes.DefaultBodyMaxLength, 900},
+		{"NOTE_TAG_MAX_LENGTH", "20", func(s *config.Serve) any { return s.Notes.TagMaxLength }, notes.DefaultTagMaxLength, 20},
+		{"NOTE_TAGS_MAX", "5", func(s *config.Serve) any { return s.Notes.TagsMax }, notes.DefaultTagsMax, 5},
+		{"NOTE_SOURCE_TITLE_MAX_LENGTH", "120", func(s *config.Serve) any { return s.Notes.SourceTitleMaxLength }, notes.DefaultSourceTitleMaxLength, 120},
+		{"NOTE_PHOTO_MAX_DIMENSION", "1024", func(s *config.Serve) any { return s.Notes.PhotoMaxDimension }, notes.DefaultPhotoMaxDimension, 1024},
+		{"NOTE_AUDIO_MAX_DURATION", "5m", func(s *config.Serve) any { return s.Notes.AudioMaxDuration }, notes.DefaultAudioMaxDuration, 5 * time.Minute},
+		{"NOTE_AUDIO_MAX_BYTES", "4096", func(s *config.Serve) any { return s.Notes.AudioMaxBytes }, int64(notes.DefaultAudioMaxBytes), int64(4096)},
+		{"NOTE_AUDIO_BITRATE", "16000", func(s *config.Serve) any { return s.Notes.AudioBitrate }, notes.DefaultAudioBitrate, 16000},
+		{"NOTE_CAPTURE_MAX_BYTES", "8192", func(s *config.Serve) any { return s.Notes.CaptureMaxBytes }, int64(notes.DefaultCaptureMaxBytes), int64(8192)},
+		{"NOTE_QUOTE_SOURCE_WINDOW", "1h", func(s *config.Serve) any { return s.Notes.QuoteSourceWindow }, notes.DefaultQuoteSourceWindow, time.Hour},
+		{"NOTE_PANEL_TAGS", "3", func(s *config.Serve) any { return s.Notes.PanelTags }, notes.DefaultPanelTags, 3},
+		{"STT_PROVIDER", "openai-compat", func(s *config.Serve) any { return s.STT.Provider }, "", "openai-compat"},
+		{"STT_TIMEOUT", "30s", func(s *config.Serve) any { return s.STT.Timeout }, notes.DefaultSTTTimeout, 30 * time.Second},
+		{"STT_WORKERS", "4", func(s *config.Serve) any { return s.STT.Workers }, notes.DefaultSTTWorkers, 4},
+		{"STT_ATTEMPTS", "3", func(s *config.Serve) any { return s.STT.Attempts }, notes.DefaultSTTAttempts, 3},
+		{"STT_MINUTES_PER_DAY", "15", func(s *config.Serve) any { return s.STT.MinutesPerDay }, notes.DefaultSTTMinutesPerDay, 15},
+		{"STT_SITE_MINUTES_PER_DAY", "600", func(s *config.Serve) any { return s.STT.SiteMinutesPerDay }, notes.DefaultSTTSiteMinutesPerDay, 600},
+		{"STT_OPENAI_COMPAT_ENDPOINT", "http://wiremock:8080/stt", func(s *config.Serve) any { return s.STT.OpenAICompat.Endpoint }, notes.DefaultSTTEndpoint, "http://wiremock:8080/stt"},
+		{"STT_OPENAI_COMPAT_MODEL", "whisper-x", func(s *config.Serve) any { return s.STT.OpenAICompat.Model }, notes.DefaultSTTModel, "whisper-x"},
+		{"STT_OPENAI_COMPAT_KEY", "stt-key", func(s *config.Serve) any { return s.STT.OpenAICompat.Key.Reveal() }, "", "stt-key"},
 	}
 
 	keys := envKeys(t)
@@ -279,15 +300,44 @@ func TestServe_RequiredVariables(t *testing.T) {
 }
 
 func TestServe_SecretsDontPrint(t *testing.T) {
-	got, err := parseServe(t, with(map[string]string{"USER_MEDIA_SECRET": "media-secret-value", "PROOFREAD_ANTHROPIC_KEY": "anthropic-key-value"}))
+	got, err := parseServe(t, with(map[string]string{"USER_MEDIA_SECRET": "media-secret-value", "PROOFREAD_ANTHROPIC_KEY": "anthropic-key-value", "STT_OPENAI_COMPAT_KEY": "stt-key-value"}))
 	require.NoError(t, err)
 
 	for _, format := range []string{"%v", "%+v", "%#v", "%s"} {
 		out := fmt.Sprintf(format, *got)
-		for _, secret := range []string{"salt-value", "mj-private-value", "media-secret-value", "anthropic-key-value"} {
+		for _, secret := range []string{"salt-value", "mj-private-value", "media-secret-value", "anthropic-key-value", "stt-key-value"} {
 			require.NotContains(t, out, secret, format)
 		}
 	}
+}
+
+func TestServe_Validate(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		err  string
+	}{
+		{name: "transcription off needs no key"},
+		{name: "a selected backend needs its key", env: map[string]string{"STT_PROVIDER": "openai-compat"}, err: "$STT_OPENAI_COMPAT_KEY"},
+		{name: "a selected backend with its key", env: map[string]string{"STT_PROVIDER": "openai-compat", "STT_OPENAI_COMPAT_KEY": "k"}},
+		{name: "a key alone selects nothing", env: map[string]string{"STT_OPENAI_COMPAT_KEY": "k"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseServe(t, with(tc.env))
+			require.NoError(t, err)
+
+			if tc.err == "" {
+				require.NoError(t, got.Validate())
+			} else {
+				require.ErrorContains(t, got.Validate(), tc.err)
+			}
+		})
+	}
+
+	_, err := parseServe(t, with(map[string]string{"STT_PROVIDER": "whisper.cpp"}))
+	require.Error(t, err, "an unknown backend")
 }
 
 func TestSwitch(t *testing.T) {

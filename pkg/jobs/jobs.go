@@ -11,7 +11,8 @@
 // Adding a job kind: declare its args struct in the service that owns the
 // work, with a Kind method returning "<area>.<name>" (mail kinds are
 // "mail.<email_type>") and, when it needs any, an InsertOpts method for
-// uniqueness or attempts; register its worker in the service's RegisterJobs
+// uniqueness, attempts or a named queue (the runner gets the queue with
+// WithQueue; jobs without one go to the default queue); register its worker in the service's RegisterJobs
 // with Register, RegisterMail or RegisterPeriodic. The args are stored as
 // JSON, so they hold ids and the few values the database doesn't keep, and
 // the worker loads the rest when it runs.
@@ -108,6 +109,7 @@ type runnerConfig struct {
 	workers      int
 	retention    time.Duration
 	logger       *zap.Logger
+	queues       map[string]int
 }
 
 // Option configures a Runner.
@@ -127,6 +129,18 @@ func WithWorkers(n int) Option {
 	return func(c *runnerConfig) {
 		if n > 0 {
 			c.workers = n
+		}
+	}
+}
+
+// WithQueue adds the named queue, worked by its own workers apart from the
+// default queue's. A job goes to it when its args' InsertOpts names it
+// (river.InsertOpts{Queue: name}); a job on a queue the runner doesn't have
+// waits.
+func WithQueue(name string, workers int) Option {
+	return func(c *runnerConfig) {
+		if workers > 0 {
+			c.queues[name] = workers
 		}
 	}
 }
@@ -157,10 +171,16 @@ func NewRunner(db *sql.DB, reg *Registry, opts ...Option) (*Runner, error) {
 		workers:      DefaultWorkers,
 		retention:    DefaultRetention,
 		logger:       zap.NewNop(),
+		queues:       map[string]int{},
 	}
 
 	for _, o := range opts {
 		o(&cfg)
+	}
+
+	queues := map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.workers}}
+	for name, workers := range cfg.queues {
+		queues[name] = river.QueueConfig{MaxWorkers: workers}
 	}
 
 	client, err := river.NewClient(riverdatabasesql.New(db), &river.Config{
@@ -173,7 +193,7 @@ func NewRunner(db *sql.DB, reg *Registry, opts ...Option) (*Runner, error) {
 		Logger:                      logging.Slog(cfg.logger, riverLogLevel),
 		PeriodicJobs:                reg.periodic,
 		PollOnly:                    true,
-		Queues:                      map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.workers}},
+		Queues:                      queues,
 		Workers:                     reg.workers,
 	})
 	if err != nil {

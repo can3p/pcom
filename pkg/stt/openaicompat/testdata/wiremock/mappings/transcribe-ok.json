@@ -1,0 +1,32 @@
+{
+  "priority": 5,
+  "request": {
+    "method": "POST",
+    "urlPath": "/stt/audio/transcriptions",
+    "headers": {
+      "Authorization": {
+        "matches": "^Bearer (test-key|dev)$"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "name=\"response_format\""
+      },
+      {
+        "contains": "verbose_json"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "task": "transcribe",
+      "language": "english",
+      "duration": 12.0,
+      "text": "This is a local transcript of 12 seconds of audio. #local"
+    }
+  }
+}

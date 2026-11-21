@@ -149,33 +149,48 @@ func TestProfiles_AboutUpsert(t *testing.T) {
 	require.Empty(t, about)
 }
 
-func TestAPIKeys_OnePerUser(t *testing.T) {
+func TestAPIKeys_ByHash(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
 	store := repo.New(db)
 	u := insertUser(t, repo.Query(db))
+	other := insertUser(t, repo.Query(db))
 
-	k, err := store.APIKeyForUser(ctx, u.ID)
+	keys, err := store.APIKeysForUser(ctx, u.ID)
 	require.NoError(t, err)
-	require.Nil(t, k)
+	require.Empty(t, keys)
 
-	require.NoError(t, store.CreateAPIKey(ctx, u.ID))
-	k, err = store.APIKeyForUser(ctx, u.ID)
+	hash := model.HashAPIKey("the-key")
+	second := &model.UserAPIKey{ID: uuid.NewString(), KeyHash: model.HashAPIKey("second"), UserID: u.ID, Scope: model.APIKeyScopeNotes, CreatedAt: time.Now()}
+	first := &model.UserAPIKey{ID: uuid.NewString(), KeyHash: hash, UserID: u.ID, Scope: model.APIKeyScopeFull, CreatedAt: time.Now().Add(-time.Hour)}
+	require.NoError(t, store.CreateAPIKey(ctx, second))
+	require.NoError(t, store.CreateAPIKey(ctx, first))
+	require.NoError(t, store.CreateAPIKey(ctx, &model.UserAPIKey{ID: uuid.NewString(), KeyHash: model.HashAPIKey("theirs"), UserID: other.ID, Scope: model.APIKeyScopeFull}))
+
+	keys, err = store.APIKeysForUser(ctx, u.ID)
 	require.NoError(t, err)
-	require.NotNil(t, k)
+	require.Equal(t, []string{first.ID, second.ID}, []string{keys[0].ID, keys[1].ID}, "the user's keys, oldest first")
 
-	require.NoError(t, store.CreateAPIKey(ctx, u.ID))
-	again, err := store.APIKeyForUser(ctx, u.ID)
+	k, err := store.APIKeyByHash(ctx, hash)
 	require.NoError(t, err)
-	require.Equal(t, k.APIKey, again.APIKey)
+	require.Equal(t, first.ID, k.ID)
+	require.Equal(t, u.ID, k.User.ID, "with its user")
 
-	owner, err := store.UserByAPIKey(ctx, k.APIKey)
+	_, err = store.APIKeyByHash(ctx, model.HashAPIKey("another-key"))
+	require.ErrorIs(t, err, repo.ErrNotFound)
+
+	at := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	require.NoError(t, store.TouchAPIKey(ctx, first.ID, at))
+	k, err = store.APIKeyByHash(ctx, hash)
 	require.NoError(t, err)
-	require.Equal(t, u.ID, owner.ID)
+	require.True(t, at.Equal(*k.LastUsedAt))
 
-	_, err = store.UserByAPIKey(ctx, uuid.NewString())
+	require.ErrorIs(t, store.DeleteAPIKey(ctx, other.ID, first.ID), repo.ErrNotFound, "only the owner's key goes")
+	require.NoError(t, store.DeleteAPIKey(ctx, u.ID, first.ID))
+	require.ErrorIs(t, store.DeleteAPIKey(ctx, u.ID, first.ID), repo.ErrNotFound)
+	_, err = store.APIKeyByHash(ctx, hash)
 	require.ErrorIs(t, err, repo.ErrNotFound)
 }
 

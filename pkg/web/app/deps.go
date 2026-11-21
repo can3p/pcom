@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/notes"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"go.uber.org/zap"
@@ -31,6 +32,8 @@ type Deps struct {
 	Jobs         repo.JobQueue
 	MediaStorage server.MediaStorage
 	MediaServer  server.MediaServer
+	// STT is the speech-to-text backend; nil turns transcription off.
+	STT notes.STT
 	// Logger is the base of every request's logger; nil logs nothing.
 	Logger *zap.Logger
 	Config Config
@@ -102,6 +105,8 @@ type Config struct {
 	// difficulty, challenge age and the least time to fill a form. The guard
 	// is built with the session salt as its key where a form needs it.
 	Abuse []abuse.Option
+	// Notes configures the notes service: its limits.
+	Notes []notes.Option
 }
 
 // Proofread is the settings of the grammar check and style review: the

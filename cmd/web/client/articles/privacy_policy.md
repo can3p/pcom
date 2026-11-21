@@ -22,6 +22,30 @@ no grammar-check text, only a record of each request: who made it, for which pos
 counts, whether it succeeded and when. These records stay when a post is deleted and are deleted with your
 account.
 
+## Notes, recordings and photos
+
+Notes are private: only you can see them, and no one else is shown them. pcom stores what you write in a note,
+its tags, the source you gave it (a book or article, with its author), the time you captured it and where in
+the source it is, if you said so.
+
+A note can also hold photos and a recording:
+
+- **Photos** are stored. Their addresses are not listed anywhere, but anyone who has one can open the photo,
+  as with the pictures in a post.
+- **Recordings** are stored for you alone; only you can play them back. When you record one, or upload an
+  audio file, pcom sends the recording, and nothing else of the note, to the speech-to-text provider this
+  site is set up to use. The provider turns it into text, which becomes the note's text. Recordings are sent only
+  when you make one, and the provider's own terms say what it keeps.
+- **Each transcription** is recorded with its time, the provider, the length of the recording, and whether it
+  succeeded. pcom keeps these records to count your daily transcription minutes. A record stays when its note
+  is deleted, without a link to the note.
+
+Deleting a note deletes its text, tags, source link and recording. Its photos stop belonging to it, but their
+files stay in storage, as the images of deleted posts do; ask the service administration to remove a file.
+Text you inserted into a post stays in that post. Your notes are deleted with your account.
+
+API keys are kept only as a hash: pcom cannot show a key again after it is created.
+
 ## Email subscriptions without an account
 
 You can subscribe by email to an author's public posts without an account. To do that, pcom stores:

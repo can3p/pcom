@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -56,4 +57,20 @@ func TestServe_MissingSettingsFailBeforeStarting(t *testing.T) {
 	for _, env := range vars {
 		require.Contains(t, flagsErr.Message, "$"+env)
 	}
+}
+
+// A backend selected without its key stops serve before it opens anything.
+func TestServe_STTWithoutKeyFailsBeforeStarting(t *testing.T) {
+	for env, o := range serveOptions(t) {
+		t.Setenv(env, "")
+		require.NoError(t, os.Unsetenv(env))
+
+		if o.Required {
+			t.Setenv(env, "required-"+strings.ToLower(env))
+		}
+	}
+
+	t.Setenv("STT_PROVIDER", "openai-compat")
+
+	require.ErrorContains(t, run([]string{"serve"}), "$STT_OPENAI_COMPAT_KEY")
 }

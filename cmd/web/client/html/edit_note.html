@@ -1,0 +1,11 @@
+{{ template "header.html" . }}
+
+<div class="ed note-edit" data-controller="notes" data-notes-audio-url-value="{{ link "action" "note_audio" }}">
+  <div class="ed-head">
+    <h1 class="ed-title">Edit note</h1>
+    <a href="{{ link "notes" }}">All notes</a>
+  </div>
+  {{ template "form--note.html" . }}
+</div>
+
+{{ template "footer.html" . }}

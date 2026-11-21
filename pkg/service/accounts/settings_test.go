@@ -99,33 +99,13 @@ func TestInvitation_OnlyOpenOnesResolve(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrNotFound)
 }
 
-func TestAPIKeyAndFeedToken(t *testing.T) {
+func TestFeedToken(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	db := testdb.New(t).DB
 	svc := svcWith(db, nil)
 	user := newUser(t, ctx, db)
-
-	other := newUser(t, ctx, db)
-	require.NoError(t, svc.GenerateAPIKey(ctx, other))
-	otherKey := testutil.Must(repo.New(db).APIKeyForUser(ctx, other.ID))(t)
-
-	require.NoError(t, svc.GenerateAPIKey(ctx, user))
-	require.Equal(t, otherKey.APIKey, testutil.Must(repo.New(db).APIKeyForUser(ctx, other.ID))(t).APIKey, "another user's key is untouched")
-	key := testutil.Must(repo.New(db).APIKeyForUser(ctx, user.ID))(t)
-	require.NotNil(t, key)
-
-	got, err := svc.UserByAPIKey(ctx, key.APIKey)
-	require.NoError(t, err)
-	require.Equal(t, user.ID, got.ID)
-
-	require.NoError(t, svc.GenerateAPIKey(ctx, user))
-	again := testutil.Must(repo.New(db).APIKeyForUser(ctx, user.ID))(t)
-	require.Equal(t, key.APIKey, again.APIKey, "there is no key rotation")
-
-	_, err = svc.UserByAPIKey(ctx, "00000000-0000-0000-0000-000000000000")
-	require.ErrorIs(t, err, service.ErrNotFound)
 
 	require.NoError(t, svc.RegenerateFeedToken(ctx, user))
 	first := testutil.Must(repo.FeedTokenForUser(ctx, db, user.ID))(t)
@@ -134,7 +114,6 @@ func TestAPIKeyAndFeedToken(t *testing.T) {
 	require.NotEqual(t, first.Token, second.Token, "the old feed URL stops working")
 
 	for name, act := range map[string]func(*model.User) error{
-		"GenerateAPIKey":      func(u *model.User) error { return svc.GenerateAPIKey(ctx, u) },
 		"RegenerateFeedToken": func(u *model.User) error { return svc.RegenerateFeedToken(ctx, u) },
 		"SaveUserStyles":      func(u *model.User) error { return svc.SaveUserStyles(ctx, u, "x") },
 		"SaveGeneralSettings": func(u *model.User) error {

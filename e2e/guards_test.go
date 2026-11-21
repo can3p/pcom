@@ -16,6 +16,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
 	"github.com/google/uuid"
@@ -41,6 +42,8 @@ type guardWorld struct {
 	subscription       *model.UserFeedSubscription
 	feedItem           *model.UserFeedItem
 	prompt             *model.PostPrompt
+	note               *model.Note
+	source             *model.NoteSource
 	ownerClient        *e2e.Client
 	ownerSessionCookie []*http.Cookie
 }
@@ -91,6 +94,11 @@ func newGuardWorld(t *testing.T, app *e2e.App) *guardWorld {
 	w.prompt, err = factory.PostPrompt(ctx, db, w.friend.ID, w.owner.ID)
 	require.NoError(t, err)
 
+	w.source, err = factory.NoteSource(ctx, db, w.owner.ID)
+	require.NoError(t, err)
+	w.note, err = factory.Note(ctx, db, w.owner.ID, factory.WithNoteBody("a note"), factory.WithNoteTags("keep"), factory.FromSource(w.source.ID))
+	require.NoError(t, err)
+
 	require.NoError(t, factory.SetRegistrationOpen(ctx, db, true))
 
 	w.ownerClient = app.Client(t)
@@ -114,6 +122,8 @@ type dbSnapshot struct {
 	ItemHidden bool
 	Prompt     bool
 	LoggedInAs string
+	// Notes, tags and sources of every user of the world
+	Notes []string
 }
 
 // isWorldMail matches the mail a route could send in this world: mail
@@ -203,9 +213,55 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 	require.NoError(t, err)
 	s.Prompt = prompt.DismissedAt != nil
 
+	s.Notes = w.notesSnapshot(t)
+
 	s.LoggedInAs = currentUsername(t, w.ownerClient)
 
 	return s
+}
+
+// notesSnapshot lists the notes, tags and sources of
+// the world's users.
+func (w *guardWorld) notesSnapshot(t *testing.T) []string {
+	t.Helper()
+
+	ctx := context.Background()
+	store := repo.New(w.app.DB)
+
+	var out []string
+
+	for _, u := range []*model.User{w.owner, w.friend, w.stranger, w.requester} {
+		rows, err := store.ListNotes(ctx, repo.NoteFilter{UserID: u.ID})
+		require.NoError(t, err)
+
+		for _, r := range rows {
+			n := r.Note
+			out = append(out, fmt.Sprintf("note|%s|%s|%s|%v|%v|%s", n.ID, n.Body, n.UserID, n.Tags, n.TextTags, lo.FromPtr(n.SourceID)))
+
+			links, err := store.NotePostLinkCount(ctx, n.ID)
+			require.NoError(t, err)
+
+			out = append(out, fmt.Sprintf("note_post_links|%s|%d", n.ID, links))
+		}
+
+		tags, err := store.NoteTagCounts(ctx, u.ID)
+		require.NoError(t, err)
+
+		for _, tc := range tags {
+			out = append(out, fmt.Sprintf("tag|%s|%s|%d", u.ID, tc.Tag, tc.Count))
+		}
+
+		sources, err := store.NoteSourceCounts(ctx, u.ID)
+		require.NoError(t, err)
+
+		for _, sc := range sources {
+			out = append(out, fmt.Sprintf("source|%s|%s|%d", u.ID, sc.Source.Title, sc.Notes))
+		}
+	}
+
+	slices.Sort(out)
+
+	return out
 }
 
 // currentUsername is the username the navbar greets on /feed, or "" when the
@@ -250,6 +306,14 @@ var guardRoutes = []guardRoute{
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
 	{http.MethodGet, "/controls/", staticPath("/controls/"), noExtra},
+	{http.MethodGet, "/controls/notes", staticPath("/controls/notes"), noExtra},
+	{http.MethodGet, "/controls/notes/manage", staticPath("/controls/notes/manage"), noExtra},
+	{http.MethodGet, "/controls/notes/picker", staticPath("/controls/notes/picker"), noExtra},
+	{http.MethodGet, "/controls/notes/new", staticPath("/controls/notes/new"), noExtra},
+	{http.MethodGet, "/controls/notes/sw.js", staticPath("/controls/notes/sw.js"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/edit", func(w *guardWorld) string { return "/controls/notes/" + w.note.ID + "/edit" }, noExtra},
+	{http.MethodGet, "/controls/notes/sources/:id", func(w *guardWorld) string { return "/controls/notes/sources/" + w.source.ID }, noExtra},
+	{http.MethodGet, "/controls/notes/sources/:id/edit", func(w *guardWorld) string { return "/controls/notes/sources/" + w.source.ID + "/edit" }, noExtra},
 	{http.MethodGet, "/controls/settings", staticPath("/controls/settings"), noExtra},
 
 	// /controls/action (actions.go and logout)
@@ -277,6 +341,10 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/delete_draft", staticPath("/controls/action/delete_draft"),
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.draft.ID} }},
 	{http.MethodPost, "/controls/action/generate_api_key", staticPath("/controls/action/generate_api_key"), noExtra},
+	{http.MethodPost, "/controls/action/revoke_api_key", staticPath("/controls/action/revoke_api_key"),
+		func(*guardWorld) map[string]string {
+			return map[string]string{"id": "0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60"}
+		}},
 	{http.MethodPost, "/controls/action/regenerate_feed_token", staticPath("/controls/action/regenerate_feed_token"), noExtra},
 	{http.MethodPost, "/controls/action/dismiss_prompt", staticPath("/controls/action/dismiss_prompt"),
 		func(w *guardWorld) map[string]string { return map[string]string{"promptId": w.prompt.ID} }},
@@ -289,6 +357,14 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/delete_share", staticPath("/controls/action/delete_share"),
 		func(w *guardWorld) map[string]string { return map[string]string{"postId": w.published.ID} }},
 	{http.MethodPost, "/controls/action/upload_media", staticPath("/controls/action/upload_media"), noExtra},
+	{http.MethodPost, "/controls/action/note_audio", staticPath("/controls/action/note_audio"), noExtra},
+	{http.MethodPost, "/controls/action/note_retranscribe", staticPath("/controls/action/note_retranscribe"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"note_id": w.note.ID, "language": "ru"}
+		}},
+	{http.MethodPost, "/controls/action/note_capture", staticPath("/controls/action/note_capture"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/audio", staticPath("/controls/notes/0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60/audio"), noExtra},
+	{http.MethodGet, "/controls/notes/:id/status", staticPath("/controls/notes/0190a5c4-7b1e-7d2a-9a43-1c2b3d4e5f60/status"), noExtra},
 	{http.MethodGet, "/controls/proofread_style/:post_id", func(w *guardWorld) string { return "/controls/proofread_style/" + w.published.ID }, noExtra},
 	{http.MethodPost, "/controls/action/proofread_grammar", staticPath("/controls/action/proofread_grammar"),
 		func(w *guardWorld) map[string]string { return map[string]string{"subject": "s", "body": "b"} }},
@@ -306,6 +382,28 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/settings/import", staticPath("/controls/action/settings/import"), noExtra},
 	{http.MethodPost, "/controls/action/subscribers/:id/remove", staticPath("/controls/action/subscribers/" + uuid.Nil.String() + "/remove"), noExtra},
 
+	// notes
+	{http.MethodPost, "/controls/notes/share", staticPath("/controls/notes/share"),
+		func(*guardWorld) map[string]string { return map[string]string{"text": "A forged share"} }},
+	{http.MethodPost, "/controls/action/note_mark_used", staticPath("/controls/action/note_mark_used"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_delete", staticPath("/controls/action/note_delete"),
+		func(w *guardWorld) map[string]string { return map[string]string{"noteId": w.note.ID} }},
+	{http.MethodPost, "/controls/action/note_delete_many", staticPath("/controls/action/note_delete_many"),
+		func(w *guardWorld) map[string]string { return map[string]string{"ids": w.note.ID} }},
+	{http.MethodPost, "/controls/action/note_tag_many", staticPath("/controls/action/note_tag_many"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"ids": w.note.ID, "tags": "forged"}
+		}},
+	{http.MethodPost, "/controls/action/note_tag_rename", staticPath("/controls/action/note_tag_rename"),
+		func(*guardWorld) map[string]string { return map[string]string{"tag": "keep", "to": "forged2"} }},
+	{http.MethodPost, "/controls/action/note_source_set", staticPath("/controls/action/note_source_set"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"ids": w.note.ID, "title": "Forged"}
+		}},
+
 	// /controls/form
 	{http.MethodPost, "/controls/form/whitelist_connection", staticPath("/controls/form/whitelist_connection"),
 		func(w *guardWorld) map[string]string { return map[string]string{"uname": w.stranger.Username} }},
@@ -318,6 +416,14 @@ var guardRoutes = []guardRoute{
 				"visibility": string(model.PostVisibilityDirectOnly), "save_action": "save_post",
 			}
 		}},
+	{http.MethodPost, "/controls/form/note_create", staticPath("/controls/form/note_create"),
+		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged note"} }},
+	{http.MethodPost, "/controls/form/note_edit/:id", func(w *guardWorld) string { return "/controls/form/note_edit/" + w.note.ID },
+		func(*guardWorld) map[string]string { return map[string]string{"body": "a forged edit"} }},
+	{http.MethodPost, "/controls/form/note_source_add", staticPath("/controls/form/note_source_add"),
+		func(*guardWorld) map[string]string { return map[string]string{"title": "A forged source"} }},
+	{http.MethodPost, "/controls/form/note_source_edit/:id", func(w *guardWorld) string { return "/controls/form/note_source_edit/" + w.source.ID },
+		func(*guardWorld) map[string]string { return map[string]string{"title": "A forged title"} }},
 	{http.MethodPost, "/controls/form/new_comment", staticPath("/controls/form/new_comment"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"post_id": w.published.ID, "body": "a forged comment"}
@@ -382,8 +488,32 @@ var excludedRoutes = map[string]string{
 	"POST /api/v1/posts/:id":   "bearer-token API, covered in api_test.go",
 	"DELETE /api/v1/posts/:id": "bearer-token API, covered in api_test.go",
 	"PUT /api/v1/image":        "bearer-token API, covered in api_test.go",
+	"POST /api/v1/notes":       "bearer-token API, covered in api_notes_test.go",
+	"GET /api/v1/notes":        "bearer-token API, covered in api_notes_test.go",
 
 	"POST /subscriptions/:manage_token/unsubscribe/:subscription_id": "the one-click unsubscribe of RFC 8058: the mail client posts it with no session and no CSRF token; subscriptions_test.go",
+}
+
+// csrfExempt are the guarded POSTs that take no CSRF token, with the reason;
+// TestGuards_CSRFRequired leaves them out, and each has its own test.
+var csrfExempt = map[string]string{
+	"POST /controls/notes/share": "the share target of the installed app: the phone posts the share sheet's form, which can't carry a token; safe because the session cookie is SameSite=Lax and the notes service worker queues a share only on a network failure; TestGuards_ShareTarget, TestNotesShare_CrossSiteCreatesNothing",
+}
+
+// TestGuards_CSRFExemptAreGuardRoutes keeps csrfExempt to routes of
+// guardRoutes: a key that names no route (a typo, a removed route) would
+// exempt nothing and hide that.
+func TestGuards_CSRFExemptAreGuardRoutes(t *testing.T) {
+	t.Parallel()
+
+	keys := map[string]bool{}
+	for _, r := range guardRoutes {
+		keys[r.key()] = true
+	}
+
+	for k := range csrfExempt {
+		require.True(t, keys[k], "csrfExempt names %q, which is not in guardRoutes", k)
+	}
 }
 
 var routeRe = regexp.MustCompile(`\b(\w+)\.(GET|POST|PUT|DELETE)\("([^"]*)"(.*)$`)
@@ -402,6 +532,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_auth.go":          {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_connections.go":   {"controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_posts.go":         {"r": "", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_notes.go":         {"controls": "/controls", "controlsForms": "/controls/form", "actions": "/controls/action"},
 		"../pkg/web/app/routes_settings.go":      {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_feeds.go":         {"controlsForms": "/controls/form"},
 		"../pkg/web/app/actions_export.go":       {"r": "/controls/action"},
@@ -414,7 +545,12 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/actions_settings.go":     {"r": "/controls/action"},
 		"../pkg/web/app/actions_media.go":        {"r": "/controls/action"},
 		"../pkg/web/app/actions_proofread.go":    {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_audio.go":   {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_picker.go":  {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_capture.go": {"controls": "/controls", "actions": "/controls/action"},
+		"../pkg/web/app/routes_notes_share.go":   {"controls": "/controls"},
 		"../pkg/web/app/api.go":                  {"r": "/api/v1"},
+		"../pkg/web/app/api_notes.go":            {"r": "/api/v1"},
 	}
 
 	want := map[string]bool{}
@@ -594,7 +730,7 @@ func TestGuards_CSRFRequired(t *testing.T) {
 	}
 
 	for _, r := range guardRoutes {
-		if !isMutating(r) {
+		if !isMutating(r) || csrfExempt[r.key()] != "" {
 			continue
 		}
 
@@ -659,12 +795,54 @@ func TestGuards_CSRFTokenAccepted(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
+// TestGuards_ShareTarget: the share target takes the session alone, as the
+// phone's share sheet sends no CSRF token, and saves the share as the
+// session's user's note. A cross-site POST carries no session (the cookie is
+// SameSite=Lax), so it lands on the login page and creates nothing.
+func TestGuards_ShareTarget(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t)
+	w := newGuardWorld(t, app)
+	before := w.snapshot(t)
+	share := func(cookies []*http.Cookie, text string) rawResponse {
+		return rawRequest(t, app, cookies, http.MethodPost, "/controls/notes/share",
+			"application/x-www-form-urlencoded", url.Values{"text": {text}}.Encode(), "")
+	}
+
+	resp := share(nil, "A forged share")
+	require.Equal(t, http.StatusFound, resp.StatusCode)
+	require.True(t, strings.HasPrefix(resp.Header.Get("Location"), "/login?"))
+	require.Equal(t, before, w.snapshot(t))
+
+	resp = share(w.ownerSessionCookie, "   ")
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Equal(t, before, w.snapshot(t))
+
+	resp = share(w.ownerSessionCookie, "A shared passage")
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	loc, err := url.Parse(resp.Header.Get("Location"))
+	require.NoError(t, err)
+	require.Equal(t, "/controls/notes/new", loc.Path)
+
+	note, err := repo.New(app.DB).NoteByID(context.Background(), loc.Query().Get("shared"))
+	require.NoError(t, err)
+	require.Equal(t, w.owner.ID, note.UserID)
+	require.Equal(t, "> A shared passage", note.Body)
+}
+
 // TestGuards_ForeignObjects: acting on objects that belong to someone else is
 // refused and leaves the database unchanged.
 func TestGuards_ForeignObjects(t *testing.T) {
 	t.Parallel()
 
-	app := e2e.Start(t)
+	// transcription is on (never called), so "transcribe again" is refused for
+	// the note's owner, not for the missing backend
+	app := e2e.Start(t,
+		e2e.WithEnv("STT_PROVIDER", "openai-compat"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_ENDPOINT", "http://127.0.0.1:1/stt"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_KEY", "unused"))
 	ctx := context.Background()
 	db := app.DB
 
@@ -715,6 +893,108 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		mine, err := factory.ListPosts(ctx, db, p.attacker.ID)
 		require.NoError(t, err)
 		require.Empty(t, mine)
+	})
+
+	t.Run("change someone else's note", func(t *testing.T) {
+		t.Parallel()
+
+		p := newPair(t)
+		src, err := factory.NoteSource(ctx, db, p.victim.ID)
+		require.NoError(t, err)
+		note, err := factory.Note(ctx, db, p.victim.ID, factory.WithNoteBody("private"), factory.WithNoteTags("mine"), factory.FromSource(src.ID))
+		require.NoError(t, err)
+
+		store := repo.New(db)
+		snapshot := func() string {
+			n, err := store.NoteByID(ctx, note.ID)
+			require.NoError(t, err)
+
+			tags, err := store.NoteTagCounts(ctx, p.victim.ID)
+			require.NoError(t, err)
+
+			sources, err := store.NoteSourceCounts(ctx, p.victim.ID)
+			require.NoError(t, err)
+
+			titles := make([]string, len(sources))
+			for i, sc := range sources {
+				titles[i] = fmt.Sprintf("%s:%d", sc.Source.Title, sc.Notes)
+			}
+
+			links, err := store.NotePostLinkCount(ctx, note.ID)
+			require.NoError(t, err)
+
+			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%d", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, titles, links)
+		}
+
+		victimPost, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
+		require.NoError(t, err)
+		attackerNote, err := factory.Note(ctx, db, p.attacker.ID, factory.WithNoteBody("mine"), factory.WithNoteTags("own"))
+		require.NoError(t, err)
+
+		before := snapshot()
+
+		p.attackerClient.Get("/controls/notes/" + note.ID + "/edit").RequireStatus(http.StatusNotFound)
+
+		// the edit form answers in place, with the failure as its status
+		resp := p.attackerClient.PostForm("/controls/form/note_edit/"+note.ID, url.Values{"body": {"hijacked"}, "tags": {"forged"}})
+		require.Contains(t, resp.Body, "Not saved")
+
+		// the victim's source: not shown, not renamed, not given to the
+		// attacker's notes, new or edited
+		p.attackerClient.Get("/controls/notes/sources/" + src.ID).RequireStatus(http.StatusNotFound)
+		p.attackerClient.Get("/controls/notes/sources/" + src.ID + "/edit").RequireStatus(http.StatusNotFound)
+
+		resp = p.attackerClient.PostForm("/controls/form/note_source_edit/"+src.ID, url.Values{"title": {"Forged"}})
+		require.Contains(t, resp.Body, "Not saved")
+
+		resp = p.attackerClient.PostForm("/controls/form/note_edit/"+attackerNote.ID, url.Values{"body": {"mine"}, "tags": {"own"}, "source_id": {src.ID}})
+		require.Contains(t, resp.Body, "Not saved")
+
+		resp = p.attackerClient.PostForm("/controls/form/note_create", url.Values{"body": {"stolen source"}, "source_id": {src.ID}})
+		require.Contains(t, resp.Body, "Not saved")
+
+		own, err := store.NoteByID(ctx, attackerNote.ID)
+		require.NoError(t, err)
+		require.Nil(t, own.SourceID)
+
+		forged, err := store.NoteSourceByMatchKey(ctx, p.attacker.ID, model.NoteSourceMatchKey("Forged"))
+		require.NoError(t, err)
+		require.Nil(t, forged)
+
+		for action, payload := range map[string]map[string]string{
+			"note_delete":       {"noteId": note.ID},
+			"note_delete_many":  {"ids": note.ID},
+			"note_tag_many":     {"ids": note.ID, "tags": "forged"},
+			"note_retranscribe": {"note_id": note.ID, "language": "ru"},
+			"note_source_set":   {"ids": note.ID, "title": "Forged"},
+			// a foreign note in a foreign post
+			"note_mark_used": {"noteId": note.ID, "postId": victimPost.ID},
+		} {
+			p.attackerClient.PostJSON("/controls/action/"+action, payload).RequireStatus(http.StatusBadRequest)
+		}
+
+		// the attacker's own note may not go into somebody else's post, nor
+		// somebody else's note into the attacker's post
+		attackerPost, err := factory.Post(ctx, db, p.attacker.ID)
+		require.NoError(t, err)
+
+		for _, payload := range []map[string]string{
+			{"noteId": attackerNote.ID, "postId": victimPost.ID},
+			{"noteId": note.ID, "postId": attackerPost.ID},
+		} {
+			p.attackerClient.PostJSON("/controls/action/note_mark_used", payload).RequireStatus(http.StatusBadRequest)
+		}
+
+		n, err := store.NotePostLinkCount(ctx, attackerNote.ID)
+		require.NoError(t, err)
+		require.Zero(t, n)
+
+		require.Equal(t, before, snapshot())
+
+		// the refused create made no note: the attacker has only their own
+		mine, err := store.ListNotes(ctx, repo.NoteFilter{UserID: p.attacker.ID})
+		require.NoError(t, err)
+		require.Len(t, mine, 1)
 	})
 
 	t.Run("delete someone else's draft", func(t *testing.T) {
@@ -839,7 +1119,7 @@ func TestGuards_ForeignObjects(t *testing.T) {
 		victimKeys, err := factory.ListAPIKeys(ctx, db, p.victim.ID)
 		require.NoError(t, err)
 		require.Len(t, victimKeys, 1)
-		require.Equal(t, key.APIKey, victimKeys[0].APIKey)
+		require.Equal(t, key.KeyHash, victimKeys[0].KeyHash)
 	})
 
 	t.Run("remove someone else's feed subscription", func(t *testing.T) {

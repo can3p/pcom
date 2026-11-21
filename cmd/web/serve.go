@@ -28,9 +28,12 @@ import (
 	"github.com/can3p/pcom/pkg/proofread/claude"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/accounts"
+	"github.com/can3p/pcom/pkg/service/notes"
 	proofreadsvc "github.com/can3p/pcom/pkg/service/proofread"
 	"github.com/can3p/pcom/pkg/service/registry"
 	"github.com/can3p/pcom/pkg/service/subscriptions"
+	"github.com/can3p/pcom/pkg/stt"
+	"github.com/can3p/pcom/pkg/stt/openaicompat"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -47,6 +50,10 @@ type serveCmd struct {
 
 func (c *serveCmd) Execute([]string) error {
 	cfg := c.Serve
+
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
 
 	applyProcessSettings(cfg)
 
@@ -92,10 +99,16 @@ func (c *serveCmd) Execute([]string) error {
 		return err
 	}
 
+	sttBackend, err := newSTT(cfg.STT)
+	if err != nil {
+		return err
+	}
+
 	deps := &app.Deps{
 		DB:           db,
 		Jobs:         inserter,
 		MediaStorage: mediaStorage,
+		STT:          sttBackend,
 		MediaServer:  mediaServer,
 		Logger:       logger,
 		Config:       appConfig(cfg, app.LoadStaticManifest(cfg.Web.StaticCDN)),
@@ -153,7 +166,7 @@ func startJobs(ctx context.Context, db *sql.DB, services *registry.Services, del
 	reg := jobs.NewRegistry(repo.New(db), delivery, jobs.WithRetryIntervals(cfg.Mail.RetryIntervals))
 	services.RegisterJobs(reg)
 
-	runner, err := jobs.NewRunner(db, reg, jobs.WithPollInterval(cfg.Jobs.PollInterval), jobs.WithWorkers(cfg.Jobs.Workers), jobs.WithRetention(cfg.Jobs.Retention), jobs.WithLogger(logger))
+	runner, err := jobs.NewRunner(db, reg, jobs.WithPollInterval(cfg.Jobs.PollInterval), jobs.WithWorkers(cfg.Jobs.Workers), jobs.WithQueue(notes.QueueSTT, cfg.STT.Workers), jobs.WithRetention(cfg.Jobs.Retention), jobs.WithLogger(logger))
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +253,53 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		Proofread:             proofreadConfig(cfg.Proofread),
 		Subscriptions:         subscriptionsOptions(cfg.Subscriptions, newEmailChecker(cfg.Email)),
 		Abuse:                 abuseOptions(cfg.Subscriptions),
+		Notes:                 notesOptions(cfg.Notes, cfg.STT),
+	}
+}
+
+// newSTT builds the speech-to-text backend STT_PROVIDER names, wrapped in
+// the shared retries; nil when no provider is set and transcription is off.
+func newSTT(cfg config.STT) (notes.STT, error) {
+	registry := stt.Registry{
+		config.STTProviderOpenAICompat: func() (stt.Backend, error) {
+			return openaicompat.New(openaicompat.Options{
+				Endpoint: cfg.OpenAICompat.Endpoint,
+				Model:    cfg.OpenAICompat.Model,
+				Key:      cfg.OpenAICompat.Key.Reveal(),
+				Timeout:  cfg.Timeout,
+			}), nil
+		},
+	}
+
+	b, err := registry.Backend(cfg.Provider)
+	if err != nil || b == nil {
+		return nil, err
+	}
+
+	return stt.Retry(b, stt.RetryOptions{}), nil
+}
+
+// notesOptions is the notes service's view of the notes and speech-to-text
+// settings. The backend itself is built apart; without one transcription is
+// off.
+func notesOptions(cfg config.Notes, stt config.STT) []notes.Option {
+	return []notes.Option{
+		notes.WithLimits(notes.Limits{
+			BodyMaxLength:        cfg.BodyMaxLength,
+			TagMaxLength:         cfg.TagMaxLength,
+			TagsMax:              cfg.TagsMax,
+			SourceTitleMaxLength: cfg.SourceTitleMaxLength,
+			PhotoMaxDimension:    cfg.PhotoMaxDimension,
+			AudioMaxDuration:     cfg.AudioMaxDuration,
+			AudioMaxBytes:        cfg.AudioMaxBytes,
+			AudioBitrate:         cfg.AudioBitrate,
+			CaptureMaxBytes:      cfg.CaptureMaxBytes,
+			QuoteSourceWindow:    cfg.QuoteSourceWindow,
+			PanelTags:            cfg.PanelTags,
+			STTMinutesPerDay:     stt.MinutesPerDay,
+			STTSiteMinutesPerDay: stt.SiteMinutesPerDay,
+		}),
+		notes.WithSTTAttempts(stt.Attempts),
 	}
 }
 

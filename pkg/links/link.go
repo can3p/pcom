@@ -15,6 +15,8 @@ func Link(name string, args ...string) string {
 	var fragment string
 
 	switch name {
+	case "home":
+		out = "/"
 	case "default_authorized_home":
 		out = DefaultAuthorizedHome()
 	case "controls":
@@ -108,6 +110,42 @@ func Link(name string, args ...string) string {
 		out = "/subscriptions/" + manageToken + "/unsubscribe/" + builder.Shift()
 	case "subscriptions_lost":
 		out = "/subscriptions"
+	case "notes":
+		out = "/controls/notes"
+	case "notes_new":
+		out = "/controls/notes/new"
+	case "notes_manage":
+		out = "/controls/notes/manage"
+	case "notes_picker":
+		out = "/controls/notes/picker"
+	case "notes_share":
+		out = "/controls/notes/share"
+	case "notes_sw":
+		out = "/controls/notes/sw.js"
+	case "notes_scope":
+		out = "/controls/notes/"
+	case "note_edit":
+		out = "/controls/notes/" + builder.Shift() + "/edit"
+	case "note_audio":
+		out = "/controls/notes/" + builder.Shift() + "/audio"
+	case "note_status":
+		out = "/controls/notes/" + builder.Shift() + "/status"
+	case "note_source":
+		out = "/controls/notes/sources/" + builder.Shift()
+	case "note_source_edit":
+		out = "/controls/notes/sources/" + builder.Shift() + "/edit"
+	case "form_note_create":
+		out = "/controls/form/note_create"
+	case "form_note_edit":
+		out = "/controls/form/note_edit/" + builder.Shift()
+	case "form_note_source_add":
+		out = "/controls/form/note_source_add"
+	case "form_note_source_edit":
+		out = "/controls/form/note_source_edit/" + builder.Shift()
+	case "api_notes":
+		out = "/api/v1/notes"
+	case "manifest":
+		out = "/site.webmanifest"
 	case "login":
 		out = "/login"
 	case "signup":

@@ -31,6 +31,7 @@ type Storage struct {
 	uploadErr   error
 	downloadErr error
 	existsErr   error
+	deleteErr   error
 }
 
 // New returns an empty Storage.
@@ -60,6 +61,14 @@ func (s *Storage) FailExistsWith(err error) {
 	defer s.mu.Unlock()
 
 	s.existsErr = err
+}
+
+// FailDeleteWith makes DeleteFile return err. Pass nil to clear it.
+func (s *Storage) FailDeleteWith(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.deleteErr = err
 }
 
 // UploadFile implements server.MediaStorage.
@@ -113,4 +122,31 @@ func (s *Storage) ObjectExists(ctx context.Context, fname string) (bool, error) 
 	_, ok := s.objects[fname]
 
 	return ok, nil
+}
+
+// DeleteFile implements server.MediaStorage; a missing file is not an error.
+func (s *Storage) DeleteFile(ctx context.Context, fname string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
+
+	delete(s.objects, fname)
+
+	return nil
+}
+
+// Names returns the names of the stored objects, in no order.
+func (s *Storage) Names() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	names := make([]string, 0, len(s.objects))
+	for name := range s.objects {
+		names = append(names, name)
+	}
+
+	return names
 }

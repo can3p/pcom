@@ -8,12 +8,16 @@ package screenshots_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
@@ -50,6 +54,8 @@ type shot struct {
 	prepare func(t *testing.T, page playwright.Page)
 	// ready is a selector that must be visible before the capture.
 	ready string
+	// phone takes the shot at a phone's size.
+	phone bool
 }
 
 var shots = []shot{
@@ -64,7 +70,15 @@ var shots = []shot{
 	{file: "subscribe.png", path: "/users/carol", prepare: openSubscribe, ready: "[data-testid=subscribe-form]"},
 	{file: "subscriptions.png", path: "/subscriptions/{token}", ready: "[data-testid=subscriptions-list]"},
 	{file: "controls.png", user: "alice", path: "/controls", ready: "#email-subscribers-title"},
+	{file: "notes.png", user: "alice", path: "/controls/notes", ready: "[data-testid=note]"},
+	{file: "note-edit.png", user: "alice", path: "/controls/notes/{note}/edit", ready: "#note-tags"},
+	{file: "capture.png", user: "alice", path: "/controls/notes/new", phone: true, ready: ".capture-mode"},
+	{file: "notes-panel.png", user: "alice", path: "/write", prepare: openNotesPanel, ready: "[data-testid=picker-note]"},
+	{file: "api-keys.png", user: "alice", path: "/controls/settings", prepare: createNotesKey, ready: "[data-testid=api-key]"},
 }
+
+// screenshotAPIKey is a full API key of alice's that the shots make notes with.
+const screenshotAPIKey = "screenshots-api-key"
 
 const editorBody = `Hello from **pcom**!
 
@@ -93,7 +107,11 @@ func checkGrammar(t *testing.T, page playwright.Page) {
 }
 
 func TestScreenshots(t *testing.T) {
-	app := e2e.Start(t, e2e.WithRealAssets(), e2e.WithWireMock())
+	// STT_PROVIDER shows the record button; no recording is sent to the stub
+	app := e2e.Start(t, e2e.WithRealAssets(), e2e.WithWireMock(),
+		e2e.WithEnv("STT_PROVIDER", "openai-compat"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_ENDPOINT", "http://127.0.0.1:9/stt"),
+		e2e.WithEnv("STT_OPENAI_COMPAT_KEY", "unused"))
 	require.NoError(t, seed.Run(context.Background(), app.DB, io.Discard, seed.Options{}))
 	require.NoError(t, os.MkdirAll(outDir, 0o755))
 
@@ -117,12 +135,22 @@ func TestScreenshots(t *testing.T) {
 	require.NoError(t, err)
 	dana, err := factory.GetEmailSubscriber(ctx, app.DB, "dana@example.test")
 	require.NoError(t, err)
-	placeholders := strings.NewReplacer("{post}", postID, "{token}", dana.ManageToken)
+	_, err = factory.APIKey(ctx, app.DB, alice.ID, factory.WithAPIKey(screenshotAPIKey))
+	require.NoError(t, err)
+	noteID := addNotes(t, app)
+
+	placeholders := strings.NewReplacer("{post}", postID, "{token}", dana.ManageToken, "{note}", noteID)
 
 	for _, s := range shots {
 		t.Run(s.file, func(t *testing.T) {
+			viewport := playwright.Size{Width: 1280, Height: 800}
+			if s.phone {
+				viewport = playwright.Size{Width: 390, Height: 844}
+			}
 			opts := []browser.PageOption{browser.Configure(func(o *playwright.BrowserNewContextOptions) {
-				o.Viewport = &playwright.Size{Width: 1280, Height: 800}
+				o.Viewport = &viewport
+				o.IsMobile = new(s.phone)
+				o.HasTouch = new(s.phone)
 				o.ColorScheme = playwright.ColorSchemeLight
 			})}
 			// signed in the way the browser tests are: several shots share a
@@ -163,4 +191,84 @@ func openSubscribe(t *testing.T, page playwright.Page) {
 	t.Helper()
 
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Subscribe by email"}).Click())
+}
+
+// addNotes makes the notes the shots show, through the notes API as a phone
+// would. It returns the id of the note whose edit page is shot.
+func addNotes(t *testing.T, app *e2e.App) string {
+	t.Helper()
+
+	now := time.Now()
+	ago := func(d time.Duration) string { return now.Add(-d).Format(time.RFC3339) }
+
+	postNote(t, app, url.Values{
+		"kind":        {"quote"},
+		"source":      {"Moby-Dick"},
+		"text":        {"Call me Ishmael. Some years ago, having little or no money in my purse, I thought I would sail about a little and see the watery part of the world."},
+		"captured_at": {ago(72 * time.Hour)},
+	})
+
+	edit := postNote(t, app, url.Values{
+		"text":        {"The light on the river before seven. Write it down while it lasts. #walk #essay"},
+		"captured_at": {ago(2 * time.Hour)},
+	})
+
+	// three captures in one sitting make a stack
+	for i, text := range []string{"Outline: three examples of slow mornings", "The bakery sign on Hale Street", "Ask Mara about the ferry timetable #essay"} {
+		postNote(t, app, url.Values{"text": {text}, "captured_at": {ago(time.Duration(26-i*10) * time.Hour)}})
+	}
+
+	postNote(t, app, url.Values{"text": {"A post about carrying a notebook everywhere"}, "captured_at": {ago(5 * time.Hour)}})
+
+	return edit
+}
+
+// postNote makes one note with the API and returns its id.
+func postNote(t *testing.T, app *e2e.App, form url.Values) string {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPost, app.URL+"/api/v1/notes", strings.NewReader(form.Encode()))
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+screenshotAPIKey)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Less(t, resp.StatusCode, http.StatusMultipleChoices)
+
+	var out struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+
+	return out.Data.ID
+}
+
+// openNotesPanel writes a little, then shows the Notes tab of the editor's sidebar.
+func openNotesPanel(t *testing.T, page playwright.Page) {
+	t.Helper()
+
+	fillEditor(t, page)
+	// the sidebar starts collapsed in a fresh browser
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Show Notes", Exact: new(true)}).Click())
+}
+
+// createNotesKey makes a notes-only key through the form, then reloads, so
+// the one-time key is not in the shot.
+func createNotesKey(t *testing.T, page playwright.Page) {
+	t.Helper()
+
+	api := page.Locator("#api")
+	require.NoError(t, api.GetByLabel("Key name").Fill("iPhone"))
+	_, err := api.GetByLabel("Access").SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Notes only"}})
+	require.NoError(t, err)
+	require.NoError(t, api.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Create a key"}).Click())
+	require.NoError(t, page.Locator("[data-testid=api-key]").First().WaitFor())
+
+	_, err = page.Reload()
+	require.NoError(t, err)
+	require.NoError(t, page.Locator("#api").ScrollIntoViewIfNeeded())
 }
