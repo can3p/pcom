@@ -109,11 +109,12 @@ The answer is the note, with its source's title:
 
 ```
 curl -H'Authorization: Bearer <api-key>' -F 'text=Selected passage' -F kind=quote -F source=Dune -F 'image=@page.jpg' http://localhost:8080/api/v1/notes
-{"data":{"id":"019a5e1c-…","body":"![](019a5e1d-….jpg)\n\n> Selected passage","tags":[],"source":"Dune","transcription_status":"none","captured_at":"2026-11-07T08:15:42Z","images":["http://localhost:8080/user-media/019a5e1d-….jpg/full"]}}
+{"data":{"id":"019a5e1c-…","body":"![](019a5e1d-….jpg)\n\n> Selected passage","tags":[],"source":"Dune","transcription_status":"none","captured_at":"2026-11-07T08:15:42Z"}}
 ```
 
-`body` is markdown, as a post's is. `images` lists the full-size URLs of the photos uploaded to pcom that the
-body shows.
+`body` is markdown, as a post's is, and holds the note's photos as images: `![](<file>)`, where `<file>` is
+served at `/user-media/<file>/thumb` and `/user-media/<file>/full`. There is no separate list of photos; read
+them off the body.
 
 `transcription_status` is `pending` while a recording waits for its transcription, `done`, `failed`, or
 `none` when there is nothing to transcribe. Refused input gets `400` with the message to show and the
@@ -164,5 +165,5 @@ them), `q` (text in the body, any case).
 
 ```
 curl -H'Authorization: Bearer <api-key>' 'http://localhost:8080/api/v1/notes?limit=20&tag=walk'
-{"data":{"notes":[{"id":"019a5e1c-…","body":"…","tags":["walk"],"transcription_status":"done","captured_at":"2026-11-07T08:15:42Z","images":[]}],"cursor":"…"}}
+{"data":{"notes":[{"id":"019a5e1c-…","body":"…","tags":["walk"],"transcription_status":"done","captured_at":"2026-11-07T08:15:42Z"}],"cursor":"…"}}
 ```

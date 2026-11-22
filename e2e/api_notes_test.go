@@ -349,7 +349,7 @@ func storedOf(t *testing.T, app *e2e.App, userID string) stored {
 }
 
 // requireStoredAs checks that n, the API's answer, is the note stored last
-// for userID: its id and body, and its photos as their URLs in order.
+// for userID: its id and body, whose photos are uploads of the user.
 func requireStoredAs(t *testing.T, app *e2e.App, userID string, n web.ApiNote) stored {
 	t.Helper()
 
@@ -372,16 +372,9 @@ func requireStoredAs(t *testing.T, app *e2e.App, userID string, n web.ApiNote) s
 	}
 
 	// the photos are the body's images, each an upload of the user
-	urls := []string{}
-
-	photos, _ := capture.SplitPhotos(note.Body)
-	for _, p := range photos {
-		fname := strings.TrimSuffix(strings.TrimPrefix(p, "![]("), ")")
+	for _, fname := range photosIn(note.Body) {
 		require.True(t, fnames[fname], fname)
-		urls = append(urls, app.URL+"/user-media/"+fname+"/full")
 	}
-
-	require.Equal(t, urls, n.Images)
 
 	return s
 }
@@ -411,7 +404,6 @@ func TestAPINotes_Create(t *testing.T) {
 			require.Equal(t, "hello", n.Body, "typed text is kept as typed")
 			require.Empty(t, n.Tags)
 			require.Empty(t, n.Source)
-			require.Empty(t, n.Images)
 			require.Equal(t, model.NoteTranscriptionNone, n.TranscriptionStatus)
 			require.WithinDuration(t, time.Now(), n.CapturedAt, time.Minute, "no captured_at is now")
 			require.Empty(t, s.uploads)
@@ -462,9 +454,10 @@ func TestAPINotes_Create(t *testing.T) {
 		{name: "several images", parts: []part{file("image", "a.png", "image/png", png1), file("image", "b.jpg", "image/jpeg", jpg)},
 			want: func(t *testing.T, n web.ApiNote, s stored) {
 				require.Empty(t, textOf(n.Body), "the body is the photos alone")
-				require.Len(t, n.Images, 2)
-				require.True(t, strings.HasSuffix(n.Images[0], ".png/full"), "in the order sent")
-				require.True(t, strings.HasSuffix(n.Images[1], ".jpg/full"))
+				photos := photosIn(n.Body)
+				require.Len(t, photos, 2)
+				require.True(t, strings.HasSuffix(photos[0], ".png"), "in the order sent")
+				require.True(t, strings.HasSuffix(photos[1], ".jpg"))
 				require.Len(t, s.uploads, 2)
 			}},
 		{name: "a non-image image", parts: []part{file("image", "a.png", "image/png", png1), file("image", "notes.txt", "image/png", []byte("plain text"))},
@@ -488,7 +481,7 @@ func TestAPINotes_Create(t *testing.T) {
 			require.Equal(t, "> a passage", textOf(n.Body))
 			require.Equal(t, "Dune", n.Source)
 			require.Equal(t, []string{"sand"}, n.Tags)
-			require.Len(t, n.Images, 1)
+			require.Len(t, photosIn(n.Body), 1)
 			require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
 			require.Len(t, s.uploads, 1, "the photo")
 			require.Len(t, s.recordings, 1)
@@ -721,7 +714,7 @@ func TestAPINotes_ShortcutRequests(t *testing.T) {
 			field("kind", "share"), field("captured_at", now),
 			file("image", "IMG_0001.jpeg", "image/jpeg", jpg), file("image", "IMG_0002.jpeg", "image/jpeg", jpg),
 		}, func(t *testing.T, n web.ApiNote) {
-			require.Len(t, n.Images, 2)
+			require.Len(t, photosIn(n.Body), 2)
 			require.Empty(t, textOf(n.Body))
 		}},
 		{"Quote from photo: Take Photo + Extract Text from Image", []part{
@@ -729,7 +722,7 @@ func TestAPINotes_ShortcutRequests(t *testing.T) {
 			file("image", "Photo.jpeg", "image/jpeg", jpg),
 		}, func(t *testing.T, n web.ApiNote) {
 			require.Equal(t, "> Text the phone read\n> off the page", textOf(n.Body))
-			require.Len(t, n.Images, 1)
+			require.Len(t, photosIn(n.Body), 1)
 		}},
 	}
 
@@ -767,30 +760,21 @@ func TestAPINotes_HEIC(t *testing.T) {
 	n := decodeData[web.ApiNote](t, postNote(t, app, key, file("image", "IMG_0001.HEIC", "image/heic", heic)).RequireStatus(http.StatusOK).Body)
 	st := requireStoredAs(t, app, user.ID, n)
 
-	require.Len(t, n.Images, 1)
-	require.True(t, strings.HasSuffix(n.Images[0], ".jpg/full"), n.Images[0])
+	photos := photosIn(n.Body)
+	require.Len(t, photos, 1)
+	require.True(t, strings.HasSuffix(photos[0], ".jpg"), photos[0])
 	require.Len(t, st.uploads, 1)
 	require.Equal(t, "image/jpeg", st.uploads[0].ContentType)
 }
 
-// TestAPINotes_ImageURLsAreTheFullClass: the images of a note are URLs the
-// media server answers, which is the full class; the bare name is a 404.
-func TestAPINotes_ImageURLsAreTheFullClass(t *testing.T) {
-	t.Parallel()
+// photosIn are the file names of the photos of a note's body, in order.
+func photosIn(body string) []string {
+	photos, _ := capture.SplitPhotos(body)
+	for i, p := range photos {
+		photos[i] = strings.TrimSuffix(strings.TrimPrefix(p, "![]("), ")")
+	}
 
-	app := notesApp(t)
-	user := newUser(t, app)
-	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
-
-	n := decodeData[web.ApiNote](t, postNote(t, app, key, file("image", "a.png", "image/png", smallPNG(t))).RequireStatus(http.StatusOK).Body)
-	require.Len(t, n.Images, 1)
-	require.True(t, strings.HasSuffix(n.Images[0], "/full"), n.Images[0])
-
-	path := strings.TrimPrefix(n.Images[0], app.URL)
-	resp := app.Client(t).Get(path).RequireStatus(http.StatusOK)
-	require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "image/"))
-
-	app.Client(t).Get(strings.TrimSuffix(path, "/full")).RequireStatus(http.StatusNotFound)
+	return photos
 }
 
 // textOf is a note's body without its photos.

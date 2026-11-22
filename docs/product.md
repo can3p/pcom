@@ -275,7 +275,7 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   dictated (the transcript is written into it) or a photo. A captured photo is an image paragraph,
   `![](<upload file name>)`, before the captured text (`capture.WithPhotos`), so a photo-only note is one image,
   more photos are added or removed by editing the text, and the note renders, inserts into a post and leaves by the
-  API as that text. There is no separate list of a note's photos; the API's `images` are read off the body.
+  API as that text. There is no separate list of a note's photos, in the pages or the API: a client reads them off the body.
 - **Insert puts in the note's text.** The editor's Notes panel inserts the body, with a quote's attribution line
   after it, whatever it holds. A note with an empty body (a recording waiting for its transcript) has Insert off.
 - **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
