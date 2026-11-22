@@ -60,6 +60,9 @@ type shot struct {
 	attach bool
 }
 
+// shots run in order on one database, so each sees what the rows before it
+// changed: a row that adds or changes data builds on a seeded row (not a new
+// post, which shows up in the other pages' shots) and goes last.
 var shots = []shot{
 	{file: "index.png", path: "/", ready: "h1"},
 	{file: "journal.png", user: "bob", path: "/users/alice", ready: "h1"},

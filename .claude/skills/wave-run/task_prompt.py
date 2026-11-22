@@ -91,7 +91,8 @@ Done when: {done}.
 BROWSER_RUN = (", and your browser tests with `tools/qrun.sh test-ui go test -tags browser -count=1 -run"
                " '<tests>' ./e2e/browser/...` (not `make test-ui`: it rebuilds the assets other tasks share). If you"
                " change cmd/web/client/js or scss, rebuild once with `tools/qrun.sh ui-build yarn --cwd cmd/web build`"
-               " and say so under needs:")
+               " and say so under needs:. If you changed a template, controller or htmx attribute another page"
+               " uses, run the whole browser suite once before reporting: your own tests don't cover the others")
 
 
 def cells(line):

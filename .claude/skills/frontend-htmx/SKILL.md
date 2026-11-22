@@ -136,6 +136,15 @@ nonce shows up without a dedicated test. A test that provokes an error on purpos
 - The autosave of a new post writes the author's scratch pad (`post_scratches`, one row per user and prompt)
   instead of creating a post, so no `posts` row appears. A test waits for that save by the pad's `revision` in the
   DB (`padOf` in `e2e/browser/writing_test.go`), not by a post.
+- `hx-include` must name an element present on every page that renders the trigger: a selector that matches
+  nothing makes htmx log a console error, and the browser suite fails every test on that page. Keep the field in
+  the form that sends it, not in a fragment that arrives later.
+- View state a reader may reload or link to (which tab of a page is open) lives in the address (`#notes`, a query
+  parameter), not in `localStorage`. Change it with `history.replaceState` so tab clicks don't fill the back
+  button.
+- An uploaded image's address carries its size class: `/user-media/<fname>/thumb` or `/full`. The bare
+  `/user-media/<fname>` answers 404; the markdown renderer adds the class for post images, a template has to
+  add it itself.
 - The preview link opens the saved post, so it doesn't follow its href directly: `postform#preview` fires
   the form's `postform:save` trigger at once and opens the preview when that save is back.
 

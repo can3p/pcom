@@ -68,7 +68,8 @@ A wave file is a set of tasks a subagent can finish from its prompt alone. Befor
   include it (`write.html`, `edit_post.html` around `form--post.html`), the page type in `pkg/web/pages_*.go`
   and the route that builds it, not only the partial the feature lives in.
 - **A wave with new screens shows them to the owner before polishing them.** Plan a checkpoint after the
-  first page task: the owner uses the screen, and only then do the remaining page tasks and the audits run.
+  first page task, as a row of the wave's task table so the coordinator can't run past it: the owner uses the
+  screen, and only then do the remaining page tasks and the audits run.
   Tests prove what the plan specified, not that a person can use it; F15's notes pages passed every test and
   still needed a rework of their filters, capture box and editor panel.
 - **Every user-facing behavior names the task that builds its control.** A service method a page or the API

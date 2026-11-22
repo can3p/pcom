@@ -211,6 +211,8 @@ Reliability rules, because a red run must mean a real regression:
    request headers or call `window.htmx`, so the tests survive an htmx upgrade and catch one that breaks a page.
 2. **Wait by assertion only:** `browser.Expect` (Playwright's auto-waiting assertions), never a sleep or
    `WaitForTimeout`. A "nothing happened" check asserts on a state the action would have changed.
+   `IsVisible` and `Count` don't wait: after a click that navigates (a boosted link), assert the new page first
+   (`browser.Expect.Page(page).ToHaveURL(...)`), or the check reads the old page and the test fails now and then.
    Wait for something only the action's result shows: a word the page already holds before the click (a
    button's own label) passes at once, and the next navigation then races the reload and fails as
    `net::ERR_ABORTED` now and then.
