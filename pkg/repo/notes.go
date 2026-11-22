@@ -92,7 +92,8 @@ type NoteFilter struct {
 	Limit    int
 }
 
-// NoteRow is a note of a list and whether it is linked to a post.
+// NoteRow is a note of a list and whether it was inserted into a post;
+// attaching a note doesn't use it.
 type NoteRow struct {
 	Note *model.Note
 	Used bool
@@ -112,7 +113,7 @@ func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) 
 	q := s.query().NewSelect().
 		TableExpr("notes AS n").
 		ColumnExpr("n.id").
-		ColumnExpr("EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = n.id) AS used").
+		ColumnExpr("EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = n.id AND l.how = ?) AS used", model.NotePostLinkInserted).
 		Where("n.user_id = ?", f.UserID).
 		OrderExpr("n.captured_at DESC, n.id DESC")
 
@@ -162,6 +163,22 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 		ids[i] = r.ID
 	}
 
+	byID, err := s.notesByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := make([]NoteRow, 0, len(list))
+	for _, r := range list {
+		rows = append(rows, NoteRow{Note: byID[r.ID], Used: r.Used})
+	}
+
+	return rows, nil
+}
+
+// notesByIDs loads the notes with their sources and images (in position
+// order), by id.
+func (s *Store) notesByIDs(ctx context.Context, ids []string) (map[string]*model.Note, error) {
 	var notes []*model.Note
 
 	err := s.query().NewSelect().Model(&notes).
@@ -178,12 +195,7 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 		byID[n.ID] = n
 	}
 
-	rows := make([]NoteRow, 0, len(list))
-	for _, r := range list {
-		rows = append(rows, NoteRow{Note: byID[r.ID], Used: r.Used})
-	}
-
-	return rows, nil
+	return byID, nil
 }
 
 // TagCount is a tag of a user and the notes that carry it.
@@ -318,11 +330,11 @@ func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSour
 	return out, nil
 }
 
-// LinkNotePost records that the note was used in the post; a pair that is
-// already linked keeps its row.
+// LinkNotePost records that the note came into the post the way how says; a
+// link that exists already keeps its row.
 func (s *Store) LinkNotePost(ctx context.Context, noteID, postID string, how model.NotePostLinkHow) error {
 	_, err := s.query().NewInsert().Model(&model.NotePostLink{NoteID: noteID, PostID: postID, How: how}).
-		On("CONFLICT (note_id, post_id) DO NOTHING").Exec(ctx)
+		On("CONFLICT (note_id, post_id, how) DO NOTHING").Exec(ctx)
 
 	return err
 }

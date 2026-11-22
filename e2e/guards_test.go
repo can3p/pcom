@@ -180,6 +180,11 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 			for _, c := range comments {
 				s.Comments = append(s.Comments, c.ID+"|"+c.Body)
 			}
+
+			noteTags, err := repo.New(db).PostNoteTags(ctx, p.ID)
+			require.NoError(t, err)
+
+			s.Posts = append(s.Posts, fmt.Sprintf("post_note_tags|%s|%v", p.ID, noteTags))
 		}
 	}
 
@@ -238,10 +243,12 @@ func (w *guardWorld) notesSnapshot(t *testing.T) []string {
 			n := r.Note
 			out = append(out, fmt.Sprintf("note|%s|%s|%s|%v|%v|%s", n.ID, n.Body, n.UserID, n.Tags, n.TextTags, lo.FromPtr(n.SourceID)))
 
-			links, err := store.NotePostLinkCount(ctx, n.ID)
+			links, err := store.NoteLinks(ctx, n.ID)
 			require.NoError(t, err)
 
-			out = append(out, fmt.Sprintf("note_post_links|%s|%d", n.ID, links))
+			for _, l := range links {
+				out = append(out, fmt.Sprintf("note_post_links|%s|%s|%s", n.ID, l.PostID, l.How))
+			}
 		}
 
 		tags, err := store.NoteTagCounts(ctx, u.ID)
@@ -923,10 +930,10 @@ func TestGuards_ForeignObjects(t *testing.T) {
 				titles[i] = fmt.Sprintf("%s:%d", sc.Source.Title, sc.Notes)
 			}
 
-			links, err := store.NotePostLinkCount(ctx, note.ID)
+			links, err := store.NoteLinks(ctx, note.ID)
 			require.NoError(t, err)
 
-			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%d", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, titles, links)
+			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%v", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, titles, links)
 		}
 
 		victimPost, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
@@ -988,9 +995,13 @@ func TestGuards_ForeignObjects(t *testing.T) {
 			p.attackerClient.PostJSON("/controls/action/note_mark_used", payload).RequireStatus(http.StatusBadRequest)
 		}
 
-		n, err := store.NotePostLinkCount(ctx, attackerNote.ID)
+		links, err := store.NoteLinks(ctx, attackerNote.ID)
 		require.NoError(t, err)
-		require.Zero(t, n)
+		require.Empty(t, links)
+
+		postTags, err := store.PostNoteTags(ctx, victimPost.ID)
+		require.NoError(t, err)
+		require.Empty(t, postTags)
 
 		require.Equal(t, before, snapshot())
 
