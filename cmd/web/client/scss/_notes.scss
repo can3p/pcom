@@ -482,3 +482,33 @@
     }
   }
 }
+
+.np-caption {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font: 400 13px var(--font-ui);
+}
+
+// The two views are a segmented switch, the selected one filled like the
+// post page's Comments | Notes tabs.
+.np-scope {
+  gap: var(--space-1);
+
+  a {
+    padding: 4px var(--space-3);
+    border-radius: 999px;
+    text-decoration: none;
+
+    &[aria-current="true"] {
+      background: var(--sunken);
+      color: var(--title);
+      text-decoration: none;
+    }
+  }
+}
+
+// An attached note's button is filled: pressed.
+.np-ico.is-on {
+  background: var(--accent);
+  color: var(--on-accent);
+}

@@ -155,8 +155,8 @@ but their files stay on the server, as the images of deleted posts do.
 In the post editor, the sidebar beside the text has a **Notes** tab (see [Writing](writing.md) for the sidebar).
 It has a search box that works like the list's; under it are your most used tags, and each note shows its tags: a
 tap on any of them adds it to the search, so a tag whose name you forgot is one look away. A **This post | All notes**
-switch under the search opens on *This post* when the post has notes, and the search keeps the switch as you chose
-it. Each note has **Insert** (at the cursor), **Attach** (or **Detach**, for a note already attached), **Edit** (the
+switch under the search opens on *This post* when the post has notes; the line above the notes says which you are
+looking at, and the search keeps the switch as you chose it. Each note has **Insert** (at the cursor), **Attach** (or **Detach**, for a note already attached), **Edit** (the
 note in a new tab) and **Delete**. With the search on a tag, **Attach all notes tagged #x** attaches them all. A quote
 goes in with its attribution, such as *— *Title**. Inserting a note also attaches it to the post.
 
@@ -170,7 +170,7 @@ The text is copied into the post; the note stays as it is. Changing the post lat
 ### On the post page
 
 The post page has **Comments (n)** and **Notes (n)** tabs, for you alone, with comments first. A draft opens on its
-notes, and the browser remembers the last tab you chose. The notes attached to the post are grouped by how they came,
+notes. The tab is in the address: `/posts/<id>#notes` opens the notes, so a link or a reload keeps them. The notes attached to the post are grouped by how they came,
 one by one or by tag, and the tag bar above them filters them. Each has **Open** and **Detach**; Detach on a note
 that a tag brought hides it from this post without removing the tag, and the tag has its own Detach.
 

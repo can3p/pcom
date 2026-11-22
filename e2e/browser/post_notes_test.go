@@ -122,7 +122,8 @@ func TestPostNotes_AuthorToggleOnThePostPage(t *testing.T) {
 	require.NoError(t, bar.Click())
 	require.NoError(t, browser.Expect.Locator(section.GetByTestId("note")).ToHaveCount(2))
 
-	// the last choice is kept for this browser
+	// the tab is in the address, which a reload keeps
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+w.post.ID+`#notes$`)))
 	_, err = page.Reload()
 	require.NoError(t, err)
 	require.NoError(t, browser.Expect.Locator(postTab(page, "Notes (2)")).ToHaveAttribute("aria-selected", "true"))
@@ -131,6 +132,24 @@ func TestPostNotes_AuthorToggleOnThePostPage(t *testing.T) {
 	require.NoError(t, postTab(page, "Comments (0)").Click())
 	require.NoError(t, browser.Expect.Locator(postTab(page, "Comments (0)")).ToHaveAttribute("aria-selected", "true"))
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes")).ToBeHidden())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+w.post.ID+`#comments$`)))
+}
+
+// A link to /posts/<id>#notes opens on the notes, loaded on the first paint.
+func TestPostNotes_AddressOpensTheNotesTab(t *testing.T) {
+	t.Parallel()
+
+	w := newPostNotesWorld(t)
+	page := browser.Page(t, w.app, browser.As(w.author))
+
+	_, err := page.Goto("/posts/" + w.post.ID + "#notes")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(postTab(page, "Notes (2)")).ToHaveAttribute("aria-selected", "true"))
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes").GetByTestId("note")).ToHaveCount(2))
+
+	_, err = page.Goto("/posts/" + w.post.ID)
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(postTab(page, "Comments (0)")).ToHaveAttribute("aria-selected", "true"))
 }
 
 // A draft has no comments, so its page opens on the notes; Detach takes a note
@@ -270,7 +289,18 @@ func TestPostNotes_AttachFromTheEditor(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(2))
 	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose")).ToHaveCount(0))
 
+	// what is shown is said, and the selected view of the switch is marked
+	caption := notesPanel(page).GetByTestId("np-caption")
+	require.NoError(t, browser.Expect.Locator(caption).ToHaveText("Showing the notes of this post"))
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "This post"})).ToHaveAttribute("aria-current", "true"))
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"})).Not().ToHaveAttribute("aria-current", "true"))
+	// an attached note's button is the pressed Detach
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxone by hand").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Detach", Exact: new(true), Pressed: new(true)})).ToBeVisible())
+
 	require.NoError(t, notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"}).Click())
+	require.NoError(t, browser.Expect.Locator(caption).ToHaveText("Showing all notes"))
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"})).ToHaveAttribute("aria-current", "true"))
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Attach", Exact: new(true), Pressed: new(false)})).ToBeVisible())
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(3))
 	require.NoError(t, browser.Expect.Locator(pickerCards(page).GetByTestId("np-attached").Locator("visible=true")).ToHaveCount(2))
 	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose").GetByTestId("np-attached")).ToBeHidden())
@@ -367,4 +397,73 @@ func bodiesOfPost(t *testing.T, w *postNotesWorld, postID string) []string {
 	}
 
 	return out
+}
+
+// Attaching and detaching in the editor, saving, and going to the post's notes
+// shows the notes in the pane, and nothing else.
+func TestPostNotes_NotesPaneAfterSavingFromTheEditor(t *testing.T) {
+	t.Parallel()
+
+	w := newPostNotesWorld(t)
+	page := browser.Page(t, w.app, browser.As(w.author))
+
+	_, err := page.Goto("/posts/" + w.post.ID + "#notes")
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes").GetByTestId("note")).ToHaveCount(2))
+
+	// into the editor by its link, as a boosted visit
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Edit", Exact: new(true)}).Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+w.post.ID+`/edit$`)))
+	openNotes(t, page)
+	require.NoError(t, notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"}).Click())
+	require.NoError(t, attachButton(page, "zqxthree loose", "Attach").Click())
+	require.NoError(t, attachButton(page, "zqxthree loose", "Detach").Click())
+	require.NoError(t, attachButton(page, "zqxthree loose", "Attach").Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Detach")).ToBeVisible())
+	require.NoError(t, writeButton(page, "Save Post").Click())
+
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(regexp.MustCompile(`/posts/`+w.post.ID+`$`)))
+	require.NoError(t, postTab(page, "Notes (3)").Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes").GetByTestId("note")).ToHaveCount(3))
+	require.NoError(t, browser.Expect.Locator(page.Locator("#post-pane-notes").GetByRole("navigation")).ToHaveCount(0))
+
+	// back to the editor and forward again: the tab is still the address's
+	_, err = page.GoBack()
+	require.NoError(t, err)
+	_, err = page.GoForward()
+	require.NoError(t, err)
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes").GetByTestId("note")).ToHaveCount(3))
+	require.NoError(t, browser.Expect.Locator(page.Locator("#post-pane-notes").GetByRole("navigation")).ToHaveCount(0))
+}
+
+// A post page that a boosted link opens, as htmx swaps it in, still loads its
+// notes: with #notes in the link, and for a draft without it.
+func TestPostNotes_OpenedByABoostedLinkShowsItsNotes(t *testing.T) {
+	t.Parallel()
+
+	w := newPostNotesWorld(t)
+	ctx := context.Background()
+	draft := testutil.Must(factory.Post(ctx, w.app.DB, w.author.ID, factory.WithSubject("Drafty")))(t)
+	require.NoError(t, w.svc.Attach(ctx, w.author, w.loose.ID, draft.ID))
+
+	page := browser.Page(t, w.app, browser.As(w.author))
+
+	for href, want := range map[string]int{"/posts/" + w.post.ID + "#notes": 2, "/posts/" + draft.ID: 1} {
+		_, err := page.Goto("/feed")
+		require.NoError(t, err)
+
+		// a link added to the page, which htmx boosts like the ones it came with
+		_, err = page.Evaluate(`href => {
+			const a = document.createElement("a")
+			a.href = href
+			a.textContent = "boosted link"
+			document.body.append(a)
+			htmx.process(a)
+		}`, href)
+		require.NoError(t, err)
+		require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "boosted link"}).Click())
+
+		require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes").GetByTestId("note")).ToHaveCount(want), href)
+		require.NoError(t, browser.Expect.Locator(page.Locator("#post-pane-notes").GetByRole("navigation")).ToHaveCount(0), href)
+	}
 }

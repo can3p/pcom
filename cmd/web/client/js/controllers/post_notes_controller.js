@@ -1,35 +1,33 @@
 import { Controller } from "@hotwired/stimulus"
 
-// The author's Comments | Notes toggle of a post page. Comments show first, a
-// draft (which has none) opens on its notes, and the choice is kept per
-// browser.
+// The author's Comments | Notes toggle of a post page. The tab is in the
+// address (#comments or #notes): /posts/<id>#notes shows the notes, which are fetched when first
+// shown. A draft, which has no comments, opens on its notes without a hash.
 export default class extends Controller {
   static targets = ["tab", "pane"]
   static values = { draft: Boolean }
 
   connect() {
-    let pane
-
-    try { pane = localStorage.postPane } catch { /* storage blocked */ }
-
-    this.show(this.draftValue ? "notes" : pane)
+    this.show(location.hash === "#notes" || (this.draftValue && !location.hash) ? "notes" : "comments")
   }
 
   select(event) {
-    const pane = event.currentTarget.dataset.pane
+    const name = event.currentTarget.dataset.pane
 
-    this.show(pane)
-
-    try { localStorage.postPane = pane } catch { /* storage blocked */ }
+    this.show(name)
+    history.replaceState(0, "", "#" + name)
   }
 
   show(name) {
-    name = name === "notes" ? name : "comments"
-
     this.tabTargets.forEach((t) => t.setAttribute("aria-selected", t.dataset.pane === name))
     this.paneTargets.forEach((p) => { p.hidden = p.dataset.pane !== name })
 
-    // the Notes tab fetches the notes the first time it is told to
-    if (name === "notes") window.htmx.trigger(this.tabTargets.find((t) => t.dataset.pane === name), "notes:show")
+    // the notes' url is spent once they are fetched
+    const pane = this.paneTargets.find((p) => p.dataset.url)
+
+    if (name === "notes" && pane) {
+      window.htmx.ajax("GET", pane.dataset.url, { target: pane, swap: "innerHTML" })
+      delete pane.dataset.url
+    }
   }
 }

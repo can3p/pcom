@@ -91,7 +91,7 @@
     {{ if .Capabilities.CanEdit }}
     <div class="es-tabs post-tabs-bar" role="tablist" aria-label="Comments and notes">
       <button type="button" role="tab" class="es-tab" id="post-tab-comments" aria-controls="post-pane-comments" data-post-notes-target="tab" data-pane="comments" data-action="post-notes#select">Comments ({{ .CommentsNumber }})</button>
-      <button type="button" role="tab" class="es-tab" id="post-tab-notes" aria-controls="post-pane-notes" data-post-notes-target="tab" data-pane="notes" hx-get="{{ link "post_notes" .ID }}" hx-target="#post-pane-notes" hx-swap="innerHTML" hx-trigger="notes:show once" data-action="post-notes#select">Notes ({{ $.NotesCount }})</button>
+      <button type="button" role="tab" class="es-tab" id="post-tab-notes" aria-controls="post-pane-notes" data-post-notes-target="tab" data-pane="notes" data-action="post-notes#select">Notes ({{ $.NotesCount }})</button>
     </div>
     {{ end }}
     <section class="comments us-comments-section" aria-label="Comments"{{ if .Capabilities.CanEdit }} id="post-pane-comments" role="tabpanel" aria-labelledby="post-tab-comments" data-post-notes-target="pane" data-pane="comments"{{ end }}>
@@ -144,7 +144,7 @@
     {{ end }}
     </section>
     {{ if .Capabilities.CanEdit }}
-    <section class="post-notes-pane" aria-label="Notes" id="post-pane-notes" role="tabpanel" aria-labelledby="post-tab-notes" data-post-notes-target="pane" data-pane="notes" hidden>
+    <section class="post-notes-pane" aria-label="Notes" id="post-pane-notes" role="tabpanel" aria-labelledby="post-tab-notes" data-post-notes-target="pane" data-pane="notes" data-url="{{ link "post_notes" .ID }}" hidden>
       <p class="field-help">Loading notes&hellip;</p>
     </section>
     {{ end }}

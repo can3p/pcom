@@ -59,6 +59,8 @@ export class NotesPicker {
 
     button.dataset.attached = on ? "1" : "0"
     button.dataset.via = "0"
+    button.classList.toggle("is-on", on)
+    button.setAttribute("aria-pressed", String(on))
     button.setAttribute("aria-label", on ? "Detach" : "Attach")
     button.title = on ? "Detach from this post" : "Attach to this post"
 

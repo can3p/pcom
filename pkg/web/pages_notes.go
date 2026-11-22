@@ -216,7 +216,7 @@ func (it *NoteItem) attachedTo(posts []*model.Post) {
 
 	for _, p := range posts {
 		it.Posts = append(it.Posts, NotePost{
-			ID: p.ID, Title: postops.PostSubject(p.Subject), Open: links.Link("post", p.ID),
+			ID: p.ID, Title: postops.PostSubject(p.Subject), Open: links.Link("post_notes_tab", p.ID),
 			Href: NoteQuery{PostID: p.ID}.URL(links.Link("notes")),
 		})
 	}
@@ -641,7 +641,7 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		}
 
 		out.Post = &NotePost{
-			ID: post.ID, Title: postops.PostSubject(post.Subject), Open: links.Link("post", post.ID),
+			ID: post.ID, Title: postops.PostSubject(post.Subject), Open: links.Link("post_notes_tab", post.ID),
 			Href: q.withPost("").URL(links.Link("notes")),
 		}
 	}
