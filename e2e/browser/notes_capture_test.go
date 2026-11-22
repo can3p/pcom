@@ -689,3 +689,22 @@ func TestNotesCapture_OfflineAndDelete(t *testing.T) {
 	typeNote(t, page, "From the controls page")
 	expectLast(t, page, "From the controls page", "Saved")
 }
+
+// TestNotesCapture_LastCaptureShowsThePhoto: the card shows a thumbnail of
+// the photo taken, drawn from the file on the phone, so it is there offline.
+func TestNotesCapture_LastCaptureShowsThePhoto(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := capturePage(t, app, user, "/controls/notes/new")
+
+	require.NoError(t, page.Context().SetOffline(true))
+	takePhoto(t, page, "Photo", widePNG(t))
+
+	card := page.GetByTestId("last-capture")
+	require.NoError(t, browser.Expect.Locator(card).ToContainText("A photo"))
+	require.NoError(t, browser.Expect.Locator(card.GetByTestId("capture-status")).ToHaveText("Saved on the phone, uploading…"))
+	require.NoError(t, browser.Expect.Locator(card.Locator("img")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(card.Locator("img")).ToHaveAttribute("src", regexp.MustCompile(`^data:image/`)))
+}

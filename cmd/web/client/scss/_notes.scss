@@ -414,6 +414,23 @@
   color: var(--muted);
 }
 
+.capture-last-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  &:empty {
+    display: none;
+  }
+
+  img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: var(--radius-control);
+  }
+}
+
 .capture-last-what {
   overflow-wrap: anywhere;
 }

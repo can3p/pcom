@@ -865,3 +865,30 @@ func userNotesByBody(t *testing.T, app *e2e.App, userID string) map[string]*mode
 
 	return out
 }
+
+// TestNotes_PhotoUsesTheImageClasses: a note's photo is shown through the
+// thumb class, linked to the full class, and both answer with an image.
+func TestNotes_PhotoUsesTheImageClasses(t *testing.T) {
+	t.Parallel()
+
+	app := notesApp(t)
+	user, c := newLoggedIn(t, app)
+	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
+
+	postNote(t, app, key, field("text", "with a photo"), file("image", "a.png", "image/png", smallPNG(t))).RequireStatus(http.StatusOK)
+
+	img := c.Get("/controls/notes").RequireStatus(http.StatusOK).Doc().Find(".note-photos a > img")
+	require.Equal(t, 1, img.Length())
+
+	src := img.AttrOr("src", "")
+	href := img.Parent().AttrOr("href", "")
+	require.True(t, strings.HasSuffix(src, "/thumb"), src)
+	require.True(t, strings.HasSuffix(href, "/full"), href)
+	require.Equal(t, "Photo of the note", img.AttrOr("alt", ""))
+	require.Equal(t, "lazy", img.AttrOr("loading", ""))
+
+	for _, u := range []string{src, href} {
+		resp := c.Get(u).RequireStatus(http.StatusOK)
+		require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "image/"), "%s: %s", u, resp.Header.Get("Content-Type"))
+	}
+}

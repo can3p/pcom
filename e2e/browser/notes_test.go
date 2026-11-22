@@ -720,7 +720,7 @@ func TestNotes_PhotosAndDeleteConfirmation(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(photos).ToHaveCount(2))
 
 	for i, f := range files {
-		require.NoError(t, browser.Expect.Locator(photos.Nth(i)).ToHaveAttribute("src", regexp.MustCompile(regexp.QuoteMeta(f)+`$`)))
+		require.NoError(t, browser.Expect.Locator(photos.Nth(i)).ToHaveAttribute("src", regexp.MustCompile(regexp.QuoteMeta(f)+`/thumb$`)))
 	}
 
 	require.NoError(t, noteCard(page, "with photos").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Delete"}).Click())

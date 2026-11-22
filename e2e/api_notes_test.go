@@ -372,7 +372,7 @@ func requireStoredAs(t *testing.T, app *e2e.App, userID string, n web.ApiNote) s
 
 	for _, img := range s.images {
 		if img.NoteID == n.ID {
-			urls[img.Position] = app.URL + "/user-media/" + fnames[img.UploadID]
+			urls[img.Position] = app.URL + "/user-media/" + fnames[img.UploadID] + "/full"
 		}
 	}
 
@@ -458,8 +458,8 @@ func TestAPINotes_Create(t *testing.T) {
 			want: func(t *testing.T, n web.ApiNote, s stored) {
 				require.Empty(t, n.Body)
 				require.Len(t, n.Images, 2)
-				require.True(t, strings.HasSuffix(n.Images[0], ".png"), "in the order sent")
-				require.True(t, strings.HasSuffix(n.Images[1], ".jpg"))
+				require.True(t, strings.HasSuffix(n.Images[0], ".png/full"), "in the order sent")
+				require.True(t, strings.HasSuffix(n.Images[1], ".jpg/full"))
 				require.Len(t, s.uploads, 2)
 			}},
 		{name: "a non-image image", parts: []part{file("image", "a.png", "image/png", png1), file("image", "notes.txt", "image/png", []byte("plain text"))},
@@ -763,7 +763,27 @@ func TestAPINotes_HEIC(t *testing.T) {
 	st := requireStoredAs(t, app, user.ID, n)
 
 	require.Len(t, n.Images, 1)
-	require.True(t, strings.HasSuffix(n.Images[0], ".jpg"), n.Images[0])
+	require.True(t, strings.HasSuffix(n.Images[0], ".jpg/full"), n.Images[0])
 	require.Len(t, st.uploads, 1)
 	require.Equal(t, "image/jpeg", st.uploads[0].ContentType)
+}
+
+// TestAPINotes_ImageURLsAreTheFullClass: the images of a note are URLs the
+// media server answers, which is the full class; the bare name is a 404.
+func TestAPINotes_ImageURLsAreTheFullClass(t *testing.T) {
+	t.Parallel()
+
+	app := notesApp(t)
+	user := newUser(t, app)
+	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
+
+	n := decodeData[web.ApiNote](t, postNote(t, app, key, file("image", "a.png", "image/png", smallPNG(t))).RequireStatus(http.StatusOK).Body)
+	require.Len(t, n.Images, 1)
+	require.True(t, strings.HasSuffix(n.Images[0], "/full"), n.Images[0])
+
+	path := strings.TrimPrefix(n.Images[0], app.URL)
+	resp := app.Client(t).Get(path).RequireStatus(http.StatusOK)
+	require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "image/"))
+
+	app.Client(t).Get(strings.TrimSuffix(path, "/full")).RequireStatus(http.StatusNotFound)
 }
