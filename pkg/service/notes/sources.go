@@ -87,6 +87,16 @@ func (s *Service) Sources(ctx context.Context, actor *model.User) ([]SourceCount
 	return s.store.NoteSourceCounts(ctx, actor.ID)
 }
 
+// SourcesOf is Sources counting the notes a list with the filter's PostID and
+// HideAttached shows, so the counts follow the list they sit beside.
+func (s *Service) SourcesOf(ctx context.Context, actor *model.User, f Filter) ([]SourceCount, error) {
+	if actor == nil {
+		return nil, service.ErrNeedsLogin
+	}
+
+	return s.store.NoteSourceCountsIn(ctx, actor.ID, f.PostID, f.HideAttached && f.PostID == "")
+}
+
 // AddSource returns the actor's source with that title, made when there is
 // none yet.
 func (s *Service) AddSource(ctx context.Context, actor *model.User, title string) (*model.NoteSource, error) {

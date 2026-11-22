@@ -319,6 +319,23 @@ type NoteSourceCount struct {
 // NoteSourceCounts returns all the user's sources, by title, with how many
 // notes come from each.
 func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSourceCount, error) {
+	return s.NoteSourceCountsIn(ctx, userID, "", false)
+}
+
+// NoteSourceCountsIn is NoteSourceCounts counting only the notes a list with
+// that postID and hideInPosts would show (see NoteFilter).
+func (s *Store) NoteSourceCountsIn(ctx context.Context, userID, postID string, hideInPosts bool) ([]NoteSourceCount, error) {
+	count := s.query().NewSelect().TableExpr("notes AS n").ColumnExpr("count(*)").Where("n.source_id = src.id")
+
+	if postID != "" {
+		count = count.Where(belongsToPost("n.id", "?"), postID, model.NotePostLinkExcluded, postID, model.NotePostLinkAttached, postID)
+	}
+
+	if hideInPosts {
+		count = count.Where("NOT EXISTS (SELECT 1 FROM posts bp WHERE bp.user_id = n.user_id AND "+
+			belongsToPost("n.id", "bp.id")+")", model.NotePostLinkExcluded, model.NotePostLinkAttached)
+	}
+
 	var rows []struct {
 		model.NoteSource `bun:",extend"`
 
@@ -327,10 +344,11 @@ func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSour
 
 	err := s.query().NewSelect().
 		Model(&rows).
-		ColumnExpr("?TableAlias.*").
-		ColumnExpr("(SELECT count(*) FROM notes n WHERE n.source_id = ?TableAlias.id) AS notes").
-		Where("?TableAlias.user_id = ?", userID).
-		OrderExpr("lower(?TableAlias.title), ?TableAlias.id").Scan(ctx)
+		ModelTableExpr("note_sources AS src").
+		ColumnExpr("src.*").
+		ColumnExpr("(?) AS notes", count).
+		Where("src.user_id = ?", userID).
+		OrderExpr("lower(src.title), src.id").Scan(ctx)
 	if err != nil {
 		return nil, err
 	}

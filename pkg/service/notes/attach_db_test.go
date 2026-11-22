@@ -389,3 +389,29 @@ func TestAttachablePosts(t *testing.T) {
 	_, err := w.svc.AttachablePosts(w.ctx, nil)
 	require.ErrorIs(t, err, service.ErrNeedsLogin)
 }
+
+// The counts of the views by source follow the list beside them: without the
+// notes in posts, with all of them, or with those of one post.
+func TestSourcesOf_FollowTheListsScope(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t)
+	post := w.post(t, w.me)
+	src := testutil.Must(factory.NoteSource(w.ctx, w.db, w.me.ID))(t)
+	inPost := w.note(t, w.me, factory.FromSource(src.ID))
+	w.note(t, w.me, factory.FromSource(src.ID))
+	w.note(t, w.other, factory.FromSource(testutil.Must(factory.NoteSource(w.ctx, w.db, w.other.ID))(t).ID))
+	require.NoError(t, w.svc.Attach(w.ctx, w.me, inPost.ID, post.ID))
+
+	count := func(f notes.Filter) int {
+		got := testutil.Must(w.svc.SourcesOf(w.ctx, w.me, f))(t)
+		require.Len(t, got, 1)
+
+		return got[0].Notes
+	}
+
+	require.Equal(t, 1, count(notes.Filter{HideAttached: true}))
+	require.Equal(t, 2, count(notes.Filter{}))
+	require.Equal(t, 1, count(notes.Filter{PostID: post.ID, HideAttached: true}))
+	require.Zero(t, count(notes.Filter{PostID: w.post(t, w.me).ID}))
+}

@@ -616,6 +616,12 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*NotesPage](err)
 	}
 
+	// the views by source count the notes the list holds
+	counted, err := svc.SourcesOf(c, user, q.Filter(""))
+	if err != nil {
+		return mo.Err[*NotesPage](err)
+	}
+
 	out := &NotesPage{
 		BasePage:      getBasePage(c, "Notes", userData),
 		Query:         q,
@@ -646,7 +652,7 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		out.More = links.Link("notes") + "?" + more.Encode()
 	}
 
-	for _, s := range sources {
+	for _, s := range counted {
 		on := s.Source.ID == q.SourceID
 		if s.Notes == 0 && !on {
 			continue
