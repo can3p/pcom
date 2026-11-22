@@ -676,7 +676,7 @@ func TestNotesPages_PickerPhotoNote(t *testing.T) {
 	require.False(t, disabled)
 
 	// a second photo is one more image in the text, as the edit page's toolbar adds it
-	both := n.Body + "\n\n" + photos[0]
+	both := n.Body + "\n\n" + photos[0].Markdown
 	_, err := app.DB.ExecContext(context.Background(), "update notes set body = $1 where id = $2", both, n.ID)
 	require.NoError(t, err)
 

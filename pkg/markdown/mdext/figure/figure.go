@@ -238,6 +238,24 @@ func hasImageLine(lines [][]ast.Node, source []byte) bool {
 	return false
 }
 
+// ImageLines returns, for each source line of p, the image that line holds
+// alone, or nil: the images that become figures outside a gallery. The result
+// is indexed as p.Lines(); it is nil when p's inline lines don't map one to
+// one onto its source lines (a code span over a line break).
+func ImageLines(p *ast.Paragraph, source []byte) []*ast.Image {
+	lines := splitLines(p)
+	if len(lines) != p.Lines().Len() {
+		return nil
+	}
+
+	out := make([]*ast.Image, len(lines))
+	for i, line := range lines {
+		out[i] = imageLine(line, source)
+	}
+
+	return out
+}
+
 // imageLine returns the image of a line that holds nothing but one image.
 func imageLine(line []ast.Node, source []byte) *ast.Image {
 	var img *ast.Image

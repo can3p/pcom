@@ -22,12 +22,14 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/wiremock"
 	"github.com/mxschmitt/playwright-go"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -154,11 +156,8 @@ func waitNotes(t *testing.T, app *e2e.App, userID string, count int) []*model.No
 // of, in order.
 func photosOf(n *model.Note) []string {
 	photos, _ := capture.SplitPhotos(n.Body)
-	for i, p := range photos {
-		photos[i] = strings.TrimSuffix(strings.TrimPrefix(p, "![]("), ")")
-	}
 
-	return photos
+	return lo.Map(photos, func(p markdown.StandaloneImage, _ int) string { return p.Destination })
 }
 
 // widePNG is a photo wider than the page scales photos down to.

@@ -35,7 +35,9 @@ Located in `pkg/markdown/mdext/`:
 - **figure** - An image alone on its line becomes `<figure>` with the following lines of its paragraph as
   `<figcaption>`; inside `{gallery}` every image is a figure and everything up to the next image is its
   caption, which the gallery controller turns into slides. Only in the views that have block tags; mail and
-  RSS get the elements without classes, because mail.css styles elements and drops unknown classes
+  RSS get the elements without classes, because mail.css styles elements and drops unknown classes.
+  `markdown.StandaloneImages` lists the images this rule makes figures of (`figure.ImageLines`), with their
+  source and byte range; a note's photos are those images, so find them with it, never by matching lines
 - **headershift** - Shifts header levels (h1→h2, etc.)
 - **videoembed** - Embeds videos from URLs
 - **handle** - Renders @username mentions

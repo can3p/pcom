@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/e2e"
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
@@ -30,6 +31,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil/fakestorage"
 	"github.com/can3p/pcom/pkg/web"
 	webapp "github.com/can3p/pcom/pkg/web/app"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -770,11 +772,8 @@ func TestAPINotes_HEIC(t *testing.T) {
 // photosIn are the file names of the photos of a note's body, in order.
 func photosIn(body string) []string {
 	photos, _ := capture.SplitPhotos(body)
-	for i, p := range photos {
-		photos[i] = strings.TrimSuffix(strings.TrimPrefix(p, "![]("), ")")
-	}
 
-	return photos
+	return lo.Map(photos, func(p markdown.StandaloneImage, _ int) string { return p.Destination })
 }
 
 // textOf is a note's body without its photos.

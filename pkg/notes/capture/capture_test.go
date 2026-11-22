@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/testutil/golden"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -107,11 +109,23 @@ func TestWithPhotos(t *testing.T) {
 func TestSplitPhotos(t *testing.T) {
 	t.Parallel()
 
-	photos, text := capture.SplitPhotos("![](a.jpg)\n\n![alt](b.png)\n\nsome ![inline](c.jpg) text\n\n\nmore")
-	require.Equal(t, []string{"![](a.jpg)", "![alt](b.png)"}, photos)
-	require.Equal(t, "some ![inline](c.jpg) text\n\nmore", text)
+	md := func(photos []markdown.StandaloneImage) []string {
+		return lo.Map(photos, func(p markdown.StandaloneImage, _ int) string { return p.Markdown })
+	}
+
+	photos, text := capture.SplitPhotos("![](a.jpg)\n\n![alt](b(1).png \"t\")\ncaption\n\nsome ![inline](c.jpg) text\n\n\nmore")
+	require.Equal(t, []string{"![](a.jpg)", `![alt](b(1).png "t")`}, md(photos))
+	require.Equal(t, "b(1).png", photos[1].Destination)
+	require.Equal(t, "caption\n\nsome ![inline](c.jpg) text\n\n\nmore", text, "the text between the photos stays as written")
 
 	photos, text = capture.SplitPhotos(capture.WithPhotos("", []string{"a.jpg"}))
-	require.Equal(t, []string{"![](a.jpg)"}, photos)
+	require.Equal(t, []string{"![](a.jpg)"}, md(photos))
 	require.Empty(t, text)
+
+	// what the renderer doesn't make a figure is text
+	for _, body := range []string{"```\n![](a.jpg)\n```", "[![](a.jpg)](https://example.com)", "    ![](a.jpg)"} {
+		photos, text = capture.SplitPhotos(body)
+		require.Empty(t, photos, body)
+		require.Equal(t, body, text)
+	}
 }

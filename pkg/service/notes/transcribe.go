@@ -182,7 +182,13 @@ func (s *Service) writeTranscript(ctx context.Context, tx *repo.Store, n *model.
 	if replace {
 		// the photos of the note stay: only its words are the recording's
 		photos, _ := capture.SplitPhotos(n.Body)
-		body = strings.Join(append(photos, text), "\n\n")
+
+		parts := make([]string, 0, len(photos)+1)
+		for _, p := range photos {
+			parts = append(parts, p.Markdown)
+		}
+
+		body = strings.Join(append(parts, text), "\n\n")
 	} else {
 		body = text
 		if strings.TrimSpace(n.Body) != "" {

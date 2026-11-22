@@ -6,9 +6,10 @@ package capture
 
 import (
 	"net/url"
-	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/can3p/pcom/pkg/markdown"
 )
 
 // How the text reached the capture box.
@@ -121,13 +122,10 @@ func Attribution(title string) string {
 	return "— *" + t + "*"
 }
 
-// photoLine is a paragraph that is one image and nothing else: the form
-// WithPhotos writes a photo in, and the editor's toolbar too.
-var photoLine = regexp.MustCompile(`^!\[[^\]\n]*\]\([^)\s]+\)$`)
-
 // WithPhotos is the body of a note captured with photos: each photo, an
 // upload's file name as the markdown renderer serves it, as an image paragraph
-// of its own in the order given, then text. The photos come first so the text
+// of its own in the order given (the form the editor's image button writes),
+// then text. The photos come first so the text
 // reads as their caption, as it does in a post.
 func WithPhotos(text string, fnames []string) string {
 	parts := make([]string, 0, len(fnames)+1)
@@ -142,23 +140,30 @@ func WithPhotos(text string, fnames []string) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// SplitPhotos separates a body into its photos, the lines that are an image
-// alone, and the rest of the text with the gaps they leave closed.
-func SplitPhotos(body string) (photos []string, text string) {
-	var rest []string
+// SplitPhotos separates a body into its photos, the images alone on their
+// line as the markdown renderer finds them (markdown.StandaloneImages), and
+// the rest of the text: the pieces between the photos, each without the line
+// breaks around it, joined by a blank line.
+func SplitPhotos(body string) (photos []markdown.StandaloneImage, text string) {
+	photos = markdown.StandaloneImages(body)
 
-	for l := range strings.SplitSeq(body, "\n") {
-		if photoLine.MatchString(strings.TrimSpace(l)) {
-			photos = append(photos, strings.TrimSpace(l))
-		} else {
-			rest = append(rest, l)
+	var (
+		kept []string
+		prev int
+	)
+
+	keep := func(piece string) {
+		if piece = strings.Trim(piece, "\n"); strings.TrimSpace(piece) != "" {
+			kept = append(kept, piece)
 		}
 	}
 
-	text = strings.Join(rest, "\n")
-	text = blankRun.ReplaceAllString(strings.TrimSpace(text), "\n\n")
+	for _, p := range photos {
+		keep(body[prev:p.Start])
+		prev = p.Stop
+	}
 
-	return photos, text
+	keep(body[prev:])
+
+	return photos, strings.Join(kept, "\n\n")
 }
-
-var blankRun = regexp.MustCompile(`\n{3,}`)
