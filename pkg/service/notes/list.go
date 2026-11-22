@@ -26,7 +26,12 @@ type Filter struct {
 	NotTags  []string
 	SourceID string
 	Query    string
-	Cursor   string
+	// PostID keeps the notes that belong to a post of the actor, attached
+	// or tagged and not excluded; HideAttached leaves out every note that
+	// belongs to some post, which a note list shows only on request.
+	PostID       string
+	HideAttached bool
+	Cursor       string
 }
 
 // Page is a page of a list, newest capture first.
@@ -58,6 +63,12 @@ func (s *Service) List(ctx context.Context, actor *model.User, f Filter) (*Page,
 		}
 	}
 
+	if f.PostID != "" {
+		if _, err := s.ownPost(ctx, s.store, actor, f.PostID); err != nil {
+			return nil, err
+		}
+	}
+
 	at, id, err := parseCursor(f.Cursor)
 	if err != nil {
 		return nil, err
@@ -69,9 +80,12 @@ func (s *Service) List(ctx context.Context, actor *model.User, f Filter) (*Page,
 		NotTags:  notTags,
 		SourceID: f.SourceID,
 		Query:    strings.TrimSpace(f.Query),
-		BeforeAt: at,
-		BeforeID: id,
-		Limit:    s.pageSize + 1,
+		PostID:   f.PostID,
+		// the posts' own list shows the post's notes, attached or not
+		HideInPosts: f.HideAttached && f.PostID == "",
+		BeforeAt:    at,
+		BeforeID:    id,
+		Limit:       s.pageSize + 1,
 	})
 	if err != nil {
 		return nil, err

@@ -30,6 +30,7 @@ const (
 	DefaultCaptureMaxBytes      = 32 << 20
 	DefaultQuoteSourceWindow    = 12 * time.Hour
 	DefaultPanelTags            = 8
+	DefaultAttachPosts          = 10
 	// DefaultPageSize is how many notes a page of the list holds unless
 	// WithPageSize sets it.
 	DefaultPageSize = 30
@@ -79,6 +80,9 @@ type Limits struct {
 	// PanelTags is how many of the author's most used tags the post
 	// editor's Notes panel offers under its search (TopTags).
 	PanelTags int
+	// AttachPosts is how many of the author's newest drafts and posts the
+	// Attach to post control of a note offers (AttachablePosts).
+	AttachPosts int
 	// STTMinutesPerDay is the minutes of recordings one user may have
 	// transcribed per day; STTSiteMinutesPerDay those of the whole site,
 	// zero meaning no cap.
@@ -98,6 +102,7 @@ var DefaultLimits = Limits{
 	CaptureMaxBytes:      DefaultCaptureMaxBytes,
 	QuoteSourceWindow:    DefaultQuoteSourceWindow,
 	PanelTags:            DefaultPanelTags,
+	AttachPosts:          DefaultAttachPosts,
 	STTMinutesPerDay:     DefaultSTTMinutesPerDay,
 	STTSiteMinutesPerDay: DefaultSTTSiteMinutesPerDay,
 }
@@ -175,6 +180,7 @@ func WithLimits(l Limits) Option {
 		setIfPositive(&s.limits.CaptureMaxBytes, l.CaptureMaxBytes)
 		setIfPositive(&s.limits.QuoteSourceWindow, l.QuoteSourceWindow)
 		setIfPositive(&s.limits.PanelTags, l.PanelTags)
+		setIfPositive(&s.limits.AttachPosts, l.AttachPosts)
 		setIfPositive(&s.limits.STTMinutesPerDay, l.STTMinutesPerDay)
 		setIfPositive(&s.limits.STTSiteMinutesPerDay, l.STTSiteMinutesPerDay)
 	}

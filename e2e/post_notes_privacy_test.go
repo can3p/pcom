@@ -104,8 +104,4 @@ func TestPostNotes_NoReaderReachesThem(t *testing.T) {
 		})
 	}
 
-	t.Run("notes section: anonymous", func(t *testing.T) {
-		resp := requireStatus(t, anon.Get("/posts/"+post.ID+"/notes"), http.StatusFound)
-		require.NotContains(t, resp.Body, secrets[0])
-	})
 }

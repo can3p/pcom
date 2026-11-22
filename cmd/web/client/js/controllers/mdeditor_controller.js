@@ -223,12 +223,11 @@ export default class extends Controller {
   }
 
   // Puts text into the post as a block of its own, at the cursor (replacing
-  // the selection) or, with atEnd, after everything written so far, and lets
-  // the form autosave it.
-  insertText(text, { atEnd = false } = {}) {
+  // the selection), and lets the form autosave it.
+  insertText(text) {
     const ta = this.textarea
-    const start = atEnd ? ta.value.length : ta.selectionStart
-    const end = atEnd ? ta.value.length : ta.selectionEnd
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
     const before = ta.value.slice(0, start)
     const after = ta.value.slice(end)
 

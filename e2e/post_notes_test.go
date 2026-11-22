@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
@@ -102,23 +103,22 @@ func TestPostNotes_ActionsAreTheAuthorsAlone(t *testing.T) {
 	}
 	attach := map[string]string{"noteId": w.loose.ID, "postId": w.post.ID}
 
-	// somebody else's call changes nothing
+	// somebody else's calls change nothing
 	require.Equal(t, http.StatusBadRequest, act(stranger, "note_attach", attach))
-	require.Equal(t, http.StatusBadRequest, act(stranger, "note_attach_tag", map[string]string{"postId": w.post.ID, "tag": "x"}))
+	require.Equal(t, http.StatusBadRequest, act(stranger, "note_attach_tag", map[string]string{"postId": w.post.ID, "tag": "pond"}))
+	require.Equal(t, http.StatusBadRequest, act(stranger, "note_detach_tag", map[string]string{"postId": w.post.ID, "tag": "pond"}))
 	require.Equal(t, both, w.belongs(t))
+	require.Equal(t, []string{"pond"}, testutil.Must(w.svc.ForPost(context.Background(), w.author, w.post.ID))(t).Tags)
 
+	// the author's reach the service
 	require.Equal(t, http.StatusOK, act(author, "note_attach", attach))
 	require.Equal(t, []string{"zqxthree loose", "zqxtwo by tag", "zqxone by hand"}, w.belongs(t))
-
 	require.Equal(t, http.StatusOK, act(author, "note_detach", attach))
 	require.Equal(t, http.StatusOK, act(author, "note_exclude", map[string]string{"noteId": w.tagged.ID, "postId": w.post.ID}))
 	require.Equal(t, []string{"zqxone by hand"}, w.belongs(t))
-
-	// the tag stays on the excluded note, and detaching the tag ends what it brought
-	require.Equal(t, []string{"pond"}, testutil.Must(w.svc.Get(context.Background(), w.author, w.tagged.ID))(t).Tags)
 	require.Equal(t, http.StatusOK, act(author, "note_detach_tag", map[string]string{"postId": w.post.ID, "tag": "pond"}))
 	require.Equal(t, http.StatusOK, act(author, "note_attach_tag", map[string]string{"postId": w.post.ID, "tag": "pond"}))
-	require.Equal(t, []string{"zqxone by hand"}, w.belongs(t), "an excluded note stays out when its tag is attached again")
+	require.Equal(t, []string{"pond"}, testutil.Must(w.svc.ForPost(context.Background(), w.author, w.post.ID))(t).Tags)
 }
 
 func TestPostNotes_ScreensShowWhatBelongsToThePost(t *testing.T) {
@@ -127,12 +127,24 @@ func TestPostNotes_ScreensShowWhatBelongsToThePost(t *testing.T) {
 	w := newPostNotesWorld(t)
 	author := loginAs(t, w.app, w.author)
 	stranger := loginAs(t, w.app, newUser(t, w.app))
+	cards := "[data-testid=picker-note] .np-text"
 
-	// the panel of the editor: the post's notes lead and are flagged
+	// the editor's panel opens on the post's notes when it has some, and the
+	// switch shows all of them; each card says whether the note belongs
 	picker := author.Get("/controls/notes/picker?post=" + w.post.ID).RequireStatus(http.StatusOK).Doc()
-	require.Equal(t, []string{"zqxtwo by tag", "zqxone by hand", "zqxthree loose"}, texts(picker, "[data-testid=picker-note] .np-text"))
-	require.Equal(t, []string{"Detach", "Detach", "Attach"}, picker.Find("[data-testid=picker-note] [data-action='notes-picker#toggle']").Map(attrLabel))
+	require.Equal(t, []string{"zqxtwo by tag", "zqxone by hand"}, texts(picker, cards))
+	require.Equal(t, []string{"This post", "All notes"}, texts(picker, ".np-scope a"))
+	require.Equal(t, "true", picker.Find(".np-scope a").First().AttrOr("aria-current", ""))
+	require.Equal(t, []string{"Detach", "Detach"}, picker.Find("[data-action='notes-picker#toggle']").Map(attrLabel))
 	require.Zero(t, picker.Find("[data-testid=np-hint]").Length())
+
+	all := author.Get(picker.Find(".np-scope a").Eq(1).AttrOr("href", "")).RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, []string{"zqxthree loose", "zqxtwo by tag", "zqxone by hand"}, texts(all, cards))
+	require.Equal(t, []string{"Attach", "Detach", "Detach"}, all.Find("[data-action='notes-picker#toggle']").Map(attrLabel))
+
+	// a post without notes opens on all of them
+	empty := newPost(t, w.app, w.author.ID)
+	require.Len(t, author.Get("/controls/notes/picker?post="+empty.ID).RequireStatus(http.StatusOK).Doc().Find("[data-testid=picker-note]").Nodes, 3)
 
 	// a new post has no notes to attach to: the controls are off
 	fresh := author.Get("/controls/notes/picker?q=%23pond").RequireStatus(http.StatusOK).Doc()
@@ -140,38 +152,53 @@ func TestPostNotes_ScreensShowWhatBelongsToThePost(t *testing.T) {
 	require.Equal(t, 1, fresh.Find("button[disabled][aria-label=Attach]").Length())
 	require.Equal(t, 1, fresh.Find(".np-attach-tag button[disabled]").Length())
 
-	// the tag's confirmation is worded before anything is attached
 	tagged := author.Get("/controls/notes/picker?q=%23pond&post=" + w.post.ID).RequireStatus(http.StatusOK).Doc()
 	require.Equal(t, []string{"#pond is attached to this post."}, texts(tagged, ".np-attach-tag .meta"))
 
 	stranger.Get("/controls/notes/picker?post=" + w.post.ID).RequireStatus(http.StatusNotFound)
 
-	// /controls/notes: the post filter, the posts a note is attached to, the tag's prompt
-	list := author.Get("/controls/notes?post=" + w.post.ID).RequireStatus(http.StatusOK).Doc()
-	require.Equal(t, []string{"zqxtwo by tag", "zqxone by hand"}, texts(list, "[data-testid=note] .note-body"))
-	require.Equal(t, []string{"Walden"}, texts(list, "[data-testid=notes-of-post] a"))
+	// /controls/notes leaves out the notes in posts unless asked for all of them
+	list := author.Get("/controls/notes").RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, []string{"zqxthree loose"}, texts(list, "[data-testid=note] .note-body"))
+	every := author.Get("/controls/notes?all=1").RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, []string{"zqxthree loose", "zqxtwo by tag", "zqxone by hand"}, texts(every, "[data-testid=note] .note-body"))
+	require.Equal(t, []string{"Attached to Walden ×", "Attached to Walden ×"}, texts(every, "[data-testid=note-posts]"))
+
+	// the filter by post shows its notes whatever the list hides, with a chip that removes it
+	byPost := author.Get("/controls/notes?post=" + w.post.ID).RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, []string{"zqxtwo by tag", "zqxone by hand"}, texts(byPost, "[data-testid=note] .note-body"))
+	require.Equal(t, []string{"Notes of Walden ×"}, texts(byPost, "[data-testid=notes-of-post]"))
+	require.Equal(t, "/controls/notes", byPost.Find("[data-testid=notes-of-post] .nt-x").AttrOr("href", ""))
+	require.Equal(t, "/controls/notes?post="+w.post.ID, every.Find("[data-testid=note-posts] a").First().AttrOr("href", ""))
 	stranger.Get("/controls/notes?post=" + w.post.ID).RequireStatus(http.StatusNotFound)
 
-	all := author.Get("/controls/notes?q=%23pond").RequireStatus(http.StatusOK).Doc()
-	require.Equal(t, []string{"Attached to Walden ×"}, texts(all, "[data-testid=note-posts]"))
-	require.Equal(t, "/controls/notes?post="+w.post.ID, all.Find("[data-testid=note-posts] a").AttrOr("href", ""))
-	require.Equal(t, []string{"1 note tagged #pond is attached now, and every note you tag #pond from now on joins this post."},
-		all.Find(".nt-attach button").Map(func(_ int, s *goquery.Selection) string { return s.AttrOr("data-prompt", "") }))
-	require.Contains(t, all.Find("[data-testid=note] [data-action-prompt-value]").First().AttrOr("data-action-prompt-value", ""), "attached to “Walden”")
+	// the delete confirmation names the post
+	require.Contains(t, byPost.Find("[data-testid=note] [data-action-prompt-value]").First().AttrOr("data-action-prompt-value", ""), "attached to “Walden”")
+
+	// the post page's own section links to the filter, and each note's Open to its edit page
+	section := author.Get("/posts/" + w.post.ID + "/notes").RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, "/controls/notes?post="+w.post.ID, linkHref(section.Selection, "Open in Notes"))
+	require.Equal(t, "/controls/notes/"+w.hand.ID+"/edit", section.Find("[data-testid=note]:contains('zqxone by hand') a:contains('Open')").AttrOr("href", ""))
+	require.Zero(t, section.Find("a:contains('Insert into post')").Length())
 }
 
-func TestPostNotes_InsertIntoPostOpensTheEditorWithTheText(t *testing.T) {
+func TestPostNotes_AttachPicksFromTheNewestSavedPosts(t *testing.T) {
 	t.Parallel()
 
-	w := newPostNotesWorld(t)
-	author := loginAs(t, w.app, w.author)
+	ctx := context.Background()
+	app := e2e.Start(t, e2e.WithEnv("NOTE_ATTACH_POSTS", "2"))
+	user, c := newLoggedIn(t, app)
+	mustNote(t, app, user.ID, factory.WithNoteBody("zqxany"))
 
-	doc := author.Get("/posts/" + w.post.ID + "/edit?insert=" + w.hand.ID).RequireStatus(http.StatusOK).Doc()
-	require.Contains(t, doc.Find("textarea[name=body]").Text(), "zqxone by hand")
-	require.Equal(t, w.hand.ID, doc.Find("[data-notes-picker-inserted]").AttrOr("data-notes-picker-inserted", ""))
+	for _, subject := range []string{"Oldest", "Middle", "Newest"} {
+		testutil.Must(factory.Post(ctx, app.DB, user.ID, factory.WithSubject(subject)))(t)
+	}
 
-	// a note of somebody else is not found
-	theirs := mustNote(t, w.app, w.reader.ID, factory.WithNoteBody("zqxtheirs"))
-	author.Get("/posts/" + w.post.ID + "/edit?insert=" + theirs.ID).RequireStatus(http.StatusNotFound)
-	author.Get("/posts/" + w.post.ID + "/edit?insert=nope").RequireStatus(http.StatusNotFound)
+	// an unsaved new post is a scratch pad, not a post to attach to
+	c.PostForm("/controls/form/edit_post", url.Values{
+		"subject": {"Scratch"}, "body": {"only a pad"}, "visibility": {string(model.PostVisibilitySecondDegree)}, "save_action": {"autosave"},
+	}).RequireStatus(http.StatusOK)
+
+	doc := c.Get("/controls/notes").RequireStatus(http.StatusOK).Doc()
+	require.Equal(t, []string{"Newest (draft)", "Middle (draft)"}, texts(doc, ".note-attach-form option"))
 }

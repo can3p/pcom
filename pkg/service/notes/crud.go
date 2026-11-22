@@ -202,7 +202,8 @@ func (s *Service) DeleteMany(ctx context.Context, actor *model.User, noteIDs []s
 }
 
 // MarkUsed records that a note of the actor was used in a post of the
-// actor. Marking a pair again keeps the first record.
+// actor, and attaches it to the post as Attach does, taking back an
+// exclusion. Marking a pair again keeps the first record.
 func (s *Service) MarkUsed(ctx context.Context, actor *model.User, noteID, postID string) error {
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
 		if _, err := s.ownNote(ctx, tx, actor, noteID, read); err != nil {
@@ -218,6 +219,14 @@ func (s *Service) MarkUsed(ctx context.Context, actor *model.User, noteID, postI
 
 		if post.UserID != actor.ID {
 			return service.ErrNotFound
+		}
+
+		if err := tx.UnlinkNotePost(ctx, noteID, postID, model.NotePostLinkExcluded); err != nil {
+			return err
+		}
+
+		if err := tx.LinkNotePost(ctx, noteID, postID, model.NotePostLinkAttached); err != nil {
+			return err
 		}
 
 		return tx.LinkNotePost(ctx, noteID, postID, model.NotePostLinkInserted)

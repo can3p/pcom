@@ -2,6 +2,8 @@
 <div class="nt-views">
   <form class="nt-search" method="get" action="{{ .Path }}" role="search">
     {{ with .Query.SourceID }}<input type="hidden" name="source" value="{{ . }}">{{ end }}
+    {{ with .Query.PostID }}<input type="hidden" name="post" value="{{ . }}">{{ end }}
+    {{ if .Query.All }}<input type="hidden" name="all" value="1">{{ end }}
     <label class="sr-only" for="note-search">Search notes</label>
     <input id="note-search" type="search" name="q" value="{{ .Query.Q }}" placeholder="#tag -#tag words">
     <button type="submit" class="btn btn-secondary">Search</button>

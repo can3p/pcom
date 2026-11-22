@@ -32,7 +32,7 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 
 		page := web.Notes(c, svc, &userData)
 		if p, err := page.Get(); err == nil {
-			if p.PostChoices, err = web.PostChoices(c, d.Services.Posts, userData.DBUser); err != nil {
+			if p.PostChoices, err = web.PostChoices(c, svc, userData.DBUser); err != nil {
 				page = mo.Err[*web.NotesPage](err)
 			} else if isLoadMore(c) {
 				c.HTML(http.StatusOK, "partial--note-list.html", p)

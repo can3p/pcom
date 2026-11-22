@@ -18,7 +18,6 @@ import (
 	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
-	"github.com/can3p/pcom/pkg/service/posts"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -33,6 +32,9 @@ type NoteQuery struct {
 	SourceID string
 	Q        string
 	PostID   string
+	// All shows every note, whereas the list leaves out the notes that
+	// belong to a post.
+	All bool
 }
 
 // ParseNoteQuery reads a NoteQuery from the request's query string.
@@ -41,6 +43,7 @@ func ParseNoteQuery(c *gin.Context) NoteQuery {
 		SourceID: c.Query("source"),
 		Q:        strings.TrimSpace(c.Query("q")),
 		PostID:   c.Query("post"),
+		All:      c.Query("all") == "1",
 	}
 }
 
@@ -55,6 +58,7 @@ func (q NoteQuery) Filter(cursor string) notes.Filter {
 
 	return notes.Filter{
 		Tags: search.Tags, NotTags: search.NotTags, Query: search.Query, SourceID: q.SourceID, Cursor: cursor,
+		PostID: q.PostID, HideAttached: !q.All && q.PostID == "",
 	}
 }
 
@@ -72,6 +76,10 @@ func (q NoteQuery) Values() url.Values {
 
 	if q.PostID != "" {
 		v.Set("post", q.PostID)
+	}
+
+	if q.All {
+		v.Set("all", "1")
 	}
 
 	return v
@@ -96,6 +104,18 @@ func (q NoteQuery) withSearch(s notes.Search) NoteQuery {
 
 func (q NoteQuery) withSource(id string) NoteQuery {
 	q.SourceID = id
+
+	return q
+}
+
+func (q NoteQuery) withPost(id string) NoteQuery {
+	q.PostID = id
+
+	return q
+}
+
+func (q NoteQuery) withAll(all bool) NoteQuery {
+	q.All = all
 
 	return q
 }
@@ -220,15 +240,20 @@ func attachedPrompt(posts []*model.Post) string {
 	return " It is attached to " + strings.Join(titles, ", ") + ", which lose it and keep their text."
 }
 
-// itemsAttached names the posts every note of items belongs to.
+// itemsAttached names the posts every note of items belongs to, in one read.
 func itemsAttached(c *gin.Context, svc *notes.Service, user *model.User, items []*NoteItem) error {
+	ids := make([]string, 0, len(items))
 	for _, it := range items {
-		posts, err := svc.PostsOf(c, user, it.Note.ID)
-		if err != nil {
-			return err
-		}
+		ids = append(ids, it.Note.ID)
+	}
 
-		it.attachedTo(posts)
+	byNote, err := svc.PostsOfNotes(c, user, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, it := range items {
+		it.attachedTo(byNote[it.Note.ID])
 	}
 
 	return nil
@@ -316,7 +341,13 @@ func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.N
 		return nil, err
 	}
 
-	return noteItem(svc, n, links > 0), nil
+	it := noteItem(svc, n, links > 0)
+
+	if err := itemsAttached(c, svc, user, []*NoteItem{it}); err != nil {
+		return nil, err
+	}
+
+	return it, nil
 }
 
 // noteItem is the list item of n; used says whether it is in a post.
@@ -372,8 +403,11 @@ type NotesPage struct {
 	// Manage is set on the screen that renames tags and sources.
 	Manage *NoteManage
 	// Post is the post whose notes are on show (?post=), nil on the list of
-	// all the notes.
+	// all the notes; its Href lists them without the filter.
 	Post *NotePost
+	// All is set when the list shows every note, AllHref switches it.
+	All     bool
+	AllHref string
 	// PostChoices are the author's recent posts and drafts, which the
 	// controls that attach to a post offer; the route sets them.
 	PostChoices []PostChoice
@@ -435,17 +469,17 @@ func attachTags(search notes.Search, tags []notes.TagCount) []AttachTag {
 	return out
 }
 
-// PostChoices are the author's newest posts and drafts, for the controls that
-// attach notes to one.
-func PostChoices(c *gin.Context, svc *posts.Service, user *model.User) ([]PostChoice, error) {
-	list, err := svc.List(c, user, posts.ListInput{Limit: posts.ListMax})
+// PostChoices are the author's newest saved posts and drafts, for the controls
+// that attach notes to one.
+func PostChoices(c *gin.Context, svc *notes.Service, user *model.User) ([]PostChoice, error) {
+	list, err := svc.AttachablePosts(c, user)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]PostChoice, 0, len(list.Posts))
+	out := make([]PostChoice, 0, len(list))
 
-	for _, p := range list.Posts {
+	for _, p := range list {
 		out = append(out, PostChoice{ID: p.ID, Title: postops.PostSubject(p.Subject), Draft: p.PublishedAt == nil})
 	}
 
@@ -545,7 +579,9 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 	q := ParseNoteQuery(c)
 
 	if q.PostID != "" {
-		return notesOfPost(c, svc, userData, q.PostID)
+		if _, err := uuid.Parse(q.PostID); err != nil {
+			return mo.Err[*NotesPage](service.ErrNotFound)
+		}
 	}
 
 	tags, err := svc.Tags(c, user)
@@ -588,6 +624,20 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		RecentTags:    recentTags(newest.Entries),
 		SourceChoices: sources,
 		AttachTags:    attachTags(q.Search(), tags),
+		All:           q.All,
+		AllHref:       q.withAll(!q.All).URL(links.Link("notes")),
+	}
+
+	if q.PostID != "" {
+		post, err := svc.Post(c, user, q.PostID)
+		if err != nil {
+			return mo.Err[*NotesPage](err)
+		}
+
+		out.Post = &NotePost{
+			ID: post.ID, Title: postops.PostSubject(post.Subject), Open: links.Link("post", post.ID),
+			Href: q.withPost("").URL(links.Link("notes")),
+		}
 	}
 
 	if page.Next != "" {
@@ -613,50 +663,6 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 	}
 
 	return mo.Ok(out)
-}
-
-// notesOfPost is the list of the notes that belong to a post of the viewer,
-// all of them on one page.
-func notesOfPost(c *gin.Context, svc *notes.Service, userData *auth.UserData, postID string) mo.Result[*NotesPage] {
-	user := userData.DBUser
-
-	if _, err := uuid.Parse(postID); err != nil {
-		return mo.Err[*NotesPage](service.ErrNotFound)
-	}
-
-	post, err := svc.Post(c, user, postID)
-	if err != nil {
-		return mo.Err[*NotesPage](err)
-	}
-
-	pn, err := svc.ForPost(c, user, postID)
-	if err != nil {
-		return mo.Err[*NotesPage](err)
-	}
-
-	items := make([]*NoteItem, 0, len(pn.Notes))
-
-	for _, row := range pn.Notes {
-		it, err := NoteItemOf(c, svc, user, row.Note)
-		if err != nil {
-			return mo.Err[*NotesPage](err)
-		}
-
-		items = append(items, it)
-	}
-
-	if err := itemsAttached(c, svc, user, items); err != nil {
-		return mo.Err[*NotesPage](err)
-	}
-
-	title := postops.PostSubject(post.Subject)
-
-	return mo.Ok(&NotesPage{
-		BasePage: getBasePage(c, "Notes", userData),
-		Query:    NoteQuery{PostID: postID},
-		Items:    items,
-		Post:     &NotePost{ID: postID, Title: title, Open: links.Link("post", postID), Href: links.Link("notes")},
-	})
 }
 
 // NotesManagePage is the screen that renames tags and adds and renames

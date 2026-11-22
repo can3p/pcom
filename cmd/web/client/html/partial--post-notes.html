@@ -1,6 +1,8 @@
 {{/* The Notes section of a post page, loaded when its author first switches to it (GET /posts/:id/notes). Takes a
      web.PostNotesPage. A tag of the bar loads the section again narrowed to it. */}}
 <div class="post-notes" id="post-notes" data-testid="post-notes">
+  <p class="acts"><a href="{{ .ListHref }}">Open in Notes</a></p>
+
   {{ with .Attached }}
   <ul class="nt-chips post-notes-attached" aria-label="Tags attached to this post">
     {{ range . }}

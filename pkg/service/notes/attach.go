@@ -184,3 +184,24 @@ func (s *Service) ownPost(ctx context.Context, store *repo.Store, actor *model.U
 
 	return post, nil
 }
+
+// PostsOfNotes returns the posts each of the actor's notes among noteIDs
+// belongs to, newest first, in one read; a note that belongs to none, or
+// isn't the actor's, has no entry.
+func (s *Service) PostsOfNotes(ctx context.Context, actor *model.User, noteIDs []string) (map[string][]*model.Post, error) {
+	if actor == nil {
+		return nil, service.ErrNeedsLogin
+	}
+
+	return s.store.PostsOfNotes(ctx, actor.ID, noteIDs)
+}
+
+// AttachablePosts returns the actor's newest saved drafts and posts, as many
+// as Limits.AttachPosts says, which the Attach to post control offers.
+func (s *Service) AttachablePosts(ctx context.Context, actor *model.User) ([]*model.Post, error) {
+	if actor == nil {
+		return nil, service.ErrNeedsLogin
+	}
+
+	return s.store.RecentPosts(ctx, actor.ID, s.limits.AttachPosts)
+}

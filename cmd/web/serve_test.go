@@ -352,6 +352,7 @@ func TestNotesOptions(t *testing.T) {
 		{"NOTE_CAPTURE_MAX_BYTES=8192", "CaptureMaxBytes", int64(8192)},
 		{"NOTE_QUOTE_SOURCE_WINDOW=1h", "QuoteSourceWindow", time.Hour},
 		{"NOTE_PANEL_TAGS=3", "PanelTags", 3},
+		{"NOTE_ATTACH_POSTS=4", "AttachPosts", 4},
 		{"STT_MINUTES_PER_DAY=15", "STTMinutesPerDay", 15},
 		{"STT_SITE_MINUTES_PER_DAY=600", "STTSiteMinutesPerDay", 600},
 	}

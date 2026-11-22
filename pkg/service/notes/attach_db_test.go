@@ -149,12 +149,15 @@ func TestPostsOf(t *testing.T) {
 	require.NoError(t, w.svc.MarkUsed(w.ctx, w.me, note.ID, inserted.ID))
 	testutil.Must(w.svc.AttachTag(w.ctx, w.other, theirs.ID, "walden"))(t)
 
-	require.Equal(t, []string{oneByOne.ID, byTag.ID}, postIDs(testutil.Must(w.svc.PostsOf(w.ctx, w.me, note.ID))(t)))
+	// inserting a note into a post attaches it
+	require.Equal(t, []string{inserted.ID, oneByOne.ID, byTag.ID}, postIDs(testutil.Must(w.svc.PostsOf(w.ctx, w.me, note.ID))(t)))
+	byNote := testutil.Must(w.svc.PostsOfNotes(w.ctx, w.me, []string{note.ID}))(t)
+	require.Equal(t, []string{inserted.ID, oneByOne.ID, byTag.ID}, postIDs(byNote[note.ID]))
 
 	// deleting a post removes its links only
 	require.NoError(t, w.posts().Delete(w.ctx, w.me, oneByOne.ID))
-	require.Equal(t, []string{byTag.ID}, postIDs(testutil.Must(w.svc.PostsOf(w.ctx, w.me, note.ID))(t)))
-	require.ElementsMatch(t, []string{excluded.ID + "|excluded", inserted.ID + "|inserted"}, w.links(t, note.ID))
+	require.Equal(t, []string{inserted.ID, byTag.ID}, postIDs(testutil.Must(w.svc.PostsOf(w.ctx, w.me, note.ID))(t)))
+	require.ElementsMatch(t, []string{excluded.ID + "|excluded", inserted.ID + "|inserted", inserted.ID + "|attached"}, w.links(t, note.ID))
 
 	// deleting the note removes its links and leaves the posts their tags
 	require.NoError(t, w.svc.Delete(w.ctx, w.me, note.ID))
@@ -286,4 +289,103 @@ func TestAttachTag_RefusesABadTag(t *testing.T) {
 	}
 
 	require.Empty(t, testutil.Must(repo.New(w.db).PostNoteTags(w.ctx, post.ID))(t))
+}
+
+// Inserting a note into a post attaches it, taking back an exclusion;
+// detaching removes the attachment and leaves the record of the insert.
+func TestMarkUsed_AttachesTheNote(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t)
+	post := w.post(t, w.me)
+	note := w.note(t, w.me, factory.WithNoteTags("walden"))
+	testutil.Must(w.svc.AttachTag(w.ctx, w.me, post.ID, "walden"))(t)
+	require.NoError(t, w.svc.Exclude(w.ctx, w.me, note.ID, post.ID))
+
+	require.NoError(t, w.svc.MarkUsed(w.ctx, w.me, note.ID, post.ID))
+	require.ElementsMatch(t, []string{post.ID + "|attached", post.ID + "|inserted"}, w.links(t, note.ID))
+
+	require.NoError(t, w.svc.Detach(w.ctx, w.me, note.ID, post.ID))
+	require.Equal(t, []string{post.ID + "|inserted"}, w.links(t, note.ID))
+}
+
+// A note excluded from a post stays out when the tag is attached again, and
+// comes back when it is attached by hand.
+func TestAttachTag_KeepsExclusions(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t)
+	post := w.post(t, w.me)
+	note := w.note(t, w.me, factory.WithNoteTags("walden"))
+
+	testutil.Must(w.svc.AttachTag(w.ctx, w.me, post.ID, "walden"))(t)
+	require.NoError(t, w.svc.Exclude(w.ctx, w.me, note.ID, post.ID))
+	require.NoError(t, w.svc.DetachTag(w.ctx, w.me, post.ID, "walden"))
+	require.Zero(t, testutil.Must(w.svc.AttachTag(w.ctx, w.me, post.ID, "walden"))(t))
+
+	notesOf, _ := w.forPost(t, post.ID)
+	require.Empty(t, notesOf)
+}
+
+// The notes list leaves out the notes that belong to a post unless asked
+// for all of them, and filtered by a post it shows that post's notes whether
+// or not the list hides them; it pages like the rest.
+func TestList_ByPostAndHidingAttached(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t, notes.WithPageSize(1))
+	at := func(m int) factory.NoteOpt { return factory.CapturedAt(w.now.Add(time.Duration(m) * time.Minute)) }
+	post := w.post(t, w.me)
+	other := w.post(t, w.me)
+	loose := w.note(t, w.me, at(0))
+	byHand := w.note(t, w.me, at(1))
+	byTag := w.note(t, w.me, at(2), factory.WithNoteTags("walden"))
+	hidden := w.note(t, w.me, at(3), factory.WithNoteTags("walden"))
+
+	require.NoError(t, w.svc.Attach(w.ctx, w.me, byHand.ID, post.ID))
+	testutil.Must(w.svc.AttachTag(w.ctx, w.me, post.ID, "walden"))(t)
+	require.NoError(t, w.svc.Exclude(w.ctx, w.me, hidden.ID, post.ID))
+
+	ids := func(f notes.Filter) []string {
+		var out []string
+
+		for {
+			page := testutil.Must(w.svc.List(w.ctx, w.me, f))(t)
+			for _, e := range page.Entries {
+				out = append(out, e.Note.ID)
+			}
+
+			if page.Next == "" {
+				return out
+			}
+
+			f.Cursor = page.Next
+		}
+	}
+
+	require.Equal(t, []string{hidden.ID, byTag.ID, byHand.ID, loose.ID}, ids(notes.Filter{}))
+	require.Equal(t, []string{hidden.ID, loose.ID}, ids(notes.Filter{HideAttached: true}))
+	require.Equal(t, []string{byTag.ID, byHand.ID}, ids(notes.Filter{PostID: post.ID, HideAttached: true}))
+	require.Equal(t, []string{byTag.ID}, ids(notes.Filter{PostID: post.ID, Tags: []string{"walden"}}))
+	require.Empty(t, ids(notes.Filter{PostID: other.ID}))
+
+	_, err := w.svc.List(w.ctx, w.other, notes.Filter{PostID: post.ID})
+	require.ErrorIs(t, err, service.ErrNotFound)
+}
+
+// Attach to post offers the newest saved posts, as many as the setting says.
+func TestAttachablePosts(t *testing.T) {
+	t.Parallel()
+
+	w := newWorld(t, notes.WithLimits(notes.Limits{AttachPosts: 2}))
+	oldest := w.post(t, w.me)
+	middle := w.post(t, w.me, factory.Published())
+	newest := w.post(t, w.me)
+	w.post(t, w.other)
+
+	require.Equal(t, []string{newest.ID, middle.ID}, postIDs(testutil.Must(w.svc.AttachablePosts(w.ctx, w.me))(t)))
+	require.NotContains(t, postIDs(testutil.Must(w.svc.AttachablePosts(w.ctx, w.me))(t)), oldest.ID)
+
+	_, err := w.svc.AttachablePosts(w.ctx, nil)
+	require.ErrorIs(t, err, service.ErrNeedsLogin)
 }

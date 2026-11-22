@@ -230,6 +230,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"NOTE_CAPTURE_MAX_BYTES", "8192", func(s *config.Serve) any { return s.Notes.CaptureMaxBytes }, int64(notes.DefaultCaptureMaxBytes), int64(8192)},
 		{"NOTE_QUOTE_SOURCE_WINDOW", "1h", func(s *config.Serve) any { return s.Notes.QuoteSourceWindow }, notes.DefaultQuoteSourceWindow, time.Hour},
 		{"NOTE_PANEL_TAGS", "3", func(s *config.Serve) any { return s.Notes.PanelTags }, notes.DefaultPanelTags, 3},
+		{"NOTE_ATTACH_POSTS", "4", func(s *config.Serve) any { return s.Notes.AttachPosts }, notes.DefaultAttachPosts, 4},
 		{"STT_PROVIDER", "openai-compat", func(s *config.Serve) any { return s.STT.Provider }, "", "openai-compat"},
 		{"STT_TIMEOUT", "30s", func(s *config.Serve) any { return s.STT.Timeout }, notes.DefaultSTTTimeout, 30 * time.Second},
 		{"STT_WORKERS", "4", func(s *config.Serve) any { return s.STT.Workers }, notes.DefaultSTTWorkers, 4},

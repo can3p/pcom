@@ -146,3 +146,73 @@ func (s *Store) NoteLinks(ctx context.Context, noteID string) ([]*model.NotePost
 
 	return links, err
 }
+
+// belongsToPost is the condition that a note (the column noteID names) belongs
+// to a post (the expression post): attached one by one or carrying a tag
+// attached to the post, and not excluded. Its placeholders, in order: when
+// post is "?", the post, the excluded kind, the post, the attached kind and
+// the post again; with a column for post, only the excluded and the attached
+// kind.
+func belongsToPost(noteID, post string) string {
+	return "(NOT EXISTS (SELECT 1 FROM note_post_links x WHERE x.note_id = " + noteID + " AND x.post_id = " + post + " AND x.how = ?) " +
+		"AND (EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = " + noteID + " AND l.post_id = " + post + " AND l.how = ?) " +
+		"OR EXISTS (SELECT 1 FROM post_note_tags t WHERE t.post_id = " + post + " AND t.tag = ANY " + noteTags + ")))"
+}
+
+// PostsOfNotes returns, for each of the user's notes among noteIDs, the posts
+// it belongs to, newest first; a note that belongs to none has no entry.
+func (s *Store) PostsOfNotes(ctx context.Context, userID string, noteIDs []string) (map[string][]*model.Post, error) {
+	var pairs []struct {
+		NoteID string `bun:"note_id"`
+		PostID string `bun:"post_id"`
+	}
+
+	err := s.query().NewSelect().TableExpr("notes AS n").
+		ColumnExpr("n.id AS note_id").ColumnExpr("p.id AS post_id").
+		Join("JOIN posts p ON p.user_id = n.user_id").
+		Where("n.user_id = ?", userID).
+		Where("n.id IN (?)", bun.List(noteIDs)).
+		Where(belongsToPost("n.id", "p.id"), model.NotePostLinkExcluded, model.NotePostLinkAttached).
+		OrderExpr("p.created_at DESC, p.id DESC").
+		Scan(ctx, &pairs)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		ids = append(ids, p.PostID)
+	}
+
+	var posts []*model.Post
+	if len(ids) > 0 {
+		if err := s.query().NewSelect().Model(&posts).Where("?TableAlias.id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	byID := make(map[string]*model.Post, len(posts))
+	for _, p := range posts {
+		byID[p.ID] = p
+	}
+
+	out := map[string][]*model.Post{}
+	for _, p := range pairs {
+		out[p.NoteID] = append(out[p.NoteID], byID[p.PostID])
+	}
+
+	return out, nil
+}
+
+// RecentPosts returns the user's newest saved posts and drafts, by when they
+// were last changed, at most limit.
+func (s *Store) RecentPosts(ctx context.Context, userID string, limit int) ([]*model.Post, error) {
+	posts := []*model.Post{}
+
+	err := s.query().NewSelect().Model(&posts).
+		Where("?TableAlias.user_id = ?", userID).
+		OrderExpr("COALESCE(?TableAlias.updated_at, ?TableAlias.created_at) DESC, ?TableAlias.id DESC").
+		Limit(int64(limit)).Scan(ctx)
+
+	return posts, err
+}

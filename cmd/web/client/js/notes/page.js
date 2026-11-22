@@ -33,9 +33,11 @@ export class NotesPage {
     )
   }
 
-  // Attach to post…: the note's own select names the post. The list comes
+  // Attach to post…, or Attach all notes tagged X (a button with data-tag): the note's own select names the post. The list comes
   // back with the note saying which posts it is attached to.
   attach(event) {
+    if (event.currentTarget.dataset.tag) return this.attachTag(event)
+
     const button = event.currentTarget
     const postId = button.closest(".note-attach-form").querySelector("select").value
 

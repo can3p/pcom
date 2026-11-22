@@ -1,10 +1,9 @@
 {{/* Item: a web.NoteItem, User: the viewer's auth.UserData. On the notes list, Choices are the posts "Attach to
      post…" offers. In the Notes section of a post page, PostNote (a web.PostNoteItem) and PostID are set: the
-     note has Open, Insert into post and Detach, and no selection box. Plain leaves the selection box out of the
-     notes of one post. */}}
+     note has Open and Detach, and no selection box. */}}
 {{ $n := .Item.Note }}
 <article class="item note" id="note-{{ $n.ID }}" data-testid="note">
-  {{ if not (or .PostNote .Plain) }}
+  {{ if not .PostNote }}
   <label class="note-pick">
     <input type="checkbox" value="{{ $n.ID }}" data-notes-target="pick" data-action="notes#select"
            data-recording="{{ if $n.RecordingID }}1{{ else }}0{{ end }}"
@@ -44,7 +43,6 @@
     {{ if .PostNote }}
     <p class="acts">
       <a href="{{ link "note_edit" $n.ID }}">Open</a>
-      <a href="{{ .PostNote.InsertHref }}">Insert into post</a>
       <button type="button"
               data-controller="action"
               data-action="action#run"

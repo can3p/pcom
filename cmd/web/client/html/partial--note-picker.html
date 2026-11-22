@@ -15,7 +15,6 @@
   {{ end }}
   <div class="np-acts">
     <button type="button" class="np-ico" data-action="notes-picker#insert" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Insert" title="Insert at the cursor"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v7a4 4 0 0 0 4 4h10"></path><path d="M15 11l4 4-4 4"></path></svg></button>
-    <button type="button" class="np-ico" data-action="notes-picker#append" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Append" title="Append to the end of the post"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></button>
     {{ if $.PostID }}
     <button type="button" class="np-ico" data-action="notes-picker#toggle" data-note-id="{{ $n.ID }}" data-attached="{{ if .Attached }}1{{ else }}0{{ end }}" data-via="{{ if .Via }}1{{ else }}0{{ end }}" aria-label="{{ if .Attached }}Detach{{ else }}Attach{{ end }}" title="{{ if .Attached }}Detach from this post{{ else }}Attach to this post{{ end }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"></path></svg></button>
     {{ else }}
@@ -49,6 +48,13 @@
   {{ range . }}<li><button type="button" class="np-tag" data-action="notes-picker#addTag" data-tag="{{ .Tag }}" aria-label="Search #{{ .Tag }}">#{{ .Tag }}</button></li>{{ end }}
 </ul>
 {{ end }}
+<input type="hidden" name="only" id="np-only" hx-swap-oob="true" value="{{ if not .PostID }}{{ else if .Only }}1{{ else }}0{{ end }}">
+{{ if .PostID }}
+<p class="np-scope" role="group" aria-label="Which notes">
+  <a href="{{ .OnlyHref }}" hx-get="{{ .OnlyHref }}" hx-target="#np-body" hx-swap="innerHTML"{{ if .Only }} aria-current="true"{{ end }}>This post</a>
+  <a href="{{ .AllHref }}" hx-get="{{ .AllHref }}" hx-target="#np-body" hx-swap="innerHTML"{{ if not .Only }} aria-current="true"{{ end }}>All notes</a>
+</p>
+{{ end }}
 {{ if not .PostID }}<p class="field-help np-hint" data-testid="np-hint">Save as a draft to attach notes.</p>{{ end }}
 {{ range .AttachTags }}
 <p class="np-attach-tag">
@@ -57,7 +63,7 @@
   {{ else if .Done }}
   <span class="meta">#{{ .Tag }} is attached to this post.</span>
   {{ else }}
-  <button type="button" class="btn btn-secondary" data-action="notes-picker#attachTag" data-tag="{{ .Tag }}" data-prompt="{{ .Prompt }}">Attach all notes tagged #{{ .Tag }}</button>
+  <button type="button" class="btn btn-secondary" data-action="notes-picker#toggle" data-tag="{{ .Tag }}" data-prompt="{{ .Prompt }}">Attach all notes tagged #{{ .Tag }}</button>
   {{ end }}
 </p>
 {{ end }}

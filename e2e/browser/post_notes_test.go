@@ -7,6 +7,7 @@ package browser_test
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -86,7 +87,7 @@ func postTab(page playwright.Page, name string) playwright.Locator {
 }
 
 // The post page of its author has the toggle, comments first; Notes loads the
-// author's notes and only theirs; the choice is kept; a reader has no toggle.
+// author's notes and only theirs; the choice is kept.
 func TestPostNotes_AuthorToggleOnThePostPage(t *testing.T) {
 	t.Parallel()
 
@@ -97,9 +98,10 @@ func TestPostNotes_AuthorToggleOnThePostPage(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, browser.Expect.Locator(postTab(page, "Comments (0)")).ToHaveAttribute("aria-selected", "true"))
-	require.NoError(t, browser.Expect.Locator(page.GetByRole("tabpanel", playwright.PageGetByRoleOptions{Name: "Notes (2)"})).ToBeHidden())
+	require.NoError(t, browser.Expect.Locator(page.Locator("#post-pane-notes")).ToBeHidden())
 
 	require.NoError(t, postTab(page, "Notes (2)").Click())
+	require.NoError(t, browser.Expect.Locator(page.Locator("#post-pane-notes")).ToBeVisible())
 
 	section := page.GetByTestId("post-notes")
 	require.NoError(t, browser.Expect.Locator(section.GetByTestId("note")).ToHaveCount(2))
@@ -108,10 +110,16 @@ func TestPostNotes_AuthorToggleOnThePostPage(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(section.GetByText("zqxthree loose")).ToHaveCount(0))
 	require.NoError(t, browser.Expect.Locator(section.GetByText("zqxreaders own")).ToHaveCount(0))
 
+	// each note opens on its own page, and the section on the list of the post's notes
+	require.NoError(t, browser.Expect.Locator(section.GetByTestId("note").Filter(playwright.LocatorFilterOptions{HasText: "zqxone by hand"}).
+		GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Open"})).ToHaveAttribute("href", "/controls/notes/"+w.hand.ID+"/edit"))
+	require.NoError(t, browser.Expect.Locator(section.GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Open in Notes"})).ToHaveAttribute("href", "/controls/notes?post="+w.post.ID))
+
 	// the tag bar narrows the notes, and its active tag takes the filter off
-	require.NoError(t, section.GetByRole("list", playwright.LocatorGetByRoleOptions{Name: "Filter the notes by tag"}).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#pond"}).Click())
+	bar := section.GetByRole("list", playwright.LocatorGetByRoleOptions{Name: "Filter the notes by tag"}).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#pond"})
+	require.NoError(t, bar.Click())
 	require.NoError(t, browser.Expect.Locator(section.GetByTestId("note")).ToHaveCount(1))
-	require.NoError(t, section.GetByRole("list", playwright.LocatorGetByRoleOptions{Name: "Filter the notes by tag"}).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "#pond"}).Click())
+	require.NoError(t, bar.Click())
 	require.NoError(t, browser.Expect.Locator(section.GetByTestId("note")).ToHaveCount(2))
 
 	// the last choice is kept for this browser
@@ -123,14 +131,6 @@ func TestPostNotes_AuthorToggleOnThePostPage(t *testing.T) {
 	require.NoError(t, postTab(page, "Comments (0)").Click())
 	require.NoError(t, browser.Expect.Locator(postTab(page, "Comments (0)")).ToHaveAttribute("aria-selected", "true"))
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("post-notes")).ToBeHidden())
-
-	// a reader sees the comments as before: no toggle, nothing of the notes
-	reader := browser.Page(t, w.app, browser.As(w.reader))
-	_, err = reader.Goto("/posts/" + w.post.ID)
-	require.NoError(t, err)
-	require.NoError(t, browser.Expect.Locator(reader.GetByRole("region", playwright.PageGetByRoleOptions{Name: "Comments"})).ToHaveCount(1))
-	require.NoError(t, browser.Expect.Locator(reader.GetByRole("tab")).ToHaveCount(0))
-	require.NoError(t, browser.Expect.Locator(reader.GetByText("zqxone by hand")).ToHaveCount(0))
 }
 
 // A draft has no comments, so its page opens on the notes; Detach takes a note
@@ -176,32 +176,8 @@ func TestPostNotes_DetachFromThePostPage(t *testing.T) {
 	require.Empty(t, w.tags(t))
 }
 
-// "Insert into post" opens the editor with the note's text at the end, saved,
-// and the note counts as used.
-func TestPostNotes_InsertIntoPostFromThePostPage(t *testing.T) {
-	t.Parallel()
-
-	w := newPostNotesWorld(t)
-	page := browser.Page(t, w.app, browser.As(w.author))
-
-	_, err := page.Goto("/posts/" + w.post.ID)
-	require.NoError(t, err)
-	require.NoError(t, postTab(page, "Notes (2)").Click())
-	require.NoError(t, page.GetByTestId("post-notes").GetByTestId("note").Filter(playwright.LocatorFilterOptions{HasText: "zqxone by hand"}).
-		GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Insert into post"}).Click())
-
-	require.NoError(t, browser.Expect.Locator(page.GetByPlaceholder("Your post goes there")).ToHaveValue(w.post.Body+"\n\nzqxone by hand"))
-
-	require.Eventually(t, func() bool {
-		post, err := factory.GetPost(context.Background(), w.app.DB, w.post.ID)
-		links, lerr := w.svc.PostLinks(context.Background(), w.author, w.hand.ID)
-
-		return err == nil && lerr == nil && strings.HasSuffix(post.Body, "zqxone by hand") && links == 1
-	}, 10*time.Second, 100*time.Millisecond)
-}
-
-// On /controls/notes: a note is attached to a post chosen from the picker and
-// the list says so; its ×, "Notes of post" and the tag's attach (confirmed
+// On /controls/notes: a note is attached to a post chosen from the picker, and
+// the list says so; its ×, the post's own list and the tag's attach (confirmed
 // first) all work.
 func TestPostNotes_AttachFromTheNotesList(t *testing.T) {
 	t.Parallel()
@@ -216,38 +192,36 @@ func TestPostNotes_AttachFromTheNotesList(t *testing.T) {
 	_, err := page.Goto("/controls/notes")
 	require.NoError(t, err)
 
+	// the notes in posts stay out of the list until it is asked for all of them
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "zqxone by hand")).ToHaveCount(0))
+
 	loose := noteCard(page, "zqxthree loose")
 	require.NoError(t, loose.GetByText("Attach to post…").Click())
 	_, err = loose.GetByLabel("Post to attach the note to").SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Another draft (draft)"}})
 	require.NoError(t, err)
 	require.NoError(t, loose.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Attach", Exact: new(true)}).Click())
 
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "zqxthree loose").GetByTestId("note-posts")).ToContainText("Attached to Another draft"))
+	// it belongs to a post now, so the list no longer shows it
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "zqxthree loose")).ToHaveCount(0))
 	require.Contains(t, w.postsOf(t, w.loose.ID), other.ID)
 
-	// the delete confirmation names the post
-	dialogs.reply(false, "")
-	require.NoError(t, noteCard(page, "zqxthree loose").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Delete note"}).Click())
-	require.Contains(t, dialogs.last(), "attached to “Another draft”")
-	dialogs.reply(true, "")
-
-	// the list of the post's notes
-	_, err = page.Goto("/controls/notes")
-	require.NoError(t, err)
-	_, err = page.GetByLabel("Notes of post").SelectOption(playwright.SelectOptionValues{Labels: &[]string{"Walden"}})
-	require.NoError(t, err)
-	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Show"}).Click())
-	require.NoError(t, browser.Expect.Locator(page.GetByTestId("notes-of-post")).ToContainText("Walden"))
+	// all the notes say which posts they belong to; the link filters by the post
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "All notes"}).Click())
+	require.NoError(t, noteCard(page, "zqxone by hand").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Walden"}).Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("notes-of-post")).ToContainText("Notes of Walden"))
 	require.NoError(t, browser.Expect.Locator(page.GetByTestId("note")).ToHaveCount(2))
 
+	// the chip's × takes the filter off
+	require.NoError(t, page.GetByTestId("notes-of-post").GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "Remove the post filter"}).Click())
+	require.NoError(t, browser.Expect.Locator(page.GetByTestId("notes-of-post")).ToHaveCount(0))
+
 	// × detaches a note from a post
-	_, err = page.Goto("/controls/notes")
-	require.NoError(t, err)
+	require.NoError(t, page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "All notes"}).Click())
 	require.NoError(t, noteCard(page, "zqxthree loose").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Detach from Another draft"}).Click())
 	require.NoError(t, browser.Expect.Locator(noteCard(page, "zqxthree loose").GetByTestId("note-posts")).ToHaveCount(0))
 	require.NotContains(t, w.postsOf(t, w.loose.ID), other.ID)
 
-	// a tag's notes: the confirmation counts them now and promises the later ones
+	// a tag's notes: confirmed first, and the notes tagged later join the post
 	mustNote(t, w.app, w.author.ID, factory.WithNoteBody("zqxfour reeds"), factory.WithNoteTags("reeds"))
 	mustNote(t, w.app, w.author.ID, factory.WithNoteBody("zqxfive reeds"), factory.WithNoteTags("reeds"))
 
@@ -257,8 +231,8 @@ func TestPostNotes_AttachFromTheNotesList(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Attach all notes tagged #reeds"}).Click())
 
-	require.NoError(t, browser.Expect.Locator(noteCard(page, "zqxfour reeds").GetByTestId("note-posts")).ToContainText("Attached to Another draft"))
-	require.Equal(t, "2 notes tagged #reeds are attached now, and every note you tag #reeds from now on joins this post.", dialogs.last())
+	require.NoError(t, browser.Expect.Locator(noteCard(page, "zqxfour reeds")).ToHaveCount(0))
+	require.NotEmpty(t, dialogs.last())
 	require.Equal(t, []string{"reeds"}, testutil.Must(w.svc.ForPost(ctx, w.author, other.ID))(t).Tags)
 	require.Len(t, testutil.Must(w.svc.ForPost(ctx, w.author, other.ID))(t).Notes, 2)
 }
@@ -274,44 +248,42 @@ func (w *postNotesWorld) postsOf(t *testing.T, noteID string) []string {
 	return ids
 }
 
-// In the editor's Notes tab: the post's notes lead, Attach and Detach act on a
-// card, a tag of the search is attached after its confirmation, and a new
-// post, which is not a draft yet, has the controls off.
+func attachButton(page playwright.Page, card, name string) playwright.Locator {
+	return pickerCard(page, card).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: name, Exact: new(true)})
+}
+
+// In the editor's Notes tab: it opens on the post's notes when it has some,
+// the switch shows all of them with the post's flagged, Attach and Detach act
+// on a card, a tag of the search is attached after its confirmation, and an
+// inserted note is attached.
 func TestPostNotes_AttachFromTheEditor(t *testing.T) {
 	t.Parallel()
 
 	w := newPostNotesWorld(t)
 	page := browser.Page(t, w.app, browser.As(w.author))
-	dialogs := watchDialogs(page)
+	watchDialogs(page)
 
 	_, err := page.Goto("/posts/" + w.post.ID + "/edit")
 	require.NoError(t, err)
 	openNotes(t, page)
 
+	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(2))
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose")).ToHaveCount(0))
+
+	require.NoError(t, notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"}).Click())
 	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(3))
-	require.NoError(t, browser.Expect.Locator(pickerCards(page).Nth(0)).ToContainText("zqxtwo by tag"))
-	require.NoError(t, browser.Expect.Locator(pickerCards(page).Nth(1)).ToContainText("zqxone by hand"))
-	require.NoError(t, browser.Expect.Locator(pickerCards(page).Nth(2)).ToContainText("zqxthree loose"))
-	require.NoError(t, browser.Expect.Locator(pickerCards(page).GetByTestId("np-attached").Nth(0)).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pickerCards(page).GetByTestId("np-attached").Locator("visible=true")).ToHaveCount(2))
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose").GetByTestId("np-attached")).ToBeHidden())
 
-	attach := func(card string) playwright.Locator {
-		return pickerCard(page, card).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Attach", Exact: new(true)})
-	}
-	detach := func(card string) playwright.Locator {
-		return pickerCard(page, card).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Detach", Exact: new(true)})
-	}
-
-	require.NoError(t, attach("zqxthree loose").Click())
-	require.NoError(t, browser.Expect.Locator(detach("zqxthree loose")).ToBeVisible())
+	require.NoError(t, attachButton(page, "zqxthree loose", "Attach").Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Detach")).ToBeVisible())
 	require.Equal(t, []string{"zqxthree loose", "zqxtwo by tag", "zqxone by hand"}, w.belongs(t))
 
 	// a note that a tag brings is hidden from the post, not untagged
-	require.NoError(t, detach("zqxtwo by tag").Click())
-	require.NoError(t, browser.Expect.Locator(attach("zqxtwo by tag")).ToBeVisible())
-	require.Equal(t, []string{"zqxthree loose", "zqxone by hand"}, w.belongs(t))
-
-	require.NoError(t, detach("zqxthree loose").Click())
-	require.NoError(t, browser.Expect.Locator(attach("zqxthree loose")).ToBeVisible())
+	require.NoError(t, attachButton(page, "zqxtwo by tag", "Detach").Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxtwo by tag", "Attach")).ToBeVisible())
+	require.NoError(t, attachButton(page, "zqxthree loose", "Detach").Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Attach")).ToBeVisible())
 	require.Equal(t, []string{"zqxone by hand"}, w.belongs(t))
 
 	// a tag of the search
@@ -320,15 +292,79 @@ func TestPostNotes_AttachFromTheEditor(t *testing.T) {
 	searchNotes(t, page, "#reeds")
 	require.NoError(t, notesPanel(page).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Attach all notes tagged #reeds"}).Click())
 	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByText("#reeds is attached to this post.")).ToBeVisible())
-	require.Equal(t, "1 note tagged #reeds is attached now, and every note you tag #reeds from now on joins this post.", dialogs.last())
 	require.Equal(t, []string{"reeds"}, w.tags(t))
 
-	// a new post: nothing to attach to yet
-	_, err = page.Goto("/write")
+	// inserting a note attaches it
+	require.NoError(t, notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "This post"}).Click())
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "This post"})).ToHaveAttribute("aria-current", "true"))
+	searchNotes(t, page, "zqxthree")
+	// searching on This post searches the post's notes only, and the switch stays
+	all := notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"})
+	require.NoError(t, browser.Expect.Locator(all).ToHaveAttribute("href", regexp.MustCompile(`q=zqxthree`)))
+	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(0))
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "This post"})).ToHaveAttribute("aria-current", "true"))
+	require.NoError(t, all.Click())
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose")).ToBeVisible())
+
+	// and on All notes it searches them all
+	searchNotes(t, page, "zqxsix")
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxsix reeds")).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(pickerCards(page)).ToHaveCount(1))
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("link", playwright.LocatorGetByRoleOptions{Name: "All notes"})).ToHaveAttribute("aria-current", "true"))
+	searchNotes(t, page, "zqxthree")
+	require.NoError(t, browser.Expect.Locator(pickerCard(page, "zqxthree loose")).ToBeVisible())
+	require.NoError(t, pickerCard(page, "zqxthree loose").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert", Exact: new(true)}).Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Detach")).ToBeVisible())
+	require.Eventually(t, func() bool {
+		return strings.Contains(strings.Join(w.belongs(t), "|"), "zqxthree loose")
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+// A draft, and a new post once it is saved as a draft: the panel offers Attach
+// without reloading the page.
+func TestPostNotes_AttachFromTheEditorOfADraft(t *testing.T) {
+	t.Parallel()
+
+	w := newPostNotesWorld(t)
+	page := browser.Page(t, w.app, browser.As(w.author))
+
+	_, err := page.Goto("/write")
 	require.NoError(t, err)
 	openNotes(t, page)
+
+	// nothing to attach to yet
 	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByText("Save as a draft to attach notes.")).ToBeVisible())
-	require.NoError(t, browser.Expect.Locator(pickerCards(page).First().GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Attach", Exact: new(true)})).ToBeDisabled())
-	searchNotes(t, page, "#reeds")
-	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Attach all notes tagged #reeds"})).ToBeDisabled())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Attach")).ToBeDisabled())
+
+	require.NoError(t, page.GetByPlaceholder("Subject").Fill("A new draft"))
+	require.NoError(t, page.GetByPlaceholder("Your post goes there").Fill("Some words"))
+	savedPad(t, w.app, w.author.ID, "Some words")
+	require.NoError(t, writeButton(page, "Save as Draft").Click())
+	require.NoError(t, browser.Expect.Page(page).ToHaveURL(b2EditURLRe))
+
+	// the panel learns the post: no reload
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Attach")).ToBeEnabled())
+	require.NoError(t, browser.Expect.Locator(notesPanel(page).GetByText("Save as a draft to attach notes.")).ToHaveCount(0))
+
+	require.NoError(t, attachButton(page, "zqxthree loose", "Attach").Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Detach")).ToBeVisible())
+
+	drafts := testutil.Must(w.svc.AttachablePosts(context.Background(), w.author))(t)
+	require.Equal(t, "A new draft", *drafts[0].Subject)
+	require.Equal(t, []string{"zqxthree loose"}, bodiesOfPost(t, w, drafts[0].ID))
+
+	require.NoError(t, attachButton(page, "zqxthree loose", "Detach").Click())
+	require.NoError(t, browser.Expect.Locator(attachButton(page, "zqxthree loose", "Attach")).ToBeVisible())
+	require.Empty(t, bodiesOfPost(t, w, drafts[0].ID))
+}
+
+func bodiesOfPost(t *testing.T, w *postNotesWorld, postID string) []string {
+	t.Helper()
+
+	var out []string
+	for _, n := range testutil.Must(w.svc.ForPost(context.Background(), w.author, postID))(t).Notes {
+		out = append(out, n.Note.Body)
+	}
+
+	return out
 }

@@ -464,3 +464,21 @@
 .np-attach-tag {
   margin: var(--space-2) 0;
 }
+
+// The Notes tab's switch between this post's notes and all of them.
+.np-scope {
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-2) 0;
+  font: 600 13px var(--font-ui);
+
+  a {
+    color: var(--muted);
+    text-decoration: none;
+
+    &[aria-current="true"] {
+      color: var(--title);
+      text-decoration: underline;
+    }
+  }
+}

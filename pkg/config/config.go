@@ -199,6 +199,7 @@ type Notes struct {
 	CaptureMaxBytes      int64         `long:"note-capture-max-bytes" env:"NOTE_CAPTURE_MAX_BYTES" description:"Most bytes of one capture with its photos and recording" default:"33554432"`
 	QuoteSourceWindow    time.Duration `long:"note-quote-source-window" env:"NOTE_QUOTE_SOURCE_WINDOW" description:"How long after a note with a source a new quote still takes that source" default:"12h"`
 	PanelTags            int           `long:"note-panel-tags" env:"NOTE_PANEL_TAGS" description:"How many of the author's most used tags the post editor's Notes panel offers" default:"8"`
+	AttachPosts          int           `long:"note-attach-posts" env:"NOTE_ATTACH_POSTS" description:"How many of the author's newest drafts and posts the Attach to post control of a note offers" default:"10"`
 }
 
 // STTProviderOpenAICompat is the OpenAI-compatible speech-to-text backend.

@@ -87,9 +87,13 @@ type NoteFilter struct {
 	NotTags  []string
 	SourceID string
 	Query    string
-	BeforeAt time.Time
-	BeforeID string
-	Limit    int
+	// PostID keeps the notes that belong to the post; HideInPosts leaves out
+	// every note that belongs to a post of the user.
+	PostID      string
+	HideInPosts bool
+	BeforeAt    time.Time
+	BeforeID    string
+	Limit       int
 }
 
 // NoteRow is a note of a list and whether it was inserted into a post;
@@ -127,6 +131,15 @@ func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) 
 
 	if f.SourceID != "" {
 		q = q.Where("n.source_id = ?", f.SourceID)
+	}
+
+	if f.PostID != "" {
+		q = q.Where(belongsToPost("n.id", "?"), f.PostID, model.NotePostLinkExcluded, f.PostID, model.NotePostLinkAttached, f.PostID)
+	}
+
+	if f.HideInPosts {
+		q = q.Where("NOT EXISTS (SELECT 1 FROM posts bp WHERE bp.user_id = n.user_id AND "+
+			belongsToPost("n.id", "bp.id")+")", model.NotePostLinkExcluded, model.NotePostLinkAttached)
 	}
 
 	if f.Query != "" {

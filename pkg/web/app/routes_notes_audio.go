@@ -141,7 +141,13 @@ func mountNoteAudioRoutes(d *Deps, controls, actions *gin.RouterGroup) {
 
 			c.Header("HX-Retarget", "#note-"+note.ID)
 			c.Header("HX-Reswap", "outerHTML")
-			c.HTML(http.StatusOK, "partial--note-item.html", gin.H{"Item": item, "User": &userData})
+			choices, err := web.PostChoices(c, svc, userData.DBUser)
+			if err != nil {
+				ginhelpers.HTMLError(c, err)
+				return
+			}
+
+			c.HTML(http.StatusOK, "partial--note-item.html", gin.H{"Item": item, "User": &userData, "Choices": choices})
 
 			return
 		case status.View == web.NoteStatusEdit && note.TranscriptionStatus == model.NoteTranscriptionDone:

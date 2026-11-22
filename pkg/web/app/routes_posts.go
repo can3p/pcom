@@ -12,7 +12,6 @@ import (
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
-	"github.com/samber/mo"
 )
 
 // mountPostRoutes registers the pages and forms that write posts, comments and prompts, and the post export.
@@ -50,13 +49,6 @@ func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 		page := web.EditPost(c, posts, &userData, c.Param("id"))
 		if p, err := page.Get(); err == nil {
 			p.Proofread = d.Services.Proofread.Enabled()
-
-			// Insert into post on the post page opens the editor with a note in it
-			if id := c.Query("insert"); id != "" {
-				if err := web.InsertNote(c, d.Services.Notes, &userData, p, id); err != nil {
-					page = mo.Err[*web.EditPostPage](err)
-				}
-			}
 		}
 
 		ginhelpers.HTML(c, "edit_post.html", page)

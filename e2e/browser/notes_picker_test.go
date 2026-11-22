@@ -2,7 +2,7 @@
 
 // The post editor's sidebar and its Notes tab: the tabs and the collapsed
 // strip beside the editor box (remembered per browser), the search with the
-// tags on show, Insert and Append saving the post, Edit and Delete on a card,
+// tags on show, Insert saving the post, Edit and Delete on a card,
 // and the icon buttons' labels.
 package browser_test
 
@@ -77,9 +77,9 @@ func searchNotes(t *testing.T, page playwright.Page, q string) {
 
 // The search takes words and tags like the notes list does; the most used
 // tags under it and each card's tags add #tag to it; there are no source
-// filters; Insert and Append put the text into the post and save it, and the
+// filters; Insert puts the text into the post and save it, and the
 // notes count as used.
-func TestNotesPicker_SearchInsertsAndAppends(t *testing.T) {
+func TestNotesPicker_SearchAndInsert(t *testing.T) {
 	t.Parallel()
 
 	app := e2e.Start(t, e2e.WithRealAssets())
@@ -157,9 +157,6 @@ func TestNotesPicker_SearchInsertsAndAppends(t *testing.T) {
 	insert := func(card string) playwright.Locator {
 		return pickerCard(page, card).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert", Exact: new(true)})
 	}
-	appendBtn := func(card string) playwright.Locator {
-		return pickerCard(page, card).GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Append", Exact: new(true)})
-	}
 
 	// Insert goes in at the cursor, and saves at once
 	_, err = body.Evaluate("el => el.setSelectionRange(5, 5)", nil)
@@ -168,8 +165,10 @@ func TestNotesPicker_SearchInsertsAndAppends(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("Start\n\nalpha idea\n\nEnd"))
 	savedPad(t, app, user.ID, "Start\n\nalpha idea\n\nEnd")
 
-	// Append goes to the end, a quote with its attribution line
-	require.NoError(t, appendBtn("only way out").Click())
+	// a quote goes in with its attribution line
+	_, err = body.Evaluate("el => el.setSelectionRange(el.value.length, el.value.length)", nil)
+	require.NoError(t, err)
+	require.NoError(t, insert("only way out").Click())
 	want := "Start\n\nalpha idea\n\nEnd\n\n> The only way out is through.\n\n— *North of Boston*\n"
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(want))
 	savedPad(t, app, user.ID, want)
@@ -215,7 +214,7 @@ func TestNotesPicker_IconButtonsAndEditLink(t *testing.T) {
 
 	for _, c := range []struct {
 		role, name string
-	}{{"button", "Insert"}, {"button", "Append"}, {"link", "Edit"}, {"button", "Delete"}} {
+	}{{"button", "Insert"}, {"link", "Edit"}, {"button", "Delete"}} {
 		ico := card.GetByRole(playwright.AriaRole(c.role), playwright.LocatorGetByRoleOptions{Name: c.name, Exact: new(true)})
 		require.NoError(t, browser.Expect.Locator(ico).ToBeVisible(), c.name)
 

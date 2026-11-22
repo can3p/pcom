@@ -216,6 +216,12 @@ type NotePickerPage struct {
 	// PostID is the post the panel attaches notes to. A new post that is not
 	// a draft yet has none, and the panel says to save it first.
 	PostID string
+	// Only says the panel lists the notes that belong to the post alone, as
+	// the switch's Scope links choose; the panel opens so when the post has
+	// notes. OnlyHref and AllHref are the two views of the same search.
+	Only     bool
+	OnlyHref string
+	AllHref  string
 	// TopTags are the author's most used tags, which the panel offers under
 	// its search box.
 	TopTags []notes.TagCount
@@ -243,7 +249,8 @@ func quoteText(n *model.Note) string {
 }
 
 // NotePicker is the fragment of the Notes panel for the search of the request,
-// and for the post of the request (post=), whose notes it shows first.
+// and for the post of the request (post=). The panel of a post that has notes
+// lists those alone unless the request says only=0.
 func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Result[*NotePickerPage] {
 	user := userData.DBUser
 	q := ParseNoteQuery(c)
@@ -264,7 +271,23 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		}
 	}
 
-	page, err := svc.List(c, user, q.Filter(cursor))
+	only := mine != nil && len(mine.Notes) > 0
+
+	switch c.Query("only") {
+	case "1":
+		only = mine != nil
+	case "0":
+		only = false
+	}
+
+	f := q.Filter(cursor)
+	f.HideAttached = false
+
+	if !only {
+		f.PostID = ""
+	}
+
+	page, err := svc.List(c, user, f)
 	if err != nil {
 		return mo.Err[*NotePickerPage](err)
 	}
@@ -274,7 +297,19 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		return mo.Err[*NotePickerPage](err)
 	}
 
-	out := &NotePickerPage{Query: q, TopTags: top, PostID: q.PostID}
+	out := &NotePickerPage{Query: q, TopTags: top, PostID: q.PostID, Only: only}
+
+	if mine != nil {
+		scope := func(only string) string {
+			v := q.Values()
+			v.Del("cursor")
+			v.Set("only", only)
+
+			return links.Link("notes_picker") + "?" + v.Encode()
+		}
+
+		out.OnlyHref, out.AllHref = scope("1"), scope("0")
+	}
 
 	attached := map[string]notes.AttachedNote{}
 
@@ -299,28 +334,7 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 		}
 	}
 
-	// the post's own notes lead the first page of the whole list; a search
-	// shows what it finds, the post's notes flagged
-	lead := mine != nil && q.Q == ""
-
-	var items []*NoteItem
-
-	if lead && cursor == "" {
-		for _, row := range mine.Notes {
-			it, err := NoteItemOf(c, svc, user, row.Note)
-			if err != nil {
-				return mo.Err[*NotePickerPage](err)
-			}
-
-			items = append(items, it)
-		}
-	}
-
-	for _, it := range noteItems(svc, page.Entries) {
-		if _, ok := attached[it.Note.ID]; !ok || !lead {
-			items = append(items, it)
-		}
-	}
+	items := noteItems(svc, page.Entries)
 
 	if err := itemsAttached(c, svc, user, items); err != nil {
 		return mo.Err[*NotePickerPage](err)
@@ -336,42 +350,20 @@ func NotePicker(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.
 	if page.Next != "" {
 		more := q.Values()
 		more.Set("cursor", page.Next)
+
+		if mine != nil {
+			more.Set("only", map[bool]string{true: "1", false: "0"}[only])
+		}
+
 		out.More = links.Link("notes_picker") + "?" + more.Encode()
 	}
 
 	return mo.Ok(out)
 }
 
-// InsertNote puts the viewer's note id at the end of the text the edit page
-// opens with, as Insert in the editor's Notes panel would, and tells the
-// editor to save and mark the note used.
-func InsertNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, page *EditPostPage, id string) error {
-	if _, err := uuid.Parse(id); err != nil {
-		return service.ErrNotFound
-	}
-
-	note, err := svc.Get(c, userData.DBUser, id)
-	if err != nil {
-		return err
-	}
-
-	text := quoteText(note)
-
-	if body := strings.TrimRight(page.Input.Body, "\n"); body != "" {
-		text = body + "\n\n" + text
-	}
-
-	page.Input.Body = text
-	page.Input.NoteIDs = note.ID
-
-	return nil
-}
-
 // PostNoteItem is a note of a post's Notes section.
 type PostNoteItem struct {
 	Item *NoteItem
-	// InsertHref opens the post's editor with the note inserted at the end.
-	InsertHref string
 	// Exclude says Detach hides the note, which a tag attached to the post
 	// brings; otherwise it takes back the attaching.
 	Exclude bool
@@ -397,6 +389,8 @@ type PostNotesTag struct {
 type PostNotesPage struct {
 	*BasePage
 	PostID string
+	// ListHref is the notes list narrowed to this post.
+	ListHref string
 	// Attached are the tags attached to the post, each with Detach.
 	Attached []string
 	// Tags is the tag bar, over all the notes of the post.
@@ -420,6 +414,7 @@ func PostNotes(c *gin.Context, svc *notes.Service, userData *auth.UserData, post
 
 	out := &PostNotesPage{
 		BasePage: getBasePage(c, "Notes", userData), PostID: postID, Attached: pn.Tags, Count: len(pn.Notes),
+		ListHref: NoteQuery{PostID: postID}.URL(links.Link("notes")),
 	}
 
 	byTag := map[string]*PostNoteGroup{}
@@ -444,9 +439,8 @@ func PostNotes(c *gin.Context, svc *notes.Service, userData *auth.UserData, post
 		}
 
 		item := &PostNoteItem{
-			Item:       noteItem(svc, row.Note, false),
-			InsertHref: links.Link("edit_post", postID) + "?insert=" + row.Note.ID,
-			Exclude:    len(row.ViaTags) > 0,
+			Item:    noteItem(svc, row.Note, false),
+			Exclude: len(row.ViaTags) > 0,
 		}
 
 		switch {
