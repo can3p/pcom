@@ -530,6 +530,12 @@ Help Options:
                                                        editor's Notes panel
                                                        offers (default: 8)
                                                        [$NOTE_PANEL_TAGS]
+          --note-attach-posts=                         How many of the author's
+                                                       newest drafts and posts
+                                                       the Attach to post
+                                                       control of a note offers
+                                                       (default: 10)
+                                                       [$NOTE_ATTACH_POSTS]
 
     Speech to text:
           --stt-provider=[|openai-compat]              Speech-to-text backend;

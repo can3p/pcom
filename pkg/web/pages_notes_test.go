@@ -65,20 +65,20 @@ func TestNotes_StatusPollSaysWhereTheStatusShows(t *testing.T) {
 func TestNotes_ParseQueryAndValuesRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	const raw = "/controls/notes?tag=a&not=c&source=s1&unused=1&inbox=1&q=%20%23a+-%23c+two+words%20"
+	const raw = "/controls/notes?tag=a&not=c&source=s1&post=p1&all=1&unused=1&inbox=1&q=%20%23a+-%23c+two+words%20"
 
 	c, _ := ginctx.New(t, http.MethodGet, raw, nil)
 	q := web.ParseNoteQuery(c)
 
-	require.Equal(t, web.NoteQuery{SourceID: "s1", Q: "#a -#c two words"}, q, "?tag, ?not, ?unused and ?inbox are no filters")
+	require.Equal(t, web.NoteQuery{SourceID: "s1", Q: "#a -#c two words", PostID: "p1", All: true}, q, "?tag, ?not, ?unused and ?inbox are no filters")
 	require.True(t, q.Filtered())
-	require.Equal(t, "/controls/notes?q=%23a+-%23c+two+words&source=s1", q.URL(links.Link("notes")))
+	require.Equal(t, "/controls/notes?all=1&post=p1&q=%23a+-%23c+two+words&source=s1", q.URL(links.Link("notes")))
 
 	c2, _ := ginctx.New(t, http.MethodGet, q.URL(links.Link("notes")), nil)
 	require.Equal(t, q, web.ParseNoteQuery(c2))
 
 	require.Equal(t, notes.Filter{
-		Tags: []string{"a"}, NotTags: []string{"c"}, SourceID: "s1", Query: "two words", Cursor: "cur",
+		Tags: []string{"a"}, NotTags: []string{"c"}, SourceID: "s1", Query: "two words", PostID: "p1", Cursor: "cur",
 	}, q.Filter("cur"))
 
 	// nothing is a view that doesn't narrow
@@ -88,14 +88,14 @@ func TestNotes_ParseQueryAndValuesRoundTrip(t *testing.T) {
 	require.False(t, empty.Filtered())
 	require.Empty(t, empty.Values())
 	require.Equal(t, links.Link("notes"), empty.URL(links.Link("notes")))
-	require.Equal(t, notes.Filter{}, empty.Filter(""))
+	require.Equal(t, notes.Filter{HideAttached: true}, empty.Filter(""), "the list hides the notes in posts unless it shows all")
 }
 
 func TestNotes_FilteredByEachFilterAlone(t *testing.T) {
 	t.Parallel()
 
 	for name, q := range map[string]web.NoteQuery{
-		"source": {SourceID: "s"}, "search": {Q: "x"},
+		"source": {SourceID: "s"}, "search": {Q: "x"}, "post": {PostID: "p"},
 	} {
 		require.True(t, q.Filtered(), name)
 	}
@@ -135,4 +135,18 @@ func TestNotes_TagsOfANoteHandSetFirst(t *testing.T) {
 		{Tag: "c", FromText: true, Href: "/controls/notes?q=%23c"},
 	}, web.NoteTagsOf(n))
 	require.Empty(t, web.NoteTagsOf(&model.Note{}))
+}
+
+// The confirmation says, before anything is attached, how many notes the tag
+// brings now and that the notes tagged later join the post.
+func TestNotes_AttachTagPrompt(t *testing.T) {
+	t.Parallel()
+
+	for count, want := range map[int]string{
+		0:  "No note is tagged #pond yet, and every note you tag #pond from now on joins this post.",
+		1:  "1 note tagged #pond is attached now, and every note you tag #pond from now on joins this post.",
+		12: "12 notes tagged #pond are attached now, and every note you tag #pond from now on joins this post.",
+	} {
+		require.Equal(t, want, web.AttachTagPrompt("pond", count))
+	}
 }

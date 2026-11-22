@@ -23,12 +23,16 @@ const (
 )
 
 // NotePostLinkHow is the Postgres enum note_post_link_how: how a note came
-// into a post.
+// into a post. Inserted is text the editor put into the body; attached and
+// excluded change no text: attached joins a note to the post one by one,
+// excluded keeps out a note one of the post's tags would bring.
 type NotePostLinkHow string
 
 // The values of NotePostLinkHow.
 const (
 	NotePostLinkInserted NotePostLinkHow = "inserted"
+	NotePostLinkAttached NotePostLinkHow = "attached"
+	NotePostLinkExcluded NotePostLinkHow = "excluded"
 )
 
 // STTStatus is how a call to a speech-to-text backend ended. Only ok calls
@@ -151,18 +155,39 @@ type NoteImage struct {
 	Upload *MediaUpload `bun:"rel:belongs-to,join:upload_id=id"`
 }
 
-// NotePostLink is a row of note_post_links: a note used in a post.
+// NotePostLink is a row of note_post_links: a note inserted into, attached
+// to or excluded from a post. A note can be both inserted and attached.
 type NotePostLink struct {
 	bun.BaseModel `bun:"table:note_post_links"`
 
 	NoteID    string          `bun:"note_id,pk"`
 	PostID    string          `bun:"post_id,pk"`
-	How       NotePostLinkHow `bun:"how"`
+	How       NotePostLinkHow `bun:"how,pk"`
 	CreatedAt time.Time       `bun:"created_at,default:now()"`
 }
 
 // BeforeAppendModel stamps the row's timestamps on insert.
 func (m *NotePostLink) BeforeAppendModel(_ context.Context, query bun.Query) error {
+	if m != nil {
+		stampTimes(query, &m.CreatedAt, nil)
+	}
+
+	return nil
+}
+
+// PostNoteTag is a row of post_note_tags: a tag attached to a post. Every
+// note of the post's author that carries it, now or later, belongs to the
+// post unless excluded.
+type PostNoteTag struct {
+	bun.BaseModel `bun:"table:post_note_tags"`
+
+	PostID    string    `bun:"post_id,pk"`
+	Tag       string    `bun:"tag,pk"`
+	CreatedAt time.Time `bun:"created_at,default:now()"`
+}
+
+// BeforeAppendModel stamps the row's timestamps on insert.
+func (m *PostNoteTag) BeforeAppendModel(_ context.Context, query bun.Query) error {
 	if m != nil {
 		stampTimes(query, &m.CreatedAt, nil)
 	}

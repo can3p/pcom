@@ -15,6 +15,7 @@ import (
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
+	"github.com/can3p/pcom/pkg/postops"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/gin-gonic/gin"
@@ -24,11 +25,16 @@ import (
 )
 
 // NoteQuery is the view of the notes list a URL describes: the search box's
-// query (Q, read by notes.ParseSearch: #tag, -#tag and words) and the source.
-// The search box and the post editor's panel build their links from it.
+// query (Q, read by notes.ParseSearch: #tag, -#tag and words), the source and
+// the post whose notes are on show. The search box and the post editor's
+// panel build their links from it.
 type NoteQuery struct {
 	SourceID string
 	Q        string
+	PostID   string
+	// All shows every note, whereas the list leaves out the notes that
+	// belong to a post.
+	All bool
 }
 
 // ParseNoteQuery reads a NoteQuery from the request's query string.
@@ -36,6 +42,8 @@ func ParseNoteQuery(c *gin.Context) NoteQuery {
 	return NoteQuery{
 		SourceID: c.Query("source"),
 		Q:        strings.TrimSpace(c.Query("q")),
+		PostID:   c.Query("post"),
+		All:      c.Query("all") == "1",
 	}
 }
 
@@ -50,6 +58,7 @@ func (q NoteQuery) Filter(cursor string) notes.Filter {
 
 	return notes.Filter{
 		Tags: search.Tags, NotTags: search.NotTags, Query: search.Query, SourceID: q.SourceID, Cursor: cursor,
+		PostID: q.PostID, HideAttached: !q.All && q.PostID == "",
 	}
 }
 
@@ -63,6 +72,14 @@ func (q NoteQuery) Values() url.Values {
 
 	if q.Q != "" {
 		v.Set("q", q.Q)
+	}
+
+	if q.PostID != "" {
+		v.Set("post", q.PostID)
+	}
+
+	if q.All {
+		v.Set("all", "1")
 	}
 
 	return v
@@ -91,9 +108,21 @@ func (q NoteQuery) withSource(id string) NoteQuery {
 	return q
 }
 
+func (q NoteQuery) withPost(id string) NoteQuery {
+	q.PostID = id
+
+	return q
+}
+
+func (q NoteQuery) withAll(all bool) NoteQuery {
+	q.All = all
+
+	return q
+}
+
 // Filtered reports whether q narrows the list down at all.
 func (q NoteQuery) Filtered() bool {
-	return q.SourceID != "" || q.Q != ""
+	return q.SourceID != "" || q.Q != "" || q.PostID != ""
 }
 
 // NoteFilter is a part of the search on show above the list, with the link
@@ -165,6 +194,69 @@ type NoteItem struct {
 	Status *NoteStatus
 	// Again is the "Transcribe again as…" control, nil when the note has none.
 	Again *NoteAgain
+	// Posts are the posts the note is attached to, newest first.
+	Posts []NotePost
+}
+
+// NotePost is a post a note belongs to, as the note names it: the post's
+// title, the list of the notes that belong to it, and the post itself.
+type NotePost struct {
+	ID    string
+	Title string
+	Href  string
+	Open  string
+}
+
+// attachedTo names the posts the note belongs to on the item, and in its
+// delete confirmation.
+func (it *NoteItem) attachedTo(posts []*model.Post) {
+	if len(posts) == 0 {
+		return
+	}
+
+	for _, p := range posts {
+		it.Posts = append(it.Posts, NotePost{
+			ID: p.ID, Title: postops.PostSubject(p.Subject), Open: links.Link("post_notes_tab", p.ID),
+			Href: NoteQuery{PostID: p.ID}.URL(links.Link("notes")),
+		})
+	}
+
+	it.DeletePrompt += attachedPrompt(posts)
+}
+
+// attachedPrompt is what the confirmation of a delete adds for the posts the
+// note belongs to: they lose the link and keep their text.
+func attachedPrompt(posts []*model.Post) string {
+	if len(posts) == 0 {
+		return ""
+	}
+
+	titles := make([]string, 0, len(posts))
+
+	for _, p := range posts {
+		titles = append(titles, "\u201c"+postops.PostSubject(p.Subject)+"\u201d")
+	}
+
+	return " It is attached to " + strings.Join(titles, ", ") + ", which lose it and keep their text."
+}
+
+// itemsAttached names the posts every note of items belongs to, in one read.
+func itemsAttached(c *gin.Context, svc *notes.Service, user *model.User, items []*NoteItem) error {
+	ids := make([]string, 0, len(items))
+	for _, it := range items {
+		ids = append(ids, it.Note.ID)
+	}
+
+	byNote, err := svc.PostsOfNotes(c, user, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, it := range items {
+		it.attachedTo(byNote[it.Note.ID])
+	}
+
+	return nil
 }
 
 // TranscribeLanguage is a language the "Transcribe again as…" picker offers:
@@ -249,7 +341,13 @@ func NoteItemOf(c *gin.Context, svc *notes.Service, user *model.User, n *model.N
 		return nil, err
 	}
 
-	return noteItem(svc, n, links > 0), nil
+	it := noteItem(svc, n, links > 0)
+
+	if err := itemsAttached(c, svc, user, []*NoteItem{it}); err != nil {
+		return nil, err
+	}
+
+	return it, nil
 }
 
 // noteItem is the list item of n; used says whether it is in a post.
@@ -304,6 +402,88 @@ type NotesPage struct {
 	SourceChoices []notes.SourceCount
 	// Manage is set on the screen that renames tags and sources.
 	Manage *NoteManage
+	// Post is the post whose notes are on show (?post=), nil on the list of
+	// all the notes; its Href lists them without the filter.
+	Post *NotePost
+	// All is set when the list shows every note, AllHref switches it.
+	All     bool
+	AllHref string
+	// PostChoices are the author's recent posts and drafts, which the
+	// controls that attach to a post offer; the route sets them.
+	PostChoices []PostChoice
+	// AttachTags are the tags the search holds, each with what attaching
+	// its notes to a post asks first.
+	AttachTags []AttachTag
+}
+
+// PostChoice is a post an attach control offers.
+type PostChoice struct {
+	ID    string
+	Title string
+	Draft bool
+}
+
+// AttachTag is a tag whose notes can be attached to a post: Prompt is the
+// confirmation shown before it is.
+type AttachTag struct {
+	Tag    string
+	Prompt string
+	// Done says the post has the tag attached already.
+	Done bool
+}
+
+// AttachTagPrompt is what attaching a tag says first: how many notes carry it
+// now, and that the ones tagged later join the post too.
+func AttachTagPrompt(tag string, count int) string {
+	var now string
+
+	switch count {
+	case 0:
+		now = fmt.Sprintf("No note is tagged #%s yet", tag)
+	case 1:
+		now = fmt.Sprintf("1 note tagged #%s is attached now", tag)
+	default:
+		now = fmt.Sprintf("%d notes tagged #%s are attached now", count, tag)
+	}
+
+	return fmt.Sprintf("%s, and every note you tag #%s from now on joins this post.", now, tag)
+}
+
+// attachTags are the controls for the tags of a search, counting the notes
+// each carries in tags, the author's tags.
+func attachTags(search notes.Search, tags []notes.TagCount) []AttachTag {
+	var out []AttachTag
+
+	for _, t := range search.Tags {
+		count := 0
+
+		for _, tc := range tags {
+			if tc.Tag == t {
+				count = tc.Count
+			}
+		}
+
+		out = append(out, AttachTag{Tag: t, Prompt: AttachTagPrompt(t, count)})
+	}
+
+	return out
+}
+
+// PostChoices are the author's newest saved posts and drafts, for the controls
+// that attach notes to one.
+func PostChoices(c *gin.Context, svc *notes.Service, user *model.User) ([]PostChoice, error) {
+	list, err := svc.AttachablePosts(c, user)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]PostChoice, 0, len(list))
+
+	for _, p := range list {
+		out = append(out, PostChoice{ID: p.ID, Title: postops.PostSubject(p.Subject), Draft: p.PublishedAt == nil})
+	}
+
+	return out, nil
 }
 
 // NoteManage is the tag and source management screen.
@@ -398,6 +578,12 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 	user := userData.DBUser
 	q := ParseNoteQuery(c)
 
+	if q.PostID != "" {
+		if _, err := uuid.Parse(q.PostID); err != nil {
+			return mo.Err[*NotesPage](service.ErrNotFound)
+		}
+	}
+
 	tags, err := svc.Tags(c, user)
 	if err != nil {
 		return mo.Err[*NotesPage](err)
@@ -409,6 +595,10 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 	}
 
 	items := noteItems(svc, page.Entries)
+
+	if err := itemsAttached(c, svc, user, items); err != nil {
+		return mo.Err[*NotesPage](err)
+	}
 
 	for _, it := range items {
 		it.Tags = noteTagsIn(it.Note, q)
@@ -426,6 +616,12 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		return mo.Err[*NotesPage](err)
 	}
 
+	// the views by source count the notes the list holds
+	counted, err := svc.SourcesOf(c, user, q.Filter(""))
+	if err != nil {
+		return mo.Err[*NotesPage](err)
+	}
+
 	out := &NotesPage{
 		BasePage:      getBasePage(c, "Notes", userData),
 		Query:         q,
@@ -433,6 +629,21 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		Items:         items,
 		RecentTags:    recentTags(newest.Entries),
 		SourceChoices: sources,
+		AttachTags:    attachTags(q.Search(), tags),
+		All:           q.All,
+		AllHref:       q.withAll(!q.All).URL(links.Link("notes")),
+	}
+
+	if q.PostID != "" {
+		post, err := svc.Post(c, user, q.PostID)
+		if err != nil {
+			return mo.Err[*NotesPage](err)
+		}
+
+		out.Post = &NotePost{
+			ID: post.ID, Title: postops.PostSubject(post.Subject), Open: links.Link("post_notes_tab", post.ID),
+			Href: q.withPost("").URL(links.Link("notes")),
+		}
 	}
 
 	if page.Next != "" {
@@ -441,7 +652,7 @@ func Notes(c *gin.Context, svc *notes.Service, userData *auth.UserData) mo.Resul
 		out.More = links.Link("notes") + "?" + more.Encode()
 	}
 
-	for _, s := range sources {
+	for _, s := range counted {
 		on := s.Source.ID == q.SourceID
 		if s.Notes == 0 && !on {
 			continue
@@ -511,6 +722,11 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		return mo.Err[*EditNotePage](err)
 	}
 
+	attached, err := svc.PostsOf(c, userData.DBUser, id)
+	if err != nil {
+		return mo.Err[*EditNotePage](err)
+	}
+
 	sources, err := svc.Sources(c, userData.DBUser)
 	if err != nil {
 		return mo.Err[*EditNotePage](err)
@@ -520,7 +736,7 @@ func EditNote(c *gin.Context, svc *notes.Service, userData *auth.UserData, id st
 		BasePage:     getBasePage(c, "Edit note", userData),
 		Note:         note,
 		Tags:         strings.Join(note.Tags, " "),
-		DeletePrompt: NoteDeletePrompt(note, links > 0),
+		DeletePrompt: NoteDeletePrompt(note, links > 0) + attachedPrompt(attached),
 		Status:       &NoteStatus{Note: note, View: NoteStatusEdit, Base: note.Body},
 		Again:        NoteAgainOf(svc, note, true),
 		Sources:      sources,

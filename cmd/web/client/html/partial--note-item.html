@@ -1,16 +1,21 @@
-{{/* Item: a web.NoteItem, User: the viewer's auth.UserData. */}}
+{{/* Item: a web.NoteItem, User: the viewer's auth.UserData. On the notes list, Choices are the posts "Attach to
+     post…" offers. In the Notes section of a post page, PostNote (a web.PostNoteItem) and PostID are set: the
+     note has Open and Detach, and no selection box. */}}
 {{ $n := .Item.Note }}
 <article class="item note" id="note-{{ $n.ID }}" data-testid="note">
+  {{ if not .PostNote }}
   <label class="note-pick">
     <input type="checkbox" value="{{ $n.ID }}" data-notes-target="pick" data-action="notes#select"
            data-recording="{{ if $n.RecordingID }}1{{ else }}0{{ end }}"
            aria-label="Select this note">
   </label>
+  {{ end }}
   <div class="note-main">
     <div class="note-head">
       <p class="meta">{{ renderHumanTime $n.CapturedAt .User.DBUser }}
         {{ with $n.Source }}<span class="dot">&middot;</span><a href="{{ link "notes" "source" .ID }}" data-testid="note-source">{{ .Title }}</a>{{ end }}
         {{ if .Item.Used }}<span class="dot">&middot;</span>used in a post{{ end }}</p>
+      {{ if not .PostNote }}
       <div class="note-acts">
         <a class="nt-icon" href="{{ link "note_edit" $n.ID }}" aria-label="Edit note" title="Edit note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
         <button type="button" class="nt-icon nt-icon-danger"
@@ -21,6 +26,7 @@
                 data-action-prompt-value="{{ .Item.DeletePrompt }}"
                 data-note-id="{{ $n.ID }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path></svg></button>
       </div>
+      {{ end }}
     </div>
     {{ if $n.RecordingID }}{{ template "partial--note-status.html" .Item.Status }}{{ end }}
     {{ if $n.Body }}<div class="prose note-body">{{ markdown_feed $n.Body }}</div>{{ end }}
@@ -34,6 +40,41 @@
       {{ end }}
     </ul>
     {{ end }}
+    {{ if .PostNote }}
+    <p class="acts">
+      <a href="{{ link "note_edit" $n.ID }}">Open</a>
+      <button type="button"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="{{ if .PostNote.Exclude }}note_exclude{{ else }}note_detach{{ end }}"
+              data-note-id="{{ $n.ID }}"
+              data-post-id="{{ .PostID }}">Detach</button>
+    </p>
+    {{ else }}
+    {{ with .Item.Posts }}
+    <p class="meta note-posts" data-testid="note-posts">Attached to
+      {{ range $i, $p := . }}{{ if $i }}, {{ end }}<a href="{{ $p.Href }}">{{ $p.Title }}</a>
+      <button type="button" class="nt-x"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="note_exclude"
+              data-note-id="{{ $n.ID }}"
+              data-post-id="{{ $p.ID }}"
+              aria-label="Detach from {{ $p.Title }}" title="Detach from {{ $p.Title }}">&times;</button>{{ end }}
+    </p>
+    {{ end }}
+    {{ with .Choices }}
+    <details class="note-attach">
+      <summary>Attach to post&hellip;</summary>
+      <div class="note-attach-form">
+        <select aria-label="Post to attach the note to">
+          {{ range . }}<option value="{{ .ID }}">{{ .Title }}{{ if .Draft }} (draft){{ end }}</option>{{ end }}
+        </select>
+        <button type="button" class="btn btn-secondary" hx-ext="json-enc" data-action="notes#attach" data-note-id="{{ $n.ID }}">Attach</button>
+      </div>
+    </details>
+    {{ end }}
     {{ with .Item.Again }}{{ template "partial--note-again.html" . }}{{ end }}
+    {{ end }}
   </div>
 </article>

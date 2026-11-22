@@ -72,6 +72,8 @@ func TestLink_WithArguments(t *testing.T) {
 		{"post", []string{"123"}, "/posts/123"},
 		{"shared_post", []string{"456"}, "/shared/456"},
 		{"edit_post", []string{"789"}, "/posts/789/edit"},
+		{"post_notes", []string{"789"}, "/posts/789/notes"},
+		{"post_notes_tab", []string{"789"}, "/posts/789#notes"},
 		{"write_preview", []string{"prompt", "p1"}, "/write/preview?prompt=p1"},
 		{"user", []string{"user-id-1"}, "/users/user-id-1"},
 		{"user_styles", []string{"user-id-2"}, "/users/user-id-2/user_styles"},

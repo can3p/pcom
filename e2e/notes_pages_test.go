@@ -686,7 +686,7 @@ func TestNotesPages_Picker(t *testing.T) {
 
 	require.Equal(t, []string{"No notes match."}, texts(picker("?q=zzz"), ".np-list .field-help"))
 
-	// what Insert and Append put into the post: a quote gets its attribution line
+	// what Insert puts into the post: a quote gets its attribution line
 	doc := picker("")
 	text := func(i int) string {
 		return doc.Find("[data-testid=picker-note]").Eq(i).Find(".np-acts button").First().AttrOr("data-text", "")
@@ -698,8 +698,7 @@ func TestNotesPages_Picker(t *testing.T) {
 	card := doc.Find("[data-testid=picker-note]").Eq(2)
 	buttons := card.Find(".np-acts button")
 	labels := buttons.Map(func(_ int, b *goquery.Selection) string { return b.AttrOr("aria-label", "") })
-	require.Equal(t, []string{"Insert", "Append", "Delete"}, labels)
-	require.Equal(t, text(2), buttons.Eq(1).AttrOr("data-text", ""))
+	require.Equal(t, []string{"Insert", "Attach", "Delete"}, labels)
 	require.Equal(t, "/controls/notes/"+bravo.ID+"/edit", card.Find(".np-acts a[aria-label=Edit]").AttrOr("href", ""))
 	require.Equal(t, "_blank", card.Find(".np-acts a[aria-label=Edit]").AttrOr("target", ""))
 	require.Equal(t, "note_delete", buttons.Eq(2).AttrOr("data-action-action-value", ""))

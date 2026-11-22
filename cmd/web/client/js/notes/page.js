@@ -1,3 +1,5 @@
+import { runAction, reloadPage, reportError } from "../lib"
+
 // The notes list and a note's edit page, loaded by
 // controllers/notes_controller.js on those pages only, so the main bundle
 // stays small. The selection bar's buttons are action controllers; this
@@ -29,6 +31,30 @@ export class NotesPage {
       "data-action-prompt-value",
       `Delete ${notes}${rec}? This can't be undone.`,
     )
+  }
+
+  // Attach to post…, or Attach all notes tagged X (a button with data-tag): the note's own select names the post. The list comes
+  // back with the note saying which posts it is attached to.
+  attach(event) {
+    if (event.currentTarget.dataset.tag) return this.attachTag(event)
+
+    const button = event.currentTarget
+    const postId = button.closest(".note-attach-form").querySelector("select").value
+
+    runAction("note_attach", {}, { noteId: button.dataset.noteId, postId }, button).then(reloadPage, reportError)
+  }
+
+  // Attach all notes tagged X to the post chosen above the list, after the
+  // confirmation the server worded.
+  attachTag(event) {
+    const button = event.currentTarget
+    const { tag, prompt } = button.dataset
+
+    if (!confirm(prompt)) return
+
+    const postId = button.closest(".nt-attach").querySelector("select").value
+
+    runAction("note_attach_tag", {}, { tag, postId }, button).then(reloadPage, reportError)
   }
 
   captureKey(event) {

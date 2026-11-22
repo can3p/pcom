@@ -18,6 +18,8 @@ import (
 func mountPostRoutes(d *Deps, r, controlsForms *gin.RouterGroup) {
 	posts := d.Services.Posts
 
+	mountPostNoteRoutes(d, r)
+
 	r.GET("/posts/:id/zip", requireUUIDParam("id"), func(c *gin.Context) {
 		userData := auth.GetUserData(c)
 		postID := c.Param("id")

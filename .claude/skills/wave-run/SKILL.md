@@ -115,7 +115,9 @@ subagents, whose context is thrown away.
   for the same helper, it is real.
 - **Resume, don't re-dispatch.** A subagent stopped by a rate limit keeps its context: continue it with
   `SendMessage` once the limit resets. When the safety classifier returns no verdict, retry once, then wait,
-  and review yourself whatever a subagent finished during the outage.
+  and review yourself whatever a subagent finished during the outage. Resuming for rework rounds has a
+  limit: once a subagent's context is past about 250k, a further round goes to a fresh agent with a focused
+  prompt (the files, the decisions, what to change), since every resumed turn re-reads the whole context.
 - **Escalate once, don't loop.** A task that fails its "done when" twice is bumped one tier, once, with the
   failure summary. If it fails there, stop and report rather than burning more tokens.
 - **Tier down when in doubt about difficulty, not about consequences.** If a mistake would be caught by a test
@@ -150,7 +152,9 @@ no logs. If you need a detail, ask with `SendMessage`, which keeps the subagent'
    copy you made first under a unique name in your scratchpad (`cp` aside and back; never `git checkout`,
    which erases a subagent's uncommitted work and can't restore an untracked file). Break something the
    fixture actually sets: a field the factory leaves empty passes either way. Never while an audit agent is reading the same worktree: it will report your mutation
-   as a regression. A test that doesn't fail when you break the code under it covers nothing.
+   as a regression. A test that doesn't fail when you break the code under it covers nothing. Check that the
+   mutation applied (`grep -c` the changed text) before reading a pass as a gap: a `sed` whose pattern
+   doesn't match changes nothing.
 4. **Audit the assertions** of every task that writes tests, because one mutation samples one test. Have a
    read-only `Explore` agent (strong tier) classify every new test as weak (passes whether or not the
    behavior works: only a status on a page that always answers 200, "body exists", `NotNil` on a returned

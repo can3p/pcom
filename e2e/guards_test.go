@@ -180,6 +180,11 @@ func (w *guardWorld) snapshot(t *testing.T) dbSnapshot {
 			for _, c := range comments {
 				s.Comments = append(s.Comments, c.ID+"|"+c.Body)
 			}
+
+			noteTags, err := repo.New(db).PostNoteTags(ctx, p.ID)
+			require.NoError(t, err)
+
+			s.Posts = append(s.Posts, fmt.Sprintf("post_note_tags|%s|%v", p.ID, noteTags))
 		}
 	}
 
@@ -238,10 +243,12 @@ func (w *guardWorld) notesSnapshot(t *testing.T) []string {
 			n := r.Note
 			out = append(out, fmt.Sprintf("note|%s|%s|%s|%v|%v|%s", n.ID, n.Body, n.UserID, n.Tags, n.TextTags, lo.FromPtr(n.SourceID)))
 
-			links, err := store.NotePostLinkCount(ctx, n.ID)
+			links, err := store.NoteLinks(ctx, n.ID)
 			require.NoError(t, err)
 
-			out = append(out, fmt.Sprintf("note_post_links|%s|%d", n.ID, links))
+			for _, l := range links {
+				out = append(out, fmt.Sprintf("note_post_links|%s|%s|%s", n.ID, l.PostID, l.How))
+			}
 		}
 
 		tags, err := store.NoteTagCounts(ctx, u.ID)
@@ -303,6 +310,7 @@ func noExtra(*guardWorld) map[string]string { return nil }
 var guardRoutes = []guardRoute{
 	// EnforceAuth GET routes
 	{http.MethodGet, "/posts/:id/edit", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/edit" }, noExtra},
+	{http.MethodGet, "/posts/:id/notes", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/notes" }, noExtra},
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
 	{http.MethodGet, "/write/preview", staticPath("/write/preview"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
@@ -391,6 +399,26 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/note_mark_used", staticPath("/controls/action/note_mark_used"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_attach", staticPath("/controls/action/note_attach"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_detach", staticPath("/controls/action/note_detach"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_exclude", staticPath("/controls/action/note_exclude"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_attach_tag", staticPath("/controls/action/note_attach_tag"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"postId": w.published.ID, "tag": "keep"}
+		}},
+	{http.MethodPost, "/controls/action/note_detach_tag", staticPath("/controls/action/note_detach_tag"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"postId": w.published.ID, "tag": "keep"}
 		}},
 	{http.MethodPost, "/controls/action/note_delete", staticPath("/controls/action/note_delete"),
 		func(w *guardWorld) map[string]string { return map[string]string{"noteId": w.note.ID} }},
@@ -535,6 +563,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_auth.go":          {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_connections.go":   {"controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_posts.go":         {"r": "", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_post_notes.go":    {"r": "", "actions": "/controls/action"},
 		"../pkg/web/app/routes_notes.go":         {"controls": "/controls", "controlsForms": "/controls/form", "actions": "/controls/action"},
 		"../pkg/web/app/routes_settings.go":      {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_feeds.go":         {"controlsForms": "/controls/form"},
@@ -923,10 +952,10 @@ func TestGuards_ForeignObjects(t *testing.T) {
 				titles[i] = fmt.Sprintf("%s:%d", sc.Source.Title, sc.Notes)
 			}
 
-			links, err := store.NotePostLinkCount(ctx, note.ID)
+			links, err := store.NoteLinks(ctx, note.ID)
 			require.NoError(t, err)
 
-			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%d", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, titles, links)
+			return fmt.Sprintf("%s|%v|%v|%s|%v|%v|%v", n.Body, n.Tags, n.TextTags, lo.FromPtr(n.SourceID), tags, titles, links)
 		}
 
 		victimPost, err := factory.Post(ctx, db, p.victim.ID, factory.Published())
@@ -988,9 +1017,13 @@ func TestGuards_ForeignObjects(t *testing.T) {
 			p.attackerClient.PostJSON("/controls/action/note_mark_used", payload).RequireStatus(http.StatusBadRequest)
 		}
 
-		n, err := store.NotePostLinkCount(ctx, attackerNote.ID)
+		links, err := store.NoteLinks(ctx, attackerNote.ID)
 		require.NoError(t, err)
-		require.Zero(t, n)
+		require.Empty(t, links)
+
+		postTags, err := store.PostNoteTags(ctx, victimPost.ID)
+		require.NoError(t, err)
+		require.Empty(t, postTags)
 
 		require.Equal(t, before, snapshot())
 

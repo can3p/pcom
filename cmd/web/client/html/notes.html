@@ -51,6 +51,31 @@
 
   {{ template "partial--note-search.html" .Search }}
 
+  {{ with .Post }}
+  <ul class="nt-chips" aria-label="Post">
+    <li class="nt-chip nt-filter" data-testid="notes-of-post">Notes of <a href="{{ .Open }}">{{ .Title }}</a>
+      <a class="nt-x" href="{{ .Href }}" aria-label="Remove the post filter" title="Remove">&times;</a></li>
+  </ul>
+  {{ else }}
+  <ul class="nt-chips" aria-label="Show">
+    <li class="nt-chip{{ if .All }} nt-include{{ end }}"><a href="{{ .AllHref }}"{{ if .All }} aria-current="true"{{ end }}>All notes</a></li>
+  </ul>
+  {{ end }}
+
+  {{ if .PostChoices }}
+  {{ if .AttachTags }}
+  <div class="nt-attach box" role="group" aria-label="Attach the notes of a tag to a post">
+    <label for="nt-attach-post">Post</label>
+    <select id="nt-attach-post">
+      {{ range .PostChoices }}<option value="{{ .ID }}">{{ .Title }}{{ if .Draft }} (draft){{ end }}</option>{{ end }}
+    </select>
+    {{ range .AttachTags }}
+    <button type="button" class="btn btn-secondary" hx-ext="json-enc" data-action="notes#attach" data-tag="{{ .Tag }}" data-prompt="{{ .Prompt }}">Attach all notes tagged #{{ .Tag }}</button>
+    {{ end }}
+  </div>
+  {{ end }}
+  {{ end }}
+
   {{ if .Sources }}
   <div class="nt-views">
     <ul class="nt-chips" aria-label="Sources">

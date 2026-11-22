@@ -87,12 +87,17 @@ type NoteFilter struct {
 	NotTags  []string
 	SourceID string
 	Query    string
-	BeforeAt time.Time
-	BeforeID string
-	Limit    int
+	// PostID keeps the notes that belong to the post; HideInPosts leaves out
+	// every note that belongs to a post of the user.
+	PostID      string
+	HideInPosts bool
+	BeforeAt    time.Time
+	BeforeID    string
+	Limit       int
 }
 
-// NoteRow is a note of a list and whether it is linked to a post.
+// NoteRow is a note of a list and whether it was inserted into a post;
+// attaching a note doesn't use it.
 type NoteRow struct {
 	Note *model.Note
 	Used bool
@@ -112,7 +117,7 @@ func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) 
 	q := s.query().NewSelect().
 		TableExpr("notes AS n").
 		ColumnExpr("n.id").
-		ColumnExpr("EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = n.id) AS used").
+		ColumnExpr("EXISTS (SELECT 1 FROM note_post_links l WHERE l.note_id = n.id AND l.how = ?) AS used", model.NotePostLinkInserted).
 		Where("n.user_id = ?", f.UserID).
 		OrderExpr("n.captured_at DESC, n.id DESC")
 
@@ -126,6 +131,15 @@ func (s *Store) ListNotes(ctx context.Context, f NoteFilter) ([]NoteRow, error) 
 
 	if f.SourceID != "" {
 		q = q.Where("n.source_id = ?", f.SourceID)
+	}
+
+	if f.PostID != "" {
+		q = q.Where(belongsToPost("n.id", "?"), f.PostID, model.NotePostLinkExcluded, f.PostID, model.NotePostLinkAttached, f.PostID)
+	}
+
+	if f.HideInPosts {
+		q = q.Where("NOT EXISTS (SELECT 1 FROM posts bp WHERE bp.user_id = n.user_id AND "+
+			belongsToPost("n.id", "bp.id")+")", model.NotePostLinkExcluded, model.NotePostLinkAttached)
 	}
 
 	if f.Query != "" {
@@ -162,6 +176,22 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 		ids[i] = r.ID
 	}
 
+	byID, err := s.notesByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := make([]NoteRow, 0, len(list))
+	for _, r := range list {
+		rows = append(rows, NoteRow{Note: byID[r.ID], Used: r.Used})
+	}
+
+	return rows, nil
+}
+
+// notesByIDs loads the notes with their sources and images (in position
+// order), by id.
+func (s *Store) notesByIDs(ctx context.Context, ids []string) (map[string]*model.Note, error) {
 	var notes []*model.Note
 
 	err := s.query().NewSelect().Model(&notes).
@@ -178,12 +208,7 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 		byID[n.ID] = n
 	}
 
-	rows := make([]NoteRow, 0, len(list))
-	for _, r := range list {
-		rows = append(rows, NoteRow{Note: byID[r.ID], Used: r.Used})
-	}
-
-	return rows, nil
+	return byID, nil
 }
 
 // TagCount is a tag of a user and the notes that carry it.
@@ -294,6 +319,23 @@ type NoteSourceCount struct {
 // NoteSourceCounts returns all the user's sources, by title, with how many
 // notes come from each.
 func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSourceCount, error) {
+	return s.NoteSourceCountsIn(ctx, userID, "", false)
+}
+
+// NoteSourceCountsIn is NoteSourceCounts counting only the notes a list with
+// that postID and hideInPosts would show (see NoteFilter).
+func (s *Store) NoteSourceCountsIn(ctx context.Context, userID, postID string, hideInPosts bool) ([]NoteSourceCount, error) {
+	count := s.query().NewSelect().TableExpr("notes AS n").ColumnExpr("count(*)").Where("n.source_id = src.id")
+
+	if postID != "" {
+		count = count.Where(belongsToPost("n.id", "?"), postID, model.NotePostLinkExcluded, postID, model.NotePostLinkAttached, postID)
+	}
+
+	if hideInPosts {
+		count = count.Where("NOT EXISTS (SELECT 1 FROM posts bp WHERE bp.user_id = n.user_id AND "+
+			belongsToPost("n.id", "bp.id")+")", model.NotePostLinkExcluded, model.NotePostLinkAttached)
+	}
+
 	var rows []struct {
 		model.NoteSource `bun:",extend"`
 
@@ -302,10 +344,11 @@ func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSour
 
 	err := s.query().NewSelect().
 		Model(&rows).
-		ColumnExpr("?TableAlias.*").
-		ColumnExpr("(SELECT count(*) FROM notes n WHERE n.source_id = ?TableAlias.id) AS notes").
-		Where("?TableAlias.user_id = ?", userID).
-		OrderExpr("lower(?TableAlias.title), ?TableAlias.id").Scan(ctx)
+		ModelTableExpr("note_sources AS src").
+		ColumnExpr("src.*").
+		ColumnExpr("(?) AS notes", count).
+		Where("src.user_id = ?", userID).
+		OrderExpr("lower(src.title), src.id").Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -318,11 +361,11 @@ func (s *Store) NoteSourceCounts(ctx context.Context, userID string) ([]NoteSour
 	return out, nil
 }
 
-// LinkNotePost records that the note was used in the post; a pair that is
-// already linked keeps its row.
+// LinkNotePost records that the note came into the post the way how says; a
+// link that exists already keeps its row.
 func (s *Store) LinkNotePost(ctx context.Context, noteID, postID string, how model.NotePostLinkHow) error {
 	_, err := s.query().NewInsert().Model(&model.NotePostLink{NoteID: noteID, PostID: postID, How: how}).
-		On("CONFLICT (note_id, post_id) DO NOTHING").Exec(ctx)
+		On("CONFLICT (note_id, post_id, how) DO NOTHING").Exec(ctx)
 
 	return err
 }

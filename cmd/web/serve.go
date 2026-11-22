@@ -297,6 +297,7 @@ func notesOptions(cfg config.Notes, stt config.STT) []notes.Option {
 			CaptureMaxBytes:      cfg.CaptureMaxBytes,
 			QuoteSourceWindow:    cfg.QuoteSourceWindow,
 			PanelTags:            cfg.PanelTags,
+			AttachPosts:          cfg.AttachPosts,
 			STTMinutesPerDay:     stt.MinutesPerDay,
 			STTSiteMinutesPerDay: stt.SiteMinutesPerDay,
 		}),

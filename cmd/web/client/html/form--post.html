@@ -249,10 +249,13 @@
               hx-get="{{ link "notes_picker" }}" hx-target="#np-body" hx-swap="innerHTML"
               hx-trigger="submit, input changed delay:300ms" hx-sync="this:replace">
           <input type="search" name="q" placeholder="Search notes, #tag, -#tag" aria-label="Search notes" autocomplete="off">
+          {{ if .PostID }}<input type="hidden" name="post" value="{{ .PostID }}">{{ end }}
+          {{/* which notes the search looks in: the panel's answer sets it (out of band) */}}
+          <input type="hidden" name="only" id="np-only" value="">
         </form>
-        {{/* loaded when the tab first shows */}}
+        {{/* loaded when the tab first shows; a saved post's panel shows its notes first */}}
         <div class="np-body" id="np-body" data-notes-picker-target="body"
-             hx-get="{{ link "notes_picker" }}" hx-trigger="intersect once" hx-swap="innerHTML"></div>
+             hx-get="{{ link "notes_picker" }}"{{ if .PostID }} hx-vals='{"post": "{{ .PostID }}"}'{{ end }} hx-trigger="intersect once" hx-swap="innerHTML"></div>
       </div>
     </div>
   </div>

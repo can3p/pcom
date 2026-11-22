@@ -14,6 +14,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/web"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/mo"
 )
 
 // noteIDsOf splits the comma-separated ids a selection sends.
@@ -30,9 +31,13 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 		userData := auth.GetUserData(c)
 
 		page := web.Notes(c, svc, &userData)
-		if p, err := page.Get(); err == nil && isLoadMore(c) {
-			c.HTML(http.StatusOK, "partial--note-list.html", p)
-			return
+		if p, err := page.Get(); err == nil {
+			if p.PostChoices, err = web.PostChoices(c, svc, userData.DBUser); err != nil {
+				page = mo.Err[*web.NotesPage](err)
+			} else if isLoadMore(c) {
+				c.HTML(http.StatusOK, "partial--note-list.html", p)
+				return
+			}
 		}
 
 		ginhelpers.HTML(c, "notes.html", page)
@@ -59,6 +64,7 @@ func mountNoteRoutes(d *Deps, controls, controlsForms, actions *gin.RouterGroup)
 	})
 
 	mountNoteSourceRoutes(svc, controls, controlsForms)
+	mountPostNoteActions(d, actions)
 
 	actions.POST("/note_delete", jsonAction(d, func(c *gin.Context, u *model.User, in struct {
 		NoteID string `json:"noteId"`

@@ -125,7 +125,13 @@ func mountPublicRoutes(d *Deps, r *gin.RouterGroup) {
 			page.Subscribe = subscribeOffer(d, userData, post.Post.Author)
 		}
 
-		c.HTML(http.StatusOK, "single_post.html", page)
+		withNotes, err := web.WithPostNotes(c, d.Services.Notes, &userData, page)
+		if err != nil {
+			ginhelpers.HTMLError(c, err)
+			return
+		}
+
+		c.HTML(http.StatusOK, "single_post.html", withNotes)
 	})
 
 	r.GET("/posts/:id/md", requireUUIDParam("id"), func(c *gin.Context) {

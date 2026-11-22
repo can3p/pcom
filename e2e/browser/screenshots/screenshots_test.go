@@ -61,8 +61,13 @@ type shot struct {
 	ready string
 	// phone takes the shot at a phone's size.
 	phone bool
+	// attach attaches notes to the post of the path ({post}) as the user, before the page loads.
+	attach bool
 }
 
+// shots run in order on one database, so each sees what the rows before it
+// changed: a row that adds or changes data builds on a seeded row (not a new
+// post, which shows up in the other pages' shots) and goes last.
 var shots = []shot{
 	{file: "index.png", path: "/", ready: "h1"},
 	{file: "journal.png", user: "bob", path: "/users/alice", ready: "h1"},
@@ -80,6 +85,8 @@ var shots = []shot{
 	{file: "capture.png", user: "alice", path: "/controls/notes/new", phone: true, ready: ".capture-mode"},
 	{file: "notes-panel.png", user: "alice", path: "/write", prepare: openNotesPanel, ready: "[data-testid=picker-note]"},
 	{file: "api-keys.png", user: "alice", path: "/controls/settings", prepare: createNotesKey, ready: "[data-testid=api-key]"},
+	// last: it attaches notes to the post, which the shots above must not see
+	{file: "post-notes.png", user: "alice", path: "/posts/{post}", attach: true, prepare: openPostNotes, ready: "[data-testid=post-notes]"},
 }
 
 // screenshotAPIKey is a full API key of alice's that the shots make notes with.
@@ -166,7 +173,6 @@ func TestScreenshots(t *testing.T) {
 	_, err = factory.APIKey(ctx, app.DB, alice.ID, factory.WithAPIKey(screenshotAPIKey))
 	require.NoError(t, err)
 	noteID := addNotes(t, app)
-
 	placeholders := strings.NewReplacer("{post}", postID, "{token}", dana.ManageToken, "{note}", noteID)
 
 	for _, s := range shots {
@@ -191,6 +197,10 @@ func TestScreenshots(t *testing.T) {
 				user, err := factory.GetUserByEmail(context.Background(), app.DB, s.user+"@example.test")
 				require.NoError(t, err)
 				opts = append(opts, browser.As(user))
+			}
+
+			if s.attach {
+				attachScreenshotNotes(t, app, s.user+"@example.test", postID)
 			}
 
 			page := browser.Page(t, app, opts...)
@@ -306,6 +316,39 @@ func openNotesPanel(t *testing.T, page playwright.Page) {
 	fillEditor(t, page)
 	// the sidebar starts collapsed in a fresh browser
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Show Notes", Exact: new(true)}).Click())
+}
+
+// openPostNotes shows the Notes tab of the author's post page.
+func openPostNotes(t *testing.T, page playwright.Page) {
+	t.Helper()
+
+	require.NoError(t, page.GetByRole("tab", playwright.PageGetByRoleOptions{Name: "Notes"}).Click())
+}
+
+// attachScreenshotNotes attaches the essay notes to the post by their tag and
+// the quote by hand, through the action endpoints as alice, so the post's Notes
+// tab shows both kinds of group.
+func attachScreenshotNotes(t *testing.T, app *e2e.App, email, postID string) {
+	t.Helper()
+
+	ctx := context.Background()
+	alice, err := factory.GetUserByEmail(ctx, app.DB, email)
+	require.NoError(t, err)
+	notes, err := factory.ListNotes(ctx, app.DB, alice.ID)
+	require.NoError(t, err)
+
+	var quoteID string
+	for _, n := range notes {
+		if strings.Contains(n.Body, "Call me Ishmael") {
+			quoteID = n.ID
+		}
+	}
+	require.NotEmpty(t, quoteID)
+
+	client := app.Client(t)
+	client.LoginAs(email)
+	client.PostJSON("/controls/action/note_attach", map[string]string{"noteId": quoteID, "postId": postID}).RequireStatus(http.StatusOK)
+	client.PostJSON("/controls/action/note_attach_tag", map[string]string{"postId": postID, "tag": "essay"}).RequireStatus(http.StatusOK)
 }
 
 // createNotesKey makes a notes-only key through the form, then reloads, so
