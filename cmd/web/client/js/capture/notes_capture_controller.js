@@ -4,7 +4,7 @@ import { Capture } from "../notes/capture.js"
 // In the capture page's own bundle; the work is in ../notes/capture.js. In
 // the audio value, ":id" stands for the note.
 export default class extends Controller {
-  static targets = ["tap", "modes", "camera", "recorder", "timer", "limit", "recHint", "typer", "text", "error", "card", "cardWhat", "cardStatus"]
+  static targets = ["tap", "modes", "camera", "recorder", "timer", "limit", "recHint", "typer", "text", "error", "card", "cardWhat", "cardPhotos", "cardStatus"]
   static values = { start: String, maxSeconds: Number, maxDimension: Number, csrf: String, shared: Object, worker: String, scope: String, delete: String, audio: String }
 
   connect() {

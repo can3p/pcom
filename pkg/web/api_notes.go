@@ -160,7 +160,7 @@ func apiNote(n *model.Note, site links.Site) *ApiNote {
 
 	for _, img := range n.Images {
 		if img.Upload != nil {
-			out.Images = append(out.Images, site.Abs("uploaded_media", img.Upload.UploadedFname))
+			out.Images = append(out.Images, site.Abs("uploaded_media", img.Upload.UploadedFname+"/full"))
 		}
 	}
 

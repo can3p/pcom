@@ -11,6 +11,8 @@ import { EXCERPT_LENGTH, SYNC_TAG, records, withStore } from "./store.js"
 const AUDIO_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
 const JPEG_QUALITY = 0.85
 const TICK_MS = 250
+// the longest side of the thumbnail of a photo on the last capture card
+const THUMB_PX = 144
 // the query parameter the share target's redirect names its note in
 const SHARED_PARAM = "shared"
 
@@ -301,6 +303,7 @@ export class Capture {
     if (!rec) return
 
     c.cardWhatTarget.textContent = describe(rec)
+    this.showPhotos(rec)
     // a share the worker refused keeps no recording to measure
     if (rec.voice && !rec.photos && !rec.seconds && (rec.audio || rec.noteId)) this.measure(rec)
 
@@ -311,6 +314,38 @@ export class Capture {
     if (rec.status === "uploaded") s.textContent = STATUS_SAVED
     else if (rec.status === "failed") s.textContent = "Not saved: " + rec.error
     else s.textContent = STATUS_QUEUED
+  }
+
+  // showPhotos puts a thumbnail of each photo still on the device on the
+  // card, drawn from the file itself so it works offline. The page's CSP
+  // allows data: images but not blob: ones, so a thumbnail is a small data
+  // URL and there is nothing to revoke. An uploaded capture no longer holds
+  // its files. A re-render of the same capture keeps its thumbnails.
+  async showPhotos(rec) {
+    const box = this.c.cardPhotosTarget
+    const blobs = (rec.images || []).filter((b) => b instanceof Blob)
+
+    if (this.photosOf === rec.id) return
+
+    this.photosOf = rec.id
+    box.replaceChildren()
+
+    for (const blob of blobs) {
+      let src
+
+      try {
+        src = await thumbnail(blob, THUMB_PX)
+      } catch (_) {
+        continue // a photo the browser can't draw has no thumbnail
+      }
+
+      if (this.photosOf !== rec.id || this.gone) return
+
+      const img = document.createElement("img")
+      img.src = src
+      img.alt = "Photo of the capture"
+      box.append(img)
+    }
   }
 
   // deleteLast drops the last capture from the queue, or deletes its note
@@ -438,6 +473,20 @@ async function scale(file, max) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no JPEG"))), "image/jpeg", JPEG_QUALITY)
   })
+}
+
+// thumbnail draws a photo at most max pixels on its longest side and gives
+// it as a data URL.
+async function thumbnail(file, max) {
+  const bitmap = await createImageBitmap(file)
+  const ratio = Math.min(1, max / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.max(1, Math.round(bitmap.width * ratio))
+  canvas.height = Math.max(1, Math.round(bitmap.height * ratio))
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+
+  return canvas.toDataURL("image/jpeg", JPEG_QUALITY)
 }
 
 // describe names a capture by what it holds; an uploaded one no longer holds

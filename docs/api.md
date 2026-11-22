@@ -109,7 +109,7 @@ The answer is the note, with its source's title:
 
 ```
 curl -H'Authorization: Bearer <api-key>' -F 'text=Selected passage' -F kind=quote -F source=Dune -F 'image=@page.jpg' http://localhost:8080/api/v1/notes
-{"data":{"id":"019a5e1c-…","body":"> Selected passage","tags":[],"source":"Dune","transcription_status":"none","captured_at":"2026-11-07T08:15:42Z","images":["http://localhost:8080/user-media/019a5e1c-….jpg"]}}
+{"data":{"id":"019a5e1c-…","body":"> Selected passage","tags":[],"source":"Dune","transcription_status":"none","captured_at":"2026-11-07T08:15:42Z","images":["http://localhost:8080/user-media/019a5e1c-….jpg/full"]}}
 ```
 
 `transcription_status` is `pending` while a recording waits for its transcription, `done`, `failed`, or

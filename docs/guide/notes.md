@@ -29,7 +29,7 @@ button instead.
 the phone, uploading…** and changes to **Saved** once the server has it; the capture keeps the time it was made,
 not the time it arrived, so your list stays in the order things happened.
 
-**Last capture.** The card under the buttons shows the last capture and its status. **Delete** removes it, also
+**Last capture.** The card under the buttons shows the last capture, with a thumbnail of its photos while they are still on the phone, and its status. **Delete** removes it, also
 while it is still waiting to upload. The capture page's photos are scaled down on the phone before upload, which
 keeps them quick to send.
 

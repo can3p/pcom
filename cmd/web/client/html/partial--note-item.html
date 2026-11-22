@@ -25,7 +25,7 @@
     {{ if $n.RecordingID }}{{ template "partial--note-status.html" .Item.Status }}{{ end }}
     {{ if $n.Body }}<div class="prose note-body">{{ markdown_feed $n.Body }}</div>{{ end }}
     {{ if $n.Images }}
-    <p class="note-photos">{{ range $n.Images }}<img src="{{ link "uploaded_media" .Upload.UploadedFname }}" alt="Photo of the note" loading="lazy">{{ end }}</p>
+    <p class="note-photos">{{ range $n.Images }}<a href="{{ link "uploaded_media" (printf "%s/full" .Upload.UploadedFname) }}" target="_blank"><img src="{{ link "uploaded_media" (printf "%s/thumb" .Upload.UploadedFname) }}" alt="Photo of the note" loading="lazy"></a>{{ end }}</p>
     {{ end }}
     {{ if .Item.Tags }}
     <ul class="nt-tags" aria-label="Tags of the note" data-testid="note-tags">
