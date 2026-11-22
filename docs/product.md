@@ -245,8 +245,9 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   detached from that post without removing its tag; the attached tag has its own detach.
 - **Attached notes are private.** Only the author sees a post's attached notes: on the post page and in the editor,
   never to another reader, through a share link, RSS, the zip export, the API's post responses, the feed or any mail.
-- **Post page.** For the author only, the post page has Comments (n) and Notes (n), comments first. A draft opens on
-  its notes. The notes are grouped by how they came, one by one or by tag.
+- **Post page.** For the author only, the post page has Comments (n) and Notes (n), comments first, and the open tab
+  is in the address (`#notes`) so a link or a reload keeps it. A draft opens on
+  its notes unless the address says `#comments`. The notes are grouped by how they came, one by one or by tag.
 - **Attached notes leave the list.** `/controls/notes` hides the notes that belong to a post unless its All notes
   switch is on, since the list is for new notes. Each note shows the posts it is attached to.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's

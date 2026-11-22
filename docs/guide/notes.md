@@ -65,9 +65,10 @@ search), its source, and whether it has been used in a post. The pencil opens th
 to edit it, and the bin deletes it, after you confirm.
 
 Notes attached to a post are left out of this list, since it is for new notes. The **All notes** switch under the
-search shows them too. Each note shows the posts it is attached to, as links, with a **×** that detaches it from
-that post; a post's link filters the list to that post, and the **Notes of** chip it shows removes the filter.
-**Attach to post…** on a note lists your last 10 drafts and posts, newest first; older posts are attached from their
+search shows them too. Each note shows the posts it is attached to, as links, with a **×** that takes it off
+that post for good, so a tag attached to the post later doesn't bring it back. A post's link filters the list to
+that post; the **Notes of** chip names the post and links to its Notes tab, and its × removes the filter.
+**Attach to post…** on a note lists your 10 most recently edited drafts and posts; older posts are attached from their
 editor. When the search names a tag, **Attach all notes tagged #x** attaches every note with that tag to the post you
 choose, and every note you tag #x later joins it too.
 
@@ -145,8 +146,8 @@ so next to the record button: a recording is sent to that service, and nothing e
 
 ## Deleting
 
-**Delete** removes a note for good. The confirmation says what goes: the note, its recording and its photos, and it names the posts the note is attached
-to, which keep their text.
+**Delete** removes a note for good. The confirmation names its recording and photos when it has them, and the posts it is
+attached to, which lose it and keep their text.
 There is no trash. The text you inserted into a post stays there. Photos of a deleted note are unlinked from it,
 but their files stay on the server, as the images of deleted posts do.
 
@@ -157,7 +158,7 @@ It has a search box that works like the list's; under it are your most used tags
 tap on any of them adds it to the search, so a tag whose name you forgot is one look away. A **This post | All notes**
 switch under the search opens on *This post* when the post has notes; the line above the notes says which you are
 looking at, and the search keeps the switch as you chose it. Each note has **Insert** (at the cursor), **Attach** (or **Detach**, for a note already attached), **Edit** (the
-note in a new tab) and **Delete**. With the search on a tag, **Attach all notes tagged #x** attaches them all. A quote
+note in a new tab) and **Delete**. Detach on a note that one of the post's tags brings hides it from this post. With the search on a tag, **Attach all notes tagged #x** attaches them all. A quote
 goes in with its attribution, such as *— *Title**. Inserting a note also attaches it to the post.
 
 A new post that is not yet saved as a draft cannot take attachments: **Attach** and **Attach all notes tagged** are
@@ -170,8 +171,8 @@ The text is copied into the post; the note stays as it is. Changing the post lat
 ### On the post page
 
 The post page has **Comments (n)** and **Notes (n)** tabs, for you alone, with comments first. A draft opens on its
-notes. The tab is in the address: `/posts/<id>#notes` opens the notes, so a link or a reload keeps them. The notes attached to the post are grouped by how they came,
-one by one or by tag, and the tag bar above them filters them. Each has **Open** and **Detach**; Detach on a note
-that a tag brought hides it from this post without removing the tag, and the tag has its own Detach.
+notes unless the address says `#comments`. The tab is in the address: `/posts/<id>#notes` opens the notes, so a link or a reload keeps them. The notes attached to the post are grouped by how they came,
+one by one or by tag, and the tag bar above them filters them. Each has **Open** and **Detach**; Detach on any note
+that one of the post's tags carries hides it from this post without removing the tag, and the tag has its own Detach.
 
 ![The post page with its Notes tab open, listing the notes attached to it.](screenshots/post-notes.png)
