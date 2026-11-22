@@ -95,7 +95,8 @@ func sentSTT(marker string) *wm.Request {
 }
 
 // The transcript is added to the body with its spoken tags as #tags, and the
-// call is recorded; transcribing again in a chosen language replaces the body.
+// call is recorded; transcribing again in a chosen language replaces the body's
+// text and keeps its photos.
 func TestNotes_TranscribeJob(t *testing.T) {
 	t.Parallel()
 
@@ -111,10 +112,14 @@ func TestNotes_TranscribeJob(t *testing.T) {
 	require.Nil(t, got.TranscriptionError)
 	require.Equal(t, 1, w.count(t, "select count(*) from stt_requests where note_id = $1 and status = 'ok' and seconds = 7 and provider = 'openai-compat'", note.ID))
 
+	// a photo of the note is no part of the transcript, so it stays
+	_, err := w.db.ExecContext(w.ctx, "update notes set body = $1 || body where id = $2", "![](photo.jpg)\n\n", note.ID)
+	require.NoError(t, err)
+
 	require.NoError(t, w.svc.Retranscribe(w.ctx, w.me, note.ID, "ru"))
 
 	got = w.waitStatus(t, note.ID, model.NoteTranscriptionDone)
-	require.Equal(t, "Купить овсяное молоко. #покупки.", got.Body)
+	require.Equal(t, "![](photo.jpg)\n\nКупить овсяное молоко. #покупки.", got.Body)
 	require.Equal(t, []string{"покупки"}, got.TextTags)
 	require.Equal(t, 2, w.count(t, "select count(*) from stt_requests where note_id = $1 and status = 'ok'", note.ID))
 	w.wm.Verify(t, 2, sentSTT(marker))

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/can3p/gogo/util/ginhelpers"
-	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/service"
@@ -127,7 +126,8 @@ func readUpload(fh *multipart.FileHeader) (notes.Upload, error) {
 	return notes.Upload{Body: bytes.NewReader(b), ContentType: fh.Header.Get("Content-Type")}, nil
 }
 
-// ApiNote is a note as the API returns it.
+// ApiNote is a note as the API returns it. Body is markdown, its photos
+// included as images.
 type ApiNote struct {
 	ID                  string                        `json:"id"`
 	Body                string                        `json:"body"`
@@ -135,7 +135,6 @@ type ApiNote struct {
 	Source              string                        `json:"source,omitempty"`
 	TranscriptionStatus model.NoteTranscriptionStatus `json:"transcription_status"`
 	CapturedAt          time.Time                     `json:"captured_at"`
-	Images              []string                      `json:"images"`
 }
 
 // ApiGetNotesResponse is a page of notes; Cursor is empty on the last one.
@@ -144,31 +143,24 @@ type ApiGetNotesResponse struct {
 	Cursor string     `json:"cursor"`
 }
 
-func apiNote(n *model.Note, site links.Site) *ApiNote {
+func apiNote(n *model.Note) *ApiNote {
 	out := &ApiNote{
 		ID:                  n.ID,
 		Body:                n.Body,
 		Tags:                lo.Union(n.Tags, n.TextTags),
 		TranscriptionStatus: n.TranscriptionStatus,
 		CapturedAt:          n.CapturedAt.UTC(),
-		Images:              []string{},
 	}
 
 	if n.Source != nil {
 		out.Source = n.Source.Title
 	}
 
-	for _, img := range n.Images {
-		if img.Upload != nil {
-			out.Images = append(out.Images, site.Abs("uploaded_media", img.Upload.UploadedFname+"/full"))
-		}
-	}
-
 	return out
 }
 
 // ApiCreateNote is POST /api/v1/notes: a capture from a phone (BindCapture).
-func ApiCreateNote(c *gin.Context, svc *notes.Service, actor *model.User, site links.Site) mo.Result[*ApiNote] {
+func ApiCreateNote(c *gin.Context, svc *notes.Service, actor *model.User) mo.Result[*ApiNote] {
 	in, err := BindCapture(c)
 	if err != nil {
 		return mo.Err[*ApiNote](err)
@@ -179,12 +171,12 @@ func ApiCreateNote(c *gin.Context, svc *notes.Service, actor *model.User, site l
 		return mo.Err[*ApiNote](err)
 	}
 
-	return mo.Ok(apiNote(n, site))
+	return mo.Ok(apiNote(n))
 }
 
 // ApiGetNotes is GET /api/v1/notes: a page of the actor's notes, newest
 // capture first, filtered like the notes page.
-func ApiGetNotes(c *gin.Context, svc *notes.Service, actor *model.User, site links.Site) mo.Result[*ApiGetNotesResponse] {
+func ApiGetNotes(c *gin.Context, svc *notes.Service, actor *model.User) mo.Result[*ApiGetNotesResponse] {
 	var form struct {
 		Tags   []string `form:"tag"`
 		Not    []string `form:"not"`
@@ -205,7 +197,7 @@ func ApiGetNotes(c *gin.Context, svc *notes.Service, actor *model.User, site lin
 	}
 
 	return mo.Ok(&ApiGetNotesResponse{
-		Notes:  lo.Map(page.Entries, func(e notes.Entry, _ int) *ApiNote { return apiNote(e.Note, site) }),
+		Notes:  lo.Map(page.Entries, func(e notes.Entry, _ int) *ApiNote { return apiNote(e.Note) }),
 		Cursor: page.Next,
 	})
 }

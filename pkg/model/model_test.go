@@ -22,7 +22,6 @@ var models = []any{
 	(*model.MediaUpload)(nil),
 	(*model.NormalizedURL)(nil),
 	(*model.Note)(nil),
-	(*model.NoteImage)(nil),
 	(*model.NotePostLink)(nil),
 	(*model.NoteRecording)(nil),
 	(*model.NoteSource)(nil),

@@ -10,13 +10,12 @@ import (
 // opens: r admits notes keys as well as full ones.
 func setupNotesApi(r *gin.RouterGroup, d *Deps) {
 	svc := d.Services.Notes
-	site := siteOf(d)
 
 	r.POST("/notes", func(c *gin.Context) {
-		web.ApiNotesRespond(c, web.ApiCreateNote(c, svc, auth.GetAPIUserData(c).DBUser, site))
+		web.ApiNotesRespond(c, web.ApiCreateNote(c, svc, auth.GetAPIUserData(c).DBUser))
 	})
 
 	r.GET("/notes", func(c *gin.Context) {
-		web.ApiNotesRespond(c, web.ApiGetNotes(c, svc, auth.GetAPIUserData(c).DBUser, site))
+		web.ApiNotesRespond(c, web.ApiGetNotes(c, svc, auth.GetAPIUserData(c).DBUser))
 	})
 }

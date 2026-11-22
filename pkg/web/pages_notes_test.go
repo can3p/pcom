@@ -16,7 +16,6 @@ func TestNotes_DeletePrompt(t *testing.T) {
 	t.Parallel()
 
 	audio := "upload"
-	photos := func(n int) []*model.NoteImage { return make([]*model.NoteImage, n) }
 
 	tests := []struct {
 		name string
@@ -26,11 +25,9 @@ func TestNotes_DeletePrompt(t *testing.T) {
 	}{
 		{"plain", model.Note{}, false, "Delete this note? This can't be undone."},
 		{"recording", model.Note{RecordingID: &audio}, false, "Delete this note and its recording? This can't be undone."},
-		{"photo", model.Note{Images: photos(1)}, false, "Delete this note and 1 photo? This can't be undone."},
-		{"recording and photos", model.Note{RecordingID: &audio, Images: photos(2)}, false,
-			"Delete this note, its recording and 2 photos? This can't be undone."},
-		{"recording, photos and posts", model.Note{RecordingID: &audio, Images: photos(2)}, true,
-			"Delete this note, its recording and 2 photos? This can't be undone. The text already inserted into posts stays there."},
+		{"photo, whose file stays", model.Note{Body: "![](a.jpg)"}, false, "Delete this note? This can't be undone."},
+		{"recording and posts", model.Note{RecordingID: &audio}, true,
+			"Delete this note and its recording? This can't be undone. The text already inserted into posts stays there."},
 		{"used in posts", model.Note{}, true,
 			"Delete this note? This can't be undone. The text already inserted into posts stays there."},
 	}

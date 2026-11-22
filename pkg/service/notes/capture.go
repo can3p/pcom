@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path"
 	"strings"
 	"time"
 
@@ -54,9 +53,9 @@ type CaptureInput struct {
 }
 
 // Capture saves a note of the actor from a capture: the text parsed by
-// capture.Parse, the tags, the source,
-// the photos in the order given and the recording with its transcription,
-// all in one transaction; the files land in the storage last, which is not
+// capture.Parse with the photos written into it as markdown images in the
+// order given (capture.WithPhotos), the tags, the source and the recording
+// with its transcription, all in one transaction; the files land in the storage last, which is not
 // part of it. Every file is checked before anything is written.
 func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInput) (*model.Note, error) {
 	if actor == nil {
@@ -118,26 +117,27 @@ func (s *Service) Capture(ctx context.Context, actor *model.User, in CaptureInpu
 			sourceID = src.ID
 		}
 
-		n, err := within.Create(ctx, actor, Input{Body: parsed.Text, Tags: in.Tags, SourceID: sourceID, CapturedAt: in.CapturedAt})
-		if err != nil {
-			return err
-		}
+		// the photos are stored first: the note's body names them
+		fnames := make([]string, 0, len(images))
 
-		noteID = n.ID
-
-		for i, img := range images {
+		for _, img := range images {
 			fname, err := mediasvc.StoreUpload(ctx, tx, s.media, &actor.ID, nil, bytes.NewReader(img), int64(len(img)))
 			if err != nil {
 				return err
 			}
 
 			stored = append(stored, fname)
-
-			uploadID := strings.TrimSuffix(fname, path.Ext(fname))
-			if err := tx.CreateNoteImage(ctx, &model.NoteImage{NoteID: n.ID, UploadID: uploadID, Position: i}); err != nil {
-				return err
-			}
+			fnames = append(fnames, fname)
 		}
+
+		body := capture.WithPhotos(parsed.Text, fnames)
+
+		n, err := within.Create(ctx, actor, Input{Body: body, Tags: in.Tags, SourceID: sourceID, CapturedAt: in.CapturedAt})
+		if err != nil {
+			return err
+		}
+
+		noteID = n.ID
 
 		if rec != nil {
 			return s.attach(ctx, tx, n, rec)

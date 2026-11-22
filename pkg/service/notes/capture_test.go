@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
@@ -19,6 +20,7 @@ import (
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/fakequeue"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,16 +48,16 @@ func TestCapture(t *testing.T) {
 		Audio:      &notes.Upload{Body: strings.NewReader(webmHead + "voice"), ContentType: "audio/webm"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "> a passage\n> of two lines", n.Body)
+	fnames := photoNames(n.Body)
+	require.Len(t, fnames, 2)
+	require.Equal(t, "![]("+fnames[0]+")\n\n![]("+fnames[1]+")\n\n> a passage\n> of two lines", n.Body, "the photos are images before the text")
 	require.Equal(t, []string{"walk"}, n.Tags)
 	require.True(t, at.Equal(n.CapturedAt))
 	require.Equal(t, "Dune", n.Source.Title)
 	require.Equal(t, model.NoteTranscriptionPending, n.TranscriptionStatus)
-	require.Len(t, n.Images, 2)
 
 	for i, want := range []string{"first", "second"} {
-		require.Equal(t, i, n.Images[i].Position)
-		rc, _, _, err := storage.DownloadFile(w.ctx, n.Images[i].Upload.UploadedFname)
+		rc, _, _, err := storage.DownloadFile(w.ctx, fnames[i])
 		require.NoError(t, err)
 		obj := testutil.Must(io.ReadAll(rc))(t)
 		require.NoError(t, rc.Close())
@@ -155,7 +157,6 @@ func TestCapture_Refused(t *testing.T) {
 			}
 
 			require.Equal(t, 0, w.count(t, "select count(*) from notes"))
-			require.Equal(t, 0, w.count(t, "select count(*) from note_images"))
 			require.Equal(t, 0, w.count(t, "select count(*) from media_uploads"))
 			require.Equal(t, 0, w.count(t, "select count(*) from note_recordings"))
 			require.Empty(t, w.queue.Inserted())
@@ -204,7 +205,9 @@ func TestCapture_PhotoSize(t *testing.T) {
 			requireInvalid(t, err, fmt.Sprintf("A photo can be at most %d MiB.", c.max>>20))
 
 			n := testutil.Must(w.svc.Capture(w.ctx, w.me, notes.CaptureInput{Images: []notes.Upload{photo(at)}}))(t)
-			require.Len(t, n.Images, 1, "exactly the cap is kept")
+			fnames := photoNames(n.Body)
+			require.Len(t, fnames, 1, "exactly the cap is kept")
+			require.Equal(t, "![]("+fnames[0]+")", n.Body, "a photo alone is a body of one image")
 		})
 	}
 }
@@ -233,9 +236,10 @@ func TestCapture_HEICIsStoredAsJPEG(t *testing.T) {
 		Images: []notes.Upload{{Body: bytes.NewReader(heic), ContentType: "image/heic"}},
 	})
 	require.NoError(t, err)
-	require.Len(t, n.Images, 1)
+	fnames := photoNames(n.Body)
+	require.Len(t, fnames, 1)
 
-	rc, _, _, err := storage.DownloadFile(w.ctx, n.Images[0].Upload.UploadedFname)
+	rc, _, _, err := storage.DownloadFile(w.ctx, fnames[0])
 	require.NoError(t, err)
 
 	stored := testutil.Must(io.ReadAll(rc))(t)
@@ -244,5 +248,12 @@ func TestCapture_HEICIsStoredAsJPEG(t *testing.T) {
 	_, ctype, err := media.DetectAndValidateImageTypeAndExt(stored)
 	require.NoError(t, err)
 	require.Equal(t, "image/jpeg", ctype)
-	require.True(t, strings.HasSuffix(n.Images[0].Upload.UploadedFname, ".jpg"), n.Images[0].Upload.UploadedFname)
+	require.True(t, strings.HasSuffix(fnames[0], ".jpg"), fnames[0])
+}
+
+// photoNames are the file names of the photos of a note's body, in order.
+func photoNames(body string) []string {
+	photos, _ := capture.SplitPhotos(body)
+
+	return lo.Map(photos, func(p markdown.StandaloneImage, _ int) string { return p.Destination })
 }

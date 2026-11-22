@@ -250,8 +250,8 @@ func shareKinds(t *testing.T) []shareKind {
 			func(t *testing.T, n *model.Note) { require.Equal(t, "https://example.com/article", n.Body) }},
 		{"an image", nil, []sharedFile{{"image", playwright.InputFile{Name: "lens.png", MimeType: "image/png", Buffer: widePNG(t)}}}, "A photo",
 			func(t *testing.T, n *model.Note) {
-				require.Empty(t, n.Body)
-				require.Len(t, n.Images, 1)
+				require.Len(t, photosOf(n), 1)
+				require.Equal(t, "![]("+photosOf(n)[0]+")", n.Body, "a shared photo is a body of one image")
 			}},
 		{"audio", nil, []sharedFile{{"audio", playwright.InputFile{Name: "memo.ogg", MimeType: "audio/ogg", Buffer: ogg}}}, "A recording",
 			func(t *testing.T, n *model.Note) { require.NotNil(t, n.RecordingID) }},
@@ -590,6 +590,6 @@ func TestNotesShare_Shortcuts(t *testing.T) {
 		openCapture(t, page, shortcuts["Photo"])
 		takePhoto(t, page, "Tap to take a photo", widePNG(t))
 		expectLast(t, page, "A photo", "Saved")
-		require.Len(t, waitNotes(t, app, user.ID, 2)[0].Images, 1)
+		require.Len(t, photosOf(waitNotes(t, app, user.ID, 2)[0]), 1)
 	})
 }

@@ -330,12 +330,10 @@ func TestDelete(t *testing.T) {
 
 	w := newWorld(t)
 	audio := testutil.Must(factory.NoteRecording(w.ctx, w.db, w.me.ID))(t)
-	photo := testutil.Must(factory.MediaUpload(w.ctx, w.db, w.me.ID))(t)
 	post := testutil.Must(factory.Post(w.ctx, w.db, w.me.ID))(t)
 	rec := w.note(t, w.me, factory.WithRecording(audio.ID))
 	plain := w.note(t, w.me)
 	third := w.note(t, w.me)
-	testutil.Must(factory.NoteImage(w.ctx, w.db, rec.ID, photo.ID, 0))(t)
 	testutil.Must(factory.NotePostLink(w.ctx, w.db, rec.ID, post.ID))(t)
 	testutil.Must(factory.STTRequest(w.ctx, w.db, w.me.ID, rec.ID, 30))(t)
 
@@ -344,7 +342,6 @@ func TestDelete(t *testing.T) {
 
 	require.NoError(t, w.svc.Delete(w.ctx, w.me, rec.ID))
 	require.Equal(t, []notes.DeleteAudioArgs{{RecordingID: audio.ID}}, fakequeue.Of[notes.DeleteAudioArgs](w.queue))
-	require.Equal(t, 0, w.count(t, "select count(*) from note_images"))
 	require.Equal(t, 0, w.count(t, "select count(*) from note_post_links"))
 	require.Equal(t, 1, w.count(t, "select count(*) from stt_requests where note_id is null and seconds = 30"))
 	require.Equal(t, 1, w.count(t, "select count(*) from posts where id = $1", post.ID))

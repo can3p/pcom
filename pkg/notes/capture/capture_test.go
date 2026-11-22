@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/testutil/golden"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 )
 
@@ -94,4 +96,36 @@ func TestUnquote_RoundTrip(t *testing.T) {
 	got := capture.Parse("\r\n"+in+"\r\n", capture.Shared).Text
 	require.Equal(t, "> a\n>\n>   b\r\n> >c\n>\n>\n> d", got)
 	require.Equal(t, in, capture.Unquote(got))
+}
+
+func TestWithPhotos(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "![](a.jpg)", capture.WithPhotos("", []string{"a.jpg"}), "a photo alone is one image")
+	require.Equal(t, "![](a.jpg)\n\n![](b.png)\n\n> said", capture.WithPhotos("  > said\n", []string{"a.jpg", "b.png"}))
+	require.Equal(t, "text", capture.WithPhotos("text", nil))
+}
+
+func TestSplitPhotos(t *testing.T) {
+	t.Parallel()
+
+	md := func(photos []markdown.StandaloneImage) []string {
+		return lo.Map(photos, func(p markdown.StandaloneImage, _ int) string { return p.Markdown })
+	}
+
+	photos, text := capture.SplitPhotos("![](a.jpg)\n\n![alt](b(1).png \"t\")\ncaption\n\nsome ![inline](c.jpg) text\n\n\nmore")
+	require.Equal(t, []string{"![](a.jpg)", `![alt](b(1).png "t")`}, md(photos))
+	require.Equal(t, "b(1).png", photos[1].Destination)
+	require.Equal(t, "caption\n\nsome ![inline](c.jpg) text\n\n\nmore", text, "the text between the photos stays as written")
+
+	photos, text = capture.SplitPhotos(capture.WithPhotos("", []string{"a.jpg"}))
+	require.Equal(t, []string{"![](a.jpg)"}, md(photos))
+	require.Empty(t, text)
+
+	// what the renderer doesn't make a figure is text
+	for _, body := range []string{"```\n![](a.jpg)\n```", "[![](a.jpg)](https://example.com)", "    ![](a.jpg)"} {
+		photos, text = capture.SplitPhotos(body)
+		require.Empty(t, photos, body)
+		require.Equal(t, body, text)
+	}
 }

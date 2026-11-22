@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service"
 	"github.com/can3p/pcom/pkg/stt"
@@ -170,14 +171,29 @@ func (s *Service) transcribe(ctx context.Context, args TranscribeArgs) error {
 }
 
 // writeTranscript makes text, its spoken hashtags written as #tags, the
-// note's body (replace) or adds it to the body, and marks the note done. A
+// note's body after its photos (replace) or adds it to the body, and marks
+// the note done. A
 // body the limits refuse marks it failed instead.
 func (s *Service) writeTranscript(ctx context.Context, tx *repo.Store, n *model.Note, text string, replace bool) error {
 	text = spokenHashtags(strings.TrimSpace(text))
 
-	body := text
-	if !replace && strings.TrimSpace(n.Body) != "" {
-		body = strings.TrimRight(n.Body, "\n") + "\n\n" + text
+	var body string
+
+	if replace {
+		// the photos of the note stay: only its words are the recording's
+		photos, _ := capture.SplitPhotos(n.Body)
+
+		parts := make([]string, 0, len(photos)+1)
+		for _, p := range photos {
+			parts = append(parts, p.Markdown)
+		}
+
+		body = strings.Join(append(parts, text), "\n\n")
+	} else {
+		body = text
+		if strings.TrimSpace(n.Body) != "" {
+			body = strings.TrimRight(n.Body, "\n") + "\n\n" + text
+		}
 	}
 
 	set, textTags, err := s.tagsOf(body, n.Tags)

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"unicode"
+
+	"github.com/can3p/pcom/pkg/markdown"
 )
 
 // How the text reached the capture box.
@@ -118,4 +120,50 @@ func Attribution(title string) string {
 	}
 
 	return "— *" + t + "*"
+}
+
+// WithPhotos is the body of a note captured with photos: each photo, an
+// upload's file name as the markdown renderer serves it, as an image paragraph
+// of its own in the order given (the form the editor's image button writes),
+// then text. The photos come first so the text
+// reads as their caption, as it does in a post.
+func WithPhotos(text string, fnames []string) string {
+	parts := make([]string, 0, len(fnames)+1)
+	for _, f := range fnames {
+		parts = append(parts, "![]("+f+")")
+	}
+
+	if text = strings.TrimSpace(text); text != "" {
+		parts = append(parts, text)
+	}
+
+	return strings.Join(parts, "\n\n")
+}
+
+// SplitPhotos separates a body into its photos, the images alone on their
+// line as the markdown renderer finds them (markdown.StandaloneImages), and
+// the rest of the text: the pieces between the photos, each without the line
+// breaks around it, joined by a blank line.
+func SplitPhotos(body string) (photos []markdown.StandaloneImage, text string) {
+	photos = markdown.StandaloneImages(body)
+
+	var (
+		kept []string
+		prev int
+	)
+
+	keep := func(piece string) {
+		if piece = strings.Trim(piece, "\n"); strings.TrimSpace(piece) != "" {
+			kept = append(kept, piece)
+		}
+	}
+
+	for _, p := range photos {
+		keep(body[prev:p.Start])
+		prev = p.Stop
+	}
+
+	keep(body[prev:])
+
+	return photos, strings.Join(kept, "\n\n")
 }

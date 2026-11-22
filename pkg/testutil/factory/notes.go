@@ -119,11 +119,6 @@ func NoteRecording(ctx context.Context, exec repo.Executor, userID string) (*mod
 	})
 }
 
-// NoteImage attaches an upload to a note as its photo at position.
-func NoteImage(ctx context.Context, exec repo.Executor, noteID, uploadID string, position int) (*model.NoteImage, error) {
-	return insertRow(ctx, exec, &model.NoteImage{NoteID: noteID, UploadID: uploadID, Position: position})
-}
-
 // NotePostLink records the note as used in the post.
 func NotePostLink(ctx context.Context, exec repo.Executor, noteID, postID string) (*model.NotePostLink, error) {
 	return insertRow(ctx, exec, &model.NotePostLink{NoteID: noteID, PostID: postID, How: model.NotePostLinkInserted})

@@ -12,10 +12,12 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil"
 	"github.com/can3p/pcom/pkg/testutil/factory"
+	"github.com/can3p/pcom/pkg/web"
 	"github.com/stretchr/testify/require"
 )
 
@@ -368,7 +370,8 @@ func TestNotesPages_SourceForms(t *testing.T) {
 	require.Equal(t, 1, count())
 }
 
-// richNote is a note with a recording in the given state, two photos, a
+// richNote is a note with a recording in the given state, two photos before
+// body in its text, a
 // source and a post that has its text.
 func richNote(t *testing.T, app *e2e.App, userID string, status model.NoteTranscriptionStatus, body string) *model.Note {
 	t.Helper()
@@ -376,13 +379,15 @@ func richNote(t *testing.T, app *e2e.App, userID string, status model.NoteTransc
 	ctx := context.Background()
 	src := testutil.Must(factory.NoteSource(ctx, app.DB, userID))(t)
 	audio := testutil.Must(factory.NoteRecording(ctx, app.DB, userID))(t)
-	n := mustNote(t, app, userID, factory.WithNoteBody(body), factory.WithNoteTags("essay"), factory.WithNoteTextTags("essay", "inline"),
-		factory.WithRecording(audio.ID), factory.WithNoteTranscription(status), factory.FromSource(src.ID))
 
-	for i := range 2 {
-		up := testutil.Must(factory.MediaUpload(ctx, app.DB, userID))(t)
-		testutil.Must(factory.NoteImage(ctx, app.DB, n.ID, up.ID, i))(t)
+	var photos []string
+
+	for range 2 {
+		photos = append(photos, testutil.Must(factory.MediaUpload(ctx, app.DB, userID))(t).UploadedFname)
 	}
+
+	n := mustNote(t, app, userID, factory.WithNoteBody(capture.WithPhotos(body, photos)), factory.WithNoteTags("essay"), factory.WithNoteTextTags("essay", "inline"),
+		factory.WithRecording(audio.ID), factory.WithNoteTranscription(status), factory.FromSource(src.ID))
 
 	post := testutil.Must(factory.Post(ctx, app.DB, userID))(t)
 	testutil.Must(factory.NotePostLink(ctx, app.DB, n.ID, post.ID))(t)
@@ -391,7 +396,7 @@ func richNote(t *testing.T, app *e2e.App, userID string, status model.NoteTransc
 }
 
 const (
-	fullPrompt   = "Delete this note, its recording and 2 photos? This can't be undone. The text already inserted into posts stays there."
+	fullPrompt   = "Delete this note and its recording? This can't be undone. The text already inserted into posts stays there."
 	retranscribe = "Replace the edited text with a new transcript?"
 )
 
@@ -424,7 +429,7 @@ func TestNotesPages_EditPage(t *testing.T) {
 
 			doc := c.Get("/controls/notes/" + n.ID + "/edit").RequireStatus(http.StatusOK).Doc()
 			require.Equal(t, "Edit note", doc.Find("h1.ed-title").Text())
-			require.Equal(t, tt.body, doc.Find("textarea[name=body]").Text())
+			require.Equal(t, n.Body, doc.Find("textarea[name=body]").Text(), "the photos are part of the text")
 			require.Equal(t, fullPrompt, doc.Find("button.ed-delete").AttrOr("data-action-prompt-value", ""))
 			require.Equal(t, n.ID, doc.Find("button.ed-delete").AttrOr("data-note-id", ""))
 
@@ -513,7 +518,7 @@ func TestNotesPages_ListItemOfARichNote(t *testing.T) {
 
 			item := c.Get("/controls/notes").RequireStatus(http.StatusOK).Doc().Find("#note-" + n.ID)
 			require.Equal(t, 1, item.Length())
-			require.Equal(t, 2, item.Find(".note-photos img").Length())
+			require.Equal(t, 2, item.Find(".note-body img.post-img").Length(), "the photos are images of the body")
 			require.Equal(t, fullPrompt, item.Find("button[aria-label='Delete note']").AttrOr("data-action-prompt-value", ""))
 			require.Equal(t, "/controls/notes/"+n.ID+"/edit", item.Find("a[aria-label='Edit note']").AttrOr("href", ""))
 			require.Equal(t, []string{"#essay", "#inline (written in the text)"}, texts(item, ".nt-tags li"))
@@ -633,7 +638,7 @@ func TestNotesPages_CapturePageSharedCard(t *testing.T) {
 	require.Equal(t, map[string]any{
 		"noteId": rich.ID, "text": "quoted\n\nwords", "photos": float64(2), "voice": true,
 		// the page doesn't say which posts have it
-		"deletePrompt": "Delete this note, its recording and 2 photos? This can't be undone.",
+		"deletePrompt": "Delete this note and its recording? This can't be undone.",
 	}, card)
 
 	for name, id := range map[string]string{
@@ -642,6 +647,50 @@ func TestNotesPages_CapturePageSharedCard(t *testing.T) {
 		_, ok := shared(id)
 		require.False(t, ok, name)
 	}
+}
+
+// TestNotesPages_PickerPhotoNote: a note that is only a photo shows the photo
+// on its card, and Insert puts the photo into the post as the markdown image
+// it is; the photo can be edited along with the rest of the text. A note with
+// nothing in it yet, a recording waiting for its transcript, can't be inserted.
+func TestNotesPages_PickerPhotoNote(t *testing.T) {
+	t.Parallel()
+
+	app := notesApp(t)
+	user, c := newLoggedIn(t, app)
+	key := testutil.Must(factory.APIKey(context.Background(), app.DB, user.ID, notesScope))(t).APIKey
+
+	n := decodeData[web.ApiNote](t, postNote(t, app, key, file("image", "a.png", "image/png", smallPNG(t))).RequireStatus(http.StatusOK).Body)
+	photos, text := capture.SplitPhotos(n.Body)
+	require.Len(t, photos, 1)
+	require.Empty(t, text)
+
+	card := c.Get("/controls/notes/picker").RequireStatus(http.StatusOK).Doc().Find("#np-note-" + n.ID)
+	img := card.Find(".np-text a > img.post-img")
+	require.Equal(t, 1, img.Length())
+	require.True(t, strings.HasSuffix(img.AttrOr("data-src", ""), "/thumb"))
+
+	insert := card.Find(".np-acts button[aria-label=Insert]")
+	require.Equal(t, n.Body, insert.AttrOr("data-text", ""), "Insert puts the photo's markdown into the post")
+	_, disabled := insert.Attr("disabled")
+	require.False(t, disabled)
+
+	// a second photo is one more image in the text, as the edit page's toolbar adds it
+	both := n.Body + "\n\n" + photos[0].Markdown
+	_, err := app.DB.ExecContext(context.Background(), "update notes set body = $1 where id = $2", both, n.ID)
+	require.NoError(t, err)
+
+	card = c.Get("/controls/notes/picker").RequireStatus(http.StatusOK).Doc().Find("#np-note-" + n.ID)
+	require.Equal(t, 2, card.Find(".np-text img.post-img").Length())
+	require.Equal(t, both, card.Find(".np-acts button[aria-label=Insert]").AttrOr("data-text", ""))
+
+	audio := testutil.Must(factory.NoteRecording(context.Background(), app.DB, user.ID))(t)
+	pending := mustNote(t, app, user.ID, factory.WithNoteBody(""), factory.WithRecording(audio.ID), factory.WithNoteTranscription(model.NoteTranscriptionPending))
+
+	card = c.Get("/controls/notes/picker").RequireStatus(http.StatusOK).Doc().Find("#np-note-" + pending.ID)
+	require.Zero(t, card.Find(".np-text").Length())
+	_, disabled = card.Find(".np-acts button[aria-label=Insert]").Attr("disabled")
+	require.True(t, disabled, "nothing to insert yet")
 }
 
 func TestNotesPages_Picker(t *testing.T) {
@@ -865,8 +914,9 @@ func userNotesByBody(t *testing.T, app *e2e.App, userID string) map[string]*mode
 	return out
 }
 
-// TestNotes_PhotoUsesTheImageClasses: a note's photo is shown through the
-// thumb class, linked to the full class, and both answer with an image.
+// TestNotes_PhotoUsesTheImageClasses: a note's photo, an image of its body, is
+// shown through the thumb class, linked to the full class, as a post's is, and
+// both answer with an image.
 func TestNotes_PhotoUsesTheImageClasses(t *testing.T) {
 	t.Parallel()
 
@@ -876,18 +926,17 @@ func TestNotes_PhotoUsesTheImageClasses(t *testing.T) {
 
 	postNote(t, app, key, field("text", "with a photo"), file("image", "a.png", "image/png", smallPNG(t))).RequireStatus(http.StatusOK)
 
-	img := c.Get("/controls/notes").RequireStatus(http.StatusOK).Doc().Find(".note-photos a > img")
+	img := c.Get("/controls/notes").RequireStatus(http.StatusOK).Doc().Find(".note-body a > img.post-img")
 	require.Equal(t, 1, img.Length())
 
-	src := img.AttrOr("src", "")
+	// lazysizes fills in the src, as in a post
+	src := img.AttrOr("data-src", "")
 	href := img.Parent().AttrOr("href", "")
 	require.True(t, strings.HasSuffix(src, "/thumb"), src)
 	require.True(t, strings.HasSuffix(href, "/full"), href)
-	require.Equal(t, "Photo of the note", img.AttrOr("alt", ""))
-	require.Equal(t, "lazy", img.AttrOr("loading", ""))
 
 	for _, u := range []string{src, href} {
-		resp := c.Get(u).RequireStatus(http.StatusOK)
+		resp := c.Get(strings.TrimPrefix(u, app.URL)).RequireStatus(http.StatusOK)
 		require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "image/"), "%s: %s", u, resp.Header.Get("Content-Type"))
 	}
 }
