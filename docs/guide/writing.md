@@ -50,9 +50,10 @@ Checks and open the sidebar.
 The Notes tab has a search box that works like the one in the [notes list](notes.md): words search the text, `#tag`
 keeps the notes with that tag and `-#tag` leaves them out. Under it are your most used tags, and each note shows
 its tags; a tap on a tag adds it to the search. Each note has a row of small icon buttons: **Insert** puts
-its text in at the cursor, **Append** adds it to the end of the post, **Edit** opens the note in a new tab and
+its text in at the cursor, **Attach** attaches the note to the post, **Edit** opens the note in a new tab and
 **Delete** deletes the note after asking (the text already in posts stays). A quote goes in with its source, as
-*— *Title**. The editor saves the post as usual, and inserting a note marks it used.
+*— *Title**. The editor saves the post as usual, and inserting a note also attaches it. The notes of a post and
+their tab on the post page are in [Notes](notes.md#using-notes-in-a-post).
 
 ![The post editor with the Notes tab of the sidebar showing notes.](screenshots/notes-panel.png)
 

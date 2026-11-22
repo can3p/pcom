@@ -102,7 +102,8 @@ longest side the browser scales a photo to), `NOTE_AUDIO_MAX_DURATION` (10m), `N
 `NOTE_AUDIO_BITRATE` (24000 bits a second, what the browser records at), `NOTE_CAPTURE_MAX_BYTES` (32 MiB for
 one capture with its photos and recording), `NOTE_QUOTE_SOURCE_WINDOW` (12h, how long after a note with a source
 a new quote still takes that source) and `NOTE_PANEL_TAGS` (8, how many of the author's most used tags the post
-editor's Notes panel offers).
+editor's Notes panel offers), and `NOTE_ATTACH_POSTS` (10, how many of the author's newest drafts and posts the
+Attach to post control of a note offers).
 
 The local stack has its speech-to-text backend too: `.env.example` points `STT_OPENAI_COMPAT_ENDPOINT` at
 the WireMock service of `docker-compose.yml` (port `PCOM_WIREMOCK_PORT`, 8833), which answers every

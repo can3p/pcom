@@ -236,10 +236,23 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   Sources are added and renamed on the Tags and sources screen. Renaming a source to the title of another merges
   them, as renaming a tag does: its notes move there and it goes, so there is no separate merge. The capture API
   and the bulk Source action take a title and find or make the source.
+- **Attached notes.** A note can be attached to a post: it joins the post's material without changing the post's
+  text. Inserting a note into a post attaches it too. Detaching removes only the attachment, a note is never deleted
+  by its post, and deleting a note or a post removes only the links. Publishing a draft or making a post a draft
+  again does not change its notes.
+- **Attached tags.** A tag can be attached to a post: the notes carrying it (a note's tags include the `#words` of its
+  text) are attached at once, and every note tagged with it later joins the post. A note that a tag brings can be
+  detached from that post without removing its tag; the attached tag has its own detach.
+- **Attached notes are private.** Only the author sees a post's attached notes: on the post page and in the editor,
+  never to another reader, through a share link, RSS, the zip export, the API's post responses, the feed or any mail.
+- **Post page.** For the author only, the post page has Comments (n) and Notes (n), comments first. A draft opens on
+  its notes. The notes are grouped by how they came, one by one or by tag.
+- **Attached notes leave the list.** `/controls/notes` hides the notes that belong to a post unless its All notes
+  switch is on, since the list is for new notes. Each note shows the posts it is attached to.
 - **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
   object and row go when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
-  so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there.
+  so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there, and the note's attachments go with it; the posts keep their text.
 - **A recording is transcribed once.** The upload enqueues `notes.transcribe` in its own transaction, unique per
   note and recording. The job re-checks the note and the recording when it runs, and does nothing if either is gone. The
   transcript becomes the body; editing it later never calls the provider. Language is detected, never set in
@@ -255,7 +268,7 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   has none until the author gives it one. Its attribution line in a post is `— *Title*`.
 - **The list is flat.** Notes are listed newest capture first, never grouped by when they were captured. There
   are no tag suggestions: the recent tags by the capture box and the author's tags under the search are the way
-  to a tag. A note inserted into a post is still recorded (`note_post_links`).
+  to a tag. Inserting a note into a post also attaches it (`note_post_links`).
 - **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
   CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
   PNG, JPEG and WebP are accepted, and a HEIC photo (an iPhone's) is converted to JPEG on upload with its
