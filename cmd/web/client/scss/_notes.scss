@@ -417,3 +417,50 @@
 .capture-last-what {
   overflow-wrap: anywhere;
 }
+
+// A note's "Attached to" line and its Attach to post… control, and the same
+// for the notes of a tag above the list.
+.note-posts .nt-x {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.note-attach summary {
+  color: var(--muted);
+  font: 600 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.note-attach-form,
+.nt-attach,
+.nt-post-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+
+  select {
+    min-width: 0;
+    max-width: 100%;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--text);
+    font: 400 14px var(--font-ui);
+  }
+}
+
+// In the editor's Notes tab: what is attached to the post, and the tags of the
+// search that can be.
+.np-attached {
+  margin: 0;
+  color: var(--accent);
+}
+
+.np-attach-tag {
+  margin: var(--space-2) 0;
+}

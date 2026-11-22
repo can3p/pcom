@@ -236,6 +236,10 @@ func TestAttach_OwnerOnly(t *testing.T) {
 			_, err := w.svc.ForPost(w.ctx, a, p)
 			return err
 		},
+		"post": func(a *model.User, _, p string) error {
+			_, err := w.svc.Post(w.ctx, a, p)
+			return err
+		},
 		"posts of": func(a *model.User, n, _ string) error {
 			_, err := w.svc.PostsOf(w.ctx, a, n)
 			return err
@@ -251,7 +255,7 @@ func TestAttach_OwnerOnly(t *testing.T) {
 				require.ErrorIs(t, call(w.me, myNote.ID, theirPost.ID), service.ErrNotFound)
 			}
 
-			if name != "attach tag" && name != "detach tag" && name != "for post" {
+			if name != "attach tag" && name != "detach tag" && name != "for post" && name != "post" {
 				require.ErrorIs(t, call(w.me, theirNote.ID, myPost.ID), service.ErrNotFound)
 			}
 

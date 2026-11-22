@@ -86,7 +86,15 @@
   {{ end }}
 
   {{ if not .EditPreview }}
-    <section class="comments us-comments-section" aria-label="Comments">
+  {{/* The author's page alone has the Comments | Notes toggle; the notes are fetched when it first shows them. */}}
+  <div{{ if .Capabilities.CanEdit }} class="post-tabs" data-controller="post-notes" data-post-notes-url-value="{{ link "post_notes" .ID }}"{{ if not .IsPublished }} data-post-notes-draft-value="true"{{ end }}{{ end }}>
+    {{ if .Capabilities.CanEdit }}
+    <div class="es-tabs post-tabs-bar" role="tablist" aria-label="Comments and notes">
+      <button type="button" role="tab" class="es-tab" id="post-tab-comments" aria-controls="post-pane-comments" data-post-notes-target="tab" data-pane="comments" data-action="post-notes#select">Comments ({{ .CommentsNumber }})</button>
+      <button type="button" role="tab" class="es-tab" id="post-tab-notes" aria-controls="post-pane-notes" data-post-notes-target="tab" data-pane="notes" data-action="post-notes#select">Notes ({{ $.NotesCount }})</button>
+    </div>
+    {{ end }}
+    <section class="comments us-comments-section" aria-label="Comments"{{ if .Capabilities.CanEdit }} id="post-pane-comments" role="tabpanel" aria-labelledby="post-tab-comments" data-post-notes-target="pane" data-pane="comments"{{ end }}>
 
     {{ if .Capabilities.CanLeaveComments }}
       <div class="inplace" id="post{{ .ID }}">
@@ -135,6 +143,12 @@
     </div>
     {{ end }}
     </section>
+    {{ if .Capabilities.CanEdit }}
+    <section class="post-notes-pane" aria-label="Notes" id="post-pane-notes" role="tabpanel" aria-labelledby="post-tab-notes" data-post-notes-target="pane" data-pane="notes" hidden>
+      <p class="field-help" data-post-notes-target="loading">Loading notes&hellip;</p>
+    </section>
+    {{ end }}
+  </div>
   {{ end }}
 </main>
 </div>

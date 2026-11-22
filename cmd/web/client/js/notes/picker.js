@@ -1,4 +1,4 @@
-import { runAction } from "../lib"
+import { runAction, reportError } from "../lib"
 
 // The post editor's Notes tab, loaded by controllers/notes_picker_controller.js
 // in the editor only, so the main bundle stays small. A note counts as used
@@ -15,6 +15,21 @@ export class NotesPicker {
     this.c.panelTarget.setAttribute("hx-ext", "json-enc")
     this.settled = () => this.flush()
     document.addEventListener("htmx:afterSettle", this.settled)
+    this.inserted()
+  }
+
+  // The editor opened by "Insert into post" on the post page holds the note's
+  // text already: save it, and the note counts as used.
+  inserted() {
+    const marker = this.c.element.querySelector("[data-notes-picker-inserted]")
+    if (!marker) return
+
+    for (const id of marker.dataset.notesPickerInserted.split(",").filter((id) => id !== "")) {
+      this.pending.add(id)
+    }
+
+    this.c.element.querySelector("form")?.dispatchEvent(new CustomEvent("postform:save"))
+    this.flush()
   }
 
   disconnect() {
@@ -32,6 +47,45 @@ export class NotesPicker {
 
     input.value = words.join(" ")
     input.form.requestSubmit()
+  }
+
+  // Attach and Detach on a card of a saved post: the card follows at once.
+  // A note that a tag brings is hidden from the post rather than detached.
+  toggle(event) {
+    const button = event.currentTarget
+    const { noteId, attached, via } = button.dataset
+    const on = attached !== "1"
+    const name = on ? "note_attach" : via === "1" ? "note_exclude" : "note_detach"
+
+    runAction(name, {}, { noteId, postId: this.postId() }, this.c.panelTarget).then(() => {
+      button.dataset.attached = on ? "1" : "0"
+      button.dataset.via = "0"
+      button.setAttribute("aria-label", on ? "Detach" : "Attach")
+      button.title = on ? "Detach from this post" : "Attach to this post"
+
+      const note = button.closest(".np-note").querySelector(".np-attached")
+      if (note) note.hidden = !on
+    }, reportError)
+  }
+
+  // Attach all notes tagged X: the tag stays attached, so what the author
+  // tags later joins the post, which the confirmation says first.
+  attachTag(event) {
+    const button = event.currentTarget
+    const { tag, prompt } = button.dataset
+
+    if (!confirm(prompt)) return
+
+    runAction("note_attach_tag", {}, { tag, postId: this.postId() }, this.c.panelTarget).then(() => {
+      const done = document.createElement("span")
+      done.className = "meta"
+      done.textContent = `#${tag} is attached to this post.`
+      button.replaceWith(done)
+    }, reportError)
+  }
+
+  postId() {
+    return this.c.element.querySelector("input[name=post_id]")?.value
   }
 
   insert(event) {

@@ -1,10 +1,12 @@
-{{/* The post editor's Notes panel, swapped into #np-body. Takes a web.NotePickerPage; "Load more" gets
+{{/* The post editor's Notes panel, swapped into #np-body. Takes a web.NotePickerPage; a card of a saved post has
+     Attach or Detach, a new post's are off, and Attach all notes tagged #x is offered for the tags of the search; "Load more" gets
      note_picker_list alone. */}}
 {{ define "note_picker_list" }}
 {{ range .Items }}
 {{ $n := .Item.Note }}
 <article class="np-note" id="np-note-{{ $n.ID }}" data-testid="picker-note">
   {{ if $n.Source }}<p class="meta">{{ $n.Source.Title }}</p>{{ end }}
+  {{ if $.PostID }}<p class="meta np-attached"{{ if not .Attached }} hidden{{ end }} data-testid="np-attached">Attached to this post</p>{{ end }}
   <div class="prose np-text">{{ markdown_feed $n.Body }}</div>
   {{ with .Item.Tags }}
   <ul class="np-tags" aria-label="Tags of the note">
@@ -14,6 +16,11 @@
   <div class="np-acts">
     <button type="button" class="np-ico" data-action="notes-picker#insert" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Insert" title="Insert at the cursor"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v7a4 4 0 0 0 4 4h10"></path><path d="M15 11l4 4-4 4"></path></svg></button>
     <button type="button" class="np-ico" data-action="notes-picker#append" data-note-id="{{ $n.ID }}" data-text="{{ .Text }}" aria-label="Append" title="Append to the end of the post"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="M7 10l5 5 5-5"></path><path d="M5 20h14"></path></svg></button>
+    {{ if $.PostID }}
+    <button type="button" class="np-ico" data-action="notes-picker#toggle" data-note-id="{{ $n.ID }}" data-attached="{{ if .Attached }}1{{ else }}0{{ end }}" data-via="{{ if .Via }}1{{ else }}0{{ end }}" aria-label="{{ if .Attached }}Detach{{ else }}Attach{{ end }}" title="{{ if .Attached }}Detach from this post{{ else }}Attach to this post{{ end }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"></path></svg></button>
+    {{ else }}
+    <button type="button" class="np-ico" disabled aria-label="Attach" title="Save as a draft to attach notes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.5l-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"></path></svg></button>
+    {{ end }}
     <a class="np-ico" href="{{ link "note_edit" $n.ID }}" target="_blank" rel="noopener" aria-label="Edit" title="Edit the note in a new tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></a>
     <button type="button" class="np-ico np-del"
             data-controller="action"
@@ -41,6 +48,18 @@
 <ul class="np-tags np-top" aria-label="Your most used tags">
   {{ range . }}<li><button type="button" class="np-tag" data-action="notes-picker#addTag" data-tag="{{ .Tag }}" aria-label="Search #{{ .Tag }}">#{{ .Tag }}</button></li>{{ end }}
 </ul>
+{{ end }}
+{{ if not .PostID }}<p class="field-help np-hint" data-testid="np-hint">Save as a draft to attach notes.</p>{{ end }}
+{{ range .AttachTags }}
+<p class="np-attach-tag">
+  {{ if not $.PostID }}
+  <button type="button" class="btn btn-secondary" disabled title="Save as a draft to attach notes">Attach all notes tagged #{{ .Tag }}</button>
+  {{ else if .Done }}
+  <span class="meta">#{{ .Tag }} is attached to this post.</span>
+  {{ else }}
+  <button type="button" class="btn btn-secondary" data-action="notes-picker#attachTag" data-tag="{{ .Tag }}" data-prompt="{{ .Prompt }}">Attach all notes tagged #{{ .Tag }}</button>
+  {{ end }}
+</p>
 {{ end }}
 <div class="np-list">
 {{ template "note_picker_list" . }}

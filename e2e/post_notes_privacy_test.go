@@ -82,4 +82,30 @@ func TestPostNotes_NoReaderReachesThem(t *testing.T) {
 			}
 		})
 	}
+
+	// the control: the notes are there for their author, and for nobody else
+	stranger := newUser(t, app)
+
+	t.Run("the author's notes section", func(t *testing.T) {
+		text := requireStatus(t, loginAs(t, app, author).Get("/posts/"+post.ID+"/notes"), http.StatusOK).Body
+
+		for _, s := range secrets {
+			require.Contains(t, text, s)
+		}
+	})
+
+	for name, c := range map[string]*e2e.Client{"reader": asReader, "stranger": loginAs(t, app, stranger)} {
+		t.Run("notes section: "+name, func(t *testing.T) {
+			resp := requireStatus(t, c.Get("/posts/"+post.ID+"/notes"), http.StatusNotFound)
+
+			for _, s := range secrets {
+				require.NotContains(t, resp.Body, s)
+			}
+		})
+	}
+
+	t.Run("notes section: anonymous", func(t *testing.T) {
+		resp := requireStatus(t, anon.Get("/posts/"+post.ID+"/notes"), http.StatusFound)
+		require.NotContains(t, resp.Body, secrets[0])
+	})
 }

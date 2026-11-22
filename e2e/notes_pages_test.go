@@ -698,12 +698,12 @@ func TestNotesPages_Picker(t *testing.T) {
 	card := doc.Find("[data-testid=picker-note]").Eq(2)
 	buttons := card.Find(".np-acts button")
 	labels := buttons.Map(func(_ int, b *goquery.Selection) string { return b.AttrOr("aria-label", "") })
-	require.Equal(t, []string{"Insert", "Append", "Delete"}, labels)
+	require.Equal(t, []string{"Insert", "Append", "Attach", "Delete"}, labels)
 	require.Equal(t, text(2), buttons.Eq(1).AttrOr("data-text", ""))
 	require.Equal(t, "/controls/notes/"+bravo.ID+"/edit", card.Find(".np-acts a[aria-label=Edit]").AttrOr("href", ""))
 	require.Equal(t, "_blank", card.Find(".np-acts a[aria-label=Edit]").AttrOr("target", ""))
-	require.Equal(t, "note_delete", buttons.Eq(2).AttrOr("data-action-action-value", ""))
-	require.Contains(t, buttons.Eq(2).AttrOr("data-action-prompt-value", ""), "Delete this note")
+	require.Equal(t, "note_delete", buttons.Eq(3).AttrOr("data-action-action-value", ""))
+	require.Contains(t, buttons.Eq(3).AttrOr("data-action-prompt-value", ""), "Delete this note")
 	require.Equal(t, []string{book.Title}, texts(card, ".meta"))
 
 	// each card shows all the note's tags, set by hand or written in the text

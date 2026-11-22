@@ -20,6 +20,8 @@ export default class extends Controller {
   }
 
   addTag(event) { this.impl?.addTag(event) }
+  toggle(event) { this.impl?.toggle(event) }
+  attachTag(event) { this.impl?.attachTag(event) }
   insert(event) { this.impl?.insert(event) }
   append(event) { this.impl?.append(event) }
 }

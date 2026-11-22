@@ -928,3 +928,26 @@ html:has(.viewer[open]) {
     padding: var(--space-5) 0;
   }
 }
+
+// The author's Comments | Notes toggle above the comments of a post.
+.post-tabs-bar {
+  margin-top: var(--space-6);
+}
+
+.post-notes-pane {
+  margin-top: var(--space-4);
+}
+
+.post-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.post-notes-title {
+  margin: var(--space-4) 0 0;
+  color: var(--muted);
+  font: 600 13px var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

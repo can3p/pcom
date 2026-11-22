@@ -139,6 +139,11 @@ func (s *Service) ForPost(ctx context.Context, actor *model.User, postID string)
 	return &PostNotes{Notes: rows, Tags: tags}, nil
 }
 
+// Post returns a post of the actor, which the page of its notes names.
+func (s *Service) Post(ctx context.Context, actor *model.User, postID string) (*model.Post, error) {
+	return s.ownPost(ctx, s.store, actor, postID)
+}
+
 // PostsOf returns the posts a note of the actor belongs to, newest first.
 func (s *Service) PostsOf(ctx context.Context, actor *model.User, noteID string) ([]*model.Post, error) {
 	note, err := s.ownNote(ctx, s.store, actor, noteID, read)

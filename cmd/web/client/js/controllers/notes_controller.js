@@ -32,6 +32,8 @@ export default class extends Controller {
   select() { this.impl?.refresh() }
   pickTargetConnected() { this.impl?.refresh() }
   pickTargetDisconnected() { this.impl?.refresh() }
+  attach(event) { this.impl?.attach(event) }
+  attachTag(event) { this.impl?.attachTag(event) }
   captureKey(event) { this.impl?.captureKey(event) }
   addTag(event) { this.impl?.addTag(event) }
   uploadRecording(event) { this.impl?.uploadRecording(event) }

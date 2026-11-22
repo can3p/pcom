@@ -310,6 +310,7 @@ func noExtra(*guardWorld) map[string]string { return nil }
 var guardRoutes = []guardRoute{
 	// EnforceAuth GET routes
 	{http.MethodGet, "/posts/:id/edit", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/edit" }, noExtra},
+	{http.MethodGet, "/posts/:id/notes", func(w *guardWorld) string { return "/posts/" + w.draft.ID + "/notes" }, noExtra},
 	{http.MethodGet, "/write", staticPath("/write"), noExtra},
 	{http.MethodGet, "/write/preview", staticPath("/write/preview"), noExtra},
 	{http.MethodGet, "/feed", staticPath("/feed"), noExtra},
@@ -398,6 +399,26 @@ var guardRoutes = []guardRoute{
 	{http.MethodPost, "/controls/action/note_mark_used", staticPath("/controls/action/note_mark_used"),
 		func(w *guardWorld) map[string]string {
 			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_attach", staticPath("/controls/action/note_attach"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_detach", staticPath("/controls/action/note_detach"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_exclude", staticPath("/controls/action/note_exclude"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"noteId": w.note.ID, "postId": w.published.ID}
+		}},
+	{http.MethodPost, "/controls/action/note_attach_tag", staticPath("/controls/action/note_attach_tag"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"postId": w.published.ID, "tag": "keep"}
+		}},
+	{http.MethodPost, "/controls/action/note_detach_tag", staticPath("/controls/action/note_detach_tag"),
+		func(w *guardWorld) map[string]string {
+			return map[string]string{"postId": w.published.ID, "tag": "keep"}
 		}},
 	{http.MethodPost, "/controls/action/note_delete", staticPath("/controls/action/note_delete"),
 		func(w *guardWorld) map[string]string { return map[string]string{"noteId": w.note.ID} }},
@@ -542,6 +563,7 @@ func TestGuards_RouteTableMatchesSource(t *testing.T) {
 		"../pkg/web/app/routes_auth.go":          {"r": "", "actions": "/controls/action", "nonControlsForms": "/form"},
 		"../pkg/web/app/routes_connections.go":   {"controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_posts.go":         {"r": "", "controlsForms": "/controls/form"},
+		"../pkg/web/app/routes_post_notes.go":    {"r": "", "actions": "/controls/action"},
 		"../pkg/web/app/routes_notes.go":         {"controls": "/controls", "controlsForms": "/controls/form", "actions": "/controls/action"},
 		"../pkg/web/app/routes_settings.go":      {"r": "", "controls": "/controls", "controlsForms": "/controls/form"},
 		"../pkg/web/app/routes_feeds.go":         {"controlsForms": "/controls/form"},

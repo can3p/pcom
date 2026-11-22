@@ -1,6 +1,6 @@
 {{/* Also the whole answer to "Load more". Takes a web.NotesPage. */}}
 {{ range .Items }}
-{{ template "partial--note-item.html" toMap "Item" . "User" $.User }}
+{{ template "partial--note-item.html" toMap "Item" . "User" $.User "Choices" $.PostChoices "Plain" $.Post }}
 {{ else }}
 <p class="field-help note-empty">{{ if .Query.Filtered }}No notes match.{{ else }}No notes yet.{{ end }}</p>
 {{ end }}

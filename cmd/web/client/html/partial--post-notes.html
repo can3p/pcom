@@ -1,0 +1,38 @@
+{{/* The Notes section of a post page, loaded when its author first switches to it (GET /posts/:id/notes). Takes a
+     web.PostNotesPage. A tag of the bar loads the section again narrowed to it. */}}
+<div class="post-notes" id="post-notes" data-testid="post-notes">
+  {{ with .Attached }}
+  <ul class="nt-chips post-notes-attached" aria-label="Tags attached to this post">
+    {{ range . }}
+    <li class="nt-chip">#{{ . }}
+      <button type="button"
+              data-controller="action"
+              data-action="action#run"
+              data-action-action-value="note_detach_tag"
+              data-post-id="{{ $.PostID }}"
+              data-tag="{{ . }}"
+              aria-label="Detach tag #{{ . }}" title="Detach tag #{{ . }}">&times;</button>
+    </li>
+    {{ end }}
+  </ul>
+  {{ end }}
+
+  {{ with .Tags }}
+  <ul class="nt-chips" aria-label="Filter the notes by tag">
+    {{ range . }}
+    <li class="nt-chip{{ if .Active }} nt-include{{ end }}"><a href="{{ .Href }}" hx-get="{{ .Href }}" hx-target="#post-notes" hx-swap="outerHTML"{{ if .Active }} aria-current="true"{{ end }}>#{{ .Tag }}</a></li>
+    {{ end }}
+  </ul>
+  {{ end }}
+
+  {{ range .Groups }}
+  <section class="post-notes-group" aria-label="{{ .Title }}">
+    <h2 class="post-notes-title">{{ .Title }}</h2>
+    {{ range .Items }}
+    {{ template "partial--note-item.html" toMap "Item" .Item "User" $.User "PostNote" . "PostID" $.PostID }}
+    {{ end }}
+  </section>
+  {{ else }}
+  <p class="field-help">{{ if .Count }}No note carries this tag.{{ else }}No notes are attached to this post yet. Attach them from the editor's Notes tab or from Notes.{{ end }}</p>
+  {{ end }}
+</div>
