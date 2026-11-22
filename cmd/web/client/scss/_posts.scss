@@ -517,8 +517,9 @@
     margin: 6px 0 0;
   }
 
-  blockquote p {
-    margin: 0;
+  // paragraphs inside a quote keep their spacing; only the last one drops it
+  blockquote > :last-child {
+    margin-bottom: 0;
   }
 
   code {
