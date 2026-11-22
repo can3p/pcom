@@ -9,7 +9,7 @@
   "private": true,
   "license": "unlicensed",
   "dependencies": {
-    "@can3p/headless-mde": "^0.0.6",
+    "@can3p/headless-mde": "^0.0.8",
     "@fontsource/golos-text": "~5.3",
     "@justinribeiro/lite-youtube": "^1.9.0",
     "htmx-ext-head-support": "^2.0.5",

@@ -44,12 +44,17 @@ var outDir = func() string {
 
 // shot is one screenshot: the page, the seeded user who views it (empty for
 // an anonymous visitor), the file name and what to wait for before capturing.
+// A shot shows no time that depends on when it was taken: a relative time
+// is pinned to a fixed distance from now and a date to a fixed day, so
+// rerunning the shots leaves an unchanged page's image unchanged.
 // Path may use the {post} placeholder (the id of a seeded post with comments)
 // and {token} (the manage token of a subscriber).
 type shot struct {
 	file string
 	user string
 	path string
+	// setup runs before the page opens, e.g. to pin the times it shows.
+	setup func(t *testing.T, app *e2e.App)
 	// prepare runs after the page has loaded, e.g. to fill in an editor.
 	prepare func(t *testing.T, page playwright.Page)
 	// ready is a selector that must be visible before the capture.
@@ -74,7 +79,7 @@ var shots = []shot{
 	{file: "explore.png", user: "alice", path: "/explore", ready: "h1"},
 	{file: "subscribe.png", path: "/users/carol", prepare: openSubscribe, ready: "[data-testid=subscribe-form]"},
 	{file: "subscriptions.png", path: "/subscriptions/{token}", ready: "[data-testid=subscriptions-list]"},
-	{file: "controls.png", user: "alice", path: "/controls", ready: "#email-subscribers-title"},
+	{file: "controls.png", user: "alice", path: "/controls", setup: pinDrafts("alice"), ready: "#email-subscribers-title"},
 	{file: "notes.png", user: "alice", path: "/controls/notes", ready: "[data-testid=note]"},
 	{file: "note-edit.png", user: "alice", path: "/controls/notes/{note}/edit", ready: "#note-tags"},
 	{file: "capture.png", user: "alice", path: "/controls/notes/new", phone: true, ready: ".capture-mode"},
@@ -157,6 +162,12 @@ func TestScreenshots(t *testing.T) {
 	}
 	_, err = factory.EmailSubscription(ctx, app.DB, carol.ID, "dana@example.test")
 	require.NoError(t, err)
+	// alice's list says "subscribed 3 days ago", dana's page "Since 14 Mar 2026"
+	_, err = app.DB.Exec(`UPDATE email_subscriptions SET confirmed_at = $1 WHERE author_id = $2`, time.Now().Add(-72*time.Hour), alice.ID)
+	require.NoError(t, err)
+	since := time.Date(2026, time.March, 14, 10, 0, 0, 0, time.UTC)
+	_, err = app.DB.Exec(`UPDATE email_subscriptions SET created_at = $1, confirmed_at = $1 WHERE author_id = $2`, since, carol.ID)
+	require.NoError(t, err)
 	dana, err := factory.GetEmailSubscriber(ctx, app.DB, "dana@example.test")
 	require.NoError(t, err)
 	_, err = factory.APIKey(ctx, app.DB, alice.ID, factory.WithAPIKey(screenshotAPIKey))
@@ -166,6 +177,10 @@ func TestScreenshots(t *testing.T) {
 
 	for _, s := range shots {
 		t.Run(s.file, func(t *testing.T) {
+			if s.setup != nil {
+				s.setup(t, app)
+			}
+
 			viewport := playwright.Size{Width: 1280, Height: 800}
 			if s.phone {
 				viewport = playwright.Size{Width: 390, Height: 844}
@@ -218,6 +233,25 @@ func openSubscribe(t *testing.T, page playwright.Page) {
 	t.Helper()
 
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Subscribe by email"}).Click())
+}
+
+// pinDrafts dates the drafts of username, newest first, 20 minutes apart from
+// now: one is the editor shot's, saved seconds before, and would otherwise
+// show a time that changes with every run.
+func pinDrafts(username string) func(t *testing.T, app *e2e.App) {
+	return func(t *testing.T, app *e2e.App) {
+		t.Helper()
+
+		_, err := app.DB.Exec(`
+			UPDATE posts p SET updated_at = $1::timestamp - d.n * interval '20 minutes'
+			FROM (
+				SELECT posts.id, row_number() OVER (ORDER BY posts.updated_at DESC) AS n
+				FROM posts JOIN users u ON u.id = posts.user_id
+				WHERE u.username = $2 AND posts.published_at IS NULL
+			) d
+			WHERE p.id = d.id`, time.Now(), username)
+		require.NoError(t, err)
+	}
 }
 
 // addNotes makes the notes the shots show, through the notes API as a phone

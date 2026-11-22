@@ -288,7 +288,8 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   (`/controls/notes/sw.js`, scoped to `/controls/notes/`) uploads it with retries. `captured_at` is the time of the
   capture, not of the upload.
 - **The share target is CSRF-exempt**, because a share sheet can't send a token. A cross-site POST carries no
-  session cookie (SameSite=Lax), so a forged share lands on the login page. The only thing a share can do is add a
+  session cookie (SameSite=Lax), so a forged share lands on the login page; the user stays logged in, since that
+  answer doesn't touch the session cookie. The only thing a share can do is add a
   note to the sharing user's own notes. A share reads only its title, text, url and files: it can't set tags, a
   source or `captured_at`. The capture page's service worker sends a share at once and queues it on the phone only when the
   network fails; the queued share uploads when the network returns.

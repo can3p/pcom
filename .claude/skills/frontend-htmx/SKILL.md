@@ -68,7 +68,7 @@ script must be same-origin, so it can't come from `/static` or the CDN.
   `e2e/guards_test.go`). `POST /controls/notes/share` is the share target of the installed app, because the
   phone posts the share sheet's form and can't add a token. Its safety rests on two things together: the
   session cookie is `SameSite=Lax`, so a cross-site POST arrives without a session and lands on the login
-  page; and the capture page's service worker (`client/js/notes/sw.js`), which sees the share first,
+  page (without saving a session, so the user stays logged in); and the capture page's service worker (`client/js/notes/sw.js`), which sees the share first,
   sends it on to the server and queues it (to upload later with the session's token) only when the network
   fails, within the server's caps. A worker that queued every share would turn a forged one into a note;
   `TestNotesShare_CrossSiteCreatesNothing` guards this. The route creates only a note of the session's own

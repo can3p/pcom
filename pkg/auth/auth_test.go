@@ -195,6 +195,44 @@ func TestGetUserData_AnonymousUser(t *testing.T) {
 	require.Equal(t, data.CSRFToken, again.CSRFToken)
 }
 
+// A page view without a session starts one, so its forms carry a token the
+// next POST is checked against.
+func TestGetUserData_AnonymousGetStartsASession(t *testing.T) {
+	t.Parallel()
+
+	c, w := ginctx.New(t, http.MethodGet, "/login", nil)
+
+	auth.GetUserData(c)
+
+	require.NotEmpty(t, w.Header().Values("Set-Cookie"), "a page view must save the new session")
+}
+
+// #281: a cross-site POST arrives without the SameSite=Lax session cookie.
+// Answering it with a fresh session would replace the cookie the browser
+// holds and log the user out, so neither the CSRF check nor the login
+// redirect may save one.
+func TestGetUserData_PostWithoutSessionSavesNothing(t *testing.T) {
+	t.Parallel()
+
+	for _, path := range []string{"/controls/notes/share", "/form/login"} {
+		t.Run(path, func(t *testing.T) {
+			c, w := ginctx.New(t, http.MethodPost, path, nil)
+
+			data := auth.GetUserData(c)
+			require.NotEmpty(t, data.CSRFToken, "an empty token could match an empty form field")
+			require.Equal(t, data.CSRFToken, auth.GetUserData(c).CSRFToken)
+
+			auth.EnforceAuth(c)
+			require.True(t, c.IsAborted())
+			// http.Redirect writes no body for a POST, so the status is
+			// still in gin's writer
+			require.Equal(t, http.StatusFound, c.Writer.Status())
+
+			require.Empty(t, w.Header().Values("Set-Cookie"), "the response must leave the browser's session cookie alone")
+		})
+	}
+}
+
 func TestGetAPIUserData_AnonymousUser(t *testing.T) {
 	t.Parallel()
 
