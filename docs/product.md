@@ -250,7 +250,7 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   its notes unless the address says `#comments`. The notes are grouped by how they came, one by one or by tag.
 - **Attached notes leave the list.** `/controls/notes` hides the notes that belong to a post unless its All notes
   switch is on, since the list is for new notes. Each note shows the posts it is attached to.
-- **Deleting is final.** No trash, as for posts. The note, its photo links and its recording go; the recording's
+- **Deleting is final.** No trash, as for posts. The note and its recording go; the recording's
   object and row go when the `notes.delete_audio` job runs. Photo files stay: an image is public by
   URL, like a post's, and image deletion is #278. Transcription counts (`stt_requests`) stay with `note_id` null,
   so deleting and recording again does not reset the daily minutes. Text already inserted into a post stays there, and the note's attachments go with it; the posts keep their text.
@@ -260,7 +260,8 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
   advance: a forced language makes speech in any other language come out translated or garbled, so a per-user
   setting would spoil every memo in another language. "Transcribe again as…" sends the recording once more with the
   language forced, for a memo the detection got wrong; it counts against the limits and replaces the text, after a
-  confirmation whenever the note has text (the note doesn't keep its last transcript to compare with).
+  confirmation whenever the note has text (the note doesn't keep its last transcript to compare with). Its photos are
+  no transcript: they stay, before the new text.
 - **Limits.** `STT_MINUTES_PER_DAY` per user and `STT_SITE_MINUTES_PER_DAY` for the site are counted over the last
   24 hours from `stt_requests` rows with `status = 'ok'`, as the proofreading limits are. Without a provider
   (`STT_PROVIDER` empty) there is no record button, and typed notes work.
@@ -270,6 +271,13 @@ Notes are private snippets, typed or dictated, that the author later uses in pos
 - **The list is flat.** Notes are listed newest capture first, never grouped by when they were captured. There
   are no tag suggestions: the recent tags by the capture box and the author's tags under the search are the way
   to a tag. Inserting a note into a post also attaches it (`note_post_links`).
+- **A note is markdown.** Its body is the whole note, as a post's is, however it came: typed, shared, quoted,
+  dictated (the transcript is written into it) or a photo. A captured photo is an image paragraph,
+  `![](<upload file name>)`, before the captured text (`capture.WithPhotos`), so a photo-only note is one image,
+  more photos are added or removed by editing the text, and the note renders, inserts into a post and leaves by the
+  API as that text. There is no separate list of a note's photos; the API's `images` are read off the body.
+- **Insert puts in the note's text.** The editor's Notes panel inserts the body, with a quote's attribution line
+  after it, whatever it holds. A note with an empty body (a recording waiting for its transcript) has Insert off.
 - **Photos are ordinary public images.** A note's photo is a `media_uploads` image served by `user-media` and the
   CDN, public to whoever has its random URL, like a draft's images, so it goes into a post as it is. Only
   PNG, JPEG and WebP are accepted, and a HEIC photo (an iPhone's) is converted to JPEG on upload with its

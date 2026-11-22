@@ -6,6 +6,7 @@ package capture
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -119,3 +120,45 @@ func Attribution(title string) string {
 
 	return "— *" + t + "*"
 }
+
+// photoLine is a paragraph that is one image and nothing else: the form
+// WithPhotos writes a photo in, and the editor's toolbar too.
+var photoLine = regexp.MustCompile(`^!\[[^\]\n]*\]\([^)\s]+\)$`)
+
+// WithPhotos is the body of a note captured with photos: each photo, an
+// upload's file name as the markdown renderer serves it, as an image paragraph
+// of its own in the order given, then text. The photos come first so the text
+// reads as their caption, as it does in a post.
+func WithPhotos(text string, fnames []string) string {
+	parts := make([]string, 0, len(fnames)+1)
+	for _, f := range fnames {
+		parts = append(parts, "![]("+f+")")
+	}
+
+	if text = strings.TrimSpace(text); text != "" {
+		parts = append(parts, text)
+	}
+
+	return strings.Join(parts, "\n\n")
+}
+
+// SplitPhotos separates a body into its photos, the lines that are an image
+// alone, and the rest of the text with the gaps they leave closed.
+func SplitPhotos(body string) (photos []string, text string) {
+	var rest []string
+
+	for l := range strings.SplitSeq(body, "\n") {
+		if photoLine.MatchString(strings.TrimSpace(l)) {
+			photos = append(photos, strings.TrimSpace(l))
+		} else {
+			rest = append(rest, l)
+		}
+	}
+
+	text = strings.Join(rest, "\n")
+	text = blankRun.ReplaceAllString(strings.TrimSpace(text), "\n\n")
+
+	return photos, text
+}
+
+var blankRun = regexp.MustCompile(`\n{3,}`)

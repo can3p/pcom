@@ -11,6 +11,7 @@ import (
 
 	"github.com/can3p/gogo/util/ginhelpers"
 	"github.com/can3p/pcom/pkg/links"
+	"github.com/can3p/pcom/pkg/markdown"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/service"
@@ -158,9 +159,10 @@ func apiNote(n *model.Note, site links.Site) *ApiNote {
 		out.Source = n.Source.Title
 	}
 
-	for _, img := range n.Images {
-		if img.Upload != nil {
-			out.Images = append(out.Images, site.Abs("uploaded_media", img.Upload.UploadedFname+"/full"))
+	// the photos are images of the body; an uploaded one is served in full
+	for _, u := range markdown.ExtractImageUrls(n.Body) {
+		if ok, abs := site.MediaReplacer(u); ok {
+			out.Images = append(out.Images, abs+"/full")
 		}
 	}
 

@@ -23,6 +23,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/wiremock"
@@ -149,6 +150,17 @@ func waitNotes(t *testing.T, app *e2e.App, userID string, count int) []*model.No
 	return notes
 }
 
+// photosOf are the file names of the photos of n, the images its body is made
+// of, in order.
+func photosOf(n *model.Note) []string {
+	photos, _ := capture.SplitPhotos(n.Body)
+	for i, p := range photos {
+		photos[i] = strings.TrimSuffix(strings.TrimPrefix(p, "![]("), ")")
+	}
+
+	return photos
+}
+
 // widePNG is a photo wider than the page scales photos down to.
 func widePNG(t *testing.T) []byte {
 	t.Helper()
@@ -239,7 +251,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.NotNil(t, n.RecordingID)
-		require.Empty(t, n.Images)
+		require.Empty(t, photosOf(n))
 		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// the list shows the transcription pending, then its text
@@ -351,17 +363,19 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
-		require.Len(t, n.Images, 1)
+		photos := photosOf(n)
+		require.Len(t, photos, 1)
+		require.Equal(t, "![]("+photos[0]+")", n.Body, "a photo alone is a body of one image")
 		require.Nil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// turned into JPEG and scaled down to NOTE_PHOTO_MAX_DIMENSION, which
 		// the largest size the media server makes doesn't scale up
-		require.Equal(t, "image/jpeg", n.Images[0].Upload.ContentType)
+		require.True(t, strings.HasSuffix(photos[0], ".jpg"), photos[0])
 
 		client := app.Client(t)
 		client.LoginAs(user.Email)
-		resp := client.Get("/user-media/" + n.Images[0].Upload.UploadedFname + "/full").RequireStatus(http.StatusOK)
+		resp := client.Get("/user-media/" + photos[0] + "/full").RequireStatus(http.StatusOK)
 
 		cfg, _, err := image.DecodeConfig(strings.NewReader(resp.Body))
 		require.NoError(t, err)
@@ -375,10 +389,14 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
-		require.Len(t, n.Images, 1)
+		photos := photosOf(n)
+		require.Len(t, photos, 1)
 		require.NotNil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
-		eventuallyNote(t, app, user.ID, func(m *model.Note) bool { return m.ID == n.ID && m.Body == captureTranscript })
+		// the transcript is the photo's caption
+		eventuallyNote(t, app, user.ID, func(m *model.Note) bool {
+			return m.ID == n.ID && m.Body == "![]("+photos[0]+")\n\n"+captureTranscript
+		})
 	})
 
 	t.Run("type", func(t *testing.T) {
@@ -392,7 +410,6 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.Equal(t, text, n.Body)
 		require.Nil(t, n.RecordingID)
-		require.Empty(t, n.Images)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 		require.Equal(t, []string{"idea"}, n.TextTags)
 	})
@@ -405,7 +422,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 		count++
 		n := waitNotes(t, app, user.ID, count)[0]
 		require.NotNil(t, n.RecordingID)
-		require.Empty(t, n.Images)
+		require.Empty(t, photosOf(n))
 		require.True(t, untagged(n), "tags %v", n.Tags)
 
 		// a file chooser opens only on a tap
@@ -415,7 +432,7 @@ func TestNotesCapture_VoicePhotoAndText(t *testing.T) {
 
 		count++
 		n = waitNotes(t, app, user.ID, count)[0]
-		require.Len(t, n.Images, 1)
+		require.Len(t, photosOf(n), 1)
 		require.Nil(t, n.RecordingID)
 		require.True(t, untagged(n), "tags %v", n.Tags)
 	})

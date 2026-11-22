@@ -22,6 +22,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/pkg/media"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/repo"
 	"github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -325,11 +326,10 @@ func notesApp(t *testing.T, opts ...e2e.Option) *e2e.App {
 	}, opts...)...)
 }
 
-// stored is what a user has in the database after captures: notes, photos,
-// image uploads, recordings and transcription jobs.
+// stored is what a user has in the database after captures: notes, image
+// uploads, recordings and transcription jobs.
 type stored struct {
 	notes      []*model.Note
-	images     []*model.NoteImage
 	uploads    []*model.MediaUpload
 	recordings []*model.NoteRecording
 	jobs       int
@@ -342,7 +342,6 @@ func storedOf(t *testing.T, app *e2e.App, userID string) stored {
 
 	return stored{
 		notes:      testutil.Must(factory.ListNotes(ctx, app.DB, userID))(t),
-		images:     testutil.Must(factory.ListNoteImages(ctx, app.DB, userID))(t),
 		uploads:    testutil.Must(factory.ListMediaUploads(ctx, app.DB, userID))(t),
 		recordings: testutil.Must(factory.ListNoteRecordings(ctx, app.DB, userID))(t),
 		jobs:       testutil.Must(factory.CountNoteJobs(ctx, app.DB, notes.TranscribeArgs{}.Kind(), userID))(t),
@@ -350,30 +349,36 @@ func storedOf(t *testing.T, app *e2e.App, userID string) stored {
 }
 
 // requireStoredAs checks that n, the API's answer, is the note stored last
-// for userID: its id, and its photos as their URLs in order.
+// for userID: its id and body, and its photos as their URLs in order.
 func requireStoredAs(t *testing.T, app *e2e.App, userID string, n web.ApiNote) stored {
 	t.Helper()
 
 	s := storedOf(t, app, userID)
-	ids := make([]string, 0, len(s.notes))
+
+	var note *model.Note
 
 	for _, sn := range s.notes {
-		ids = append(ids, sn.ID)
-	}
-
-	require.Contains(t, ids, n.ID)
-
-	fnames := map[string]string{}
-	for _, u := range s.uploads {
-		fnames[u.ID] = u.UploadedFname
-	}
-
-	urls := make([]string, len(n.Images))
-
-	for _, img := range s.images {
-		if img.NoteID == n.ID {
-			urls[img.Position] = app.URL + "/user-media/" + fnames[img.UploadID] + "/full"
+		if sn.ID == n.ID {
+			note = sn
 		}
+	}
+
+	require.NotNil(t, note)
+	require.Equal(t, note.Body, n.Body)
+
+	fnames := map[string]bool{}
+	for _, u := range s.uploads {
+		fnames[u.UploadedFname] = true
+	}
+
+	// the photos are the body's images, each an upload of the user
+	urls := []string{}
+
+	photos, _ := capture.SplitPhotos(note.Body)
+	for _, p := range photos {
+		fname := strings.TrimSuffix(strings.TrimPrefix(p, "![]("), ")")
+		require.True(t, fnames[fname], fname)
+		urls = append(urls, app.URL+"/user-media/"+fname+"/full")
 	}
 
 	require.Equal(t, urls, n.Images)
@@ -418,7 +423,7 @@ func TestAPINotes_Create(t *testing.T) {
 			require.Empty(t, n.Source)
 		}},
 		{name: "kind quote", parts: []part{field("text", "a passage"), field("kind", "quote"), field("source", "Dune")}, want: func(t *testing.T, n web.ApiNote, _ stored) {
-			require.Equal(t, "> a passage", n.Body)
+			require.Equal(t, "> a passage", textOf(n.Body))
 			require.Equal(t, "Dune", n.Source)
 		}},
 		{name: "quote without source takes the previous quote's", before: [][]part{{field("text", "first"), field("kind", "quote"), field("source", "Dune")}},
@@ -456,7 +461,7 @@ func TestAPINotes_Create(t *testing.T) {
 			wantMsg: fmt.Sprintf("A title can be at most %d characters long.", notes.DefaultSourceTitleMaxLength)},
 		{name: "several images", parts: []part{file("image", "a.png", "image/png", png1), file("image", "b.jpg", "image/jpeg", jpg)},
 			want: func(t *testing.T, n web.ApiNote, s stored) {
-				require.Empty(t, n.Body)
+				require.Empty(t, textOf(n.Body), "the body is the photos alone")
 				require.Len(t, n.Images, 2)
 				require.True(t, strings.HasSuffix(n.Images[0], ".png/full"), "in the order sent")
 				require.True(t, strings.HasSuffix(n.Images[1], ".jpg/full"))
@@ -480,7 +485,7 @@ func TestAPINotes_Create(t *testing.T) {
 			field("text", "a passage"), field("kind", "quote"), field("source", "Dune"), field("tags", "sand"), field("captured_at", at),
 			file("image", "page.jpg", "image/jpeg", jpg), file("audio", "Recording.m4a", "audio/x-m4a", []byte(m4aRecording)),
 		}, want: func(t *testing.T, n web.ApiNote, s stored) {
-			require.Equal(t, "> a passage", n.Body)
+			require.Equal(t, "> a passage", textOf(n.Body))
 			require.Equal(t, "Dune", n.Source)
 			require.Equal(t, []string{"sand"}, n.Tags)
 			require.Len(t, n.Images, 1)
@@ -717,13 +722,13 @@ func TestAPINotes_ShortcutRequests(t *testing.T) {
 			file("image", "IMG_0001.jpeg", "image/jpeg", jpg), file("image", "IMG_0002.jpeg", "image/jpeg", jpg),
 		}, func(t *testing.T, n web.ApiNote) {
 			require.Len(t, n.Images, 2)
-			require.Empty(t, n.Body)
+			require.Empty(t, textOf(n.Body))
 		}},
 		{"Quote from photo: Take Photo + Extract Text from Image", []part{
 			field("kind", "quote"), field("captured_at", now), field("text", "Text the phone read\noff the page"),
 			file("image", "Photo.jpeg", "image/jpeg", jpg),
 		}, func(t *testing.T, n web.ApiNote) {
-			require.Equal(t, "> Text the phone read\n> off the page", n.Body)
+			require.Equal(t, "> Text the phone read\n> off the page", textOf(n.Body))
 			require.Len(t, n.Images, 1)
 		}},
 	}
@@ -786,4 +791,11 @@ func TestAPINotes_ImageURLsAreTheFullClass(t *testing.T) {
 	require.True(t, strings.HasPrefix(resp.Header.Get("Content-Type"), "image/"))
 
 	app.Client(t).Get(strings.TrimSuffix(path, "/full")).RequireStatus(http.StatusNotFound)
+}
+
+// textOf is a note's body without its photos.
+func textOf(body string) string {
+	_, text := capture.SplitPhotos(body)
+
+	return text
 }

@@ -294,7 +294,8 @@ func NoteAgainOf(svc *notes.Service, n *model.Note, edit bool) *NoteAgain {
 	}
 
 	a := &NoteAgain{NoteID: n.ID, Languages: TranscribeLanguages}
-	if edit || strings.TrimSpace(n.Body) != "" {
+	// the photos stay through a new transcript, so they are no text to lose
+	if _, text := capture.SplitPhotos(n.Body); edit || text != "" {
 		a.Confirm = confirmRetranscribe
 	}
 
@@ -494,30 +495,13 @@ type NoteManage struct {
 	Add map[string]any
 }
 
-// NoteDeletePrompt is the confirmation of deleting a note: what goes with it,
-// and that the text already in posts stays.
+// NoteDeletePrompt is the confirmation of deleting a note: its recording goes
+// with it, and the text already in posts stays. Its photos are images of its
+// text, whose files stay as a deleted post's do, so they go unsaid.
 func NoteDeletePrompt(n *model.Note, used bool) string {
-	var parts []string
-
-	if n.RecordingID != nil {
-		parts = append(parts, "its recording")
-	}
-
-	switch len(n.Images) {
-	case 0:
-	case 1:
-		parts = append(parts, "1 photo")
-	default:
-		parts = append(parts, fmt.Sprintf("%d photos", len(n.Images)))
-	}
-
 	s := "Delete this note"
-
-	switch len(parts) {
-	case 1:
-		s += " and " + parts[0]
-	case 2:
-		s += ", " + parts[0] + " and " + parts[1]
+	if n.RecordingID != nil {
+		s += " and its recording"
 	}
 
 	s += "? This can't be undone."
@@ -878,10 +862,12 @@ func sharedNote(c *gin.Context, svc *notes.Service, userData *auth.UserData) (st
 		return "", err
 	}
 
+	photos, text := capture.SplitPhotos(n.Body)
+
 	b, err := json.Marshal(CapturedNote{
 		NoteID:       n.ID,
-		Text:         capture.Unquote(n.Body),
-		Photos:       len(n.Images),
+		Text:         capture.Unquote(text),
+		Photos:       len(photos),
 		Voice:        n.RecordingID != nil,
 		DeletePrompt: NoteDeletePrompt(n, false),
 	})

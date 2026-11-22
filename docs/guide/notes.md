@@ -15,6 +15,10 @@ page (**Notes** in the top bar opens the list). On a phone it is the page to kee
   record, because a phone's browser stops recording when the screen goes dark.
 - **Photo** takes a picture with the camera, and saves it as a note. **Photo + dictate** takes the picture and
   records a voice caption into the same note.
+
+However a note is made, it is text with markdown, as a post is: a photo is an image in that text, with whatever
+you typed, shared or dictated under it as its caption. Open the note to add another photo with the image button, or
+to remove one.
 - **Type** opens a box for the text. **Save note** saves it.
 
 There is no Save step for the others and no prompt for tags: a capture is a note as soon as it is made. Tags, text
@@ -146,10 +150,10 @@ so next to the record button: a recording is sent to that service, and nothing e
 
 ## Deleting
 
-**Delete** removes a note for good. The confirmation names its recording and photos when it has them, and the posts it is
+**Delete** removes a note for good. The confirmation names its recording when it has one, and the posts it is
 attached to, which lose it and keep their text.
-There is no trash. The text you inserted into a post stays there. Photos of a deleted note are unlinked from it,
-but their files stay on the server, as the images of deleted posts do.
+There is no trash. The text you inserted into a post stays there, photos included: the files of a note's photos
+stay on the server, as the images of deleted posts do.
 
 ## Using notes in a post
 
@@ -159,7 +163,8 @@ tap on any of them adds it to the search, so a tag whose name you forgot is one 
 switch under the search opens on *This post* when the post has notes; the line above the notes says which you are
 looking at, and the search keeps the switch as you chose it. Each note has **Insert** (at the cursor), **Attach** (or **Detach**, for a note already attached), **Edit** (the
 note in a new tab) and **Delete**. Detach on a note that one of the post's tags brings hides it from this post. With the search on a tag, **Attach all notes tagged #x** attaches them all. A quote
-goes in with its attribution, such as *— *Title**. Inserting a note also attaches it to the post.
+goes in with its attribution, such as *— *Title**, and a photo as the image it is in the note. A note with nothing
+in it yet, a recording still being transcribed, can't be inserted. Inserting a note also attaches it to the post.
 
 A new post that is not yet saved as a draft cannot take attachments: **Attach** and **Attach all notes tagged** are
 off there, with the note *Save as a draft to attach notes*, and turn on once the draft is saved, without a reload.

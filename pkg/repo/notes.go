@@ -60,15 +60,12 @@ func (s *Store) DeleteNote(ctx context.Context, id string) error {
 	return err
 }
 
-// NoteWithRelations returns the note with its source and its images (with
-// their uploads, in position order) loaded, or ErrNotFound.
+// NoteWithRelations returns the note with its source loaded, or ErrNotFound.
 func (s *Store) NoteWithRelations(ctx context.Context, id string) (*model.Note, error) {
 	n := new(model.Note)
 
 	err := s.query().NewSelect().Model(n).
 		Relation("Source").
-		Relation("Images", func(q *bun.SelectQuery) *bun.SelectQuery { return q.Order("position") }).
-		Relation("Images.Upload").
 		Where("?TableAlias.id = ?", id).Scan(ctx)
 	if err != nil {
 		return nil, notFound(err)
@@ -189,15 +186,12 @@ func (s *Store) noteRows(ctx context.Context, list []noteListRow) ([]NoteRow, er
 	return rows, nil
 }
 
-// notesByIDs loads the notes with their sources and images (in position
-// order), by id.
+// notesByIDs loads the notes with their sources, by id.
 func (s *Store) notesByIDs(ctx context.Context, ids []string) (map[string]*model.Note, error) {
 	var notes []*model.Note
 
 	err := s.query().NewSelect().Model(&notes).
 		Relation("Source").
-		Relation("Images", func(q *bun.SelectQuery) *bun.SelectQuery { return q.Order("position") }).
-		Relation("Images.Upload").
 		Where("?TableAlias.id IN (?)", bun.List(ids)).Scan(ctx)
 	if err != nil {
 		return nil, err

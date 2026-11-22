@@ -18,6 +18,7 @@ import (
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
 	"github.com/can3p/pcom/pkg/model"
+	"github.com/can3p/pcom/pkg/notes/capture"
 	"github.com/can3p/pcom/pkg/repo"
 	notesvc "github.com/can3p/pcom/pkg/service/notes"
 	"github.com/can3p/pcom/pkg/testutil"
@@ -674,9 +675,9 @@ func TestNotes_LoadMore(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("link", playwright.PageGetByRoleOptions{Name: "Load more"})).ToHaveCount(0))
 }
 
-// A note's photos show in a strip, and the confirmations of Delete, in the
-// list and on the edit page, count the recording, the photos and the posts the
-// text went into.
+// A note's photos are images of its body, shown small in the list, and the
+// confirmations of Delete, in the list and on the edit page, name the recording
+// and the posts the text went into.
 func TestNotes_PhotosAndDeleteConfirmation(t *testing.T) {
 	t.Parallel()
 
@@ -687,40 +688,37 @@ func TestNotes_PhotosAndDeleteConfirmation(t *testing.T) {
 	audio, err := factory.NoteRecording(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 
-	note := mustNote(t, app, user.ID, factory.WithNoteBody("with photos"), factory.WithRecording(audio.ID))
+	var files []string
+
+	for range 2 {
+		up, err := factory.MediaUpload(ctx, app.DB, user.ID)
+		require.NoError(t, err)
+
+		files = append(files, up.UploadedFname)
+	}
+
+	note := mustNote(t, app, user.ID, factory.WithNoteBody(capture.WithPhotos("with photos", files)), factory.WithRecording(audio.ID))
 
 	post, err := factory.Post(ctx, app.DB, user.ID)
 	require.NoError(t, err)
 	_, err = factory.NotePostLink(ctx, app.DB, note.ID, post.ID)
 	require.NoError(t, err)
 
-	var files []string
-
-	for i := range 2 {
-		up, err := factory.MediaUpload(ctx, app.DB, user.ID)
-		require.NoError(t, err)
-
-		_, err = factory.NoteImage(ctx, app.DB, note.ID, up.ID, i)
-		require.NoError(t, err)
-
-		files = append(files, up.UploadedFname)
-	}
-
 	// the factory's uploads have no file behind them
 	page := browser.Page(t, app, browser.As(user), browser.Allow(`user-media|Failed to load resource`))
 	dialogs := watchDialogs(page)
 	dialogs.reply(false, "")
 
-	const prompt = "Delete this note, its recording and 2 photos? This can't be undone. The text already inserted into posts stays there."
+	const prompt = "Delete this note and its recording? This can't be undone. The text already inserted into posts stays there."
 
 	_, err = page.Goto("/controls/notes")
 	require.NoError(t, err)
 
-	photos := noteCard(page, "with photos").GetByAltText("Photo of the note")
+	photos := noteCard(page, "with photos").Locator(".note-body img.post-img")
 	require.NoError(t, browser.Expect.Locator(photos).ToHaveCount(2))
 
 	for i, f := range files {
-		require.NoError(t, browser.Expect.Locator(photos.Nth(i)).ToHaveAttribute("src", regexp.MustCompile(regexp.QuoteMeta(f)+`/thumb$`)))
+		require.NoError(t, browser.Expect.Locator(photos.Nth(i)).ToHaveAttribute("data-src", regexp.MustCompile(regexp.QuoteMeta(f)+`/thumb$`)))
 	}
 
 	require.NoError(t, noteCard(page, "with photos").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Delete"}).Click())

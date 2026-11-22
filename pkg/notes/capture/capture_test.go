@@ -95,3 +95,23 @@ func TestUnquote_RoundTrip(t *testing.T) {
 	require.Equal(t, "> a\n>\n>   b\r\n> >c\n>\n>\n> d", got)
 	require.Equal(t, in, capture.Unquote(got))
 }
+
+func TestWithPhotos(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "![](a.jpg)", capture.WithPhotos("", []string{"a.jpg"}), "a photo alone is one image")
+	require.Equal(t, "![](a.jpg)\n\n![](b.png)\n\n> said", capture.WithPhotos("  > said\n", []string{"a.jpg", "b.png"}))
+	require.Equal(t, "text", capture.WithPhotos("text", nil))
+}
+
+func TestSplitPhotos(t *testing.T) {
+	t.Parallel()
+
+	photos, text := capture.SplitPhotos("![](a.jpg)\n\n![alt](b.png)\n\nsome ![inline](c.jpg) text\n\n\nmore")
+	require.Equal(t, []string{"![](a.jpg)", "![alt](b.png)"}, photos)
+	require.Equal(t, "some ![inline](c.jpg) text\n\nmore", text)
+
+	photos, text = capture.SplitPhotos(capture.WithPhotos("", []string{"a.jpg"}))
+	require.Equal(t, []string{"![](a.jpg)"}, photos)
+	require.Empty(t, text)
+}

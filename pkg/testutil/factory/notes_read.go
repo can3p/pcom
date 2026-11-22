@@ -12,11 +12,6 @@ func ListNotes(ctx context.Context, exec repo.Executor, userID string) ([]*model
 	return list[model.Note](ctx, exec, "user_id = ?", userID)
 }
 
-// ListNoteImages returns the photos of the notes of userID.
-func ListNoteImages(ctx context.Context, exec repo.Executor, userID string) ([]*model.NoteImage, error) {
-	return list[model.NoteImage](ctx, exec, "note_id IN (SELECT id FROM notes WHERE user_id = ?)", userID)
-}
-
 // ListMediaUploads returns the image uploads of userID.
 func ListMediaUploads(ctx context.Context, exec repo.Executor, userID string) ([]*model.MediaUpload, error) {
 	return list[model.MediaUpload](ctx, exec, "user_id = ?", userID)

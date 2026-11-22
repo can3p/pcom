@@ -158,8 +158,7 @@ func TestShareRoute(t *testing.T) {
 
 		user := newUser(t)
 		n := saved(t, postShare(t, svc, db, user, nil, photo("p.png", "image/png", png.Bytes())), user)
-		require.Empty(t, n.Body)
-		require.Len(t, n.Images, 1)
+		require.Regexp(t, `^!\[\]\([0-9a-f-]+\.png\)$`, n.Body, "a shared photo is a body of one image")
 		require.Nil(t, n.RecordingID)
 	})
 
@@ -169,7 +168,7 @@ func TestShareRoute(t *testing.T) {
 		user := newUser(t)
 		n := saved(t, postShare(t, svc, db, user, nil, audio(ogg)), user)
 		require.NotNil(t, n.RecordingID)
-		require.Empty(t, n.Images)
+		require.Empty(t, n.Body)
 	})
 
 	t.Run("two audio files", func(t *testing.T) {

@@ -63,9 +63,8 @@ type Note struct {
 	CreatedAt           time.Time               `bun:"created_at,default:now()"`
 	UpdatedAt           time.Time               `bun:"updated_at,default:now()"`
 
-	User   *User        `bun:"rel:belongs-to,join:user_id=id"`
-	Source *NoteSource  `bun:"rel:belongs-to,join:source_id=id"`
-	Images []*NoteImage `bun:"rel:has-many,join:id=note_id"`
+	User   *User       `bun:"rel:belongs-to,join:user_id=id"`
+	Source *NoteSource `bun:"rel:belongs-to,join:source_id=id"`
 }
 
 // BeforeAppendModel stamps the row's timestamps on insert and update.
@@ -141,18 +140,6 @@ func (m *NoteRecording) BeforeAppendModel(_ context.Context, query bun.Query) er
 	}
 
 	return nil
-}
-
-// NoteImage is a row of note_images: one photo of a note, in the order of
-// Position.
-type NoteImage struct {
-	bun.BaseModel `bun:"table:note_images"`
-
-	NoteID   string `bun:"note_id,pk"`
-	UploadID string `bun:"upload_id,pk"`
-	Position int    `bun:"position"`
-
-	Upload *MediaUpload `bun:"rel:belongs-to,join:upload_id=id"`
 }
 
 // NotePostLink is a row of note_post_links: a note inserted into, attached

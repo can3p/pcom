@@ -102,15 +102,18 @@ delete them in pcom.
 | `tags` | Tags, repeated or separated by commas or spaces (`tags=walk,idea`, `tags=walk idea`), as in the notes page's tag field; `#` and case don't matter. The `#words` of the text are tags too. |
 | `captured_at` | When the note was taken, RFC 3339 (`2026-11-07T09:30:00+01:00`); now when left out. |
 | `source` | The title of the source the note comes from (a source is only a title: a book, an article, a talk); your source with that title, whatever the case and spacing, is reused, otherwise made. A `quote` without a source takes the source of your previous sourced note while that was captured within `NOTE_QUOTE_SOURCE_WINDOW` (12 hours by default). |
-| `image` | A photo, JPEG, PNG or WebP; repeat the field for several. A HEIC photo is converted to JPEG on upload. |
+| `image` | A photo, JPEG, PNG or WebP; repeat the field for several. A HEIC photo is converted to JPEG on upload. Photos are written into the body as markdown images, each a paragraph of its own, before the text. |
 | `audio` | One recording, WebM, Ogg, MP4 (M4A) or MP3, transcribed into the note's text when the server has a speech-to-text backend. |
 
 The answer is the note, with its source's title:
 
 ```
 curl -H'Authorization: Bearer <api-key>' -F 'text=Selected passage' -F kind=quote -F source=Dune -F 'image=@page.jpg' http://localhost:8080/api/v1/notes
-{"data":{"id":"019a5e1c-…","body":"> Selected passage","tags":[],"source":"Dune","transcription_status":"none","captured_at":"2026-11-07T08:15:42Z","images":["http://localhost:8080/user-media/019a5e1c-….jpg/full"]}}
+{"data":{"id":"019a5e1c-…","body":"![](019a5e1d-….jpg)\n\n> Selected passage","tags":[],"source":"Dune","transcription_status":"none","captured_at":"2026-11-07T08:15:42Z","images":["http://localhost:8080/user-media/019a5e1d-….jpg/full"]}}
 ```
+
+`body` is markdown, as a post's is. `images` lists the full-size URLs of the photos uploaded to pcom that the
+body shows.
 
 `transcription_status` is `pending` while a recording waits for its transcription, `done`, `failed`, or
 `none` when there is nothing to transcribe. Refused input gets `400` with the message to show and the

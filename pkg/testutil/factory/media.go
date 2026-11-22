@@ -2,7 +2,6 @@ package factory
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/can3p/pcom/pkg/repo"
 
@@ -16,12 +15,12 @@ func MediaUpload(ctx context.Context, exec repo.Executor, userID string) (*model
 		return nil, err
 	}
 
-	n := next()
-
+	// named as the media service names an upload, so markdown that shows it
+	// renders it as an uploaded image
 	m := &model.MediaUpload{
 		ID:            id,
 		UserID:        new(userID),
-		UploadedFname: fmt.Sprintf("test-upload-%d.png", n),
+		UploadedFname: id + ".png",
 		ContentType:   "image/png",
 	}
 
