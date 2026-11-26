@@ -32,38 +32,87 @@ export default class extends Controller {
       }
     }, false)
 
-    let insertTag = (tag) => {
-      let placeholder
-
-      switch (tag) {
-        case "gallery":
-          placeholder = "Add a list of images there"
-          break;
-        case "spoiler":
-          placeholder = "This text will be collapsed by default"
-          break;
-        case "cut":
-          placeholder = "This text won't be visible in the feed but will be shown on the full past page"
-          break;
-        default:
-          trigger(cmd)
-      }
-
-      cursor.wrap([`\n{${tag}}\n`, `\n{/${tag}}\n\n`], { placeholder });
+    const placeholders = {
+      gallery: "Add a list of images there",
+      spoiler: "This text will be collapsed by default",
+      cut: "This text won't be visible in the feed but will be shown on the full past page",
     }
 
-    let runCmd = function(cmd, e) {
-      e.preventDefault()
-      textarea.focus()
+    // title is "" for a tag without one: the renderer gives it its default
+    let insertTag = (tag, title = "") => {
+      const open = title ? `{${tag} ${title}}` : `{${tag}}`
+      cursor.wrap([`\n${open}\n`, `\n{/${tag}}\n\n`], { placeholder: placeholders[tag] });
+    }
 
-      switch (cmd) {
-        case "gallery":
-        case "spoiler":
-        case "cut":
-          insertTag(cmd)
-          break;
-        default:
-          trigger(cmd)
+    const dialog = this.element.querySelector("[data-mdeditor-title-dialog]")
+
+    // Asks for the title of a cut or a spoiler. Resolves to the title, "" when
+    // it is left empty, or null when the author cancels.
+    const askTitle = (btn) => new Promise((resolve) => {
+      const input = dialog.querySelector("input")
+      const insert = dialog.querySelector("[data-dialog-insert]")
+      const cancel = dialog.querySelector("[data-dialog-cancel]")
+      let result = null
+
+      const done = (value) => {
+        result = value
+        dialog.close()
+      }
+      const onInsert = () => done(input.value)
+      const onCancel = () => done(null)
+      const onKey = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault()
+          onInsert()
+        }
+      }
+      const onClose = () => {
+        insert.removeEventListener("click", onInsert)
+        cancel.removeEventListener("click", onCancel)
+        input.removeEventListener("keydown", onKey)
+        dialog.removeEventListener("close", onClose)
+        resolve(result)
+      }
+
+      insert.addEventListener("click", onInsert)
+      cancel.addEventListener("click", onCancel)
+      input.addEventListener("keydown", onKey)
+      // escape closes the dialog without a result
+      dialog.addEventListener("close", onClose)
+
+      dialog.querySelector(".tb-dialog__heading").textContent = btn.title
+      input.value = ""
+      input.placeholder = btn.dataset.defaultTitle
+      dialog.showModal()
+      input.focus()
+    })
+
+    // The opening tag ends at the first "}" and must stay on one line.
+    const cleanTitle = (title) => title.replace(/[}\r\n]+/g, " ").replace(/\s+/g, " ").trim()
+
+    let runCmd = async (cmd, btn, e) => {
+      e.preventDefault()
+
+      if (cmd === "spoiler" || cmd === "cut") {
+        // the dialog takes the focus, and with it the selection the tag wraps
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const title = await askTitle(btn)
+
+        textarea.focus()
+        textarea.setSelectionRange(start, end)
+
+        if (title === null) {
+          return
+        }
+
+        insertTag(cmd, cleanTitle(title))
+      } else if (cmd === "gallery") {
+        textarea.focus()
+        insertTag(cmd)
+      } else {
+        textarea.focus()
+        trigger(cmd)
       }
 
       htmx.trigger(textarea, "change")
@@ -209,7 +258,7 @@ export default class extends Controller {
     for (let btn of this.element.querySelectorAll("[data-command]")) {
       let cmd = btn.dataset.command
 
-      btn.addEventListener("click", runCmd.bind(null, cmd), false)
+      btn.addEventListener("click", runCmd.bind(null, cmd, btn), false)
     }
 
     let showPreview = this.element.querySelector("#show_preview");

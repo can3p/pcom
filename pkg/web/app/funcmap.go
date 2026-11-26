@@ -9,6 +9,7 @@ import (
 
 	"github.com/can3p/pcom/pkg/links"
 	"github.com/can3p/pcom/pkg/markdown"
+	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/types"
 	"github.com/can3p/pcom/pkg/util"
@@ -82,6 +83,9 @@ func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 		"markdown_comment":      markdown(types.ViewComment),
 		"markdown_profile":      markdown(types.ViewProfile),
 		"markdown_article":      markdown(types.ViewArticle),
+
+		// the editor's title prompt shows it as the placeholder
+		"block_tag_default_title": blocktags.DefaultTitle,
 
 		"tzlist": func() []string {
 			return util.TimeZones

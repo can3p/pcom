@@ -8,6 +8,26 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
+// The titles of a cut and a spoiler written without one. The editor shows
+// them as the placeholder of its title prompt, so leaving it empty is not a
+// surprise.
+const (
+	DefaultCutTitle     = "See more"
+	DefaultSpoilerTitle = "Open Spoiler"
+)
+
+// DefaultTitle is the title a block tag gets when it is written without
+// one; tags that show no title (gallery) get "".
+func DefaultTitle(tag string) string {
+	switch tag {
+	case "cut":
+		return DefaultCutTitle
+	case "spoiler":
+		return DefaultSpoilerTitle
+	}
+	return ""
+}
+
 type BlockTagRenderer struct {
 	html.Config
 	view types.HTMLView
@@ -35,13 +55,7 @@ func (r *BlockTagRenderer) renderBlockTag(w util.BufWriter, source []byte, node 
 	title := n.BlockTitle
 
 	if title == "" {
-		switch n.BlockTagName {
-		case "cut":
-			title = "See more"
-		case "spoiler":
-			title = "Open Spoiler"
-
-		}
+		title = DefaultTitle(n.BlockTagName)
 	}
 
 	if r.view == types.ViewEmail || r.view == types.ViewRSS {
