@@ -46,12 +46,17 @@ var (
 	ErrMediaTimeout  = errors.New("media download exceeded timeout limit")
 )
 
-// Limits bound what fetching a feed may cost; a zero field keeps its
-// default (DefaultFeedTimeout, DefaultMediaTimeout, DefaultMaxFeedSize).
+// Limits bound what fetching a feed may cost and reach; a zero field keeps
+// its default (DefaultFeedTimeout, DefaultMediaTimeout, DefaultMaxFeedSize,
+// public addresses only).
 type Limits struct {
 	FeedTimeout  time.Duration
 	MediaTimeout time.Duration
 	MaxFeedSize  int64
+	// AllowPrivateAddresses lets DefaultFetcher connect to loopback and
+	// private addresses, for tests and local development against feeds
+	// served on the same machine.
+	AllowPrivateAddresses bool
 }
 
 func (l Limits) withDefaults() Limits {

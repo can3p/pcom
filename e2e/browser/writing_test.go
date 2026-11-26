@@ -1300,6 +1300,44 @@ func TestWriting_BlockquoteEditing(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("> the quote begins\n> and continues"))
 }
 
+// A block button wraps the selected paragraph without adding line breaks that
+// are already there: a blank line around the block, none at the ends of the text.
+func TestWriting_BlockTagsAddNoExtraLines(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+
+	body := page.GetByPlaceholder("Your post goes there")
+	selectText := func(text string) {
+		t.Helper()
+
+		_, err := body.Evaluate(`(el, text) => {
+			el.focus()
+			const start = el.value.indexOf(text)
+			el.setSelectionRange(start, start + text.length)
+		}`, text)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, body.Fill("Intro\n\nMiddle paragraph\n\nOutro"))
+	selectText("Middle paragraph")
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Spoiler"}).Click())
+	require.NoError(t, page.GetByRole("dialog").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert"}).Click())
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("Intro\n\n{spoiler}\nMiddle paragraph\n{/spoiler}\n\nOutro"))
+
+	// the text at the very start and end of the post, selected with its line break
+	require.NoError(t, body.Fill("First paragraph\n"))
+	selectText("First paragraph\n")
+	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Cut"}).Click())
+	require.NoError(t, page.GetByRole("dialog").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert"}).Click())
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("{cut}\nFirst paragraph\n{/cut}\n"))
+}
+
 // The cut and spoiler buttons ask for the tag's title in a dialog first: the
 // title goes into the opening tag, an empty one leaves the tag bare for the
 // default, a "}" can't end the tag early, the tag wraps the text selected
@@ -1329,7 +1367,7 @@ func TestWriting_CutAndSpoilerAskForTitle(t *testing.T) {
 	require.NoError(t, title.Fill("Plot twist"))
 	require.NoError(t, dialog.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert"}).Click())
 	require.NoError(t, browser.Expect.Locator(dialog).ToBeHidden())
-	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("\n{spoiler Plot twist}\nsecret\n{/spoiler}\n\n"))
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("{spoiler Plot twist}\nsecret\n{/spoiler}\n"))
 	savedPad(t, app, user.ID, "{spoiler Plot twist}\nsecret\n{/spoiler}")
 
 	// Enter inserts, and a "}" or a line break does not get into the tag
@@ -1339,14 +1377,14 @@ func TestWriting_CutAndSpoilerAskForTitle(t *testing.T) {
 	require.NoError(t, title.Fill("Read } on"))
 	require.NoError(t, title.Press("Enter"))
 	require.NoError(t, browser.Expect.Locator(dialog).ToBeHidden())
-	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^\n\{cut Read on\}\n[^\n]+\n\{/cut\}\n\n$`)))
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^\{cut Read on\}\n[^\n]+\n\{/cut\}\n$`)))
 
 	// an empty title leaves the tag bare, so it gets the default
 	require.NoError(t, body.Fill(""))
 	require.NoError(t, writeButton(page, "Cut").Click())
 	require.NoError(t, browser.Expect.Locator(title).ToHaveValue(""), "the last title is not kept")
 	require.NoError(t, title.Press("Enter"))
-	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^\n\{cut\}\n[^\n]+\n\{/cut\}\n\n$`)))
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^\{cut\}\n[^\n]+\n\{/cut\}\n$`)))
 
 	// Escape and Cancel insert nothing
 	require.NoError(t, body.Fill("kept"))

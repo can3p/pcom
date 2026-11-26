@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/can3p/pcom/pkg/feedops/reader"
+	"github.com/can3p/pcom/pkg/logging"
 	"github.com/can3p/pcom/pkg/media/server"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/repo"
@@ -94,7 +95,11 @@ type RssFeedItem struct {
 	Summary     string
 }
 
-// Subscribe follows a feed for the actor. Following it again does nothing.
+// Subscribe follows a feed for the actor. rawURL is the feed's address or
+// the address of a website that announces its feed; a feed somebody follows
+// already is found without fetching it. Following it again does nothing.
+// A website without a feed, one that can't be loaded or one on a private
+// address is a ValidationError on "url".
 func (s *Service) Subscribe(ctx context.Context, actor *model.User, rawURL string) error {
 	if actor == nil {
 		return service.ErrNeedsLogin
@@ -105,8 +110,13 @@ func (s *Service) Subscribe(ctx context.Context, actor *model.User, rawURL strin
 		return err
 	}
 
+	feedURL, err := s.feedURL(ctx, normalizedURL)
+	if err != nil {
+		return err
+	}
+
 	return s.store.Tx(ctx, func(tx *repo.Store) error {
-		feed, err := tx.UpsertFeed(ctx, normalizedURL)
+		feed, err := tx.UpsertFeed(ctx, feedURL)
 		if err != nil {
 			return err
 		}
@@ -233,6 +243,34 @@ func (s *Service) Items(ctx context.Context, actor *model.User) ([]*RssFeedItem,
 			FeedURL:     item.RSSItem.Feed.URL,
 		}
 	}), nil
+}
+
+// feedURL is the normalized URL of the feed at normalizedURL: the URL itself
+// when a feed with it is stored already, otherwise what the fetcher discovers
+// there. The download happens outside any transaction.
+func (s *Service) feedURL(ctx context.Context, normalizedURL string) (string, error) {
+	_, err := s.store.FeedByURL(ctx, normalizedURL)
+	if err == nil {
+		return normalizedURL, nil
+	}
+
+	if !errors.Is(err, repo.ErrNotFound) {
+		return "", err
+	}
+
+	discovered, err := s.fetcher.Discover(ctx, normalizedURL)
+
+	switch {
+	case errors.Is(err, reader.ErrPrivateAddress):
+		return "", service.Invalid("url", "This address is not on the public internet")
+	case errors.Is(err, reader.ErrNoFeedFound):
+		return "", service.Invalid("url", "No RSS or Atom feed found at this address")
+	case err != nil:
+		logging.FromContext(ctx).Info("feed discovery failed", zap.String("url", normalizedURL), zap.Error(err))
+		return "", service.Invalid("url", "Couldn't load this address")
+	}
+
+	return util.NormalizeURL(discovered)
 }
 
 // operationFailed words a failed write the way the actions always did.

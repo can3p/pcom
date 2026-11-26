@@ -205,6 +205,7 @@ func TestServe_EveryVariable(t *testing.T) {
 		{"RSS_FETCH_TIMEOUT", "2s", func(s *config.Serve) any { return s.Feeds.FetchTimeout }, reader.DefaultFeedTimeout, 2 * time.Second},
 		{"RSS_IMAGE_TIMEOUT", "5s", func(s *config.Serve) any { return s.Feeds.ImageTimeout }, reader.DefaultMediaTimeout, 5 * time.Second},
 		{"RSS_MAX_FEED_SIZE", "1024", func(s *config.Serve) any { return s.Feeds.MaxFeedSize }, int64(reader.DefaultMaxFeedSize), int64(1024)},
+		{"RSS_ALLOW_PRIVATE_ADDRESSES", "true", func(s *config.Serve) any { return s.Feeds.AllowPrivateAddresses.On() }, false, true},
 		{"EMAIL_MX_TIMEOUT", "0s", func(s *config.Serve) any { return s.Email.MXTimeout }, emailaddr.DefaultMXTimeout, time.Duration(0)},
 		{"EMAIL_MX_CACHE", "5m", func(s *config.Serve) any { return s.Email.MXCache }, emailaddr.DefaultCacheTTL, 5 * time.Minute},
 		{"EMAIL_MX_CACHE_SIZE", "50", func(s *config.Serve) any { return s.Email.MXCacheSize }, emailaddr.DefaultCacheSize, 50},

@@ -461,6 +461,9 @@ func startBinary(t testing.TB, work, dbURL string, extraEnv map[string]string) (
 		"JOBS_POLL_INTERVAL": "100ms",
 		"EMAIL_MX_TIMEOUT":   "0", // no DNS: test domains don't resolve
 
+		// the feeds tests subscribe to are served on 127.0.0.1
+		"RSS_ALLOW_PRIVATE_ADDRESSES": "true",
+
 		// A challenge a test solves in microseconds, and a form it may submit
 		// at once (zero would keep the default, so one nanosecond).
 		"SUBSCRIBE_POW_DIFFICULTY": strconv.Itoa(SubscribePowDifficulty),

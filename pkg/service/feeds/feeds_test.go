@@ -2,11 +2,14 @@ package feeds_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/can3p/pcom/pkg/feedops/reader"
 	"github.com/can3p/pcom/pkg/feedops/testutil"
 	"github.com/can3p/pcom/pkg/jobs"
 	"github.com/can3p/pcom/pkg/repo"
@@ -21,8 +24,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// local lets the service fetch from the httptest servers on 127.0.0.1.
+var local = feeds.WithFetchLimits(reader.Limits{AllowPrivateAddresses: true})
+
 func svc(db repo.Executor) *feeds.Service {
-	return feeds.New(repo.Using(db), fakestorage.New())
+	return feeds.New(repo.Using(db), fakestorage.New(), local)
+}
+
+const subscribeRSS = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>t</title></channel></rss>`
+
+// siteServer serves a feed at /feed.xml, a website announcing it at /, and a
+// website without a feed at /plain.
+func siteServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/feed.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = w.Write([]byte(subscribeRSS))
+	})
+	mux.HandleFunc("/plain", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><head><title>no feed</title></head></html>`))
+	})
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><head><link rel="alternate" type="application/rss+xml" href="/feed.xml"></head></html>`))
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	return srv
+}
+
+// requireInvalidURL requires err to be a ValidationError on "url" saying msg.
+func requireInvalidURL(t *testing.T, err error, msg string) {
+	t.Helper()
+
+	invalid, ok := errors.AsType[*service.ValidationError](err)
+	require.True(t, ok, "want a ValidationError, got %v", err)
+	require.Equal(t, "url", invalid.Field)
+	require.Equal(t, msg, invalid.Message)
 }
 
 func TestSubscribe(t *testing.T) {
@@ -38,18 +80,77 @@ func TestSubscribe(t *testing.T) {
 		require.Error(t, svc(db).Subscribe(ctx, user, "not-a-url"))
 	})
 
+	srv := siteServer(t)
+	// the same server under a name, so the host's case can differ
+	named := strings.Replace(srv.URL, "127.0.0.1", "localhost", 1)
+
 	t.Run("idempotent on normalized host", func(t *testing.T) {
 		t.Parallel()
 
 		user := testutil2.Must(factory.User(ctx, db))(t)
 
-		require.NoError(t, svc(db).Subscribe(ctx, user, "https://Example.com/feed.xml"))
+		require.NoError(t, svc(db).Subscribe(ctx, user, strings.Replace(named, "localhost", "LocalHost", 1)+"/feed.xml"))
 		// Different case host, same feed once normalized: subscribing again
 		// must not create a second feed row or a second subscription.
-		require.NoError(t, svc(db).Subscribe(ctx, user, "https://example.com/feed.xml"))
+		require.NoError(t, svc(db).Subscribe(ctx, user, named+"/feed.xml"))
 
 		fs := testutil2.Must(svc(db).Subscriptions(ctx, user))(t)
 		require.Len(t, fs, 1)
+		require.Equal(t, named+"/feed.xml", fs[0].URL)
+	})
+
+	t.Run("website subscribes to the feed it announces", func(t *testing.T) {
+		t.Parallel()
+
+		user := testutil2.Must(factory.User(ctx, db))(t)
+
+		require.NoError(t, svc(db).Subscribe(ctx, user, srv.URL+"/"))
+
+		fs := testutil2.Must(svc(db).Subscriptions(ctx, user))(t)
+		require.Len(t, fs, 1)
+		require.Equal(t, srv.URL+"/feed.xml", fs[0].URL)
+	})
+
+	t.Run("a stored feed is not fetched", func(t *testing.T) {
+		t.Parallel()
+
+		// nothing serves this address: subscribing must not try
+		feed := testutil2.Must(factory.RSSFeed(ctx, db, factory.WithFeedURL("https://unreachable.invalid/feed.xml")))(t)
+		user := testutil2.Must(factory.User(ctx, db))(t)
+
+		require.NoError(t, svc(db).Subscribe(ctx, user, feed.URL))
+
+		fs := testutil2.Must(svc(db).Subscriptions(ctx, user))(t)
+		require.Len(t, fs, 1)
+		require.Equal(t, feed.URL, fs[0].URL)
+	})
+
+	t.Run("website without a feed", func(t *testing.T) {
+		t.Parallel()
+
+		user := testutil2.Must(factory.User(ctx, db))(t)
+
+		requireInvalidURL(t, svc(db).Subscribe(ctx, user, srv.URL+"/plain"), "No RSS or Atom feed found at this address")
+		require.Empty(t, testutil2.Must(svc(db).Subscriptions(ctx, user))(t))
+	})
+
+	t.Run("address that can't be loaded", func(t *testing.T) {
+		t.Parallel()
+
+		user := testutil2.Must(factory.User(ctx, db))(t)
+
+		requireInvalidURL(t, svc(db).Subscribe(ctx, user, srv.URL+"/missing"), "Couldn't load this address")
+		require.Empty(t, testutil2.Must(svc(db).Subscriptions(ctx, user))(t))
+	})
+
+	t.Run("private address", func(t *testing.T) {
+		t.Parallel()
+
+		user := testutil2.Must(factory.User(ctx, db))(t)
+		guarded := feeds.New(repo.Using(db), fakestorage.New())
+
+		requireInvalidURL(t, guarded.Subscribe(ctx, user, srv.URL+"/private-feed.xml"), "This address is not on the public internet")
+		require.Empty(t, testutil2.Must(svc(db).Subscriptions(ctx, user))(t))
 	})
 }
 
@@ -87,7 +188,7 @@ func TestNew_FetchesAndParsesFeed(t *testing.T) {
 	require.NoError(t, svc(db).Subscribe(ctx, user, srv.URL))
 
 	inserter := testutil2.Must(jobs.NewInserter(db))(t)
-	rssReader := feeds.New(repo.New(db), fakestorage.New(), feeds.WithJobs(inserter))
+	rssReader := feeds.New(repo.New(db), fakestorage.New(), feeds.WithJobs(inserter), local)
 
 	reg := jobs.NewRegistry(repo.New(db), fakesender.New().Delivery())
 	rssReader.RegisterJobs(reg)

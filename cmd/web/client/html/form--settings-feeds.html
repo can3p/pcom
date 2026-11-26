@@ -9,10 +9,10 @@
       >
   <div class="settings-inline">
     <div class="field">
-      <label for="settingsFeedURL">Feed URL</label>
+      <label for="settingsFeedURL">Website or feed URL</label>
       <input name="url" type="url" id="settingsFeedURL"
              value="{{ if .Input }}{{ .Input.URL }}{{ end }}"
-             placeholder="https://example.org/feed.xml"
+             placeholder="https://example.org"
              {{ if (.Errors.HasError "url") }}aria-invalid="true" aria-describedby="settingsFeedURLError"{{ end }}>
       {{ if (.Errors.HasError "url") }}
       <p class="field-error" id="settingsFeedURLError">{{ .Errors.url }}</p>

@@ -267,6 +267,8 @@ func TestScheduleAndRefresh(t *testing.T) {
 // is open on the database: the feed row can be locked without waiting, and no
 // session is idle in a transaction.
 type rowCheckingFetcher struct {
+	fetcher // refreshing never discovers
+
 	db     *sql.DB
 	feedID string
 
@@ -375,6 +377,8 @@ func TestRefresh_NoTransactionDuringDownload(t *testing.T) {
 // image download, which comes after the refresh has found the item new, saves
 // the same item through another service first, as a concurrent refresh would.
 type racingFetcher struct {
+	fetcher // refreshing never discovers
+
 	db     *sql.DB
 	other  *Service
 	feedID string

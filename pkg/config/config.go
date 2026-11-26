@@ -94,6 +94,10 @@ type Feeds struct {
 	FetchTimeout time.Duration `long:"rss-fetch-timeout" env:"RSS_FETCH_TIMEOUT" description:"How long fetching one feed document may take" default:"5s"`
 	ImageTimeout time.Duration `long:"rss-image-timeout" env:"RSS_IMAGE_TIMEOUT" description:"How long downloading one image of a feed item may take" default:"30s"`
 	MaxFeedSize  int64         `long:"rss-max-feed-size" env:"RSS_MAX_FEED_SIZE" description:"Most bytes of a feed document" default:"5242880"`
+	// AllowPrivateAddresses lets feeds, websites and images be fetched from
+	// loopback and private addresses; off, pcom only reaches the public
+	// internet, so a user can't make it fetch from the machines next to it.
+	AllowPrivateAddresses Switch `long:"rss-allow-private-addresses" env:"RSS_ALLOW_PRIVATE_ADDRESSES" description:"Fetch feeds from loopback and private addresses; tests and local development only" optional:"true" optional-value:"true" default:"false"`
 }
 
 // Email is how pcom checks the addresses users give. The defaults are

@@ -30,7 +30,7 @@ Pcom grows by invitation. This section appears only while you have unused or sen
 
 ## Feeds and private feed
 
-Add the URL of an RSS feed to follow it in your [feed](feed.md), and remove it again. The page also creates a private RSS feed of your pcom feed and lets you replace its address.
+Add the address of a website or of its RSS feed to follow it in your [feed](feed.md), and remove it again. The page also creates a private RSS feed of your pcom feed and lets you replace its address.
 
 ## Public profile
 

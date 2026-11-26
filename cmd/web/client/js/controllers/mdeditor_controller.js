@@ -40,8 +40,7 @@ export default class extends Controller {
 
     // title is "" for a tag without one: the renderer gives it its default
     let insertTag = (tag, title = "") => {
-      const open = title ? `{${tag} ${title}}` : `{${tag}}`
-      cursor.wrap([`\n${open}\n`, `\n{/${tag}}\n\n`], { placeholder: placeholders[tag] });
+      this.wrapBlock(tag, placeholders[tag], title)
     }
 
     const dialog = this.element.querySelector("[data-mdeditor-title-dialog]")
@@ -280,22 +279,49 @@ export default class extends Controller {
     const before = ta.value.slice(0, start)
     const after = ta.value.slice(end)
 
-    // a blank line between the text and what is around it
-    const gap = (s, atStart) => {
-      if (s === "") { return "" }
-      const nl = atStart ? s.match(/^\n*/)[0].length : s.match(/\n*$/)[0].length
-      return "\n".repeat(Math.max(0, 2 - nl))
-    }
-
-    const lead = gap(before, false)
-    const trail = after === "" ? "\n" : gap(after, true)
+    const lead = blankLineGap(before, false)
+    const trail = after === "" ? "\n" : blankLineGap(after, true)
 
     ta.setRangeText(lead + text + trail, start, end, "end")
     ta.focus()
     window.htmx.trigger(ta, "change")
   }
 
+  // Wraps the selection (or a placeholder) in {tag}...{/tag} as a block of its
+  // own: a blank line separates it from the text around it, but no line is
+  // added where one is already there. A title goes into the opening tag.
+  wrapBlock(tag, placeholder, title = "") {
+    const ta = this.textarea
+    let start = ta.selectionStart
+    let end = ta.selectionEnd
+
+    // surrounding line breaks are not part of the wrapped text
+    while (end > start && ta.value[end - 1] === "\n") { end-- }
+    while (start < end && ta.value[start] === "\n") { start++ }
+
+    const before = ta.value.slice(0, start)
+    const after = ta.value.slice(end)
+    const inner = ta.value.slice(start, end) || placeholder
+
+    const open = `${blankLineGap(before, false)}{${title ? `${tag} ${title}` : tag}}\n`
+    // only line breaks after the block: it ends the text, which keeps one
+    const trail = /^\n*$/.test(after) ? (after === "" ? "\n" : "") : blankLineGap(after, true)
+    const close = `\n{/${tag}}${trail}`
+
+    ta.setRangeText(open + inner + close, start, end, "preserve")
+    ta.setSelectionRange(start + open.length, start + open.length + inner.length)
+    ta.focus()
+  }
+
   disconnect() {
     this.dispose()
   }
+}
+
+// Newlines to add between s and a block next to it, so that a blank line
+// separates them; none when s is empty or already ends (starts) with one.
+function blankLineGap(s, atStart) {
+  if (s === "") { return "" }
+  const nl = atStart ? s.match(/^\n*/)[0].length : s.match(/\n*$/)[0].length
+  return "\n".repeat(Math.max(0, 2 - nl))
 }

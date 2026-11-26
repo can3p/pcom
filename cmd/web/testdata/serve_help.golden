@@ -309,6 +309,14 @@ Help Options:
                                                        document (default:
                                                        5242880)
                                                        [$RSS_MAX_FEED_SIZE]
+          --rss-allow-private-addresses=               Fetch feeds from
+                                                       loopback and private
+                                                       addresses; tests and
+                                                       local development only
+                                                       (default: false)
+                                                       [$RSS_ALLOW_PRIVATE_ADDR-
+
+                                                       ESSES]
 
     User media:
           --user-media-endpoint=                       S3 endpoint URL
