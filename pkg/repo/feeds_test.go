@@ -162,6 +162,12 @@ func TestFeeds_RefreshAndLock(t *testing.T) {
 	_, err = store.FeedByID(ctx, uuid.NewString())
 	require.ErrorIs(t, err, repo.ErrNotFound)
 
+	byURL := testutil.Must(store.FeedByURL(ctx, due.URL))(t)
+	require.Equal(t, due.ID, byURL.ID)
+
+	_, err = store.FeedByURL(ctx, "https://nobody.example/feed.xml")
+	require.ErrorIs(t, err, repo.ErrNotFound)
+
 	// a feed another transaction holds is waited for, not skipped; reading it
 	// with FeedByID doesn't wait
 	require.NoError(t, store.Tx(ctx, func(tx *repo.Store) error {

@@ -201,6 +201,8 @@ func feedLimits(cfg config.Feeds) reader.Limits {
 		FeedTimeout:  cfg.FetchTimeout,
 		MediaTimeout: cfg.ImageTimeout,
 		MaxFeedSize:  cfg.MaxFeedSize,
+
+		AllowPrivateAddresses: cfg.AllowPrivateAddresses.On(),
 	}
 }
 

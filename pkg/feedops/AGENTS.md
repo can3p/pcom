@@ -17,6 +17,23 @@ The fetcher's HTTP client has no `Timeout` of its own: every request gets its de
 the feed timeout and the image timeout stay independent. A client-wide timeout would cut every image download
 short at the feed timeout.
 
+## Public addresses only
+`DefaultFetcher` connects only to public addresses (`publicOnly` in `pkg/feedops/reader/guard.go`, a
+`net.Dialer` Control). The check runs on the address being dialed, after DNS and for every redirect hop, so
+neither a redirect nor a name that resolves to a private address gets past it; it fails with
+`ErrPrivateAddress`. The guarded client dials directly, ignoring `HTTPS_PROXY`: through a proxy the dialed
+address would be the proxy's. `Limits.AllowPrivateAddresses` (`--rss-allow-private-addresses`) turns the guard
+off; the e2e harness sets it because its feeds are served on 127.0.0.1, and service tests that fetch from an
+`httptest` server pass it through `feeds.WithFetchLimits`. Tests built on `reader.NewFetcher` pass their own
+client and are not guarded.
+
+## Subscribing
+`Subscribe` (`pkg/service/feeds/feeds.go`) takes a feed or a website address. A URL already stored as a feed
+is subscribed to without a download; otherwise `Fetcher.Discover` loads it once (feed timeout and size cap):
+a feed is kept as given, an HTML page gives the first `<link rel="alternate">` of an RSS, Atom or JSON Feed
+type, resolved against `<base href>` or the final address after redirects. Nothing found is
+`ErrNoFeedFound`. Discovery runs outside the transaction, and its errors become `ValidationError`s on `url`.
+
 ## Implementation Flow
 A feed is refreshed by one `feeds.refresh` job (`Refresh` in `pkg/service/feeds/refresh.go`). Every download
 (the feed document, then the images of its new items) happens outside any transaction: `prepareNewItems`
