@@ -22,7 +22,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/joho/godotenv v1.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mileusna/useragent v1.3.5
 	github.com/mmcdole/gofeed v1.5.0

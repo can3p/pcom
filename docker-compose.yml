@@ -92,19 +92,17 @@ services:
       postgres:
         condition: service_healthy
 
-  # Container mode (`make dev`, profile `dev`): the app with live reload and
-  # the frontend watcher, both from tools/Dockerfile target `dev`. Host mode
-  # (`make dev-up`, then `cd cmd/web && make watchexec` and `yarn watch`) keeps
-  # working against the published ports. The services set the in-network
-  # values as real environment variables; godotenv never overrides them, so
-  # cmd/web/.env (host-mode values) can stay in place. Mail and object storage
-  # go to tommy.
+  # The app (`make dev`, profile `dev`; `make seed` runs it too) with live
+  # reload, and the frontend watcher, both from tools/Dockerfile target `dev`.
+  # Its settings are in dev.env, then local.env (gitignored, optional: your own
+  # keys and overrides, see local.env.example), which wins. Mail and object
+  # storage go to tommy.
   #
   # File watching: watchexec uses inotify. On macOS, Docker Desktop's file
   # sharing (VirtioFS) forwards change events for bind mounts, so edits made on
   # the host restart the app. If they don't (older Docker Desktop, or gRPC FUSE
   # file sharing), run `PCOM_WATCH_POLL=1000 make dev` to poll every second
-  # instead, or run the app in host mode.
+  # instead.
   app:
     build: &dev-build
       context: .
@@ -124,39 +122,17 @@ services:
       - -c
       - >-
         exec watchexec $${PCOM_WATCH_POLL:+--poll $${PCOM_WATCH_POLL}ms} -w /src --exts go,html,md,json --ignore '**/node_modules/**' --restart -- go run . serve
+    env_file:
+      - path: dev.env
+      - path: local.env
+        required: false
+    # Only what compose computes from the ports; everything else is in dev.env.
     environment:
-      DATABASE_URL: postgres://pcom:pcom@postgres:5432/pcom?sslmode=disable
-      SESSION_SALT: local-dev-session-salt-change-me
       SITE_ROOT: http://localhost:${PCOM_APP_PORT:-8080}
-      PORT: "8080"
-      SENDER_ADDRESS: pcom@localhost
-      MJ_APIKEY_PUBLIC: dev
-      MJ_APIKEY_PRIVATE: dev
-      MJ_API_BASE: http://tommy:8822
-      USER_MEDIA_ENDPOINT: http://tommy:9000
-      USER_MEDIA_BUCKET: pcom-media
-      USER_MEDIA_REGION: us-east-1
-      USER_MEDIA_KEY: dev
-      USER_MEDIA_SECRET: dev
-      USER_MEDIA_PATH_STYLE: "true"
-      SECURE_COOKIES: "false"
-      HSTS: "false"
-      STATIC_CACHE: "false"
-      MEDIA_PERMA_CACHE: "false"
-      SHOW_ERRORS: "true"
-      DEV_ROUTES: "true"
-      # The /dev page lists these host-side addresses.
+      # Host-side addresses the /dev page lists, from the published ports.
       DEV_TOMMY_URL: http://localhost:${PCOM_TOMMY_PORT:-8811}/ui/
       DEV_S3_URL: http://localhost:${PCOM_S3_PORT:-9555}/pcom-media
       DEV_POSTGRES_URL: postgres://pcom:pcom@localhost:${PCOM_PG_PORT:-5442}/pcom
-      EMAIL_MX_TIMEOUT: "0"
-      EMAIL_ALLOW_DISPOSABLE: "true"
-      REPORT_PANICS: "false"
-      LOG_LEVEL: debug
-      LOG_FORMAT: console
-      STT_PROVIDER: openai-compat
-      STT_OPENAI_COMPAT_ENDPOINT: http://wiremock:8080/stt
-      STT_OPENAI_COMPAT_KEY: dev
       PCOM_WATCH_POLL: ${PCOM_WATCH_POLL:-}
     ports:
       - "${PCOM_APP_PORT:-8080}:8080"

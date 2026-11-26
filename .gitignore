@@ -8,3 +8,6 @@ coverage.out
 
 # a stray yarn run at the root (the frontend lives in cmd/web)
 /node_modules/
+
+# Your own keys and overrides of dev.env (see local.env.example)
+/local.env

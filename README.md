@@ -18,12 +18,11 @@ Docker is the only dependency. Cold start, seeded users, ports, everyday command
 [docs/running.md](docs/running.md):
 
 ```
-cp .env.example cmd/web/.env
 make dev-up && make migrate && make seed
 make dev        # app and asset watcher in containers, http://localhost:8080
 ```
 
-Every setting is an environment variable (or flag) listed by `go run ./cmd/web serve --help`; other commands have their own `--help`. Defaults are production values, so `cmd/web/.env` (copied from `.env.example`) and compose turn off what doesn't fit plain-HTTP localhost, and log in the console format instead of JSON.
+Every setting is an environment variable (or flag) listed by `go run ./cmd/web serve --help`; other commands have their own `--help`. Defaults are production values, so `dev.env` (loaded by compose) turns off what doesn't fit plain-HTTP localhost and logs in the console format instead of JSON. Your own keys (the Claude API for proofreading, say) go in a gitignored `local.env`, which overrides `dev.env`; start from `local.env.example`.
 
 Local development uses [tommy](https://github.com/can3p/tommy) for mail and S3:
 - Mail: sent to tommy's Mailjet provider, view at http://localhost:8811/ui/
