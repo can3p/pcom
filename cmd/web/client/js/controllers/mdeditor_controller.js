@@ -32,38 +32,86 @@ export default class extends Controller {
       }
     }, false)
 
-    let insertTag = (tag) => {
-      let placeholder
-
-      switch (tag) {
-        case "gallery":
-          placeholder = "Add a list of images there"
-          break;
-        case "spoiler":
-          placeholder = "This text will be collapsed by default"
-          break;
-        case "cut":
-          placeholder = "This text won't be visible in the feed but will be shown on the full past page"
-          break;
-        default:
-          trigger(cmd)
-      }
-
-      this.wrapBlock(tag, placeholder)
+    const placeholders = {
+      gallery: "Add a list of images there",
+      spoiler: "This text will be collapsed by default",
+      cut: "This text won't be visible in the feed but will be shown on the full past page",
     }
 
-    let runCmd = function(cmd, e) {
-      e.preventDefault()
-      textarea.focus()
+    // title is "" for a tag without one: the renderer gives it its default
+    let insertTag = (tag, title = "") => {
+      this.wrapBlock(tag, placeholders[tag], title)
+    }
 
-      switch (cmd) {
-        case "gallery":
-        case "spoiler":
-        case "cut":
-          insertTag(cmd)
-          break;
-        default:
-          trigger(cmd)
+    const dialog = this.element.querySelector("[data-mdeditor-title-dialog]")
+
+    // Asks for the title of a cut or a spoiler. Resolves to the title, "" when
+    // it is left empty, or null when the author cancels.
+    const askTitle = (btn) => new Promise((resolve) => {
+      const input = dialog.querySelector("input")
+      const insert = dialog.querySelector("[data-dialog-insert]")
+      const cancel = dialog.querySelector("[data-dialog-cancel]")
+      let result = null
+
+      const done = (value) => {
+        result = value
+        dialog.close()
+      }
+      const onInsert = () => done(input.value)
+      const onCancel = () => done(null)
+      const onKey = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault()
+          onInsert()
+        }
+      }
+      const onClose = () => {
+        insert.removeEventListener("click", onInsert)
+        cancel.removeEventListener("click", onCancel)
+        input.removeEventListener("keydown", onKey)
+        dialog.removeEventListener("close", onClose)
+        resolve(result)
+      }
+
+      insert.addEventListener("click", onInsert)
+      cancel.addEventListener("click", onCancel)
+      input.addEventListener("keydown", onKey)
+      // escape closes the dialog without a result
+      dialog.addEventListener("close", onClose)
+
+      dialog.querySelector(".tb-dialog__heading").textContent = btn.title
+      input.value = ""
+      input.placeholder = btn.dataset.defaultTitle
+      dialog.showModal()
+      input.focus()
+    })
+
+    // The opening tag ends at the first "}" and must stay on one line.
+    const cleanTitle = (title) => title.replace(/[}\r\n]+/g, " ").replace(/\s+/g, " ").trim()
+
+    let runCmd = async (cmd, btn, e) => {
+      e.preventDefault()
+
+      if (cmd === "spoiler" || cmd === "cut") {
+        // the dialog takes the focus, and with it the selection the tag wraps
+        const start = textarea.selectionStart
+        const end = textarea.selectionEnd
+        const title = await askTitle(btn)
+
+        textarea.focus()
+        textarea.setSelectionRange(start, end)
+
+        if (title === null) {
+          return
+        }
+
+        insertTag(cmd, cleanTitle(title))
+      } else if (cmd === "gallery") {
+        textarea.focus()
+        insertTag(cmd)
+      } else {
+        textarea.focus()
+        trigger(cmd)
       }
 
       htmx.trigger(textarea, "change")
@@ -209,7 +257,7 @@ export default class extends Controller {
     for (let btn of this.element.querySelectorAll("[data-command]")) {
       let cmd = btn.dataset.command
 
-      btn.addEventListener("click", runCmd.bind(null, cmd), false)
+      btn.addEventListener("click", runCmd.bind(null, cmd, btn), false)
     }
 
     let showPreview = this.element.querySelector("#show_preview");
@@ -241,8 +289,8 @@ export default class extends Controller {
 
   // Wraps the selection (or a placeholder) in {tag}...{/tag} as a block of its
   // own: a blank line separates it from the text around it, but no line is
-  // added where one is already there.
-  wrapBlock(tag, placeholder) {
+  // added where one is already there. A title goes into the opening tag.
+  wrapBlock(tag, placeholder, title = "") {
     const ta = this.textarea
     let start = ta.selectionStart
     let end = ta.selectionEnd
@@ -255,7 +303,7 @@ export default class extends Controller {
     const after = ta.value.slice(end)
     const inner = ta.value.slice(start, end) || placeholder
 
-    const open = `${blankLineGap(before, false)}{${tag}}\n`
+    const open = `${blankLineGap(before, false)}{${title ? `${tag} ${title}` : tag}}\n`
     // only line breaks after the block: it ends the text, which keeps one
     const trail = /^\n*$/.test(after) ? (after === "" ? "\n" : "") : blankLineGap(after, true)
     const close = `\n{/${tag}}${trail}`

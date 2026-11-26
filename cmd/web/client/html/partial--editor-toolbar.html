@@ -11,8 +11,8 @@
   <button type="button" class="tbb" data-command="unordered-list" aria-label="List" title="Insert a list"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11"></path><path d="M9 12h11"></path><path d="M9 18h11"></path><path d="M4.5 6h.01"></path><path d="M4.5 12h.01"></path><path d="M4.5 18h.01"></path></svg></button>
   <button type="button" class="tbb" data-command="code-block" aria-label="Code block" title="Insert a code block"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"></path><path d="M16 7l5 5-5 5"></path></svg></button>
   {{ if .Post }}
-  <button type="button" class="tbb" data-command="cut" aria-label="Cut" title="Hide part of the post from the feed"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4"></path><path d="M10 12h4"></path><path d="M17 12h4"></path><path d="M6 6h12"></path><path d="M6 18h12"></path></svg></button>
-  <button type="button" class="tbb" data-command="spoiler" aria-label="Spoiler" title="Hide the text behind spoiler block"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path><path d="M4 4h16"></path><path d="M4 20h16"></path></svg></button>
+  <button type="button" class="tbb" data-command="cut" data-default-title="{{ block_tag_default_title "cut" }}" aria-label="Cut" title="Hide part of the post from the feed"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4"></path><path d="M10 12h4"></path><path d="M17 12h4"></path><path d="M6 6h12"></path><path d="M6 18h12"></path></svg></button>
+  <button type="button" class="tbb" data-command="spoiler" data-default-title="{{ block_tag_default_title "spoiler" }}" aria-label="Spoiler" title="Hide the text behind spoiler block"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path><path d="M4 4h16"></path><path d="M4 20h16"></path></svg></button>
   <button type="button" class="tbb" data-command="gallery" aria-label="Gallery" title="Group images into a gallery"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="14" height="14" rx="2"></rect><path d="M17 3H5a2 2 0 0 0-2 2v12"></path></svg></button>
   {{ end }}
   <button type="button" class="tbb" data-upload="{{ .UploadID }}" aria-label="Upload images" title="Upload images"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 16l5-5 4 4 3-3 6 6"></path><circle cx="16" cy="8.5" r="1.5"></circle></svg></button>
@@ -32,3 +32,19 @@
   </div>
   {{ end }}
 </div>
+{{ if .Post }}
+{{/* The title prompt of the cut and spoiler buttons. No <form method="dialog">: the toolbar sits inside the
+     post form and forms don't nest, so mdeditor handles Enter and the buttons itself. */}}
+<dialog class="tb-dialog" data-mdeditor-title-dialog aria-labelledby="{{ .UploadID }}_tag_heading">
+  <h2 class="tb-dialog__heading" id="{{ .UploadID }}_tag_heading"></h2>
+  <div class="field">
+    <label for="{{ .UploadID }}_tag_title">Title</label>
+    <input type="text" id="{{ .UploadID }}_tag_title" autocomplete="off">
+    <p class="field-help">Leave it empty to use the placeholder.</p>
+  </div>
+  <div class="tb-dialog__buttons">
+    <button type="button" class="btn btn-primary" data-dialog-insert>Insert</button>
+    <button type="button" class="btn btn-secondary" data-dialog-cancel>Cancel</button>
+  </div>
+</dialog>
+{{ end }}

@@ -430,3 +430,33 @@
     display: none;
   }
 }
+
+// The title prompt of the toolbar's cut and spoiler buttons.
+.tb-dialog {
+  width: min(420px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+
+  &::backdrop {
+    background: rgb(0 0 0 / 45%);
+  }
+
+  .field {
+    margin-bottom: var(--space-4);
+  }
+}
+
+.tb-dialog__heading {
+  margin: 0 0 var(--space-4);
+  font: 600 16px/1.4 var(--font-ui);
+  color: var(--title);
+}
+
+.tb-dialog__buttons {
+  display: flex;
+  gap: var(--space-2);
+}

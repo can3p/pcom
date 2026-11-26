@@ -22,6 +22,7 @@ import (
 
 	"github.com/can3p/pcom/e2e"
 	"github.com/can3p/pcom/e2e/browser"
+	"github.com/can3p/pcom/pkg/markdown/mdext/blocktags"
 	"github.com/can3p/pcom/pkg/model"
 	"github.com/can3p/pcom/pkg/testutil/factory"
 	"github.com/can3p/pcom/pkg/testutil/tommy"
@@ -1326,11 +1327,74 @@ func TestWriting_BlockTagsAddNoExtraLines(t *testing.T) {
 	require.NoError(t, body.Fill("Intro\n\nMiddle paragraph\n\nOutro"))
 	selectText("Middle paragraph")
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Spoiler"}).Click())
+	require.NoError(t, page.GetByRole("dialog").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert"}).Click())
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("Intro\n\n{spoiler}\nMiddle paragraph\n{/spoiler}\n\nOutro"))
 
 	// the text at the very start and end of the post, selected with its line break
 	require.NoError(t, body.Fill("First paragraph\n"))
 	selectText("First paragraph\n")
 	require.NoError(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Cut"}).Click())
+	require.NoError(t, page.GetByRole("dialog").GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert"}).Click())
 	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("{cut}\nFirst paragraph\n{/cut}\n"))
+}
+
+// The cut and spoiler buttons ask for the tag's title in a dialog first: the
+// title goes into the opening tag, an empty one leaves the tag bare for the
+// default, a "}" can't end the tag early, the tag wraps the text selected
+// before the dialog opened, and Escape inserts nothing.
+func TestWriting_CutAndSpoilerAskForTitle(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	page := browser.Page(t, app, browser.As(user))
+
+	_, err := page.Goto("/write")
+	require.NoError(t, err)
+
+	body := page.GetByPlaceholder("Your post goes there")
+	dialog := page.GetByRole("dialog")
+	title := dialog.GetByLabel("Title", playwright.LocatorGetByLabelOptions{Exact: new(true)})
+
+	// the selection survives the dialog taking the focus
+	require.NoError(t, body.Fill("secret"))
+	require.NoError(t, body.Click())
+	require.NoError(t, page.Keyboard().Press("ControlOrMeta+A"))
+	require.NoError(t, writeButton(page, "Spoiler").Click())
+	require.NoError(t, browser.Expect.Locator(dialog).ToBeVisible())
+	require.NoError(t, browser.Expect.Locator(title).ToBeFocused())
+	require.NoError(t, browser.Expect.Locator(title).ToHaveAttribute("placeholder", blocktags.DefaultSpoilerTitle))
+	require.NoError(t, title.Fill("Plot twist"))
+	require.NoError(t, dialog.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Insert"}).Click())
+	require.NoError(t, browser.Expect.Locator(dialog).ToBeHidden())
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("{spoiler Plot twist}\nsecret\n{/spoiler}\n"))
+	savedPad(t, app, user.ID, "{spoiler Plot twist}\nsecret\n{/spoiler}")
+
+	// Enter inserts, and a "}" or a line break does not get into the tag
+	require.NoError(t, body.Fill(""))
+	require.NoError(t, writeButton(page, "Cut").Click())
+	require.NoError(t, browser.Expect.Locator(title).ToHaveAttribute("placeholder", blocktags.DefaultCutTitle))
+	require.NoError(t, title.Fill("Read } on"))
+	require.NoError(t, title.Press("Enter"))
+	require.NoError(t, browser.Expect.Locator(dialog).ToBeHidden())
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^\{cut Read on\}\n[^\n]+\n\{/cut\}\n$`)))
+
+	// an empty title leaves the tag bare, so it gets the default
+	require.NoError(t, body.Fill(""))
+	require.NoError(t, writeButton(page, "Cut").Click())
+	require.NoError(t, browser.Expect.Locator(title).ToHaveValue(""), "the last title is not kept")
+	require.NoError(t, title.Press("Enter"))
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue(regexp.MustCompile(`^\{cut\}\n[^\n]+\n\{/cut\}\n$`)))
+
+	// Escape and Cancel insert nothing
+	require.NoError(t, body.Fill("kept"))
+	require.NoError(t, writeButton(page, "Spoiler").Click())
+	require.NoError(t, title.Fill("ignored"))
+	require.NoError(t, title.Press("Escape"))
+	require.NoError(t, browser.Expect.Locator(dialog).ToBeHidden())
+	require.NoError(t, writeButton(page, "Cut").Click())
+	require.NoError(t, dialog.GetByRole("button", playwright.LocatorGetByRoleOptions{Name: "Cancel"}).Click())
+	require.NoError(t, browser.Expect.Locator(dialog).ToBeHidden())
+	require.NoError(t, browser.Expect.Locator(body).ToHaveValue("kept"))
+	require.NoError(t, browser.Expect.Locator(body).ToBeFocused())
 }
