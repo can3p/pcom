@@ -9,7 +9,7 @@
   "private": true,
   "license": "unlicensed",
   "dependencies": {
-    "@can3p/headless-mde": "^0.0.8",
+    "@can3p/headless-mde": "^0.1.0",
     "@fontsource/golos-text": "~5.3",
     "@justinribeiro/lite-youtube": "^1.9.0",
     "htmx-ext-head-support": "^2.0.5",
@@ -24,10 +24,10 @@
     "css-loader": "^7.1.5",
     "mini-css-extract-plugin": "^2.10.2",
     "optimize-css-assets-webpack-plugin": "^6.0.1",
-    "sass": "^1.108.1",
-    "sass-loader": "^17.1.0",
+    "sass": "^1.108.2",
+    "sass-loader": "^17.1.1",
     "terser-webpack-plugin": "^5.6.1",
-    "webpack": "^5.112.2",
+    "webpack": "^5.113.0",
     "webpack-cli": "^7.3.1",
     "webpack-manifest-plugin": "^6.0.1"
   }

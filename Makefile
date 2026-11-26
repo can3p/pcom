@@ -1,5 +1,5 @@
 .PHONY: shell tunnel lint test test-short cover cover-check build check fix check-q test-q vet-q cover-q ui-deps test-ui ui-trace screenshots \
-	dev-up dev dev-logs dev-down migrate migrate-status migrate-down migration psql db-reset seed seed-reset \
+	dev-up dev dev-urls dev-logs dev-down migrate migrate-status migrate-down migration psql db-reset seed seed-reset \
 	tools-shell migrate-prod
 
 PKG ?= ./...
@@ -113,6 +113,7 @@ ui-trace:
 # targets run in the `tools` container against the compose database, as your
 # UID/GID so the files they write belong to you.
 #   make dev-up / dev-down          start or stop postgres, tommy and wiremock
+#   make dev-urls                   print the addresses and logins again
 #   make migrate                    apply migrations (migrate-status, migrate-down)
 #   make migration name=add_foo     create migrations/<timestamp>-add_foo.sql
 #   make psql [ARGS="-c '...'"]     psql on the compose database
@@ -133,6 +134,10 @@ dev-up:
 # The addresses are printed once the app answers.
 dev:
 	@./tools/dev-urls.sh --app & $(COMPOSE) --profile dev up --build
+
+# Prints the addresses again, for when the logs of `make dev` buried them.
+dev-urls:
+	@./tools/dev-urls.sh --app --now
 
 dev-logs:
 	$(COMPOSE) --profile dev logs -f

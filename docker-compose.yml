@@ -126,9 +126,13 @@ services:
       - path: dev.env
       - path: local.env
         required: false
-    # Only what compose computes; everything else is in dev.env.
+    # Only what compose computes from the ports; everything else is in dev.env.
     environment:
       SITE_ROOT: http://localhost:${PCOM_APP_PORT:-8080}
+      # Host-side addresses the /dev page lists, from the published ports.
+      DEV_TOMMY_URL: http://localhost:${PCOM_TOMMY_PORT:-8811}/ui/
+      DEV_S3_URL: http://localhost:${PCOM_S3_PORT:-9555}/pcom-media
+      DEV_POSTGRES_URL: postgres://pcom:pcom@localhost:${PCOM_PG_PORT:-5442}/pcom
       PCOM_WATCH_POLL: ${PCOM_WATCH_POLL:-}
     ports:
       - "${PCOM_APP_PORT:-8080}:8080"

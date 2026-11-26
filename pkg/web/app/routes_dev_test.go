@@ -27,6 +27,12 @@ func escaped(t *testing.T, s string) string {
 func newDevApp(t *testing.T, dev bool) http.Handler {
 	t.Helper()
 
+	return newDevAppWith(t, dev, app.DevInfo{})
+}
+
+func newDevAppWith(t *testing.T, dev bool, info app.DevInfo) http.Handler {
+	t.Helper()
+
 	return app.New(&app.Deps{
 		DB:           testdb.New(t).DB,
 		MediaStorage: fakestorage.New(),
@@ -35,6 +41,7 @@ func newDevApp(t *testing.T, dev bool) http.Handler {
 			SessionSalt: "test-salt",
 			StaticAsset: func(n string) string { return "/static/" + n },
 			DevRoutes:   dev,
+			Dev:         info,
 		},
 	})
 }
@@ -70,10 +77,47 @@ func TestDevRoutes_MailPreview(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, getPage(h, "/dev/mail/no-such-sample").Code)
 }
 
+func TestDevRoutes_Index(t *testing.T) {
+	t.Parallel()
+
+	h := newDevAppWith(t, true, app.DevInfo{
+		TommyURL:    "http://localhost:8811/ui/",
+		PostgresURL: "postgres://pcom:pcom@localhost:5442/pcom",
+		Accounts:    []app.DevAccount{{Name: "alice", Email: "alice@example.test", Role: "owns the API key"}},
+		APIKey:      "the-key",
+	})
+
+	rec := getPage(h, "/dev")
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		`href="/dev/mail"`,
+		`href="http://localhost:8811/ui/"`,
+		"postgres://pcom:pcom@localhost:5442/pcom",
+		"alice@example.test",
+		"owns the API key",
+		"the-key",
+	} {
+		require.Contains(t, body, want)
+	}
+
+	require.NotContains(t, body, "S3:", "an unset address leaves its row out")
+}
+
+func TestDevRoutes_FooterLink(t *testing.T) {
+	t.Parallel()
+
+	require.Contains(t, getPage(newDevApp(t, true), "/login").Body.String(), `href="/dev"`)
+	require.NotContains(t, getPage(newDevApp(t, false), "/login").Body.String(), `href="/dev"`)
+}
+
 func TestDevRoutes_Off(t *testing.T) {
 	t.Parallel()
 
 	h := newDevApp(t, false)
+
+	require.Equal(t, http.StatusNotFound, getPage(h, "/dev").Code)
 
 	require.Equal(t, http.StatusNotFound, getPage(h, "/dev/mail").Code)
 	require.Equal(t, http.StatusNotFound, getPage(h, "/dev/mail/anything").Code)
