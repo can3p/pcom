@@ -7,54 +7,31 @@ make targets instead of typing `docker compose` by hand.
 ## Cold start
 
 ```bash
-cp .env.example cmd/web/.env
 make dev-up && make migrate && make seed
+make dev
 ```
-
-If you already have a `cmd/web/.env` from the old setup, move it aside first: its `DATABASE_URL` probably points
-at a Postgres installed on your machine (port 5432). The one from `.env.example` points at the compose Postgres
-on `localhost:5442`.
 
 `make dev-up` starts Postgres, tommy (mail sink and S3 stand-in) and WireMock (the speech-to-text stub), waits until they are healthy and prints
 their addresses. `make migrate` applies the migrations, `make seed` fills the database with a small named world (see
 [Seeding](#seeding)). The first run builds the tools image (sql-migrate, psql), which is slow once.
 
-Then pick one way to run the app.
-
-### Container mode
-
-```bash
-make dev
-```
-
-Runs the app (live reload on `.go`, `.html` and `.md` changes) and the frontend watcher in containers, in the
+`make dev` runs the app (live reload on `.go`, `.html` and `.md` changes) and the frontend watcher in containers, in the
 foreground. The app starts once the frontend watcher has finished its first build, and when it answers,
 `make dev` prints the addresses of the app, tommy, S3 and Postgres below the logs. Open http://localhost:8080
 and log in as `alice@example.test` with the code from tommy's mail (http://localhost:8811/ui/).
 `make dev-logs` follows the logs from another terminal; `make dev-down` stops everything.
-
-The containers set their in-network values (database host, `SITE_ROOT`, `PORT`) as real environment variables,
-and the app never lets `cmd/web/.env` override a variable that is already set, so the same `.env` serves both
-modes.
+Registration is controlled by `system_settings.registration_open`; the seed opens it.
 
 File watching: see [macOS](#macos) if edits don't restart the app.
 
-### Host mode
+## Settings and keys
 
-Needs libvips and Node.js (version from `.tool-versions`) with yarn on the host, plus `watchexec`. Only this
-mode needs them.
-
-```bash
-make dev-up                    # postgres, tommy and wiremock, as above
-cd cmd/web
-yarn install                   # once
-yarn watch                     # tab 1: rebuilds the frontend into cmd/web/dist
-make watchexec                 # tab 2: restarts the server on changes
-```
-
-`cmd/web/dist/manifest.json` must exist before the server starts, so let `yarn watch` (or `yarn build`) finish
-once first. The server listens on `$PORT` (8080), and `SITE_ROOT` has to match. Registration is controlled by
-`system_settings.registration_open`; the seed opens it, otherwise run the app with `-force-signup`.
+The app's settings in the local stack are in `dev.env` (committed; compose service names as hosts). Compose
+loads it, then `local.env` if it exists, so a variable in `local.env` wins. `local.env` is gitignored and is
+where keys of your own and personal overrides go: copy `local.env.example`, fill in what you need and restart
+`make dev`. `docker-compose.yml` itself sets only `SITE_ROOT` (from `PCOM_APP_PORT`) and `PCOM_WATCH_POLL`.
+`make seed` runs in the same `app` service, so it reads the same files. A leftover `cmd/web/.env` from the old
+setup is no longer read; delete it.
 
 ## Mail and uploads
 
@@ -68,13 +45,13 @@ tommy stands in for both outside services:
   (`USER_MEDIA_PATH_STYLE=true`); list the objects at
   http://localhost:8811/api/v1/s3/buckets/pcom-media/objects.
 
-The values are in `.env.example`; tommy keeps both on the `tommydata` volume across restarts.
+The values are in `dev.env`; tommy keeps both on the `tommydata` volume across restarts.
 
 ## Grammar checks and style reviews
 
 The proofreading panel calls the Claude API, so it is off unless `PROOFREAD_ANTHROPIC_KEY` is set: without a
 key there are no buttons and no panel, and the routes answer 404. Development and the tests run with it off.
-To try it locally, put a key of your own in `cmd/web/.env` (`.env.example` has the line commented out);
+To try it locally, put a key of your own in `local.env` (`local.env.example` has the line commented out);
 `PROOFREAD_ANTHROPIC_ENDPOINT` points the client elsewhere (WireMock in tests). The models, efforts, per-user
 hourly limits (`PROOFREAD_GRAMMAR_PER_HOUR`, `PROOFREAD_STYLE_PER_HOUR`), the optional site-wide daily cap
 (`PROOFREAD_SITE_DAILY_REQUESTS`), the longest author note or keep reason (`PROOFREAD_NOTE_MAX_LENGTH`, 2000
@@ -105,7 +82,7 @@ a new quote still takes that source) and `NOTE_PANEL_TAGS` (8, how many of the a
 editor's Notes panel offers), and `NOTE_ATTACH_POSTS` (10, how many of the author's newest drafts and posts the
 Attach to post control of a note offers).
 
-The local stack has its speech-to-text backend too: `.env.example` points `STT_OPENAI_COMPAT_ENDPOINT` at
+The local stack has its speech-to-text backend too: `dev.env` points `STT_OPENAI_COMPAT_ENDPOINT` at
 the WireMock service of `docker-compose.yml` (port `PCOM_WIREMOCK_PORT`, 8833), which answers every
 recording with a canned transcript, so a recording made on a laptop gets text without an account. Its
 stubs are in `pkg/stt/openaicompat/testdata/wiremock/`. A phone that reaches the local server over plain HTTP can't record: browsers give the
@@ -220,8 +197,7 @@ so a second checkout can run next to this one: `PCOM_PG_PORT=5443 PCOM_TOMMY_POR
 | 9555 | tommy S3, path-style, any credentials, bucket `pcom-media` | `tommy:9000` | `PCOM_S3_PORT` |
 | 8080 | the app (`make dev`, profile `dev`) | `app:8080` | `PCOM_APP_PORT` |
 
-9000, 9090 and 9091 are avoided on purpose: MinIO, `make pprof_tunnel` and `make pprof_heap` use them. Note that
-host mode and `.env.example` assume the default ports; if you override one, update `cmd/web/.env` too.
+9000, 9090 and 9091 are avoided on purpose: MinIO, `make pprof_tunnel` and `make pprof_heap` use them.
 
 ## Everyday commands
 
@@ -256,9 +232,8 @@ images built from `golang:1.27-alpine`) have arm64 variants, so nothing runs und
 * **File watching in container mode.** Docker Desktop's VirtioFS file sharing (the default) forwards change
   events through the bind mount, so saving a file restarts the app. If it doesn't (older Docker Desktop or gRPC
   FUSE file sharing), poll instead: `PCOM_WATCH_POLL=1000 make dev` checks every second.
-* **`node_modules`.** The containers keep their own Linux `node_modules` in a volume; the macOS copy under
-  `cmd/web/node_modules` (for host mode) is never used by them, and the other way round.
-* **Host mode** needs `brew install vips pkg-config watchexec` and Node.js from `.tool-versions`.
+* **`node_modules`.** The containers keep their own Linux `node_modules` in a volume; a macOS copy under
+  `cmd/web/node_modules` (from running yarn on the host) is never used by them, and the other way round.
 * **`make migrate-prod`** reaches `make tunnel` on your Mac through `host.docker.internal`, which Docker Desktop
   provides; no extra flags are needed (on Linux the tunnel must bind an address the container can reach).
 

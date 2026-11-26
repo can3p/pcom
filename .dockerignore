@@ -13,7 +13,9 @@ cmd/web/dist
 cmd/web/user_media
 # Binary left by a local `go build` in cmd/web; the image builds its own.
 cmd/web/web
-cmd/web/.env
+local.env
 .env
+dev.env
+local.env.example
 env.pl
 docker-compose.yml
