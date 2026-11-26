@@ -190,6 +190,7 @@ func EditPost(c *gin.Context, svc *posts.Service, userData *auth.UserData, postI
 			Body:       post.Body,
 			Visibility: post.VisibilityRadius,
 			URL:        url,
+			PostRev:    post.Revision,
 		},
 		LastUpdatedAt: lo.FromPtr(post.UpdatedAt),
 		IsPublished:   post.PublishedAt != nil,

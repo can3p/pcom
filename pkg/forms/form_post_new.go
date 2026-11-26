@@ -31,6 +31,9 @@ type PostFormInput struct {
 	// ScratchRev is the revision of the author's scratch pad that this form
 	// last saw (see posts.SaveInput.ScratchRevision), 0 when it saw none.
 	ScratchRev int `form:"scratch_rev"`
+	// PostRev is the revision of the post that this form last saw (see
+	// posts.SaveInput.PostRevision).
+	PostRev int `form:"post_rev"`
 	// NoteIDs are the notes inserted into a new post that are not marked as
 	// used yet, comma separated; the notes picker keeps them in the form so
 	// that they survive a reload.
@@ -57,9 +60,12 @@ const (
 	PostFormActionPublish   PostFormAction = "publish"
 	PostFormActionDelete    PostFormAction = "delete"
 	PostFormActionAutosave  PostFormAction = "autosave"
-	// PostFormActionTakeOver saves a new post's text over the scratch pad
+	// PostFormActionTakeOver saves the text over the scratch pad or the post
 	// that another tab changed.
 	PostFormActionTakeOver PostFormAction = "take_over"
+	// PostFormActionSaveCopy saves the text of a post that another tab
+	// changed as a new draft.
+	PostFormActionSaveCopy PostFormAction = "save_copy"
 )
 
 func NewPostFormNew(ctx context.Context, svc *posts.Service, u *model.User, promptID string) (*PostForm, error) {
@@ -170,6 +176,8 @@ func (f *PostForm) saveInput() posts.SaveInput {
 
 	if f.Post == nil {
 		in.ScratchRevision = f.Input.ScratchRev
+	} else {
+		in.PostRevision = f.Input.PostRev
 	}
 
 	return in
@@ -196,7 +204,7 @@ func (f *PostForm) Validate(c *gin.Context) error {
 	}
 
 	if err := validation.ValidateEnum(action,
-		[]posts.Action{posts.ActionSavePost, posts.ActionMakeDraft, posts.ActionPublish, posts.ActionDelete, posts.ActionAutosave, posts.ActionTakeOver},
+		[]posts.Action{posts.ActionSavePost, posts.ActionMakeDraft, posts.ActionPublish, posts.ActionDelete, posts.ActionAutosave, posts.ActionTakeOver, posts.ActionSaveCopy},
 		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
 		f.AddError("save_action", err.Error())
 	}
@@ -224,6 +232,8 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 
 	if conflict, ok := errors.AsType[*posts.ScratchConflict](err); ok {
 		return f.conflicted(c, conflict)
+	} else if conflict, ok := errors.AsType[*posts.PostConflict](err); ok {
+		return f.postConflicted(conflict), nil
 	} else if err != nil {
 		return nil, err
 	}
@@ -238,6 +248,12 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 
 	post := saved.Post
 	saveAction := f.Input.SaveAction
+	f.Input.PostRev = post.Revision
+
+	if saveAction == PostFormActionSaveCopy {
+		// the copy is another post: its editor is another page
+		return forms.FormSaveRedirect(links.Link("edit_post", post.ID)), nil
+	}
 
 	if saveAction == "" {
 		saveAction = PostFormActionAutosave
@@ -278,6 +294,9 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	case saved.Created:
 		action = draftSaved(formhelpers.ReplaceHistory(action, links.Link("edit_post", post.ID)))
 	case saveAction == PostFormActionMakeDraft:
+	case saveAction == PostFormActionTakeOver:
+		// the author goes on editing, as after an autosave
+		action = draftSaved(action)
 	case saveAction != PostFormActionAutosave && post.PublishedAt != nil:
 		action = forms.FormSaveRedirect(links.Link("post", post.ID))
 	default:
@@ -291,9 +310,12 @@ func (f *PostForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	return action, nil
 }
 
-// scratchConflictView is what the form's status shows when another tab or
-// device wrote the scratch pad since this form last saw it.
-type scratchConflictView struct {
+// conflictView is what the form's status shows when another tab or device
+// wrote the scratch pad, or the post, since this form last saw it.
+type conflictView struct {
+	// OfPost is set for a conflict on a saved post, unset for one on the
+	// scratch pad of a new post.
+	OfPost bool
 	// At is the time of the other write, as a clock time in the author's
 	// zone; empty when it is not known.
 	At string
@@ -328,7 +350,7 @@ func (f *PostForm) conflicted(c context.Context, conflict *posts.ScratchConflict
 		return nil, err
 	}
 
-	view := &scratchConflictView{
+	view := &conflictView{
 		PostID:  conflict.PromotedPostID,
 		Emptied: pad != nil && pad.IsEmpty(),
 	}
@@ -341,4 +363,21 @@ func (f *PostForm) conflicted(c context.Context, conflict *posts.ScratchConflict
 	f.AddTemplateData("Conflict", view)
 
 	return formhelpers.Retarget(forms.FormSaveDefault(true), "#last_draft_save"), nil
+}
+
+// postConflicted answers a save of a post that lost to another tab or device:
+// nothing is written and the status tells the author, with the choices they
+// have. The form keeps the revision it saw, so it goes on losing until the
+// author picks one.
+func (f *PostForm) postConflicted(conflict *posts.PostConflict) forms.FormSaveAction {
+	view := &conflictView{OfPost: true}
+
+	if !conflict.At.IsZero() {
+		view.At = date.LocalizeTime(f.User, conflict.At).Format("15:04")
+	}
+
+	f.AddTemplateData("DraftSaved", true)
+	f.AddTemplateData("Conflict", view)
+
+	return formhelpers.Retarget(forms.FormSaveDefault(true), "#last_draft_save")
 }

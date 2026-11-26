@@ -19,11 +19,11 @@ export default class extends Controller {
 
     this.visibility()
 
-    // A new post's text is kept in a scratch pad. When another tab or device
-    // wrote the pad, the status shows a notice (data-scratch-conflict) and
-    // this form stops autosaving: only a click (submit) or an explicit save
-    // (postform:save) goes out until the author picks one of the notice's
-    // choices, whose response replaces the notice.
+    // When another tab or device wrote the post, or a new post's scratch
+    // pad, since this form last saw it, the status shows a notice
+    // (data-save-conflict) and this form stops autosaving: only a click
+    // (submit) or an explicit save (postform:save) goes out until the author
+    // picks one of the notice's choices, whose response replaces the notice.
     this.pauseAutosave = (event) => {
       const trigger = event.detail.requestConfig?.triggeringEvent?.type
 
@@ -40,7 +40,7 @@ export default class extends Controller {
   }
 
   get conflicted() {
-    return this.element.querySelector("[data-scratch-conflict]") !== null
+    return this.element.querySelector("[data-save-conflict]") !== null
   }
 
   // "Load the newer text": a fresh page load shows the pad as it is now. It
@@ -66,7 +66,7 @@ export default class extends Controller {
     // the other tab's text would open, not this one's: show the notice
     if (this.conflicted) {
       event.preventDefault()
-      this.element.querySelector("[data-scratch-conflict]").scrollIntoView({ block: "center" })
+      this.element.querySelector("[data-save-conflict]").scrollIntoView({ block: "center" })
 
       return
     }

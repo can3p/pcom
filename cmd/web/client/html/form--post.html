@@ -1,37 +1,52 @@
-{{/* The status next to the title: what is known of the saved text, and for a new post the revision of the
-     scratch pad this form last saw (scratch_rev). The pad's text is kept as it is typed; it becomes a draft
-     only on Save as Draft or Publish. A conflict (another tab or device wrote the pad) replaces it with a
-     notice and its choices; data-scratch-conflict tells the postform controller to pause autosave.
-     Every autosave response swaps this block, so the form always holds the revision it wrote last. */}}
+{{/* The status next to the title: what is known of the saved text, and the revision this form last saw: of
+     the post (post_rev), or for a new post of its scratch pad (scratch_rev). A new post's text is kept as it
+     is typed; it becomes a draft only on Save as Draft or Publish. A conflict (another tab or device wrote
+     the post or the pad) replaces the status with a notice and its choices; data-save-conflict tells the
+     postform controller to pause autosave. Every autosave response swaps this block, so the form always
+     holds the revision it wrote last. */}}
 {{ define "post_status" }}
 {{ if .PostID }}
   <input type="hidden" name="post_id" value="{{ .PostID }}" />
+  <input type="hidden" name="post_rev" value="{{ if .Input }}{{ .Input.PostRev }}{{ end }}" />
+  {{ with .Conflict }}
+    {{ template "save_conflict" . }}
+  {{ else }}
   <span class="status" role="status">Last Updated {{ renderHumanTime .LastUpdatedAt .User }}</span>
+  {{ end }}
 {{ else }}
   {{ with .Prompt }}
     <input type="hidden" name="prompt_id" value="{{ .Prompt.ID }}" />
   {{ end }}
   <input type="hidden" name="scratch_rev" value="{{ if .Input }}{{ .Input.ScratchRev }}{{ else }}0{{ end }}" />
   {{ with .Conflict }}
-  <div class="ed-prompt ed-conflict" role="alert" data-scratch-conflict>
-    <p>
-    {{- if .Emptied -}}
-      This text was {{ if .PostID }}<a href="{{ link "edit_post" .PostID }}">saved as a draft</a>{{ else }}discarded{{ end }} in another tab.
-    {{- else -}}
-      This new post was changed on another device or tab{{ if .At }} at {{ .At }}{{ end }}.
-    {{- end }} The text here is no longer being saved.</p>
-    <p class="ed-conflict-acts">
-      {{ if not .Emptied }}<button type="button" class="btn btn-secondary" data-action="postform#loadNewer" title="Reloads the page: what you typed here since is lost">Load the newer text</button>{{ end }}
-      <button type="submit" class="btn btn-secondary" name="save_action" value="take_over" title="Replaces the text saved on the other device or tab with this one">Keep mine</button>
-      <button type="submit" class="btn btn-secondary" name="save_action" value="save_post" title="Makes a draft of this text and leaves the other text alone">Save mine as a draft</button>
-    </p>
-  </div>
+    {{ template "save_conflict" . }}
   {{ else }}
     {{ with .ScratchKeptAt }}
   <span class="status" role="status">Not saved as a draft yet &middot; kept {{ renderHumanTime (timeVal .) $.User }}</span>
     {{ end }}
   {{ end }}
 {{ end }}
+{{ end }}
+
+{{/* The notice of a conflict (forms.conflictView): what the other tab did and this tab's choices. */}}
+{{ define "save_conflict" }}
+  <div class="ed-prompt ed-conflict" role="alert" data-save-conflict>
+    <p>
+    {{- if .Emptied -}}
+      This text was {{ if .PostID }}<a href="{{ link "edit_post" .PostID }}">saved as a draft</a>{{ else }}discarded{{ end }} in another tab.
+    {{- else -}}
+      This {{ if .OfPost }}post{{ else }}new post{{ end }} was changed on another device or tab{{ if .At }} at {{ .At }}{{ end }}.
+    {{- end }} The text here is no longer being saved.</p>
+    <p class="ed-conflict-acts">
+      {{ if not .Emptied }}<button type="button" class="btn btn-secondary" data-action="postform#loadNewer" title="Reloads the page: what you typed here since is lost">Load the newer text</button>{{ end }}
+      <button type="submit" class="btn btn-secondary" name="save_action" value="take_over" title="Replaces the text saved on the other device or tab with this one">Keep mine</button>
+      {{ if .OfPost }}
+      <button type="submit" class="btn btn-secondary" name="save_action" value="save_copy" title="Makes a new draft of this text and leaves the post alone">Save mine as a new draft</button>
+      {{ else }}
+      <button type="submit" class="btn btn-secondary" name="save_action" value="save_post" title="Makes a draft of this text and leaves the other text alone">Save mine as a draft</button>
+      {{ end }}
+    </p>
+  </div>
 {{ end }}
 
 {{/* Delete on a post; Discard on a new post, whose text is only the scratch pad. OOB: the swap that
@@ -95,8 +110,8 @@
         >
 
     {{/* autocomplete="off" keeps the browser from refilling the fields on a reload (Firefox and Safari do,
-         hidden inputs included): the server's text and scratch_rev are the truth, and a refilled stale text
-         would be autosaved over the pad. */}}
+         hidden inputs included): the server's text and its revision are the truth, and a refilled stale text
+         would be autosaved over the post or the pad. */}}
 
     {{/* Enter in a field submits with the form's first submit button, so the
          first one saves; Delete and the other confirmed actions come later. */}}

@@ -520,3 +520,73 @@ func TestPostForm_Save_ExistingPost(t *testing.T) {
 		})
 	}
 }
+
+// Another tab saved the post since this form saw it: nothing is written, even
+// on Publish, the notice is swapped into the status, and the notice's choices
+// write the post anyway or make a new draft of the text.
+func TestPostForm_Save_StalePost(t *testing.T) {
+	t.Parallel()
+
+	db := testdb.New(t).DB
+	ctx := context.Background()
+	svc := postsService(db, fakequeue.New())
+	author := testutil.Must(factory.User(ctx, db))(t)
+	post := testutil.Must(factory.Post(ctx, db, author.ID, factory.Published(), factory.WithBody("first")))(t)
+
+	other := fillPost(testutil.Must(forms.EditPostFormNew(ctx, svc, author, post.ID))(t), forms.PostFormActionAutosave)
+	other.Input.Body = "theirs"
+	other.Input.PostRev = 1
+	savePost(t, ctx, db, other)
+	require.Equal(t, 2, other.Input.PostRev)
+
+	bodyOf := func() string {
+		return testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)[0].Body
+	}
+
+	for _, action := range []forms.PostFormAction{forms.PostFormActionAutosave, forms.PostFormActionPublish} {
+		stale := fillPost(testutil.Must(forms.EditPostFormNew(ctx, svc, author, post.ID))(t), action)
+		stale.Input.PostRev = 1
+		w := savePost(t, ctx, db, stale)
+
+		require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"), action)
+		require.NotNil(t, stale.TemplateData()["Conflict"], action)
+		require.Equal(t, 1, stale.Input.PostRev, action)
+		require.Equal(t, "theirs", bodyOf(), action)
+	}
+
+	copied := fillPost(testutil.Must(forms.EditPostFormNew(ctx, svc, author, post.ID))(t), forms.PostFormActionSaveCopy)
+	copied.Input.PostRev = 1
+	w := savePost(t, ctx, db, copied)
+
+	list := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
+	require.Len(t, list, 2)
+
+	var copy *model.Post
+	for _, p := range list {
+		if p.ID != post.ID {
+			copy = p
+		} else {
+			require.Equal(t, "theirs", p.Body)
+		}
+	}
+
+	require.Equal(t, "A body", copy.Body)
+	require.Nil(t, copy.PublishedAt)
+	require.Equal(t, links.Link("edit_post", copy.ID), w.Header().Get("HX-Redirect"))
+
+	mine := fillPost(testutil.Must(forms.EditPostFormNew(ctx, svc, author, post.ID))(t), forms.PostFormActionTakeOver)
+	mine.Input.PostRev = 1
+	w = savePost(t, ctx, db, mine)
+
+	require.Equal(t, "#last_draft_save", w.Header().Get("HX-Retarget"))
+	require.Nil(t, mine.TemplateData()["Conflict"])
+	require.Equal(t, 3, mine.Input.PostRev)
+
+	stored := testutil.Must(factory.ListPosts(ctx, db, author.ID))(t)
+	for _, p := range stored {
+		if p.ID == post.ID {
+			require.Equal(t, "A body", p.Body)
+			require.NotNil(t, p.PublishedAt)
+		}
+	}
+}
