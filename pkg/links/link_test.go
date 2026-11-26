@@ -25,6 +25,8 @@ func TestLink_SimpleNames(t *testing.T) {
 		{"terms_of_service", "/articles/terms_of_service"},
 		{"login", "/login"},
 		{"signup", "/signup"},
+		{"dev", "/dev"},
+		{"dev_mail", "/dev/mail"},
 		{"form_signup_waiting_list", "/form/signup_waiting_list"},
 		{"form_signup", "/form/signup"},
 		{"form_login", "/form/login"},

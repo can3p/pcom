@@ -89,7 +89,7 @@ func New(d *Deps) *gin.Engine {
 		}))
 	}
 
-	router.SetFuncMap(funcmap(d.Config.StaticAsset, siteOf(d)))
+	router.SetFuncMap(funcmap(d.Config.StaticAsset, siteOf(d), d.Config.DevRoutes))
 	router.LoadHTMLGlob(fmt.Sprintf("%s/*.html", d.Config.HTMLDir))
 
 	csrfCheck := csrf.CSRFMiddleware(func(c *gin.Context) string { return auth.GetUserData(c).CSRFToken })

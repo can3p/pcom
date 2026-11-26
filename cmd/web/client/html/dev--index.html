@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>pcom dev</title>
+    <link rel="stylesheet" href="{{ static_asset "main.css" }}" />
+  </head>
+  <body>
+    <main class="prose">
+      <h1>pcom dev</h1>
+
+      <h2>Addresses</h2>
+      <ul>
+        <li>app: <a href="{{ .SiteRoot }}">{{ .SiteRoot }}</a></li>
+        <li>mail previews: <a href="{{ link "dev_mail" }}">{{ link "dev_mail" }}</a> (every mail rendered from its samples)</li>
+        {{ with .Dev.TommyURL }}<li>tommy: <a href="{{ . }}">{{ . }}</a> (captured mail, S3 objects)</li>{{ end }}
+        {{ with .Dev.S3URL }}<li>S3: <a href="{{ . }}">{{ . }}</a> (the user media bucket)</li>{{ end }}
+        {{ with .Dev.PostgresURL }}<li>postgres: <code>{{ . }}</code> (or <code>make psql</code>)</li>{{ end }}
+      </ul>
+
+      <h2>Logins</h2>
+      <p>
+        After <code>make seed</code>. There are no passwords: <a href="{{ link "login" }}">log in</a> with an
+        email below and type the code from the mail{{ with .Dev.TommyURL }} in
+        <a href="{{ . }}">tommy</a>{{ end }}.
+      </p>
+      <table>
+        <thead><tr><th>user</th><th>email</th><th>role</th></tr></thead>
+        <tbody>
+          {{ range .Dev.Accounts }}
+          <tr><td>{{ .Name }}</td><td><code>{{ .Email }}</code></td><td>{{ .Role }}</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+      {{ with .Dev.APIKey }}<p>alice's API key: <code>{{ . }}</code></p>{{ end }}
+    </main>
+  </body>
+</html>

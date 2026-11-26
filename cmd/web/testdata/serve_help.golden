@@ -116,10 +116,20 @@ Help Options:
                                                        :8081 (default: false)
                                                        [$ENABLE_PPROF]
           --dev-routes=                                Serve the /dev pages
-                                                       (mail previews); local
-                                                       development only
+                                                       (local addresses and
+                                                       logins, mail previews);
+                                                       local development only
                                                        (default: false)
                                                        [$DEV_ROUTES]
+          --dev-tommy-url=                             Address of the mail
+                                                       sink's UI on the /dev
+                                                       page [$DEV_TOMMY_URL]
+          --dev-s3-url=                                Address of the local
+                                                       user media bucket on the
+                                                       /dev page [$DEV_S3_URL]
+          --dev-postgres-url=                          Database address for
+                                                       psql on the /dev page
+                                                       [$DEV_POSTGRES_URL]
 
     Mail:
           --sender-address=                            From address of every

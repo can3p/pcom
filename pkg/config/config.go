@@ -59,7 +59,14 @@ type Web struct {
 	LogLevel        string `long:"log-level" env:"LOG_LEVEL" description:"Log level" choice:"debug" choice:"info" choice:"warn" choice:"error" default:"info"`
 	LogFormat       string `long:"log-format" env:"LOG_FORMAT" description:"Log encoding on stdout: json for the deployed app, console for a terminal" choice:"json" choice:"console" default:"json"`
 	EnablePprof     Switch `long:"enable-pprof" env:"ENABLE_PPROF" description:"Serve net/http/pprof on :8081" optional:"true" optional-value:"true" default:"false"`
-	DevRoutes       Switch `long:"dev-routes" env:"DEV_ROUTES" description:"Serve the /dev pages (mail previews); local development only" optional:"true" optional-value:"true" default:"false"`
+	DevRoutes       Switch `long:"dev-routes" env:"DEV_ROUTES" description:"Serve the /dev pages (local addresses and logins, mail previews); local development only" optional:"true" optional-value:"true" default:"false"`
+
+	// The /dev page lists these as the developer's browser and shell reach
+	// them, which the app can't work out from its own, possibly in-network,
+	// addresses. Empty leaves the row out.
+	DevTommyURL    string `long:"dev-tommy-url" env:"DEV_TOMMY_URL" description:"Address of the mail sink's UI on the /dev page"`
+	DevS3URL       string `long:"dev-s3-url" env:"DEV_S3_URL" description:"Address of the local user media bucket on the /dev page"`
+	DevPostgresURL string `long:"dev-postgres-url" env:"DEV_POSTGRES_URL" description:"Database address for psql on the /dev page"`
 }
 
 // ZapLevel is LogLevel as a zap level.
