@@ -392,6 +392,88 @@ func TestWriting_TwoTabsOnOnePad(t *testing.T) {
 	require.NoError(t, browser.Expect.Locator(tabC.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Load the newer text"})).ToHaveCount(0))
 }
 
+// Two tabs on one published post: a tab that another has overtaken writes
+// nothing, not even on Save Post, until its author keeps its text (which
+// overwrites the post) or saves it as a new draft (which leaves the post
+// alone).
+func TestWriting_TwoTabsOnOnePost(t *testing.T) {
+	t.Parallel()
+
+	app := e2e.Start(t, e2e.WithRealAssets())
+	user := browser.NewUser(t, app)
+	ctx := context.Background()
+
+	post, err := factory.Post(ctx, app.DB, user.ID, factory.Published(), factory.WithBody("first"))
+	require.NoError(t, err)
+
+	tabA := browser.Page(t, app, browser.As(user))
+	tabB, err := tabA.Context().NewPage()
+	require.NoError(t, err)
+
+	editURL := fmt.Sprintf("/posts/%s/edit", post.ID)
+
+	for _, tab := range []playwright.Page{tabA, tabB} {
+		_, err = tab.Goto(editURL)
+		require.NoError(t, err)
+	}
+
+	noticeOf := func(tab playwright.Page) playwright.Locator {
+		return tab.GetByRole("alert").Filter(playwright.LocatorFilterOptions{HasText: "The text here is no longer being saved"})
+	}
+	bodyOf := func() string {
+		stored, err := factory.GetPost(ctx, app.DB, post.ID)
+		require.NoError(t, err)
+
+		return stored.Body
+	}
+	savedPost := func(want string) {
+		require.Eventually(t, func() bool { return bodyOf() == want }, 10*time.Second, 100*time.Millisecond)
+	}
+
+	// A saves first; B's save finds the post changed
+	typeAtEnd(t, tabA, " A")
+	savedPost("first A")
+	typeAtEnd(t, tabB, " B")
+	require.NoError(t, browser.Expect.Locator(noticeOf(tabB)).ToContainText("This post was changed on another device or tab at "))
+	require.Equal(t, "first A", bodyOf(), "the losing tab writes nothing")
+
+	// an explicit save is refused too
+	require.NoError(t, writeButton(tabB, "Save Post").Click())
+	require.NoError(t, browser.Expect.Locator(noticeOf(tabB)).ToBeVisible())
+	require.NoError(t, browser.Expect.Page(tabB).ToHaveURL(regexp.MustCompile(regexp.QuoteMeta(editURL)+`$`)))
+	require.Equal(t, "first A", bodyOf())
+
+	// Keep mine: B's text replaces the post, which stays published, and B
+	// goes on saving
+	require.NoError(t, writeButton(tabB, "Keep mine").Click())
+	require.NoError(t, browser.Expect.Locator(noticeOf(tabB)).ToHaveCount(0))
+	savedPost("first B")
+	typeAtEnd(t, tabB, "!")
+	savedPost("first B!")
+	require.NoError(t, browser.Expect.Locator(noticeOf(tabB)).ToHaveCount(0))
+
+	// ... and A meets the notice in turn; Save mine as a new draft leaves the post alone
+	typeAtEnd(t, tabA, "?")
+	require.NoError(t, browser.Expect.Locator(noticeOf(tabA)).ToBeVisible())
+	require.NoError(t, writeButton(tabA, "Save mine as a new draft").Click())
+	require.NoError(t, browser.Expect.Page(tabA).Not().ToHaveURL(regexp.MustCompile(regexp.QuoteMeta(editURL)+`$`)))
+	require.NoError(t, browser.Expect.Page(tabA).ToHaveURL(b2EditURLRe))
+
+	posts, err := factory.ListPosts(ctx, app.DB, user.ID)
+	require.NoError(t, err)
+	require.Len(t, posts, 2)
+
+	for _, p := range posts {
+		if p.ID == post.ID {
+			require.Equal(t, "first B!", p.Body)
+			require.NotNil(t, p.PublishedAt)
+		} else {
+			require.Equal(t, "first A?", p.Body)
+			require.Nil(t, p.PublishedAt)
+		}
+	}
+}
+
 // One tab's own saves never conflict with each other: a save asked for while
 // the previous one is on its way is sent after its response, with the
 // revision that response left in the form. The first response is held back to

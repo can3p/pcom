@@ -60,6 +60,14 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   tab stops autosaving until its author loads the newer text (offered only while the pad still holds text), keeps its own text (which overwrites the pad) or saves
   it as a separate draft. Save as Draft and Publish from a stale tab create their post and leave the pad alone, so no
   text is lost. A tab's own autosaves never conflict with each other.
+- **A saved post has one writer at a time too.** Each save of a post (draft or published) carries the post's
+  revision as the form last saw it (`post_rev`). A save from a stale tab writes nothing, whatever the button:
+  autosave, Save Post, Save as Draft, Publish and Back to draft are all refused with the same notice, because each
+  would overwrite the text another tab wrote, live on a published post. The tab then loads the newer text, keeps its
+  own (which overwrites the post and leaves it published or a draft as it was) or saves it as a new draft (which
+  leaves the post alone and opens the draft). Delete is not checked: it is confirmed and removes the post either
+  way. The API (`ApiEditPost`) sends no revision and replaces the post whatever its revision, which still makes
+  open tabs stale.
 - **The author is told once.** The editor of a new post shows a notice that its text is kept as it is written and
   becomes a draft only on Save as Draft. The author dismisses it, once per account; the dismissal is stored in
   `user_notices`.
@@ -70,7 +78,7 @@ options weighed go into the history of the wave that built it (`docs/archive/his
   named like a draft and marked "not saved as a draft yet" (and "answers a prompt" for a prompt's pad), linking to the
   Write page it is written on. It has no delete button: Discard is in the editor.
 - **The server's text wins on a reload.** The post form has `autocomplete="off"`, so a browser that refills form
-  fields on a reload (Firefox, Safari) doesn't put back text or a `scratch_rev` older than the pad's.
+  fields on a reload (Firefox, Safari) doesn't put back text or a revision older than the post's or the pad's.
 
 ## Comments
 

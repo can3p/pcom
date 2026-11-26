@@ -25,11 +25,31 @@ const (
 	ActionPublish   Action = "publish"
 	ActionDelete    Action = "delete"
 	ActionAutosave  Action = "autosave"
-	// ActionTakeOver writes a new post's scratch pad whatever its revision:
-	// the author chose this tab's text over another tab's. Valid only
-	// without a PostID.
+	// ActionTakeOver writes a new post's scratch pad, or the post, whatever
+	// its revision: the author chose this tab's text over another tab's. A
+	// post keeps whether it is published.
 	ActionTakeOver Action = "take_over"
+	// ActionSaveCopy makes a new draft of the text and leaves the post
+	// alone: the author keeps this tab's text without overwriting the other
+	// tab's. Valid only with a PostID.
+	ActionSaveCopy Action = "save_copy"
 )
+
+// PostConflict is the error of a save of a post that lost to another tab or
+// device: the post changed at At since the tab last saw it. It is a
+// service.ErrConflict.
+type PostConflict struct {
+	At time.Time
+}
+
+func (e *PostConflict) Error() string {
+	return "this post was changed on another device or tab"
+}
+
+// Unwrap makes the conflict a service.ErrConflict.
+func (e *PostConflict) Unwrap() error {
+	return service.ErrConflict
+}
 
 // SaveInput is a post as the author submitted it.
 type SaveInput struct {
@@ -55,6 +75,12 @@ type SaveInput struct {
 	// discard against another revision is a *ScratchConflict, and a post
 	// made from the pad empties it only at this revision.
 	ScratchRevision int
+	// PostRevision is the revision of the post the form last saw. A save of
+	// the post against another revision is a *PostConflict and writes
+	// nothing, whatever the action, except ActionTakeOver, ActionSaveCopy
+	// and ActionDelete. 0 writes whatever the revision is: the API replaces
+	// a post as a whole.
+	PostRevision int
 	// NoteIDs are the notes inserted into a new post that are not marked as
 	// used yet, kept with its scratch pad. Empty entries and repeats are
 	// dropped; each must be a uuid.
@@ -94,11 +120,11 @@ func (s *Service) checkSave(in SaveInput) map[string]string {
 	}
 
 	if err := validation.ValidateEnum(action,
-		[]Action{ActionSavePost, ActionMakeDraft, ActionPublish, ActionDelete, ActionAutosave, ActionTakeOver},
+		[]Action{ActionSavePost, ActionMakeDraft, ActionPublish, ActionDelete, ActionAutosave, ActionTakeOver, ActionSaveCopy},
 		[]string{"Save Post", "Make draft", "Publish"}); err != nil {
 		errs["save_action"] = err.Error()
-	} else if action == ActionTakeOver && in.PostID != "" {
-		errs["save_action"] = "Only a new post can take over its text from another tab"
+	} else if action == ActionSaveCopy && in.PostID == "" {
+		errs["save_action"] = "Only a saved post can be copied to a new draft"
 	}
 
 	if err := validation.ValidateEnum(in.Visibility,
@@ -196,7 +222,14 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 		}
 	}
 
-	if existing == nil && action != ActionSavePost && action != ActionPublish {
+	// a copy is a new draft; the post was looked up only to check it is
+	// the actor's
+	copying := action == ActionSaveCopy
+	if copying {
+		existing = nil
+	}
+
+	if existing == nil && !copying && action != ActionSavePost && action != ActionPublish {
 		return s.saveScratch(ctx, tx, actor, in, action)
 	}
 
@@ -264,8 +297,10 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 			promptID = prompt.Prompt.ID
 		}
 
-		if err := promoteScratch(ctx, tx, actor, promptID, in.ScratchRevision, post.ID); err != nil {
-			return nil, err
+		if !copying {
+			if err := promoteScratch(ctx, tx, actor, promptID, in.ScratchRevision, post.ID); err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		post.ID = existing.ID
@@ -288,7 +323,7 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 			post.PublishedAt = existing.PublishedAt
 		}
 
-		if err := tx.UpdatePost(ctx, post); err != nil {
+		if err := updatePost(ctx, tx, post, existing, in, action); err != nil {
 			return nil, err
 		}
 	}
@@ -308,6 +343,23 @@ func (s *Service) save(ctx context.Context, tx *repo.Store, actor *model.User, i
 	}
 
 	return &Saved{Post: post, Created: existing == nil}, nil
+}
+
+// updatePost writes the post if it is still at the revision the tab saw, as
+// SaveInput.PostRevision says, or a *PostConflict.
+func updatePost(ctx context.Context, tx *repo.Store, post, existing *model.Post, in SaveInput, action Action) error {
+	if action == ActionTakeOver || in.PostRevision == 0 {
+		return tx.UpdatePost(ctx, post)
+	}
+
+	written, err := tx.UpdatePostAt(ctx, post, in.PostRevision)
+	if err != nil {
+		return err
+	} else if !written {
+		return &PostConflict{At: lo.FromPtr(existing.UpdatedAt)}
+	}
+
+	return nil
 }
 
 // notifySubscribers decides whether a save mails the post to the author's

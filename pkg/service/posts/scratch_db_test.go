@@ -294,13 +294,11 @@ func TestSave_ScratchRefusesInvalid(t *testing.T) {
 	ctx := context.Background()
 	s := svcWith(db, fakequeue.New())
 	author := testutil.Must(factory.User(ctx, db))(t)
-	post := testutil.Must(factory.Post(ctx, db, author.ID))(t)
-
-	takeOver := padSave("mine", 0, posts.ActionTakeOver)
-	takeOver.PostID = post.ID
+	// a copy is of a saved post
+	copyOfNothing := padSave("mine", 0, posts.ActionSaveCopy)
 	long := padSave(strings.Repeat("x", posts.DefaultPostBodyMaxLength+1), 0, posts.ActionAutosave)
 
-	for field, in := range map[string]posts.SaveInput{"save_action": takeOver, "body": long} {
+	for field, in := range map[string]posts.SaveInput{"save_action": copyOfNothing, "body": long} {
 		_, err := s.Save(ctx, author, in)
 
 		var ve *service.ValidationError

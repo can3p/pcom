@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/can3p/pcom/pkg/model"
@@ -132,16 +134,40 @@ func (s *Store) PostsByAuthor(ctx context.Context, page PostsPage) ([]*model.Pos
 	return posts, err
 }
 
-// InsertPost stores a new post.
+// InsertPost stores a new post, at revision 1 unless it names one.
 func (s *Store) InsertPost(ctx context.Context, post *model.Post) error {
+	if post.Revision == 0 {
+		post.Revision = 1
+	}
+
 	_, err := s.query().NewInsert().Model(post).Exec(ctx)
+
 	return err
 }
 
-// UpdatePost writes every column of an existing post.
+// UpdatePost writes every column of an existing post whatever its revision
+// and bumps the revision; post then holds the revision written.
 func (s *Store) UpdatePost(ctx context.Context, post *model.Post) error {
-	_, err := s.query().NewUpdate().Model(post).WherePK().Exec(ctx)
-	return err
+	return s.updatePost(post).Scan(ctx)
+}
+
+// UpdatePostAt writes every column of an existing post if it is still at
+// revision, and bumps the revision. It reports whether the revision matched;
+// post then holds the revision written.
+func (s *Store) UpdatePostAt(ctx context.Context, post *model.Post, revision int) (bool, error) {
+	err := s.updatePost(post).Where("?TableAlias.revision = ?", revision).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	return err == nil, err
+}
+
+func (s *Store) updatePost(post *model.Post) *bun.UpdateQuery {
+	return s.query().NewUpdate().Model(post).WherePK().
+		ExcludeColumn("revision").
+		Set("revision = ?TableAlias.revision + 1").
+		Returning("revision")
 }
 
 // DeletePost removes a post with everything that hangs off it: comments,

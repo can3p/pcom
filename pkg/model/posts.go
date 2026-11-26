@@ -71,6 +71,9 @@ type Post struct {
 	RSSItemID        *string        `bun:"rss_item_id"`
 
 	SubscribersMailedAt *time.Time `bun:"subscribers_mailed_at"`
+	// Revision is bumped by every write of the post's text (repo.UpdatePost),
+	// so a tab that saves the post names the revision it last saw.
+	Revision int `bun:"revision,default:1"`
 
 	RSSItem  *RSSItem       `bun:"rel:belongs-to,join:rss_item_id=id"`
 	URL      *NormalizedURL `bun:"rel:belongs-to,join:url_id=id"`
