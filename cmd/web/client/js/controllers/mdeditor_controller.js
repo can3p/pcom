@@ -256,7 +256,9 @@ export default class extends Controller {
     const inner = ta.value.slice(start, end) || placeholder
 
     const open = `${blankLineGap(before, false)}{${tag}}\n`
-    const close = `\n{/${tag}}${after === "" ? "\n" : blankLineGap(after, true)}`
+    // only line breaks after the block: it ends the text, which keeps one
+    const trail = /^\n*$/.test(after) ? (after === "" ? "\n" : "") : blankLineGap(after, true)
+    const close = `\n{/${tag}}${trail}`
 
     ta.setRangeText(open + inner + close, start, end, "preserve")
     ta.setSelectionRange(start + open.length, start + open.length + inner.length)
