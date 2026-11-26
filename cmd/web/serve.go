@@ -34,6 +34,7 @@ import (
 	"github.com/can3p/pcom/pkg/service/subscriptions"
 	"github.com/can3p/pcom/pkg/stt"
 	"github.com/can3p/pcom/pkg/stt/openaicompat"
+	"github.com/can3p/pcom/pkg/testutil/seed"
 	"github.com/can3p/pcom/pkg/web/app"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -219,6 +220,23 @@ func newLogger(web config.Web, w io.Writer) *zap.Logger {
 	return logging.New(web.ZapLevel(), web.LogFormat, w)
 }
 
+// devInfo is what the /dev page lists: the local addresses the settings name
+// and the accounts `make seed` creates.
+func devInfo(cfg config.Serve) app.DevInfo {
+	info := app.DevInfo{
+		TommyURL:    cfg.Web.DevTommyURL,
+		S3URL:       cfg.Web.DevS3URL,
+		PostgresURL: cfg.Web.DevPostgresURL,
+		APIKey:      seed.AliceAPIKey,
+	}
+
+	for _, a := range seed.Accounts() {
+		info.Accounts = append(info.Accounts, app.DevAccount{Name: a.Name, Email: a.Email, Role: a.Role})
+	}
+
+	return info
+}
+
 // appConfig maps the settings onto what the app needs.
 func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 	return app.Config{
@@ -236,6 +254,7 @@ func appConfig(cfg config.Serve, staticAsset app.StaticAssetFunc) app.Config {
 		HSTS:                  cfg.Web.HSTS.On(),
 		StaticCache:           cfg.Web.StaticCache.On(),
 		DevRoutes:             cfg.Web.DevRoutes.On(),
+		Dev:                   devInfo(cfg),
 		ShowErrors:            cfg.Web.ShowErrors.On(),
 		ReportPanics:          cfg.Web.ReportPanics.On(),
 		ProfileAboutMaxLength: cfg.Limits.ProfileAboutMaxLength,

@@ -145,6 +145,10 @@ services:
       MEDIA_PERMA_CACHE: "false"
       SHOW_ERRORS: "true"
       DEV_ROUTES: "true"
+      # The /dev page lists these host-side addresses.
+      DEV_TOMMY_URL: http://localhost:${PCOM_TOMMY_PORT:-8811}/ui/
+      DEV_S3_URL: http://localhost:${PCOM_S3_PORT:-9555}/pcom-media
+      DEV_POSTGRES_URL: postgres://pcom:pcom@localhost:${PCOM_PG_PORT:-5442}/pcom
       EMAIL_MX_TIMEOUT: "0"
       EMAIL_ALLOW_DISPOSABLE: "true"
       REPORT_PANICS: "false"

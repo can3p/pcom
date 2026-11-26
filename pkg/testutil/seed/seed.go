@@ -61,10 +61,35 @@ const (
 	DefaultSiteRoot = "http://localhost:8080"
 )
 
+// Account is one seeded user as a developer sees it.
+type Account struct {
+	Name       string
+	Email      string
+	Visibility model.ProfileVisibility
+	Role       string
+}
+
+// Accounts returns the seeded accounts in seeding order. Each logs in with a
+// code mailed to its Email.
+func Accounts() []Account {
+	return []Account{
+		{Name: "alice", Email: "alice@example.test", Visibility: model.ProfileVisibilityConnections, Role: "connected to bob; second degree to carol; owns the API key"},
+		{Name: "bob", Email: "bob@example.test", Visibility: model.ProfileVisibilityRegisteredUsers, Role: "connected to alice and carol"},
+		{Name: "carol", Email: "carol@example.test", Visibility: model.ProfileVisibilityPublic, Role: "connected to bob"},
+		{Name: "dave", Email: "dave@example.test", Visibility: model.ProfileVisibilityConnections, Role: "unrelated to everyone"},
+		{Name: "eve", Email: "eve@example.test", Visibility: model.ProfileVisibilityRegisteredUsers, Role: "has an unaccepted invite"},
+	}
+}
+
 // Usernames returns the seeded usernames; each user's email is
 // <username>@example.test.
 func Usernames() []string {
-	return []string{"alice", "bob", "carol", "dave", "eve"}
+	var out []string
+	for _, a := range Accounts() {
+		out = append(out, a.Name)
+	}
+
+	return out
 }
 
 // Options configures Run.
@@ -76,10 +101,9 @@ type Options struct {
 }
 
 type seededUser struct {
-	Name       string
-	Visibility model.ProfileVisibility
-	Role       string
-	user       *model.User
+	Account
+
+	user *model.User
 }
 
 // Run seeds the database behind db and prints a summary to out. Everything
@@ -169,12 +193,9 @@ func truncateAll(ctx context.Context, tx *sql.Tx) error {
 }
 
 func build(ctx context.Context, tx *sql.Tx) ([]*seededUser, string, error) {
-	users := []*seededUser{
-		{Name: "alice", Visibility: model.ProfileVisibilityConnections, Role: "connected to bob; second degree to carol; owns the API key"},
-		{Name: "bob", Visibility: model.ProfileVisibilityRegisteredUsers, Role: "connected to alice and carol"},
-		{Name: "carol", Visibility: model.ProfileVisibilityPublic, Role: "connected to bob"},
-		{Name: "dave", Visibility: model.ProfileVisibilityConnections, Role: "unrelated to everyone"},
-		{Name: "eve", Visibility: model.ProfileVisibilityRegisteredUsers, Role: "has an unaccepted invite"},
+	var users []*seededUser
+	for _, a := range Accounts() {
+		users = append(users, &seededUser{Account: a})
 	}
 
 	byName := map[string]*model.User{}
@@ -182,7 +203,7 @@ func build(ctx context.Context, tx *sql.Tx) ([]*seededUser, string, error) {
 	for _, su := range users {
 		u, err := factory.User(ctx, tx,
 			factory.WithUsername(su.Name),
-			factory.WithEmail(su.Name+"@example.test"),
+			factory.WithEmail(su.Email),
 			factory.WithVisibility(su.Visibility),
 		)
 		if err != nil {

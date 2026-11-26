@@ -23,7 +23,9 @@ func siteOf(d *Deps) links.Site {
 	return links.Site{Root: d.Config.SiteRoot, MediaCDN: d.Config.MediaCDN}
 }
 
-func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
+// funcmap is the templates' helpers; devRoutes tells them whether the /dev
+// pages exist.
+func funcmap(staticAsset StaticAssetFunc, site links.Site, devRoutes bool) template.FuncMap {
 	markdown := func(view types.HTMLView) func(s string, add ...string) template.HTML {
 		return func(s string, add ...string) template.HTML {
 			return markdown.ToEnrichedTemplate(s, view, site.MediaReplacer, func(in string, add2 ...string) string {
@@ -47,6 +49,8 @@ func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 		"link": links.Link,
 
 		"abslink": site.Abs,
+
+		"dev_routes": func() bool { return devRoutes },
 
 		"renderHumanTime": func(t time.Time, user *model.User) template.HTML {
 			return date.RenderTimeHTML(t, user, time.Now())

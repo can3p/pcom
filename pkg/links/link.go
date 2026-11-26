@@ -157,6 +157,10 @@ func Link(name string, args ...string) string {
 		out = "/login"
 	case "signup":
 		out = "/signup"
+	case "dev":
+		out = "/dev"
+	case "dev_mail":
+		out = "/dev/mail"
 	}
 
 	l := out + builder.BuildQueryString()

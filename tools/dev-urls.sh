@@ -7,6 +7,9 @@
 #                              that DEV_ROUTES is off); run next to `docker compose
 #                              up` (make dev), it waits until the app answers so
 #                              the addresses show up below the startup logs
+#   tools/dev-urls.sh --app --now
+#                              the same without waiting: asks the app once
+#                              (make dev-urls, from any terminal)
 set -u
 
 app_port=${PCOM_APP_PORT:-8080}
@@ -18,16 +21,21 @@ print_urls() {
 	echo
 	echo "================================ pcom dev ================================"
 	if [ "${1:-}" = app ]; then
-		echo "  app        http://localhost:$app_port  (alice@example.test / password after make seed)"
+		echo "  app        http://localhost:$app_port"
+		echo "  login      alice|bob|carol|dave|eve@example.test after make seed; the code arrives in tommy"
 		if [ "${2:-}" = 200 ]; then
+			echo "  dev page   http://localhost:$app_port/dev  (all of this, linked from every page's footer)"
 			echo "  mail       http://localhost:$app_port/dev/mail  (every mail rendered from its samples)"
 		fi
 	fi
 	echo "  tommy      http://localhost:$tommy_port/ui/  (captured mail, S3 objects)"
 	echo "  S3         http://localhost:$s3_port  (bucket pcom-media)"
 	echo "  postgres   postgres://pcom:pcom@localhost:$pg_port/pcom"
+	echo "  again      make dev-urls"
 	echo "=========================================================================="
-	if [ "${1:-}" = app ] && [ "${2:-}" != 200 ]; then
+	if [ "${1:-}" = app ] && { [ -z "${2:-}" ] || [ "${2:-}" = 000 ]; }; then
+		echo "  WARNING: the app does not answer on port $app_port; is make dev running?"
+	elif [ "${1:-}" = app ] && [ "${2:-}" != 200 ]; then
 		echo "  WARNING: the /dev pages are off (got ${2:-no answer} from /dev/mail); set DEV_ROUTES=true"
 		echo "  in the app's environment to preview mail."
 	fi
@@ -36,6 +44,18 @@ print_urls() {
 
 if [ "${1:-}" != --app ]; then
 	print_urls
+	exit 0
+fi
+
+# The /dev pages exist only with DEV_ROUTES=true; ask the running app rather
+# than guess from the environment, which compose may override.
+print_app_urls() {
+	dev_status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://localhost:$app_port/dev/mail" 2>/dev/null || true)
+	print_urls app "$dev_status"
+}
+
+if [ "${2:-}" = --now ]; then
+	print_app_urls
 	exit 0
 fi
 
@@ -48,7 +68,4 @@ if command -v curl >/dev/null 2>&1; then
 		sleep 2
 	done
 fi
-# The /dev pages exist only with DEV_ROUTES=true; ask the running app rather
-# than guess from the environment, which compose may override.
-dev_status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://localhost:$app_port/dev/mail" 2>/dev/null || true)
-print_urls app "$dev_status"
+print_app_urls

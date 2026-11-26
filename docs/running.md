@@ -33,6 +33,13 @@ foreground. The app starts once the frontend watcher has finished its first buil
 and log in as `alice@example.test` with the code from tommy's mail (http://localhost:8811/ui/).
 `make dev-logs` follows the logs from another terminal; `make dev-down` stops everything.
 
+The logs soon push those addresses out of sight, so they stay in reach two ways: `make dev-urls` prints them
+again from any terminal, and http://localhost:8080/dev (linked from every page's footer while the `/dev`
+pages are on) lists them with the seeded logins and Alice's API key. The app can't work out the host-side
+addresses of tommy, S3 and Postgres itself, so the page shows what `DEV_TOMMY_URL`, `DEV_S3_URL` and
+`DEV_POSTGRES_URL` say; compose and `.env.example` set them from the published ports, and an unset one leaves
+its row out. The logins come from `seed.Accounts()`, the list `make seed` creates.
+
 The containers set their in-network values (database host, `SITE_ROOT`, `PORT`) as real environment variables,
 and the app never lets `cmd/web/.env` override a variable that is already set, so the same `.env` serves both
 modes.
@@ -62,7 +69,7 @@ tommy stands in for both outside services:
 
 * Mail goes to tommy's fake Mailjet API (`MJ_API_BASE`); read it at http://localhost:8811/ui/.
 * Every mail's samples render at http://localhost:8080/dev/mail; `make dev` prints this address with the
-  others, or a warning when the app answers 404 there. The `/dev` pages exist only with `DEV_ROUTES=true`,
+  others, or a warning when the app answers 404 there (or doesn't answer at all). The `/dev` pages exist only with `DEV_ROUTES=true`,
   which the local config sets and production never does.
 * Uploads go to tommy's S3 bucket `pcom-media` on port 9555, with path-style addressing
   (`USER_MEDIA_PATH_STYLE=true`); list the objects at
@@ -234,6 +241,7 @@ host mode and `.env.example` assume the default ports; if you override one, upda
 | `make psql` | psql on the compose database. Pass arguments with `ARGS`: `make psql ARGS="-c 'select count(*) from users'"`. |
 | `make tools-shell` | Bash in the tools container; run one command with `make tools-shell CMD='go version'`. |
 | `make db-reset` | Drop, recreate and migrate the dev database. |
+| `make dev-urls` | Print the local addresses and logins again (also at http://localhost:8080/dev). |
 | `make dev-logs` | Follow the logs of the `dev` profile (app and assets). |
 | `make dev-down` | Stop all compose services (data is kept). |
 | `make migrate-prod` | Apply migrations to production. Asks for confirmation; needs `make tunnel` running in another terminal. |

@@ -23,7 +23,7 @@ func TestFuncmapParsesAllTemplates(t *testing.T) {
 		return "/static/" + n
 	}
 
-	tmpl := template.Must(template.New("").Funcs(funcmap(stub, links.Site{})).ParseGlob(templatesGlob))
+	tmpl := template.Must(template.New("").Funcs(funcmap(stub, links.Site{}, false)).ParseGlob(templatesGlob))
 
 	require.NotNil(t, tmpl)
 
@@ -40,7 +40,7 @@ func TestFuncmapParsesAllTemplates(t *testing.T) {
 func TestFuncmapToMap(t *testing.T) {
 	t.Parallel()
 
-	fm := funcmap(func(n string) string { return n }, links.Site{})
+	fm := funcmap(func(n string) string { return n }, links.Site{}, false)
 	toMap := fm["toMap"].(func(args ...any) map[string]any)
 
 	t.Run("even args", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestFuncmapToMap(t *testing.T) {
 func TestFuncmapMarkdownFuncsRegistered(t *testing.T) {
 	t.Parallel()
 
-	fm := funcmap(func(n string) string { return n }, links.Site{})
+	fm := funcmap(func(n string) string { return n }, links.Site{}, false)
 
 	names := []string{
 		"markdown_single_post",
