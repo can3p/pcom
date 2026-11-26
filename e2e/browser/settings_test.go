@@ -724,12 +724,21 @@ func TestSettings_SendInviteInPlace(t *testing.T) {
 	require.Len(t, emails, 1)
 }
 
-// A URL without a protocol is refused under the field; a valid one re-renders
-// the feeds section in place with the new feed listed and an empty form.
+// A URL without a protocol is refused under the field; a website's address
+// re-renders the feeds section in place with the feed the website announces
+// listed and an empty form.
 func TestSettings_AddFeedInPlace(t *testing.T) {
 	t.Parallel()
 
-	srv := httptest.NewServer(http.NotFoundHandler())
+	mux := http.NewServeMux()
+	mux.HandleFunc("/feed.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel><title>Site</title></channel></rss>`))
+	})
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`<html><head><link rel="alternate" type="application/rss+xml" href="/feed.xml"></head></html>`))
+	})
+	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
 	app := e2e.Start(t, e2e.WithRealAssets())
@@ -738,7 +747,7 @@ func TestSettings_AddFeedInPlace(t *testing.T) {
 	openSettings(t, page)
 
 	feeds := section(page, "RSS feeds")
-	field := feeds.GetByLabel("Feed URL")
+	field := feeds.GetByLabel("Website or feed URL")
 
 	require.NoError(t, field.Fill("example.org/feed.xml"))
 	require.NoError(t, saveButton(feeds, "Add feed").Click())
@@ -747,14 +756,14 @@ func TestSettings_AddFeedInPlace(t *testing.T) {
 	require.Empty(t, subscribedURLs(t, app, user), "a refused URL is not stored")
 
 	feedURL := srv.URL + "/feed.xml"
-	require.NoError(t, field.Fill(feedURL))
+	require.NoError(t, field.Fill(srv.URL))
 	require.NoError(t, saveButton(feeds, "Add feed").Click())
 
 	list := feeds.GetByRole("list", playwright.LocatorGetByRoleOptions{Name: "Your feeds"})
 	require.NoError(t, browser.Expect.Locator(list.GetByRole("listitem")).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(list.Locator(fmt.Sprintf("a[href='%s']", feedURL))).ToHaveCount(1))
 	require.NoError(t, browser.Expect.Locator(feeds.GetByRole("status")).ToHaveText("Feed added"))
-	require.NoError(t, browser.Expect.Locator(feeds.GetByLabel("Feed URL")).ToHaveValue(""))
+	require.NoError(t, browser.Expect.Locator(feeds.GetByLabel("Website or feed URL")).ToHaveValue(""))
 	require.NoError(t, browser.Expect.Locator(feeds.Locator(".field-error")).ToHaveCount(0))
 	require.NoError(t, browser.Expect.Locator(page.GetByRole("heading", playwright.PageGetByRoleOptions{Name: "RSS feeds"})).ToHaveCount(1))
 	requireSamePage(t, page)

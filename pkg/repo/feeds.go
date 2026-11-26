@@ -187,6 +187,22 @@ func (s *Store) FeedByID(ctx context.Context, feedID string) (*model.RSSFeed, er
 	return feed, nil
 }
 
+// FeedByURL loads the feed with this (already normalized) URL, or returns
+// ErrNotFound.
+func (s *Store) FeedByURL(ctx context.Context, normalizedURL string) (*model.RSSFeed, error) {
+	feed := new(model.RSSFeed)
+
+	err := s.query().NewSelect().Model(feed).
+		Where("url = ?", normalizedURL).
+		Limit(1).
+		Scan(ctx)
+	if err != nil {
+		return nil, notFound(err)
+	}
+
+	return feed, nil
+}
+
 // LockFeed loads a feed and locks its row until the transaction ends,
 // waiting for a transaction that holds it. A missing feed is ErrNotFound.
 func (s *Store) LockFeed(ctx context.Context, feedID string) (*model.RSSFeed, error) {

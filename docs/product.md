@@ -48,6 +48,13 @@ options weighed go into the history of the wave that built it (`docs/archive/his
 - **Lists page by cursor**, `PAGE_SIZE` items at a time behind a "Load more" button: the feed, explore, the
   public index and a journal. Every RSS output holds the latest `RSS_LIMIT` items, dated by publication,
   not creation.
+- **Following a feed takes a website or a feed address.** Subscribing loads the address once: a feed is followed
+  as given, a page is followed through the first feed its `<link rel="alternate">` tags announce, and anything
+  else is refused under the field. A feed somebody follows already is subscribed to without loading it.
+- **pcom only fetches from the public internet.** Feeds, the pages subscribing loads and feed images are never
+  fetched from loopback, private, link-local or other non-public addresses, whatever the URL or a redirect says,
+  so a user can't make pcom reach the machines next to it. `RSS_ALLOW_PRIVATE_ADDRESSES` lifts this for tests and
+  local development.
 - **A new post lives in a scratch pad until it is saved as a draft.** Each user has one pad for ordinary posts and
   one per prompt answered (`/write?prompt=<id>`), so answering a prompt never overwrites the text started on an
   ordinary post. A pad holds the form's subject, URL as typed, body, visibility, "Email this post" choice and the ids of notes inserted.

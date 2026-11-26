@@ -64,13 +64,15 @@ func (f *AddFeedForm) Validate(c *gin.Context) error {
 	return f.Errors.PassedValidation()
 }
 
-// Save subscribes the user and answers with the feeds section, listing the
-// new feed above an empty form that reports it was added.
+// Save subscribes the user to the feed at the URL, or to the one the website
+// there announces, and answers with the feeds section, listing the new feed
+// above an empty form that reports it was added. An address without a feed
+// shows under the field.
 func (f *AddFeedForm) Save(c context.Context) (forms.FormSaveAction, error) {
 	url := strings.TrimSpace(f.Input.URL)
 
 	if err := f.feeds.Subscribe(c, f.User, url); err != nil {
-		return nil, err
+		return refused(f, err)
 	}
 
 	subs, err := f.feeds.Subscriptions(c, f.User)

@@ -26,6 +26,7 @@ const (
 
 type fetcher interface {
 	Fetch(ctx context.Context, url string) (*reader.Feed, error)
+	Discover(ctx context.Context, pageURL string) (string, error)
 	FetchMedia(ctx context.Context, mediaURL string) (io.ReadCloser, error)
 }
 

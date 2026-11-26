@@ -30,7 +30,7 @@ Visitors without an account land on a page of recent public posts. It only shows
 
 ## RSS subscriptions
 
-In [Settings](settings.md) you add the URL of an RSS or Atom feed. New items then appear in your feed, where you can only dismiss them; you unsubscribe in Settings.
+In [Settings](settings.md) you add the address of a website, and pcom follows the RSS or Atom feed the website announces; the address of the feed itself works too. A website that announces no feed, or that pcom can't load, is refused with a message under the field. New items then appear in your feed, where you can only dismiss them; you unsubscribe in Settings.
 
 ## Your private feed
 
