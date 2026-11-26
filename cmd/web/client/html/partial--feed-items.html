@@ -2,7 +2,7 @@
         {{ with .Comment }}
           <article class="item us-feed-comment">
             <span class="kind">New comment</span>
-            <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> on {{ if eq $.User.DBUser.ID .Post.UserID }}your post{{ else }}a post you've commented on{{ end }} <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a><span class="dot">&middot;</span>{{ renderHumanTime .CreatedAt $.User.DBUser }}{{ if .EditedAt }} (edited {{ renderHumanTime (timeVal .EditedAt) $.User.DBUser }}){{ end }}</p>
+            <p class="meta"><a href="{{ link "user" .Author.Username }}">{{ .Author.Username }}</a> on {{ if eq $.User.DBUser.ID .Post.UserID }}your post{{ else }}a post you've commented on{{ end }} <a href="{{ link "post" .Post.ID }}">{{ .Post.PostSubject }}</a><span class="dot">&middot;</span>{{ renderDate .CreatedAt $.User.DBUser }}{{ if .EditedAt }} (edited {{ renderHumanTime (timeVal .EditedAt) $.User.DBUser }}){{ end }}</p>
             <div class="prose prose-sm">{{ markdown_feed .Body }}</div>
             <div class="acts"><a hx-boost="false" href="{{ link "comment" .PostID .ID }}">Open comment</a></div>
           </article>
@@ -14,7 +14,7 @@
           <article class="item us-feed-rss-item" id="rss-item-{{ .ID }}">
             <span class="kind">From your RSS feeds</span>
             <h2 class="ptitle ptitle-sm"><a href="{{ .URL }}" target="_blank" rel="noopener noreferrer">{{ with .Title }}{{ . }}{{ else }}No Title{{ end }}</a></h2>
-            <p class="meta"><a href="{{ .FeedURL }}">{{ with .FeedTitle }}{{ . }}{{ else }}no name yet{{ end }}</a><span class="dot">&middot;</span><span class="us-post-date">{{ renderHumanTime .PublishedAt $.User.DBUser }}</span></p>
+            <p class="meta"><a href="{{ .FeedURL }}">{{ with .FeedTitle }}{{ . }}{{ else }}no name yet{{ end }}</a><span class="dot">&middot;</span><span class="us-post-date">{{ renderDate .PublishedAt $.User.DBUser }}</span></p>
             <div class="prose prose-sm">{{ markdown_feed .Summary }}</div>
             <div class="acts">
               <a href="{{ .URL }}" target="_blank" rel="noopener noreferrer">Read on the site</a>

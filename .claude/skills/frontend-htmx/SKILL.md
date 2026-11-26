@@ -197,3 +197,8 @@ Use `renderHumanTime` template helper to display timestamps with relative time a
 - First argument: `time.Time` value to display
 - Second argument: `*core.User` for timezone localization (can be nil for UTC)
 - Implementation: `pkg/util/date`
+
+Post, comment and feed-item dates use `renderDate` (same arguments) instead: a `<time>` whose text is the
+calendar date (`15 Jan`, `15 Jan 2024` for an earlier year) in the user's timezone, and relative text only
+within `date.RecentWindow`. The tooltip holds the full timestamp with timezone and the relative time. Use
+`renderHumanTime` for operational times (last fetched, last used, next fetch).

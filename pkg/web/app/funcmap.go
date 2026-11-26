@@ -52,6 +52,10 @@ func funcmap(staticAsset StaticAssetFunc, site links.Site) template.FuncMap {
 			return date.RenderTimeHTML(t, user, time.Now())
 		},
 
+		"renderDate": func(t time.Time, user *model.User) template.HTML {
+			return date.RenderDateHTML(t, user, time.Now())
+		},
+
 		"timeVal": func(t *time.Time) time.Time {
 			return lo.FromPtr(t)
 		},

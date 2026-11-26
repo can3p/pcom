@@ -110,3 +110,37 @@ func mustLoadLocation(name string) *time.Location {
 	}
 	return loc
 }
+
+func TestRenderDateHTML(t *testing.T) {
+	now := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	user := &model.User{Timezone: "America/New_York"}
+
+	tests := []struct {
+		name string
+		t    time.Time
+		want template.HTML
+	}{
+		{
+			name: "within the recent window stays relative",
+			t:    now.Add(-3 * time.Hour),
+			want: `<time datetime="2024-06-15T09:00:00Z" title="Sat, 15 Jun 2024 05:00 EDT · 3 hours ago">3 hours ago</time>`,
+		},
+		{
+			name: "this year shows day and month",
+			t:    time.Date(2024, 1, 15, 12, 30, 0, 0, time.UTC),
+			want: `<time datetime="2024-01-15T12:30:00Z" title="Mon, 15 Jan 2024 07:30 EST · 5 months ago">15 Jan</time>`,
+		},
+		{
+			name: "earlier year shows the year",
+			t:    time.Date(2023, 12, 31, 3, 0, 0, 0, time.UTC),
+			want: `<time datetime="2023-12-31T03:00:00Z" title="Sat, 30 Dec 2023 22:00 EST · 5 months ago">30 Dec 2023</time>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RenderDateHTML(tt.t, user, now)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
